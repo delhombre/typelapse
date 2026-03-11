@@ -1,0 +1,23 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.0.x/schema.json",
+	"files": { "ignore": ["dist/**", "server/**"] },
+	"organizeImports": { "enabled": true },
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"style": {
+				"noNonNullAssertion": "warn"
+			},
+			"correctness": {
+				"noUnusedImports": "error",
+				"noUnusedVariables": "error"
+			}
+		}
+	}
+}

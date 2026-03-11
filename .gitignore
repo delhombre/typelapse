@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.vite/
+*.local
+.DS_Store
+.claude/
+.agent/
+CLAUDE.md
+*.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example
