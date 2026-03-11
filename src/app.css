@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+	--font-sans: "Inter", system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+* {
+	scrollbar-width: thin;
+	scrollbar-color: oklch(0.3 0 0) transparent;
+}
+
+::selection {
+	background: oklch(0.6 0.15 250 / 0.3);
+}
+
+/* Progress bar glow */
+@keyframes progress-glow {
+	0%,
+	100% {
+		box-shadow: 0 0 4px 0 oklch(0.65 0.15 250 / 0.4);
+	}
+	50% {
+		box-shadow: 0 0 8px 2px oklch(0.65 0.15 250 / 0.6);
+	}
+}
+
+.progress-bar-active {
+	animation: progress-glow 2s ease-in-out infinite;
+}
+
+/* Code frame premium glow — layered shadows for depth */
+.code-frame-glow {
+	box-shadow:
+		0 0 0 1px oklch(0.3 0 0 / 0.08),
+		0 1px 2px oklch(0 0 0 / 0.06),
+		0 4px 12px -2px oklch(0 0 0 / 0.12),
+		0 12px 36px -8px oklch(0 0 0 / 0.16),
+		0 24px 60px -12px oklch(0 0 0 / 0.1);
+}
+
+:where(.dark) .code-frame-glow {
+	box-shadow:
+		0 0 0 1px oklch(1 0 0 / 0.04),
+		0 1px 2px oklch(0 0 0 / 0.3),
+		0 4px 12px -2px oklch(0 0 0 / 0.4),
+		0 12px 36px -8px oklch(0 0 0 / 0.5),
+		0 24px 60px -12px oklch(0 0 0 / 0.35),
+		0 0 80px -20px oklch(0.5 0.12 250 / 0.06);
+}
+
+/* Subtle gradient drift during playback */
+@keyframes gradient-drift {
+	0% {
+		background-position: 0% 50%;
+	}
+	50% {
+		background-position: 100% 50%;
+	}
+	100% {
+		background-position: 0% 50%;
+	}
+}
+
+.bg-animate-playing {
+	background-size: 200% 200%;
+	animation: gradient-drift 8s ease-in-out infinite;
+}
+
+@keyframes shine {
+	0% {
+		left: -50%;
+		top: -20%;
+	}
+	100% {
+		left: 150%;
+		top: 20%;
+	}
+}
+
+.group:hover .shine-effect {
+	animation: shine 0.9s ease-out 0.3s;
+}
