@@ -26,9 +26,9 @@ importers:
       hono:
         specifier: ^4.12.7
         version: 4.12.7
-      html-to-image:
-        specifier: ^1.11.13
-        version: 1.11.13
+      modern-screenshot:
+        specifier: ^4.6.8
+        version: 4.6.8
       motion:
         specifier: ^12.0.0
         version: 12.35.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1753,9 +1753,6 @@ packages:
   html-entities@2.6.0:
     resolution: {integrity: sha512-kig+rMn/QOVRvr7c86gQ8lWXq+Hkv6CbAH1hLu+RG338StTpE8Z0b44SDVaqVu7HGKf27frdmUYEs9hTUX/cLQ==}
 
-  html-to-image@1.11.13:
-    resolution: {integrity: sha512-cuOPoI7WApyhBElTTb9oqsawRvZ0rHhaHwghRLlTuffoD1B2aDemlCruLeZrUIIdvG7gs9xeELEPm6PhuASqrg==}
-
   html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
 
@@ -1994,6 +1991,9 @@ packages:
 
   minimist@1.2.6:
     resolution: {integrity: sha512-Jsjnk4bw3YJqYzbdyBiNsPWHPfO++UGG749Cxs6peCu5Xg4nrena6OVxOYxrQTqww0Jmwt+Ref8rggumkTLz9Q==}
+
+  modern-screenshot@4.6.8:
+    resolution: {integrity: sha512-GJkv/yWPOJTlxj1LZDU2k474cDyOWL+LVaqTdDWQwQ5d8zIuTz1892+1cV9V0ZpK6HYZFo/+BNLBbierO9d2TA==}
 
   monaco-editor@0.55.1:
     resolution: {integrity: sha512-jz4x+TJNFHwHtwuV9vA9rMujcZRb0CEilTEwG2rRSpe/A7Jdkuj8xPKttCgOh+v/lkHy7HsZ64oj+q3xoAFl9A==}
@@ -4212,8 +4212,6 @@ snapshots:
 
   html-entities@2.6.0: {}
 
-  html-to-image@1.11.13: {}
-
   html-void-elements@3.0.0: {}
 
   http-proxy-agent@7.0.2:
@@ -4431,6 +4429,8 @@ snapshots:
   mimic-fn@2.1.0: {}
 
   minimist@1.2.6: {}
+
+  modern-screenshot@4.6.8: {}
 
   monaco-editor@0.55.1:
     dependencies:
