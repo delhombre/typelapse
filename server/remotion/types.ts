@@ -22,6 +22,10 @@ export interface RenderInput {
 	steps: StepData[];
 	background: string;
 	framePadding: number;
-	/** Pre-highlighted HTML for each step (computed server-side before render) */
+	/** Pre-highlighted HTML for each step */
 	stepHtmlFrames: string[];
+	/** Duration of crossfade transition between steps in video frames */
+	transitionDurationFrames: number;
+	/** Optional watermark text overlay */
+	watermark?: string;
 }

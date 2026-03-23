@@ -10,20 +10,15 @@ import {
 import { CodeFrameStatic } from "./code-frame-static";
 import type { RenderInput } from "./types";
 
-const TRANSITION_DURATION_S = 0.8;
-
-/**
- * Load JetBrains Mono from Google Fonts so headless Chrome renders
- * the correct monospace font (matches the frontend preview).
- */
-const FONT_URL =
-	"https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap";
-
-function useFontLoaded() {
-	const [handle] = useState(() => delayRender("Loading JetBrains Mono font"));
+function useFontLoaded(fontFamily: string) {
+	const [handle] = useState(() => delayRender(`Loading font: ${fontFamily}`));
 
 	useEffect(() => {
-		fetch(FONT_URL)
+		const fontName = fontFamily.split(",")[0]?.trim().replace(/'/g, "") ?? "JetBrains Mono";
+		const googleName = fontName.replace(/\s+/g, "+");
+		const url = `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;500;700&display=swap`;
+
+		fetch(url)
 			.then((res) => res.text())
 			.then((css) => {
 				const style = document.createElement("style");
@@ -31,27 +26,32 @@ function useFontLoaded() {
 				document.head.appendChild(style);
 				return document.fonts.ready;
 			})
-			.then(() => {
-				continueRender(handle);
-			})
+			.then(() => continueRender(handle))
 			.catch((err) => {
 				console.error("Font loading failed:", err);
 				continueRender(handle);
 			});
-	}, [handle]);
+	}, [handle, fontFamily]);
 }
 
 export function TypelapseComposition({ input }: { input: RenderInput }) {
-	useFontLoaded();
+	useFontLoaded(input.theme.fontFamily);
 
 	const frame = useCurrentFrame();
 	const { fps } = useVideoConfig();
 
-	const { steps, stepHtmlFrames, theme, title, background, framePadding } = input;
+	const {
+		steps,
+		stepHtmlFrames,
+		transitionDurationFrames,
+		theme,
+		title,
+		background,
+		framePadding,
+		watermark,
+	} = input;
 
-	const transitionFrames = Math.round(TRANSITION_DURATION_S * fps);
-
-	// Build timeline: [hold, transition, hold, transition, ..., hold]
+	// Build timeline
 	const segments: {
 		type: "hold" | "transition";
 		startFrame: number;
@@ -77,10 +77,10 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 			segments.push({
 				type: "transition",
 				startFrame: cursor,
-				endFrame: cursor + transitionFrames,
+				endFrame: cursor + transitionDurationFrames,
 				stepIndex: i,
 			});
-			cursor += transitionFrames;
+			cursor += transitionDurationFrames;
 		}
 	}
 
@@ -93,84 +93,96 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	}
 
 	const isTransparent = background === "transparent";
+	const bgStyle = isTransparent ? "transparent" : background;
+	const wmColor = getWatermarkColor(background, theme.foreground);
 
-	// --- HOLD: single frame, no transition ---
+	// --- HOLD ---
 	if (activeSegment.type === "hold") {
 		const html = stepHtmlFrames[activeSegment.stepIndex] ?? "";
 		return (
-			<AbsoluteFill style={{ background: isTransparent ? "transparent" : background }}>
+			<AbsoluteFill style={{ background: bgStyle }}>
 				{!isTransparent && <GlowDecoration />}
 				<FrameContainer>
-					<CodeFrameStatic
-						html={html}
-						theme={theme}
-						title={title}
-						padding={framePadding}
-					/>
+					<CodeFrameStatic html={html} theme={theme} title={title} padding={framePadding} />
 				</FrameContainer>
+				{watermark && (
+					<WatermarkOverlay text={watermark} color={wmColor} fontFamily={theme.fontFamily} />
+				)}
 			</AbsoluteFill>
 		);
 	}
 
-	// --- TRANSITION: opacity + translateY (inspired by Snipcast) ---
-	const t = interpolate(
-		frame,
-		[activeSegment.startFrame, activeSegment.endFrame],
+	// --- TRANSITION: clean crossfade ---
+	const fromHtml = stepHtmlFrames[activeSegment.stepIndex] ?? "";
+	const toHtml = stepHtmlFrames[activeSegment.stepIndex + 1] ?? "";
+
+	const progress = interpolate(
+		frame - activeSegment.startFrame,
+		[0, transitionDurationFrames],
 		[0, 1],
-		{ extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+		{ extrapolateRight: "clamp" },
 	);
-
-	const eased = easeInOutCubic(t);
-	const htmlFrom = stepHtmlFrames[activeSegment.stepIndex] ?? "";
-	const htmlTo = stepHtmlFrames[activeSegment.stepIndex + 1] ?? "";
-
-	// Outgoing: fade out + slide up
-	const outOpacity = 1 - eased;
-	const outY = -10 * eased;
-
-	// Incoming: fade in + slide up from below
-	const inOpacity = eased;
-	const inY = 10 * (1 - eased);
+	const eased = easeInOutCubic(progress);
 
 	return (
-		<AbsoluteFill style={{ background: isTransparent ? "transparent" : background }}>
+		<AbsoluteFill style={{ background: bgStyle }}>
 			{!isTransparent && <GlowDecoration />}
-
-			{/* Outgoing step */}
 			<FrameContainer>
-				<CodeFrameStatic
-					html={htmlFrom}
-					theme={theme}
-					title={title}
-					padding={framePadding}
-					style={{
-						opacity: outOpacity,
-						transform: `translateY(${outY}px)`,
-					}}
-				/>
+				<div style={{ display: "grid" }}>
+					{/* From — fading out */}
+					<div style={{ gridArea: "1/1", opacity: 1 - eased }}>
+						<CodeFrameStatic html={fromHtml} theme={theme} title={title} padding={framePadding} />
+					</div>
+					{/* To — fading in */}
+					<div style={{ gridArea: "1/1", opacity: eased }}>
+						<CodeFrameStatic html={toHtml} theme={theme} title={title} padding={framePadding} />
+					</div>
+				</div>
 			</FrameContainer>
-
-			{/* Incoming step */}
-			<FrameContainer>
-				<CodeFrameStatic
-					html={htmlTo}
-					theme={theme}
-					title={title}
-					padding={framePadding}
-					style={{
-						opacity: inOpacity,
-						transform: `translateY(${inY}px)`,
-					}}
-				/>
-			</FrameContainer>
+			{watermark && (
+				<WatermarkOverlay text={watermark} color={wmColor} fontFamily={theme.fontFamily} />
+			)}
 		</AbsoluteFill>
 	);
 }
 
-/**
- * Subtle radial glow behind the code frame card.
- * Adds depth and a premium feel (inspired by Snipcast).
- */
+function easeInOutCubic(t: number): number {
+	return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+function getWatermarkColor(background: string, themeForeground: string): string {
+	if (background === "transparent") return `${themeForeground}66`;
+	const hexMatch = background.match(/#([0-9a-fA-F]{6})/);
+	if (!hexMatch?.[1]) return `${themeForeground}66`;
+	const hex = hexMatch[1];
+	const r = parseInt(hex.slice(0, 2), 16);
+	const g = parseInt(hex.slice(2, 4), 16);
+	const b = parseInt(hex.slice(4, 6), 16);
+	const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+	return luminance > 0.5 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.35)";
+}
+
+function WatermarkOverlay({
+	text,
+	color,
+	fontFamily,
+}: { text: string; color: string; fontFamily: string }) {
+	return (
+		<div
+			style={{
+				position: "absolute",
+				bottom: 48,
+				right: 56,
+				fontFamily,
+				fontSize: 18,
+				color,
+			}}
+		>
+			{text}
+		</div>
+	);
+}
+
 function GlowDecoration() {
 	return (
 		<div
@@ -196,30 +208,19 @@ function GlowDecoration() {
 	);
 }
 
-/**
- * Centers the code frame within the video canvas.
- * 28px padding, maxWidth 1600px (Snipcast reference).
- */
 function FrameContainer({ children }: { children: React.ReactNode }) {
 	return (
 		<div
 			style={{
 				position: "absolute",
-				top: 0,
-				left: 0,
-				right: 0,
-				bottom: 0,
+				inset: 0,
 				display: "flex",
 				alignItems: "center",
 				justifyContent: "center",
-				padding: 28,
+				padding: 48,
 			}}
 		>
-			<div style={{ width: "98%", maxWidth: 1600 }}>{children}</div>
+			<div style={{ width: "90%", maxWidth: 1600 }}>{children}</div>
 		</div>
 	);
-}
-
-function easeInOutCubic(t: number): number {
-	return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
