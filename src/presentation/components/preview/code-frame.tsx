@@ -52,8 +52,8 @@ export function CodeFrame({
 
 	return (
 		<div
-			className="code-frame-glow overflow-hidden rounded-xl"
-			style={{ background: theme.background }}
+			className="code-frame-glow overflow-hidden"
+			style={{ background: theme.background, borderRadius: theme.borderRadius }}
 		>
 			{/* macOS window chrome */}
 			{showWindowChrome && (

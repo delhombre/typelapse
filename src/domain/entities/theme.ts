@@ -66,4 +66,52 @@ export class Theme {
 			borderRadius: 12,
 		});
 	}
+
+	static dracula(): Theme {
+		return new Theme({
+			name: "dracula",
+			background: "#282a36",
+			foreground: "#f8f8f2",
+			fontFamily: "JetBrains Mono, monospace",
+			fontSize: 14,
+			padding: 24,
+			borderRadius: 12,
+		});
+	}
+
+	static oneDark(): Theme {
+		return new Theme({
+			name: "one-dark",
+			background: "#282c34",
+			foreground: "#abb2bf",
+			fontFamily: "JetBrains Mono, monospace",
+			fontSize: 14,
+			padding: 24,
+			borderRadius: 12,
+		});
+	}
+
+	static catppuccin(): Theme {
+		return new Theme({
+			name: "catppuccin",
+			background: "#1e1e2e",
+			foreground: "#cdd6f4",
+			fontFamily: "JetBrains Mono, monospace",
+			fontSize: 14,
+			padding: 24,
+			borderRadius: 12,
+		});
+	}
+
+	static nord(): Theme {
+		return new Theme({
+			name: "nord",
+			background: "#2e3440",
+			foreground: "#d8dee9",
+			fontFamily: "JetBrains Mono, monospace",
+			fontSize: 14,
+			padding: 24,
+			borderRadius: 12,
+		});
+	}
 }

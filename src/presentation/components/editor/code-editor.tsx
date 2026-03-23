@@ -32,6 +32,10 @@ const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg
 	midnight: { base: "vs-dark", bg: "#0d1117", fg: "#e6edf3" },
 	aurora: { base: "vs-dark", bg: "#1a1b2e", fg: "#d4d4e4" },
 	frost: { base: "vs", bg: "#f0f4f8", fg: "#1a202c" },
+	dracula: { base: "vs-dark", bg: "#282a36", fg: "#f8f8f2" },
+	"one-dark": { base: "vs-dark", bg: "#282c34", fg: "#abb2bf" },
+	catppuccin: { base: "vs-dark", bg: "#1e1e2e", fg: "#cdd6f4" },
+	nord: { base: "vs-dark", bg: "#2e3440", fg: "#d8dee9" },
 };
 
 export function CodeEditor() {
@@ -120,12 +124,12 @@ export function CodeEditor() {
 					value={snippet.title}
 					onChange={(e) => setTitle(e.target.value)}
 					placeholder="Snippet title…"
-					className="h-8 flex-1 border border-neutral-200/60 bg-transparent px-3 font-mono text-xs text-neutral-900 outline-none transition-colors focus:border-neutral-400 dark:border-neutral-700/30 dark:text-neutral-100 dark:focus:border-neutral-500"
+					className="h-8 flex-1 border border-neutral-200 bg-transparent px-3 font-mono text-xs text-neutral-900 outline-none transition-colors focus:border-neutral-400 dark:border-neutral-800 dark:text-neutral-100 dark:focus:border-neutral-500"
 				/>
 				<select
 					value={snippet.language}
 					onChange={(e) => setLanguage(e.target.value)}
-					className="h-8 border border-neutral-200/60 bg-transparent px-2 font-mono text-[10px] uppercase tracking-wider text-neutral-600 outline-none transition-colors focus:border-neutral-400 dark:border-neutral-700/30 dark:text-neutral-400 dark:focus:border-neutral-500"
+					className="h-8 border border-neutral-200 bg-transparent px-2 font-mono text-[10px] uppercase tracking-wider text-neutral-600 outline-none transition-colors focus:border-neutral-400 dark:border-neutral-800 dark:text-neutral-400 dark:focus:border-neutral-500"
 				>
 					{LANGUAGES.map((lang) => (
 						<option key={lang.value} value={lang.value}>
@@ -134,7 +138,7 @@ export function CodeEditor() {
 					))}
 				</select>
 			</div>
-			<div className="min-h-0 flex-1 overflow-hidden border border-neutral-200/60 dark:border-neutral-700/30">
+			<div className="min-h-0 flex-1 overflow-hidden border border-neutral-200 dark:border-neutral-800">
 				<Editor
 					defaultValue={snippet.code}
 					language={snippet.language}
