@@ -13,20 +13,30 @@ const __dirname = path.dirname(__filename);
 
 const renderRoute = new Hono();
 
-/** Map Typelapse theme names to Shiki theme IDs */
 const THEME_MAP: Record<string, string> = {
 	midnight: "github-dark",
 	aurora: "aurora-x",
 	frost: "github-light",
+	dracula: "dracula",
+	"one-dark": "one-dark-pro",
+	catppuccin: "catppuccin-mocha",
+	nord: "nord",
 };
 
-/** Lazily create and cache the Shiki highlighter */
 let highlighterPromise: ReturnType<typeof createHighlighter> | null = null;
 
 function getHighlighter() {
 	if (!highlighterPromise) {
 		highlighterPromise = createHighlighter({
-			themes: ["github-dark", "aurora-x", "github-light"],
+			themes: [
+				"github-dark",
+				"aurora-x",
+				"github-light",
+				"dracula",
+				"one-dark-pro",
+				"catppuccin-mocha",
+				"nord",
+			],
 			langs: ["typescript", "javascript", "python", "rust", "go", "html", "css", "json"],
 		});
 	}
@@ -35,7 +45,6 @@ function getHighlighter() {
 
 const isDev = process.env.NODE_ENV !== "production";
 
-/** Bundle the Remotion composition */
 function createBundle() {
 	console.log("Bundling Remotion composition...");
 	return bundle({
@@ -48,8 +57,6 @@ function createBundle() {
 	});
 }
 
-// In dev: re-bundle every render (picks up file changes without restart)
-// In prod: bundle once at startup
 let bundlePromise: Promise<string> = createBundle().catch((err) => {
 	console.error("Bundle failed:", err);
 	throw err;
@@ -74,7 +81,11 @@ interface RenderRequest {
 	height?: number;
 	fps?: number;
 	format?: "mp4" | "webm" | "gif";
+	watermark?: string;
 }
+
+/** Transition duration in seconds — short crossfade for clean look */
+const TRANSITION_DURATION_S = 0.3;
 
 renderRoute.post("/render", async (c) => {
 	const body = (await c.req.json()) as RenderRequest;
@@ -90,6 +101,7 @@ renderRoute.post("/render", async (c) => {
 		height = 1080,
 		fps = 60,
 		format = "mp4",
+		watermark,
 	} = body;
 
 	if (!steps || steps.length < 2) {
@@ -97,23 +109,19 @@ renderRoute.post("/render", async (c) => {
 	}
 
 	try {
-		// Step 1: Highlight all steps with Shiki
 		const highlighter = await getHighlighter();
 		const shikiTheme = THEME_MAP[theme.name] ?? "github-dark";
 
+		// Highlight all steps as HTML
 		const stepHtmlFrames = await Promise.all(
-			steps.map((step) =>
-				highlighter.codeToHtml(step.code, { lang: language, theme: shikiTheme }),
-			),
+			steps.map((step) => highlighter.codeToHtml(step.code, { lang: language, theme: shikiTheme })),
 		);
 
-		// Step 2: Compute total duration in frames
-		// Must match TRANSITION_DURATION_S in composition.tsx (0.8s)
-		const TRANSITION_DURATION_S = 0.8;
-		const transitionFrames = Math.round(TRANSITION_DURATION_S * fps);
-		const totalFrames =
-			steps.reduce((acc, step) => acc + Math.round((step.duration / 1000) * fps), 0) +
-			(steps.length - 1) * transitionFrames;
+		// Compute total duration
+		const transitionDurationFrames = Math.round(TRANSITION_DURATION_S * fps);
+		const holdFrames = steps.reduce((acc, step) => acc + Math.round((step.duration / 1000) * fps), 0);
+		const totalTransitionFrames = (steps.length - 1) * transitionDurationFrames;
+		const totalFrames = holdFrames + totalTransitionFrames;
 
 		const input: RenderInput = {
 			title,
@@ -123,12 +131,12 @@ renderRoute.post("/render", async (c) => {
 			background,
 			framePadding,
 			stepHtmlFrames,
+			transitionDurationFrames,
+			watermark,
 		};
 
-		// Step 3: Get the Remotion bundle (re-bundles in dev mode)
 		const bundleLocation = await getBundle();
 
-		// Step 4: Select composition & render
 		const composition = await selectComposition({
 			serveUrl: bundleLocation,
 			id: "Typelapse",
@@ -136,6 +144,7 @@ renderRoute.post("/render", async (c) => {
 		});
 
 		const outputPath = path.join(os.tmpdir(), `typelapse-${Date.now()}.${format}`);
+		const codec = format === "gif" ? "gif" : format === "webm" ? "vp8" : "h264";
 
 		await renderMedia({
 			composition: {
@@ -146,12 +155,15 @@ renderRoute.post("/render", async (c) => {
 				durationInFrames: totalFrames,
 			},
 			serveUrl: bundleLocation,
-			codec: format === "gif" ? "gif" : format === "webm" ? "vp8" : "h264",
+			codec,
 			outputLocation: outputPath,
 			inputProps: { input },
+			crf: format === "gif" ? undefined : format === "webm" ? 20 : 18,
+			pixelFormat: format === "gif" ? undefined : "yuv420p",
+			imageFormat: "jpeg",
+			jpegQuality: 95,
 		});
 
-		// Step 5: Stream file back and clean up
 		const fileBuffer = fs.readFileSync(outputPath);
 		fs.unlinkSync(outputPath);
 
@@ -169,10 +181,7 @@ renderRoute.post("/render", async (c) => {
 		});
 	} catch (err) {
 		console.error("Render failed:", err);
-		return c.json(
-			{ error: err instanceof Error ? err.message : "Render failed" },
-			500,
-		);
+		return c.json({ error: err instanceof Error ? err.message : "Render failed" }, 500);
 	}
 });
 
