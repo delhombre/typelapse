@@ -24,6 +24,10 @@ interface SnippetState {
 	framePadding: number;
 	setFramePadding: (padding: number) => void;
 
+	// Watermark
+	watermark: string;
+	setWatermark: (text: string) => void;
+
 	// Editor ↔ Preview theme sync
 	syncEditorTheme: boolean;
 	setSyncEditorTheme: (sync: boolean) => void;
@@ -32,6 +36,8 @@ interface SnippetState {
 	setLanguage: (language: string) => void;
 	setTitle: (title: string) => void;
 	setTheme: (theme: Theme) => void;
+	setFont: (fontFamily: string) => void;
+	setBorderRadius: (borderRadius: number) => void;
 	refreshHighlight: () => Promise<void>;
 
 	// Step management
@@ -62,11 +68,9 @@ export function setHighlighter(highlighter: HighlighterPort) {
 	highlighterInstance = highlighter;
 	// Extract raw Shiki instance if available
 	if ("getRawHighlighter" in highlighter) {
-		(highlighter as { getRawHighlighter: () => Promise<unknown> })
-			.getRawHighlighter()
-			.then((h) => {
-				rawShikiHighlighter = h;
-			});
+		(highlighter as { getRawHighlighter: () => Promise<unknown> }).getRawHighlighter().then((h) => {
+			rawShikiHighlighter = h;
+		});
 	}
 }
 
@@ -105,7 +109,7 @@ function clearTimers() {
 	}
 }
 
-/** Advance to next step after hold duration */
+/** Advance to next step — Magic Move handles the visual transition */
 function scheduleNextStep(
 	stepIndex: number,
 	totalSteps: number,
@@ -132,7 +136,11 @@ function scheduleNextStep(
 		playbackProgress: stepIndex / Math.max(totalSteps - 1, 1),
 	});
 
+	// Hold on current step for its duration, then advance
 	playbackTimer = setTimeout(() => {
+		if (!get().isPlaying) {
+			return;
+		}
 		scheduleNextStep(stepIndex + 1, totalSteps, steps, get, set);
 	}, step.duration);
 }
@@ -156,6 +164,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 	setFramePadding: (padding: number) => {
 		set({ framePadding: padding });
+	},
+
+	watermark: "",
+
+	setWatermark: (text: string) => {
+		set({ watermark: text });
 	},
 
 	syncEditorTheme: false,
@@ -191,6 +205,18 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		set({ snippet: rebuildSnippet(snippet, { theme }) });
 		get().refreshHighlight();
 		get().highlightAllSteps();
+	},
+
+	setFont: (fontFamily: string) => {
+		const { snippet } = get();
+		const newTheme = Theme.create({ ...snippet.theme, fontFamily });
+		set({ snippet: rebuildSnippet(snippet, { theme: newTheme }) });
+	},
+
+	setBorderRadius: (borderRadius: number) => {
+		const { snippet } = get();
+		const newTheme = Theme.create({ ...snippet.theme, borderRadius });
+		set({ snippet: rebuildSnippet(snippet, { theme: newTheme }) });
 	},
 
 	refreshHighlight: async () => {
@@ -359,10 +385,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			midnight: Theme.midnight,
 			aurora: Theme.aurora,
 			frost: Theme.frost,
+			dracula: Theme.dracula,
+			"one-dark": Theme.oneDark,
+			catppuccin: Theme.catppuccin,
+			nord: Theme.nord,
 		};
 		const themeFactory = themeFactories[obj.themeName];
 		if (!themeFactory) {
-			throw new Error(`Unknown theme '${obj.themeName}'. Expected: midnight, aurora, or frost`);
+			throw new Error(`Unknown theme '${obj.themeName}'`);
 		}
 		const theme = themeFactory();
 
