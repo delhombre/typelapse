@@ -21,7 +21,11 @@ const DEFAULT_INPUT: RenderInput = {
 	],
 	background: "radial-gradient(ellipse at 30% 20%, #1e3a5f 0%, #0d1117 50%, #0a0e14 100%)",
 	framePadding: 24,
-	stepHtmlFrames: ["<pre><code>const x = 1;</code></pre>", "<pre><code>const x = 2;</code></pre>"],
+	stepHtmlFrames: [
+		"<pre><code>const x = 1;</code></pre>",
+		"<pre><code>const x = 2;</code></pre>",
+	],
+	transitionDurationFrames: 15,
 };
 
 function RemotionRoot() {
