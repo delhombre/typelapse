@@ -24,6 +24,8 @@ interface ExportState {
 
 	/** Export via Remotion backend */
 	exportVideo: () => Promise<void>;
+	/** Export current frame as PNG screenshot */
+	exportPng: () => Promise<void>;
 }
 
 const exporter = new BrowserDownloadAdapter();
@@ -46,7 +48,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 
 	exportVideo: async () => {
 		const snippetState = useSnippetStore.getState();
-		const { snippet, background, framePadding } = snippetState;
+		const { snippet, background, framePadding, watermark } = snippetState;
 
 		if (snippet.steps.length < 2) {
 			set({ error: "At least 2 steps required for export" });
@@ -83,6 +85,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				height,
 				fps,
 				format,
+				watermark: watermark || undefined,
 			};
 
 			set({ progress: { phase: "rendering", message: "Rendering video..." } });
@@ -112,6 +115,44 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				isExporting: false,
 				progress: null,
 				error: err instanceof Error ? err.message : "Export failed",
+			});
+		}
+	},
+
+	exportPng: async () => {
+		const el = document.querySelector("[data-export-target]") as HTMLElement | null;
+		if (!el) {
+			set({ error: "No preview element found" });
+			return;
+		}
+
+		set({
+			isExporting: true,
+			progress: { phase: "preparing", message: "Capturing..." },
+			error: null,
+		});
+
+		try {
+			const { domToBlob } = await import("modern-screenshot");
+			const blob = await domToBlob(el, {
+				scale: 2,
+				backgroundColor: null,
+			});
+
+			if (!blob) {
+				throw new Error("Failed to create PNG");
+			}
+
+			const snippetState = useSnippetStore.getState();
+			const filename = snippetState.snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
+			await exporter.export(blob, filename, "png" as RenderFormat);
+
+			set({ isExporting: false, progress: null });
+		} catch (err) {
+			set({
+				isExporting: false,
+				progress: null,
+				error: err instanceof Error ? err.message : "PNG export failed",
 			});
 		}
 	},
