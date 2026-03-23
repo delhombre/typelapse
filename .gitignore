@@ -3,6 +3,7 @@ dist/
 .vite/
 *.local
 .DS_Store
+.tmp/
 .claude/
 .agent/
 CLAUDE.md
