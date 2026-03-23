@@ -83,7 +83,7 @@ export function StepBuilder() {
 		const isDropTarget = index === dropTargetIndex && index !== draggedIndex;
 
 		const base =
-			"group flex w-full items-center gap-2 rounded-md border p-2 text-left transition-all duration-200";
+			"group flex w-full items-center gap-2 border p-2 text-left transition-all duration-200";
 
 		let stateClasses: string;
 		if (isSelected) {
@@ -91,7 +91,7 @@ export function StepBuilder() {
 				"border-neutral-400/50 bg-neutral-100/80 dark:border-neutral-600/50 dark:bg-neutral-800/50";
 		} else {
 			stateClasses =
-				"border-neutral-200/60 hover:border-neutral-300 dark:border-neutral-700/30 dark:hover:border-neutral-600/50";
+				"border-neutral-200 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-600/50";
 		}
 
 		let dragClasses = "";
@@ -117,7 +117,7 @@ export function StepBuilder() {
 					onClick={() => captureStep()}
 					whileTap={{ scale: 0.97 }}
 					transition={springs.snappy}
-					className="h-7 rounded-md border border-dashed border-neutral-300/60 px-3 font-mono text-[10px] uppercase tracking-wider text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-900 dark:border-neutral-700/30 dark:hover:border-neutral-500 dark:hover:text-neutral-200"
+					className="h-7 border border-dashed border-neutral-300 px-3 font-mono text-[10px] uppercase tracking-wider text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-900 dark:border-neutral-800 dark:hover:border-neutral-500 dark:hover:text-neutral-200"
 				>
 					+ Capture
 				</motion.button>
@@ -188,7 +188,7 @@ export function StepBuilder() {
 									}
 								}}
 								onClick={(e) => e.stopPropagation()}
-								className="w-12 rounded border border-neutral-200/60 bg-neutral-50 px-1 py-0.5 text-center font-mono text-[10px] text-neutral-500 outline-none focus:border-neutral-400 dark:border-neutral-700/30 dark:bg-neutral-900/50 dark:focus:border-neutral-500"
+								className="w-12 border border-neutral-200 bg-neutral-50 px-1 py-0.5 text-center font-mono text-[10px] text-neutral-500 outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900/50 dark:focus:border-neutral-500"
 								title="Duration (ms)"
 							/>
 							<span className="font-mono text-[9px] text-neutral-400 dark:text-neutral-600">

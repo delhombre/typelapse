@@ -6,7 +6,7 @@ import type { ExporterPort } from "@/domain/ports/exporter.port";
  * Creates a temporary object URL and triggers download via anchor click.
  */
 export class BrowserDownloadAdapter implements ExporterPort {
-	async export(blob: Blob, filename: string, format: RenderFormat): Promise<void> {
+	async export(blob: Blob, filename: string, format: RenderFormat | string): Promise<void> {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;

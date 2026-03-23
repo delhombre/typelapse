@@ -11,6 +11,10 @@ const THEME_MAP: Record<string, BundledTheme> = {
 	midnight: "github-dark",
 	aurora: "aurora-x",
 	frost: "github-light",
+	dracula: "dracula",
+	"one-dark": "one-dark-pro",
+	catppuccin: "catppuccin-mocha",
+	nord: "nord",
 };
 
 const DEFAULT_THEME: BundledTheme = "github-dark";

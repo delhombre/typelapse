@@ -51,7 +51,7 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
 	{
 		name: "None",
 		value: "transparent",
-		preview: "repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 50% / 8px 8px",
+		preview: "repeating-conic-gradient(#808080 0% 25%, transparent 0% 50%) 50% / 6px 6px",
 	},
 ];
 
@@ -62,7 +62,7 @@ interface BackgroundPickerProps {
 
 export function BackgroundPicker({ selected, onSelect }: BackgroundPickerProps) {
 	return (
-		<div className="flex flex-wrap gap-2">
+		<div className="flex items-center gap-1.5">
 			{BACKGROUND_PRESETS.map((preset) => {
 				const isSelected = selected === preset.value;
 				return (
@@ -70,24 +70,23 @@ export function BackgroundPicker({ selected, onSelect }: BackgroundPickerProps) 
 						key={preset.name}
 						type="button"
 						onClick={() => onSelect(preset.value)}
-						whileTap={{ scale: 0.95 }}
+						whileTap={{ scale: 0.9 }}
+						whileHover={{ scale: 1.15 }}
 						transition={springs.snappy}
-						className={`group relative flex flex-col items-center gap-1 ${isSelected ? "opacity-100" : "opacity-60 hover:opacity-100"}`}
+						className="relative flex items-center justify-center"
 						title={preset.name}
 					>
-						<div className="relative">
-							{isSelected && (
-								<motion.div
-									layoutId="bg-ring"
-									className="absolute -inset-0.5 rounded-md ring-2 ring-neutral-900 dark:ring-neutral-100"
-									transition={springs.snappy}
-								/>
-							)}
-							<div className="size-8 rounded-md" style={{ background: preset.preview }} />
-						</div>
-						<span className="font-mono text-[8px] uppercase tracking-wider text-neutral-400 dark:text-neutral-600">
-							{preset.name}
-						</span>
+						{isSelected && (
+							<motion.div
+								layoutId="bg-ring"
+								className="absolute size-6 ring-[1.5px] ring-neutral-900 dark:ring-neutral-200"
+								transition={springs.snappy}
+							/>
+						)}
+						<div
+							className="size-4 border border-black/8 dark:border-white/10"
+							style={{ background: preset.preview }}
+						/>
 					</motion.button>
 				);
 			})}
