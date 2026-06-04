@@ -21,7 +21,7 @@
 		"@remotion/bundler": "^4.0.434",
 		"@remotion/cli": "^4.0.434",
 		"@remotion/renderer": "^4.0.434",
-		"hono": "^4.12.7",
+		"hono": "^4.12.21",
 		"modern-screenshot": "^4.6.8",
 		"motion": "^12.0.0",
 		"react": "^19.2.0",
