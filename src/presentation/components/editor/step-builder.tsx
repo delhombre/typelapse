@@ -83,7 +83,7 @@ export function StepBuilder() {
 		const isDropTarget = index === dropTargetIndex && index !== draggedIndex;
 
 		const base =
-			"group flex w-full items-center gap-2 rounded-xl border p-2.5 text-left transition-all duration-200";
+			"group flex w-full items-center gap-2 rounded-xl border p-2.5 text-left transition-[transform,border-color,background-color,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-transform";
 
 		let stateClasses: string;
 		if (isSelected) {
@@ -91,7 +91,7 @@ export function StepBuilder() {
 				"border-neutral-300 bg-neutral-100/80 dark:border-neutral-600/60 dark:bg-neutral-800/50";
 		} else {
 			stateClasses =
-				"border-neutral-200/70 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-800/30";
+				"border-neutral-200/70 hover:-translate-y-px hover:border-neutral-300 hover:bg-neutral-50 hover:shadow-[0_6px_16px_-8px_rgb(0_0_0/0.15)] dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-800/30 dark:hover:shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)]";
 		}
 
 		let dragClasses = "";
@@ -188,10 +188,12 @@ export function StepBuilder() {
 									}
 								}}
 								onClick={(e) => e.stopPropagation()}
-								className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
+								className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 								title="Duration (ms)"
 							/>
-							<span className="text-[10px] text-neutral-400 dark:text-neutral-600">ms</span>
+							<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+								ms
+							</span>
 						</div>
 
 						{/* Remove button */}

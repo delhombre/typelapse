@@ -124,7 +124,7 @@ export function ExportBar() {
 						disabled={isExporting}
 						whileTap={{ scale: 0.97 }}
 						transition={springs.snappy}
-						className="flex h-9 items-center gap-1.5 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_1px_2px_rgb(0_0_0/0.15)] transition-[background-color,box-shadow] hover:bg-neutral-800 disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.6)] dark:hover:bg-neutral-100"
+						className="flex h-9 items-center gap-1.5 rounded-xl bg-accent px-4 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_4px_16px_-4px_var(--color-accent)] transition-[filter,box-shadow] hover:brightness-110 disabled:opacity-50"
 					>
 						{isExporting ? (
 							<>
