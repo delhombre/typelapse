@@ -18,7 +18,7 @@ export function SettingsStrip() {
 	} = useSnippetStore();
 
 	return (
-		<div className="flex items-center gap-1 divide-x divide-neutral-200/70 overflow-x-auto px-2 py-2 dark:divide-neutral-800/70">
+		<div className="flex flex-wrap items-center gap-x-5 gap-y-2.5 px-5 py-3">
 			{/* Theme */}
 			<StripCell label="Theme">
 				<div className="flex items-center gap-2">
