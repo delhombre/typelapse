@@ -40,7 +40,7 @@ export function PlaybackControls() {
 				}`}
 				title={isPreparing ? "Preparing..." : isPlaying ? "Pause" : "Play"}
 			>
-				<AnimatePresence mode="wait">
+				<AnimatePresence mode="wait" initial={false}>
 					{isPreparing ? (
 						<motion.span
 							key="preparing"
@@ -133,8 +133,16 @@ export function PlaybackControls() {
 }
 
 function PlayIcon() {
+	// Nudge the triangle right ~1px — a centered play triangle reads left-heavy.
 	return (
-		<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" role="img">
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 16 16"
+			fill="currentColor"
+			role="img"
+			style={{ marginLeft: 1 }}
+		>
 			<title>Play</title>
 			<path d="M4 2v12l10-6z" />
 		</svg>
