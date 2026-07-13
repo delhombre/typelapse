@@ -25,6 +25,18 @@ function useMeshBackground(ref: RefObject<HTMLDivElement | null>, background: st
 		if (!preset) {
 			return;
 		}
+		// Respect reduced motion: paint a single static frame, don't oscillate.
+		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		if (reduced) {
+			if (ref.current) {
+				ref.current.style.background = meshGradientCss(preset, 0);
+			}
+			return () => {
+				if (ref.current) {
+					ref.current.style.background = "";
+				}
+			};
+		}
 		let raf = 0;
 		const start = performance.now();
 		const tick = () => {

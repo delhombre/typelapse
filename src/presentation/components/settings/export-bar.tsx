@@ -62,6 +62,7 @@ export function ExportBar() {
 			{hasSteps && (
 				<>
 					<Segmented
+						id="format"
 						items={[
 							{ key: "mp4", label: "MP4" },
 							{ key: "webm", label: "WebM" },
@@ -72,6 +73,7 @@ export function ExportBar() {
 					/>
 
 					<Segmented
+						id="aspect"
 						items={ASPECT_PRESETS.map((r) => ({
 							key: r.label,
 							label: r.label,
@@ -122,7 +124,7 @@ export function ExportBar() {
 						disabled={isExporting}
 						whileTap={{ scale: 0.97 }}
 						transition={springs.snappy}
-						className="flex h-9 items-center gap-1.5 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white transition disabled:opacity-50 dark:bg-white dark:text-neutral-900"
+						className="flex h-9 items-center gap-1.5 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.14),0_1px_2px_rgb(0_0_0/0.15)] transition-[background-color,box-shadow] hover:bg-neutral-800 disabled:opacity-50 dark:bg-white dark:text-neutral-900 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.6)] dark:hover:bg-neutral-100"
 					>
 						{isExporting ? (
 							<>
@@ -151,10 +153,12 @@ interface SegmentedItem {
 }
 
 function Segmented({
+	id,
 	items,
 	value,
 	onSelect,
 }: {
+	id: string;
 	items: SegmentedItem[];
 	value: string;
 	onSelect: (key: string) => void;
@@ -168,16 +172,23 @@ function Segmented({
 						key={item.key}
 						type="button"
 						onClick={() => onSelect(item.key)}
-						whileTap={{ scale: 0.95 }}
+						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
 						title={item.title}
-						className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+						className={`relative rounded-md px-2 py-1 text-[11px] font-medium transition-colors duration-150 ${
 							isSelected
-								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+								? "text-white dark:text-neutral-900"
+								: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300"
 						}`}
 					>
-						{item.label}
+						{isSelected && (
+							<motion.span
+								layoutId={`segmented-${id}`}
+								className="absolute inset-0 rounded-md bg-neutral-900 dark:bg-neutral-100"
+								transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
+							/>
+						)}
+						<span className="relative z-10">{item.label}</span>
 					</motion.button>
 				);
 			})}
