@@ -125,7 +125,7 @@ function Swatch({
 			{isSelected && (
 				<motion.div
 					layoutId="bg-ring"
-					className={`absolute size-[26px] ring-2 ring-neutral-900 dark:ring-neutral-100 ${animated ? "rounded-full" : "rounded-lg"}`}
+					className={`absolute size-5 ring-2 ring-neutral-900 dark:ring-neutral-100 ${animated ? "rounded-full" : "rounded-md"}`}
 					transition={springs.snappy}
 				/>
 			)}
