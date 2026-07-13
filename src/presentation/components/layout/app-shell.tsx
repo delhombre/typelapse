@@ -136,20 +136,20 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 			<div className="flex min-h-0 flex-1 overflow-hidden">
 				{/* Left panel — editor + steps */}
 				<motion.aside
-					className="flex w-[340px] shrink-0 flex-col overflow-hidden border-r border-neutral-200/70 dark:border-neutral-800/70"
+					className="flex w-[348px] shrink-0 flex-col overflow-hidden border-r border-neutral-200/70 dark:border-neutral-800/70"
 					variants={mountVariants}
 					initial="hidden"
 					animate="visible"
 					transition={springs.gentle}
 				>
-					<div className="flex min-h-0 flex-1 flex-col p-4">
+					<div className="flex min-h-0 flex-1 flex-col p-5">
 						<SectionLabel>Code</SectionLabel>
-						<div className="mt-3 flex min-h-0 flex-1 flex-col">{editor}</div>
+						<div className="mt-4 flex min-h-0 flex-1 flex-col">{editor}</div>
 					</div>
 
-					<div className="shrink-0 border-t border-neutral-200/70 p-4 dark:border-neutral-800/70">
+					<div className="shrink-0 border-t border-neutral-200/70 p-5 dark:border-neutral-800/70">
 						<SectionLabel>Steps</SectionLabel>
-						<div className="mt-3">{stepBuilder}</div>
+						<div className="mt-4">{stepBuilder}</div>
 					</div>
 				</motion.aside>
 
