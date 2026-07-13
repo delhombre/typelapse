@@ -1,7 +1,9 @@
+import type { RenderFormat } from "@/domain/entities/render-config";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
+import type { ReactNode } from "react";
 
 /** Aspect-ratio presets for social-ready exports (wide, square, reels, portrait, tall). */
 const ASPECT_PRESETS = [
@@ -36,8 +38,11 @@ export function ExportBar() {
 		setProgressStyle,
 	} = useExportStore();
 
+	const selectedAspect =
+		ASPECT_PRESETS.find((r) => r.width === width && r.height === height)?.label ?? "";
+
 	return (
-		<div className="flex h-full items-center gap-3 px-4">
+		<div className="flex items-center gap-2 px-5 py-3">
 			{/* Screenshot */}
 			<motion.button
 				type="button"
@@ -45,11 +50,10 @@ export function ExportBar() {
 				disabled={isExporting}
 				whileTap={{ scale: 0.97 }}
 				transition={springs.snappy}
-				className="group relative flex items-center gap-1.5 overflow-hidden border border-neutral-200 px-3 py-1 font-mono text-[10px] text-neutral-500 transition-colors hover:border-neutral-900 hover:text-neutral-900 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-500 dark:hover:border-neutral-200 dark:hover:text-neutral-200"
+				className="flex h-9 items-center gap-1.5 rounded-lg border border-neutral-200/70 px-3 text-xs font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
 			>
 				<CameraIcon />
 				PNG
-				<span className="shine-effect pointer-events-none absolute -top-1/2 -left-full z-20 h-[200%] w-3/4 skew-x-[-20deg] bg-linear-to-r from-transparent via-white/20 to-transparent" />
 			</motion.button>
 
 			{/* Spacer */}
@@ -57,56 +61,32 @@ export function ExportBar() {
 
 			{hasSteps && (
 				<>
-					{/* Format toggle */}
-					<div className="flex items-center border border-neutral-200 dark:border-neutral-800">
-						{(["mp4", "webm", "gif"] as const).map((f, i) => {
-							const isSelected = format === f;
-							return (
-								<motion.button
-									key={f}
-									type="button"
-									onClick={() => setFormat(f)}
-									whileTap={{ scale: 0.95 }}
-									transition={springs.snappy}
-									className={`px-2.5 py-0.5 font-mono text-[10px] uppercase transition-colors ${i > 0 ? "border-l border-neutral-200 dark:border-neutral-800" : ""} ${
-										isSelected
-											? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-											: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-600 dark:hover:text-neutral-300"
-									}`}
-								>
-									{f}
-								</motion.button>
-							);
-						})}
-					</div>
+					<Segmented
+						items={[
+							{ key: "mp4", label: "MP4" },
+							{ key: "webm", label: "WebM" },
+							{ key: "gif", label: "GIF" },
+						]}
+						value={format}
+						onSelect={(k) => setFormat(k as RenderFormat)}
+					/>
 
-					{/* Aspect-ratio toggle */}
-					<div className="flex items-center border border-neutral-200 dark:border-neutral-800">
-						{ASPECT_PRESETS.map((r, i) => {
-							const isSelected = width === r.width && height === r.height;
-							return (
-								<motion.button
-									key={r.label}
-									type="button"
-									onClick={() => setResolution(r.width, r.height)}
-									whileTap={{ scale: 0.95 }}
-									transition={springs.snappy}
-									title={`${r.width}×${r.height}`}
-									className={`px-2.5 py-0.5 font-mono text-[10px] transition-colors ${i > 0 ? "border-l border-neutral-200 dark:border-neutral-800" : ""} ${
-										isSelected
-											? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-											: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-600 dark:hover:text-neutral-300"
-									}`}
-								>
-									{r.label}
-								</motion.button>
-							);
-						})}
-					</div>
+					<Segmented
+						items={ASPECT_PRESETS.map((r) => ({
+							key: r.label,
+							label: r.label,
+							title: `${r.width}×${r.height}`,
+						}))}
+						value={selectedAspect}
+						onSelect={(k) => {
+							const r = ASPECT_PRESETS.find((x) => x.label === k);
+							if (r) {
+								setResolution(r.width, r.height);
+							}
+						}}
+					/>
 
-					{/* Progress style cycle */}
-					<motion.button
-						type="button"
+					<Chip
 						onClick={() => {
 							const i = PROGRESS_STYLES.indexOf(progressStyle);
 							const next = PROGRESS_STYLES[(i + 1) % PROGRESS_STYLES.length];
@@ -114,45 +94,26 @@ export function ExportBar() {
 								setProgressStyle(next);
 							}
 						}}
-						whileTap={{ scale: 0.95 }}
-						transition={springs.snappy}
 						title="Progress indicator style"
-						className="border border-neutral-200 px-2.5 py-0.5 font-mono text-[10px] uppercase text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-800 dark:border-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
 					>
 						{progressStyle}
-					</motion.button>
+					</Chip>
 
-					{/* Typewriter toggle */}
-					<motion.button
-						type="button"
+					<Chip
+						active={typewriter}
 						onClick={() => setTypewriter(!typewriter)}
-						whileTap={{ scale: 0.95 }}
-						transition={springs.snappy}
 						title="Typewriter: type the first step out character by character"
-						className={`border px-2.5 py-0.5 font-mono text-[10px] uppercase transition-colors ${
-							typewriter
-								? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
-								: "border-neutral-200 text-neutral-400 hover:text-neutral-700 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-300"
-						}`}
 					>
 						type
-					</motion.button>
+					</Chip>
 
-					{/* Loop toggle */}
-					<motion.button
-						type="button"
+					<Chip
+						active={loop}
 						onClick={() => setLoop(!loop)}
-						whileTap={{ scale: 0.95 }}
-						transition={springs.snappy}
-						title="Loop: transition from last step back to first"
-						className={`border px-2.5 py-0.5 font-mono text-[10px] uppercase transition-colors ${
-							loop
-								? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
-								: "border-neutral-200 text-neutral-400 hover:text-neutral-700 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-300"
-						}`}
+						title="Loop: last step morphs back to the first"
 					>
 						loop
-					</motion.button>
+					</Chip>
 
 					{/* Export button */}
 					<motion.button
@@ -161,12 +122,12 @@ export function ExportBar() {
 						disabled={isExporting}
 						whileTap={{ scale: 0.97 }}
 						transition={springs.snappy}
-						className="group relative flex items-center gap-1.5 overflow-hidden bg-neutral-900 px-4 py-1 font-mono text-[10px] text-white transition-opacity disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900"
+						className="flex h-9 items-center gap-1.5 rounded-xl bg-neutral-900 px-4 text-xs font-semibold text-white transition disabled:opacity-50 dark:bg-white dark:text-neutral-900"
 					>
 						{isExporting ? (
 							<>
-								<span className="inline-block size-3 animate-spin border-2 border-current border-t-transparent" />
-								{progress?.message ?? "Exporting..."}
+								<span className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+								{progress?.message ?? "Exporting…"}
 							</>
 						) : (
 							<>
@@ -174,13 +135,82 @@ export function ExportBar() {
 								Export
 							</>
 						)}
-						<span className="shine-effect pointer-events-none absolute -top-1/2 -left-full z-20 h-[200%] w-3/4 skew-x-[-20deg] bg-linear-to-r from-transparent via-white/15 to-transparent" />
 					</motion.button>
 				</>
 			)}
 
-			{error && <span className="font-mono text-[10px] text-red-500">{error}</span>}
+			{error && <span className="text-xs text-red-500">{error}</span>}
 		</div>
+	);
+}
+
+interface SegmentedItem {
+	key: string;
+	label: string;
+	title?: string;
+}
+
+function Segmented({
+	items,
+	value,
+	onSelect,
+}: {
+	items: SegmentedItem[];
+	value: string;
+	onSelect: (key: string) => void;
+}) {
+	return (
+		<div className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800">
+			{items.map((item) => {
+				const isSelected = item.key === value;
+				return (
+					<motion.button
+						key={item.key}
+						type="button"
+						onClick={() => onSelect(item.key)}
+						whileTap={{ scale: 0.95 }}
+						transition={springs.snappy}
+						title={item.title}
+						className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+							isSelected
+								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+						}`}
+					>
+						{item.label}
+					</motion.button>
+				);
+			})}
+		</div>
+	);
+}
+
+function Chip({
+	active = false,
+	onClick,
+	title,
+	children,
+}: {
+	active?: boolean;
+	onClick: () => void;
+	title: string;
+	children: ReactNode;
+}) {
+	return (
+		<motion.button
+			type="button"
+			onClick={onClick}
+			whileTap={{ scale: 0.95 }}
+			transition={springs.snappy}
+			title={title}
+			className={`h-9 rounded-lg border px-3 text-[11px] font-medium capitalize transition-colors ${
+				active
+					? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
+					: "border-neutral-200/70 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+			}`}
+		>
+			{children}
+		</motion.button>
 	);
 }
 

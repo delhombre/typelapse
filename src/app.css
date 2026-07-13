@@ -68,18 +68,3 @@
 	background-size: 200% 200%;
 	animation: gradient-drift 8s ease-in-out infinite;
 }
-
-@keyframes shine {
-	0% {
-		left: -50%;
-		top: -20%;
-	}
-	100% {
-		left: 150%;
-		top: 20%;
-	}
-}
-
-.group:hover .shine-effect {
-	animation: shine 0.9s ease-out 0.3s;
-}
