@@ -122,3 +122,26 @@ html {
 	background-size: 200% 200%;
 	animation: gradient-drift 8s ease-in-out infinite;
 }
+
+/* Landing "studio" editor panel — flatten Shiki's own bg and add a line gutter. */
+.studio-code pre {
+	margin: 0;
+	background: transparent !important;
+	white-space: pre;
+}
+.studio-code code {
+	counter-reset: studio-line;
+	display: block;
+}
+.studio-code .line {
+	counter-increment: studio-line;
+	display: block;
+}
+.studio-code .line::before {
+	content: counter(studio-line, decimal-leading-zero);
+	display: inline-block;
+	width: 2ch;
+	margin-right: 1.75em;
+	text-align: right;
+	color: color-mix(in oklch, currentColor 22%, transparent);
+}
