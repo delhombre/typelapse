@@ -94,7 +94,7 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 	);
 
 	return (
-		<div className="grid h-dvh w-screen grid-cols-[280px_1fr] grid-rows-[40px_1fr_40px] overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+		<div className="flex h-dvh w-screen flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
 			<input
 				ref={fileInputRef}
 				type="file"
@@ -104,12 +104,12 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 			/>
 
 			{/* ── Nav bar ── */}
-			<nav className="col-span-2 flex items-center justify-between border-b border-neutral-200 px-4 dark:border-neutral-800">
-				<div className="flex items-center gap-3">
-					<span className="font-mono text-[11px] font-semibold tracking-tight">Typelapse</span>
-					<span className="font-mono text-[8px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-600">
-						v0.1.0
-					</span>
+			<nav className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200/70 px-4 dark:border-neutral-800/70">
+				<div className="flex items-center gap-2.5">
+					<div className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+						<LogoGlyph />
+					</div>
+					<span className="text-sm font-semibold tracking-tight">Typelapse</span>
 				</div>
 				<div className="flex items-center gap-1">
 					<NavButton onClick={handleImport} title="Import JSON">
@@ -125,66 +125,53 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 					>
 						{shareCopied ? <CheckIcon /> : <ShareIcon />}
 					</NavButton>
-					<div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+					<div className="mx-1.5 h-5 w-px bg-neutral-200 dark:bg-neutral-800" />
 					<NavButton onClick={toggle} title={mode === "dark" ? "Light mode" : "Dark mode"}>
 						{mode === "dark" ? <SunIcon /> : <MoonIcon />}
 					</NavButton>
 				</div>
 			</nav>
 
-			{/* ── Left panel ── */}
+			{/* ── Body ── */}
+			<div className="flex min-h-0 flex-1 overflow-hidden">
+				{/* Left panel — editor + steps */}
+				<motion.aside
+					className="flex w-[340px] shrink-0 flex-col overflow-hidden border-r border-neutral-200/70 dark:border-neutral-800/70"
+					variants={mountVariants}
+					initial="hidden"
+					animate="visible"
+					transition={springs.gentle}
+				>
+					<div className="flex min-h-0 flex-1 flex-col p-4">
+						<SectionLabel>Code</SectionLabel>
+						<div className="mt-3 flex min-h-0 flex-1 flex-col">{editor}</div>
+					</div>
+
+					<div className="shrink-0 border-t border-neutral-200/70 p-4 dark:border-neutral-800/70">
+						<SectionLabel>Steps</SectionLabel>
+						<div className="mt-3">{stepBuilder}</div>
+					</div>
+				</motion.aside>
+
+				{/* Main area — preview + settings */}
+				<motion.main
+					className="flex min-h-0 flex-1 flex-col overflow-hidden bg-neutral-100/50 dark:bg-neutral-900/20"
+					variants={mountVariants}
+					initial="hidden"
+					animate="visible"
+					transition={{ ...springs.gentle, delay: 0.06 }}
+				>
+					<div className="flex min-h-0 flex-1 flex-col">{preview}</div>
+
+					<div className="shrink-0 border-t border-neutral-200/70 bg-white/70 backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/50">
+						<SettingsStrip />
+					</div>
+				</motion.main>
+			</div>
+
+			{/* ── Export bar ── */}
 			<motion.div
-				className="relative flex flex-col overflow-hidden border-r border-neutral-200 dark:border-neutral-800"
-				variants={mountVariants}
-				initial="hidden"
-				animate="visible"
-				transition={springs.gentle}
-			>
-				{/* Corner brackets */}
-				<CornerBrackets />
-
-				{/* Code section */}
-				<div className="flex min-h-0 flex-1 flex-col">
-					<SectionLabel>Code</SectionLabel>
-					<div className="flex min-h-0 flex-1 flex-col px-3 pb-3">{editor}</div>
-				</div>
-
-				{/* Divider with dot */}
-				<div className="relative border-t border-neutral-200 dark:border-neutral-800">
-					<GridDot position="top-left" />
-				</div>
-
-				{/* Steps section */}
-				<div className="shrink-0">
-					<SectionLabel>Steps</SectionLabel>
-					<div className="px-3 pb-3">{stepBuilder}</div>
-				</div>
-			</motion.div>
-
-			{/* ── Main area — Preview + Playback + Settings ── */}
-			<motion.div
-				className="relative flex min-h-0 flex-col overflow-hidden bg-neutral-100/50 dark:bg-neutral-900/30"
-				variants={mountVariants}
-				initial="hidden"
-				animate="visible"
-				transition={{ ...springs.gentle, delay: 0.06 }}
-			>
-				<CornerBrackets />
-
-				{/* Preview canvas — the centerpiece */}
-				<div className="flex min-h-0 flex-1 flex-col">{preview}</div>
-
-				{/* Settings strip */}
-				<div className="relative shrink-0 border-t border-dashed border-neutral-300 dark:border-neutral-700">
-					<GridDot position="top-left" />
-					<GridDot position="top-right" />
-					<SettingsStrip />
-				</div>
-			</motion.div>
-
-			{/* ── Export bar — full width ── */}
-			<motion.div
-				className="col-span-2 border-t border-neutral-200 dark:border-neutral-800"
+				className="shrink-0 border-t border-neutral-200/70 dark:border-neutral-800/70"
 				variants={mountVariants}
 				initial="hidden"
 				animate="visible"
@@ -200,33 +187,29 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 
 function SectionLabel({ children }: { children: ReactNode }) {
 	return (
-		<div className="flex h-7 items-center px-3">
-			<span className="font-mono text-[8px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-600">
-				{children}
-			</span>
-		</div>
+		<span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+			{children}
+		</span>
 	);
 }
 
-function CornerBrackets() {
-	const cn = "pointer-events-none absolute z-20 h-2.5 w-2.5 transition-colors duration-300";
-	const border = "border-neutral-900/20 dark:border-neutral-100/20";
+function LogoGlyph() {
 	return (
-		<>
-			<span className={`${cn} ${border} top-0 left-0 border-t border-l`} />
-			<span className={`${cn} ${border} top-0 right-0 border-t border-r`} />
-			<span className={`${cn} ${border} bottom-0 left-0 border-b border-l`} />
-			<span className={`${cn} ${border} bottom-0 right-0 border-b border-r`} />
-		</>
-	);
-}
-
-function GridDot({ position }: { position: "top-left" | "top-right" }) {
-	const pos = position === "top-left" ? "-top-[4px] -left-[4px]" : "-top-[4px] -right-[4px]";
-	return (
-		<div
-			className={`absolute ${pos} z-10 size-2 rounded-full border border-neutral-300 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-950`}
-		/>
+		<svg
+			width="15"
+			height="15"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2.2"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			role="img"
+		>
+			<title>Typelapse</title>
+			<polyline points="9 8 5 12 9 16" />
+			<polyline points="15 8 19 12 15 16" />
+		</svg>
 	);
 }
 
@@ -245,17 +228,16 @@ function NavButton({
 		<motion.button
 			type="button"
 			onClick={onClick}
-			whileTap={{ scale: 0.92 }}
+			whileTap={{ scale: 0.94 }}
 			transition={springs.snappy}
-			className={`group relative flex size-7 items-center justify-center overflow-hidden transition-colors ${
+			className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
 				active
-					? "text-green-500"
-					: "text-neutral-400 hover:text-neutral-900 dark:text-neutral-500 dark:hover:text-neutral-100"
+					? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+					: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
 			}`}
 			title={title}
 		>
 			{children}
-			<span className="shine-effect pointer-events-none absolute -top-1/2 -left-full z-20 h-[200%] w-3/4 skew-x-[-20deg] bg-linear-to-r from-transparent via-white/30 to-transparent" />
 		</motion.button>
 	);
 }

@@ -18,7 +18,7 @@ export function SettingsStrip() {
 	} = useSnippetStore();
 
 	return (
-		<div className="flex items-center gap-0 divide-x divide-neutral-200 overflow-x-auto dark:divide-neutral-800">
+		<div className="flex items-center gap-1 divide-x divide-neutral-200/70 overflow-x-auto px-2 py-2 dark:divide-neutral-800/70">
 			{/* Theme */}
 			<StripCell label="Theme">
 				<div className="flex items-center gap-2">
@@ -54,7 +54,7 @@ export function SettingsStrip() {
 					value={watermark}
 					onChange={(e) => setWatermark(e.target.value)}
 					placeholder="@username"
-					className="w-24 border border-neutral-200 bg-transparent px-2 py-0.5 font-mono text-[10px] text-neutral-600 placeholder:text-neutral-300 focus:border-neutral-900 focus:outline-none dark:border-neutral-800 dark:text-neutral-400 dark:placeholder:text-neutral-700 dark:focus:border-neutral-200"
+					className="h-8 w-28 rounded-lg border border-neutral-200/70 bg-white px-2.5 text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 				/>
 			</StripCell>
 		</div>
@@ -63,8 +63,8 @@ export function SettingsStrip() {
 
 function StripCell({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
-		<div className="flex items-center gap-2 px-3 py-2">
-			<span className="shrink-0 font-mono text-[7px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-600">
+		<div className="flex items-center gap-2.5 px-3">
+			<span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
 				{label}
 			</span>
 			{children}
@@ -105,12 +105,12 @@ function ThemePicker() {
 						{isSelected && (
 							<motion.div
 								layoutId="theme-ring"
-								className="absolute size-5 ring-[1.5px] ring-neutral-900 dark:ring-neutral-200"
+								className="absolute size-[22px] rounded-lg ring-2 ring-neutral-900 dark:ring-neutral-100"
 								transition={springs.snappy}
 							/>
 						)}
 						<div
-							className="size-3.5 border border-black/8 dark:border-white/10"
+							className="size-4 rounded-md border border-black/10 dark:border-white/10"
 							style={{ background: t.bg }}
 						/>
 					</motion.button>
@@ -129,10 +129,10 @@ function SyncToggle() {
 			onClick={() => setSyncEditorTheme(!syncEditorTheme)}
 			whileTap={{ scale: 0.9 }}
 			transition={springs.snappy}
-			className={`flex size-5 shrink-0 items-center justify-center border transition-colors ${
+			className={`flex size-6 shrink-0 items-center justify-center rounded-lg border transition-colors ${
 				syncEditorTheme
 					? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
-					: "border-neutral-200 text-neutral-300 hover:border-neutral-400 hover:text-neutral-500 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-400"
+					: "border-neutral-200 text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-400"
 			}`}
 			title={syncEditorTheme ? "Editor mirrors preview theme" : "Editor uses app theme"}
 		>
@@ -213,8 +213,8 @@ function PaddingPicker({
 	onSelect,
 }: { selected: number; onSelect: (v: number) => void }) {
 	return (
-		<div className="flex items-center border border-neutral-200 dark:border-neutral-800">
-			{PADDING_PRESETS.map((value, i) => {
+		<div className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800">
+			{PADDING_PRESETS.map((value) => {
 				const isSelected = selected === value;
 				return (
 					<motion.button
@@ -223,10 +223,10 @@ function PaddingPicker({
 						onClick={() => onSelect(value)}
 						whileTap={{ scale: 0.9 }}
 						transition={springs.snappy}
-						className={`px-1.5 py-0.5 font-mono text-[9px] transition-colors ${i > 0 ? "border-l border-neutral-200 dark:border-neutral-800" : ""} ${
+						className={`rounded-md px-2 py-1 text-[10px] font-medium tabular-nums transition-colors ${
 							isSelected
 								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-600 dark:hover:bg-neutral-900 dark:hover:text-neutral-300"
+								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
 						}`}
 					>
 						{value}
@@ -278,10 +278,10 @@ function FontPicker() {
 						}}
 						whileTap={{ scale: 0.95 }}
 						transition={springs.snappy}
-						className={`border border-neutral-200 px-1.5 py-0.5 text-[8px] transition-colors dark:border-neutral-800 ${
+						className={`rounded-md border px-2 py-1 text-[10px] font-medium transition-colors ${
 							isSelected
-								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-600 dark:hover:bg-neutral-900 dark:hover:text-neutral-300"
+								? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
+								: "border-neutral-200/70 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:border-neutral-800 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
 						}`}
 						title={f.label}
 					>

@@ -83,15 +83,15 @@ export function StepBuilder() {
 		const isDropTarget = index === dropTargetIndex && index !== draggedIndex;
 
 		const base =
-			"group flex w-full items-center gap-2 border p-2 text-left transition-all duration-200";
+			"group flex w-full items-center gap-2 rounded-xl border p-2.5 text-left transition-all duration-200";
 
 		let stateClasses: string;
 		if (isSelected) {
 			stateClasses =
-				"border-neutral-400/50 bg-neutral-100/80 dark:border-neutral-600/50 dark:bg-neutral-800/50";
+				"border-neutral-300 bg-neutral-100/80 dark:border-neutral-600/60 dark:bg-neutral-800/50";
 		} else {
 			stateClasses =
-				"border-neutral-200 hover:border-neutral-300 dark:border-neutral-800 dark:hover:border-neutral-600/50";
+				"border-neutral-200/70 hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-800/30";
 		}
 
 		let dragClasses = "";
@@ -99,8 +99,7 @@ export function StepBuilder() {
 			dragClasses = "opacity-30";
 		}
 		if (isDropTarget) {
-			dragClasses =
-				"ring-2 ring-neutral-400/50 ring-offset-1 dark:ring-neutral-500/50 dark:ring-offset-neutral-900";
+			dragClasses = "ring-2 ring-neutral-900/15 dark:ring-white/15";
 		}
 
 		return `${base} ${stateClasses} ${dragClasses}`;
@@ -109,23 +108,24 @@ export function StepBuilder() {
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center justify-between">
-				<h3 className="font-mono text-[9px] uppercase tracking-[0.2em] text-neutral-400 dark:text-neutral-500">
-					Steps ({steps.length})
-				</h3>
+				<span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
+					{steps.length} {steps.length === 1 ? "step" : "steps"}
+				</span>
 				<motion.button
 					type="button"
 					onClick={() => captureStep()}
 					whileTap={{ scale: 0.97 }}
 					transition={springs.snappy}
-					className="h-7 border border-dashed border-neutral-300 px-3 font-mono text-[10px] uppercase tracking-wider text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-900 dark:border-neutral-800 dark:hover:border-neutral-500 dark:hover:text-neutral-200"
+					className="flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
 				>
-					+ Capture
+					<PlusIcon />
+					Capture
 				</motion.button>
 			</div>
 
 			{steps.length === 0 && (
-				<p className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
-					Edit code above, then click Capture to add a step.
+				<p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
+					Edit the code above, then Capture to add a step.
 				</p>
 			)}
 
@@ -168,8 +168,8 @@ export function StepBuilder() {
 							onClick={() => setCurrentStepIndex(index)}
 							className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
 						>
-							<span className="shrink-0 font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
-								{String(index + 1).padStart(2, "0")}
+							<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[10px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+								{index + 1}
 							</span>
 							<span className="truncate font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
 								{getStepPreview(step.code)}
@@ -188,12 +188,10 @@ export function StepBuilder() {
 									}
 								}}
 								onClick={(e) => e.stopPropagation()}
-								className="w-12 border border-neutral-200 bg-neutral-50 px-1 py-0.5 text-center font-mono text-[10px] text-neutral-500 outline-none focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900/50 dark:focus:border-neutral-500"
+								className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 								title="Duration (ms)"
 							/>
-							<span className="font-mono text-[9px] text-neutral-400 dark:text-neutral-600">
-								ms
-							</span>
+							<span className="text-[10px] text-neutral-400 dark:text-neutral-600">ms</span>
 						</div>
 
 						{/* Remove button */}
@@ -224,5 +222,24 @@ export function StepBuilder() {
 				))}
 			</div>
 		</div>
+	);
+}
+
+function PlusIcon() {
+	return (
+		<svg
+			width="12"
+			height="12"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2.2"
+			strokeLinecap="round"
+			role="img"
+		>
+			<title>Add</title>
+			<line x1="12" y1="5" x2="12" y2="19" />
+			<line x1="5" y1="12" x2="19" y2="12" />
+		</svg>
 	);
 }

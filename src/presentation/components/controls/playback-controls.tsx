@@ -33,7 +33,7 @@ export function PlaybackControls() {
 				whileTap={{ scale: 0.9 }}
 				whileHover={{ scale: 1.05 }}
 				transition={springs.snappy}
-				className={`flex size-8 items-center justify-center disabled:opacity-40 ${
+				className={`flex size-9 items-center justify-center rounded-full disabled:opacity-40 ${
 					isPreparing
 						? "animate-pulse bg-neutral-700 text-neutral-300 dark:bg-neutral-300 dark:text-neutral-700"
 						: "bg-neutral-900 text-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
@@ -78,9 +78,9 @@ export function PlaybackControls() {
 			{/* Progress bar + step dots */}
 			<div className="flex flex-col items-center gap-2">
 				{/* Progress bar */}
-				<div className="h-1.5 w-36 overflow-hidden bg-neutral-200 dark:bg-neutral-800">
+				<div className="h-1.5 w-36 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
 					<motion.div
-						className={`h-full ${
+						className={`h-full rounded-full ${
 							isPlaying
 								? "bg-linear-to-r from-neutral-700 to-neutral-900 progress-bar-active dark:from-neutral-300 dark:to-neutral-100"
 								: "bg-neutral-900 dark:bg-neutral-100"
