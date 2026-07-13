@@ -2,7 +2,7 @@ import "@/app.css";
 import { ShikiAdapter } from "@/infrastructure/highlighting/shiki.adapter";
 import { CodeEditor } from "@/presentation/components/editor/code-editor";
 import { StepBuilder } from "@/presentation/components/editor/step-builder";
-import { AppShell } from "@/presentation/components/layout/app-shell";
+import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
 import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { StrictMode } from "react";
@@ -27,6 +27,10 @@ if (!root) {
 
 createRoot(root).render(
 	<StrictMode>
-		<AppShell editor={<CodeEditor />} stepBuilder={<StepBuilder />} preview={<LivePreview />} />
+		<ResponsiveShell
+			editor={<CodeEditor />}
+			stepBuilder={<StepBuilder />}
+			preview={<LivePreview />}
+		/>
 	</StrictMode>,
 );
