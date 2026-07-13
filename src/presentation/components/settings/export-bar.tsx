@@ -16,21 +16,56 @@ const ASPECT_PRESETS = [
 
 const PROGRESS_STYLES = ["reels", "bar", "none"] as const;
 
-/** Full-width export bar at the bottom of the app */
+/** Full-width export bar at the bottom of the desktop app. */
 export function ExportBar() {
 	const hasSteps = useSnippetStore((s) => s.snippet.steps.length >= 2);
+	const error = useExportStore((s) => s.error);
+
+	return (
+		<div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
+			<PngButton />
+			{/* Spacer — only pushes controls apart on the single-row desktop layout */}
+			<div className="hidden flex-1 lg:block" />
+			{hasSteps && (
+				<>
+					<ExportOptions />
+					<ExportButton />
+				</>
+			)}
+			{error && <span className="text-xs text-red-500">{error}</span>}
+		</div>
+	);
+}
+
+/** PNG snapshot action — available regardless of step count. */
+export function PngButton() {
+	const isExporting = useExportStore((s) => s.isExporting);
+	const exportPng = useExportStore((s) => s.exportPng);
+
+	return (
+		<motion.button
+			type="button"
+			onClick={exportPng}
+			disabled={isExporting}
+			whileTap={{ scale: 0.97 }}
+			transition={springs.snappy}
+			className="flex h-9 items-center gap-1.5 rounded-lg border border-neutral-200/70 px-3 text-xs font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+		>
+			<CameraIcon />
+			PNG
+		</motion.button>
+	);
+}
+
+/** Video export controls — format, aspect ratio, and the reels/typewriter/loop toggles. */
+export function ExportOptions() {
 	const {
-		isExporting,
-		progress,
-		error,
 		format,
 		width,
 		height,
 		loop,
 		typewriter,
 		progressStyle,
-		exportVideo,
-		exportPng,
 		setFormat,
 		setResolution,
 		setLoop,
@@ -42,107 +77,93 @@ export function ExportBar() {
 		ASPECT_PRESETS.find((r) => r.width === width && r.height === height)?.label ?? "";
 
 	return (
-		<div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
-			{/* Screenshot */}
-			<motion.button
-				type="button"
-				onClick={exportPng}
-				disabled={isExporting}
-				whileTap={{ scale: 0.97 }}
-				transition={springs.snappy}
-				className="flex h-9 items-center gap-1.5 rounded-lg border border-neutral-200/70 px-3 text-xs font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+		<>
+			<Segmented
+				id="format"
+				items={[
+					{ key: "mp4", label: "MP4" },
+					{ key: "webm", label: "WebM" },
+					{ key: "gif", label: "GIF" },
+				]}
+				value={format}
+				onSelect={(k) => setFormat(k as RenderFormat)}
+			/>
+
+			<Segmented
+				id="aspect"
+				items={ASPECT_PRESETS.map((r) => ({
+					key: r.label,
+					label: r.label,
+					title: `${r.width}×${r.height}`,
+				}))}
+				value={selectedAspect}
+				onSelect={(k) => {
+					const r = ASPECT_PRESETS.find((x) => x.label === k);
+					if (r) {
+						setResolution(r.width, r.height);
+					}
+				}}
+			/>
+
+			<Chip
+				onClick={() => {
+					const i = PROGRESS_STYLES.indexOf(progressStyle);
+					const next = PROGRESS_STYLES[(i + 1) % PROGRESS_STYLES.length];
+					if (next) {
+						setProgressStyle(next);
+					}
+				}}
+				title="Progress indicator style"
 			>
-				<CameraIcon />
-				PNG
-			</motion.button>
+				{progressStyle}
+			</Chip>
 
-			{/* Spacer — only pushes controls apart on the single-row desktop layout */}
-			<div className="hidden flex-1 lg:block" />
+			<Chip
+				active={typewriter}
+				onClick={() => setTypewriter(!typewriter)}
+				title="Typewriter: type the first step out character by character"
+			>
+				type
+			</Chip>
 
-			{hasSteps && (
+			<Chip
+				active={loop}
+				onClick={() => setLoop(!loop)}
+				title="Loop: last step morphs back to the first"
+			>
+				loop
+			</Chip>
+		</>
+	);
+}
+
+/** Primary video export button — shows a spinner and live progress while rendering. */
+export function ExportButton() {
+	const isExporting = useExportStore((s) => s.isExporting);
+	const progress = useExportStore((s) => s.progress);
+	const exportVideo = useExportStore((s) => s.exportVideo);
+
+	return (
+		<motion.button
+			type="button"
+			onClick={exportVideo}
+			disabled={isExporting}
+			whileTap={{ scale: 0.97 }}
+			transition={springs.snappy}
+			className="flex h-9 items-center gap-1.5 rounded-xl bg-accent px-4 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_4px_16px_-4px_var(--color-accent)] transition-[filter,box-shadow] hover:brightness-110 disabled:opacity-50"
+		>
+			{isExporting ? (
 				<>
-					<Segmented
-						id="format"
-						items={[
-							{ key: "mp4", label: "MP4" },
-							{ key: "webm", label: "WebM" },
-							{ key: "gif", label: "GIF" },
-						]}
-						value={format}
-						onSelect={(k) => setFormat(k as RenderFormat)}
-					/>
-
-					<Segmented
-						id="aspect"
-						items={ASPECT_PRESETS.map((r) => ({
-							key: r.label,
-							label: r.label,
-							title: `${r.width}×${r.height}`,
-						}))}
-						value={selectedAspect}
-						onSelect={(k) => {
-							const r = ASPECT_PRESETS.find((x) => x.label === k);
-							if (r) {
-								setResolution(r.width, r.height);
-							}
-						}}
-					/>
-
-					<Chip
-						onClick={() => {
-							const i = PROGRESS_STYLES.indexOf(progressStyle);
-							const next = PROGRESS_STYLES[(i + 1) % PROGRESS_STYLES.length];
-							if (next) {
-								setProgressStyle(next);
-							}
-						}}
-						title="Progress indicator style"
-					>
-						{progressStyle}
-					</Chip>
-
-					<Chip
-						active={typewriter}
-						onClick={() => setTypewriter(!typewriter)}
-						title="Typewriter: type the first step out character by character"
-					>
-						type
-					</Chip>
-
-					<Chip
-						active={loop}
-						onClick={() => setLoop(!loop)}
-						title="Loop: last step morphs back to the first"
-					>
-						loop
-					</Chip>
-
-					{/* Export button */}
-					<motion.button
-						type="button"
-						onClick={exportVideo}
-						disabled={isExporting}
-						whileTap={{ scale: 0.97 }}
-						transition={springs.snappy}
-						className="flex h-9 items-center gap-1.5 rounded-xl bg-accent px-4 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_4px_16px_-4px_var(--color-accent)] transition-[filter,box-shadow] hover:brightness-110 disabled:opacity-50"
-					>
-						{isExporting ? (
-							<>
-								<span className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-								{progress?.message ?? "Exporting…"}
-							</>
-						) : (
-							<>
-								<VideoIcon />
-								Export
-							</>
-						)}
-					</motion.button>
+					<span className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+					{progress?.message ?? "Exporting…"}
+				</>
+			) : (
+				<>
+					<VideoIcon />
+					Export
 				</>
 			)}
-
-			{error && <span className="text-xs text-red-500">{error}</span>}
-		</div>
+		</motion.button>
 	);
 }
 
