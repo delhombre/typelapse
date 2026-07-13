@@ -105,7 +105,7 @@ function ThemePicker() {
 						{isSelected && (
 							<motion.div
 								layoutId="theme-ring"
-								className="absolute size-5 rounded-md ring-2 ring-neutral-900 dark:ring-neutral-100"
+								className="absolute size-5 rounded-lg ring-2 ring-neutral-900 dark:ring-neutral-100"
 								transition={springs.snappy}
 							/>
 						)}

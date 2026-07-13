@@ -104,8 +104,8 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 				className="hidden"
 			/>
 
-			{/* ── Nav bar ── */}
-			<nav className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200/70 bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 dark:border-neutral-800/70 dark:bg-neutral-950/70">
+			{/* ── Nav bar (relative z-50 so its Templates dropdown stacks above the body) ── */}
+			<nav className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b border-neutral-200/70 bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 dark:border-neutral-800/70 dark:bg-neutral-950/70">
 				<div className="flex items-center gap-4">
 					<div className="flex items-center gap-2.5">
 						<div className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
