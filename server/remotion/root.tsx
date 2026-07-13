@@ -3,13 +3,15 @@ import { Composition, registerRoot } from "remotion";
 import { TypelapseComposition } from "./composition";
 import type { RenderInput } from "./types";
 
+const FG = "#e6edf3";
+
 const DEFAULT_INPUT: RenderInput = {
-	title: "Untitled",
+	title: "sum.ts",
 	language: "typescript",
 	theme: {
 		name: "midnight",
 		background: "#0d1117",
-		foreground: "#e6edf3",
+		foreground: FG,
 		fontFamily: "'JetBrains Mono', monospace",
 		fontSize: 14,
 		padding: 24,
@@ -19,13 +21,24 @@ const DEFAULT_INPUT: RenderInput = {
 		{ code: "const x = 1;", duration: 1000 },
 		{ code: "const x = 2;", duration: 1000 },
 	],
-	background: "radial-gradient(ellipse at 30% 20%, #1e3a5f 0%, #0d1117 50%, #0a0e14 100%)",
+	background: "mesh:aurora",
 	framePadding: 24,
-	stepHtmlFrames: [
-		"<pre><code>const x = 1;</code></pre>",
-		"<pre><code>const x = 2;</code></pre>",
-	],
-	transitionDurationFrames: 15,
+	transitionMs: 650,
+	loop: false,
+	typewriter: false,
+	progressStyle: "reels",
+	plan: {
+		frames: [
+			{ tokens: [{ key: "x", content: "const x = 1;", line: 0, col: 0, color: FG }], lineCount: 1 },
+			{ tokens: [{ key: "x", content: "const x = 2;", line: 0, col: 0, color: FG }], lineCount: 1 },
+		],
+		transitions: [
+			{
+				from: [{ key: "x", content: "const x = 1;", line: 0, col: 0, color: FG }],
+				to: [{ key: "x", content: "const x = 2;", line: 0, col: 0, color: FG }],
+			},
+		],
+	},
 };
 
 function RemotionRoot() {
@@ -33,7 +46,7 @@ function RemotionRoot() {
 		<Composition
 			id="Typelapse"
 			component={TypelapseComposition}
-			durationInFrames={300}
+			durationInFrames={150}
 			fps={30}
 			width={1920}
 			height={1080}

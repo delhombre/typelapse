@@ -1,27 +1,20 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import { Hono } from "hono";
-import { createHighlighter } from "shiki";
-import path from "node:path";
-import fs from "node:fs";
-import os from "node:os";
-import { fileURLToPath } from "node:url";
+import { type BundledLanguage, type Highlighter, createHighlighter } from "shiki";
+import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
+import { resolveShikiLanguage, resolveShikiTheme } from "../../src/infrastructure/highlighting/shiki-registry";
+import { buildServerMagicMovePlan } from "../remotion/magic-move-plan";
 import type { RenderInput, StepData, ThemeData } from "../remotion/types";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const renderRoute = new Hono();
-
-const THEME_MAP: Record<string, string> = {
-	midnight: "github-dark",
-	aurora: "aurora-x",
-	frost: "github-light",
-	dracula: "dracula",
-	"one-dark": "one-dark-pro",
-	catppuccin: "catppuccin-mocha",
-	nord: "nord",
-};
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | null = null;
 
@@ -37,10 +30,17 @@ function getHighlighter() {
 				"catppuccin-mocha",
 				"nord",
 			],
-			langs: ["typescript", "javascript", "python", "rust", "go", "html", "css", "json"],
+			langs: ["typescript", "javascript", "python", "json"],
 		});
 	}
 	return highlighterPromise;
+}
+
+/** Load a bundled language on demand so every editor language renders. */
+async function ensureLanguage(highlighter: Highlighter, lang: string) {
+	if (lang !== "text" && !highlighter.getLoadedLanguages().includes(lang)) {
+		await highlighter.loadLanguage(lang as BundledLanguage);
+	}
 }
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -81,11 +81,11 @@ interface RenderRequest {
 	height?: number;
 	fps?: number;
 	format?: "mp4" | "webm" | "gif";
+	loop?: boolean;
+	typewriter?: boolean;
+	progressStyle?: RenderInput["progressStyle"];
 	watermark?: string;
 }
-
-/** Transition duration in seconds — short crossfade for clean look */
-const TRANSITION_DURATION_S = 0.3;
 
 renderRoute.post("/render", async (c) => {
 	const body = (await c.req.json()) as RenderRequest;
@@ -101,6 +101,9 @@ renderRoute.post("/render", async (c) => {
 		height = 1080,
 		fps = 60,
 		format = "mp4",
+		loop = false,
+		typewriter = false,
+		progressStyle = "reels",
 		watermark,
 	} = body;
 
@@ -110,18 +113,24 @@ renderRoute.post("/render", async (c) => {
 
 	try {
 		const highlighter = await getHighlighter();
-		const shikiTheme = THEME_MAP[theme.name] ?? "github-dark";
+		const lang = resolveShikiLanguage(language);
+		const shikiTheme = resolveShikiTheme(theme.name);
+		await ensureLanguage(highlighter, lang);
 
-		// Highlight all steps as HTML
-		const stepHtmlFrames = await Promise.all(
-			steps.map((step) => highlighter.codeToHtml(step.code, { lang: language, theme: shikiTheme })),
+		const plan = buildServerMagicMovePlan(
+			highlighter,
+			steps.map((s) => s.code),
+			lang,
+			shikiTheme,
+			loop,
 		);
 
-		// Compute total duration
-		const transitionDurationFrames = Math.round(TRANSITION_DURATION_S * fps);
+		// Total duration = holds + a transition between each adjacent pair (+ the
+		// loop-back transition when looping).
+		const transitionFrames = Math.round((TRANSITION_MS / 1000) * fps);
 		const holdFrames = steps.reduce((acc, step) => acc + Math.round((step.duration / 1000) * fps), 0);
-		const totalTransitionFrames = (steps.length - 1) * transitionDurationFrames;
-		const totalFrames = holdFrames + totalTransitionFrames;
+		const loopFrames = loop ? transitionFrames : 0;
+		const totalFrames = holdFrames + (steps.length - 1) * transitionFrames + loopFrames;
 
 		const input: RenderInput = {
 			title,
@@ -130,8 +139,11 @@ renderRoute.post("/render", async (c) => {
 			steps,
 			background,
 			framePadding,
-			stepHtmlFrames,
-			transitionDurationFrames,
+			plan,
+			transitionMs: TRANSITION_MS,
+			loop,
+			typewriter,
+			progressStyle,
 			watermark,
 		};
 
