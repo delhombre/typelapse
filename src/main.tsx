@@ -17,8 +17,8 @@ setHighlighter(shikiAdapter);
 const initialMode = useThemeModeStore.getState().mode;
 document.documentElement.classList.toggle("dark", initialMode === "dark");
 
-// Trigger initial highlight
-useSnippetStore.getState().refreshHighlight();
+// Build the initial magic-move plan (retried once the highlighter is ready)
+useSnippetStore.getState().rebuildPlan();
 
 const root = document.getElementById("root");
 if (!root) {
