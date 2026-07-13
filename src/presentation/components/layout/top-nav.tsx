@@ -5,6 +5,7 @@ import { copyToClipboard, decodeShareLink, encodeShareLink } from "@/presentatio
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { TemplatesMenu } from "./templates-menu";
 
 /** Top navigation bar — brand, templates, and the import/export/share/theme actions. */
@@ -95,12 +96,16 @@ export function TopNav() {
 				className="hidden"
 			/>
 			<div className="flex items-center gap-2 sm:gap-4">
-				<div className="flex items-center gap-2.5">
+				<Link
+					to="/"
+					className="flex items-center gap-2.5 rounded-lg transition-opacity hover:opacity-80"
+					title="Back to home"
+				>
 					<div className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
 						<LogoGlyph />
 					</div>
 					<span className="text-sm font-semibold tracking-tight">Typelapse</span>
-				</div>
+				</Link>
 				<TemplatesMenu />
 			</div>
 			<div className="flex items-center gap-1">
