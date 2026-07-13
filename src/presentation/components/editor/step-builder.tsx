@@ -129,7 +129,9 @@ export function StepBuilder() {
 				</p>
 			)}
 
-			<div className="flex max-h-48 flex-col gap-1 overflow-y-auto">
+			{/* -m-1 p-1: a 4px "bleed" so the hover-lift and drop ring aren't clipped by
+			    the scroll container's overflow, at zero layout cost (cards stay aligned). */}
+			<div className="-m-1 flex max-h-48 flex-col gap-1 overflow-y-auto p-1">
 				{steps.map((step, index) => (
 					<motion.div
 						key={step.id}
