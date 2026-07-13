@@ -146,6 +146,7 @@ export function CodeEditor() {
 					onChange={handleChange}
 					onMount={handleMount}
 					options={{
+						fixedOverflowWidgets: true,
 						minimap: { enabled: false },
 						fontSize: 13,
 						fontFamily: "'JetBrains Mono', ui-monospace, monospace",
