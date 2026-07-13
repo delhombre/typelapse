@@ -95,7 +95,7 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 	);
 
 	return (
-		<div className="flex h-dvh w-screen flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+		<div className="flex min-h-dvh w-full flex-col overflow-x-clip bg-neutral-50 font-sans text-neutral-900 lg:h-dvh lg:overflow-hidden dark:bg-neutral-950 dark:text-neutral-100">
 			<input
 				ref={fileInputRef}
 				type="file"
@@ -105,8 +105,8 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 			/>
 
 			{/* ── Nav bar (relative z-50 so its Templates dropdown stacks above the body) ── */}
-			<nav className="relative z-50 flex h-14 shrink-0 items-center justify-between border-b border-neutral-200/70 bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 dark:border-neutral-800/70 dark:bg-neutral-950/70">
-				<div className="flex items-center gap-4">
+			<nav className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between border-b border-neutral-200/70 bg-white/70 px-3 backdrop-blur-xl backdrop-saturate-150 sm:px-4 dark:border-neutral-800/70 dark:bg-neutral-950/70">
+				<div className="flex items-center gap-2 sm:gap-4">
 					<div className="flex items-center gap-2.5">
 						<div className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
 							<LogoGlyph />
@@ -136,11 +136,11 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 				</div>
 			</nav>
 
-			{/* ── Body ── */}
-			<div className="flex min-h-0 flex-1 overflow-hidden">
+			{/* ── Body — stacks vertically on mobile/tablet, two columns at lg ── */}
+			<div className="flex flex-1 flex-col overflow-visible lg:min-h-0 lg:flex-row lg:overflow-hidden">
 				{/* Left panel — editor + steps */}
 				<motion.aside
-					className="flex w-[348px] shrink-0 flex-col overflow-hidden border-r border-neutral-200/70 dark:border-neutral-800/70"
+					className="flex w-full shrink-0 flex-col border-b border-neutral-200/70 lg:w-[348px] lg:overflow-hidden lg:border-r lg:border-b-0 dark:border-neutral-800/70"
 					variants={mountVariants}
 					initial="hidden"
 					animate="visible"
@@ -159,13 +159,13 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 
 				{/* Main area — preview + settings */}
 				<motion.main
-					className="flex min-h-0 flex-1 flex-col overflow-hidden bg-neutral-100/50 dark:bg-neutral-900/20"
+					className="flex flex-1 flex-col bg-neutral-100/50 lg:min-h-0 lg:overflow-hidden dark:bg-neutral-900/20"
 					variants={mountVariants}
 					initial="hidden"
 					animate="visible"
 					transition={{ ...springs.gentle, delay: 0.06 }}
 				>
-					<div className="flex min-h-0 flex-1 flex-col">{preview}</div>
+					<div className="flex min-h-[440px] flex-1 flex-col lg:min-h-0">{preview}</div>
 
 					<div className="shrink-0 border-t border-neutral-200/70 bg-white/70 shadow-[inset_0_1px_0_rgb(255_255_255/0.6)] backdrop-blur backdrop-saturate-150 dark:border-neutral-800/70 dark:bg-neutral-950/50 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]">
 						<SettingsStrip />

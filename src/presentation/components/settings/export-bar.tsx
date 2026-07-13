@@ -42,7 +42,7 @@ export function ExportBar() {
 		ASPECT_PRESETS.find((r) => r.width === width && r.height === height)?.label ?? "";
 
 	return (
-		<div className="flex items-center gap-2 px-5 py-3">
+		<div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
 			{/* Screenshot */}
 			<motion.button
 				type="button"
@@ -56,8 +56,8 @@ export function ExportBar() {
 				PNG
 			</motion.button>
 
-			{/* Spacer */}
-			<div className="flex-1" />
+			{/* Spacer — only pushes controls apart on the single-row desktop layout */}
+			<div className="hidden flex-1 lg:block" />
 
 			{hasSteps && (
 				<>
