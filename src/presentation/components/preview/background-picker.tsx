@@ -116,7 +116,7 @@ function Swatch({
 		<motion.button
 			type="button"
 			onClick={onSelect}
-			whileTap={{ scale: 0.9 }}
+			whileTap={{ scale: 0.96 }}
 			whileHover={{ scale: 1.15 }}
 			transition={springs.snappy}
 			className="relative flex items-center justify-center"
