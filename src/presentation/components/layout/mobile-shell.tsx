@@ -12,10 +12,11 @@ interface MobileShellProps {
 	preview: ReactNode;
 }
 
-// Bottom-sheet stops: a peek toolbar, a mid "style + export" stage, and a full editor.
+// Bottom-sheet stops: a peek toolbar, a mid "style + export" stage, and the full editor.
 const PEEK = "128px";
-const SNAP_POINTS: (number | string)[] = [PEEK, 0.62, 0.96];
+const MID = 0.62;
 const FULL = 0.96;
+const SNAP_POINTS: (number | string)[] = [PEEK, MID, FULL];
 
 /**
  * Mobile / tablet workspace (below lg). The live preview owns the screen and a
@@ -26,7 +27,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const [snap, setSnap] = useState<number | string | null>(PEEK);
 	const title = useSnippetStore((s) => s.snippet.title);
 	const hasSteps = useSnippetStore((s) => s.snippet.steps.length >= 2);
-	const isFull = snap === FULL;
+	const isPeek = snap === PEEK;
 
 	return (
 		<div className="flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -61,9 +62,10 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 							{hasSteps && <ExportButton />}
 						</div>
 
-						{/* Content scrolls only at the top snap; otherwise the handle resizes. */}
+						{/* Scrollable as soon as the sheet is expanded; clipped at the peek so only
+						    the toolbar shows. handleOnly keeps this scroll from fighting the drag. */}
 						<div
-							className={`min-h-0 flex-1 ${isFull ? "overflow-y-auto overscroll-contain" : "overflow-hidden"}`}
+							className={`min-h-0 flex-1 ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
 						>
 							<motion.div
 								className="flex flex-col gap-6 pt-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
@@ -71,6 +73,11 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 								animate={{ opacity: 1 }}
 								transition={{ duration: 0.2 }}
 							>
+								{/* Style first — its changes are live in the preview above at the mid snap. */}
+								<SheetSection label="Style">
+									<SettingsStrip />
+								</SheetSection>
+
 								{hasSteps && (
 									<SheetSection label="Export">
 										<div className="flex flex-wrap items-center gap-2 px-5">
@@ -78,10 +85,6 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 										</div>
 									</SheetSection>
 								)}
-
-								<SheetSection label="Style">
-									<SettingsStrip />
-								</SheetSection>
 
 								<SheetSection label="Steps">
 									<div className="px-5">{stepBuilder}</div>

@@ -130,8 +130,10 @@ export function StepBuilder() {
 			)}
 
 			{/* -m-1 p-1: a 4px "bleed" so the hover-lift and drop ring aren't clipped by
-			    the scroll container's overflow, at zero layout cost (cards stay aligned). */}
-			<div className="-m-1 flex max-h-48 flex-col gap-1 overflow-y-auto p-1">
+			    the scroll container's overflow, at zero layout cost (cards stay aligned).
+			    Cap + scroll only on desktop; in the mobile sheet the list flows into the
+			    sheet's own scroll instead of nesting a second scroll region. */}
+			<div className="-m-1 flex flex-col gap-1 p-1 lg:max-h-48 lg:overflow-y-auto">
 				{steps.map((step, index) => (
 					<motion.div
 						key={step.id}
