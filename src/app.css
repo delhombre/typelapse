@@ -5,15 +5,51 @@
 @theme {
 	--font-sans: "Inter", system-ui, sans-serif;
 	--font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+	/* One restrained accent — used only for focus + a hint of primary emphasis. */
+	--color-accent: oklch(0.62 0.19 268);
+
+	/* Strong custom easings — the built-in CSS curves are too weak. */
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+	--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+html {
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
 }
 
 * {
 	scrollbar-width: thin;
-	scrollbar-color: oklch(0.3 0 0) transparent;
+	scrollbar-color: color-mix(in oklch, currentColor 18%, transparent) transparent;
 }
 
 ::selection {
-	background: oklch(0.6 0.15 250 / 0.3);
+	background: oklch(0.62 0.19 268 / 0.28);
+}
+
+/* Crafted focus — only for keyboard users, in the accent color. */
+:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* Reduced motion: keep opacity/color, drop movement (Apple's guidance). */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+	.bg-animate-playing {
+		animation: none !important;
+	}
 }
 
 /* Progress bar glow */
