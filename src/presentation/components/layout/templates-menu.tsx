@@ -41,7 +41,7 @@ export function TemplatesMenu() {
 				}`}
 			>
 				<GridIcon />
-				Templates
+				<span className="hidden sm:inline">Templates</span>
 			</motion.button>
 
 			<AnimatePresence>

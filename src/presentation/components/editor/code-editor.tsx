@@ -138,7 +138,7 @@ export function CodeEditor() {
 					))}
 				</select>
 			</div>
-			<div className="min-h-0 flex-1 overflow-hidden rounded-xl border border-neutral-200/70 dark:border-neutral-800">
+			<div className="min-h-[260px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800">
 				<Editor
 					value={snippet.code}
 					language={snippet.language}
