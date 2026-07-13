@@ -1,3 +1,4 @@
+import { MESH_PRESETS, type MeshPreset } from "@/application/backgrounds/mesh-gradient";
 import { springs } from "@/presentation/motion";
 import { motion } from "motion/react";
 
@@ -60,36 +61,78 @@ interface BackgroundPickerProps {
 	onSelect: (value: string) => void;
 }
 
+/** Static swatch approximating an animated mesh preset. */
+function meshSwatch(preset: MeshPreset): string {
+	const [a, b, c] = preset.blobs;
+	return `radial-gradient(circle at 25% 25%, ${a?.color ?? preset.accent}, transparent 60%), radial-gradient(circle at 75% 70%, ${c?.color ?? b?.color ?? preset.accent}, transparent 60%), ${preset.base}`;
+}
+
 export function BackgroundPicker({ selected, onSelect }: BackgroundPickerProps) {
 	return (
 		<div className="flex items-center gap-1.5">
-			{BACKGROUND_PRESETS.map((preset) => {
-				const isSelected = selected === preset.value;
+			{MESH_PRESETS.map((preset) => {
+				const value = `mesh:${preset.id}`;
 				return (
-					<motion.button
-						key={preset.name}
-						type="button"
-						onClick={() => onSelect(preset.value)}
-						whileTap={{ scale: 0.9 }}
-						whileHover={{ scale: 1.15 }}
-						transition={springs.snappy}
-						className="relative flex items-center justify-center"
-						title={preset.name}
-					>
-						{isSelected && (
-							<motion.div
-								layoutId="bg-ring"
-								className="absolute size-6 ring-[1.5px] ring-neutral-900 dark:ring-neutral-200"
-								transition={springs.snappy}
-							/>
-						)}
-						<div
-							className="size-4 border border-black/8 dark:border-white/10"
-							style={{ background: preset.preview }}
-						/>
-					</motion.button>
+					<Swatch
+						key={value}
+						title={`${preset.label} (animated)`}
+						preview={meshSwatch(preset)}
+						animated
+						isSelected={selected === value}
+						onSelect={() => onSelect(value)}
+					/>
 				);
 			})}
+
+			<div className="mx-0.5 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+
+			{BACKGROUND_PRESETS.map((preset) => (
+				<Swatch
+					key={preset.name}
+					title={preset.name}
+					preview={preset.preview}
+					isSelected={selected === preset.value}
+					onSelect={() => onSelect(preset.value)}
+				/>
+			))}
 		</div>
+	);
+}
+
+function Swatch({
+	title,
+	preview,
+	isSelected,
+	onSelect,
+	animated = false,
+}: {
+	title: string;
+	preview: string;
+	isSelected: boolean;
+	onSelect: () => void;
+	animated?: boolean;
+}) {
+	return (
+		<motion.button
+			type="button"
+			onClick={onSelect}
+			whileTap={{ scale: 0.9 }}
+			whileHover={{ scale: 1.15 }}
+			transition={springs.snappy}
+			className="relative flex items-center justify-center"
+			title={title}
+		>
+			{isSelected && (
+				<motion.div
+					layoutId="bg-ring"
+					className="absolute size-6 ring-[1.5px] ring-neutral-900 dark:ring-neutral-200"
+					transition={springs.snappy}
+				/>
+			)}
+			<div
+				className={`size-4 border border-black/8 dark:border-white/10 ${animated ? "rounded-full" : ""}`}
+				style={{ background: preview }}
+			/>
+		</motion.button>
 	);
 }

@@ -1,20 +1,36 @@
+import { buildTimeline, locate } from "@/application/magic-move/timeline";
 import { Snippet } from "@/domain/entities/snippet";
 import { Step } from "@/domain/entities/step";
 import { Theme } from "@/domain/entities/theme";
 import type { HighlighterPort } from "@/domain/ports/highlighter.port";
+import {
+	type MagicMovePlan,
+	buildMagicMovePlan,
+} from "@/infrastructure/highlighting/magic-move-keyer";
+import { resolveShikiLanguage } from "@/infrastructure/highlighting/shiki-registry";
+import type { Highlighter } from "shiki";
 import { create } from "zustand";
+
+/** Where playback currently sits: holding on a step, or morphing between two. */
+export interface PlaybackState {
+	phase: "hold" | "transition";
+	index: number;
+	t: number;
+}
 
 interface SnippetState {
 	snippet: Snippet;
-	highlightedHtml: string;
-	isHighlighting: boolean;
 
-	// Steps & playback
-	stepFrames: string[];
+	/** Laid-out magic-move frames + transitions for the current steps (or live code). */
+	plan: MagicMovePlan | null;
+	isBuilding: boolean;
+
+	// Playback
 	currentStepIndex: number;
 	isPlaying: boolean;
 	isPreparing: boolean;
-	playbackProgress: number; // 0-1 overall progress
+	playbackProgress: number;
+	playback: PlaybackState | null;
 
 	// Background
 	background: string;
@@ -38,14 +54,15 @@ interface SnippetState {
 	setTheme: (theme: Theme) => void;
 	setFont: (fontFamily: string) => void;
 	setBorderRadius: (borderRadius: number) => void;
-	refreshHighlight: () => Promise<void>;
+
+	/** Re-tokenize the effective codes and rebuild the magic-move plan. */
+	rebuildPlan: () => Promise<void>;
 
 	// Step management
 	captureStep: (duration?: number) => void;
 	removeStep: (stepId: string) => void;
 	updateStepDuration: (stepId: string, duration: number) => void;
 	reorderSteps: (orderedIds: string[]) => void;
-	highlightAllSteps: () => Promise<void>;
 
 	// Playback
 	setCurrentStepIndex: (index: number) => void;
@@ -57,25 +74,19 @@ interface SnippetState {
 	importFromJson: (json: string) => void;
 }
 
-let highlighterInstance: HighlighterPort | null = null;
-let playbackTimer: ReturnType<typeof setTimeout> | null = null;
-
-// Raw Shiki highlighter for shiki-magic-move (set alongside the adapter)
-// biome-ignore lint/suspicious/noExplicitAny: Raw Shiki Highlighter type varies between versions
-let rawShikiHighlighter: any = null;
+let rawShikiHighlighter: Highlighter | null = null;
+let rafId: number | null = null;
 
 export function setHighlighter(highlighter: HighlighterPort) {
-	highlighterInstance = highlighter;
-	// Extract raw Shiki instance if available
 	if ("getRawHighlighter" in highlighter) {
-		(highlighter as { getRawHighlighter: () => Promise<unknown> }).getRawHighlighter().then((h) => {
-			rawShikiHighlighter = h;
-		});
+		(highlighter as { getRawHighlighter: () => Promise<Highlighter> })
+			.getRawHighlighter()
+			.then((h) => {
+				rawShikiHighlighter = h;
+				return useSnippetStore.getState().rebuildPlan();
+			})
+			.catch(() => undefined);
 	}
-}
-
-export function getRawShikiHighlighter() {
-	return rawShikiHighlighter;
 }
 
 const DEFAULT_CODE = `function greet(name: string) {
@@ -88,61 +99,40 @@ function rebuildSnippet(
 	snippet: Snippet,
 	overrides: Partial<{ title: string; code: string; language: string; theme: Theme }>,
 ): Snippet {
-	const base = {
+	let updated = Snippet.create({
 		title: overrides.title ?? snippet.title,
 		code: overrides.code ?? snippet.code,
 		language: overrides.language ?? snippet.language,
 		theme: overrides.theme ?? snippet.theme,
 		renderConfig: snippet.renderConfig,
-	};
-	let updated = Snippet.create(base);
+	});
 	for (const step of snippet.steps) {
 		updated = updated.addStep(step);
 	}
 	return updated;
 }
 
-function clearTimers() {
-	if (playbackTimer) {
-		clearTimeout(playbackTimer);
-		playbackTimer = null;
+function cancelRaf() {
+	if (rafId !== null) {
+		cancelAnimationFrame(rafId);
+		rafId = null;
 	}
 }
 
-/** Advance to next step — Magic Move handles the visual transition */
-function scheduleNextStep(
-	stepIndex: number,
-	totalSteps: number,
-	steps: readonly Step[],
-	get: () => SnippetState,
-	set: (partial: Partial<SnippetState>) => void,
-) {
-	if (!get().isPlaying || stepIndex >= totalSteps) {
-		set({
-			isPlaying: false,
-			currentStepIndex: totalSteps - 1,
-			playbackProgress: 1,
-		});
+/** The codes the plan animates over: the captured steps, or the live code. */
+function effectiveCodes(snippet: Snippet): string[] {
+	return snippet.steps.length > 0 ? snippet.steps.map((s) => s.code) : [snippet.code];
+}
+
+async function ensureLanguageLoaded(language: string): Promise<void> {
+	const highlighter = rawShikiHighlighter;
+	if (!highlighter) {
 		return;
 	}
-
-	const step = steps[stepIndex];
-	if (!step) {
-		return;
+	const lang = resolveShikiLanguage(language);
+	if (lang !== "text" && !highlighter.getLoadedLanguages().includes(lang)) {
+		await highlighter.loadLanguage(lang as Parameters<Highlighter["loadLanguage"]>[0]);
 	}
-
-	set({
-		currentStepIndex: stepIndex,
-		playbackProgress: stepIndex / Math.max(totalSteps - 1, 1),
-	});
-
-	// Hold on current step for its duration, then advance
-	playbackTimer = setTimeout(() => {
-		if (!get().isPlaying) {
-			return;
-		}
-		scheduleNextStep(stepIndex + 1, totalSteps, steps, get, set);
-	}, step.duration);
 }
 
 export const useSnippetStore = create<SnippetState>((set, get) => ({
@@ -151,14 +141,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		code: DEFAULT_CODE,
 		language: "typescript",
 	}),
-	highlightedHtml: "",
-	isHighlighting: false,
-	stepFrames: [],
+	plan: null,
+	isBuilding: true,
 	currentStepIndex: 0,
 	isPlaying: false,
 	isPreparing: false,
 	playbackProgress: 0,
-	background: "radial-gradient(ellipse at 30% 20%, #1e3a5f 0%, #0d1117 50%, #0a0e14 100%)",
+	playback: null,
+	background: "mesh:aurora",
 
 	framePadding: 24,
 
@@ -183,62 +173,63 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	setCode: (code: string) => {
-		const { snippet } = get();
-		set({ snippet: rebuildSnippet(snippet, { code }) });
-		get().refreshHighlight();
+		set({ snippet: rebuildSnippet(get().snippet, { code }) });
+		get().rebuildPlan();
 	},
 
 	setLanguage: (language: string) => {
-		const { snippet } = get();
-		set({ snippet: rebuildSnippet(snippet, { language }) });
-		get().refreshHighlight();
-		get().highlightAllSteps();
+		set({ snippet: rebuildSnippet(get().snippet, { language }) });
+		get().rebuildPlan();
 	},
 
 	setTitle: (title: string) => {
-		const { snippet } = get();
-		set({ snippet: rebuildSnippet(snippet, { title }) });
+		set({ snippet: rebuildSnippet(get().snippet, { title }) });
 	},
 
 	setTheme: (theme: Theme) => {
-		const { snippet } = get();
-		set({ snippet: rebuildSnippet(snippet, { theme }) });
-		get().refreshHighlight();
-		get().highlightAllSteps();
+		set({ snippet: rebuildSnippet(get().snippet, { theme }) });
+		get().rebuildPlan();
 	},
 
 	setFont: (fontFamily: string) => {
-		const { snippet } = get();
-		const newTheme = Theme.create({ ...snippet.theme, fontFamily });
-		set({ snippet: rebuildSnippet(snippet, { theme: newTheme }) });
+		const newTheme = Theme.create({ ...get().snippet.theme, fontFamily });
+		set({ snippet: rebuildSnippet(get().snippet, { theme: newTheme }) });
 	},
 
 	setBorderRadius: (borderRadius: number) => {
-		const { snippet } = get();
-		const newTheme = Theme.create({ ...snippet.theme, borderRadius });
-		set({ snippet: rebuildSnippet(snippet, { theme: newTheme }) });
+		const newTheme = Theme.create({ ...get().snippet.theme, borderRadius });
+		set({ snippet: rebuildSnippet(get().snippet, { theme: newTheme }) });
 	},
 
-	refreshHighlight: async () => {
-		if (!highlighterInstance) {
+	rebuildPlan: async () => {
+		if (!rawShikiHighlighter) {
 			return;
 		}
 		const { snippet } = get();
-		set({ isHighlighting: true });
-		const html = await highlighterInstance.highlight(
-			snippet.code,
+		set({ isBuilding: true });
+		await ensureLanguageLoaded(snippet.language);
+		if (!rawShikiHighlighter) {
+			return;
+		}
+		const plan = buildMagicMovePlan(
+			rawShikiHighlighter,
+			effectiveCodes(snippet),
 			snippet.language,
 			snippet.theme.name,
 		);
-		set({ highlightedHtml: html, isHighlighting: false });
+		const maxIndex = Math.max(0, plan.frames.length - 1);
+		set({
+			plan,
+			isBuilding: false,
+			currentStepIndex: Math.min(get().currentStepIndex, maxIndex),
+		});
 	},
 
 	captureStep: (duration?: number) => {
 		const { snippet } = get();
 		const step = Step.create({ code: snippet.code, duration });
-		const updated = snippet.addStep(step);
-		set({ snippet: updated });
-		get().highlightAllSteps();
+		set({ snippet: snippet.addStep(step), currentStepIndex: snippet.steps.length });
+		get().rebuildPlan();
 	},
 
 	removeStep: (stepId: string) => {
@@ -246,15 +237,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		const updated = snippet.removeStep(stepId);
 		const newIndex = Math.min(currentStepIndex, Math.max(0, updated.steps.length - 1));
 		set({ snippet: updated, currentStepIndex: newIndex });
-		get().highlightAllSteps();
+		get().rebuildPlan();
 	},
 
 	updateStepDuration: (stepId: string, duration: number) => {
 		const { snippet } = get();
 		const stepIndex = snippet.steps.findIndex((s) => s.id === stepId);
-		if (stepIndex === -1) {
-			return;
-		}
 		const oldStep = snippet.steps[stepIndex];
 		if (!oldStep) {
 			return;
@@ -265,15 +253,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			highlightRanges: [...oldStep.highlightRanges],
 			annotation: oldStep.annotation,
 		});
-		const updated = snippet.removeStep(stepId);
-		const steps = [...updated.steps];
-		steps.splice(stepIndex, 0, newStep);
+		const steps = [...snippet.steps];
+		steps.splice(stepIndex, 1, newStep);
 		let rebuilt = Snippet.create({
-			title: updated.title,
-			code: updated.code,
-			language: updated.language,
-			theme: updated.theme,
-			renderConfig: updated.renderConfig,
+			title: snippet.title,
+			code: snippet.code,
+			language: snippet.language,
+			theme: snippet.theme,
+			renderConfig: snippet.renderConfig,
 		});
 		for (const s of steps) {
 			rebuilt = rebuilt.addStep(s);
@@ -282,24 +269,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	reorderSteps: (orderedIds: string[]) => {
-		const { snippet } = get();
-		const updated = snippet.reorderSteps(orderedIds);
-		set({ snippet: updated });
-		get().highlightAllSteps();
-	},
-
-	highlightAllSteps: async () => {
-		if (!highlighterInstance) {
-			return;
-		}
-		const { snippet } = get();
-		const highlighter = highlighterInstance;
-		const frames = await Promise.all(
-			snippet.steps.map((step) =>
-				highlighter.highlight(step.code, snippet.language, snippet.theme.name),
-			),
-		);
-		set({ stepFrames: frames });
+		set({ snippet: get().snippet.reorderSteps(orderedIds) });
+		get().rebuildPlan();
 	},
 
 	setCurrentStepIndex: (index: number) => {
@@ -307,35 +278,55 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	play: async () => {
-		const { snippet, stepFrames } = get();
+		const { snippet } = get();
 		if (snippet.steps.length < 2) {
 			return;
 		}
+		cancelRaf();
 
-		clearTimers();
-
-		// Ensure step frames are highlighted
-		if (stepFrames.length !== snippet.steps.length && highlighterInstance) {
+		if (!get().plan || get().isBuilding) {
 			set({ isPreparing: true });
-			await get().highlightAllSteps();
-			if (!get().isPreparing) {
-				return;
-			}
+			await get().rebuildPlan();
 		}
 
-		set({
-			isPreparing: false,
-			isPlaying: true,
-			currentStepIndex: 0,
-			playbackProgress: 0,
-		});
+		const timeline = buildTimeline(snippet.steps.map((s) => s.duration));
+		const start = performance.now();
 
-		scheduleNextStep(0, snippet.steps.length, snippet.steps, get, set);
+		set({ isPreparing: false, isPlaying: true, currentStepIndex: 0, playbackProgress: 0 });
+
+		const tick = () => {
+			if (!get().isPlaying) {
+				return;
+			}
+			const elapsed = performance.now() - start;
+			const pos = locate(timeline, elapsed);
+			const activeIndex = pos.phase === "transition" && pos.t >= 0.5 ? pos.index + 1 : pos.index;
+
+			set({
+				playback: { phase: pos.phase, index: pos.index, t: pos.t },
+				currentStepIndex: activeIndex,
+				playbackProgress: pos.progress,
+			});
+
+			if (elapsed >= timeline.totalMs) {
+				set({
+					isPlaying: false,
+					playback: null,
+					currentStepIndex: snippet.steps.length - 1,
+					playbackProgress: 1,
+				});
+				rafId = null;
+				return;
+			}
+			rafId = requestAnimationFrame(tick);
+		};
+
+		rafId = requestAnimationFrame(tick);
 	},
 
 	pause: () => {
-		clearTimers();
-		set({ isPlaying: false, isPreparing: false });
+		cancelRaf();
+		set({ isPlaying: false, isPreparing: false, playback: null });
 	},
 
 	exportToJson: () => {
@@ -346,10 +337,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			language: snippet.language,
 			themeName: snippet.theme.name,
 			background,
-			steps: snippet.steps.map((step) => ({
-				code: step.code,
-				duration: step.duration,
-			})),
+			steps: snippet.steps.map((step) => ({ code: step.code, duration: step.duration })),
 		};
 		return JSON.stringify(data, null, 2);
 	},
@@ -394,13 +382,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		if (!themeFactory) {
 			throw new Error(`Unknown theme '${obj.themeName}'`);
 		}
-		const theme = themeFactory();
 
 		let snippet = Snippet.create({
 			title: obj.title,
 			code: obj.code,
 			language: obj.language,
-			theme,
+			theme: themeFactory(),
 		});
 
 		if (Array.isArray(obj.steps)) {
@@ -413,22 +400,22 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 					throw new Error("Each step must have a non-empty 'code'");
 				}
 				const duration = typeof s.duration === "number" ? s.duration : undefined;
-				const step = Step.create({ code: s.code, duration });
-				snippet = snippet.addStep(step);
+				snippet = snippet.addStep(Step.create({ code: s.code, duration }));
 			}
 		}
 
 		const background = typeof obj.background === "string" ? obj.background : get().background;
 
+		cancelRaf();
 		set({
 			snippet,
 			background,
 			currentStepIndex: 0,
 			isPlaying: false,
+			playback: null,
 			playbackProgress: 0,
 		});
 
-		get().refreshHighlight();
-		get().highlightAllSteps();
+		get().rebuildPlan();
 	},
 }));

@@ -1,5 +1,6 @@
 import type { RenderFormat } from "@/domain/entities/render-config";
 import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download.adapter";
+import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
 import { create } from "zustand";
 import { useSnippetStore } from "./snippet.store";
 
@@ -17,10 +18,16 @@ interface ExportState {
 	width: number;
 	height: number;
 	fps: number;
+	loop: boolean;
+	typewriter: boolean;
+	progressStyle: ProgressStyle;
 
 	setFormat: (format: RenderFormat) => void;
 	setResolution: (width: number, height: number) => void;
 	setFps: (fps: number) => void;
+	setLoop: (loop: boolean) => void;
+	setTypewriter: (typewriter: boolean) => void;
+	setProgressStyle: (style: ProgressStyle) => void;
 
 	/** Export via Remotion backend */
 	exportVideo: () => Promise<void>;
@@ -41,10 +48,16 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	width: 1920,
 	height: 1080,
 	fps: 60,
+	loop: false,
+	typewriter: false,
+	progressStyle: "reels",
 
 	setFormat: (format) => set({ format }),
 	setResolution: (width, height) => set({ width, height }),
 	setFps: (fps) => set({ fps }),
+	setLoop: (loop) => set({ loop }),
+	setTypewriter: (typewriter) => set({ typewriter }),
+	setProgressStyle: (progressStyle) => set({ progressStyle }),
 
 	exportVideo: async () => {
 		const snippetState = useSnippetStore.getState();
@@ -55,7 +68,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			return;
 		}
 
-		const { format, width, height, fps } = get();
+		const { format, width, height, fps, loop, typewriter, progressStyle } = get();
 
 		set({
 			isExporting: true,
@@ -85,6 +98,9 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				height,
 				fps,
 				format,
+				loop,
+				typewriter,
+				progressStyle,
 				watermark: watermark || undefined,
 			};
 
