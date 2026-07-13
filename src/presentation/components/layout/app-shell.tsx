@@ -167,7 +167,7 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 				>
 					<div className="flex min-h-0 flex-1 flex-col">{preview}</div>
 
-					<div className="shrink-0 border-t border-neutral-200/70 bg-white/70 backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/50">
+					<div className="shrink-0 border-t border-neutral-200/70 bg-white/70 shadow-[inset_0_1px_0_rgb(255_255_255/0.6)] backdrop-blur backdrop-saturate-150 dark:border-neutral-800/70 dark:bg-neutral-950/50 dark:shadow-[inset_0_1px_0_rgb(255_255_255/0.05)]">
 						<SettingsStrip />
 					</div>
 				</motion.main>

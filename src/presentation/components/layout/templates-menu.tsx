@@ -55,10 +55,12 @@ export function TemplatesMenu() {
 							onClick={() => setOpen(false)}
 						/>
 						<motion.div
-							initial={{ opacity: 0, scale: 0.96, y: -4 }}
-							animate={{ opacity: 1, scale: 1, y: 0 }}
-							exit={{ opacity: 0, scale: 0.97, y: -4 }}
-							transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+							// Materialize, don't just fade: blur + scale settle together so the
+							// surface reads as a real material arriving (Apple, §12).
+							initial={{ opacity: 0, scale: 0.96, y: -4, filter: "blur(4px)" }}
+							animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+							exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
+							transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
 							style={{ transformOrigin: "top left" }}
 							className="absolute left-0 top-full z-50 mt-2 w-60 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
 						>

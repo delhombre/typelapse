@@ -52,6 +52,22 @@ html {
 	}
 }
 
+/* Reduced transparency: drop the frosted-glass blur on material surfaces. */
+/* biome-ignore lint/correctness/noUnknownMediaFeatureName: prefers-reduced-transparency is a valid Media Queries Level 5 feature */
+@media (prefers-reduced-transparency: reduce) {
+	* {
+		backdrop-filter: none !important;
+	}
+}
+
+/* Higher contrast: make the keyboard focus ring more prominent. */
+@media (prefers-contrast: more) {
+	:focus-visible {
+		outline-width: 3px;
+		outline-offset: 3px;
+	}
+}
+
 /* Progress bar glow */
 @keyframes progress-glow {
 	0%,
