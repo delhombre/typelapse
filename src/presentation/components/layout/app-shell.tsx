@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ExportBar } from "../settings/export-bar";
 import { SettingsStrip } from "../settings/settings-panel";
+import { TemplatesMenu } from "./templates-menu";
 
 interface AppShellProps {
 	editor: ReactNode;
@@ -105,11 +106,14 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 
 			{/* ── Nav bar ── */}
 			<nav className="flex h-14 shrink-0 items-center justify-between border-b border-neutral-200/70 bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 dark:border-neutral-800/70 dark:bg-neutral-950/70">
-				<div className="flex items-center gap-2.5">
-					<div className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
-						<LogoGlyph />
+				<div className="flex items-center gap-4">
+					<div className="flex items-center gap-2.5">
+						<div className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+							<LogoGlyph />
+						</div>
+						<span className="text-sm font-semibold tracking-tight">Typelapse</span>
 					</div>
-					<span className="text-sm font-semibold tracking-tight">Typelapse</span>
+					<TemplatesMenu />
 				</div>
 				<div className="flex items-center gap-1">
 					<NavButton onClick={handleImport} title="Import JSON">
