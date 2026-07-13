@@ -140,7 +140,7 @@ export function CodeEditor() {
 			</div>
 			<div className="min-h-0 flex-1 overflow-hidden border border-neutral-200 dark:border-neutral-800">
 				<Editor
-					defaultValue={snippet.code}
+					value={snippet.code}
 					language={snippet.language}
 					theme={editorTheme}
 					onChange={handleChange}
