@@ -1,4 +1,7 @@
-/** Shared types between server and Remotion composition */
+/** Shared types between the server and the Remotion composition. */
+
+import type { MagicMovePlan } from "../../src/application/magic-move/engine";
+import type { ProgressStyle } from "../../src/presentation/components/preview/reels-progress";
 
 export interface StepData {
 	code: string;
@@ -22,10 +25,16 @@ export interface RenderInput {
 	steps: StepData[];
 	background: string;
 	framePadding: number;
-	/** Pre-highlighted HTML for each step */
-	stepHtmlFrames: string[];
-	/** Duration of crossfade transition between steps in video frames */
-	transitionDurationFrames: number;
-	/** Optional watermark text overlay */
+	/** Laid-out magic-move frames + transitions, precomputed server-side. */
+	plan: MagicMovePlan;
+	/** Morph duration between steps, in milliseconds. */
+	transitionMs: number;
+	/** Append a transition from the last step back to the first for seamless looping. */
+	loop: boolean;
+	/** Type the first step out character by character before the animation. */
+	typewriter: boolean;
+	/** Progress indicator style baked over the video. */
+	progressStyle: ProgressStyle;
+	/** Optional watermark text overlay. */
 	watermark?: string;
 }
