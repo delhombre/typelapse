@@ -101,6 +101,5 @@ function tokenStyle(token: RenderToken, lineHeight: number): CSSProperties {
 		fontStyle: token.fontStyle && token.fontStyle & 1 ? "italic" : undefined,
 		fontWeight: token.fontStyle && token.fontStyle & 2 ? 700 : undefined,
 		textDecoration: token.fontStyle && token.fontStyle & 4 ? "underline" : undefined,
-		willChange: "transform, opacity",
 	};
 }

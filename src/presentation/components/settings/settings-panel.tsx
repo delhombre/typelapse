@@ -96,7 +96,7 @@ function ThemePicker() {
 						key={t.name}
 						type="button"
 						onClick={() => setTheme(t.factory())}
-						whileTap={{ scale: 0.9 }}
+						whileTap={{ scale: 0.96 }}
 						whileHover={{ scale: 1.15 }}
 						transition={springs.snappy}
 						className="relative flex items-center justify-center"
@@ -127,7 +127,7 @@ function SyncToggle() {
 		<motion.button
 			type="button"
 			onClick={() => setSyncEditorTheme(!syncEditorTheme)}
-			whileTap={{ scale: 0.9 }}
+			whileTap={{ scale: 0.96 }}
 			transition={springs.snappy}
 			className={`flex size-6 shrink-0 items-center justify-center rounded-lg border transition-colors ${
 				syncEditorTheme
@@ -172,7 +172,7 @@ function RadiusPicker({ selected, onSelect }: { selected: number; onSelect: (v: 
 						key={value}
 						type="button"
 						onClick={() => onSelect(value)}
-						whileTap={{ scale: 0.9 }}
+						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
 						className={`relative flex size-5 items-center justify-center transition-colors ${
 							isSelected
@@ -221,7 +221,7 @@ function PaddingPicker({
 						key={value}
 						type="button"
 						onClick={() => onSelect(value)}
-						whileTap={{ scale: 0.9 }}
+						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
 						className={`rounded-md px-2 py-1 text-[10px] font-medium tabular-nums transition-colors ${
 							isSelected

@@ -67,19 +67,21 @@ html {
 	animation: progress-glow 2s ease-in-out infinite;
 }
 
-/* Code frame premium glow — layered shadows for depth */
+/* Code frame — a pure-black hairline outline + layered shadows for depth. */
 .code-frame-glow {
 	box-shadow:
-		0 0 0 1px oklch(0.3 0 0 / 0.08),
+		0 0 0 1px oklch(0 0 0 / 0.1),
 		0 1px 2px oklch(0 0 0 / 0.06),
 		0 4px 12px -2px oklch(0 0 0 / 0.12),
 		0 12px 36px -8px oklch(0 0 0 / 0.16),
 		0 24px 60px -12px oklch(0 0 0 / 0.1);
 }
 
+/* Dark: a pure-white hairline + a bright top inner edge (light on the material). */
 :where(.dark) .code-frame-glow {
 	box-shadow:
-		0 0 0 1px oklch(1 0 0 / 0.04),
+		inset 0 1px 0 oklch(1 0 0 / 0.06),
+		0 0 0 1px oklch(1 0 0 / 0.1),
 		0 1px 2px oklch(0 0 0 / 0.3),
 		0 4px 12px -2px oklch(0 0 0 / 0.4),
 		0 12px 36px -8px oklch(0 0 0 / 0.5),

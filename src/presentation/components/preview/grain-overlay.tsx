@@ -13,6 +13,9 @@ export function GrainOverlay({ opacity = 0.28 }: { opacity?: number }) {
 			style={{
 				position: "absolute",
 				inset: 0,
+				// Match the parent's rounding so the square noise tile never pokes
+				// past a rounded card's corners.
+				borderRadius: "inherit",
 				pointerEvents: "none",
 				backgroundImage: NOISE,
 				backgroundSize: "160px 160px",

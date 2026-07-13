@@ -30,7 +30,7 @@ export function PlaybackControls() {
 				type="button"
 				onClick={isPlaying || isPreparing ? pause : play}
 				disabled={totalSteps < 2}
-				whileTap={{ scale: 0.9 }}
+				whileTap={{ scale: 0.96 }}
 				whileHover={{ scale: 1.05 }}
 				transition={springs.snappy}
 				className={`flex size-9 items-center justify-center rounded-full disabled:opacity-40 ${

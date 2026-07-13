@@ -105,7 +105,8 @@ export function LivePreview() {
 					style={{
 						opacity: isBuilding ? 0.85 : 1,
 						padding: isTransparent ? 0 : 32,
-						borderRadius: isTransparent ? 0 : Math.max(0, snippet.theme.borderRadius + 8),
+						// Concentric with the 32px padding: outer radius = inner radius + gap.
+						borderRadius: isTransparent ? 0 : snippet.theme.borderRadius + 32,
 						background: isMesh ? parseMeshBackground(background)?.base : undefined,
 					}}
 				>

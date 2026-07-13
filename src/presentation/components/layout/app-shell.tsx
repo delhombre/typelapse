@@ -232,7 +232,7 @@ function NavButton({
 		<motion.button
 			type="button"
 			onClick={onClick}
-			whileTap={{ scale: 0.94 }}
+			whileTap={{ scale: 0.96 }}
 			transition={springs.snappy}
 			className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
 				active
