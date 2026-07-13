@@ -1,0 +1,292 @@
+/**
+ * Magic-move animation engine — pure, dependency-free.
+ *
+ * Given syntax-highlighted tokens for two code frames (with stable keys already
+ * assigned by the differ), it computes a deterministic, frame-perfect morph:
+ * shared tokens glide to their new position, removed tokens fade out and new
+ * tokens fade in. The same engine drives the on-screen preview (via a timer)
+ * and the exported video (via Remotion's frame counter), guaranteeing WYSIWYG.
+ *
+ * Positions are expressed in monospace grid units — `line` (rows) and `col`
+ * (character columns). Renderers convert them to CSS with `1ch` per column and
+ * a fixed line-height per row, so no DOM measurement is ever required.
+ */
+
+/** A highlighted token before layout — `offset` is its index into the frame code. */
+export interface RawToken {
+	key: string;
+	content: string;
+	offset: number;
+	/** Shiki color, e.g. `#e6edf3`. */
+	color?: string;
+	/** Shiki FontStyle bitmask: 1 = italic, 2 = bold, 4 = underline. */
+	fontStyle?: number;
+}
+
+/** A token placed on the monospace grid. */
+export interface LaidOutToken {
+	key: string;
+	content: string;
+	line: number;
+	col: number;
+	color?: string;
+	fontStyle?: number;
+}
+
+/** A token ready to paint, with interpolated position and opacity. */
+export interface RenderToken {
+	key: string;
+	content: string;
+	line: number;
+	col: number;
+	opacity: number;
+	color?: string;
+	fontStyle?: number;
+}
+
+/** A laid-out code frame, ready to render statically. */
+export interface LaidOutFrame {
+	tokens: LaidOutToken[];
+	lineCount: number;
+}
+
+/** A morph between two adjacent frames with keys synced so shared tokens glide. */
+export interface FrameTransition {
+	from: LaidOutToken[];
+	to: LaidOutToken[];
+}
+
+/** A token laid out for typewriter reveal — keeps its start index in the source. */
+export interface TypedToken {
+	key: string;
+	content: string;
+	line: number;
+	col: number;
+	color?: string;
+	fontStyle?: number;
+	/** Character index of this token's first glyph in the source code. */
+	startChar: number;
+}
+
+/**
+ * Everything a renderer needs to play a timeline: one laid-out frame per step
+ * and one transition per adjacent pair. Serializable, so the server can compute
+ * it once and hand it to Remotion via inputProps.
+ */
+export interface MagicMovePlan {
+	frames: LaidOutFrame[];
+	transitions: FrameTransition[];
+	/** Optional morph from the last frame back to the first, for seamless looping. */
+	loopTransition?: FrameTransition;
+	/** First frame laid out for typewriter intro (keeps whitespace + start indices). */
+	typing?: TypedToken[];
+}
+
+export interface MagicMoveTiming {
+	/** Easing applied to positional moves. Defaults to easeInOutQuart (smooth). */
+	moveEase?: (t: number) => number;
+	/** Easing applied to the entering fade. Defaults to easeOutCubic. */
+	enterEase?: (t: number) => number;
+	/** Progress by which shared tokens have finished gliding. Default 0.62. */
+	moveDuration?: number;
+	/** Progress by which leaving tokens have fully faded out. Default 0.34. */
+	leaveEnd?: number;
+	/** Progress at which entering tokens begin to fade in. Default 0.6. */
+	enterStart?: number;
+	/**
+	 * Fraction of the move window spread across moving tokens in reading order,
+	 * so they cascade slightly rather than slide in perfect lockstep. Default 0.12.
+	 */
+	stagger?: number;
+}
+
+/**
+ * Two-beat timing: existing tokens glide to their final spots first, then the
+ * new tokens fade in once the space is clear. This avoids tokens crossing each
+ * other mid-transition, which is what reads as "busy" instead of smooth.
+ */
+const DEFAULT_TIMING: Required<MagicMoveTiming> = {
+	moveEase: easeInOutQuart,
+	enterEase: easeOutCubic,
+	moveDuration: 0.62,
+	leaveEnd: 0.34,
+	enterStart: 0.6,
+	stagger: 0.12,
+};
+
+export function easeInOutCubic(t: number): number {
+	return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
+}
+
+export function easeInOutQuart(t: number): number {
+	return t < 0.5 ? 8 * t * t * t * t : 1 - (-2 * t + 2) ** 4 / 2;
+}
+
+export function easeOutCubic(t: number): number {
+	return 1 - (1 - t) ** 3;
+}
+
+export function clamp01(value: number): number {
+	if (value < 0) {
+		return 0;
+	}
+	if (value > 1) {
+		return 1;
+	}
+	return value;
+}
+
+function lerp(from: number, to: number, t: number): number {
+	return from + (to - from) * t;
+}
+
+/**
+ * Place tokens on the monospace grid by walking the source once, tracking the
+ * visual column (tabs advance to the next tab stop). Whitespace-only tokens are
+ * dropped — they never paint and only add nodes to animate.
+ */
+export function layoutFrame(code: string, tokens: RawToken[], tabSize = 2): LaidOutToken[] {
+	const positions = buildPositionIndex(code, tabSize);
+	const result: LaidOutToken[] = [];
+
+	for (const token of tokens) {
+		if (isBlank(token.content)) {
+			continue;
+		}
+		const pos = positions[clampIndex(token.offset, positions.length)];
+		if (!pos) {
+			continue;
+		}
+		result.push({
+			key: token.key,
+			content: token.content,
+			line: pos.line,
+			col: pos.col,
+			color: token.color,
+			fontStyle: token.fontStyle,
+		});
+	}
+
+	return result;
+}
+
+/** Number of rows a frame occupies (1-based line count). */
+export function frameLineCount(code: string): number {
+	let lines = 1;
+	for (let i = 0; i < code.length; i++) {
+		if (code[i] === "\n") {
+			lines++;
+		}
+	}
+	return lines;
+}
+
+/** Render a single frame with no animation — every token fully opaque. */
+export function renderStatic(tokens: LaidOutToken[]): RenderToken[] {
+	return tokens.map((token) => ({ ...token, opacity: 1 }));
+}
+
+/**
+ * Interpolate between two laid-out frames at progress `t` (0 → from, 1 → to).
+ * Two beats: leaving tokens fade out and shared tokens glide to their final
+ * positions first; entering tokens then fade in once the space is clear, so
+ * nothing crosses mid-transition. At t=0 the result equals `from`, at t=1 `to`.
+ */
+export function renderTransition(
+	from: LaidOutToken[],
+	to: LaidOutToken[],
+	t: number,
+	timing: MagicMoveTiming = {},
+): RenderToken[] {
+	const { moveEase, enterEase, moveDuration, leaveEnd, enterStart, stagger } = {
+		...DEFAULT_TIMING,
+		...timing,
+	};
+	const progress = clamp01(t);
+	const fromByKey = new Map(from.map((token) => [token.key, token]));
+	const toByKey = new Map(to.map((token) => [token.key, token]));
+	const result: RenderToken[] = [];
+
+	const movedCount = from.reduce((n, token) => (toByKey.has(token.key) ? n + 1 : n), 0);
+	let movedIndex = 0;
+
+	// Moved (shared) and leaving tokens.
+	for (const token of from) {
+		const target = toByKey.get(token.key);
+		if (target) {
+			const delay = movedCount > 1 ? stagger * (movedIndex / (movedCount - 1)) : 0;
+			movedIndex++;
+			// Glide finishes by `moveDuration`, staggered by reading order.
+			const window = Math.max(0.0001, moveDuration - delay);
+			const moveT = moveEase(clamp01((progress - delay) / window));
+			result.push({
+				key: token.key,
+				content: target.content,
+				line: lerp(token.line, target.line, moveT),
+				col: lerp(token.col, target.col, moveT),
+				opacity: 1,
+				color: target.color,
+				fontStyle: target.fontStyle,
+			});
+		} else {
+			const fade = 1 - easeOutCubic(clamp01(progress / leaveEnd));
+			result.push({ ...token, opacity: fade });
+		}
+	}
+
+	// Entering tokens — fade in at their final position after the glide.
+	for (const token of to) {
+		if (fromByKey.has(token.key)) {
+			continue;
+		}
+		const span = Math.max(0.0001, 1 - enterStart);
+		const fade = enterEase(clamp01((progress - enterStart) / span));
+		result.push({ ...token, opacity: fade });
+	}
+
+	return result;
+}
+
+export interface GridPosition {
+	line: number;
+	col: number;
+}
+
+/** Monospace (line, col) for every character index in `code` (length + 1 entries). */
+export function gridPositions(code: string, tabSize = 2): GridPosition[] {
+	return buildPositionIndex(code, tabSize);
+}
+
+function buildPositionIndex(code: string, tabSize: number): GridPosition[] {
+	const positions: GridPosition[] = new Array(code.length + 1);
+	let line = 0;
+	let col = 0;
+	for (let i = 0; i < code.length; i++) {
+		positions[i] = { line, col };
+		const char = code[i];
+		if (char === "\n") {
+			line++;
+			col = 0;
+		} else if (char === "\t") {
+			col += tabSize - (col % tabSize);
+		} else {
+			col++;
+		}
+	}
+	positions[code.length] = { line, col };
+	return positions;
+}
+
+function clampIndex(index: number, length: number): number {
+	if (index < 0) {
+		return 0;
+	}
+	if (index >= length) {
+		return length - 1;
+	}
+	return index;
+}
+
+function isBlank(content: string): boolean {
+	return content.trim().length === 0;
+}
