@@ -1,12 +1,23 @@
+import { MESH_PRESETS } from "@/application/backgrounds/mesh-gradient";
 import { Logomark } from "@/presentation/components/ui/logomark";
-import { motion } from "motion/react";
+import { motion, useReducedMotion, useSpring } from "motion/react";
+import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import { StudioShowcase } from "./studio-showcase";
 
 const GITHUB_URL = "https://github.com/delhombre/typelapse";
-const EASE: [number, number, number, number] = [0.23, 1, 0.32, 1];
+const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-/** Marketing landing at `/`. The product is the pitch: a real, live studio shot. */
+const THEME_SWATCHES = [
+	{ name: "aurora", bg: "#1a1b2e" },
+	{ name: "midnight", bg: "#0d1117" },
+	{ name: "dracula", bg: "#282a36" },
+	{ name: "one-dark", bg: "#282c34" },
+	{ name: "catppuccin", bg: "#1e1e2e" },
+	{ name: "nord", bg: "#2e3440" },
+];
+
+/** Marketing landing at `/`. The product is the pitch: a real, live, playable studio. */
 export function LandingPage() {
 	return (
 		<div className="dark relative flex min-h-dvh flex-col overflow-x-clip bg-[#08080d] font-sans text-neutral-300 antialiased">
@@ -24,7 +35,7 @@ export function LandingPage() {
 
 function Nav() {
 	return (
-		<header className="sticky top-0 z-50 border-white/5 border-b bg-[#08080d]/70 backdrop-blur-xl">
+		<header className="sticky top-0 z-50 border-white/5 border-b bg-[#08080d]/60 backdrop-blur-xl">
 			<div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
 				<a href="/" className="flex items-center gap-2.5">
 					<span className="flex size-7 items-center justify-center rounded-lg bg-white text-neutral-900">
@@ -42,12 +53,14 @@ function Nav() {
 					>
 						<GithubIcon />
 					</a>
-					<Link
-						to="/app"
-						className="flex h-9 items-center gap-1.5 rounded-xl bg-white px-4 font-semibold text-neutral-900 text-sm transition hover:bg-neutral-200"
-					>
-						Open studio
-					</Link>
+					<Magnetic>
+						<Link
+							to="/app"
+							className="flex h-9 items-center gap-1.5 rounded-xl bg-white px-4 font-semibold text-neutral-900 text-sm transition hover:bg-neutral-200"
+						>
+							Open studio
+						</Link>
+					</Magnetic>
 				</div>
 			</div>
 		</header>
@@ -57,48 +70,52 @@ function Nav() {
 /* ──────────── Hero ──────────── */
 
 function Hero() {
+	const [themeName, setThemeName] = useState("aurora");
+	const [presetId, setPresetId] = useState("aurora");
+	const accent = MESH_PRESETS.find((p) => p.id === presetId)?.accent ?? "#7c5cf0";
+
 	return (
 		<section className="relative isolate mx-auto w-full max-w-6xl px-6 pt-16 pb-20 sm:pt-24">
-			<div
+			{/* Ambient glow — breathes, and takes the colour of the live background. */}
+			<motion.div
 				aria-hidden="true"
-				className="-z-10 -translate-x-1/2 pointer-events-none absolute top-0 left-1/2 h-[420px] w-[820px] max-w-full blur-[130px]"
+				className="-z-10 -translate-x-1/2 pointer-events-none absolute top-0 left-1/2 h-[460px] w-[880px] max-w-full rounded-full blur-[140px]"
+				animate={{ opacity: [0.55, 0.8, 0.55], scale: [1, 1.06, 1] }}
+				transition={{ duration: 9, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
 				style={{
-					background:
-						"radial-gradient(50% 60% at 50% 30%, rgba(124,92,246,0.22), transparent 72%), radial-gradient(40% 50% at 70% 60%, rgba(6,182,212,0.12), transparent 72%)",
+					background: `radial-gradient(50% 60% at 50% 35%, ${accent}55, transparent 70%), radial-gradient(40% 50% at 68% 60%, ${accent}33, transparent 72%)`,
 				}}
 			/>
 
 			<div className="mx-auto max-w-3xl text-center">
-				<motion.h1
-					initial={{ opacity: 0, y: 14 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.7, ease: EASE }}
-					className="text-balance font-bold text-4xl text-white leading-[1.08] tracking-tight sm:text-6xl"
-				>
-					Your code, in motion.
-				</motion.h1>
+				<h1 className="font-bold text-5xl text-white leading-[1.02] tracking-tight sm:text-7xl">
+					<RevealLine delay={0.04}>Your code,</RevealLine>
+					<RevealLine delay={0.12}>in motion.</RevealLine>
+				</h1>
 				<motion.p
-					initial={{ opacity: 0, y: 14 }}
+					initial={{ opacity: 0, y: 12 }}
 					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.7, ease: EASE, delay: 0.08 }}
-					className="mx-auto mt-5 max-w-xl text-pretty text-lg text-neutral-400 leading-relaxed"
+					transition={{ duration: 0.8, ease: EASE, delay: 0.3 }}
+					className="mx-auto mt-6 max-w-xl text-pretty text-lg text-neutral-400 leading-relaxed"
 				>
 					A studio that morphs snippets into video — token by token. The preview and the export run
 					the same engine, so what you see is what you ship.
 				</motion.p>
 				<motion.div
-					initial={{ opacity: 0, y: 14 }}
+					initial={{ opacity: 0, y: 12 }}
 					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.7, ease: EASE, delay: 0.16 }}
-					className="mt-8 flex items-center justify-center gap-4"
+					transition={{ duration: 0.8, ease: EASE, delay: 0.38 }}
+					className="mt-9 flex items-center justify-center gap-4"
 				>
-					<Link
-						to="/app"
-						className="group flex h-12 items-center gap-2 rounded-2xl bg-accent px-6 font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_10px_30px_-8px_var(--color-accent)] transition hover:brightness-110"
-					>
-						Open the studio
-						<ArrowIcon />
-					</Link>
+					<Magnetic>
+						<Link
+							to="/app"
+							className="group flex h-12 items-center gap-2 rounded-2xl bg-accent px-6 font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_10px_30px_-8px_var(--color-accent)] transition hover:brightness-110"
+						>
+							Open the studio
+							<ArrowIcon />
+						</Link>
+					</Magnetic>
 					<a
 						href={GITHUB_URL}
 						target="_blank"
@@ -110,22 +127,123 @@ function Hero() {
 				</motion.div>
 			</div>
 
-			{/* The studio — live. */}
+			{/* The studio — live, tilts to the cursor, restyled in real time. */}
 			<motion.div
-				initial={{ opacity: 0, y: 32, filter: "blur(10px)" }}
+				initial={{ opacity: 0, y: 36, filter: "blur(12px)" }}
 				animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-				transition={{ duration: 1, ease: EASE, delay: 0.2 }}
+				transition={{ duration: 1.1, ease: EASE, delay: 0.34 }}
 				className="mx-auto mt-16 max-w-5xl"
 			>
-				<StudioShowcase />
+				<Tilt>
+					<StudioShowcase themeName={themeName} presetId={presetId} />
+				</Tilt>
 			</motion.div>
+
+			<Restyler
+				presetId={presetId}
+				themeName={themeName}
+				onPreset={setPresetId}
+				onTheme={setThemeName}
+			/>
 
 			<CapabilityStrip />
 		</section>
 	);
 }
 
-/* ──────────── Capabilities (factual, not a bento) ──────────── */
+/* ──────────── Live restyler ──────────── */
+
+function Restyler({
+	presetId,
+	themeName,
+	onPreset,
+	onTheme,
+}: {
+	presetId: string;
+	themeName: string;
+	onPreset: (id: string) => void;
+	onTheme: (name: string) => void;
+}) {
+	return (
+		<motion.div
+			initial={{ opacity: 0 }}
+			animate={{ opacity: 1 }}
+			transition={{ duration: 0.8, ease: EASE, delay: 0.7 }}
+			className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-3"
+		>
+			<span className="font-mono text-[11px] text-neutral-500">restyle it live</span>
+			<div className="flex items-center gap-2">
+				{MESH_PRESETS.map((p) => (
+					<Swatch
+						key={p.id}
+						group="bg"
+						title={p.label}
+						selected={presetId === p.id}
+						onClick={() => onPreset(p.id)}
+						preview={`linear-gradient(135deg, ${p.blobs[0]?.color ?? p.accent}, ${p.blobs[2]?.color ?? p.accent})`}
+					/>
+				))}
+			</div>
+			<span className="h-4 w-px bg-white/10" />
+			<div className="flex items-center gap-2">
+				{THEME_SWATCHES.map((t) => (
+					<Swatch
+						key={t.name}
+						group="theme"
+						title={t.name}
+						selected={themeName === t.name}
+						onClick={() => onTheme(t.name)}
+						preview={t.bg}
+						square
+					/>
+				))}
+			</div>
+		</motion.div>
+	);
+}
+
+function Swatch({
+	group,
+	title,
+	selected,
+	onClick,
+	preview,
+	square = false,
+}: {
+	group: string;
+	title: string;
+	selected: boolean;
+	onClick: () => void;
+	preview: string;
+	square?: boolean;
+}) {
+	return (
+		<motion.button
+			type="button"
+			onClick={onClick}
+			whileHover={{ scale: 1.18 }}
+			whileTap={{ scale: 0.9 }}
+			transition={{ type: "spring", stiffness: 400, damping: 22 }}
+			className="relative flex items-center justify-center"
+			title={title}
+			aria-label={`${group} ${title}`}
+		>
+			{selected && (
+				<motion.span
+					layoutId={`swatch-ring-${group}`}
+					className={`absolute size-6 ring-2 ring-white ${square ? "rounded-[7px]" : "rounded-full"}`}
+					transition={{ type: "spring", stiffness: 400, damping: 30 }}
+				/>
+			)}
+			<span
+				className={`size-4 border border-white/10 ${square ? "rounded-[5px]" : "rounded-full"}`}
+				style={{ background: preview }}
+			/>
+		</motion.button>
+	);
+}
+
+/* ──────────── Capabilities ──────────── */
 
 const CAPABILITIES = [
 	["Export", "MP4 · WebM · GIF · PNG"],
@@ -137,11 +255,11 @@ const CAPABILITIES = [
 function CapabilityStrip() {
 	return (
 		<motion.div
-			initial={{ opacity: 0 }}
-			whileInView={{ opacity: 1 }}
-			viewport={{ once: true }}
-			transition={{ duration: 0.6, ease: EASE }}
-			className="mx-auto mt-16 grid max-w-5xl grid-cols-2 gap-x-8 gap-y-6 border-white/5 border-t pt-10 md:grid-cols-4"
+			initial={{ opacity: 0, y: 16 }}
+			whileInView={{ opacity: 1, y: 0 }}
+			viewport={{ once: true, margin: "-60px" }}
+			transition={{ duration: 0.7, ease: EASE }}
+			className="mx-auto mt-20 grid max-w-5xl grid-cols-2 gap-x-8 gap-y-6 border-white/5 border-t pt-10 md:grid-cols-4"
 		>
 			{CAPABILITIES.map(([label, value]) => (
 				<div key={label}>
@@ -185,6 +303,85 @@ function Footer() {
 				</div>
 			</div>
 		</footer>
+	);
+}
+
+/* ──────────── Motion helpers ──────────── */
+
+/** A line that springs up from behind a mask on mount. */
+function RevealLine({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
+	return (
+		<span className="block overflow-hidden pb-[0.12em]">
+			<motion.span
+				className="block"
+				initial={{ y: "115%" }}
+				animate={{ y: "0%" }}
+				transition={{ duration: 1, ease: EASE, delay }}
+			>
+				{children}
+			</motion.span>
+		</span>
+	);
+}
+
+/** Subtle 3D tilt toward the cursor; flattens on leave. Disabled for reduced motion. */
+function Tilt({ children }: { children: ReactNode }) {
+	const reduce = useReducedMotion();
+	const rx = useSpring(0, { stiffness: 140, damping: 18 });
+	const ry = useSpring(0, { stiffness: 140, damping: 18 });
+
+	if (reduce) {
+		return <>{children}</>;
+	}
+
+	return (
+		<div
+			style={{ perspective: 1400 }}
+			onMouseMove={(e) => {
+				const r = e.currentTarget.getBoundingClientRect();
+				const px = (e.clientX - r.left) / r.width - 0.5;
+				const py = (e.clientY - r.top) / r.height - 0.5;
+				ry.set(px * 7);
+				rx.set(-py * 5);
+			}}
+			onMouseLeave={() => {
+				rx.set(0);
+				ry.set(0);
+			}}
+		>
+			<motion.div style={{ rotateX: rx, rotateY: ry, transformStyle: "preserve-3d" }}>
+				{children}
+			</motion.div>
+		</div>
+	);
+}
+
+/** Nudges its child toward the cursor on hover. Disabled for reduced motion. */
+function Magnetic({ children }: { children: ReactNode }) {
+	const reduce = useReducedMotion();
+	const x = useSpring(0, { stiffness: 200, damping: 15 });
+	const y = useSpring(0, { stiffness: 200, damping: 15 });
+
+	if (reduce) {
+		return <>{children}</>;
+	}
+
+	return (
+		<motion.div
+			className="inline-flex"
+			style={{ x, y }}
+			onMouseMove={(e) => {
+				const r = e.currentTarget.getBoundingClientRect();
+				x.set((e.clientX - (r.left + r.width / 2)) * 0.25);
+				y.set((e.clientY - (r.top + r.height / 2)) * 0.4);
+			}}
+			onMouseLeave={() => {
+				x.set(0);
+				y.set(0);
+			}}
+		>
+			{children}
+		</motion.div>
 	);
 }
 

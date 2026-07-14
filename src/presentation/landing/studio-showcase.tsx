@@ -17,10 +17,19 @@ import { MagicMoveCanvas } from "@/presentation/components/preview/magic-move-ca
 import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-size-container";
 import { springs } from "@/presentation/motion";
 import { motion } from "motion/react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 const LINE_HEIGHT_RATIO = 1.6;
 const FRAME_PADDING = 20;
+
+const THEMES: Record<string, () => Theme> = {
+	midnight: Theme.midnight,
+	aurora: Theme.aurora,
+	dracula: Theme.dracula,
+	"one-dark": Theme.oneDark,
+	catppuccin: Theme.catppuccin,
+	nord: Theme.nord,
+};
 
 const DEMO_FRAMES = [
 	`export async function GET(req) {
@@ -38,7 +47,6 @@ const DEMO_FRAMES = [
 ];
 const LOOP_CODES = [...DEMO_FRAMES, DEMO_FRAMES[0] ?? ""];
 const HOLDS = [1300, 1500, 2200, 800];
-const PRESET = MESH_PRESETS.find((p) => p.id === "aurora") ?? MESH_PRESETS[0];
 
 interface DemoView {
 	tokens: RenderToken[];
@@ -76,8 +84,22 @@ function resolveView(plan: MagicMovePlan, pos: ReturnType<typeof locate>): DemoV
  * product parts — Shiki highlighting on the left, the shared magic-move engine
  * and canvas morphing on the right. Not a mock; it renders live and loops.
  */
-export function StudioShowcase() {
-	const theme = useRef(Theme.aurora()).current;
+export function StudioShowcase({
+	themeName = "aurora",
+	presetId = "aurora",
+}: {
+	themeName?: string;
+	presetId?: string;
+}) {
+	const theme = useMemo(() => (THEMES[themeName] ?? Theme.aurora)(), [themeName]);
+	const preset = useMemo(
+		() => MESH_PRESETS.find((p) => p.id === presetId) ?? MESH_PRESETS[0],
+		[presetId],
+	);
+	// The rAF loop reads the live preset from a ref, so switching the background
+	// recolors the mesh without tearing down and restarting the animation.
+	const presetRef = useRef(preset);
+	presetRef.current = preset;
 	const meshRef = useRef<HTMLDivElement>(null);
 	const [view, setView] = useState<DemoView | null>(null);
 	const [activeIndex, setActiveIndex] = useState(0);
@@ -105,8 +127,9 @@ export function StudioShowcase() {
 		let cancelled = false;
 		const lastSig = { current: "" };
 
-		if (PRESET && meshRef.current) {
-			meshRef.current.style.background = meshGradientCss(PRESET, 0);
+		const initialPreset = presetRef.current;
+		if (meshRef.current && initialPreset) {
+			meshRef.current.style.background = meshGradientCss(initialPreset, 0);
 		}
 
 		shikiAdapter
@@ -140,8 +163,9 @@ export function StudioShowcase() {
 						setActiveIndex(editorIndex);
 						setProgress(pos.progress);
 					}
-					if (PRESET && meshRef.current) {
-						meshRef.current.style.background = meshGradientCss(PRESET, now / 1000);
+					const livePreset = presetRef.current;
+					if (meshRef.current && livePreset) {
+						meshRef.current.style.background = meshGradientCss(livePreset, now / 1000);
 					}
 					raf = requestAnimationFrame(tick);
 				};
