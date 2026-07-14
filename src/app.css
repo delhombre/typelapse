@@ -145,3 +145,18 @@ html {
 	text-align: right;
 	color: color-mix(in oklch, currentColor 22%, transparent);
 }
+
+/* Landing gallery marquee — a seamless horizontal loop (track holds two copies). */
+@keyframes marquee {
+	from {
+		transform: translateX(0);
+	}
+	to {
+		transform: translateX(-50%);
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.animate-marquee {
+		animation: none !important;
+	}
+}
