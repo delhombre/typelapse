@@ -1,3 +1,4 @@
+import { Logomark } from "@/presentation/components/ui/logomark";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
 import { StudioShowcase } from "./studio-showcase";
@@ -9,6 +10,7 @@ const EASE: [number, number, number, number] = [0.23, 1, 0.32, 1];
 export function LandingPage() {
 	return (
 		<div className="dark relative flex min-h-dvh flex-col overflow-x-clip bg-[#08080d] font-sans text-neutral-300 antialiased">
+			<Noise />
 			<Nav />
 			<main className="flex-1">
 				<Hero />
@@ -26,7 +28,7 @@ function Nav() {
 			<div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
 				<a href="/" className="flex items-center gap-2.5">
 					<span className="flex size-7 items-center justify-center rounded-lg bg-white text-neutral-900">
-						<LogoGlyph />
+						<Logomark size={16} />
 					</span>
 					<span className="font-semibold text-sm text-white tracking-tight">Typelapse</span>
 				</a>
@@ -161,7 +163,7 @@ function Footer() {
 			<div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
 				<div className="flex items-center gap-2.5">
 					<span className="flex size-6 items-center justify-center rounded-md bg-white text-neutral-900">
-						<LogoGlyph small />
+						<Logomark size={13} />
 					</span>
 					<span className="font-semibold text-sm text-white">Typelapse</span>
 					<span className="ml-2 font-mono text-neutral-600 text-xs">timelapse for code</span>
@@ -186,28 +188,21 @@ function Footer() {
 	);
 }
 
-/* ──────────── Icons ──────────── */
-
-function LogoGlyph({ small = false }: { small?: boolean }) {
-	const s = small ? 13 : 15;
+/** Faint film grain over the whole page — adds premium depth to the flat dark. */
+function Noise() {
 	return (
-		<svg
-			width={s}
-			height={s}
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			role="img"
-		>
-			<title>Typelapse</title>
-			<polyline points="9 8 5 12 9 16" />
-			<polyline points="15 8 19 12 15 16" />
-		</svg>
+		<div
+			aria-hidden="true"
+			className="pointer-events-none fixed inset-0 z-[100] opacity-[0.04] mix-blend-overlay"
+			style={{
+				backgroundImage:
+					"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+			}}
+		/>
 	);
 }
+
+/* ──────────── Icons ──────────── */
 
 function ArrowIcon() {
 	return (

@@ -156,7 +156,7 @@ export function StudioShowcase() {
 	}, [theme.name]);
 
 	return (
-		<div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0b0b12] shadow-[0_40px_120px_-30px_rgb(0_0_0/0.8)]">
+		<div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#101019] to-[#0a0a11] shadow-[inset_0_1px_0_0_rgb(255_255_255/0.07),0_40px_120px_-30px_rgb(0_0_0/0.85)]">
 			{/* Window chrome */}
 			<div className="flex items-center gap-2 border-b border-white/5 px-4 py-3">
 				<span className="size-3 rounded-full bg-[#ff5f57]" />
