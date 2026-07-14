@@ -3,6 +3,7 @@ import { Logomark } from "@/presentation/components/ui/logomark";
 import { motion, useReducedMotion, useSpring } from "motion/react";
 import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
+import { StaticFrame } from "./static-frame";
 import { StudioShowcase } from "./studio-showcase";
 
 const GITHUB_URL = "https://github.com/delhombre/typelapse";
@@ -25,6 +26,9 @@ export function LandingPage() {
 			<Nav />
 			<main className="flex-1">
 				<Hero />
+				<Gallery />
+				<HowItWorks />
+				<CtaSection />
 			</main>
 			<Footer />
 		</div>
@@ -273,32 +277,209 @@ function CapabilityStrip() {
 	);
 }
 
+/* ──────────── Gallery marquee ──────────── */
+
+const GALLERY = [
+	{
+		themeName: "aurora",
+		presetId: "aurora",
+		language: "typescript",
+		title: "api/users.ts",
+		meshTime: 2,
+		code: "export async function GET() {\n  return Response.json(users)\n}",
+	},
+	{
+		themeName: "dracula",
+		presetId: "nebula",
+		language: "typescript",
+		title: "store.ts",
+		meshTime: 5,
+		code: "export const useStore = create((set) => ({\n  count: 0,\n}))",
+	},
+	{
+		themeName: "catppuccin",
+		presetId: "ember",
+		language: "python",
+		title: "main.py",
+		meshTime: 8,
+		code: 'def greet(name: str) -> str:\n    return f"Hello, {name}"',
+	},
+	{
+		themeName: "nord",
+		presetId: "ocean",
+		language: "typescript",
+		title: "pipe.ts",
+		meshTime: 11,
+		code: "const result = pipe(\n  data, filter, map,\n)",
+	},
+	{
+		themeName: "frost",
+		presetId: "aurora",
+		language: "json",
+		title: "package.json",
+		meshTime: 6,
+		code: '{\n  "name": "typelapse",\n  "type": "module"\n}',
+	},
+	{
+		themeName: "one-dark",
+		presetId: "forest",
+		language: "typescript",
+		title: "route.ts",
+		meshTime: 14,
+		code: 'app.get("/health", (c) =>\n  c.json({ ok: true })\n)',
+	},
+];
+
+function Gallery() {
+	return (
+		<section className="py-24 sm:py-32">
+			<div className="mx-auto w-full max-w-6xl px-6">
+				<SectionHeader
+					eyebrow="Beautiful by default"
+					title="Every theme. Every backdrop."
+					sub="Seven editor themes and animated mesh backgrounds — the same snippet, dressed however you like."
+				/>
+			</div>
+			<div className="group relative mt-14 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_7%,black_93%,transparent)]">
+				<div className="flex w-max animate-marquee gap-5 [animation:marquee_55s_linear_infinite] group-hover:[animation-play-state:paused]">
+					{[...GALLERY, ...GALLERY].map((g, i) => (
+						<div key={`${g.title}-${i}`} className="w-[288px] shrink-0">
+							<StaticFrame {...g} className="h-[188px]" />
+						</div>
+					))}
+				</div>
+			</div>
+		</section>
+	);
+}
+
+/* ──────────── How it works ──────────── */
+
+const STEPS = [
+	{
+		n: "01",
+		title: "Paste your code",
+		body: "Drop in a snippet, pick a language and a theme. The preview lights up instantly.",
+	},
+	{
+		n: "02",
+		title: "Capture steps",
+		body: "Edit, then capture. Each snapshot becomes a frame the engine morphs between.",
+	},
+	{
+		n: "03",
+		title: "Export & share",
+		body: "Render to MP4, WebM or GIF in the aspect you need, then drop it anywhere.",
+	},
+];
+
+function HowItWorks() {
+	return (
+		<section className="border-white/5 border-y bg-white/[0.015]">
+			<div className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-32">
+				<SectionHeader eyebrow="Three steps" title="Snippet to video in a minute." />
+				<div className="mt-14 grid gap-10 md:grid-cols-3">
+					{STEPS.map((s, i) => (
+						<Reveal key={s.n} delay={i * 0.08}>
+							<span className="font-mono text-accent text-sm">{s.n}</span>
+							<div className="mt-3 h-px w-full bg-gradient-to-r from-white/15 to-transparent" />
+							<h3 className="mt-5 font-semibold text-lg text-white">{s.title}</h3>
+							<p className="mt-2 text-pretty text-neutral-400 text-sm leading-relaxed">{s.body}</p>
+						</Reveal>
+					))}
+				</div>
+			</div>
+		</section>
+	);
+}
+
+/* ──────────── Final CTA ──────────── */
+
+function CtaSection() {
+	return (
+		<section className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-32">
+			<Reveal className="relative isolate overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.03] px-6 py-20 text-center">
+				<div
+					aria-hidden="true"
+					className="-z-10 pointer-events-none absolute inset-0"
+					style={{
+						background:
+							"radial-gradient(50% 80% at 50% 0%, rgba(124,92,246,0.22), transparent 70%)",
+					}}
+				/>
+				<h2 className="mx-auto max-w-2xl text-balance font-bold text-4xl text-white tracking-tight sm:text-5xl">
+					Make your code move.
+				</h2>
+				<p className="mx-auto mt-4 max-w-md text-pretty text-neutral-400">
+					Open the studio and export your first animation in under a minute — no account needed.
+				</p>
+				<div className="mt-8 flex justify-center">
+					<Magnetic>
+						<Link
+							to="/app"
+							className="group flex h-12 items-center gap-2 rounded-2xl bg-accent px-7 font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_10px_30px_-8px_var(--color-accent)] transition hover:brightness-110"
+						>
+							Open the studio
+							<ArrowIcon />
+						</Link>
+					</Magnetic>
+				</div>
+			</Reveal>
+		</section>
+	);
+}
+
+function SectionHeader({
+	eyebrow,
+	title,
+	sub,
+}: {
+	eyebrow: string;
+	title: string;
+	sub?: string;
+}) {
+	return (
+		<Reveal className="mx-auto max-w-2xl text-center">
+			<span className="font-mono text-[11px] text-accent uppercase tracking-[0.2em]">
+				{eyebrow}
+			</span>
+			<h2 className="mt-4 text-balance font-bold text-3xl text-white tracking-tight sm:text-4xl">
+				{title}
+			</h2>
+			{sub && <p className="mt-4 text-pretty text-neutral-400 leading-relaxed">{sub}</p>}
+		</Reveal>
+	);
+}
+
 /* ──────────── Footer ──────────── */
 
 function Footer() {
 	return (
 		<footer className="border-white/5 border-t">
-			<div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
-				<div className="flex items-center gap-2.5">
-					<span className="flex size-6 items-center justify-center rounded-md bg-white text-neutral-900">
-						<Logomark size={13} />
-					</span>
-					<span className="font-semibold text-sm text-white">Typelapse</span>
-					<span className="ml-2 font-mono text-neutral-600 text-xs">timelapse for code</span>
+			<div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-8 px-6 py-14 md:grid-cols-4">
+				<div className="col-span-2 md:col-span-2">
+					<div className="flex items-center gap-2.5">
+						<span className="flex size-7 items-center justify-center rounded-lg bg-white text-neutral-900">
+							<Logomark size={16} />
+						</span>
+						<span className="font-semibold text-sm text-white">Typelapse</span>
+					</div>
+					<p className="mt-4 max-w-xs text-pretty text-neutral-500 text-sm leading-relaxed">
+						A timelapse for your code. Morph snippets into video — free and open source.
+					</p>
 				</div>
-				<div className="flex items-center gap-6 text-neutral-400 text-sm">
-					<Link className="transition-colors hover:text-white" to="/app">
-						Studio
-					</Link>
-					<a
-						className="flex items-center gap-1.5 transition-colors hover:text-white"
-						href={GITHUB_URL}
-						target="_blank"
-						rel="noreferrer"
-					>
-						<GithubIcon />
-						GitHub
-					</a>
+				<FooterCol title="Product">
+					<FooterLink to="/app">Studio</FooterLink>
+					<FooterAnchor href={`${GITHUB_URL}#readme`}>Docs</FooterAnchor>
+				</FooterCol>
+				<FooterCol title="Project">
+					<FooterAnchor href={GITHUB_URL}>GitHub</FooterAnchor>
+					<FooterAnchor href={`${GITHUB_URL}/issues`}>Issues</FooterAnchor>
+				</FooterCol>
+			</div>
+			<div className="border-white/5 border-t">
+				<div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
+					<span className="font-mono text-neutral-600 text-xs">timelapse for code</span>
 					<span className="font-mono text-neutral-600 text-xs">free &amp; open source</span>
 				</div>
 			</div>
@@ -306,7 +487,60 @@ function Footer() {
 	);
 }
 
+function FooterCol({ title, children }: { title: string; children: ReactNode }) {
+	return (
+		<div className="flex flex-col gap-3">
+			<span className="font-medium text-neutral-500 text-xs uppercase tracking-wider">{title}</span>
+			{children}
+		</div>
+	);
+}
+
+function FooterLink({ to, children }: { to: string; children: ReactNode }) {
+	return (
+		<Link className="text-neutral-400 text-sm transition-colors hover:text-white" to={to}>
+			{children}
+		</Link>
+	);
+}
+
+function FooterAnchor({ href, children }: { href: string; children: ReactNode }) {
+	return (
+		<a
+			className="text-neutral-400 text-sm transition-colors hover:text-white"
+			href={href}
+			target="_blank"
+			rel="noreferrer"
+		>
+			{children}
+		</a>
+	);
+}
+
 /* ──────────── Motion helpers ──────────── */
+
+/** Fades + lifts its children in when scrolled into view (once). */
+function Reveal({
+	children,
+	className,
+	delay = 0,
+}: {
+	children: ReactNode;
+	className?: string;
+	delay?: number;
+}) {
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 20 }}
+			whileInView={{ opacity: 1, y: 0 }}
+			viewport={{ once: true, margin: "-80px" }}
+			transition={{ duration: 0.7, ease: EASE, delay }}
+			className={className}
+		>
+			{children}
+		</motion.div>
+	);
+}
 
 /** A line that springs up from behind a mask on mount. */
 function RevealLine({ children, delay = 0 }: { children: ReactNode; delay?: number }) {
