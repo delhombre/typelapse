@@ -69,15 +69,16 @@ export function StaticFrame({
 
 	return (
 		<div
-			className={`code-frame-glow relative flex items-center justify-center overflow-hidden ${className}`}
+			className={`code-frame-glow relative overflow-hidden ${className}`}
 			style={{
 				padding: meshPadding,
+				// Concentric: outer radius = inner (theme.borderRadius) + the mesh padding.
 				borderRadius: theme.borderRadius + meshPadding,
 				background: preset ? meshGradientCss(preset, meshTime) : undefined,
 			}}
 		>
 			<GrainOverlay />
-			<div className="relative z-10 w-full">
+			<div className="relative z-10">
 				<FrameShell theme={theme} title={title}>
 					<div
 						className="studio-code font-mono leading-[1.6]"
@@ -98,8 +99,12 @@ function FrameShell({
 }: { theme: Theme; title: string; children: ReactNode }) {
 	return (
 		<div
-			className="overflow-hidden rounded-xl"
-			style={{ background: theme.background, boxShadow: "0 18px 44px -20px rgb(0 0 0 / 0.55)" }}
+			className="overflow-hidden"
+			style={{
+				background: theme.background,
+				borderRadius: theme.borderRadius,
+				boxShadow: "0 18px 44px -20px rgb(0 0 0 / 0.55)",
+			}}
 		>
 			<div
 				className="flex items-center gap-1.5 px-3 py-2.5"

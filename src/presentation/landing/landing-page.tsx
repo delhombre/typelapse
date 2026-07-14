@@ -302,7 +302,7 @@ const GALLERY = [
 		language: "python",
 		title: "main.py",
 		meshTime: 8,
-		code: 'def greet(name: str) -> str:\n    return f"Hello, {name}"',
+		code: 'def greet(name: str) -> str:\n    msg = f"Hello, {name}"\n    return msg',
 	},
 	{
 		themeName: "nord",
@@ -318,7 +318,7 @@ const GALLERY = [
 		language: "json",
 		title: "package.json",
 		meshTime: 6,
-		code: '{\n  "name": "typelapse",\n  "type": "module"\n}',
+		code: '{\n  "name": "typelapse"\n}',
 	},
 	{
 		themeName: "one-dark",
@@ -343,8 +343,8 @@ function Gallery() {
 			<div className="group relative mt-14 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_7%,black_93%,transparent)]">
 				<div className="flex w-max animate-marquee gap-5 [animation:marquee_55s_linear_infinite] group-hover:[animation-play-state:paused]">
 					{[...GALLERY, ...GALLERY].map((g, i) => (
-						<div key={`${g.title}-${i}`} className="w-[288px] shrink-0">
-							<StaticFrame {...g} className="h-[188px]" />
+						<div key={`${g.title}-${i}`} className="w-[292px] shrink-0">
+							<StaticFrame {...g} />
 						</div>
 					))}
 				</div>
