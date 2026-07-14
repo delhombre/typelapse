@@ -1,3 +1,4 @@
+import { Logomark } from "@/presentation/components/ui/logomark";
 import { springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
@@ -102,7 +103,7 @@ export function TopNav() {
 					title="Back to home"
 				>
 					<div className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
-						<LogoGlyph />
+						<Logomark size={16} />
 					</div>
 					<span className="text-sm font-semibold tracking-tight">Typelapse</span>
 				</Link>
@@ -163,26 +164,6 @@ function NavButton({
 }
 
 /* ──────────── Icons ──────────── */
-
-function LogoGlyph() {
-	return (
-		<svg
-			width="15"
-			height="15"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			role="img"
-		>
-			<title>Typelapse</title>
-			<polyline points="9 8 5 12 9 16" />
-			<polyline points="15 8 19 12 15 16" />
-		</svg>
-	);
-}
 
 function SunIcon() {
 	return (

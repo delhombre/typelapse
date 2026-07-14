@@ -43,48 +43,60 @@ export function MagicMoveCanvas({
 	const bodyHeight = Math.max(lineHeight, lineCount * lineHeight);
 
 	return (
-		<div style={{ display: "flex", padding, fontFamily, fontSize, lineHeight: `${lineHeight}px` }}>
-			{showLineNumbers && (
-				<div
-					aria-hidden="true"
-					style={{
-						flexShrink: 0,
-						textAlign: "right",
-						userSelect: "none",
-						color: lineNumberColor ?? `${color}33`,
-						paddingRight: fontSize,
-						minWidth: `${Math.max(2, String(gutterRows).length) + 1}ch`,
-					}}
-				>
-					{Array.from({ length: gutterRows }, (_, i) => (
-						<div key={`ln-${i + 1}`} style={{ height: lineHeight }}>
-							{String(i + 1).padStart(2, "0")}
-						</div>
-					))}
-				</div>
-			)}
-
-			<div style={{ position: "relative", flex: 1, minWidth: 0, height: bodyHeight, color }}>
-				{tokens.map((token) => (
-					<span key={token.key} style={tokenStyle(token, lineHeight)}>
-						{token.content}
-					</span>
-				))}
-				{cursor && (
-					<span
+		<div style={{ padding, fontFamily, fontSize, lineHeight: `${lineHeight}px` }}>
+			{/* Clip to the interpolated body height so the frame grows and shrinks smoothly
+			    through a morph, instead of the line-number gutter snapping it to the tallest
+			    frame. Shared by the browser preview and the Remotion video, so both match. */}
+			<div
+				style={{
+					display: "flex",
+					alignItems: "flex-start",
+					height: bodyHeight,
+					overflow: "hidden",
+				}}
+			>
+				{showLineNumbers && (
+					<div
 						aria-hidden="true"
 						style={{
-							position: "absolute",
-							left: `${cursor.col}ch`,
-							top: cursor.line * lineHeight + lineHeight * 0.14,
-							width: Math.max(1.5, fontSize * 0.09),
-							height: fontSize * 1.05,
-							borderRadius: 1,
-							background: color,
-							opacity: 0.85,
+							flexShrink: 0,
+							textAlign: "right",
+							userSelect: "none",
+							color: lineNumberColor ?? `${color}33`,
+							paddingRight: fontSize,
+							minWidth: `${Math.max(2, String(gutterRows).length) + 1}ch`,
 						}}
-					/>
+					>
+						{Array.from({ length: gutterRows }, (_, i) => (
+							<div key={`ln-${i + 1}`} style={{ height: lineHeight }}>
+								{String(i + 1).padStart(2, "0")}
+							</div>
+						))}
+					</div>
 				)}
+
+				<div style={{ position: "relative", flex: 1, minWidth: 0, height: bodyHeight, color }}>
+					{tokens.map((token) => (
+						<span key={token.key} style={tokenStyle(token, lineHeight)}>
+							{token.content}
+						</span>
+					))}
+					{cursor && (
+						<span
+							aria-hidden="true"
+							style={{
+								position: "absolute",
+								left: `${cursor.col}ch`,
+								top: cursor.line * lineHeight + lineHeight * 0.14,
+								width: Math.max(1.5, fontSize * 0.09),
+								height: fontSize * 1.05,
+								borderRadius: 1,
+								background: color,
+								opacity: 0.85,
+							}}
+						/>
+					)}
+				</div>
 			</div>
 		</div>
 	);
