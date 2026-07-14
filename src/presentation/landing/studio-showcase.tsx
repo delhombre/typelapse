@@ -14,6 +14,9 @@ import {
 } from "@/infrastructure/highlighting/magic-move-keyer";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
 import { MagicMoveCanvas } from "@/presentation/components/preview/magic-move-canvas";
+import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-size-container";
+import { springs } from "@/presentation/motion";
+import { motion } from "motion/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 const LINE_HEIGHT_RATIO = 1.6;
@@ -168,12 +171,20 @@ export function StudioShowcase() {
 				{/* Editor panel */}
 				<div className="flex flex-col overflow-hidden border-white/5 border-b p-5 md:border-r md:border-b-0">
 					<PanelLabel>Code</PanelLabel>
-					<div
-						className="studio-code mt-3 min-h-0 flex-1 overflow-hidden font-mono text-[12.5px] leading-[1.7] md:text-[13px]"
-						style={{ color: theme.foreground }}
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output from our own highlighter
-						dangerouslySetInnerHTML={{ __html: editorHtml[activeIndex] ?? "" }}
-					/>
+					{/* Spring the code block's height + fade the swap, so the editor morphs
+					    as smoothly as the preview instead of snapping between frames. */}
+					<AnimatedSizeContainer height className="mt-3" transition={springs.gentle}>
+						<motion.div
+							key={activeIndex}
+							initial={{ opacity: 0.3 }}
+							animate={{ opacity: 1 }}
+							transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+							className="studio-code font-mono text-[12.5px] leading-[1.7] md:text-[13px]"
+							style={{ color: theme.foreground }}
+							// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output from our own highlighter
+							dangerouslySetInnerHTML={{ __html: editorHtml[activeIndex] ?? "" }}
+						/>
+					</AnimatedSizeContainer>
 					<PanelLabel className="mt-5">Steps</PanelLabel>
 					<div className="mt-3 flex items-center gap-2">
 						{DEMO_FRAMES.map((_, i) => (
