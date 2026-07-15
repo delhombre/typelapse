@@ -25,6 +25,8 @@ interface StaticFrameProps {
 	meshPadding?: number;
 	framePadding?: number;
 	fontSize?: number;
+	/** Stretch the window to fill the card (aspect set via className) and centre the code. */
+	fill?: boolean;
 	className?: string;
 }
 
@@ -43,6 +45,7 @@ export function StaticFrame({
 	meshPadding = 22,
 	framePadding = 18,
 	fontSize = 12,
+	fill = false,
 	className = "",
 }: StaticFrameProps) {
 	const theme = useMemo(() => (THEMES[themeName] ?? Theme.aurora)(), [themeName]);
@@ -78,10 +81,10 @@ export function StaticFrame({
 			}}
 		>
 			<GrainOverlay />
-			<div className="relative z-10">
-				<FrameShell theme={theme} title={title}>
+			<div className={`relative z-10 ${fill ? "flex h-full w-full" : ""}`}>
+				<FrameShell theme={theme} title={title} fill={fill}>
 					<div
-						className="studio-code font-mono leading-[1.6]"
+						className={`studio-code font-mono leading-[1.6] ${fill ? "flex flex-1 items-center" : ""}`}
 						style={{ padding: framePadding, fontSize, color: theme.foreground }}
 						// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output from our own highlighter
 						dangerouslySetInnerHTML={{ __html: html }}
@@ -96,10 +99,11 @@ function FrameShell({
 	theme,
 	title,
 	children,
-}: { theme: Theme; title: string; children: ReactNode }) {
+	fill = false,
+}: { theme: Theme; title: string; children: ReactNode; fill?: boolean }) {
 	return (
 		<div
-			className="overflow-hidden"
+			className={`overflow-hidden ${fill ? "flex h-full flex-1 flex-col" : ""}`}
 			style={{
 				background: theme.background,
 				borderRadius: theme.borderRadius,
@@ -107,7 +111,7 @@ function FrameShell({
 			}}
 		>
 			<div
-				className="flex items-center gap-1.5 px-3 py-2.5"
+				className={`flex items-center gap-1.5 px-3 py-2.5 ${fill ? "shrink-0" : ""}`}
 				style={{ borderBottom: `1px solid ${theme.foreground}0f` }}
 			>
 				<div className="size-2.5 rounded-full bg-[#ff5f57]" />
