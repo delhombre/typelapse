@@ -18,6 +18,7 @@ import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-siz
 import { springs } from "@/presentation/motion";
 import { motion } from "motion/react";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { Swatch, THEME_SWATCHES } from "./restyle-swatches";
 
 const LINE_HEIGHT_RATIO = 1.6;
 const FRAME_PADDING = 20;
@@ -87,9 +88,13 @@ function resolveView(plan: MagicMovePlan, pos: ReturnType<typeof locate>): DemoV
 export function StudioShowcase({
 	themeName = "aurora",
 	presetId = "aurora",
+	onThemeChange,
+	onPresetChange,
 }: {
 	themeName?: string;
 	presetId?: string;
+	onThemeChange?: (name: string) => void;
+	onPresetChange?: (id: string) => void;
 }) {
 	const theme = useMemo(() => (THEMES[themeName] ?? Theme.aurora)(), [themeName]);
 	const preset = useMemo(
@@ -187,7 +192,7 @@ export function StudioShowcase({
 				<span className="size-3 rounded-full bg-[#febc2e]" />
 				<span className="size-3 rounded-full bg-[#28c840]" />
 				<span className="mx-auto rounded-md bg-white/5 px-3 py-1 font-mono text-[11px] text-neutral-500">
-					typelapse — studio
+					typelapse — {themeName}
 				</span>
 			</div>
 
@@ -276,6 +281,43 @@ export function StudioShowcase({
 					</div>
 				</div>
 			</div>
+
+			{/* Restyle toolbar — the window's own bottom bar recolours the live demo. */}
+			{onThemeChange && onPresetChange && (
+				<div className="flex flex-wrap items-center justify-between gap-y-2 border-white/5 border-t px-4 py-2.5">
+					<span className="font-mono text-[10px] text-neutral-600 uppercase tracking-[0.18em]">
+						restyle it live
+					</span>
+					<div className="flex items-center gap-2">
+						<div className="flex items-center gap-2">
+							{MESH_PRESETS.map((p) => (
+								<Swatch
+									key={p.id}
+									group="bg"
+									title={p.label}
+									selected={presetId === p.id}
+									onClick={() => onPresetChange(p.id)}
+									preview={`linear-gradient(135deg, ${p.blobs[0]?.color ?? p.accent}, ${p.blobs[2]?.color ?? p.accent})`}
+								/>
+							))}
+						</div>
+						<span className="h-4 w-px bg-white/10" />
+						<div className="flex items-center gap-2">
+							{THEME_SWATCHES.map((t) => (
+								<Swatch
+									key={t.name}
+									group="theme"
+									title={t.name}
+									selected={themeName === t.name}
+									onClick={() => onThemeChange(t.name)}
+									preview={t.bg}
+									square
+								/>
+							))}
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
