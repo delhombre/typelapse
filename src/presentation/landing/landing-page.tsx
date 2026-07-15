@@ -20,6 +20,7 @@ export function LandingPage() {
 			<main className="flex-1">
 				<Hero />
 				<Gallery />
+				<Formats />
 				<HowItWorks />
 				<CtaSection />
 			</main>
@@ -326,6 +327,78 @@ function Gallery() {
 	);
 }
 
+/* ──────────── Aspect-ratio formats ──────────── */
+
+const FORMATS = [
+	{
+		themeName: "catppuccin",
+		presetId: "ember",
+		title: "reel.ts",
+		badge: "9:16 · Reels & Shorts",
+		className: "aspect-[9/16] w-[216px] max-w-full",
+		meshTime: 4,
+		fontSize: 11,
+		framePadding: 16,
+		code: "const reel =\n  clip.frames\n    .map(draw)\n    .render()",
+	},
+	{
+		themeName: "dracula",
+		presetId: "nebula",
+		title: "post.ts",
+		badge: "1:1 · X & LinkedIn",
+		className: "aspect-square w-[286px] max-w-full",
+		meshTime: 9,
+		fontSize: 12,
+		framePadding: 18,
+		code: 'const post = snippet\n  .theme("dracula")\n  .png()',
+	},
+	{
+		themeName: "nord",
+		presetId: "ocean",
+		title: "demo.ts",
+		badge: "16:9 · YouTube & docs",
+		className: "aspect-video w-[420px] max-w-full",
+		meshTime: 13,
+		fontSize: 13,
+		framePadding: 20,
+		code: "export const demo = render(\n  snippet, { fps: 60 },\n)",
+	},
+];
+
+function Formats() {
+	return (
+		<section className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-32">
+			<SectionHeader
+				eyebrow="Made for every feed"
+				title="One snippet. Every format."
+				sub="Pick an aspect and the export ships ready for its platform — vertical reels, square posts, wide docs, all from the same snippet."
+			/>
+			<div className="mt-14 flex flex-wrap items-end justify-center gap-10">
+				{FORMATS.map((f, i) => (
+					<Reveal key={f.title} delay={i * 0.08}>
+						<figure>
+							<StaticFrame
+								fill
+								themeName={f.themeName}
+								presetId={f.presetId}
+								title={f.title}
+								code={f.code}
+								meshTime={f.meshTime}
+								fontSize={f.fontSize}
+								framePadding={f.framePadding}
+								className={f.className}
+							/>
+							<figcaption className="mt-3 text-center font-mono text-[11px] text-neutral-500">
+								{f.badge}
+							</figcaption>
+						</figure>
+					</Reveal>
+				))}
+			</div>
+		</section>
+	);
+}
+
 /* ──────────── How it works ──────────── */
 
 const STEPS = [
@@ -358,11 +431,78 @@ function HowItWorks() {
 							<div className="mt-3 h-px w-full bg-gradient-to-r from-white/15 to-transparent" />
 							<h3 className="mt-5 font-semibold text-lg text-white">{s.title}</h3>
 							<p className="mt-2 text-pretty text-neutral-400 text-sm leading-relaxed">{s.body}</p>
+							<StepProp n={s.n} />
 						</Reveal>
 					))}
 				</div>
 			</div>
 		</section>
+	);
+}
+
+/**
+ * A small product-vocabulary prop under each step — the actual thing that step
+ * produces: typed code with a caret, the captured steps, the exported file.
+ */
+function StepProp({ n }: { n: string }) {
+	const reduce = useReducedMotion();
+
+	if (n === "01") {
+		return (
+			<div
+				aria-hidden="true"
+				className="mt-4 inline-flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 font-mono text-[11px] text-neutral-400"
+			>
+				<span>{"function greet() {"}</span>
+				<motion.span
+					className="inline-block h-3 w-0.5 rounded-full bg-accent"
+					animate={reduce ? undefined : { opacity: [1, 0, 1] }}
+					transition={reduce ? undefined : { duration: 1.1, repeat: Number.POSITIVE_INFINITY }}
+				/>
+			</div>
+		);
+	}
+
+	if (n === "02") {
+		return (
+			<div aria-hidden="true" className="mt-4 flex items-center gap-2">
+				{["01", "02", "03"].map((c) => (
+					<span
+						key={c}
+						className={`flex h-7 items-center rounded-lg border px-2.5 font-mono text-[11px] tabular-nums ${
+							c === "02"
+								? "border-accent/40 bg-accent/15 text-accent"
+								: "border-white/10 bg-white/[0.02] text-neutral-500"
+						}`}
+					>
+						{c}
+					</span>
+				))}
+			</div>
+		);
+	}
+
+	return (
+		<div
+			aria-hidden="true"
+			className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 font-mono text-[11px] text-neutral-400"
+		>
+			<span>demo.mp4</span>
+			<svg
+				width="12"
+				height="12"
+				viewBox="0 0 24 24"
+				fill="none"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				role="img"
+			>
+				<title>Download</title>
+				<path d="M12 5v14M6 13l6 6 6-6" />
+			</svg>
+		</div>
 	);
 }
 
