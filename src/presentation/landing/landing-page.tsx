@@ -1,7 +1,9 @@
 import { MESH_PRESETS } from "@/application/backgrounds/mesh-gradient";
+import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-size-container";
 import { Logomark } from "@/presentation/components/ui/logomark";
-import { motion, useReducedMotion, useSpring } from "motion/react";
-import { type ReactNode, useState } from "react";
+import { springs } from "@/presentation/motion";
+import { AnimatePresence, motion, useReducedMotion, useSpring } from "motion/react";
+import { type ReactNode, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { StaticFrame } from "./static-frame";
 import { StudioShowcase } from "./studio-showcase";
@@ -73,6 +75,73 @@ function Nav() {
 
 /* ──────────── Hero ──────────── */
 
+/**
+ * The whole pitch in eight characters: `your-code.ts` morphs into `your-code.mp4`.
+ * The extension swaps on a timer; the pill's width springs between the two lengths.
+ */
+function PitchPill() {
+	const reduce = useReducedMotion();
+	const [ext, setExt] = useState("ts");
+
+	useEffect(() => {
+		if (reduce) {
+			return;
+		}
+		const id = setInterval(() => {
+			setExt((prev) => (prev === "ts" ? "mp4" : "ts"));
+		}, 2400);
+		return () => clearInterval(id);
+	}, [reduce]);
+
+	if (reduce) {
+		return (
+			<motion.div
+				initial={{ opacity: 0, y: 12 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={{ duration: 0.8, ease: EASE }}
+				className="mb-7 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 font-mono text-[12px] text-neutral-300"
+			>
+				<span>
+					your-code.<span className="text-accent">ts</span>
+				</span>
+				<span className="text-neutral-600">→</span>
+				<span>
+					your-code.<span className="text-accent">mp4</span>
+				</span>
+			</motion.div>
+		);
+	}
+
+	return (
+		<motion.div
+			initial={{ opacity: 0, y: 12 }}
+			animate={{ opacity: 1, y: 0 }}
+			transition={{ duration: 0.8, ease: EASE }}
+			className="mb-7 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 font-mono text-[12px] text-neutral-300"
+		>
+			<span>your-code.</span>
+			<AnimatedSizeContainer
+				width
+				transition={springs.gentle}
+				className="inline-block align-bottom"
+			>
+				<AnimatePresence mode="wait" initial={false}>
+					<motion.span
+						key={ext}
+						initial={{ opacity: 0, y: 8, filter: "blur(4px)" }}
+						animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+						exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
+						transition={{ duration: 0.45, ease: EASE }}
+						className="inline-block text-accent"
+					>
+						{ext}
+					</motion.span>
+				</AnimatePresence>
+			</AnimatedSizeContainer>
+		</motion.div>
+	);
+}
+
 function Hero() {
 	const [themeName, setThemeName] = useState("aurora");
 	const [presetId, setPresetId] = useState("aurora");
@@ -92,6 +161,7 @@ function Hero() {
 			/>
 
 			<div className="mx-auto max-w-3xl text-center">
+				<PitchPill />
 				<h1 className="font-bold text-5xl text-white leading-[1.02] tracking-tight sm:text-7xl">
 					<RevealLine delay={0.04}>Your code,</RevealLine>
 					<RevealLine delay={0.12}>in motion.</RevealLine>
