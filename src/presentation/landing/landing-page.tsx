@@ -1,4 +1,5 @@
-import { MESH_PRESETS } from "@/application/backgrounds/mesh-gradient";
+import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gradient";
+import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
 import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-size-container";
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { springs } from "@/presentation/motion";
@@ -32,8 +33,21 @@ export function LandingPage() {
 /* ──────────── Nav ──────────── */
 
 function Nav() {
+	const [scrolled, setScrolled] = useState(false);
+
+	useEffect(() => {
+		const onScroll = () => setScrolled(window.scrollY > 8);
+		onScroll();
+		window.addEventListener("scroll", onScroll, { passive: true });
+		return () => window.removeEventListener("scroll", onScroll);
+	}, []);
+
 	return (
-		<header className="sticky top-0 z-50 border-white/5 border-b bg-[#08080d]/60 backdrop-blur-xl">
+		<header
+			className={`sticky top-0 z-50 border-b backdrop-blur-xl transition-colors ${
+				scrolled ? "border-white/10 bg-[#08080d]/85" : "border-white/5 bg-[#08080d]/60"
+			}`}
+		>
 			<div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
 				<a href="/" className="flex items-center gap-2.5">
 					<span className="flex size-7 items-center justify-center rounded-lg bg-white text-neutral-900">
@@ -232,22 +246,33 @@ const CAPABILITIES = [
 
 function CapabilityStrip() {
 	return (
-		<motion.div
-			initial={{ opacity: 0, y: 16 }}
-			whileInView={{ opacity: 1, y: 0 }}
-			viewport={{ once: true, margin: "-60px" }}
-			transition={{ duration: 0.7, ease: EASE }}
-			className="mx-auto mt-20 grid max-w-5xl grid-cols-2 gap-x-8 gap-y-6 border-white/5 border-t pt-10 md:grid-cols-4"
-		>
-			{CAPABILITIES.map(([label, value]) => (
-				<div key={label}>
-					<div className="font-mono text-[10px] text-accent uppercase tracking-[0.18em]">
-						{label}
+		<>
+			<motion.div
+				initial={{ opacity: 0, y: 16 }}
+				whileInView={{ opacity: 1, y: 0 }}
+				viewport={{ once: true, margin: "-60px" }}
+				transition={{ duration: 0.7, ease: EASE }}
+				className="mx-auto mt-20 grid max-w-5xl grid-cols-2 gap-x-8 gap-y-6 border-white/5 border-t pt-10 md:grid-cols-4"
+			>
+				{CAPABILITIES.map(([label, value]) => (
+					<div key={label}>
+						<div className="font-mono text-[10px] text-accent uppercase tracking-[0.18em]">
+							{label}
+						</div>
+						<div className="mt-1.5 text-neutral-300 text-sm leading-relaxed">{value}</div>
 					</div>
-					<div className="mt-1.5 text-neutral-300 text-sm leading-relaxed">{value}</div>
-				</div>
-			))}
-		</motion.div>
+				))}
+			</motion.div>
+			<motion.p
+				initial={{ opacity: 0 }}
+				whileInView={{ opacity: 1 }}
+				viewport={{ once: true, margin: "-40px" }}
+				transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}
+				className="mt-10 text-center font-mono text-[11px] text-neutral-500"
+			>
+				MIT licensed · runs locally · your code never leaves your machine
+			</motion.p>
+		</>
 	);
 }
 
@@ -509,33 +534,36 @@ function StepProp({ n }: { n: string }) {
 /* ──────────── Final CTA ──────────── */
 
 function CtaSection() {
+	const aurora = MESH_PRESETS.find((p) => p.id === "aurora");
 	return (
 		<section className="mx-auto w-full max-w-6xl px-6 py-24 sm:py-32">
-			<Reveal className="relative isolate overflow-hidden rounded-[32px] border border-white/10 bg-white/[0.03] px-6 py-20 text-center">
+			<Reveal className="relative isolate overflow-hidden rounded-[32px] border border-white/10 px-6 py-20 text-center">
+				{/* The product's own mesh — the CTA sits on the very thing it sells. */}
 				<div
 					aria-hidden="true"
-					className="-z-10 pointer-events-none absolute inset-0"
-					style={{
-						background:
-							"radial-gradient(50% 80% at 50% 0%, rgba(124,92,246,0.22), transparent 70%)",
-					}}
+					className="pointer-events-none absolute inset-0"
+					style={{ background: aurora ? meshGradientCss(aurora, 6) : undefined }}
 				/>
-				<h2 className="mx-auto max-w-2xl text-balance font-bold text-4xl text-white tracking-tight sm:text-5xl">
-					Make your code move.
-				</h2>
-				<p className="mx-auto mt-4 max-w-md text-pretty text-neutral-400">
-					Open the studio and export your first animation in under a minute — no account needed.
-				</p>
-				<div className="mt-8 flex justify-center">
-					<Magnetic>
-						<Link
-							to="/app"
-							className="group flex h-12 items-center gap-2 rounded-2xl bg-accent px-7 font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_10px_30px_-8px_var(--color-accent)] transition hover:brightness-110"
-						>
-							Open the studio
-							<ArrowIcon />
-						</Link>
-					</Magnetic>
+				<GrainOverlay />
+				<div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[#08080d]/70" />
+				<div className="relative z-10">
+					<h2 className="mx-auto max-w-2xl text-balance font-bold text-4xl text-white tracking-tight sm:text-5xl">
+						Make your code move.
+					</h2>
+					<p className="mx-auto mt-4 max-w-md text-pretty text-neutral-300">
+						Open the studio and export your first animation in under a minute — no account needed.
+					</p>
+					<div className="mt-8 flex justify-center">
+						<Magnetic>
+							<Link
+								to="/app"
+								className="group flex h-12 items-center gap-2 rounded-2xl bg-accent px-7 font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_10px_30px_-8px_var(--color-accent)] transition hover:brightness-110"
+							>
+								Open the studio
+								<ArrowIcon />
+							</Link>
+						</Magnetic>
+					</div>
 				</div>
 			</Reveal>
 		</section>
