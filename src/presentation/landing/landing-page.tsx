@@ -11,15 +11,6 @@ import { StudioShowcase } from "./studio-showcase";
 const GITHUB_URL = "https://github.com/delhombre/typelapse";
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-const THEME_SWATCHES = [
-	{ name: "aurora", bg: "#1a1b2e" },
-	{ name: "midnight", bg: "#0d1117" },
-	{ name: "dracula", bg: "#282a36" },
-	{ name: "one-dark", bg: "#282c34" },
-	{ name: "catppuccin", bg: "#1e1e2e" },
-	{ name: "nord", bg: "#2e3440" },
-];
-
 /** Marketing landing at `/`. The product is the pitch: a real, live, playable studio. */
 export function LandingPage() {
 	return (
@@ -201,119 +192,31 @@ function Hero() {
 				</motion.div>
 			</div>
 
-			{/* The studio — live, tilts to the cursor, restyled in real time. */}
+			{/* The studio — live, tilts to the cursor, restyled from its own chrome. */}
 			<motion.div
 				initial={{ opacity: 0, y: 36, filter: "blur(12px)" }}
 				animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
 				transition={{ duration: 1.1, ease: EASE, delay: 0.34 }}
-				className="mx-auto mt-16 max-w-5xl"
+				className="relative isolate mx-auto mt-16 max-w-5xl"
 			>
+				{/* Floor glow — an accent pool beneath the window, tracking the live background. */}
+				<div
+					aria-hidden="true"
+					className="-z-10 -translate-x-1/2 pointer-events-none absolute -bottom-10 left-1/2 h-20 w-[72%] rounded-full opacity-25 blur-3xl"
+					style={{ background: `radial-gradient(50% 100% at 50% 0%, ${accent}, transparent 70%)` }}
+				/>
 				<Tilt>
-					<StudioShowcase themeName={themeName} presetId={presetId} />
+					<StudioShowcase
+						themeName={themeName}
+						presetId={presetId}
+						onThemeChange={setThemeName}
+						onPresetChange={setPresetId}
+					/>
 				</Tilt>
 			</motion.div>
 
-			<Restyler
-				presetId={presetId}
-				themeName={themeName}
-				onPreset={setPresetId}
-				onTheme={setThemeName}
-			/>
-
 			<CapabilityStrip />
 		</section>
-	);
-}
-
-/* ──────────── Live restyler ──────────── */
-
-function Restyler({
-	presetId,
-	themeName,
-	onPreset,
-	onTheme,
-}: {
-	presetId: string;
-	themeName: string;
-	onPreset: (id: string) => void;
-	onTheme: (name: string) => void;
-}) {
-	return (
-		<motion.div
-			initial={{ opacity: 0 }}
-			animate={{ opacity: 1 }}
-			transition={{ duration: 0.8, ease: EASE, delay: 0.7 }}
-			className="mt-7 flex flex-wrap items-center justify-center gap-x-5 gap-y-3"
-		>
-			<span className="font-mono text-[11px] text-neutral-500">restyle it live</span>
-			<div className="flex items-center gap-2">
-				{MESH_PRESETS.map((p) => (
-					<Swatch
-						key={p.id}
-						group="bg"
-						title={p.label}
-						selected={presetId === p.id}
-						onClick={() => onPreset(p.id)}
-						preview={`linear-gradient(135deg, ${p.blobs[0]?.color ?? p.accent}, ${p.blobs[2]?.color ?? p.accent})`}
-					/>
-				))}
-			</div>
-			<span className="h-4 w-px bg-white/10" />
-			<div className="flex items-center gap-2">
-				{THEME_SWATCHES.map((t) => (
-					<Swatch
-						key={t.name}
-						group="theme"
-						title={t.name}
-						selected={themeName === t.name}
-						onClick={() => onTheme(t.name)}
-						preview={t.bg}
-						square
-					/>
-				))}
-			</div>
-		</motion.div>
-	);
-}
-
-function Swatch({
-	group,
-	title,
-	selected,
-	onClick,
-	preview,
-	square = false,
-}: {
-	group: string;
-	title: string;
-	selected: boolean;
-	onClick: () => void;
-	preview: string;
-	square?: boolean;
-}) {
-	return (
-		<motion.button
-			type="button"
-			onClick={onClick}
-			whileHover={{ scale: 1.18 }}
-			whileTap={{ scale: 0.9 }}
-			transition={{ type: "spring", stiffness: 400, damping: 22 }}
-			className="relative flex items-center justify-center"
-			title={title}
-			aria-label={`${group} ${title}`}
-		>
-			{selected && (
-				<motion.span
-					layoutId={`swatch-ring-${group}`}
-					className={`absolute size-6 ring-2 ring-white ${square ? "rounded-[7px]" : "rounded-full"}`}
-					transition={{ type: "spring", stiffness: 400, damping: 30 }}
-				/>
-			)}
-			<span
-				className={`size-4 border border-white/10 ${square ? "rounded-[5px]" : "rounded-full"}`}
-				style={{ background: preview }}
-			/>
-		</motion.button>
 	);
 }
 
