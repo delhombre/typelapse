@@ -7,6 +7,8 @@ import {
 } from "@/application/backgrounds/mesh-gradient";
 import { captionAt } from "@/application/captions/caption-timing";
 import { focusLineSet } from "@/application/focus/line-ranges";
+import { fitScale } from "@/application/layout/fit-scale";
+import { LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
 import { easeInOutCubic, renderStatic, renderTransition } from "@/application/magic-move/engine";
 import {
 	NO_ZOOM,
@@ -17,20 +19,27 @@ import {
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
 import { PlaybackControls } from "@/presentation/components/controls/playback-controls";
+import { useResizeObserver } from "@/presentation/hooks/use-resize-observer";
 import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { motion } from "motion/react";
-import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from "react";
+import {
+	type CSSProperties,
+	type ReactNode,
+	type RefObject,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
 import { StepCaption } from "./step-caption";
-
-const LINE_HEIGHT_RATIO = 1.6;
 
 /** Pre-paint background for the node: mesh base color, image cover CSS, or none. */
 function staticBackground(
@@ -102,6 +111,15 @@ function useDynamicBackground(ref: RefObject<HTMLDivElement | null>, background:
 	}, [background, ref]);
 }
 
+/** Content box (padding excluded) of an element, read live — the fallback used on
+ *  the first layout before the ResizeObserver has fired, so the fit has no flash. */
+function contentBox(el: HTMLElement): { width: number; height: number } {
+	const s = getComputedStyle(el);
+	const padX = Number.parseFloat(s.paddingLeft) + Number.parseFloat(s.paddingRight);
+	const padY = Number.parseFloat(s.paddingTop) + Number.parseFloat(s.paddingBottom);
+	return { width: el.clientWidth - padX, height: el.clientHeight - padY };
+}
+
 export function LivePreview() {
 	const {
 		snippet,
@@ -123,12 +141,37 @@ export function LivePreview() {
 	const typewriter = useExportStore((s) => s.typewriter);
 	const focusZoom = useExportStore((s) => s.focusZoom);
 	const previewRef = useRef<HTMLDivElement>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
 	const isMesh = isMeshBackground(background);
 	const isImage = isImageBackground(background);
 	useDynamicBackground(previewRef, background);
 	// Play the synthesized tick track during preview playback (same rendered WAV
 	// the export bakes in), so the preview sounds identical to the video.
 	useTickAudio();
+
+	// Fit-to-viewport: the card keeps its natural (unscaled) layout size — so the
+	// PNG/video export captures it untouched — while the whole frame is visually
+	// scaled to fit the viewport. Uniform scale preserves WYSIWYG (same pixels,
+	// different zoom) and a long walkthrough no longer overflows the pane.
+	const containerEntry = useResizeObserver(containerRef);
+	const cardEntry = useResizeObserver(previewRef);
+	const [fitScaleValue, setFitScaleValue] = useState(1);
+	useLayoutEffect(() => {
+		const card = previewRef.current;
+		const container = containerRef.current;
+		if (!card || !container) {
+			return;
+		}
+		// Prefer the observers' measurements; on the first layout they have not fired
+		// yet, so read the live DOM (correct at layout time, before paint — no flash).
+		const box = containerEntry?.contentRect ?? contentBox(container);
+		const cardSize = cardEntry?.borderBoxSize?.[0];
+		// offsetWidth/Height are pre-transform, so the wrapper's own scale never
+		// feeds back into the measurement.
+		const naturalW = cardSize?.inlineSize ?? card.offsetWidth;
+		const naturalH = cardSize?.blockSize ?? card.offsetHeight;
+		setFitScaleValue(fitScale(naturalW, naturalH, box.width, box.height));
+	}, [containerEntry, cardEntry]);
 
 	const segments = snippet.steps.length;
 	const reelsProgress = isPlaying
@@ -171,75 +214,83 @@ export function LivePreview() {
 
 	return (
 		<div className="flex h-full flex-col">
-			<div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-8">
-				<motion.div
-					ref={previewRef}
-					data-export-target
-					className={`relative w-full max-w-2xl ${isPlaying && !isTransparent && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
-					animate={
-						isMesh || isImage
-							? undefined
-							: { background: isTransparent ? "transparent" : background }
-					}
-					transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-					style={{
-						opacity: isBuilding ? 0.85 : 1,
-						padding: isTransparent ? 0 : 32,
-						// Concentric with the 32px padding: outer radius = inner radius + gap.
-						borderRadius: isTransparent ? 0 : snippet.theme.borderRadius + 32,
-						// Mesh + image are painted imperatively by useDynamicBackground; this is
-						// the pre-paint fallback so there is no flash before the effect runs.
-						background: staticBackground(background, isMesh, isImage),
-					}}
+			<div
+				ref={containerRef}
+				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
+			>
+				<div
+					className="shrink-0"
+					style={{ transform: `scale(${fitScaleValue})`, transformOrigin: "center center" }}
 				>
-					{!isTransparent && <GrainOverlay />}
-					{!isTransparent && segments >= 2 && (
-						<ReelsProgress style={progressStyle} segments={segments} progress={reelsProgress} />
-					)}
+					<motion.div
+						ref={previewRef}
+						data-export-target
+						className={`relative w-[42rem] ${isPlaying && !isTransparent && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
+						animate={
+							isMesh || isImage
+								? undefined
+								: { background: isTransparent ? "transparent" : background }
+						}
+						transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+						style={{
+							opacity: isBuilding ? 0.85 : 1,
+							padding: isTransparent ? 0 : 32,
+							// Concentric with the 32px padding: outer radius = inner radius + gap.
+							borderRadius: isTransparent ? 0 : snippet.theme.borderRadius + 32,
+							// Mesh + image are painted imperatively by useDynamicBackground; this is
+							// the pre-paint fallback so there is no flash before the effect runs.
+							background: staticBackground(background, isMesh, isImage),
+						}}
+					>
+						{!isTransparent && <GrainOverlay />}
+						{!isTransparent && segments >= 2 && (
+							<ReelsProgress style={progressStyle} segments={segments} progress={reelsProgress} />
+						)}
 
-					<div className="relative z-10">
-						<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
-							{/* Focus zoom pushes the code toward the spotlighted band. Playback
+						<div className="relative z-10">
+							<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
+								{/* Focus zoom pushes the code toward the spotlighted band. Playback
 							    drives every frame, so there is no CSS transition — the FrameShell
 							    body clips the overflow. Same transform runs in the Remotion video. */}
-							<div style={zoomStyle(view.zoom, focusZoom)}>
-								<MagicMoveCanvas
-									tokens={view.tokens}
-									lineCount={view.lineCount}
-									lineNumberCount={view.lineNumberCount}
-									fontSize={snippet.theme.fontSize}
-									lineHeightRatio={LINE_HEIGHT_RATIO}
-									fontFamily={snippet.theme.fontFamily}
-									color={snippet.theme.foreground}
-									showLineNumbers={showLineNumbers}
-									lineNumberStart={lineNumberStart}
-									lineNumberColor={`${snippet.theme.foreground}26`}
-									padding={framePadding}
-									cursor={view.cursor}
+								<div style={zoomStyle(view.zoom, focusZoom)}>
+									<MagicMoveCanvas
+										tokens={view.tokens}
+										lineCount={view.lineCount}
+										lineNumberCount={view.lineNumberCount}
+										fontSize={snippet.theme.fontSize}
+										lineHeightRatio={LINE_HEIGHT_RATIO}
+										fontFamily={snippet.theme.fontFamily}
+										color={snippet.theme.foreground}
+										showLineNumbers={showLineNumbers}
+										lineNumberStart={lineNumberStart}
+										lineNumberColor={`${snippet.theme.foreground}26`}
+										padding={framePadding}
+										cursor={view.cursor}
+									/>
+								</div>
+							</FrameShell>
+
+							{hasCaptions && (
+								<StepCaption
+									text={caption.text}
+									opacity={caption.opacity}
+									color={getWatermarkColor(background, snippet.theme.foreground)}
 								/>
-							</div>
-						</FrameShell>
+							)}
 
-						{hasCaptions && (
-							<StepCaption
-								text={caption.text}
-								opacity={caption.opacity}
-								color={getWatermarkColor(background, snippet.theme.foreground)}
-							/>
-						)}
-
-						{watermark && (
-							<div className="mt-2 text-right">
-								<span
-									className="font-mono text-[10px]"
-									style={{ color: getWatermarkColor(background, snippet.theme.foreground) }}
-								>
-									{watermark}
-								</span>
-							</div>
-						)}
-					</div>
-				</motion.div>
+							{watermark && (
+								<div className="mt-2 text-right">
+									<span
+										className="font-mono text-[10px]"
+										style={{ color: getWatermarkColor(background, snippet.theme.foreground) }}
+									>
+										{watermark}
+									</span>
+								</div>
+							)}
+						</div>
+					</motion.div>
+				</div>
 			</div>
 
 			<div className="flex shrink-0 justify-center pb-3">
