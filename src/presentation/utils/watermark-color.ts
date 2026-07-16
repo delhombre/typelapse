@@ -5,6 +5,7 @@
  *
  * - transparent: a soft tint of the theme foreground
  * - mesh gradient: white (mesh presets are always richly colored / dark enough)
+ * - image: white (photos skew busy/dark; a bright overlay stays legible)
  * - solid hex: black on light backgrounds, white on dark ones (by luminance)
  * - anything else: a soft tint of the theme foreground
  */
@@ -14,6 +15,9 @@ export function getWatermarkColor(background: string, themeForeground: string): 
 	}
 	if (background.startsWith("mesh:")) {
 		return "rgba(255,255,255,0.4)";
+	}
+	if (background.startsWith("image:")) {
+		return "rgba(255,255,255,0.45)";
 	}
 	const hexMatch = background.match(/#([0-9a-fA-F]{6})/);
 	if (!hexMatch?.[1]) {

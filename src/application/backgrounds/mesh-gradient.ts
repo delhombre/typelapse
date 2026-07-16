@@ -116,6 +116,25 @@ export function isMeshBackground(background: string): boolean {
 	return parseMeshBackground(background) !== undefined;
 }
 
+const SOLID_HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+/** A plain `#rgb` / `#rrggbb` solid color (drives the color-picker selected state). */
+export function isSolidBackground(background: string): boolean {
+	return SOLID_HEX.test(background);
+}
+
+/** `image:<dataURL>` → the data URL; anything else → null. */
+export function parseImageBackground(background: string): string | null {
+	if (!background.startsWith("image:")) {
+		return null;
+	}
+	return background.slice("image:".length);
+}
+
+export function isImageBackground(background: string): boolean {
+	return parseImageBackground(background) !== null;
+}
+
 /** CSS `background` string for a preset at time `t` seconds (loops every MESH_LOOP_PERIOD). */
 export function meshGradientCss(preset: MeshPreset, t: number): string {
 	const phase = (t / MESH_LOOP_PERIOD) % 1;
@@ -130,5 +149,12 @@ export function meshGradientCss(preset: MeshPreset, t: number): string {
 /** Resolve a background string to a CSS value at time `t` (static strings pass through). */
 export function resolveBackgroundCss(background: string, t: number): string {
 	const preset = parseMeshBackground(background);
-	return preset ? meshGradientCss(preset, t) : background;
+	if (preset) {
+		return meshGradientCss(preset, t);
+	}
+	const image = parseImageBackground(background);
+	if (image) {
+		return `url("${image}") center center / cover no-repeat`;
+	}
+	return background;
 }

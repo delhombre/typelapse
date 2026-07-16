@@ -1,7 +1,9 @@
 import {
+	isImageBackground,
 	isMeshBackground,
 	meshGradientCss,
 	parseMeshBackground,
+	resolveBackgroundCss,
 } from "@/application/backgrounds/mesh-gradient";
 import { captionAt } from "@/application/captions/caption-timing";
 import { focusLineSet } from "@/application/focus/line-ranges";
@@ -23,9 +25,41 @@ import { StepCaption } from "./step-caption";
 
 const LINE_HEIGHT_RATIO = 1.6;
 
-/** Drive an animated mesh background straight on the DOM node (no re-render). */
-function useMeshBackground(ref: RefObject<HTMLDivElement | null>, background: string) {
+/** Pre-paint background for the node: mesh base color, image cover CSS, or none. */
+function staticBackground(
+	background: string,
+	isMesh: boolean,
+	isImage: boolean,
+): string | undefined {
+	if (isMesh) {
+		return parseMeshBackground(background)?.base;
+	}
+	if (isImage) {
+		return resolveBackgroundCss(background, 0);
+	}
+	return undefined;
+}
+
+/**
+ * Paint the background straight on the DOM node (no re-render). Mesh presets
+ * animate via rAF; an uploaded image is painted once — feeding a giant data URL
+ * through motion's `animate` would be wasteful, so it is set imperatively here.
+ */
+function useDynamicBackground(ref: RefObject<HTMLDivElement | null>, background: string) {
 	useEffect(() => {
+		// Image: paint the cover CSS once and clear it on change/unmount. This runs
+		// after render + the previous cleanup, so it also restores the image if a
+		// mesh cleanup happened to clear the node on the same commit.
+		if (isImageBackground(background)) {
+			if (ref.current) {
+				ref.current.style.background = resolveBackgroundCss(background, 0);
+			}
+			return () => {
+				if (ref.current) {
+					ref.current.style.background = "";
+				}
+			};
+		}
 		const preset = parseMeshBackground(background);
 		if (!preset) {
 			return;
@@ -80,7 +114,8 @@ export function LivePreview() {
 	const typewriter = useExportStore((s) => s.typewriter);
 	const previewRef = useRef<HTMLDivElement>(null);
 	const isMesh = isMeshBackground(background);
-	useMeshBackground(previewRef, background);
+	const isImage = isImageBackground(background);
+	useDynamicBackground(previewRef, background);
 
 	const segments = snippet.steps.length;
 	const reelsProgress = isPlaying
@@ -127,15 +162,21 @@ export function LivePreview() {
 				<motion.div
 					ref={previewRef}
 					data-export-target
-					className={`relative w-full max-w-2xl ${isPlaying && !isTransparent && !isMesh ? "bg-animate-playing" : ""}`}
-					animate={isMesh ? undefined : { background: isTransparent ? "transparent" : background }}
+					className={`relative w-full max-w-2xl ${isPlaying && !isTransparent && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
+					animate={
+						isMesh || isImage
+							? undefined
+							: { background: isTransparent ? "transparent" : background }
+					}
 					transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
 					style={{
 						opacity: isBuilding ? 0.85 : 1,
 						padding: isTransparent ? 0 : 32,
 						// Concentric with the 32px padding: outer radius = inner radius + gap.
 						borderRadius: isTransparent ? 0 : snippet.theme.borderRadius + 32,
-						background: isMesh ? parseMeshBackground(background)?.base : undefined,
+						// Mesh + image are painted imperatively by useDynamicBackground; this is
+						// the pre-paint fallback so there is no flash before the effect runs.
+						background: staticBackground(background, isMesh, isImage),
 					}}
 				>
 					{!isTransparent && <GrainOverlay />}
