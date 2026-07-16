@@ -27,6 +27,7 @@ export function LandingPage() {
 				<FadeIn>
 					<FrameFan />
 				</FadeIn>
+				<CapabilityStrip />
 				<Prose />
 				<Cta />
 			</main>
@@ -75,10 +76,37 @@ function Hero() {
 			</FadeIn>
 			<FadeIn delay={0.08}>
 				<p className="mx-auto mt-5 max-w-lg text-pretty text-[17px] text-ash leading-relaxed">
-					Snippets become video — token by token, morphing exactly as you see it here.
+					Snippets — even whole pull requests — become video, token by token, exactly as you see it
+					here.
 				</p>
 			</FadeIn>
 		</section>
+	);
+}
+
+/* ──────────── Capabilities ──────────── */
+
+/** What the tool actually does today — four plain columns, one line each. */
+const CAPABILITIES: [string, string][] = [
+	["Export", "MP4 · WebM · GIF · PNG"],
+	["Look", "7 themes · 4 window chromes · mesh, solid & image backdrops"],
+	["Motion", "token morph · typewriter · spotlight & zoom · captions · tempo"],
+	["Import", "paste code · a git diff · or a GitHub PR URL"],
+];
+
+/** A quiet ledger of the feature set, kept in the page's editorial voice. */
+function CapabilityStrip() {
+	return (
+		<FadeIn className="mx-auto max-w-5xl px-6 py-16">
+			<dl className="grid grid-cols-1 gap-x-10 gap-y-8 border-black/8 border-t pt-12 sm:grid-cols-2 lg:grid-cols-4">
+				{CAPABILITIES.map(([label, detail]) => (
+					<div key={label}>
+						<dt className="font-mono text-[10px] text-ash uppercase tracking-[0.18em]">{label}</dt>
+						<dd className="mt-2 text-[14px] text-ink leading-relaxed">{detail}</dd>
+					</div>
+				))}
+			</dl>
+		</FadeIn>
 	);
 }
 
@@ -88,8 +116,9 @@ function Prose() {
 	return (
 		<FadeIn className="mx-auto max-w-md px-6 py-16 text-center">
 			<p className="text-[15px] text-ash leading-[1.9]">
-				Paste a snippet, capture a few steps, and export an MP4, WebM or GIF — in 16:9, 1:1, 9:16,
-				4:5 or 3:4. Typelapse is free and <ProseLink href={GITHUB_URL}>open source</ProseLink> under
+				Paste a snippet — or a unified diff, or a GitHub pull-request URL — capture a few steps, and
+				export an MP4, WebM or GIF in 16:9, 1:1, 9:16, 4:5 or 3:4, with synthesized typing sounds if
+				you like. Typelapse is free and <ProseLink href={GITHUB_URL}>open source</ProseLink> under
 				the <ProseLink href={`${GITHUB_URL}/blob/main/LICENSE`}>MIT license</ProseLink>. It runs
 				locally: your code never leaves your machine.{" "}
 				<ProseLink href={GITHUB_URL}>Read the source</ProseLink>.
