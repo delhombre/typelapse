@@ -1,5 +1,6 @@
 import { Theme } from "@/domain/entities/theme";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
+import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -31,6 +32,11 @@ export function SettingsStrip() {
 			{/* Background */}
 			<StripCell label="BG">
 				<BackgroundPicker selected={background} onSelect={setBackground} />
+			</StripCell>
+
+			{/* Window chrome */}
+			<StripCell label="Chrome">
+				<ChromePicker />
 			</StripCell>
 
 			{/* Padding */}
@@ -236,6 +242,44 @@ function PaddingPicker({
 						}`}
 					>
 						{value}
+					</motion.button>
+				);
+			})}
+		</div>
+	);
+}
+
+const CHROME_PRESETS: { value: WindowChrome; label: string; title: string }[] = [
+	{ value: "macos", label: "macOS", title: "macOS traffic lights" },
+	{ value: "browser", label: "Web", title: "Browser address bar" },
+	{ value: "terminal", label: "Term", title: "Terminal prompt" },
+	{ value: "none", label: "None", title: "No window chrome" },
+];
+
+/** Window chrome variant drawn atop the code frame (preview + export). */
+function ChromePicker() {
+	const windowChrome = useSnippetStore((s) => s.windowChrome);
+	const setWindowChrome = useSnippetStore((s) => s.setWindowChrome);
+
+	return (
+		<div className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800">
+			{CHROME_PRESETS.map((chrome) => {
+				const isSelected = windowChrome === chrome.value;
+				return (
+					<motion.button
+						key={chrome.value}
+						type="button"
+						onClick={() => setWindowChrome(chrome.value)}
+						whileTap={{ scale: 0.96 }}
+						transition={springs.snappy}
+						title={chrome.title}
+						className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+							isSelected
+								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+						}`}
+					>
+						{chrome.label}
 					</motion.button>
 				);
 			})}

@@ -9,6 +9,8 @@ interface ShareData {
 	language: string;
 	themeName: string;
 	background: string;
+	/** Window chrome variant. Optional; defaults to macos when absent. */
+	windowChrome?: string;
 	steps: { code: string; duration: number; focus?: string; caption?: string }[];
 	/** Morph tempo in ms (400 | 650 | 1000). Optional; default 650 when absent. */
 	transitionMs?: number;

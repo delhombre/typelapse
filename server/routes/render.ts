@@ -76,6 +76,7 @@ interface RenderRequest {
 	theme: ThemeData;
 	steps: StepData[];
 	background: string;
+	windowChrome?: RenderInput["windowChrome"];
 	framePadding: number;
 	width?: number;
 	height?: number;
@@ -97,6 +98,7 @@ renderRoute.post("/render", async (c) => {
 		theme,
 		steps,
 		background,
+		windowChrome = "macos",
 		framePadding,
 		width = 1920,
 		height = 1080,
@@ -140,6 +142,7 @@ renderRoute.post("/render", async (c) => {
 			theme,
 			steps,
 			background,
+			windowChrome,
 			framePadding,
 			plan,
 			transitionMs,

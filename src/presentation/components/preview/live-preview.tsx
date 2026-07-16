@@ -15,6 +15,7 @@ import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { motion } from "motion/react";
 import { type ReactNode, type RefObject, useEffect, useRef } from "react";
+import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
@@ -70,6 +71,7 @@ export function LivePreview() {
 		playback,
 		playbackProgress,
 		background,
+		windowChrome,
 		framePadding,
 		watermark,
 	} = useSnippetStore();
@@ -142,7 +144,7 @@ export function LivePreview() {
 					)}
 
 					<div className="relative z-10">
-						<FrameShell theme={snippet.theme} title={snippet.title}>
+						<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
 							<MagicMoveCanvas
 								tokens={view.tokens}
 								lineCount={view.lineCount}
@@ -186,14 +188,16 @@ export function LivePreview() {
 	);
 }
 
-/** Themed card with macOS window chrome — the shell around the animated code. */
+/** Themed card wrapping the animated code, topped by the shared window chrome. */
 function FrameShell({
 	theme,
 	title,
+	chrome,
 	children,
 }: {
 	theme: Theme;
 	title: string;
+	chrome: WindowChrome;
 	children: ReactNode;
 }) {
 	return (
@@ -201,22 +205,7 @@ function FrameShell({
 			className="code-frame-glow overflow-hidden"
 			style={{ background: theme.background, borderRadius: theme.borderRadius }}
 		>
-			<div
-				className="flex items-center gap-2 px-4 py-3"
-				style={{ borderBottom: `1px solid ${theme.foreground}0f` }}
-			>
-				<div className="size-[11px] rounded-full bg-[#ff5f57]" />
-				<div className="size-[11px] rounded-full bg-[#febc2e]" />
-				<div className="size-[11px] rounded-full bg-[#28c840]" />
-				{title && (
-					<span
-						className="ml-2 font-mono text-[11px] tracking-tight"
-						style={{ color: `${theme.foreground}59` }}
-					>
-						{title}
-					</span>
-				)}
-			</div>
+			<FrameChrome chrome={chrome} title={title} foreground={theme.foreground} />
 			{children}
 		</div>
 	);

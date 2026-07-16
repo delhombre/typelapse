@@ -1,6 +1,7 @@
 /** Shared types between the server and the Remotion composition. */
 
 import type { MagicMovePlan } from "../../src/application/magic-move/engine";
+import type { WindowChrome } from "../../src/presentation/components/preview/frame-chrome";
 import type { ProgressStyle } from "../../src/presentation/components/preview/reels-progress";
 
 export interface StepData {
@@ -28,6 +29,8 @@ export interface RenderInput {
 	theme: ThemeData;
 	steps: StepData[];
 	background: string;
+	/** Window chrome variant drawn atop the code frame. */
+	windowChrome: WindowChrome;
 	framePadding: number;
 	/** Laid-out magic-move frames + transitions, precomputed server-side. */
 	plan: MagicMovePlan;

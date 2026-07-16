@@ -10,6 +10,7 @@ import {
 	buildMagicMovePlan,
 } from "@/infrastructure/highlighting/magic-move-keyer";
 import { resolveShikiLanguage } from "@/infrastructure/highlighting/shiki-registry";
+import { type WindowChrome, isWindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { Highlighter } from "shiki";
 import { create } from "zustand";
 import { useExportStore } from "./export.store";
@@ -38,6 +39,10 @@ interface SnippetState {
 	// Background
 	background: string;
 	setBackground: (bg: string) => void;
+
+	// Window chrome variant
+	windowChrome: WindowChrome;
+	setWindowChrome: (chrome: WindowChrome) => void;
 
 	// Frame padding
 	framePadding: number;
@@ -188,6 +193,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	playbackProgress: 0,
 	playback: null,
 	background: "mesh:aurora",
+
+	windowChrome: "macos",
+
+	setWindowChrome: (chrome: WindowChrome) => {
+		set({ windowChrome: chrome });
+	},
 
 	framePadding: 24,
 
@@ -375,13 +386,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	exportToJson: () => {
-		const { snippet, background } = get();
+		const { snippet, background, windowChrome } = get();
 		const data = {
 			title: snippet.title,
 			code: snippet.code,
 			language: snippet.language,
 			themeName: snippet.theme.name,
 			background,
+			windowChrome,
 			steps: snippet.steps.map((step) => {
 				const focus = formatLineRanges(step.highlightRanges);
 				const serialized: {
@@ -477,11 +489,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		}
 
 		const background = typeof obj.background === "string" ? obj.background : get().background;
+		// Defensive: unknown/missing chrome degrades to the default macOS chrome.
+		const windowChrome = isWindowChrome(obj.windowChrome) ? obj.windowChrome : "macos";
 
 		cancelRaf();
 		set({
 			snippet,
 			background,
+			windowChrome,
 			currentStepIndex: 0,
 			isPlaying: false,
 			playback: null,

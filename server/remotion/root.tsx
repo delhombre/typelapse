@@ -22,6 +22,7 @@ const DEFAULT_INPUT: RenderInput = {
 		{ code: "const x = 2;", duration: 1000 },
 	],
 	background: "mesh:aurora",
+	windowChrome: "macos",
 	framePadding: 24,
 	transitionMs: 650,
 	loop: false,
