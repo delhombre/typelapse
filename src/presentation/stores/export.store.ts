@@ -24,6 +24,7 @@ interface ExportState {
 	fps: number;
 	loop: boolean;
 	typewriter: boolean;
+	focusZoom: boolean;
 	progressStyle: ProgressStyle;
 	transitionMs: TempoMs;
 
@@ -32,6 +33,7 @@ interface ExportState {
 	setFps: (fps: number) => void;
 	setLoop: (loop: boolean) => void;
 	setTypewriter: (typewriter: boolean) => void;
+	setFocusZoom: (focusZoom: boolean) => void;
 	setProgressStyle: (style: ProgressStyle) => void;
 	setTransitionMs: (ms: TempoMs) => void;
 
@@ -56,6 +58,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	fps: 60,
 	loop: false,
 	typewriter: false,
+	focusZoom: false,
 	progressStyle: "reels",
 	transitionMs: 650,
 
@@ -64,6 +67,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	setFps: (fps) => set({ fps }),
 	setLoop: (loop) => set({ loop }),
 	setTypewriter: (typewriter) => set({ typewriter }),
+	setFocusZoom: (focusZoom) => set({ focusZoom }),
 	setProgressStyle: (progressStyle) => set({ progressStyle }),
 	setTransitionMs: (transitionMs) => set({ transitionMs }),
 
@@ -84,7 +88,8 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			return;
 		}
 
-		const { format, width, height, fps, loop, typewriter, progressStyle, transitionMs } = get();
+		const { format, width, height, fps, loop, typewriter, focusZoom, progressStyle, transitionMs } =
+			get();
 
 		set({
 			isExporting: true,
@@ -127,6 +132,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				format,
 				loop,
 				typewriter,
+				focusZoom,
 				progressStyle,
 				transitionMs,
 				watermark: watermark || undefined,

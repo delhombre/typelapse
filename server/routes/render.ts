@@ -86,6 +86,7 @@ interface RenderRequest {
 	format?: "mp4" | "webm" | "gif";
 	loop?: boolean;
 	typewriter?: boolean;
+	focusZoom?: boolean;
 	progressStyle?: RenderInput["progressStyle"];
 	transitionMs?: number;
 	watermark?: string;
@@ -110,6 +111,7 @@ renderRoute.post("/render", async (c) => {
 		format = "mp4",
 		loop = false,
 		typewriter = false,
+		focusZoom = false,
 		progressStyle = "reels",
 		transitionMs = TRANSITION_MS,
 		watermark,
@@ -154,6 +156,7 @@ renderRoute.post("/render", async (c) => {
 			transitionMs,
 			loop,
 			typewriter,
+			focusZoom,
 			progressStyle,
 			watermark,
 		};
