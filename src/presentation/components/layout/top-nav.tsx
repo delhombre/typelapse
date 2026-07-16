@@ -43,7 +43,12 @@ export function TopNav() {
 			background,
 			steps: snippet.steps.map((s) => {
 				const focus = formatLineRanges(s.highlightRanges);
-				return { code: s.code, duration: s.duration, focus: focus || undefined };
+				return {
+					code: s.code,
+					duration: s.duration,
+					focus: focus || undefined,
+					caption: s.annotation || undefined,
+				};
 			}),
 		});
 		const copied = await copyToClipboard(link);

@@ -236,8 +236,11 @@ export function StepBuilder() {
 							</button>
 						</div>
 
-						{/* Row 2: per-step focus (spotlight) */}
-						<FocusInput step={step} />
+						{/* Row 2: spotlight lines + caption */}
+						<div className="grid grid-cols-2 gap-1.5">
+							<FocusInput step={step} />
+							<CaptionInput step={step} />
+						</div>
 					</motion.div>
 				))}
 			</div>
@@ -289,6 +292,33 @@ function FocusInput({ step }: { step: Step }) {
 			placeholder="focus 2-4,7"
 			title="Spotlight these lines, dim the rest (e.g. 2-4, 7)"
 			className={`w-full rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-300 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 ${borderClasses}`}
+		/>
+	);
+}
+
+/**
+ * Compact caption input on a step card — the line of prose shown beneath the
+ * frame while this step holds. Commits on blur/Enter; any text is valid.
+ */
+function CaptionInput({ step }: { step: Step }) {
+	const updateStepAnnotation = useSnippetStore((s) => s.updateStepAnnotation);
+	const [text, setText] = useState(() => step.annotation ?? "");
+
+	return (
+		<input
+			type="text"
+			value={text}
+			onChange={(e) => setText(e.target.value)}
+			onBlur={() => updateStepAnnotation(step.id, text)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") {
+					e.currentTarget.blur();
+				}
+			}}
+			onClick={(e) => e.stopPropagation()}
+			placeholder="caption…"
+			title="Caption shown beneath the frame during this step"
+			className="w-full rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 		/>
 	);
 }

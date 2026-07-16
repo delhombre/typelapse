@@ -98,6 +98,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 						code: s.code,
 						duration: s.duration,
 						focus: focus.length > 0 ? focus : undefined,
+						caption: s.annotation || undefined,
 					};
 				}),
 				background,

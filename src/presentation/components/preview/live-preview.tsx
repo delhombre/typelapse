@@ -3,6 +3,7 @@ import {
 	meshGradientCss,
 	parseMeshBackground,
 } from "@/application/backgrounds/mesh-gradient";
+import { captionAt } from "@/application/captions/caption-timing";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { easeInOutCubic, renderStatic, renderTransition } from "@/application/magic-move/engine";
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
@@ -11,11 +12,13 @@ import { PlaybackControls } from "@/presentation/components/controls/playback-co
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { motion } from "motion/react";
 import { type ReactNode, type RefObject, useEffect, useRef } from "react";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
+import { StepCaption } from "./step-caption";
 
 const LINE_HEIGHT_RATIO = 1.6;
 
@@ -102,6 +105,18 @@ export function LivePreview() {
 		firstCode,
 		focusSets,
 	);
+
+	// Per-step captions overlaid beneath the frame; timing is shared with the video.
+	const annotations = snippet.steps.map((s) => s.annotation ?? "");
+	const hasCaptions = annotations.some((a) => a !== "");
+	const caption =
+		isPlaying && playback
+			? captionAt({ phase: playback.phase, index: playback.index, t: playback.t }, annotations)
+			: {
+					text: annotations[currentStepIndex] ?? "",
+					opacity: annotations[currentStepIndex] ? 1 : 0,
+				};
+
 	const isTransparent = background === "transparent";
 
 	return (
@@ -141,6 +156,14 @@ export function LivePreview() {
 								cursor={view.cursor}
 							/>
 						</FrameShell>
+
+						{hasCaptions && (
+							<StepCaption
+								text={caption.text}
+								opacity={caption.opacity}
+								color={getWatermarkColor(background, snippet.theme.foreground)}
+							/>
+						)}
 
 						{watermark && (
 							<div className="mt-2 text-right">
@@ -287,24 +310,4 @@ function EmptyState({ building = false }: { building?: boolean }) {
 			</span>
 		</div>
 	);
-}
-
-/** Pick a watermark color that contrasts with the background. */
-function getWatermarkColor(background: string, themeForeground: string): string {
-	if (background === "transparent") {
-		return `${themeForeground}66`;
-	}
-	if (background.startsWith("mesh:")) {
-		return "rgba(255,255,255,0.4)";
-	}
-	const hexMatch = background.match(/#([0-9a-fA-F]{6})/);
-	if (!hexMatch?.[1]) {
-		return `${themeForeground}66`;
-	}
-	const hex = hexMatch[1];
-	const r = Number.parseInt(hex.slice(0, 2), 16);
-	const g = Number.parseInt(hex.slice(2, 4), 16);
-	const b = Number.parseInt(hex.slice(4, 6), 16);
-	const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-	return luminance > 0.5 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.35)";
 }

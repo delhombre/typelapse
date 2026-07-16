@@ -7,10 +7,13 @@ import {
 	renderStatic,
 	renderTransition,
 } from "../../src/application/magic-move/engine";
+import { captionAt } from "../../src/application/captions/caption-timing";
 import { renderTyping, typedCharCount } from "../../src/application/magic-move/typewriter";
 import { GrainOverlay } from "../../src/presentation/components/preview/grain-overlay";
 import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic-move-canvas";
 import { ReelsProgress } from "../../src/presentation/components/preview/reels-progress";
+import { StepCaption } from "../../src/presentation/components/preview/step-caption";
+import { getWatermarkColor } from "../../src/presentation/utils/watermark-color";
 import type { RenderInput, ThemeData } from "./types";
 
 /** Upscale factor from the 14px editor preview to crisp 1080p/4K text. */
@@ -20,19 +23,22 @@ const LINE_HEIGHT_RATIO = 1.6;
 const CHAR_WIDTH_RATIO = 0.62;
 
 function useFontLoaded(fontFamily: string) {
-	const [handle] = useState(() => delayRender(`Loading font: ${fontFamily}`));
+	const [handle] = useState(() => delayRender(`Loading fonts: ${fontFamily}`));
 
 	useEffect(() => {
 		const fontName = fontFamily.split(",")[0]?.trim().replace(/'/g, "") ?? "JetBrains Mono";
 		const googleName = fontName.replace(/\s+/g, "+");
-		const url = `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;500;700&display=swap`;
+		const monoUrl = `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;500;700&display=swap`;
+		// Inter powers the step captions (StepCaption), so load it alongside the mono font.
+		const interUrl = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap";
 
-		fetch(url)
-			.then((res) => res.text())
-			.then((css) => {
-				const style = document.createElement("style");
-				style.textContent = css;
-				document.head.appendChild(style);
+		Promise.all([monoUrl, interUrl].map((url) => fetch(url).then((res) => res.text())))
+			.then((sheets) => {
+				for (const css of sheets) {
+					const style = document.createElement("style");
+					style.textContent = css;
+					document.head.appendChild(style);
+				}
 				return document.fonts.ready;
 			})
 			.then(() => continueRender(handle))
@@ -96,6 +102,11 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	const wmColor = getWatermarkColor(background, theme.foreground);
 	const backgroundCss = isTransparent ? "transparent" : resolveBackgroundCss(background, frame / fps);
 
+	// Per-step captions overlaid beneath the frame; same timing function as the preview.
+	const annotations = steps.map((s) => s.caption ?? "");
+	const hasCaptions = annotations.some((a) => a !== "");
+	const caption = captionForSegment(active, frame, annotations);
+
 	return (
 		<AbsoluteFill style={{ background: backgroundCss }}>
 			{!isTransparent && <GlowDecoration />}
@@ -108,7 +119,23 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 					scale={VIDEO_SCALE}
 				/>
 			)}
-			<CenteredFrame plan={plan} theme={theme} title={title} framePadding={framePadding} canvasWidth={width}>
+			<CenteredFrame
+				plan={plan}
+				theme={theme}
+				title={title}
+				framePadding={framePadding}
+				canvasWidth={width}
+				caption={
+					hasCaptions ? (
+						<StepCaption
+							text={caption.text}
+							opacity={caption.opacity}
+							color={wmColor}
+							scale={VIDEO_SCALE}
+						/>
+					) : null
+				}
+			>
 				<MagicMoveCanvas
 					tokens={view.tokens}
 					lineCount={view.lineCount}
@@ -209,6 +236,7 @@ function CenteredFrame({
 	title,
 	framePadding,
 	canvasWidth,
+	caption,
 	children,
 }: {
 	plan: RenderInput["plan"];
@@ -216,6 +244,7 @@ function CenteredFrame({
 	title: string;
 	framePadding: number;
 	canvasWidth: number;
+	caption?: React.ReactNode;
 	children: React.ReactNode;
 }) {
 	const fontSize = theme.fontSize * VIDEO_SCALE;
@@ -237,7 +266,16 @@ function CenteredFrame({
 		: "0 0 0 1px rgba(0,0,0,0.06), 0 24px 64px -16px rgba(0,0,0,0.18), 0 8px 24px -8px rgba(0,0,0,0.12)";
 
 	return (
-		<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+		<div
+			style={{
+				position: "absolute",
+				inset: 0,
+				display: "flex",
+				flexDirection: "column",
+				alignItems: "center",
+				justifyContent: "center",
+			}}
+		>
 			<div style={{ width: cardWidth, background: theme.background, borderRadius: radius, overflow: "hidden", boxShadow }}>
 				<div
 					style={{
@@ -267,6 +305,7 @@ function CenteredFrame({
 				</div>
 				{children}
 			</div>
+			{caption}
 		</div>
 	);
 }
@@ -285,16 +324,30 @@ function widestLine(plan: RenderInput["plan"]): number {
 	return max;
 }
 
-function getWatermarkColor(background: string, themeForeground: string): string {
-	if (background === "transparent") return `${themeForeground}66`;
-	const hexMatch = background.match(/#([0-9a-fA-F]{6})/);
-	if (!hexMatch?.[1]) return `${themeForeground}66`;
-	const hex = hexMatch[1];
-	const r = Number.parseInt(hex.slice(0, 2), 16);
-	const g = Number.parseInt(hex.slice(2, 4), 16);
-	const b = Number.parseInt(hex.slice(4, 6), 16);
-	const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-	return luminance > 0.5 ? "rgba(0,0,0,0.4)" : "rgba(255,255,255,0.4)";
+/**
+ * Caption text + opacity for the active segment, frame-driven. Holds map to
+ * `captionAt`'s hold; transitions to its cross-dissolve. A loop-back segment
+ * morphs the last step to the first, so it is treated as a two-item transition
+ * from the last caption to the first.
+ */
+function captionForSegment(
+	active: Segment | undefined,
+	frame: number,
+	annotations: string[],
+): { text: string; opacity: number } {
+	if (!active || active.type === "hold") {
+		return captionAt({ phase: "hold", index: active?.index ?? 0, t: 0 }, annotations);
+	}
+	const span = active.endFrame - active.startFrame;
+	const t = span > 0 ? (frame - active.startFrame) / span : 1;
+	if (active.type === "loop") {
+		const last = annotations.length - 1;
+		return captionAt({ phase: "transition", index: 0, t }, [
+			annotations[last] ?? "",
+			annotations[0] ?? "",
+		]);
+	}
+	return captionAt({ phase: "transition", index: active.index, t }, annotations);
 }
 
 function isColorDark(color: string): boolean {
