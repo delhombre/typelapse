@@ -106,6 +106,8 @@ export function LivePreview() {
 		playbackProgress,
 		background,
 		windowChrome,
+		showLineNumbers,
+		lineNumberStart,
 		framePadding,
 		watermark,
 	} = useSnippetStore();
@@ -194,6 +196,8 @@ export function LivePreview() {
 								lineHeightRatio={LINE_HEIGHT_RATIO}
 								fontFamily={snippet.theme.fontFamily}
 								color={snippet.theme.foreground}
+								showLineNumbers={showLineNumbers}
+								lineNumberStart={lineNumberStart}
 								lineNumberColor={`${snippet.theme.foreground}26`}
 								padding={framePadding}
 								cursor={view.cursor}

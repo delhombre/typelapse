@@ -77,6 +77,8 @@ interface RenderRequest {
 	steps: StepData[];
 	background: string;
 	windowChrome?: RenderInput["windowChrome"];
+	showLineNumbers?: boolean;
+	lineNumberStart?: number;
 	framePadding: number;
 	width?: number;
 	height?: number;
@@ -99,6 +101,8 @@ renderRoute.post("/render", async (c) => {
 		steps,
 		background,
 		windowChrome = "macos",
+		showLineNumbers = true,
+		lineNumberStart = 1,
 		framePadding,
 		width = 1920,
 		height = 1080,
@@ -143,6 +147,8 @@ renderRoute.post("/render", async (c) => {
 			steps,
 			background,
 			windowChrome,
+			showLineNumbers,
+			lineNumberStart,
 			framePadding,
 			plan,
 			transitionMs,

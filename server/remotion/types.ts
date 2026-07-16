@@ -31,6 +31,10 @@ export interface RenderInput {
 	background: string;
 	/** Window chrome variant drawn atop the code frame. */
 	windowChrome: WindowChrome;
+	/** Show the line-number gutter. */
+	showLineNumbers: boolean;
+	/** First gutter number (display-only; focus stays relative to line 1). */
+	lineNumberStart: number;
 	framePadding: number;
 	/** Laid-out magic-move frames + transitions, precomputed server-side. */
 	plan: MagicMovePlan;

@@ -69,7 +69,15 @@ export const useExportStore = create<ExportState>((set, get) => ({
 
 	exportVideo: async () => {
 		const snippetState = useSnippetStore.getState();
-		const { snippet, background, windowChrome, framePadding, watermark } = snippetState;
+		const {
+			snippet,
+			background,
+			windowChrome,
+			showLineNumbers,
+			lineNumberStart,
+			framePadding,
+			watermark,
+		} = snippetState;
 
 		if (snippet.steps.length < 2) {
 			set({ error: "At least 2 steps required for export" });
@@ -110,6 +118,8 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				}),
 				background,
 				windowChrome,
+				showLineNumbers,
+				lineNumberStart,
 				framePadding,
 				width,
 				height,

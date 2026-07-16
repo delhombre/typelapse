@@ -23,6 +23,8 @@ const DEFAULT_INPUT: RenderInput = {
 	],
 	background: "mesh:aurora",
 	windowChrome: "macos",
+	showLineNumbers: true,
+	lineNumberStart: 1,
 	framePadding: 24,
 	transitionMs: 650,
 	loop: false,
