@@ -5,7 +5,8 @@
  * application layer (`code-url.ts`); this adapter just does IO + parsing.
  */
 
-import { languageFromFilename, resolveCodeUrl } from "@/application/import/code-url";
+import { resolveCodeUrl } from "@/application/import/code-url";
+import { languageFromFilename } from "@/application/language/language-from-filename";
 
 export interface ImportedCode {
 	code: string;

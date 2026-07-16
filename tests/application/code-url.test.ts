@@ -1,4 +1,5 @@
-import { languageFromFilename, resolveCodeUrl } from "@/application/import/code-url";
+import { resolveCodeUrl } from "@/application/import/code-url";
+import { languageFromFilename } from "@/application/language/language-from-filename";
 import { describe, expect, it } from "vitest";
 
 describe("resolveCodeUrl", () => {
@@ -74,9 +75,9 @@ describe("resolveCodeUrl", () => {
 describe("languageFromFilename", () => {
 	const cases: [string, string][] = [
 		["app.ts", "typescript"],
-		["app.tsx", "typescript"],
+		["app.tsx", "tsx"],
 		["app.js", "javascript"],
-		["app.jsx", "javascript"],
+		["app.jsx", "jsx"],
 		["main.py", "python"],
 		["lib.rs", "rust"],
 		["main.go", "go"],
@@ -95,7 +96,7 @@ describe("languageFromFilename", () => {
 		["config.yml", "yaml"],
 		["config.yaml", "yaml"],
 		["README.md", "markdown"],
-		["run.sh", "shell"],
+		["run.sh", "bash"],
 		["Dockerfile", "dockerfile"],
 	];
 
