@@ -269,16 +269,29 @@ export function LivePreview() {
 						}}
 					>
 						{!isTransparent && <GrainOverlay />}
-						{!isTransparent && segments >= 2 && (
-							<ReelsProgress style={progressStyle} segments={segments} progress={reelsProgress} />
-						)}
 
-						<div className="relative z-10">
+						{/* One content column. The reels bar, the window, the caption and the
+						    watermark all live in this z-10 box, so the progress bar lines up
+						    with the window's edges instead of bleeding past it over the mesh.
+						    FrameShell is block-level `w-full`, so it always fills the column —
+						    the reels wrapper, caption and watermark span the same width. */}
+						<div className="relative z-10 w-full">
+							{!isTransparent && segments >= 2 && (
+								<div className="pointer-events-none absolute inset-x-0 z-20" style={{ top: -10 }}>
+									<ReelsProgress
+										style={progressStyle}
+										segments={segments}
+										progress={reelsProgress}
+									/>
+								</div>
+							)}
 							<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
 								{/* Focus zoom pushes the code toward the spotlighted band. Playback
 							    drives every frame, so there is no CSS transition — the FrameShell
-							    body clips the overflow. Same transform runs in the Remotion video. */}
-								<div style={zoomStyle(view.zoom, focusZoom)}>
+							    body clips the overflow. The zoom wrapper carries the window's own
+							    border radius so a scaled (composited) layer never squares the
+							    corners. Same transform runs in the Remotion video. */}
+								<div style={zoomStyle(view.zoom, focusZoom, snippet.theme.borderRadius)}>
 									<MagicMoveCanvas
 										tokens={view.tokens}
 										lineCount={view.lineCount}
@@ -340,7 +353,7 @@ function FrameShell({
 }) {
 	return (
 		<div
-			className="code-frame-glow overflow-hidden"
+			className="code-frame-glow w-full overflow-hidden"
 			style={{ background: theme.background, borderRadius: theme.borderRadius }}
 		>
 			<FrameChrome chrome={chrome} title={title} foreground={theme.foreground} />
@@ -360,13 +373,19 @@ interface FrameView {
 
 const EMPTY_VIEW: FrameView = { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
 
-/** Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on. */
-function zoomStyle(zoom: ZoomTransform, active: boolean): CSSProperties {
+/**
+ * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
+ * Carries the window's border radius (concentric law: the clip matches the radius
+ * of the surface it sits in) so a scaled, composited layer never squares the
+ * window's corners during a push-in.
+ */
+function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): CSSProperties {
 	if (!active) {
-		return { overflow: "hidden" };
+		return { overflow: "hidden", borderRadius };
 	}
 	return {
 		overflow: "hidden",
+		borderRadius,
 		transform: `scale(${zoom.scale})`,
 		transformOrigin: `50% ${zoom.originYRatio * 100}%`,
 	};
