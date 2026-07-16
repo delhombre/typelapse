@@ -19,7 +19,7 @@ import {
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
 import { PlaybackControls } from "@/presentation/components/controls/playback-controls";
-import { useResizeObserver } from "@/presentation/hooks/use-resize-observer";
+import { useResizeObserverNode } from "@/presentation/hooks/use-resize-observer";
 import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
@@ -30,6 +30,7 @@ import {
 	type CSSProperties,
 	type ReactNode,
 	type RefObject,
+	useCallback,
 	useEffect,
 	useLayoutEffect,
 	useRef,
@@ -141,7 +142,6 @@ export function LivePreview() {
 	const typewriter = useExportStore((s) => s.typewriter);
 	const focusZoom = useExportStore((s) => s.focusZoom);
 	const previewRef = useRef<HTMLDivElement>(null);
-	const containerRef = useRef<HTMLDivElement>(null);
 	const isMesh = isMeshBackground(background);
 	const isImage = isImageBackground(background);
 	useDynamicBackground(previewRef, background);
@@ -153,25 +153,51 @@ export function LivePreview() {
 	// PNG/video export captures it untouched — while the whole frame is visually
 	// scaled to fit the viewport. Uniform scale preserves WYSIWYG (same pixels,
 	// different zoom) and a long walkthrough no longer overflows the pane.
-	const containerEntry = useResizeObserver(containerRef);
-	const cardEntry = useResizeObserver(previewRef);
+	//
+	// The measured elements live behind a conditional: the first render shows an
+	// EmptyState while the plan builds, so the real UI (and its refs) mounts on a
+	// LATER render. RefObjects never re-run effects when `.current` changes, so
+	// the nodes flow through callback refs into state — the observers attach the
+	// moment the elements exist.
+	const [containerNode, setContainerNode] = useState<HTMLDivElement | null>(null);
+	const [cardNode, setCardNode] = useState<HTMLDivElement | null>(null);
+	// One stable callback for the card: useDynamicBackground still needs the
+	// RefObject, the fit measurement needs the node-state.
+	const attachCard = useCallback((el: HTMLDivElement | null) => {
+		previewRef.current = el;
+		setCardNode(el);
+	}, []);
+	const containerEntry = useResizeObserverNode(containerNode);
+	const cardEntry = useResizeObserverNode(cardNode);
 	const [fitScaleValue, setFitScaleValue] = useState(1);
+	// The content-shape deps (plan, padding, chrome, gutter) are not read below —
+	// they re-run this measure right after the DOM they shape has been committed,
+	// so the scale is right pre-paint even when an observer delivery is still queued.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: content-shape deps are intentional re-measure triggers for the imperative DOM reads
 	useLayoutEffect(() => {
-		const card = previewRef.current;
-		const container = containerRef.current;
-		if (!card || !container) {
+		if (!cardNode || !containerNode) {
 			return;
 		}
 		// Prefer the observers' measurements; on the first layout they have not fired
 		// yet, so read the live DOM (correct at layout time, before paint — no flash).
-		const box = containerEntry?.contentRect ?? contentBox(container);
+		const box = containerEntry?.contentRect ?? contentBox(containerNode);
 		const cardSize = cardEntry?.borderBoxSize?.[0];
 		// offsetWidth/Height are pre-transform, so the wrapper's own scale never
 		// feeds back into the measurement.
-		const naturalW = cardSize?.inlineSize ?? card.offsetWidth;
-		const naturalH = cardSize?.blockSize ?? card.offsetHeight;
+		const naturalW = cardSize?.inlineSize ?? cardNode.offsetWidth;
+		const naturalH = cardSize?.blockSize ?? cardNode.offsetHeight;
 		setFitScaleValue(fitScale(naturalW, naturalH, box.width, box.height));
-	}, [containerEntry, cardEntry]);
+	}, [
+		containerEntry,
+		cardEntry,
+		containerNode,
+		cardNode,
+		plan,
+		framePadding,
+		windowChrome,
+		showLineNumbers,
+		lineNumberStart,
+	]);
 
 	const segments = snippet.steps.length;
 	const reelsProgress = isPlaying
@@ -215,7 +241,7 @@ export function LivePreview() {
 	return (
 		<div className="flex h-full flex-col">
 			<div
-				ref={containerRef}
+				ref={setContainerNode}
 				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
 			>
 				<div
@@ -223,7 +249,7 @@ export function LivePreview() {
 					style={{ transform: `scale(${fitScaleValue})`, transformOrigin: "center center" }}
 				>
 					<motion.div
-						ref={previewRef}
+						ref={attachCard}
 						data-export-target
 						className={`relative w-[42rem] ${isPlaying && !isTransparent && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
 						animate={
