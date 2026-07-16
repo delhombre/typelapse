@@ -46,7 +46,7 @@ function filenameFromUrl(url: string): string {
 export async function importCodeFromUrl(input: string): Promise<ImportedCode> {
 	const resolved = resolveCodeUrl(input);
 	if (!resolved) {
-		throw new Error("Unsupported URL — paste a gist or GitHub file link");
+		throw new Error("Unsupported URL: paste a gist or GitHub file link");
 	}
 
 	const controller = new AbortController();

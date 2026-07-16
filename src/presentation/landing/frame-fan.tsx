@@ -73,7 +73,7 @@ export function FrameFan() {
 	return (
 		<section className="mx-auto w-full max-w-5xl px-6 py-20">
 			<p className="mx-auto mb-14 max-w-md text-center font-serif text-[15px] text-ash italic">
-				Seven themes, five living backdrops — the same snippet, dressed differently.
+				Seven themes, five living backdrops: the same snippet, dressed differently.
 			</p>
 
 			{/* Desktop: the fan. */}

@@ -22,7 +22,7 @@ function errorForStatus(status: number, notFound: string): Error {
 		return new Error(notFound);
 	}
 	if (status === 403 || status === 429) {
-		return new Error("GitHub rate limit hit — paste the diff instead");
+		return new Error("GitHub rate limit hit: paste the diff instead");
 	}
 	return new Error("Could not fetch the change");
 }
