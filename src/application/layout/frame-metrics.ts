@@ -1,10 +1,10 @@
 /**
- * Deterministic code-frame metrics — pure and dependency-free.
+ * Deterministic code-frame metrics: pure and dependency-free.
  *
  * The Remotion video renders in headless Chrome, so it cannot measure the DOM to
  * decide how much to scale the card into the canvas. Instead it derives the
  * card's *natural* size the same way `MagicMoveCanvas` / `FrameChrome` lay it out
- * — a monospace grid of `ch` columns and fixed line rows — from a few primitives.
+ * (a monospace grid of `ch` columns and fixed line rows) from a few primitives.
  * Feed the result into `fitScale` against the canvas and the whole card is always
  * visible (long files scale down instead of cropping, long lines instead of
  * clipping), matching the measured-and-scaled browser preview.
@@ -18,9 +18,9 @@
  *  application layer stays free of presentation imports). */
 export type ChromeVariant = "macos" | "browser" | "terminal" | "none";
 
-/** Row height as a multiple of font size — matches `MagicMoveCanvas`. */
+/** Row height as a multiple of font size: matches `MagicMoveCanvas`. */
 export const LINE_HEIGHT_RATIO = 1.6;
-/** Monospace advance as a fraction of the font size — matches the video width math. */
+/** Monospace advance as a fraction of the font size: matches the video width math. */
 export const CHAR_WIDTH_RATIO = 0.62;
 
 /** Intrinsic line box of chrome-bar text (no explicit line-height); slight
@@ -57,7 +57,7 @@ export interface FrameNaturalSizeInput {
 	chrome: ChromeVariant;
 	/** Widest line across all frames, in characters. */
 	maxCols: number;
-	/** Tallest frame across all frames, in rows (use the segment max — a constant
+	/** Tallest frame across all frames, in rows (use the segment max: a constant
 	 *  scale for the whole video, so it never zoom-pumps between steps). */
 	maxLines: number;
 	/** Font size in px, already scaled for the target. */
@@ -65,18 +65,18 @@ export interface FrameNaturalSizeInput {
 	/** Code padding in px, already scaled. */
 	padding: number;
 	showLineNumbers: boolean;
-	/** First gutter number — decides the gutter's digit width. */
+	/** First gutter number: decides the gutter's digit width. */
 	lineNumberStart: number;
 	/** Whether a caption block sits below the card. */
 	hasCaption: boolean;
-	/** Upscale factor — chrome bar and caption block scale with it. */
+	/** Upscale factor: chrome bar and caption block scale with it. */
 	scale: number;
 }
 
 /**
  * Natural (unscaled) size of the card + caption unit, ready to feed into
  * `fitScale`. Mirrors the video's existing width math and adds the height the
- * old layout never bounded — the source of the cropping bug.
+ * old layout never bounded: the source of the cropping bug.
  */
 export function frameNaturalSize(input: FrameNaturalSizeInput): { width: number; height: number } {
 	const {

@@ -20,7 +20,7 @@ const SNAP_POINTS: (number | string)[] = [PEEK, MID, FULL];
 
 /**
  * Mobile / tablet workspace (below lg). The live preview owns the screen and a
- * non-modal Vaul drawer holds the controls — so the preview keeps updating,
+ * non-modal Vaul drawer holds the controls, so the preview keeps updating,
  * WYSIWYG, while you drag the sheet up to style, edit steps, or write code.
  */
 export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) {
@@ -53,7 +53,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 						<Drawer.Handle className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 dark:!bg-neutral-700" />
 						<Drawer.Title className="sr-only">Editor controls</Drawer.Title>
 
-						{/* Peek header — always visible: snippet + the primary actions. */}
+						{/* Peek header, always visible: snippet + the primary actions. */}
 						<div className="flex items-center gap-2 px-4 pt-1 pb-3">
 							<span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-neutral-800 dark:text-neutral-100">
 								{title.trim() || "Untitled"}
@@ -73,7 +73,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 								animate={{ opacity: 1 }}
 								transition={{ duration: 0.2 }}
 							>
-								{/* Style first — its changes are live in the preview above at the mid snap. */}
+								{/* Style first: its changes are live in the preview above at the mid snap. */}
 								<SheetSection label="Style">
 									<SettingsStrip />
 								</SheetSection>

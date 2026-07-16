@@ -22,8 +22,8 @@ function getAudioContextCtor(): AudioContextCtor | undefined {
 
 /**
  * Preview parity for synthesized typing sounds. When the Sound toggle is on and
- * playback starts, this renders the SAME tick track the export bakes in — same
- * pure functions, same timeline numbers — decodes it, and plays it as one buffer
+ * playback starts, this renders the SAME tick track the export bakes in (same
+ * pure functions, same timeline numbers), decodes it, and plays it as one buffer
  * source synced to the visual start, so the preview is audibly identical to the
  * video. Work is lazy (nothing runs unless sound is on), and the AudioContext is
  * created on the play-driven state change so autoplay policy is satisfied.
@@ -41,7 +41,7 @@ export function useTickAudio(): void {
 			return;
 		}
 
-		// Read inputs fresh at play start — the exact numbers the export route uses.
+		// Read inputs fresh at play start: the exact numbers the export route uses.
 		const { steps } = useSnippetStore.getState().snippet;
 		if (steps.length < 2) {
 			return;
@@ -85,7 +85,7 @@ export function useTickAudio(): void {
 				try {
 					source.stop();
 				} catch {
-					// Already stopped or ended — safe to ignore.
+					// Already stopped or ended: safe to ignore.
 				}
 				source.disconnect();
 			}

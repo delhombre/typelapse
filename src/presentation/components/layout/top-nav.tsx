@@ -13,7 +13,7 @@ import { DiffImportMenu } from "./diff-import-menu";
 import { TemplatesMenu } from "./templates-menu";
 import { UrlImportMenu } from "./url-import-menu";
 
-/** Top navigation bar — brand, templates, and the import/export/share/theme actions. */
+/** Top navigation bar: brand, templates, and the import/export/share/theme actions. */
 export function TopNav() {
 	const { mode, toggle } = useThemeModeStore();
 	const exportToJson = useSnippetStore((s) => s.exportToJson);

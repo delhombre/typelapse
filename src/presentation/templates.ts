@@ -1,5 +1,5 @@
 /**
- * Curated starter templates — each is a ready-to-animate snippet with steps,
+ * Curated starter templates: each is a ready-to-animate snippet with steps,
  * theme and background already set. Loaded through the same path as JSON import
  * (see `importFromJson`), so the shape matches a share payload exactly.
  */

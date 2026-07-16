@@ -21,7 +21,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 /* The instrument runs the real product parts: the same three-step `api/users.ts`
    demo, tokenized by Shiki, keyed + morphed by the shared magic-move engine, and
-   painted by the shared MagicMoveCanvas — so it looks exactly like the export. */
+   painted by the shared MagicMoveCanvas, so it looks exactly like the export. */
 
 const THEMES: Record<string, () => Theme> = {
 	midnight: Theme.midnight,
@@ -33,7 +33,7 @@ const THEMES: Record<string, () => Theme> = {
 	nord: Theme.nord,
 };
 
-/** Theme swatches for the toolbar — name + the theme's own background hex. */
+/** Theme swatches for the toolbar: name + the theme's own background hex. */
 const THEME_DOTS: { name: string; bg: string }[] = [
 	{ name: "midnight", bg: "#0d1117" },
 	{ name: "aurora", bg: "#1a1b2e" },
@@ -44,7 +44,7 @@ const THEME_DOTS: { name: string; bg: string }[] = [
 	{ name: "nord", bg: "#2e3440" },
 ];
 
-/** The three live aspects — the mesh canvas springs between these sizes. */
+/** The three live aspects: the mesh canvas springs between these sizes. */
 const ASPECTS = [
 	{ id: "16:9", w: 760, h: 428 },
 	{ id: "1:1", w: 470, h: 470 },
@@ -76,7 +76,7 @@ const WINDOW_WIDTH = 452;
 const WINDOW_FONT = 13;
 const FRAME_PADDING = 18;
 const LINE_HEIGHT_RATIO = 1.6;
-/** Natural window footprint (its tallest, 5-line state) — used to fit + centre it. */
+/** Natural window footprint (its tallest, 5-line state): used to fit + centre it. */
 const NATURAL_W = WINDOW_WIDTH;
 const NATURAL_H = 184;
 /** A pleasant frozen moment for the mesh when paused before playback starts. */
@@ -116,7 +116,7 @@ function resolveView(plan: MagicMovePlan, pos: ReturnType<typeof locate>): DemoV
 }
 
 /**
- * The heart of the page — a single, live, playable frame. It loops the real
+ * The heart of the page: a single, live, playable frame. It loops the real
  * magic-move engine over the `api/users.ts` demo on an animated mesh backdrop,
  * and a floating toolbar restyles it: play/pause, five mesh backgrounds, seven
  * themes, three aspects. Everything below the frame just tunes this one object.
@@ -329,7 +329,7 @@ export function Instrument() {
 
 /* ──────────── The window ──────────── */
 
-/** macOS window chrome around the morphing code — the object inside the mesh. */
+/** macOS window chrome around the morphing code: the object inside the mesh. */
 function CodeWindow({
 	theme,
 	title,
@@ -457,7 +457,7 @@ function Divider() {
 	return <span aria-hidden="true" className="h-4 w-px bg-black/10" />;
 }
 
-/** A restyle swatch — round for backgrounds, soft-square for themes. */
+/** A restyle swatch: round for backgrounds, soft-square for themes. */
 function Dot({
 	selected,
 	onClick,

@@ -53,7 +53,7 @@ export function CodeEditor() {
 		monacoRef.current = monaco;
 
 		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
-		// toggles it — same keybinding VS Code uses. Also surfaces in the command
+		// toggles it: same keybinding VS Code uses. Also surfaces in the command
 		// palette (F1 → "Toggle word wrap") for discoverability.
 		editor.addAction({
 			id: "toggle-word-wrap",

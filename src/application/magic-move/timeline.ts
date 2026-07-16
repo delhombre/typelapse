@@ -1,5 +1,5 @@
 /**
- * Playback timeline — pure segment math shared by the preview driver and the
+ * Playback timeline: pure segment math shared by the preview driver and the
  * video renderer so both play the exact same sequence of holds and morphs.
  */
 

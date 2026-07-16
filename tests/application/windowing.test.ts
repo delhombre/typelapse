@@ -157,7 +157,7 @@ describe("renderWindowedStage", () => {
 		const h2 = mkHunk([ctx("A"), rem("B"), add("C"), ctx("D")], 20);
 		const plans = planWindows([mkFile([h1, h2], "shift.ts")]);
 
-		// Stage 0: both "before" — hunk1 is just "keep"; hunk2's window opens at line 3.
+		// Stage 0: both "before", hunk1 is just "keep"; hunk2's window opens at line 3.
 		expect(renderWindowedStage(plans, 0)).toBe(["keep", ELLIPSIS, "A", "B", "D"].join("\n"));
 		// Stage 1: hunk1 applied (+3 lines) → hunk2's identical window is pushed to line 6.
 		expect(renderWindowedStage(plans, 1)).toBe(

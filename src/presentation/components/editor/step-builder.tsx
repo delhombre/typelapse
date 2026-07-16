@@ -252,7 +252,7 @@ export function StepBuilder() {
 }
 
 /**
- * Record toggle — sits left of Capture. Armed, it turns solid red with a pulsing
+ * Record toggle: sits left of Capture. Armed, it turns solid red with a pulsing
  * dot; each pause in typing captures a step (debounced in the store). Manual
  * Capture keeps working alongside it.
  */
@@ -294,7 +294,7 @@ function RecordButton() {
 }
 
 /**
- * Compact focus input on a step card — spotlight lines like "2-4, 7". Commits on
+ * Compact focus input on a step card: spotlight lines like "2-4, 7". Commits on
  * blur/Enter via `parseLineRanges`; an unparseable value tints the border red and
  * is not committed (quiet, no toast). Applied at render time, so edits are instant.
  */
@@ -310,7 +310,7 @@ function FocusInput({ step }: { step: Step }) {
 			return;
 		}
 		setInvalid(false);
-		// Snap the field to the canonical form ("4-2,7" → "2-4, 7") — the card no
+		// Snap the field to the canonical form ("4-2,7" → "2-4, 7"): the card no
 		// longer remounts on edit (step ids are stable), so sync explicitly.
 		setText(formatLineRanges(parsed));
 		updateStepFocus(step.id, parsed);
@@ -345,7 +345,7 @@ function FocusInput({ step }: { step: Step }) {
 }
 
 /**
- * Compact caption input on a step card — the line of prose shown beneath the
+ * Compact caption input on a step card: the line of prose shown beneath the
  * frame while this step holds. Commits on blur/Enter; any text is valid.
  */
 function CaptionInput({ step }: { step: Step }) {

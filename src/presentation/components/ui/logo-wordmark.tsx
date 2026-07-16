@@ -1,10 +1,10 @@
 /**
- * Typelapse logo wordmark — the play-head mark and the serif "Typelapse" lettering
+ * Typelapse logo wordmark: the play-head mark and the serif "Typelapse" lettering
  * in ONE svg. The lettering is not live text: each glyph is a <path> extracted from
  * Newsreader (opsz display cut) at build time, so there is no runtime font
  * dependency and the mark stays crisp at any size. Everything is currentColor.
  *
- * Regenerate with `node scripts/generate-wordmark.mjs` — the viewBox and the paths
+ * Regenerate with `node scripts/generate-wordmark.mjs`: the viewBox and the paths
  * below are pasted verbatim from its output (mnemos technique: y-flip via scale).
  */
 
@@ -22,7 +22,7 @@ export function LogoWordmark({ height = 24, className }: { height?: number; clas
 			className={className}
 		>
 			<title>Typelapse</title>
-			{/* Play glyph — a monoline stroked rounded triangle, verbatim from logomark.tsx */}
+			{/* Play glyph: a monoline stroked rounded triangle, verbatim from logomark.tsx */}
 			<path
 				d="M9.5 7.2L17.8 12L9.5 16.8Z"
 				stroke="currentColor"
@@ -31,9 +31,9 @@ export function LogoWordmark({ height = 24, className }: { height?: number; clas
 				strokeLinejoin="round"
 				fill="none"
 			/>
-			{/* Record point — the filled accent dot */}
+			{/* Record point: the filled accent dot */}
 			<circle cx="4.8" cy="12" r="1.7" fill="currentColor" />
-			{/* Lettering — "Typelapse" in Newsreader, each glyph a font-extracted path */}
+			{/* Lettering: "Typelapse" in Newsreader, each glyph a font-extracted path */}
 			<g fill="currentColor" transform="translate(23.8 18.5)">
 				<path
 					d="M573 1290L792 1290L792 105L955 52L955 0L411 0L411 52L573 105ZM1199 1236L160 1236L257 1266L112 960L43 969L89 1426L129 1426L269 1332L167 1352L1192 1352L1099 1332L1239 1426L1279 1426L1325 969L1256 960L1111 1266Z"

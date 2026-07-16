@@ -1,5 +1,5 @@
 /**
- * Line-number gutter labels — a tiny pure helper shared by the browser preview
+ * Line-number gutter labels: a tiny pure helper shared by the browser preview
  * and the Remotion video so both render the same gutter.
  *
  * The labels are display-only: focus / highlight ranges stay relative to the

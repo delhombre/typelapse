@@ -114,7 +114,7 @@ export function BackgroundPicker({ selected, onSelect }: BackgroundPickerProps) 
 const RAINBOW =
 	"conic-gradient(from 90deg, #ff0000, #ff9900, #ffee00, #33dd00, #00ccff, #3366ff, #cc33ff, #ff0000)";
 
-/** Custom solid color — proxies a hidden native color input. */
+/** Custom solid color: proxies a hidden native color input. */
 function ColorSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const isSelected = isSolidBackground(selected);
@@ -156,10 +156,10 @@ function ColorSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	);
 }
 
-/** Soft cap on uploaded images — larger files are quietly refused. */
+/** Soft cap on uploaded images: larger files are quietly refused. */
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
-/** Uploaded image — proxies a hidden file input, reads to a data URL. */
+/** Uploaded image: proxies a hidden file input, reads to a data URL. */
 function ImageSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const isSelected = isImageBackground(selected);

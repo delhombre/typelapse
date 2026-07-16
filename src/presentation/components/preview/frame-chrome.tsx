@@ -1,5 +1,5 @@
 /**
- * Window chrome header for the code frame — a shared presentational component
+ * Window chrome header for the code frame: a shared presentational component
  * (like `StepCaption` / `ReelsProgress`): the browser preview and the Remotion
  * composition both render it, so the exported video matches the preview
  * frame-for-frame. Only the header bar is painted here; the frame shell (border,
@@ -16,13 +16,13 @@ export function isWindowChrome(value: unknown): value is WindowChrome {
 	return typeof value === "string" && (WINDOW_CHROMES as readonly string[]).includes(value);
 }
 
-/** Mono stack for chrome titles — matches the app's `--font-mono`. */
+/** Mono stack for chrome titles: matches the app's `--font-mono`. */
 const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
 interface FrameChromeProps {
 	chrome: WindowChrome;
 	title: string;
-	/** Theme foreground hex (e.g. "#e6edf3") — every chrome tint derives from it. */
+	/** Theme foreground hex (e.g. "#e6edf3"): every chrome tint derives from it. */
 	foreground: string;
 	/** Upscale factor for the video (1 in the browser preview). */
 	scale?: number;

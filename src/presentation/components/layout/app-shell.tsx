@@ -11,7 +11,7 @@ interface AppShellProps {
 	preview: ReactNode;
 }
 
-/** Desktop workspace — a fixed, non-scrolling two-column layout (renders at lg and up). */
+/** Desktop workspace: a fixed, non-scrolling two-column layout (renders at lg and up). */
 export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 	return (
 		<div className="flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -19,7 +19,7 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 
 			{/* ── Body ── */}
 			<div className="flex min-h-0 flex-1 overflow-hidden">
-				{/* Left panel — editor + steps */}
+				{/* Left panel: editor + steps */}
 				<motion.aside
 					className="flex w-[348px] shrink-0 flex-col overflow-hidden border-r border-neutral-200/70 dark:border-neutral-800/70"
 					variants={mountVariants}
@@ -38,7 +38,7 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 					</div>
 				</motion.aside>
 
-				{/* Main area — preview + settings */}
+				{/* Main area: preview + settings */}
 				<motion.main
 					className="flex min-h-0 flex-1 flex-col overflow-hidden bg-neutral-100/50 dark:bg-neutral-900/20"
 					variants={mountVariants}

@@ -24,7 +24,7 @@ export function ExportBar() {
 	return (
 		<div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
 			<PngButton />
-			{/* Spacer — only pushes controls apart on the single-row desktop layout */}
+			{/* Spacer: only pushes controls apart on the single-row desktop layout */}
 			<div className="hidden flex-1 lg:block" />
 			{hasSteps && (
 				<>
@@ -37,7 +37,7 @@ export function ExportBar() {
 	);
 }
 
-/** PNG snapshot action — available regardless of step count. */
+/** PNG snapshot action: available regardless of step count. */
 export function PngButton() {
 	const isExporting = useExportStore((s) => s.isExporting);
 	const exportPng = useExportStore((s) => s.exportPng);
@@ -57,7 +57,7 @@ export function PngButton() {
 	);
 }
 
-/** Video export controls — format, aspect ratio, and the reels/typewriter/loop toggles. */
+/** Video export controls: format, aspect ratio, and the reels/typewriter/loop toggles. */
 export function ExportOptions() {
 	const {
 		format,
@@ -157,7 +157,7 @@ export function ExportOptions() {
 	);
 }
 
-/** Primary video export button — shows a spinner and live progress while rendering. */
+/** Primary video export button: shows a spinner and live progress while rendering. */
 export function ExportButton() {
 	const isExporting = useExportStore((s) => s.isExporting);
 	const progress = useExportStore((s) => s.progress);

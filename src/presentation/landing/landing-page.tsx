@@ -86,7 +86,7 @@ function Hero() {
 
 /* ──────────── Capabilities ──────────── */
 
-/** What the tool actually does today — four plain columns, one line each. */
+/** What the tool actually does today: four plain columns, one line each. */
 const CAPABILITIES: [string, string][] = [
 	["Export", "MP4 · WebM · GIF · PNG"],
 	["Look", "7 themes · 4 window chromes · mesh, solid & image backdrops"],

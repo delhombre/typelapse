@@ -21,7 +21,7 @@ export function diffToSnapshots(
 	}
 
 	const parsed = parseUnifiedDiff(diffText);
-	// Lockfiles are generated noise — drop them unless they're all the diff has.
+	// Lockfiles are generated noise: drop them unless they're all the diff has.
 	const files = filterLockfiles(parsed.files);
 	const hunkCount = files.reduce((sum, file) => sum + file.hunks.length, 0);
 	if (hunkCount === 0) {

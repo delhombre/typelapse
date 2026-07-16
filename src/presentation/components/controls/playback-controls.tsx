@@ -7,8 +7,8 @@ import type { ReactNode } from "react";
 const MAX_DOTS = 8;
 
 /**
- * One floating pill — play/pause, an rAF-driven progress track, per-step dots and a
- * zero-padded counter — in the landing toolbar's language, themed for the studio's
+ * One floating pill: play/pause, an rAF-driven progress track, per-step dots and a
+ * zero-padded counter, in the landing toolbar's language, themed for the studio's
  * light/dark modes. Hidden below two steps, where there is nothing to play.
  */
 export function PlaybackControls() {
@@ -63,7 +63,7 @@ export function PlaybackControls() {
 				</AnimatePresence>
 			</motion.button>
 
-			{/* rAF-driven, so the fill tracks progress directly — no CSS transition. */}
+			{/* rAF-driven, so the fill tracks progress directly: no CSS transition. */}
 			<div className="h-1 w-40 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
 				<div
 					className="h-full rounded-full bg-neutral-900 dark:bg-white"
@@ -110,7 +110,7 @@ interface Transport {
 	icon: ReactNode;
 }
 
-/** The button's current face — spinner while preparing, then pause/play. */
+/** The button's current face: spinner while preparing, then pause/play. */
 function resolveTransport(isPreparing: boolean, isPlaying: boolean): Transport {
 	if (isPreparing) {
 		return { key: "preparing", label: "Preparing…", icon: <SpinnerIcon /> };

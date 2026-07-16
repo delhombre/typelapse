@@ -7,7 +7,7 @@ export interface StepProps {
 	annotation?: string;
 }
 
-/** Field edits accepted by `Step.with` — anything omitted is carried over. */
+/** Field edits accepted by `Step.with`: anything omitted is carried over. */
 export interface StepChanges {
 	code?: string;
 	duration?: number;
@@ -60,8 +60,8 @@ export class Step {
 
 	/**
 	 * Clone with the given changes, preserving identity. Edits to an existing
-	 * step (duration, focus, caption) must keep its `id` stable — React keys,
-	 * drag state and captured ids all rely on it — so this is the only correct
+	 * step (duration, focus, caption) must keep its `id` stable (React keys,
+	 * drag state and captured ids all rely on it) so this is the only correct
 	 * way to derive an edited step. Validates like `create`.
 	 */
 	with(changes: StepChanges): Step {

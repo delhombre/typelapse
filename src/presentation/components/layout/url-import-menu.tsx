@@ -82,7 +82,7 @@ export function UrlImportMenu() {
 			<AnimatePresence>
 				{open && (
 					<>
-						{/* Backdrop — a click anywhere outside closes the popover. */}
+						{/* Backdrop: a click anywhere outside closes the popover. */}
 						<button
 							type="button"
 							aria-label="Close import from URL"

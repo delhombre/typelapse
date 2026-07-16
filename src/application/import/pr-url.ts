@@ -1,7 +1,7 @@
 /**
  * Pure resolvers mapping a pasted GitHub URL to the coordinates of a change to
  * animate: a pull request (`{owner, repo, number}`) or a single commit
- * (`{owner, repo, sha}`). No network here — the infrastructure adapter
+ * (`{owner, repo, sha}`). No network here: the infrastructure adapter
  * (`import/pr-import`) turns these refs into a fetched diff + title. This mirrors
  * the value-map style of the sibling `code-url` resolver.
  */
@@ -67,7 +67,7 @@ export function resolvePrUrl(input: string): PrRef | null {
 }
 
 /**
- * Resolve `github.com/{owner}/{repo}/commit/{sha}` (7–40 hex chars, with any
+ * Resolve `github.com/{owner}/{repo}/commit/{sha}` (7 to 40 hex chars, with any
  * trailing segment, query or fragment) to a {@link CommitRef}, or null when it
  * isn't a commit URL or the sha isn't a valid short/full hash.
  */

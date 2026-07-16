@@ -22,7 +22,7 @@ function toRawTokens(info: KeyedTokensInfo): RawToken[] {
 /**
  * Server twin of the client magic-move keyer: tokenizes every step, diffs each
  * adjacent pair for stable keys, and lays the tokens out with the same pure
- * engine the browser preview uses — so the exported video matches the preview.
+ * engine the browser preview uses, so the exported video matches the preview.
  *
  * The highlighter must already have `lang`/`shikiTheme` loaded.
  */

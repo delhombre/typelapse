@@ -1,5 +1,5 @@
 /**
- * Line-range parsing for the per-step spotlight — pure, framework-free.
+ * Line-range parsing for the per-step spotlight: pure, framework-free.
  *
  * The step card exposes focus as a compact human string ("2-4, 7"); the domain
  * stores it as `HighlightRange[]`; the render engine wants a flat `Set` of the

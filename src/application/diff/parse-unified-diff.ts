@@ -26,7 +26,7 @@ function parsePathMarker(raw: string): string | null {
  * The parser is count-driven: each hunk header declares how many old-side and
  * new-side lines follow, so content that happens to look like a header
  * (e.g. an added line starting with `---`) is preserved verbatim. Input that
- * isn't a diff simply yields `{ files: [] }` — callers decide how to react.
+ * isn't a diff simply yields `{ files: [] }`. Callers decide how to react.
  */
 export function parseUnifiedDiff(text: string): ParsedDiff {
 	const lines = text.split(/\r?\n/);
@@ -160,7 +160,7 @@ function consumeHunkBody(
 			oldRemaining--;
 			i++;
 		} else if (marker === "\\") {
-			// "\ No newline at end of file" — annotates the previous line, no count.
+			// "\ No newline at end of file": annotates the previous line, no count.
 			i++;
 		} else {
 			// Anything else (a new header, malformed input): the hunk ends here.

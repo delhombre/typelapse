@@ -149,7 +149,7 @@ renderRoute.post("/render", async (c) => {
 		const loopFrames = loop ? transitionFrames : 0;
 		const totalFrames = holdFrames + (steps.length - 1) * transitionFrames + loopFrames;
 
-		// Synthesized tick track — built from the same timeline numbers the preview
+		// Synthesized tick track: built from the same timeline numbers the preview
 		// uses, spanning the full video (loop tail included). GIF carries no audio,
 		// so skip it there silently.
 		let audioDataUrl: string | undefined;

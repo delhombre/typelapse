@@ -122,7 +122,7 @@ describe("Snippet", () => {
 		expect(() => snippet.reorderSteps(["unknown-id"])).toThrow();
 	});
 
-	it("is immutable — addStep returns a new instance", () => {
+	it("is immutable: addStep returns a new instance", () => {
 		const snippet = Snippet.create({ title: "T", code: "x", language: "ts" });
 		const step = Step.create({ code: "y" });
 		const updated = snippet.addStep(step);

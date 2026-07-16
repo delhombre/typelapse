@@ -20,7 +20,7 @@ interface StaticFrameProps {
 	code: string;
 	language?: string;
 	title: string;
-	/** Seconds into the mesh loop — vary it per frame for visual variety. */
+	/** Seconds into the mesh loop: vary it per frame for visual variety. */
 	meshTime?: number;
 	meshPadding?: number;
 	framePadding?: number;
@@ -31,7 +31,7 @@ interface StaticFrameProps {
 }
 
 /**
- * A single, static, syntax-highlighted code frame on an animated-mesh backdrop —
+ * A single, static, syntax-highlighted code frame on an animated-mesh backdrop:
  * the same look the studio exports, rendered once (no loop). Used for the theme
  * gallery and aspect-ratio showcase where variety, not motion, is the point.
  */

@@ -7,7 +7,7 @@
  *     from the font. This is the mnemos technique: the glyph outlines are emitted
  *     in font units and flipped/scaled into the SVG with `scale(S, -S)` (the -S
  *     is the font-units-Y-up -> SVG-Y-down flip). Everything is currentColor, so
- *     the shipped component is pure geometry — portable, themeable, no webfont.
+ *     the shipped component is pure geometry: portable, themeable, no webfont.
  *
  * The font is fetched from Google Fonts at build time (never committed) and
  * cached under node_modules/.cache. Run:
@@ -29,14 +29,14 @@ const TEXT = "Typelapse";
 /** Target cap height in the final coordinate system (the mark's 24-unit box). */
 const FINAL_CAP_HEIGHT = 13;
 /**
- * Effective whitespace between the play glyph TIP (x=18.8 — the stroke's right
+ * Effective whitespace between the play glyph TIP (x=18.8, the stroke's right
  * vertex 17.8 plus its 1-unit half-width, see MARK below) and the text's start, in
- * final units — textX = tip + gap. Measured from the tip, not the mark's 24-unit
+ * final units: textX = tip + gap. Measured from the tip, not the mark's 24-unit
  * box edge, so the box's dead right margin doesn't push the lettering away and the
  * lockup reads as one object (art-director calibrated).
  */
 const TIP_TO_TEXT_GAP = 5;
-/** The mark's vertical centre — the play glyph and the record dot both centre here. */
+/** The mark's vertical centre: the play glyph and the record dot both centre here. */
 const PLAY_HEAD_CENTER = 12;
 /** Padding baked into the tight viewBox (final units). */
 const PAD = 1;
@@ -92,13 +92,13 @@ function main() {
 	const base = fontkit.openSync(TTF_PATH);
 
 	// Prefer the opsz=72 display cut. Google's curl-UA path serves a static
-	// instance (no fvar), so getVariation throws — we fall back to the default.
+	// instance (no fvar), so getVariation throws: we fall back to the default.
 	let font = base;
 	let variationNote = "getVariation({ opsz: 72, wght: 500 }) applied";
 	try {
 		font = base.getVariation({ opsz: 72, wght: 500 });
 	} catch (error) {
-		variationNote = `getVariation unavailable (${error.message}) — using default instance`;
+		variationNote = `getVariation unavailable (${error.message}): using default instance`;
 	}
 
 	const { unitsPerEm, capHeight } = font;
@@ -148,7 +148,7 @@ function main() {
 		)
 		.join("\n");
 
-	const markup = `{/* Play glyph — a monoline stroked rounded triangle, verbatim from logomark.tsx */}
+	const markup = `{/* Play glyph: a monoline stroked rounded triangle, verbatim from logomark.tsx */}
 <path
   d="M9.5 7.2L17.8 12L9.5 16.8Z"
   stroke="currentColor"
@@ -157,9 +157,9 @@ function main() {
   strokeLinejoin="round"
   fill="none"
 />
-{/* Record point — the filled accent dot */}
+{/* Record point: the filled accent dot */}
 <circle cx="4.8" cy="12" r="1.7" fill="currentColor" />
-{/* Lettering — "Typelapse" in Newsreader, each glyph a font-extracted path */}
+{/* Lettering: "Typelapse" in Newsreader, each glyph a font-extracted path */}
 <g fill="currentColor" transform="translate(${num(textX, 4)} ${num(baselineY, 4)})">
 ${letterPaths}
 </g>`;
@@ -167,7 +167,7 @@ ${letterPaths}
 	/* ──────────── Report ──────────── */
 
 	console.log("─".repeat(64));
-	console.log("Typelapse wordmark — generation metrics");
+	console.log("Typelapse wordmark: generation metrics");
 	console.log("─".repeat(64));
 	console.log(`font           : ${font.postscriptName}`);
 	console.log(`variation      : ${variationNote}`);

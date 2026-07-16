@@ -1,5 +1,5 @@
 /**
- * Fetch a whole change — a GitHub pull request or a single commit — as raw
+ * Fetch a whole change (a GitHub pull request or a single commit) as raw
  * unified-diff text plus a human title, ready to hand to `importDiff`. Uses only
  * the browser fetch: api.github.com sends permissive CORS headers and serves the
  * raw diff when asked with `Accept: application/vnd.github.diff`, so no token or
@@ -29,7 +29,7 @@ function errorForStatus(status: number, notFound: string): Error {
 
 /**
  * Fetch the raw unified diff for a GitHub API resource. Throws a mapped,
- * user-facing Error on any failure — a bad diff fetch fails the whole import.
+ * user-facing Error on any failure: a bad diff fetch fails the whole import.
  */
 async function fetchDiff(url: string, notFound: string): Promise<string> {
 	const controller = new AbortController();
@@ -84,7 +84,7 @@ async function fetchJson<T>(url: string): Promise<T | null> {
  *
  * Future palier: a PR is a stack of commits, so a richer walkthrough could fetch
  * `/pulls/{n}/commits` and chapter the animation one segment per commit. Out of
- * scope here — for now the PR animates as a single squashed change.
+ * scope here: for now the PR animates as a single squashed change.
  */
 export async function fetchPrWalkthrough(ref: PrRef): Promise<Walkthrough> {
 	const url = `https://api.github.com/repos/${ref.owner}/${ref.repo}/pulls/${ref.number}`;

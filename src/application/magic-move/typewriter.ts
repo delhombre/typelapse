@@ -1,5 +1,5 @@
 /**
- * Typewriter reveal — pure. Types a frame's code out character by character,
+ * Typewriter reveal: pure. Types a frame's code out character by character,
  * slicing the token being typed and reporting the cursor position. This is the
  * literal "Typelapse" promise (watch the code get written) and something
  * a competing tool doesn't do. Shared by the preview and the Remotion video.
@@ -19,7 +19,7 @@ export interface TypingView {
 	cursor: GridPosition | null;
 }
 
-/** Lay tokens out for typing — keeps whitespace and records each token's start index. */
+/** Lay tokens out for typing: keeps whitespace and records each token's start index. */
 export function layoutTypingTokens(code: string, tokens: RawToken[], tabSize = 2): TypedToken[] {
 	const positions = gridPositions(code, tabSize);
 	return tokens.map((token) => {

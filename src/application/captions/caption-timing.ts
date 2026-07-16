@@ -1,5 +1,5 @@
 /**
- * Caption timing — pure, framework-free, shared by the preview and the video.
+ * Caption timing: pure, framework-free, shared by the preview and the video.
  *
  * A step's caption is fully visible while its step is held. Across a morph the
  * captions cross-dissolve with a gap: the outgoing caption fades out over the

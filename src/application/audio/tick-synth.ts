@@ -1,5 +1,5 @@
 /**
- * Tick-sound synth — pure, dependency-free, no audio assets. Turns the playback
+ * Tick-sound synth: pure, dependency-free, no audio assets. Turns the playback
  * timeline into a list of tick events, renders them into a mono PCM buffer, and
  * encodes that as a base64 WAV data URL. The browser preview and the Remotion
  * export both run these same functions on the same timeline numbers, so the
@@ -16,7 +16,7 @@ export interface TickEvent {
 export interface TickEventOptions {
 	/** Type the first step out character by character (key ticks over its hold). */
 	typewriter: boolean;
-	/** Character count of the first step's code — the number of key ticks. */
+	/** Character count of the first step's code: the number of key ticks. */
 	firstCodeLength: number;
 	/** Per-step hold durations in ms (same array fed to buildTimeline). */
 	holds: number[];
@@ -60,7 +60,7 @@ export function collectTickEvents(opts: TickEventOptions): TickEvent[] {
 
 // ── Synthesis ────────────────────────────────────────────────────────────────
 
-/** Key tick: a short, lowpassed noise burst — a soft mechanical keystroke. */
+/** Key tick: a short, lowpassed noise burst, a soft mechanical keystroke. */
 const KEY_MS = 5;
 const KEY_PEAK = 0.18;
 const KEY_TAU_S = 0.0012;

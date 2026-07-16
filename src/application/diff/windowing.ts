@@ -1,5 +1,5 @@
 /**
- * Hunk windowing — make a diff walkthrough readable on real-world PRs.
+ * Hunk windowing: make a diff walkthrough readable on real-world PRs.
  *
  * A staged snapshot without windowing renders every line that appears across a
  * file's hunks. A regenerated lockfile or a wide-context diff then produces a
@@ -19,7 +19,7 @@
  * structurally identical across every stage. They are: window boundaries,
  * separators and headers are all deterministic functions of the (stage-
  * independent) hunk structure. Only the code *inside* a window changes between
- * stages — and exactly one hunk flips per step — so everything else matches as
+ * stages (and exactly one hunk flips per step) so everything else matches as
  * a stable token and glides rather than churns.
  *
  * Line numbers: the presentation gutter is display-only and sequential, so
@@ -71,7 +71,7 @@ function basename(path: string): string {
 }
 
 /**
- * True for a dependency lockfile — walkthroughs of generated lockfiles are noise.
+ * True for a dependency lockfile: walkthroughs of generated lockfiles are noise.
  * Matches the well-known basenames plus any `*.lock` file (Cargo.lock, poetry.lock…).
  */
 export function isLockfile(path: string | null | undefined): boolean {
@@ -87,7 +87,7 @@ export function isLockfile(path: string | null | undefined): boolean {
 
 /**
  * Drop lockfiles from the file list. If *every* file is a lockfile the list is
- * returned untouched — a lockfile walkthrough still beats an empty import.
+ * returned untouched: a lockfile walkthrough still beats an empty import.
  */
 export function filterLockfiles(files: DiffFile[]): DiffFile[] {
 	const kept = files.filter((file) => !isLockfile(file.newPath ?? file.oldPath));
@@ -172,7 +172,7 @@ function needsHunkBoundarySeparator(prev: DiffHunk, next: DiffHunk): boolean {
 	return realGap(prev, next) > MERGE_GAP;
 }
 
-/** Render one file's windows for a stage (no header — the caller adds it). */
+/** Render one file's windows for a stage (no header: the caller adds it). */
 function renderFileStage(
 	plan: FileWindowPlan,
 	appliedHunks: number,
@@ -196,7 +196,7 @@ function renderFileStage(
 
 		for (const window of windows) {
 			if (!emitted) {
-				// Leading separator: hidden lines above the first window — either the
+				// Leading separator: hidden lines above the first window, either the
 				// hunk begins mid-file, or its own leading context was trimmed.
 				if (hunk.oldStart > 1 || window.start > 0) {
 					out.push(ELLIPSIS);
@@ -218,7 +218,7 @@ function renderFileStage(
 
 	// Trailing separator only when we trimmed the last hunk's own tail. A diff
 	// never reveals the file's length, so a window that reaches its hunk's end
-	// may or may not be at EOF — we don't guess.
+	// may or may not be at EOF: we don't guess.
 	if (prevHunk && prevWindow && prevWindow.end < prevHunk.lines.length - 1) {
 		out.push(ELLIPSIS);
 	}

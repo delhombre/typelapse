@@ -81,13 +81,13 @@ interface SnippetState {
 	captureStep: (duration?: number) => void;
 	removeStep: (stepId: string) => void;
 	updateStepDuration: (stepId: string, duration: number) => void;
-	/** Set the spotlight lines for a step. Applied at render time — no re-tokenize. */
+	/** Set the spotlight lines for a step. Applied at render time: no re-tokenize. */
 	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => void;
 	/** Set the caption shown beneath the frame during a step. */
 	updateStepAnnotation: (stepId: string, text: string) => void;
 	reorderSteps: (orderedIds: string[]) => void;
 
-	// Record mode — auto-capture a step at each pause while the user types.
+	// Record mode: auto-capture a step at each pause while the user types.
 	isRecording: boolean;
 	/** Arm record mode; anchors a baseline step if the live code is new. */
 	startRecording: () => void;
@@ -105,7 +105,7 @@ interface SnippetState {
 	/**
 	 * Turn a pasted unified diff into an animated walkthrough: replace the snippet
 	 * with the diff's before-state code and a step per hunk stage (before→…→after).
-	 * Throws a user-facing Error on unusable input — the caller surfaces it.
+	 * Throws a user-facing Error on unusable input: the caller surfaces it.
 	 */
 	importDiff: (diffText: string) => void;
 }
@@ -180,7 +180,7 @@ function rebuildSnippet(
 
 /**
  * Rebuild the snippet with one step swapped for an edited clone. The edit MUST
- * go through `Step.with` so the step keeps its id — React keys, drag state and
+ * go through `Step.with` so the step keeps its id: React keys, drag state and
  * captured ids all rely on step identity surviving an edit. Returns null when
  * no step matches (silent no-op at the call site).
  */

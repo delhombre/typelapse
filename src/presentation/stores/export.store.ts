@@ -10,7 +10,7 @@ export interface ExportProgress {
 	message: string;
 }
 
-/** Morph tempo — how long each step-to-step transition takes, in milliseconds. */
+/** Morph tempo: how long each step-to-step transition takes, in milliseconds. */
 export type TempoMs = 400 | 650 | 1000;
 
 interface ExportState {
