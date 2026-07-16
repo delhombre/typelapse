@@ -6,6 +6,8 @@ import type { ProgressStyle } from "../../src/presentation/components/preview/re
 export interface StepData {
 	code: string;
 	duration: number; // ms
+	/** 1-indexed line numbers to spotlight for this step; others dim. Missing = no focus. */
+	focus?: number[];
 }
 
 export interface ThemeData {

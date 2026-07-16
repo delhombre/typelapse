@@ -1,3 +1,4 @@
+import { formatLineRanges } from "@/application/focus/line-ranges";
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -40,7 +41,10 @@ export function TopNav() {
 			language: snippet.language,
 			themeName: snippet.theme.name,
 			background,
-			steps: snippet.steps.map((s) => ({ code: s.code, duration: s.duration })),
+			steps: snippet.steps.map((s) => {
+				const focus = formatLineRanges(s.highlightRanges);
+				return { code: s.code, duration: s.duration, focus: focus || undefined };
+			}),
 		});
 		const copied = await copyToClipboard(link);
 		if (copied) {

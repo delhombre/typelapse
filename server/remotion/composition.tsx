@@ -88,8 +88,10 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	const active = segments.find((s) => frame >= s.startFrame && frame < s.endFrame) ?? segments[segments.length - 1];
 
 	const isTransparent = background === "transparent";
+	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
+	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
 	const typingView = resolveTypingView(input, active, frame);
-	const view = typingView ?? resolveView(plan, active, frame);
+	const view = typingView ?? resolveView(plan, active, frame, focusSets);
 	const cursor = typingView?.cursor ?? null;
 	const wmColor = getWatermarkColor(background, theme.foreground);
 	const backgroundCss = isTransparent ? "transparent" : resolveBackgroundCss(background, frame / fps);
@@ -151,7 +153,12 @@ function resolveTypingView(
 	return { tokens, lineCount, lineNumberCount: lineCount, cursor };
 }
 
-function resolveView(plan: RenderInput["plan"], active: Segment | undefined, frame: number): FrameView {
+function resolveView(
+	plan: RenderInput["plan"],
+	active: Segment | undefined,
+	frame: number,
+	focusSets: (Set<number> | undefined)[],
+): FrameView {
 	if (!active) {
 		return { tokens: [], lineCount: 1, lineNumberCount: 1 };
 	}
@@ -160,26 +167,39 @@ function resolveView(plan: RenderInput["plan"], active: Segment | undefined, fra
 		const transition = isLoop ? plan.loopTransition : plan.transitions[active.index];
 		const fromFrame = plan.frames[active.index];
 		const toFrame = isLoop ? plan.frames[0] : plan.frames[active.index + 1];
+		// A loop-back morph runs from the last step to the first.
+		const toIndex = isLoop ? 0 : active.index + 1;
 		if (transition && fromFrame && toFrame) {
 			const span = active.endFrame - active.startFrame;
 			const t = span > 0 ? (frame - active.startFrame) / span : 1;
 			const eased = easeInOutCubic(Math.min(Math.max(t, 0), 1));
 			return {
-				tokens: renderTransition(transition.from, transition.to, t),
+				tokens: renderTransition(
+					transition.from,
+					transition.to,
+					t,
+					{},
+					focusSets[active.index],
+					focusSets[toIndex],
+				),
 				lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 				lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
 			};
 		}
 	}
 	const held = plan.frames[active.index] ?? plan.frames[0];
-	return staticView(held);
+	return staticView(held, focusSets[active.index]);
 }
 
-function staticView(held: LaidOutFrame | undefined): FrameView {
+function staticView(held: LaidOutFrame | undefined, focus?: Set<number>): FrameView {
 	if (!held) {
 		return { tokens: [], lineCount: 1, lineNumberCount: 1 };
 	}
-	return { tokens: renderStatic(held.tokens), lineCount: held.lineCount, lineNumberCount: held.lineCount };
+	return {
+		tokens: renderStatic(held.tokens, focus),
+		lineCount: held.lineCount,
+		lineNumberCount: held.lineCount,
+	};
 }
 
 /** Themed card with macOS chrome, centered and sized to fit the widest line. */

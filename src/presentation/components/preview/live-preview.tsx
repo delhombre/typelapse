@@ -3,6 +3,7 @@ import {
 	meshGradientCss,
 	parseMeshBackground,
 } from "@/application/backgrounds/mesh-gradient";
+import { focusLineSet } from "@/application/focus/line-ranges";
 import { easeInOutCubic, renderStatic, renderTransition } from "@/application/magic-move/engine";
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
@@ -90,7 +91,17 @@ export function LivePreview() {
 	}
 
 	const firstCode = snippet.steps[0]?.code ?? snippet.code;
-	const view = resolveView(plan, playback, isPlaying, currentStepIndex, typewriter, firstCode);
+	// Per-step spotlight, applied at render time (no re-tokenize when focus edits).
+	const focusSets = snippet.steps.map((s) => focusLineSet(s.highlightRanges));
+	const view = resolveView(
+		plan,
+		playback,
+		isPlaying,
+		currentStepIndex,
+		typewriter,
+		firstCode,
+		focusSets,
+	);
 	const isTransparent = background === "transparent";
 
 	return (
@@ -205,6 +216,7 @@ function resolveView(
 	currentStepIndex: number,
 	typewriter: boolean,
 	firstCode: string,
+	focusSets: (Set<number> | undefined)[],
 ): FrameView {
 	if (isPlaying && playback) {
 		if (typewriter && playback.phase === "hold" && playback.index === 0 && plan.typing) {
@@ -220,27 +232,35 @@ function resolveView(
 			if (transition && fromFrame && toFrame) {
 				const eased = easeInOutCubic(playback.t);
 				return {
-					tokens: renderTransition(transition.from, transition.to, playback.t),
+					tokens: renderTransition(
+						transition.from,
+						transition.to,
+						playback.t,
+						{},
+						focusSets[playback.index],
+						focusSets[playback.index + 1],
+					),
 					lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 					lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
 				};
 			}
 		}
-		return staticView(plan.frames[playback.index] ?? plan.frames[0]);
+		return staticView(plan.frames[playback.index] ?? plan.frames[0], focusSets[playback.index]);
 	}
 
 	const index = Math.min(Math.max(currentStepIndex, 0), plan.frames.length - 1);
-	return staticView(plan.frames[index] ?? plan.frames[0]);
+	return staticView(plan.frames[index] ?? plan.frames[0], focusSets[index]);
 }
 
 function staticView(
 	frame: { tokens: Parameters<typeof renderStatic>[0]; lineCount: number } | undefined,
+	focus?: Set<number>,
 ): FrameView {
 	if (!frame) {
 		return EMPTY_VIEW;
 	}
 	return {
-		tokens: renderStatic(frame.tokens),
+		tokens: renderStatic(frame.tokens, focus),
 		lineCount: frame.lineCount,
 		lineNumberCount: frame.lineCount,
 	};
