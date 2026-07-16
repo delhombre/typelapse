@@ -1,3 +1,4 @@
+import { focusLineSet } from "@/application/focus/line-ranges";
 import type { RenderFormat } from "@/domain/entities/render-config";
 import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download.adapter";
 import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
@@ -91,7 +92,14 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					padding: theme.padding,
 					borderRadius: theme.borderRadius,
 				},
-				steps: snippet.steps.map((s) => ({ code: s.code, duration: s.duration })),
+				steps: snippet.steps.map((s) => {
+					const focus = [...focusLineSet(s.highlightRanges)];
+					return {
+						code: s.code,
+						duration: s.duration,
+						focus: focus.length > 0 ? focus : undefined,
+					};
+				}),
 				background,
 				framePadding,
 				width,

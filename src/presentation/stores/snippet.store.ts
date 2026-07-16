@@ -1,8 +1,10 @@
+import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
 import { Snippet } from "@/domain/entities/snippet";
 import { Step } from "@/domain/entities/step";
 import { Theme } from "@/domain/entities/theme";
 import type { HighlighterPort } from "@/domain/ports/highlighter.port";
+import type { HighlightRange } from "@/domain/value-objects/highlight-range";
 import {
 	type MagicMovePlan,
 	buildMagicMovePlan,
@@ -62,6 +64,8 @@ interface SnippetState {
 	captureStep: (duration?: number) => void;
 	removeStep: (stepId: string) => void;
 	updateStepDuration: (stepId: string, duration: number) => void;
+	/** Set the spotlight lines for a step. Applied at render time — no re-tokenize. */
+	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => void;
 	reorderSteps: (orderedIds: string[]) => void;
 
 	// Playback
@@ -110,6 +114,21 @@ function rebuildSnippet(
 		updated = updated.addStep(step);
 	}
 	return updated;
+}
+
+/** Rebuild a snippet with a replacement steps array, keeping everything else. */
+function withSteps(snippet: Snippet, steps: Step[]): Snippet {
+	let rebuilt = Snippet.create({
+		title: snippet.title,
+		code: snippet.code,
+		language: snippet.language,
+		theme: snippet.theme,
+		renderConfig: snippet.renderConfig,
+	});
+	for (const step of steps) {
+		rebuilt = rebuilt.addStep(step);
+	}
+	return rebuilt;
 }
 
 function cancelRaf() {
@@ -255,17 +274,26 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		});
 		const steps = [...snippet.steps];
 		steps.splice(stepIndex, 1, newStep);
-		let rebuilt = Snippet.create({
-			title: snippet.title,
-			code: snippet.code,
-			language: snippet.language,
-			theme: snippet.theme,
-			renderConfig: snippet.renderConfig,
-		});
-		for (const s of steps) {
-			rebuilt = rebuilt.addStep(s);
+		set({ snippet: withSteps(snippet, steps) });
+	},
+
+	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => {
+		const { snippet } = get();
+		const stepIndex = snippet.steps.findIndex((s) => s.id === stepId);
+		const oldStep = snippet.steps[stepIndex];
+		if (!oldStep) {
+			return;
 		}
-		set({ snippet: rebuilt });
+		const newStep = Step.create({
+			code: oldStep.code,
+			duration: oldStep.duration,
+			highlightRanges: ranges,
+			annotation: oldStep.annotation,
+		});
+		const steps = [...snippet.steps];
+		steps.splice(stepIndex, 1, newStep);
+		// Focus is applied at render time (resolveView), so no plan rebuild needed.
+		set({ snippet: withSteps(snippet, steps) });
 	},
 
 	reorderSteps: (orderedIds: string[]) => {
@@ -337,7 +365,17 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			language: snippet.language,
 			themeName: snippet.theme.name,
 			background,
-			steps: snippet.steps.map((step) => ({ code: step.code, duration: step.duration })),
+			steps: snippet.steps.map((step) => {
+				const focus = formatLineRanges(step.highlightRanges);
+				const serialized: { code: string; duration: number; focus?: string } = {
+					code: step.code,
+					duration: step.duration,
+				};
+				if (focus) {
+					serialized.focus = focus;
+				}
+				return serialized;
+			}),
 		};
 		return JSON.stringify(data, null, 2);
 	},
@@ -400,7 +438,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 					throw new Error("Each step must have a non-empty 'code'");
 				}
 				const duration = typeof s.duration === "number" ? s.duration : undefined;
-				snippet = snippet.addStep(Step.create({ code: s.code, duration }));
+				// Defensive: unknown/invalid focus strings degrade to "no focus".
+				let highlightRanges: HighlightRange[] = [];
+				if (typeof s.focus === "string") {
+					highlightRanges = parseLineRanges(s.focus) ?? [];
+				}
+				snippet = snippet.addStep(Step.create({ code: s.code, duration, highlightRanges }));
 			}
 		}
 

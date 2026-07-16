@@ -1,3 +1,5 @@
+import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import type { Step } from "@/domain/entities/step";
 import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { truncateMiddle } from "@/presentation/utils/truncate-middle";
@@ -83,7 +85,7 @@ export function StepBuilder() {
 		const isDropTarget = index === dropTargetIndex && index !== draggedIndex;
 
 		const base =
-			"group flex w-full items-center gap-2 rounded-xl border p-2.5 text-left transition-[transform,border-color,background-color,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-transform";
+			"group flex w-full flex-col gap-1.5 rounded-xl border p-2.5 text-left transition-[transform,border-color,background-color,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-transform";
 
 		let stateClasses: string;
 		if (isSelected) {
@@ -151,83 +153,143 @@ export function StepBuilder() {
 						className={getItemClasses(index)}
 						style={{ cursor: "grab" }}
 					>
-						{/* Drag handle */}
-						<span
-							className="shrink-0 text-neutral-300 dark:text-neutral-600"
-							title="Drag to reorder"
-						>
-							<svg width="8" height="12" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true">
-								<circle cx="2.5" cy="2" r="1.2" />
-								<circle cx="7.5" cy="2" r="1.2" />
-								<circle cx="2.5" cy="7" r="1.2" />
-								<circle cx="7.5" cy="7" r="1.2" />
-								<circle cx="2.5" cy="12" r="1.2" />
-								<circle cx="7.5" cy="12" r="1.2" />
-							</svg>
-						</span>
-
-						{/* Step number + preview */}
-						<button
-							type="button"
-							onClick={() => setCurrentStepIndex(index)}
-							className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
-						>
-							<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[10px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-								{index + 1}
+						{/* Row 1: handle · number + preview · duration · remove */}
+						<div className="flex w-full items-center gap-2">
+							{/* Drag handle */}
+							<span
+								className="shrink-0 text-neutral-300 dark:text-neutral-600"
+								title="Drag to reorder"
+							>
+								<svg
+									width="8"
+									height="12"
+									viewBox="0 0 10 14"
+									fill="currentColor"
+									aria-hidden="true"
+								>
+									<circle cx="2.5" cy="2" r="1.2" />
+									<circle cx="7.5" cy="2" r="1.2" />
+									<circle cx="2.5" cy="7" r="1.2" />
+									<circle cx="7.5" cy="7" r="1.2" />
+									<circle cx="2.5" cy="12" r="1.2" />
+									<circle cx="7.5" cy="12" r="1.2" />
+								</svg>
 							</span>
-							<span className="truncate font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
-								{getStepPreview(step.code)}
-							</span>
-						</button>
 
-						{/* Duration input */}
-						<div className="flex shrink-0 items-center gap-1">
-							<input
-								type="number"
-								value={step.duration}
-								onChange={(e) => {
-									const val = Number.parseInt(e.target.value, 10);
-									if (val > 0) {
-										updateStepDuration(step.id, val);
-									}
+							{/* Step number + preview */}
+							<button
+								type="button"
+								onClick={() => setCurrentStepIndex(index)}
+								className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
+							>
+								<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[10px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+									{index + 1}
+								</span>
+								<span className="truncate font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+									{getStepPreview(step.code)}
+								</span>
+							</button>
+
+							{/* Duration input */}
+							<div className="flex shrink-0 items-center gap-1">
+								<input
+									type="number"
+									value={step.duration}
+									onChange={(e) => {
+										const val = Number.parseInt(e.target.value, 10);
+										if (val > 0) {
+											updateStepDuration(step.id, val);
+										}
+									}}
+									onClick={(e) => e.stopPropagation()}
+									className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
+									title="Duration (ms)"
+								/>
+								<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+									ms
+								</span>
+							</div>
+
+							{/* Remove button */}
+							<button
+								type="button"
+								onClick={(e) => {
+									e.stopPropagation();
+									removeStep(step.id);
 								}}
-								onClick={(e) => e.stopPropagation()}
-								className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
-								title="Duration (ms)"
-							/>
-							<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
-								ms
-							</span>
+								className="shrink-0 text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 dark:text-neutral-700"
+								title="Remove step"
+							>
+								<svg
+									width="12"
+									height="12"
+									viewBox="0 0 24 24"
+									fill="none"
+									stroke="currentColor"
+									strokeWidth="2"
+									role="img"
+								>
+									<title>Remove</title>
+									<line x1="18" y1="6" x2="6" y2="18" />
+									<line x1="6" y1="6" x2="18" y2="18" />
+								</svg>
+							</button>
 						</div>
 
-						{/* Remove button */}
-						<button
-							type="button"
-							onClick={(e) => {
-								e.stopPropagation();
-								removeStep(step.id);
-							}}
-							className="shrink-0 text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 dark:text-neutral-700"
-							title="Remove step"
-						>
-							<svg
-								width="12"
-								height="12"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								strokeWidth="2"
-								role="img"
-							>
-								<title>Remove</title>
-								<line x1="18" y1="6" x2="6" y2="18" />
-								<line x1="6" y1="6" x2="18" y2="18" />
-							</svg>
-						</button>
+						{/* Row 2: per-step focus (spotlight) */}
+						<FocusInput step={step} />
 					</motion.div>
 				))}
 			</div>
 		</div>
+	);
+}
+
+/**
+ * Compact focus input on a step card — spotlight lines like "2-4, 7". Commits on
+ * blur/Enter via `parseLineRanges`; an unparseable value tints the border red and
+ * is not committed (quiet, no toast). Applied at render time, so edits are instant.
+ */
+function FocusInput({ step }: { step: Step }) {
+	const updateStepFocus = useSnippetStore((s) => s.updateStepFocus);
+	const [text, setText] = useState(() => formatLineRanges(step.highlightRanges));
+	const [invalid, setInvalid] = useState(false);
+
+	function commit() {
+		const parsed = parseLineRanges(text);
+		if (parsed === null) {
+			setInvalid(true);
+			return;
+		}
+		setInvalid(false);
+		updateStepFocus(step.id, parsed);
+	}
+
+	const borderClasses = invalid
+		? "border-red-400/70 focus:border-red-400 dark:border-red-500/50 dark:focus:border-red-500"
+		: "border-neutral-200/70 focus:border-neutral-300 dark:border-neutral-800 dark:focus:border-neutral-700";
+
+	return (
+		<input
+			type="text"
+			value={text}
+			onChange={(e) => {
+				setText(e.target.value);
+				if (invalid) {
+					setInvalid(false);
+				}
+			}}
+			onBlur={commit}
+			onKeyDown={(e) => {
+				if (e.key === "Enter") {
+					e.currentTarget.blur();
+				}
+			}}
+			onClick={(e) => e.stopPropagation()}
+			placeholder="focus 2-4,7"
+			title="Spotlight these lines, dim the rest (e.g. 2-4, 7)"
+			className={`w-full rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-300 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 ${borderClasses}`}
+		/>
 	);
 }
 

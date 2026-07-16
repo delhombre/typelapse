@@ -9,7 +9,7 @@ interface ShareData {
 	language: string;
 	themeName: string;
 	background: string;
-	steps: { code: string; duration: number }[];
+	steps: { code: string; duration: number; focus?: string }[];
 }
 
 export function encodeShareLink(data: ShareData): string {
