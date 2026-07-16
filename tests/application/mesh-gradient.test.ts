@@ -1,8 +1,11 @@
 import {
 	MESH_LOOP_PERIOD,
 	MESH_PRESETS,
+	isImageBackground,
 	isMeshBackground,
+	isSolidBackground,
 	meshGradientCss,
+	parseImageBackground,
 	parseMeshBackground,
 	resolveBackgroundCss,
 } from "@/application/backgrounds/mesh-gradient";
@@ -59,5 +62,48 @@ describe("resolveBackgroundCss", () => {
 
 	it("renders mesh backgrounds at the given time", () => {
 		expect(resolveBackgroundCss("mesh:aurora", 0)).toContain("radial-gradient");
+	});
+
+	it("passes a solid hex through untouched", () => {
+		expect(resolveBackgroundCss("#1e293b", 2)).toBe("#1e293b");
+	});
+
+	it("resolves an image background to a cover CSS value", () => {
+		const url = "data:image/png;base64,AAAA";
+		expect(resolveBackgroundCss(`image:${url}`, 0)).toBe(
+			`url("${url}") center center / cover no-repeat`,
+		);
+	});
+});
+
+describe("solid backgrounds", () => {
+	it("recognizes plain 3- and 6-digit hex", () => {
+		expect(isSolidBackground("#1e293b")).toBe(true);
+		expect(isSolidBackground("#abc")).toBe(true);
+	});
+
+	it("rejects non-solid backgrounds", () => {
+		expect(isSolidBackground("transparent")).toBe(false);
+		expect(isSolidBackground("mesh:aurora")).toBe(false);
+		expect(isSolidBackground("linear-gradient(#000, #111)")).toBe(false);
+		expect(isSolidBackground("image:data:image/png;base64,AAAA")).toBe(false);
+	});
+});
+
+describe("image backgrounds", () => {
+	const url = "data:image/png;base64,AAAA";
+
+	it("parses the data URL out of the image: scheme", () => {
+		expect(parseImageBackground(`image:${url}`)).toBe(url);
+	});
+
+	it("returns null for non-image backgrounds", () => {
+		expect(parseImageBackground("mesh:aurora")).toBeNull();
+		expect(parseImageBackground("#1e293b")).toBeNull();
+	});
+
+	it("recognizes image backgrounds", () => {
+		expect(isImageBackground(`image:${url}`)).toBe(true);
+		expect(isImageBackground("#1e293b")).toBe(false);
 	});
 });
