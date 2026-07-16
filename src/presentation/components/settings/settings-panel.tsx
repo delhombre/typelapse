@@ -1,6 +1,7 @@
 import { Theme } from "@/domain/entities/theme";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
 import { springs } from "@/presentation/motion";
+import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
 
@@ -35,6 +36,11 @@ export function SettingsStrip() {
 			{/* Padding */}
 			<StripCell label="Pad">
 				<PaddingPicker selected={framePadding} onSelect={setFramePadding} />
+			</StripCell>
+
+			{/* Morph tempo */}
+			<StripCell label="Tempo">
+				<TempoPicker />
 			</StripCell>
 
 			{/* Border Radius */}
@@ -230,6 +236,43 @@ function PaddingPicker({
 						}`}
 					>
 						{value}
+					</motion.button>
+				);
+			})}
+		</div>
+	);
+}
+
+const TEMPO_PRESETS = [
+	{ ms: 400, label: "Snappy", title: "Snappy — 400 ms morph" },
+	{ ms: 650, label: "Smooth", title: "Smooth — 650 ms morph" },
+	{ ms: 1000, label: "Cine", title: "Cinematic — 1000 ms morph" },
+] as const;
+
+/** Morph tempo — how long each step-to-step transition takes (preview + export). */
+function TempoPicker() {
+	const transitionMs = useExportStore((s) => s.transitionMs);
+	const setTransitionMs = useExportStore((s) => s.setTransitionMs);
+
+	return (
+		<div className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800">
+			{TEMPO_PRESETS.map((tempo) => {
+				const isSelected = transitionMs === tempo.ms;
+				return (
+					<motion.button
+						key={tempo.ms}
+						type="button"
+						onClick={() => setTransitionMs(tempo.ms)}
+						whileTap={{ scale: 0.96 }}
+						transition={springs.snappy}
+						title={tempo.title}
+						className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+							isSelected
+								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+						}`}
+					>
+						{tempo.label}
 					</motion.button>
 				);
 			})}

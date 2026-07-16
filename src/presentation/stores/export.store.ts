@@ -10,6 +10,9 @@ export interface ExportProgress {
 	message: string;
 }
 
+/** Morph tempo — how long each step-to-step transition takes, in milliseconds. */
+export type TempoMs = 400 | 650 | 1000;
+
 interface ExportState {
 	isExporting: boolean;
 	progress: ExportProgress | null;
@@ -22,6 +25,7 @@ interface ExportState {
 	loop: boolean;
 	typewriter: boolean;
 	progressStyle: ProgressStyle;
+	transitionMs: TempoMs;
 
 	setFormat: (format: RenderFormat) => void;
 	setResolution: (width: number, height: number) => void;
@@ -29,6 +33,7 @@ interface ExportState {
 	setLoop: (loop: boolean) => void;
 	setTypewriter: (typewriter: boolean) => void;
 	setProgressStyle: (style: ProgressStyle) => void;
+	setTransitionMs: (ms: TempoMs) => void;
 
 	/** Export via Remotion backend */
 	exportVideo: () => Promise<void>;
@@ -52,6 +57,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	loop: false,
 	typewriter: false,
 	progressStyle: "reels",
+	transitionMs: 650,
 
 	setFormat: (format) => set({ format }),
 	setResolution: (width, height) => set({ width, height }),
@@ -59,6 +65,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	setLoop: (loop) => set({ loop }),
 	setTypewriter: (typewriter) => set({ typewriter }),
 	setProgressStyle: (progressStyle) => set({ progressStyle }),
+	setTransitionMs: (transitionMs) => set({ transitionMs }),
 
 	exportVideo: async () => {
 		const snippetState = useSnippetStore.getState();
@@ -69,7 +76,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			return;
 		}
 
-		const { format, width, height, fps, loop, typewriter, progressStyle } = get();
+		const { format, width, height, fps, loop, typewriter, progressStyle, transitionMs } = get();
 
 		set({
 			isExporting: true,
@@ -110,6 +117,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				loop,
 				typewriter,
 				progressStyle,
+				transitionMs,
 				watermark: watermark || undefined,
 			};
 

@@ -84,6 +84,7 @@ interface RenderRequest {
 	loop?: boolean;
 	typewriter?: boolean;
 	progressStyle?: RenderInput["progressStyle"];
+	transitionMs?: number;
 	watermark?: string;
 }
 
@@ -104,6 +105,7 @@ renderRoute.post("/render", async (c) => {
 		loop = false,
 		typewriter = false,
 		progressStyle = "reels",
+		transitionMs = TRANSITION_MS,
 		watermark,
 	} = body;
 
@@ -126,8 +128,8 @@ renderRoute.post("/render", async (c) => {
 		);
 
 		// Total duration = holds + a transition between each adjacent pair (+ the
-		// loop-back transition when looping).
-		const transitionFrames = Math.round((TRANSITION_MS / 1000) * fps);
+		// loop-back transition when looping). Tempo is driven by `transitionMs`.
+		const transitionFrames = Math.round((transitionMs / 1000) * fps);
 		const holdFrames = steps.reduce((acc, step) => acc + Math.round((step.duration / 1000) * fps), 0);
 		const loopFrames = loop ? transitionFrames : 0;
 		const totalFrames = holdFrames + (steps.length - 1) * transitionFrames + loopFrames;
@@ -140,7 +142,7 @@ renderRoute.post("/render", async (c) => {
 			background,
 			framePadding,
 			plan,
-			transitionMs: TRANSITION_MS,
+			transitionMs,
 			loop,
 			typewriter,
 			progressStyle,
