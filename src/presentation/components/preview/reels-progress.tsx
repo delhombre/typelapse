@@ -28,14 +28,13 @@ export function ReelsProgress({
 		return null;
 	}
 
-	const containerStyle = {
-		position: "absolute" as const,
-		top: 22 * scale,
-		left: 26 * scale,
-		right: 26 * scale,
+	// The bar fills its parent's width; the caller positions it within the window's
+	// content column (preview: the `z-10` column; video: the centered card column),
+	// so it spans exactly the window and never bleeds past it over the background.
+	const row = {
 		display: "flex",
 		gap: 6 * scale,
-		zIndex: 20,
+		width: "100%",
 		pointerEvents: "none" as const,
 	};
 	const track = {
@@ -48,7 +47,7 @@ export function ReelsProgress({
 
 	if (style === "bar") {
 		return (
-			<div style={containerStyle}>
+			<div style={row}>
 				<div style={{ ...track, flex: 1 }}>
 					<div
 						style={{ width: `${clamp01(progress) * 100}%`, height: "100%", background: fillColor }}
@@ -59,7 +58,7 @@ export function ReelsProgress({
 	}
 
 	return (
-		<div style={containerStyle}>
+		<div style={row}>
 			{Array.from({ length: segments }, (_, k) => {
 				const fill = clamp01(progress * segments - k);
 				return (

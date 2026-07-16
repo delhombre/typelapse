@@ -121,14 +121,6 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 			{audioDataUrl && <Audio src={audioDataUrl} />}
 			{!isTransparent && <GlowDecoration />}
 			{!isTransparent && <GrainOverlay />}
-			{steps.length >= 2 && (
-				<ReelsProgress
-					style={progressStyle}
-					segments={steps.length}
-					progress={frame / Math.max(1, durationInFrames)}
-					scale={VIDEO_SCALE}
-				/>
-			)}
 			<CenteredFrame
 				plan={plan}
 				theme={theme}
@@ -139,6 +131,16 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				framePadding={framePadding}
 				canvasWidth={width}
 				canvasHeight={height}
+				reels={
+					steps.length >= 2 ? (
+						<ReelsProgress
+							style={progressStyle}
+							segments={steps.length}
+							progress={frame / Math.max(1, durationInFrames)}
+							scale={VIDEO_SCALE}
+						/>
+					) : null
+				}
 				caption={
 					hasCaptions ? (
 						<StepCaption
@@ -151,7 +153,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				}
 			>
 				{/* Focus zoom — identical transform to the preview so the video matches. */}
-				<div style={zoomStyle(view.zoom, focusZoom)}>
+				<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * VIDEO_SCALE)}>
 					<MagicMoveCanvas
 						tokens={view.tokens}
 						lineCount={view.lineCount}
@@ -183,13 +185,18 @@ interface FrameView {
 
 type TypingFrameView = FrameView & { cursor: { line: number; col: number } | null };
 
-/** Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on. */
-function zoomStyle(zoom: ZoomTransform, active: boolean): React.CSSProperties {
+/**
+ * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
+ * Carries the window's border radius (concentric law) so a scaled, composited
+ * layer never squares the window's corners — identical to the browser preview.
+ */
+function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): React.CSSProperties {
 	if (!active) {
-		return { overflow: "hidden" };
+		return { overflow: "hidden", borderRadius };
 	}
 	return {
 		overflow: "hidden",
+		borderRadius,
 		transform: `scale(${zoom.scale})`,
 		transformOrigin: `50% ${zoom.originYRatio * 100}%`,
 	};
@@ -278,6 +285,7 @@ function CenteredFrame({
 	framePadding,
 	canvasWidth,
 	canvasHeight,
+	reels,
 	caption,
 	children,
 }: {
@@ -290,6 +298,7 @@ function CenteredFrame({
 	framePadding: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	reels?: React.ReactNode;
 	caption?: React.ReactNode;
 	children: React.ReactNode;
 }) {
@@ -337,9 +346,12 @@ function CenteredFrame({
 			}}
 		>
 			{/* The card keeps its natural pixel size; the whole unit is scaled to fit
-			    the canvas. Uniform scale preserves WYSIWYG — same layout, different zoom. */}
+			    the canvas. Uniform scale preserves WYSIWYG — same layout, different zoom.
+			    `position: relative` anchors the reels bar, which floats just above the
+			    window at the window's width — the same content column as the preview. */}
 			<div
 				style={{
+					position: "relative",
 					display: "flex",
 					flexDirection: "column",
 					alignItems: "center",
@@ -347,6 +359,20 @@ function CenteredFrame({
 					transformOrigin: "center center",
 				}}
 			>
+				{reels && (
+					<div
+						style={{
+							position: "absolute",
+							top: -(10 * VIDEO_SCALE),
+							left: 0,
+							width: natural.width,
+							zIndex: 20,
+							pointerEvents: "none",
+						}}
+					>
+						{reels}
+					</div>
+				)}
 				<div
 					style={{
 						width: natural.width,
