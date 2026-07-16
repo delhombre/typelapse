@@ -1,4 +1,4 @@
-import { Logomark } from "@/presentation/components/ui/logomark";
+import { LogoWordmark } from "@/presentation/components/ui/logo-wordmark";
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -40,11 +40,8 @@ export function LandingPage() {
 function Nav() {
 	return (
 		<header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
-			<a href="/" className="flex items-center gap-2.5">
-				<span className="flex size-7 items-center justify-center rounded-lg bg-ink text-white">
-					<Logomark size={16} />
-				</span>
-				<span className="font-serif text-[17px] text-ink">Typelapse</span>
+			<a href="/" className="flex items-center">
+				<LogoWordmark height={22} className="text-ink" />
 			</a>
 			<div className="flex items-center gap-5">
 				<a
@@ -136,8 +133,8 @@ function Footer() {
 	return (
 		<footer className="border-black/8 border-t">
 			<div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-8">
-				<div className="flex items-baseline gap-2">
-					<span className="font-serif text-[15px] text-ink">Typelapse</span>
+				<div className="flex items-center gap-2">
+					<LogoWordmark height={17} className="text-ink" />
 					<span className="text-[13px] text-ash">— a timelapse for your code</span>
 				</div>
 				<div className="flex items-center gap-5 text-[13px]">
