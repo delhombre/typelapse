@@ -46,7 +46,8 @@ export function TopNav() {
 
 	const handleShare = useCallback(async () => {
 		const state = useSnippetStore.getState();
-		const { snippet, background, windowChrome, showLineNumbers, lineNumberStart } = state;
+		const { snippet, background, windowChrome, showLineNumbers, lineNumberStart, cardMargin } =
+			state;
 		const link = encodeShareLink({
 			title: snippet.title,
 			code: snippet.code,
@@ -56,6 +57,7 @@ export function TopNav() {
 			windowChrome,
 			showLineNumbers,
 			lineNumberStart,
+			cardMargin,
 			steps: snippet.steps.map((s) => {
 				const focus = formatLineRanges(s.highlightRanges);
 				return {

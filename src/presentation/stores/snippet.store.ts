@@ -55,6 +55,10 @@ interface SnippetState {
 	framePadding: number;
 	setFramePadding: (padding: number) => void;
 
+	// Card margin: the mesh gap around the code window (concentric outer radius)
+	cardMargin: number;
+	setCardMargin: (margin: number) => void;
+
 	// Watermark
 	watermark: string;
 	setWatermark: (text: string) => void;
@@ -118,6 +122,26 @@ const DIFF_STEP_DURATION = 1200;
 
 /** Upper bound on diff-generated steps so a pathological diff can't explode playback. */
 const MAX_DIFF_STEPS = 40;
+
+/** Selectable mesh margins (px) around the code window; the UI offers exactly these. */
+const CARD_MARGINS = [16, 24, 32, 48, 64] as const;
+
+/** Default mesh margin, and the fallback for absent or invalid serialized input. */
+const DEFAULT_CARD_MARGIN = 32;
+
+/**
+ * Snap an untrusted margin to the nearest valid preset. Defensive against
+ * hand-edited JSON and share links: a non-numeric value falls back to the
+ * default, an out-of-set value clamps to the closest allowed margin.
+ */
+function normalizeCardMargin(value: unknown): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		return DEFAULT_CARD_MARGIN;
+	}
+	return CARD_MARGINS.reduce((best, margin) =>
+		Math.abs(margin - value) < Math.abs(best - value) ? margin : best,
+	);
+}
 
 export function setHighlighter(highlighter: HighlighterPort) {
 	if ("getRawHighlighter" in highlighter) {
@@ -281,6 +305,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 	setFramePadding: (padding: number) => {
 		set({ framePadding: padding });
+	},
+
+	cardMargin: DEFAULT_CARD_MARGIN,
+
+	setCardMargin: (margin: number) => {
+		set({ cardMargin: margin });
 	},
 
 	watermark: "",
@@ -495,7 +525,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	exportToJson: () => {
-		const { snippet, background, windowChrome, showLineNumbers, lineNumberStart } = get();
+		const { snippet, background, windowChrome, showLineNumbers, lineNumberStart, cardMargin } =
+			get();
 		const data = {
 			title: snippet.title,
 			code: snippet.code,
@@ -505,6 +536,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			windowChrome,
 			showLineNumbers,
 			lineNumberStart,
+			cardMargin,
 			steps: snippet.steps.map((step) => {
 				const focus = formatLineRanges(step.highlightRanges);
 				const serialized: {
@@ -608,6 +640,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			typeof obj.lineNumberStart === "number" && obj.lineNumberStart >= 1
 				? Math.floor(obj.lineNumberStart)
 				: 1;
+		// Defensive: absent or out-of-set margins snap to a valid preset (default 32).
+		const cardMargin = normalizeCardMargin(obj.cardMargin);
 
 		cancelRaf();
 		clearRecordTimer();
@@ -617,6 +651,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			windowChrome,
 			showLineNumbers,
 			lineNumberStart,
+			cardMargin,
 			currentStepIndex: 0,
 			isPlaying: false,
 			playback: null,
