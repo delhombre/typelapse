@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { TemplatesMenu } from "./templates-menu";
+import { UrlImportMenu } from "./url-import-menu";
 
 /** Top navigation bar — brand, templates, and the import/export/share/theme actions. */
 export function TopNav() {
@@ -127,6 +128,7 @@ export function TopNav() {
 				<TemplatesMenu />
 			</div>
 			<div className="flex items-center gap-1">
+				<UrlImportMenu />
 				<NavButton onClick={handleImport} title="Import JSON">
 					<UploadIcon />
 				</NavButton>
