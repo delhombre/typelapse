@@ -5,9 +5,15 @@
 @theme {
 	--font-sans: "Inter", system-ui, sans-serif;
 	--font-mono: "JetBrains Mono", ui-monospace, monospace;
+	--font-serif: "Newsreader", Georgia, serif;
 
 	/* One restrained accent — used only for focus + a hint of primary emphasis. */
 	--color-accent: oklch(0.62 0.19 268);
+
+	/* Editorial paper palette — the landing's whole world. */
+	--color-paper: #faf9f6;
+	--color-ink: #1c1b19;
+	--color-ash: #6e6b64;
 
 	/* Strong custom easings — the built-in CSS curves are too weak. */
 	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -103,6 +109,16 @@ html {
 		0 12px 36px -8px oklch(0 0 0 / 0.5),
 		0 24px 60px -12px oklch(0 0 0 / 0.35),
 		0 0 80px -20px oklch(0.5 0.12 250 / 0.06);
+}
+
+/* The landing is always paper. Even when the OS puts `dark` on <html>, the fan's
+   code frames keep a soft, light shadow (two classes outrank the :where() rule). */
+.landing-root .code-frame-glow {
+	box-shadow:
+		0 0 0 1px oklch(0 0 0 / 0.07),
+		0 2px 6px -2px oklch(0 0 0 / 0.08),
+		0 12px 32px -10px oklch(0 0 0 / 0.16),
+		0 26px 60px -18px oklch(0 0 0 / 0.14);
 }
 
 /* Subtle gradient drift during playback */
