@@ -44,6 +44,8 @@ export interface RenderInput {
 	loop: boolean;
 	/** Type the first step out character by character before the animation. */
 	typewriter: boolean;
+	/** Cinematic push-in toward each step's spotlighted lines. */
+	focusZoom: boolean;
 	/** Progress indicator style baked over the video. */
 	progressStyle: ProgressStyle;
 	/** Optional watermark text overlay. */

@@ -29,6 +29,7 @@ const DEFAULT_INPUT: RenderInput = {
 	transitionMs: 650,
 	loop: false,
 	typewriter: false,
+	focusZoom: false,
 	progressStyle: "reels",
 	plan: {
 		frames: [

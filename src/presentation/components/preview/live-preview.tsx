@@ -8,6 +8,12 @@ import {
 import { captionAt } from "@/application/captions/caption-timing";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { easeInOutCubic, renderStatic, renderTransition } from "@/application/magic-move/engine";
+import {
+	NO_ZOOM,
+	type ZoomTransform,
+	interpolateZoom,
+	zoomForFocus,
+} from "@/application/magic-move/focus-zoom";
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
 import { PlaybackControls } from "@/presentation/components/controls/playback-controls";
@@ -16,7 +22,7 @@ import type { PlaybackState } from "@/presentation/stores/snippet.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { motion } from "motion/react";
-import { type ReactNode, type RefObject, useEffect, useRef } from "react";
+import { type CSSProperties, type ReactNode, type RefObject, useEffect, useRef } from "react";
 import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
@@ -114,6 +120,7 @@ export function LivePreview() {
 
 	const progressStyle = useExportStore((s) => s.progressStyle);
 	const typewriter = useExportStore((s) => s.typewriter);
+	const focusZoom = useExportStore((s) => s.focusZoom);
 	const previewRef = useRef<HTMLDivElement>(null);
 	const isMesh = isMeshBackground(background);
 	const isImage = isImageBackground(background);
@@ -188,20 +195,25 @@ export function LivePreview() {
 
 					<div className="relative z-10">
 						<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
-							<MagicMoveCanvas
-								tokens={view.tokens}
-								lineCount={view.lineCount}
-								lineNumberCount={view.lineNumberCount}
-								fontSize={snippet.theme.fontSize}
-								lineHeightRatio={LINE_HEIGHT_RATIO}
-								fontFamily={snippet.theme.fontFamily}
-								color={snippet.theme.foreground}
-								showLineNumbers={showLineNumbers}
-								lineNumberStart={lineNumberStart}
-								lineNumberColor={`${snippet.theme.foreground}26`}
-								padding={framePadding}
-								cursor={view.cursor}
-							/>
+							{/* Focus zoom pushes the code toward the spotlighted band. Playback
+							    drives every frame, so there is no CSS transition — the FrameShell
+							    body clips the overflow. Same transform runs in the Remotion video. */}
+							<div style={zoomStyle(view.zoom, focusZoom)}>
+								<MagicMoveCanvas
+									tokens={view.tokens}
+									lineCount={view.lineCount}
+									lineNumberCount={view.lineNumberCount}
+									fontSize={snippet.theme.fontSize}
+									lineHeightRatio={LINE_HEIGHT_RATIO}
+									fontFamily={snippet.theme.fontFamily}
+									color={snippet.theme.foreground}
+									showLineNumbers={showLineNumbers}
+									lineNumberStart={lineNumberStart}
+									lineNumberColor={`${snippet.theme.foreground}26`}
+									padding={framePadding}
+									cursor={view.cursor}
+								/>
+							</div>
 						</FrameShell>
 
 						{hasCaptions && (
@@ -261,9 +273,23 @@ interface FrameView {
 	lineCount: number;
 	lineNumberCount: number;
 	cursor?: { line: number; col: number } | null;
+	/** Cinematic push-in for this frame; identity unless the step has a spotlight. */
+	zoom: ZoomTransform;
 }
 
-const EMPTY_VIEW: FrameView = { tokens: [], lineCount: 1, lineNumberCount: 1 };
+const EMPTY_VIEW: FrameView = { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
+
+/** Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on. */
+function zoomStyle(zoom: ZoomTransform, active: boolean): CSSProperties {
+	if (!active) {
+		return { overflow: "hidden" };
+	}
+	return {
+		overflow: "hidden",
+		transform: `scale(${zoom.scale})`,
+		transformOrigin: `50% ${zoom.originYRatio * 100}%`,
+	};
+}
 
 /** Pick the tokens to paint for the current playback position. */
 function resolveView(
@@ -280,7 +306,13 @@ function resolveView(
 			const reveal = typedCharCount(firstCode.length, playback.t);
 			const { tokens, cursor } = renderTyping(firstCode, plan.typing, reveal);
 			const lineCount = plan.frames[0]?.lineCount ?? 1;
-			return { tokens, lineCount, lineNumberCount: lineCount, cursor };
+			return {
+				tokens,
+				lineCount,
+				lineNumberCount: lineCount,
+				cursor,
+				zoom: zoomForFocus(focusSets[0], lineCount),
+			};
 		}
 		if (playback.phase === "transition") {
 			const transition = plan.transitions[playback.index];
@@ -288,6 +320,8 @@ function resolveView(
 			const toFrame = plan.frames[playback.index + 1];
 			if (transition && fromFrame && toFrame) {
 				const eased = easeInOutCubic(playback.t);
+				const fromZoom = zoomForFocus(focusSets[playback.index], fromFrame.lineCount);
+				const toZoom = zoomForFocus(focusSets[playback.index + 1], toFrame.lineCount);
 				return {
 					tokens: renderTransition(
 						transition.from,
@@ -299,6 +333,7 @@ function resolveView(
 					),
 					lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 					lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
+					zoom: interpolateZoom(fromZoom, toZoom, playback.t, easeInOutCubic),
 				};
 			}
 		}
@@ -320,6 +355,7 @@ function staticView(
 		tokens: renderStatic(frame.tokens, focus),
 		lineCount: frame.lineCount,
 		lineNumberCount: frame.lineCount,
+		zoom: zoomForFocus(focus, frame.lineCount),
 	};
 }
 

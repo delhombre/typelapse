@@ -32,6 +32,10 @@ export function TopNav() {
 				if (tempo === 400 || tempo === 650 || tempo === 1000) {
 					useExportStore.getState().setTransitionMs(tempo);
 				}
+				// Focus zoom is an export-store toggle too; restore it from the link.
+				if (typeof shareData.focusZoom === "boolean") {
+					useExportStore.getState().setFocusZoom(shareData.focusZoom);
+				}
 				history.replaceState(null, "", window.location.pathname);
 			} catch {
 				// Invalid share data
@@ -61,6 +65,7 @@ export function TopNav() {
 				};
 			}),
 			transitionMs: useExportStore.getState().transitionMs,
+			focusZoom: useExportStore.getState().focusZoom,
 		});
 		const copied = await copyToClipboard(link);
 		if (copied) {

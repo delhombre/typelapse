@@ -65,11 +65,13 @@ export function ExportOptions() {
 		height,
 		loop,
 		typewriter,
+		focusZoom,
 		progressStyle,
 		setFormat,
 		setResolution,
 		setLoop,
 		setTypewriter,
+		setFocusZoom,
 		setProgressStyle,
 	} = useExportStore();
 
@@ -124,6 +126,14 @@ export function ExportOptions() {
 				title="Typewriter: type the first step out character by character"
 			>
 				type
+			</Chip>
+
+			<Chip
+				active={focusZoom}
+				onClick={() => setFocusZoom(!focusZoom)}
+				title="Zoom: push in on focused lines"
+			>
+				zoom
 			</Chip>
 
 			<Chip

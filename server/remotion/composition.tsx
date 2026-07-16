@@ -7,6 +7,12 @@ import {
 	renderStatic,
 	renderTransition,
 } from "../../src/application/magic-move/engine";
+import {
+	NO_ZOOM,
+	type ZoomTransform,
+	interpolateZoom,
+	zoomForFocus,
+} from "../../src/application/magic-move/focus-zoom";
 import { captionAt } from "../../src/application/captions/caption-timing";
 import { renderTyping, typedCharCount } from "../../src/application/magic-move/typewriter";
 import { FrameChrome } from "../../src/presentation/components/preview/frame-chrome";
@@ -83,7 +89,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 
 	const frame = useCurrentFrame();
 	const { fps, width, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, transitionMs, loop, typewriter, progressStyle, watermark } =
+	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, transitionMs, loop, typewriter, focusZoom, progressStyle, watermark } =
 		input;
 
 	const segments = buildSegments(
@@ -97,7 +103,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	const isTransparent = background === "transparent";
 	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
-	const typingView = resolveTypingView(input, active, frame);
+	const typingView = resolveTypingView(input, active, frame, focusSets[0]);
 	const view = typingView ?? resolveView(plan, active, frame, focusSets);
 	const cursor = typingView?.cursor ?? null;
 	const wmColor = getWatermarkColor(background, theme.foreground);
@@ -140,20 +146,23 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 					) : null
 				}
 			>
-				<MagicMoveCanvas
-					tokens={view.tokens}
-					lineCount={view.lineCount}
-					lineNumberCount={view.lineNumberCount}
-					fontSize={theme.fontSize * VIDEO_SCALE}
-					lineHeightRatio={LINE_HEIGHT_RATIO}
-					fontFamily={theme.fontFamily}
-					color={theme.foreground}
-					showLineNumbers={showLineNumbers}
-					lineNumberStart={lineNumberStart}
-					lineNumberColor={`${theme.foreground}30`}
-					padding={framePadding * VIDEO_SCALE}
-					cursor={cursor}
-				/>
+				{/* Focus zoom — identical transform to the preview so the video matches. */}
+				<div style={zoomStyle(view.zoom, focusZoom)}>
+					<MagicMoveCanvas
+						tokens={view.tokens}
+						lineCount={view.lineCount}
+						lineNumberCount={view.lineNumberCount}
+						fontSize={theme.fontSize * VIDEO_SCALE}
+						lineHeightRatio={LINE_HEIGHT_RATIO}
+						fontFamily={theme.fontFamily}
+						color={theme.foreground}
+						showLineNumbers={showLineNumbers}
+						lineNumberStart={lineNumberStart}
+						lineNumberColor={`${theme.foreground}30`}
+						padding={framePadding * VIDEO_SCALE}
+						cursor={cursor}
+					/>
+				</div>
 			</CenteredFrame>
 			{watermark && <WatermarkOverlay text={watermark} color={wmColor} fontFamily={theme.fontFamily} />}
 		</AbsoluteFill>
@@ -164,15 +173,30 @@ interface FrameView {
 	tokens: ReturnType<typeof renderStatic>;
 	lineCount: number;
 	lineNumberCount: number;
+	/** Cinematic push-in for this frame; identity unless the step has a spotlight. */
+	zoom: ZoomTransform;
 }
 
 type TypingFrameView = FrameView & { cursor: { line: number; col: number } | null };
+
+/** Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on. */
+function zoomStyle(zoom: ZoomTransform, active: boolean): React.CSSProperties {
+	if (!active) {
+		return { overflow: "hidden" };
+	}
+	return {
+		overflow: "hidden",
+		transform: `scale(${zoom.scale})`,
+		transformOrigin: `50% ${zoom.originYRatio * 100}%`,
+	};
+}
 
 /** Typewriter view for the first hold when typewriter mode is on, else null. */
 function resolveTypingView(
 	input: RenderInput,
 	active: Segment | undefined,
 	frame: number,
+	focus: Set<number> | undefined,
 ): TypingFrameView | null {
 	if (!input.typewriter || !active || active.type !== "hold" || active.index !== 0 || !input.plan.typing) {
 		return null;
@@ -183,7 +207,7 @@ function resolveTypingView(
 	const reveal = typedCharCount(code.length, p);
 	const { tokens, cursor } = renderTyping(code, input.plan.typing, reveal);
 	const lineCount = input.plan.frames[0]?.lineCount ?? 1;
-	return { tokens, lineCount, lineNumberCount: lineCount, cursor };
+	return { tokens, lineCount, lineNumberCount: lineCount, cursor, zoom: zoomForFocus(focus, lineCount) };
 }
 
 function resolveView(
@@ -193,7 +217,7 @@ function resolveView(
 	focusSets: (Set<number> | undefined)[],
 ): FrameView {
 	if (!active) {
-		return { tokens: [], lineCount: 1, lineNumberCount: 1 };
+		return { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
 	}
 	if (active.type === "transition" || active.type === "loop") {
 		const isLoop = active.type === "loop";
@@ -206,6 +230,8 @@ function resolveView(
 			const span = active.endFrame - active.startFrame;
 			const t = span > 0 ? (frame - active.startFrame) / span : 1;
 			const eased = easeInOutCubic(Math.min(Math.max(t, 0), 1));
+			const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount);
+			const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount);
 			return {
 				tokens: renderTransition(
 					transition.from,
@@ -217,6 +243,7 @@ function resolveView(
 				),
 				lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 				lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
+				zoom: interpolateZoom(fromZoom, toZoom, t, easeInOutCubic),
 			};
 		}
 	}
@@ -226,12 +253,13 @@ function resolveView(
 
 function staticView(held: LaidOutFrame | undefined, focus?: Set<number>): FrameView {
 	if (!held) {
-		return { tokens: [], lineCount: 1, lineNumberCount: 1 };
+		return { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
 	}
 	return {
 		tokens: renderStatic(held.tokens, focus),
 		lineCount: held.lineCount,
 		lineNumberCount: held.lineCount,
+		zoom: zoomForFocus(focus, held.lineCount),
 	};
 }
 
