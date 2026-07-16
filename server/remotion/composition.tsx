@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AbsoluteFill, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Audio, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gradient";
 import {
 	type LaidOutFrame,
@@ -89,7 +89,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 
 	const frame = useCurrentFrame();
 	const { fps, width, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, transitionMs, loop, typewriter, focusZoom, progressStyle, watermark } =
+	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, transitionMs, loop, typewriter, focusZoom, progressStyle, watermark, audioDataUrl } =
 		input;
 
 	const segments = buildSegments(
@@ -116,6 +116,8 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 
 	return (
 		<AbsoluteFill style={{ background: backgroundCss }}>
+			{/* Synthesized tick track, mounted at frame 0 so it spans the whole video. */}
+			{audioDataUrl && <Audio src={audioDataUrl} />}
 			{!isTransparent && <GlowDecoration />}
 			{!isTransparent && <GrainOverlay />}
 			{steps.length >= 2 && (
