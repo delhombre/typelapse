@@ -157,6 +157,92 @@ describe("renderTransition", () => {
 	});
 });
 
+describe("renderStatic with line focus", () => {
+	const laid: LaidOutToken[] = [
+		{ key: "a", content: "a", line: 0, col: 0 }, // display line 1
+		{ key: "b", content: "b", line: 1, col: 0 }, // display line 2
+	];
+
+	it("dims tokens on non-focused lines to 0.25", () => {
+		const out = renderStatic(laid, new Set([1]));
+		expect(out.find((t) => t.key === "a")?.opacity).toBe(1);
+		expect(out.find((t) => t.key === "b")?.opacity).toBe(0.25);
+	});
+
+	it("leaves every token fully opaque when the focus set is empty", () => {
+		const out = renderStatic(laid, new Set());
+		expect(out.every((t) => t.opacity === 1)).toBe(true);
+	});
+
+	it("is identical to the unfocused output when focus is undefined", () => {
+		expect(renderStatic(laid)).toEqual(renderStatic(laid, undefined));
+		expect(renderStatic(laid).every((t) => t.opacity === 1)).toBe(true);
+	});
+});
+
+describe("renderTransition with line focus", () => {
+	const from: LaidOutToken[] = [
+		{ key: "shared", content: "x", line: 0, col: 0 }, // display line 1
+		{ key: "gone", content: "y", line: 1, col: 0 }, // display line 2
+	];
+	const to: LaidOutToken[] = [
+		{ key: "shared", content: "x", line: 2, col: 0 }, // display line 3
+		{ key: "new", content: "z", line: 3, col: 0 }, // display line 4
+	];
+
+	it("produces identical output to today when no focus is supplied", () => {
+		expect(renderTransition(from, to, 0.5)).toEqual(
+			renderTransition(from, to, 0.5, {}, undefined, undefined),
+		);
+	});
+
+	it("dims a leaving token by its fromFocus line", () => {
+		const withFocus = renderTransition(from, to, 0.1, {}, new Set([1]), undefined).find(
+			(x) => x.key === "gone",
+		);
+		const without = renderTransition(from, to, 0.1).find((x) => x.key === "gone");
+		// gone is on display line 2, not focused → its leave-fade is scaled by 0.25.
+		expect(withFocus?.opacity).toBeCloseTo((without?.opacity ?? 0) * 0.25);
+	});
+
+	it("dims an entering token by its toFocus line", () => {
+		const withFocus = renderTransition(from, to, 0.8, {}, undefined, new Set([3])).find(
+			(x) => x.key === "new",
+		);
+		const without = renderTransition(from, to, 0.8).find((x) => x.key === "new");
+		// new is on display line 4, not focused in toFocus → enter-fade scaled by 0.25.
+		expect(withFocus?.opacity).toBeCloseTo((without?.opacity ?? 0) * 0.25);
+	});
+
+	it("crossfades a moving token's dim from origin focus to destination focus", () => {
+		const single: LaidOutToken[] = [{ key: "s", content: "s", line: 0, col: 0 }]; // display line 1
+		const moved: LaidOutToken[] = [{ key: "s", content: "s", line: 2, col: 0 }]; // display line 3
+		const fromFocus = new Set([1]); // origin focused
+		const toFocus = new Set([9]); // destination NOT focused
+		const atStart = renderTransition(single, moved, 0, {}, fromFocus, toFocus).find(
+			(x) => x.key === "s",
+		);
+		const atMid = renderTransition(single, moved, 0.31, {}, fromFocus, toFocus).find(
+			(x) => x.key === "s",
+		);
+		const atEnd = renderTransition(single, moved, 0.62, {}, fromFocus, toFocus).find(
+			(x) => x.key === "s",
+		);
+		expect(atStart?.opacity).toBeCloseTo(1); // full dim (1) at the origin
+		expect(atMid?.opacity).toBeCloseTo(0.625); // easeInOutQuart(0.5)=0.5 → lerp(1,0.25,0.5)
+		expect(atEnd?.opacity).toBeCloseTo(0.25); // dim (0.25) once landed
+	});
+
+	it("keeps a moving token full when focused at both ends", () => {
+		const single: LaidOutToken[] = [{ key: "s", content: "s", line: 0, col: 0 }];
+		const moved: LaidOutToken[] = [{ key: "s", content: "s", line: 2, col: 0 }];
+		const out = renderTransition(single, moved, 0.31, {}, new Set([1]), new Set([3])).find(
+			(x) => x.key === "s",
+		);
+		expect(out?.opacity).toBeCloseTo(1);
+	});
+});
+
 describe("math helpers", () => {
 	it("clamps to the unit interval", () => {
 		expect(clamp01(-1)).toBe(0);
