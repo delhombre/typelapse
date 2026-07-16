@@ -1,4 +1,4 @@
-import Editor, { type Monaco } from "@monaco-editor/react";
+import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { useCallback, useRef } from "react";
 
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -49,8 +49,21 @@ export function CodeEditor() {
 			? "typelapse-dark"
 			: "typelapse-light";
 
-	const handleMount = useCallback((_: unknown, monaco: Monaco) => {
+	const handleMount = useCallback<OnMount>((editor, monaco) => {
 		monacoRef.current = monaco;
+
+		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
+		// toggles it — same keybinding VS Code uses. Also surfaces in the command
+		// palette (F1 → "Toggle word wrap") for discoverability.
+		editor.addAction({
+			id: "toggle-word-wrap",
+			label: "Toggle word wrap",
+			keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
+			run: (ed) => {
+				const wrapped = ed.getOption(monaco.editor.EditorOption.wordWrap) !== "off";
+				ed.updateOptions({ wordWrap: wrapped ? "off" : "on" });
+			},
+		});
 
 		// App-level themes (follow light/dark mode)
 		monaco.editor.defineTheme("typelapse-dark", {
@@ -138,7 +151,10 @@ export function CodeEditor() {
 					))}
 				</select>
 			</div>
-			<div className="min-h-[260px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800">
+			<div
+				title="⌥Z: toggle word wrap"
+				className="min-h-[260px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800"
+			>
 				<Editor
 					value={snippet.code}
 					language={snippet.language}
@@ -165,7 +181,7 @@ export function CodeEditor() {
 							verticalScrollbarSize: 6,
 							horizontalScrollbarSize: 6,
 						},
-						wordWrap: "on",
+						wordWrap: "off",
 						tabSize: 2,
 						autoIndent: "full",
 						formatOnPaste: true,
