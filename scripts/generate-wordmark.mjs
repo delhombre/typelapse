@@ -29,24 +29,27 @@ const TEXT = "Typelapse";
 /** Target cap height in the final coordinate system (the mark's 24-unit box). */
 const FINAL_CAP_HEIGHT = 13;
 /**
- * Effective whitespace between the play-head TIP (x=20, see MARK below) and the
- * text's start, in final units — textX = tip + gap. Measured from the tip, not
- * the mark's 24-unit box edge, so the box's dead right margin doesn't push the
- * lettering away and the lockup reads as one object (art-director calibrated).
+ * Effective whitespace between the play glyph TIP (x=18.8 — the stroke's right
+ * vertex 17.8 plus its 1-unit half-width, see MARK below) and the text's start, in
+ * final units — textX = tip + gap. Measured from the tip, not the mark's 24-unit
+ * box edge, so the box's dead right margin doesn't push the lettering away and the
+ * lockup reads as one object (art-director calibrated).
  */
 const TIP_TO_TEXT_GAP = 5;
-/** The mark's vertical centre — the two trails and the play head all centre here. */
+/** The mark's vertical centre — the play glyph and the record dot both centre here. */
 const PLAY_HEAD_CENTER = 12;
 /** Padding baked into the tight viewBox (final units). */
 const PAD = 1;
 
 /**
- * The play head is a fixed 24-unit design (logomark.tsx). Its content occupies
- * roughly x:[2,20], y:[6.04,17.96]. The SVG keeps the mark's native 0..24 box on
- * the LEFT (boxLeft = 0) so the wordmark's mark matches the standalone Logomark's
- * left spacing; the other edges are cropped tight to content below.
+ * The mark is a fixed 24-unit design (logomark.tsx): a monoline play glyph (a
+ * stroked rounded triangle, right vertex at x=17.8) plus a filled record dot. With
+ * a 2-unit stroke the visible content occupies roughly x:[3.1,18.8], y:[6.2,17.8]
+ * (contentRight = tip 17.8 + half-stroke 1). The SVG keeps the mark's native 0..24
+ * box on the LEFT (boxLeft = 0) so the wordmark's mark matches the standalone
+ * Logomark's left spacing; the other edges are cropped tight to content below.
  */
-const MARK = { boxLeft: 0, contentRight: 20, contentTop: 6.04, contentBottom: 17.96 };
+const MARK = { boxLeft: 0, contentRight: 18.8, contentTop: 6.2, contentBottom: 17.8 };
 
 /* ──────────── Font acquisition (Google Fonts, curl UA -> truetype) ──────────── */
 
@@ -145,13 +148,17 @@ function main() {
 		)
 		.join("\n");
 
-	const markup = `{/* Play-head mark — fixed 24-unit design, verbatim from logomark.tsx */}
-<rect x="2" y="9.4" width="2.3" height="5.2" rx="1.15" fill="currentColor" opacity="0.3" />
-<rect x="5.7" y="7.9" width="2.3" height="8.2" rx="1.15" fill="currentColor" opacity="0.55" />
+	const markup = `{/* Play glyph — a monoline stroked rounded triangle, verbatim from logomark.tsx */}
 <path
-  d="M10.4 7.3c0-1 1.1-1.6 2-1.05l7 4.7a1.25 1.25 0 0 1 0 2.1l-7 4.7c-.9.55-2-.05-2-1.05V7.3Z"
-  fill="currentColor"
+  d="M9.5 7.2L17.8 12L9.5 16.8Z"
+  stroke="currentColor"
+  strokeWidth="2"
+  strokeLinecap="round"
+  strokeLinejoin="round"
+  fill="none"
 />
+{/* Record point — the filled accent dot */}
+<circle cx="4.8" cy="12" r="1.7" fill="currentColor" />
 {/* Lettering — "Typelapse" in Newsreader, each glyph a font-extracted path */}
 <g fill="currentColor" transform="translate(${num(textX, 4)} ${num(baselineY, 4)})">
 ${letterPaths}
