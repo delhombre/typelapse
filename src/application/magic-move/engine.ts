@@ -114,6 +114,30 @@ const DEFAULT_TIMING: Required<MagicMoveTiming> = {
 	stagger: 0.12,
 };
 
+/**
+ * A spotlight over a frame: the set of 1-indexed line numbers to keep bright.
+ * `undefined` (or an empty set) means no focus — every line renders at full
+ * opacity, so the engine's output is byte-for-byte what it was before focus.
+ */
+export type FocusSpec = Set<number> | undefined;
+
+/** Opacity multiplier applied to tokens on lines outside the spotlight. */
+export const DIM_OPACITY = 0.25;
+
+/**
+ * Dim multiplier for a token on a 0-indexed grid `line` given a focus spec.
+ * Grid rows are 0-indexed while the user thinks in 1-indexed line numbers, so a
+ * token is bright iff `focus` contains `line + 1`. Fractional lines (a token
+ * mid-glide) never reach here — callers evaluate dim at integer endpoints and
+ * lerp between them.
+ */
+function dimFactor(line: number, focus: FocusSpec): number {
+	if (!focus || focus.size === 0) {
+		return 1;
+	}
+	return focus.has(Math.round(line) + 1) ? 1 : DIM_OPACITY;
+}
+
 export function easeInOutCubic(t: number): number {
 	return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
@@ -181,9 +205,13 @@ export function frameLineCount(code: string): number {
 	return lines;
 }
 
-/** Render a single frame with no animation — every token fully opaque. */
-export function renderStatic(tokens: LaidOutToken[]): RenderToken[] {
-	return tokens.map((token) => ({ ...token, opacity: 1 }));
+/**
+ * Render a single frame with no animation. Without `focus` every token is fully
+ * opaque; with a non-empty focus set, tokens on non-focused lines dim to
+ * `DIM_OPACITY` while focused lines stay bright.
+ */
+export function renderStatic(tokens: LaidOutToken[], focus?: FocusSpec): RenderToken[] {
+	return tokens.map((token) => ({ ...token, opacity: dimFactor(token.line, focus) }));
 }
 
 /**
@@ -191,12 +219,20 @@ export function renderStatic(tokens: LaidOutToken[]): RenderToken[] {
  * Two beats: leaving tokens fade out and shared tokens glide to their final
  * positions first; entering tokens then fade in once the space is clear, so
  * nothing crosses mid-transition. At t=0 the result equals `from`, at t=1 `to`.
+ *
+ * `fromFocus`/`toFocus` spotlight the source/target frames: the resulting dim
+ * factor multiplies each token's enter/leave/glide opacity (it never replaces
+ * it). Moving tokens crossfade their dim from origin to destination along the
+ * eased move; leaving tokens use `fromFocus`, entering tokens use `toFocus`.
+ * Omitting both is identical to the unfocused morph.
  */
 export function renderTransition(
 	from: LaidOutToken[],
 	to: LaidOutToken[],
 	t: number,
 	timing: MagicMoveTiming = {},
+	fromFocus?: FocusSpec,
+	toFocus?: FocusSpec,
 ): RenderToken[] {
 	const { moveEase, enterEase, moveDuration, leaveEnd, enterStart, stagger } = {
 		...DEFAULT_TIMING,
@@ -219,18 +255,20 @@ export function renderTransition(
 			// Glide finishes by `moveDuration`, staggered by reading order.
 			const window = Math.max(0.0001, moveDuration - delay);
 			const moveT = moveEase(clamp01((progress - delay) / window));
+			// The spotlight crossfades along the same eased move as the position.
+			const dim = lerp(dimFactor(token.line, fromFocus), dimFactor(target.line, toFocus), moveT);
 			result.push({
 				key: token.key,
 				content: target.content,
 				line: lerp(token.line, target.line, moveT),
 				col: lerp(token.col, target.col, moveT),
-				opacity: 1,
+				opacity: dim,
 				color: target.color,
 				fontStyle: target.fontStyle,
 			});
 		} else {
 			const fade = 1 - easeOutCubic(clamp01(progress / leaveEnd));
-			result.push({ ...token, opacity: fade });
+			result.push({ ...token, opacity: fade * dimFactor(token.line, fromFocus) });
 		}
 	}
 
@@ -241,7 +279,7 @@ export function renderTransition(
 		}
 		const span = Math.max(0.0001, 1 - enterStart);
 		const fade = enterEase(clamp01((progress - enterStart) / span));
-		result.push({ ...token, opacity: fade });
+		result.push({ ...token, opacity: fade * dimFactor(token.line, toFocus) });
 	}
 
 	return result;
