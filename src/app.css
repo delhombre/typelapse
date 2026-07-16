@@ -74,21 +74,6 @@ html {
 	}
 }
 
-/* Progress bar glow */
-@keyframes progress-glow {
-	0%,
-	100% {
-		box-shadow: 0 0 4px 0 oklch(0.65 0.15 250 / 0.4);
-	}
-	50% {
-		box-shadow: 0 0 8px 2px oklch(0.65 0.15 250 / 0.6);
-	}
-}
-
-.progress-bar-active {
-	animation: progress-glow 2s ease-in-out infinite;
-}
-
 /* Code frame — a pure-black hairline outline + layered shadows for depth. */
 .code-frame-glow {
 	box-shadow:
