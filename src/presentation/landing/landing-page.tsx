@@ -2,6 +2,7 @@ import { Logomark } from "@/presentation/components/ui/logomark";
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { Instrument } from "./instrument";
 
 const GITHUB_URL = "https://github.com/delhombre/typelapse";
 const EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -16,6 +17,9 @@ export function LandingPage() {
 			<Nav />
 			<main className="flex-1">
 				<Hero />
+				<FadeIn delay={0.16}>
+					<Instrument />
+				</FadeIn>
 			</main>
 		</div>
 	);
