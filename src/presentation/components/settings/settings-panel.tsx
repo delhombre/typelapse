@@ -14,6 +14,8 @@ export function SettingsStrip() {
 		setBackground,
 		framePadding,
 		setFramePadding,
+		cardMargin,
+		setCardMargin,
 		watermark,
 		setWatermark,
 		setBorderRadius,
@@ -44,9 +46,15 @@ export function SettingsStrip() {
 				<LineNumberPicker />
 			</StripCell>
 
-			{/* Padding */}
-			<StripCell label="Pad">
+			{/* Padding: code padding inside the window */}
+			<StripCell label="Pad" title="code padding inside the window">
 				<PaddingPicker selected={framePadding} onSelect={setFramePadding} />
+			</StripCell>
+
+			{/* Margin: the mesh gap around the window. Shares the padding pill ladder
+			    (same 16/24/32/48/64 values); the outer card radius follows it. */}
+			<StripCell label="Margin" title="mesh margin around the window">
+				<PaddingPicker selected={cardMargin} onSelect={setCardMargin} />
 			</StripCell>
 
 			{/* Morph tempo */}
@@ -78,9 +86,13 @@ export function SettingsStrip() {
 	);
 }
 
-function StripCell({ label, children }: { label: string; children: React.ReactNode }) {
+function StripCell({
+	label,
+	title,
+	children,
+}: { label: string; title?: string; children: React.ReactNode }) {
 	return (
-		<div className="flex items-center gap-2.5 px-3">
+		<div className="flex items-center gap-2.5 px-3" title={title}>
 			<span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
 				{label}
 			</span>

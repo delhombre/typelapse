@@ -7,6 +7,7 @@ import {
 } from "@/application/backgrounds/mesh-gradient";
 import { captionAt } from "@/application/captions/caption-timing";
 import { focusLineSet } from "@/application/focus/line-ranges";
+import { concentric } from "@/application/layout/concentric";
 import { fitScale } from "@/application/layout/fit-scale";
 import { LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
 import { easeInOutCubic, renderStatic, renderTransition } from "@/application/magic-move/engine";
@@ -135,6 +136,7 @@ export function LivePreview() {
 		showLineNumbers,
 		lineNumberStart,
 		framePadding,
+		cardMargin,
 		watermark,
 	} = useSnippetStore();
 
@@ -194,6 +196,7 @@ export function LivePreview() {
 		cardNode,
 		plan,
 		framePadding,
+		cardMargin,
 		windowChrome,
 		showLineNumbers,
 		lineNumberStart,
@@ -260,9 +263,11 @@ export function LivePreview() {
 						transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
 						style={{
 							opacity: isBuilding ? 0.85 : 1,
-							padding: isTransparent ? 0 : 32,
-							// Concentric with the 32px padding: outer radius = inner radius + gap.
-							borderRadius: isTransparent ? 0 : snippet.theme.borderRadius + 32,
+							padding: isTransparent ? 0 : cardMargin,
+							// Concentric law: the outer corner follows the window's radius plus the
+							// margin, so a square window (radius 0) yields a square card. A soft
+							// outer corner around a sharp window reads incoherent.
+							borderRadius: isTransparent ? 0 : concentric(snippet.theme.borderRadius, cardMargin),
 							// Mesh + image are painted imperatively by useDynamicBackground; this is
 							// the pre-paint fallback so there is no flash before the effect runs.
 							background: staticBackground(background, isMesh, isImage),

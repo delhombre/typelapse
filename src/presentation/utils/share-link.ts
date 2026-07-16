@@ -14,6 +14,8 @@ interface ShareData {
 	/** Line-number gutter settings. Optional; default on / start 1. */
 	showLineNumbers?: boolean;
 	lineNumberStart?: number;
+	/** Mesh margin around the code window (px). Optional; default 32 when absent. */
+	cardMargin?: number;
 	steps: { code: string; duration: number; focus?: string; caption?: string }[];
 	/** Morph tempo in ms (400 | 650 | 1000). Optional; default 650 when absent. */
 	transitionMs?: number;
