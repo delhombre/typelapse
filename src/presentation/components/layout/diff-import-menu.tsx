@@ -1,16 +1,28 @@
+import { resolveCommitUrl, resolvePrUrl } from "@/application/import/pr-url";
+import {
+	type Walkthrough,
+	fetchCommitDiff,
+	fetchPrWalkthrough,
+} from "@/infrastructure/import/pr-import";
 import { springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
-/** Popover that turns a pasted unified diff into an animated step walkthrough. */
+/**
+ * Popover that turns a pasted unified diff — or a GitHub PR / commit URL — into
+ * an animated step walkthrough. A URL is fetched to its raw diff first; anything
+ * else is treated as a raw diff paste.
+ */
 export function DiffImportMenu() {
 	const [open, setOpen] = useState(false);
 	const [text, setText] = useState("");
+	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const importDiff = useSnippetStore((s) => s.importDiff);
+	const setTitle = useSnippetStore((s) => s.setTitle);
 
 	useEffect(() => {
 		if (!open) {
@@ -29,12 +41,45 @@ export function DiffImportMenu() {
 		};
 	}, [open]);
 
-	function apply() {
-		if (text.trim() === "") {
+	async function apply() {
+		const trimmed = text.trim();
+		if (trimmed === "" || loading) {
 			return;
 		}
+		// The textarea doubles as a URL bar: a PR / commit link fetches its diff first.
+		const prRef = resolvePrUrl(trimmed);
+		if (prRef) {
+			await runFetch(() => fetchPrWalkthrough(prRef));
+			return;
+		}
+		const commitRef = resolveCommitUrl(trimmed);
+		if (commitRef) {
+			await runFetch(() => fetchCommitDiff(commitRef));
+			return;
+		}
+		applyRawDiff(trimmed);
+	}
+
+	async function runFetch(fetcher: () => Promise<Walkthrough>) {
+		setLoading(true);
+		setError(null);
 		try {
-			importDiff(text);
+			const { diffText, title } = await fetcher();
+			importDiff(diffText);
+			// The PR / commit title overrides the filename title importDiff inferred.
+			setTitle(title);
+			setText("");
+			setOpen(false);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Could not fetch the change.");
+		} finally {
+			setLoading(false);
+		}
+	}
+
+	function applyRawDiff(trimmed: string) {
+		try {
+			importDiff(trimmed);
 			setText("");
 			setError(null);
 			setOpen(false);
@@ -47,7 +92,7 @@ export function DiffImportMenu() {
 		// ⌘/Ctrl+Enter applies without reaching for the mouse.
 		if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
 			e.preventDefault();
-			apply();
+			void apply();
 		}
 	}
 
@@ -98,22 +143,22 @@ export function DiffImportMenu() {
 								onKeyDown={onTextareaKeyDown}
 								rows={10}
 								spellCheck={false}
-								placeholder={"@@ -1,3 +1,3 @@\n-const old = 1;\n+const shiny = 2;"}
+								placeholder={"paste a git diff — or a github pr url"}
 								className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 							/>
 							<div className="mt-2 flex items-center justify-between gap-2">
 								<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
-									git diff | pbcopy — paste here
+									git diff | pbcopy · or github.com/…/pull/42
 								</span>
 								<motion.button
 									type="button"
-									onClick={apply}
-									disabled={text.trim() === ""}
+									onClick={() => void apply()}
+									disabled={text.trim() === "" || loading}
 									whileTap={{ scale: 0.96 }}
 									transition={springs.snappy}
 									className="flex h-8 items-center justify-center rounded-lg bg-neutral-900 px-3 text-[11px] font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
 								>
-									Apply
+									{loading ? <Spinner /> : "Apply"}
 								</motion.button>
 							</div>
 							{error && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{error}</p>}
@@ -143,6 +188,16 @@ function DiffIcon() {
 			<circle cx="18" cy="6" r="3" />
 			<circle cx="6" cy="18" r="3" />
 			<path d="M18 9a9 9 0 0 1-9 9" />
+		</svg>
+	);
+}
+
+function Spinner() {
+	return (
+		<svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" role="img">
+			<title>Loading</title>
+			<circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+			<path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
 		</svg>
 	);
 }
