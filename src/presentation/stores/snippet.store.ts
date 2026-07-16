@@ -12,6 +12,7 @@ import {
 import { resolveShikiLanguage } from "@/infrastructure/highlighting/shiki-registry";
 import type { Highlighter } from "shiki";
 import { create } from "zustand";
+import { useExportStore } from "./export.store";
 
 /** Where playback currently sits: holding on a step, or morphing between two. */
 export interface PlaybackState {
@@ -339,7 +340,13 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			await get().rebuildPlan();
 		}
 
-		const timeline = buildTimeline(snippet.steps.map((s) => s.duration));
+		// Read the morph tempo from the export store so the preview and the exported
+		// video share one timing source (WYSIWYG).
+		const transitionMs = useExportStore.getState().transitionMs;
+		const timeline = buildTimeline(
+			snippet.steps.map((s) => s.duration),
+			transitionMs,
+		);
 		const start = performance.now();
 
 		set({ isPreparing: false, isPlaying: true, currentStepIndex: 0, playbackProgress: 0 });

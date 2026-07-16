@@ -10,6 +10,8 @@ interface ShareData {
 	themeName: string;
 	background: string;
 	steps: { code: string; duration: number; focus?: string; caption?: string }[];
+	/** Morph tempo in ms (400 | 650 | 1000). Optional; default 650 when absent. */
+	transitionMs?: number;
 }
 
 export function encodeShareLink(data: ShareData): string {

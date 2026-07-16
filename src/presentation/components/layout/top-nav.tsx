@@ -1,6 +1,7 @@
 import { formatLineRanges } from "@/application/focus/line-ranges";
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { springs } from "@/presentation/motion";
+import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { copyToClipboard, decodeShareLink, encodeShareLink } from "@/presentation/utils/share-link";
@@ -25,6 +26,11 @@ export function TopNav() {
 		if (shareData) {
 			try {
 				importFromJson(JSON.stringify(shareData));
+				// Morph tempo lives in the export store, so apply it alongside the import.
+				const tempo = shareData.transitionMs;
+				if (tempo === 400 || tempo === 650 || tempo === 1000) {
+					useExportStore.getState().setTransitionMs(tempo);
+				}
 				history.replaceState(null, "", window.location.pathname);
 			} catch {
 				// Invalid share data
@@ -50,6 +56,7 @@ export function TopNav() {
 					caption: s.annotation || undefined,
 				};
 			}),
+			transitionMs: useExportStore.getState().transitionMs,
 		});
 		const copied = await copyToClipboard(link);
 		if (copied) {

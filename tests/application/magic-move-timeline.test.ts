@@ -24,6 +24,28 @@ describe("buildTimeline", () => {
 	});
 });
 
+describe("buildTimeline tempo", () => {
+	it("uses a 400ms snappy transition", () => {
+		const { segments, totalMs } = buildTimeline([1000, 1000], 400);
+		expect(segments[1]).toMatchObject({ type: "transition", startMs: 1000, endMs: 1400 });
+		expect(totalMs).toBe(2400);
+	});
+
+	it("uses a 1000ms cinematic transition", () => {
+		const { segments, totalMs } = buildTimeline([1000, 1000], 1000);
+		expect(segments[1]).toMatchObject({ type: "transition", startMs: 1000, endMs: 2000 });
+		expect(totalMs).toBe(3000);
+	});
+
+	it("locates the transition midpoint under a slow tempo", () => {
+		const timeline = buildTimeline([1000, 1000], 1000);
+		const pos = locate(timeline, 1500);
+		expect(pos.phase).toBe("transition");
+		expect(pos.index).toBe(0);
+		expect(pos.t).toBeCloseTo(0.5);
+	});
+});
+
 describe("locate", () => {
 	const timeline = buildTimeline([1000, 1000], 500);
 
