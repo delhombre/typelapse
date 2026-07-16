@@ -1,74 +1,17 @@
 /**
- * Pure resolver mapping a user-pasted gist / GitHub URL to a fetchable URL, plus
- * a filename → studio-language mapping. No network here — the infrastructure
- * adapter does the fetching; this stays a dependency-free, testable value map.
+ * Pure resolver mapping a user-pasted gist / GitHub URL to a fetchable URL. No
+ * network here — the infrastructure adapter does the fetching; this stays a
+ * dependency-free, testable value map. The filename → language mapping lives in
+ * the shared `language/language-from-filename` module (used by diff import too).
  */
+
+import { hasCodeExtension } from "@/application/language/language-from-filename";
 
 export type CodeUrlKind = "gist-api" | "raw";
 
 export interface ResolvedCodeUrl {
 	fetchUrl: string;
 	kind: CodeUrlKind;
-}
-
-/** File extension → the studio's Shiki-compatible language id. */
-const EXT_TO_LANG: Record<string, string> = {
-	ts: "typescript",
-	tsx: "typescript",
-	js: "javascript",
-	jsx: "javascript",
-	py: "python",
-	rs: "rust",
-	go: "go",
-	html: "html",
-	css: "css",
-	json: "json",
-	java: "java",
-	cs: "csharp",
-	cpp: "cpp",
-	cc: "cpp",
-	php: "php",
-	rb: "ruby",
-	swift: "swift",
-	kt: "kotlin",
-	sql: "sql",
-	yml: "yaml",
-	yaml: "yaml",
-	md: "markdown",
-	sh: "shell",
-};
-
-const DEFAULT_LANGUAGE = "typescript";
-
-/** The last path segment of a name/path, lowercased. */
-function basename(name: string): string {
-	return name.split("/").pop()?.toLowerCase() ?? "";
-}
-
-/** The lowercase extension of a filename (empty when there is none). */
-function extension(base: string): string {
-	return base.includes(".") ? base.slice(base.lastIndexOf(".") + 1) : "";
-}
-
-/** Map a filename to a studio language id; unknown/extensionless → typescript. */
-export function languageFromFilename(name: string): string {
-	const base = basename(name);
-	if (base === "dockerfile") {
-		return "dockerfile";
-	}
-	const ext = extension(base);
-	return Object.hasOwn(EXT_TO_LANG, ext)
-		? (EXT_TO_LANG[ext] ?? DEFAULT_LANGUAGE)
-		: DEFAULT_LANGUAGE;
-}
-
-/** True when the path points at a file we know how to language-tag. */
-function hasCodeExtension(pathname: string): boolean {
-	const base = basename(pathname);
-	if (base === "dockerfile") {
-		return true;
-	}
-	return Object.hasOwn(EXT_TO_LANG, extension(base));
 }
 
 /** Parse the input into a URL, tolerating a missing protocol; null if unparseable. */
