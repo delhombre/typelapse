@@ -1,6 +1,7 @@
 import { useKeyboardShortcuts } from "@/presentation/hooks/use-keyboard-shortcuts";
 import { useIsDesktop } from "@/presentation/hooks/use-media-query";
-import type { ReactNode } from "react";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { type ReactNode, useEffect } from "react";
 import { AppShell } from "./app-shell";
 import { MobileShell } from "./mobile-shell";
 
@@ -18,5 +19,14 @@ interface ResponsiveShellProps {
 export function ResponsiveShell(props: ResponsiveShellProps) {
 	useKeyboardShortcuts();
 	const isDesktop = useIsDesktop();
+
+	// Leaving the studio disarms record mode — clears the pending debounce timer
+	// and flushes a trailing step — so nothing captures into a stale snippet.
+	useEffect(() => {
+		return () => {
+			useSnippetStore.getState().stopRecording();
+		};
+	}, []);
+
 	return isDesktop ? <AppShell {...props} /> : <MobileShell {...props} />;
 }
