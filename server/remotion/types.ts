@@ -50,4 +50,10 @@ export interface RenderInput {
 	progressStyle: ProgressStyle;
 	/** Optional watermark text overlay. */
 	watermark?: string;
+	/**
+	 * Synthesized tick track as a WAV data URL, mounted at frame 0. Built in the
+	 * render route from the same timeline numbers as the preview. Absent = silent
+	 * (e.g. GIF, or the sound toggle off).
+	 */
+	audioDataUrl?: string;
 }

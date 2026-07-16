@@ -6,6 +6,11 @@ import { bundle } from "@remotion/bundler";
 import { renderMedia, selectComposition } from "@remotion/renderer";
 import { Hono } from "hono";
 import { type BundledLanguage, type Highlighter, createHighlighter } from "shiki";
+import {
+	collectTickEvents,
+	encodeWavBase64,
+	renderTickTrack,
+} from "../../src/application/audio/tick-synth";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
 import { resolveShikiLanguage, resolveShikiTheme } from "../../src/infrastructure/highlighting/shiki-registry";
 import { buildServerMagicMovePlan } from "../remotion/magic-move-plan";
@@ -87,6 +92,7 @@ interface RenderRequest {
 	loop?: boolean;
 	typewriter?: boolean;
 	focusZoom?: boolean;
+	sound?: boolean;
 	progressStyle?: RenderInput["progressStyle"];
 	transitionMs?: number;
 	watermark?: string;
@@ -112,6 +118,7 @@ renderRoute.post("/render", async (c) => {
 		loop = false,
 		typewriter = false,
 		focusZoom = false,
+		sound = false,
 		progressStyle = "reels",
 		transitionMs = TRANSITION_MS,
 		watermark,
@@ -142,6 +149,21 @@ renderRoute.post("/render", async (c) => {
 		const loopFrames = loop ? transitionFrames : 0;
 		const totalFrames = holdFrames + (steps.length - 1) * transitionFrames + loopFrames;
 
+		// Synthesized tick track — built from the same timeline numbers the preview
+		// uses, spanning the full video (loop tail included). GIF carries no audio,
+		// so skip it there silently.
+		let audioDataUrl: string | undefined;
+		if (sound && format !== "gif") {
+			const events = collectTickEvents({
+				typewriter,
+				firstCodeLength: steps[0]?.code.length ?? 0,
+				holds: steps.map((s) => s.duration),
+				transitionMs,
+			});
+			const totalMs = (totalFrames / fps) * 1000;
+			audioDataUrl = encodeWavBase64(renderTickTrack(events, totalMs), 44100);
+		}
+
 		const input: RenderInput = {
 			title,
 			language,
@@ -159,6 +181,7 @@ renderRoute.post("/render", async (c) => {
 			focusZoom,
 			progressStyle,
 			watermark,
+			audioDataUrl,
 		};
 
 		const bundleLocation = await getBundle();

@@ -37,8 +37,19 @@ export function layoutTypingTokens(code: string, tokens: RawToken[], tabSize = 2
 	});
 }
 
+/**
+ * Progress through the first hold by which the reveal has finished typing (it
+ * then holds the full frame). Exported so the tick-sound synth can invert the
+ * same pacing and align key ticks with the visible characters.
+ */
+export const TYPE_COMPLETE_AT = 0.85;
+
 /** How many characters are revealed at playback progress `p` (finishes a bit early, then holds). */
-export function typedCharCount(codeLength: number, p: number, completeAt = 0.85): number {
+export function typedCharCount(
+	codeLength: number,
+	p: number,
+	completeAt = TYPE_COMPLETE_AT,
+): number {
 	const ratio = completeAt <= 0 ? 1 : Math.min(1, Math.max(0, p) / completeAt);
 	return Math.ceil(ratio * codeLength);
 }

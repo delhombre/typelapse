@@ -17,6 +17,7 @@ import {
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
 import { PlaybackControls } from "@/presentation/components/controls/playback-controls";
+import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -125,6 +126,9 @@ export function LivePreview() {
 	const isMesh = isMeshBackground(background);
 	const isImage = isImageBackground(background);
 	useDynamicBackground(previewRef, background);
+	// Play the synthesized tick track during preview playback (same rendered WAV
+	// the export bakes in), so the preview sounds identical to the video.
+	useTickAudio();
 
 	const segments = snippet.steps.length;
 	const reelsProgress = isPlaying

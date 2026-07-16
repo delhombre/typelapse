@@ -66,12 +66,14 @@ export function ExportOptions() {
 		loop,
 		typewriter,
 		focusZoom,
+		sound,
 		progressStyle,
 		setFormat,
 		setResolution,
 		setLoop,
 		setTypewriter,
 		setFocusZoom,
+		setSound,
 		setProgressStyle,
 	} = useExportStore();
 
@@ -134,6 +136,14 @@ export function ExportOptions() {
 				title="Zoom: push in on focused lines"
 			>
 				zoom
+			</Chip>
+
+			<Chip
+				active={sound}
+				onClick={() => setSound(!sound)}
+				title="Sound: synthesized key ticks and morph thumps"
+			>
+				sound
 			</Chip>
 
 			<Chip
