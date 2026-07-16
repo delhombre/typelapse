@@ -3,7 +3,7 @@ import type { Step } from "@/domain/entities/step";
 import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { truncateMiddle } from "@/presentation/utils/truncate-middle";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { useRef, useState } from "react";
 
 function getStepPreview(code: string): string {
@@ -113,16 +113,19 @@ export function StepBuilder() {
 				<span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
 					{steps.length} {steps.length === 1 ? "step" : "steps"}
 				</span>
-				<motion.button
-					type="button"
-					onClick={() => captureStep()}
-					whileTap={{ scale: 0.97 }}
-					transition={springs.snappy}
-					className="flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-				>
-					<PlusIcon />
-					Capture
-				</motion.button>
+				<div className="flex items-center gap-2">
+					<RecordButton />
+					<motion.button
+						type="button"
+						onClick={() => captureStep()}
+						whileTap={{ scale: 0.97 }}
+						transition={springs.snappy}
+						className="flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+					>
+						<PlusIcon />
+						Capture
+					</motion.button>
+				</div>
 			</div>
 
 			{steps.length === 0 && (
@@ -245,6 +248,48 @@ export function StepBuilder() {
 				))}
 			</div>
 		</div>
+	);
+}
+
+/**
+ * Record toggle — sits left of Capture. Armed, it turns solid red with a pulsing
+ * dot; each pause in typing captures a step (debounced in the store). Manual
+ * Capture keeps working alongside it.
+ */
+function RecordButton() {
+	const isRecording = useSnippetStore((s) => s.isRecording);
+	const startRecording = useSnippetStore((s) => s.startRecording);
+	const stopRecording = useSnippetStore((s) => s.stopRecording);
+	const reduceMotion = useReducedMotion();
+	const pulsing = isRecording && !reduceMotion;
+
+	const className = isRecording
+		? "flex h-8 items-center gap-1.5 rounded-lg border border-red-400/60 bg-red-500/10 px-3 text-xs font-medium text-red-500 transition"
+		: "flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
+
+	return (
+		<motion.button
+			type="button"
+			onClick={() => (isRecording ? stopRecording() : startRecording())}
+			whileTap={{ scale: 0.97 }}
+			transition={springs.snappy}
+			aria-pressed={isRecording}
+			title="Type in the editor; a step is captured at each pause."
+			className={className}
+		>
+			<motion.span
+				aria-hidden="true"
+				className="inline-block size-2 shrink-0 rounded-full"
+				style={{ background: isRecording ? "#ef4444" : "currentColor" }}
+				animate={pulsing ? { opacity: [1, 0.3, 1] } : { opacity: 1 }}
+				transition={
+					pulsing
+						? { duration: 1.2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }
+						: { duration: 0 }
+				}
+			/>
+			{isRecording ? "Recording…" : "Record"}
+		</motion.button>
 	);
 }
 

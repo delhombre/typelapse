@@ -82,6 +82,13 @@ interface SnippetState {
 	updateStepAnnotation: (stepId: string, text: string) => void;
 	reorderSteps: (orderedIds: string[]) => void;
 
+	// Record mode — auto-capture a step at each pause while the user types.
+	isRecording: boolean;
+	/** Arm record mode; anchors a baseline step if the live code is new. */
+	startRecording: () => void;
+	/** Disarm record mode, flush a trailing step, and clear the pending timer. */
+	stopRecording: () => void;
+
 	// Playback
 	setCurrentStepIndex: (index: number) => void;
 	play: () => void;
@@ -94,6 +101,10 @@ interface SnippetState {
 
 let rawShikiHighlighter: Highlighter | null = null;
 let rafId: number | null = null;
+let recordTimerId: ReturnType<typeof setTimeout> | null = null;
+
+/** A pause this long after the last keystroke captures a step while recording. */
+const RECORD_DEBOUNCE_MS = 1500;
 
 export function setHighlighter(highlighter: HighlighterPort) {
 	if ("getRawHighlighter" in highlighter) {
@@ -169,6 +180,26 @@ function cancelRaf() {
 	}
 }
 
+function clearRecordTimer() {
+	if (recordTimerId !== null) {
+		clearTimeout(recordTimerId);
+		recordTimerId = null;
+	}
+}
+
+/**
+ * True when the live code is worth capturing as a new step: non-blank and
+ * different from the last captured step (or there are no steps yet). Blank is
+ * excluded because `Step.create` rejects empty code.
+ */
+function isCapturable(snippet: Snippet): boolean {
+	if (snippet.code.trim() === "") {
+		return false;
+	}
+	const lastStep = snippet.steps[snippet.steps.length - 1];
+	return !lastStep || lastStep.code !== snippet.code;
+}
+
 /** The codes the plan animates over: the captured steps, or the live code. */
 function effectiveCodes(snippet: Snippet): string[] {
 	return snippet.steps.length > 0 ? snippet.steps.map((s) => s.code) : [snippet.code];
@@ -198,6 +229,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	isPreparing: false,
 	playbackProgress: 0,
 	playback: null,
+	isRecording: false,
 	background: "mesh:aurora",
 
 	windowChrome: "macos",
@@ -243,6 +275,16 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	setCode: (code: string) => {
 		set({ snippet: rebuildSnippet(get().snippet, { code }) });
 		get().rebuildPlan();
+		// While recording, each keystroke re-arms the debounce; a pause captures a step.
+		if (get().isRecording) {
+			clearRecordTimer();
+			recordTimerId = setTimeout(() => {
+				recordTimerId = null;
+				if (get().isRecording && isCapturable(get().snippet)) {
+					get().captureStep();
+				}
+			}, RECORD_DEBOUNCE_MS);
+		}
 	},
 
 	setLanguage: (language: string) => {
@@ -341,11 +383,33 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		get().rebuildPlan();
 	},
 
+	startRecording: () => {
+		set({ isRecording: true });
+		// Anchor a baseline so the first pause morphs from the code as it is now.
+		if (isCapturable(get().snippet)) {
+			get().captureStep();
+		}
+	},
+
+	stopRecording: () => {
+		clearRecordTimer();
+		if (!get().isRecording) {
+			return;
+		}
+		set({ isRecording: false });
+		// Flush the final edit so the last thing typed still becomes a step.
+		if (isCapturable(get().snippet)) {
+			get().captureStep();
+		}
+	},
+
 	setCurrentStepIndex: (index: number) => {
 		set({ currentStepIndex: index });
 	},
 
 	play: async () => {
+		// Recording and playback are mutually exclusive; stopping flushes a trailing step.
+		get().stopRecording();
 		const { snippet } = get();
 		if (snippet.steps.length < 2) {
 			return;
@@ -519,6 +583,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 				: 1;
 
 		cancelRaf();
+		clearRecordTimer();
 		set({
 			snippet,
 			background,
@@ -529,6 +594,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			isPlaying: false,
 			playback: null,
 			playbackProgress: 0,
+			isRecording: false,
 		});
 
 		get().rebuildPlan();
