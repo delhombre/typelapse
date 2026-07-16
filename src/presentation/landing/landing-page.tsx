@@ -2,6 +2,7 @@ import { Logomark } from "@/presentation/components/ui/logomark";
 import { motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { FrameFan } from "./frame-fan";
 import { Instrument } from "./instrument";
 
 const GITHUB_URL = "https://github.com/delhombre/typelapse";
@@ -20,7 +21,16 @@ export function LandingPage() {
 				<FadeIn delay={0.16}>
 					<Instrument />
 				</FadeIn>
+				<div className="mx-auto mt-24 max-w-5xl px-6">
+					<div className="border-black/8 border-t" />
+				</div>
+				<FadeIn>
+					<FrameFan />
+				</FadeIn>
+				<Prose />
+				<Cta />
 			</main>
+			<Footer />
 		</div>
 	);
 }
@@ -72,6 +82,79 @@ function Hero() {
 				</p>
 			</FadeIn>
 		</section>
+	);
+}
+
+/* ──────────── Prose ──────────── */
+
+function Prose() {
+	return (
+		<FadeIn className="mx-auto max-w-md px-6 py-16 text-center">
+			<p className="text-[15px] text-ash leading-[1.9]">
+				Paste a snippet, capture a few steps, and export an MP4, WebM or GIF — in 16:9, 1:1, 9:16,
+				4:5 or 3:4. Typelapse is free and <ProseLink href={GITHUB_URL}>open source</ProseLink> under
+				the <ProseLink href={`${GITHUB_URL}/blob/main/LICENSE`}>MIT license</ProseLink>. It runs
+				locally: your code never leaves your machine.{" "}
+				<ProseLink href={GITHUB_URL}>Read the source</ProseLink>.
+			</p>
+		</FadeIn>
+	);
+}
+
+function ProseLink({ href, children }: { href: string; children: ReactNode }) {
+	return (
+		<a
+			href={href}
+			target="_blank"
+			rel="noreferrer"
+			className="font-medium text-ink underline-offset-4 hover:underline"
+		>
+			{children}
+		</a>
+	);
+}
+
+/* ──────────── Final action ──────────── */
+
+function Cta() {
+	return (
+		<FadeIn className="px-6 py-16 text-center">
+			<Link
+				to="/app"
+				className="inline-flex h-11 items-center rounded-full bg-ink px-6 font-medium text-[15px] text-white transition-[background-color,transform] hover:bg-black active:scale-[0.98]"
+			>
+				Open the studio
+			</Link>
+			<p className="mt-4 font-mono text-[11px] text-ash">no sign-up · runs in your browser</p>
+		</FadeIn>
+	);
+}
+
+/* ──────────── Footer ──────────── */
+
+function Footer() {
+	return (
+		<footer className="border-black/8 border-t">
+			<div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-8">
+				<div className="flex items-baseline gap-2">
+					<span className="font-serif text-[15px] text-ink">Typelapse</span>
+					<span className="text-[13px] text-ash">— a timelapse for your code</span>
+				</div>
+				<div className="flex items-center gap-5 text-[13px]">
+					<Link to="/app" className="text-ash transition-colors hover:text-ink">
+						Studio
+					</Link>
+					<a
+						href={GITHUB_URL}
+						target="_blank"
+						rel="noreferrer"
+						className="text-ash transition-colors hover:text-ink"
+					>
+						GitHub
+					</a>
+				</div>
+			</div>
+		</footer>
 	);
 }
 
