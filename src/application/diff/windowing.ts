@@ -21,6 +21,11 @@
  * independent) hunk structure. Only the code *inside* a window changes between
  * stages — and exactly one hunk flips per step — so everything else matches as
  * a stable token and glides rather than churns.
+ *
+ * Line numbers: the presentation gutter is display-only and sequential, so
+ * windowed code shows 1..N over the rendered lines (the `⋯` rows included), not
+ * the original file's line numbers. Mapping the gutter back to real file lines
+ * is a future nicety, out of scope here.
  */
 
 import type { DiffFile, DiffHunk } from "./types";

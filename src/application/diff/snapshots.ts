@@ -1,4 +1,5 @@
 import type { CodeSnapshot, DiffHunk, GenerateSnapshotsOptions, ParsedDiff } from "./types";
+import { planWindows, renderWindowedStage } from "./windowing";
 
 /** Lines as they appear in the OLD file: context + removed (additions dropped). */
 function hunkBefore(hunk: DiffHunk): string[] {
@@ -41,22 +42,35 @@ function stageLabel(hunks: DiffHunk[], appliedHunks: number): string {
  *
  * Hunks from every file are flattened in document order, so a single-file diff
  * (the common case) reads top-to-bottom and a multi-file diff walks each file's
- * changes in turn.
+ * changes in turn. By default each stage is *windowed* — only the code around
+ * the changes renders, so real-world PRs stay readable; the windows are computed
+ * once up front and reused for every stage, which keeps the magic-move morph
+ * clean. Pass `windowing: false` for the legacy full-frame snapshots.
  */
 export function generateSnapshots(
 	diff: ParsedDiff,
 	options: GenerateSnapshotsOptions = {},
 ): CodeSnapshot[] {
 	const mode = options.mode ?? "hunk-by-hunk";
+	const windowing = options.windowing ?? true;
 	const hunks = diff.files.flatMap((file) => file.hunks);
 	if (hunks.length === 0) {
 		return [];
 	}
 
+	// Compute the windows once; every stage renders against the same boundaries.
+	const plans = windowing ? planWindows(diff.files) : null;
+	const codeAt = (applied: number): string => {
+		if (plans) {
+			return renderWindowedStage(plans, applied);
+		}
+		return codeAtStage(hunks, applied);
+	};
+
 	if (mode === "before-after") {
 		return [
-			{ code: codeAtStage(hunks, 0), label: "Before" },
-			{ code: codeAtStage(hunks, hunks.length), label: "After" },
+			{ code: codeAt(0), label: "Before" },
+			{ code: codeAt(hunks.length), label: "After" },
 		];
 	}
 
@@ -64,7 +78,7 @@ export function generateSnapshots(
 	const snapshots: CodeSnapshot[] = [];
 	for (let applied = 0; applied <= hunks.length; applied++) {
 		snapshots.push({
-			code: codeAtStage(hunks, applied),
+			code: codeAt(applied),
 			label: stageLabel(hunks, applied),
 		});
 	}

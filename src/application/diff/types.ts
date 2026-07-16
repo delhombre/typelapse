@@ -56,10 +56,18 @@ export type DiffStepMode = "before-after" | "hunk-by-hunk";
 
 export interface GenerateSnapshotsOptions {
 	mode?: DiffStepMode;
+	/**
+	 * Show only windows of code around each change (± context lines) with `⋯`
+	 * separators, GitHub-style, instead of every hunked line. Defaults to `true`;
+	 * pass `false` for the legacy full-frame snapshots (tests / back-compat).
+	 */
+	windowing?: boolean;
 }
 
 export interface DiffToSnapshotsOptions {
 	mode?: DiffStepMode;
+	/** See {@link GenerateSnapshotsOptions.windowing}. Defaults to `true`. */
+	windowing?: boolean;
 }
 
 export interface DiffToSnapshotsResult {
