@@ -2,6 +2,7 @@ import { languageFromPath } from "@/application/language/language-from-filename"
 import { parseUnifiedDiff } from "./parse-unified-diff";
 import { generateSnapshots, normalizeSnapshots } from "./snapshots";
 import type { DiffToSnapshotsOptions, DiffToSnapshotsResult } from "./types";
+import { filterLockfiles } from "./windowing";
 
 /**
  * The application use-case: turn pasted unified-diff text into an animatable
@@ -19,24 +20,29 @@ export function diffToSnapshots(
 		throw new Error("Paste a diff first.");
 	}
 
-	const diff = parseUnifiedDiff(diffText);
-	const hunkCount = diff.files.reduce((sum, file) => sum + file.hunks.length, 0);
+	const parsed = parseUnifiedDiff(diffText);
+	// Lockfiles are generated noise — drop them unless they're all the diff has.
+	const files = filterLockfiles(parsed.files);
+	const hunkCount = files.reduce((sum, file) => sum + file.hunks.length, 0);
 	if (hunkCount === 0) {
 		throw new Error("No diff hunks found — paste the output of `git diff`.");
 	}
 
-	const snapshots = normalizeSnapshots(generateSnapshots(diff, { mode: options.mode }));
+	// Windowed by default (readable on real PRs); options can force full frames.
+	const snapshots = normalizeSnapshots(
+		generateSnapshots({ files }, { mode: options.mode, windowing: options.windowing }),
+	);
 	if (snapshots.length === 0) {
 		throw new Error("The diff contains no changes to animate.");
 	}
 
-	const primary = diff.files.find((file) => file.hunks.length > 0);
+	const primary = files.find((file) => file.hunks.length > 0);
 	const path = primary?.newPath ?? primary?.oldPath ?? undefined;
 
 	return {
 		snapshots,
 		language: languageFromPath(path),
 		path,
-		fileCount: diff.files.length,
+		fileCount: files.length,
 	};
 }

@@ -18,9 +18,12 @@ const TWO_HUNK_DIFF = nl([
 ]);
 
 describe("generateSnapshots", () => {
+	// These staging tests assert full-frame content via the `windowing: false`
+	// escape hatch, so the sequencing logic reads clearly; windowed output has its
+	// own coverage in windowing.test.ts and diff-to-snapshots.test.ts.
 	it("before-after mode yields exactly two snapshots (full old, full new)", () => {
 		const diff = parseUnifiedDiff(TWO_HUNK_DIFF);
-		const snaps = generateSnapshots(diff, { mode: "before-after" });
+		const snaps = generateSnapshots(diff, { mode: "before-after", windowing: false });
 
 		expect(snaps).toHaveLength(2);
 		expect(snaps[0]?.code).toBe(
@@ -33,7 +36,7 @@ describe("generateSnapshots", () => {
 
 	it("hunk-by-hunk mode yields N+1 snapshots, flipping one hunk per step", () => {
 		const diff = parseUnifiedDiff(TWO_HUNK_DIFF);
-		const snaps = generateSnapshots(diff, { mode: "hunk-by-hunk" });
+		const snaps = generateSnapshots(diff, { mode: "hunk-by-hunk", windowing: false });
 
 		// 2 hunks -> 3 snapshots: before, after-hunk-1, after-hunk-2 (== full after)
 		expect(snaps).toHaveLength(3);
@@ -66,6 +69,19 @@ describe("generateSnapshots", () => {
 	it("defaults to hunk-by-hunk mode", () => {
 		const diff = parseUnifiedDiff(TWO_HUNK_DIFF);
 		expect(generateSnapshots(diff)).toHaveLength(3);
+	});
+
+	it("windows each stage by default, splitting far-apart hunks with ⋯", () => {
+		const diff = parseUnifiedDiff(TWO_HUNK_DIFF);
+		const snaps = generateSnapshots(diff);
+
+		// Windowed is the default: the two far-apart hunks are separated by a ⋯
+		// in every stage, while the staging count and labels are untouched.
+		expect(snaps).toHaveLength(3);
+		for (const snap of snaps) {
+			expect(snap.code).toContain("⋯");
+		}
+		expect(snaps.map((s) => s.label)).toEqual(["Before", "Change 1", "After"]);
 	});
 
 	it("carries a label per snapshot", () => {

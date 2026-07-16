@@ -96,4 +96,104 @@ describe("diffToSnapshots", () => {
 	it("throws when the input contains no diff hunks", () => {
 		expect(() => diffToSnapshots("this is not a diff at all")).toThrow();
 	});
+
+	it("drops a lockfile and keeps the real changed file", () => {
+		const diff = nl([
+			"diff --git a/package.json b/package.json",
+			"--- a/package.json",
+			"+++ b/package.json",
+			"@@ -1,3 +1,3 @@",
+			" {",
+			'-  "version": "1.0.0"',
+			'+  "version": "1.1.0"',
+			" }",
+			"diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml",
+			"--- a/pnpm-lock.yaml",
+			"+++ b/pnpm-lock.yaml",
+			"@@ -1,2 +1,2 @@",
+			"-lockfileVersion: '6.0'",
+			"+lockfileVersion: '9.0'",
+			" settings:",
+		]);
+
+		const result = diffToSnapshots(diff);
+
+		expect(result.fileCount).toBe(1);
+		expect(result.path).toBe("package.json");
+		// No lockfile noise survives — and a single kept file needs no header.
+		for (const snapshot of result.snapshots) {
+			expect(snapshot.code).not.toContain("lockfileVersion");
+			expect(snapshot.code).not.toContain("// ");
+		}
+	});
+
+	it("keeps lockfiles when they are all the diff has", () => {
+		const diff = nl([
+			"diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml",
+			"--- a/pnpm-lock.yaml",
+			"+++ b/pnpm-lock.yaml",
+			"@@ -1,2 +1,2 @@",
+			"-lockfileVersion: '6.0'",
+			"+lockfileVersion: '9.0'",
+			" settings:",
+		]);
+
+		const result = diffToSnapshots(diff);
+
+		expect(result.fileCount).toBe(1);
+		expect(result.snapshots.length).toBeGreaterThan(0);
+		expect(result.snapshots.at(-1)?.code).toContain("lockfileVersion: '9.0'");
+	});
+
+	it("labels a multi-file diff with a stable // path header per file", () => {
+		const diff = nl([
+			"diff --git a/src/a.ts b/src/a.ts",
+			"--- a/src/a.ts",
+			"+++ b/src/a.ts",
+			"@@ -1,2 +1,2 @@",
+			" const a = 1;",
+			"-const b = 2;",
+			"+const b = 3;",
+			"diff --git a/src/b.ts b/src/b.ts",
+			"--- a/src/b.ts",
+			"+++ b/src/b.ts",
+			"@@ -1,2 +1,2 @@",
+			" const c = 1;",
+			"-const d = 2;",
+			"+const d = 3;",
+		]);
+
+		const result = diffToSnapshots(diff);
+
+		expect(result.fileCount).toBe(2);
+		for (const snapshot of result.snapshots) {
+			expect(snapshot.code).toContain("// src/a.ts");
+			expect(snapshot.code).toContain("// src/b.ts");
+		}
+	});
+
+	it("renders full frames through the windowing:false escape hatch", () => {
+		const twoHunk = nl([
+			"--- a/app.ts",
+			"+++ b/app.ts",
+			"@@ -1,2 +1,2 @@",
+			" const a = 1;",
+			"-const b = 2;",
+			"+const b = 20;",
+			"@@ -10,2 +10,3 @@",
+			" const c = 3;",
+			"+const d = 4;",
+			" const e = 5;",
+		]);
+
+		const result = diffToSnapshots(twoHunk, { windowing: false });
+
+		// Legacy behaviour: no windows, no separators — the full hunked frame.
+		expect(result.snapshots[0]?.code).toBe(
+			nl(["const a = 1;", "const b = 2;", "const c = 3;", "const e = 5;"]),
+		);
+		for (const snapshot of result.snapshots) {
+			expect(snapshot.code).not.toContain("⋯");
+		}
+	});
 });
