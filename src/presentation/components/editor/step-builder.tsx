@@ -265,6 +265,9 @@ function FocusInput({ step }: { step: Step }) {
 			return;
 		}
 		setInvalid(false);
+		// Snap the field to the canonical form ("4-2,7" → "2-4, 7") — the card no
+		// longer remounts on edit (step ids are stable), so sync explicitly.
+		setText(formatLineRanges(parsed));
 		updateStepFocus(step.id, parsed);
 	}
 
@@ -309,7 +312,11 @@ function CaptionInput({ step }: { step: Step }) {
 			type="text"
 			value={text}
 			onChange={(e) => setText(e.target.value)}
-			onBlur={() => updateStepAnnotation(step.id, text)}
+			onBlur={() => {
+				// Mirror the store's trim so the field matches what actually renders.
+				setText(text.trim());
+				updateStepAnnotation(step.id, text);
+			}}
 			onKeyDown={(e) => {
 				if (e.key === "Enter") {
 					e.currentTarget.blur();

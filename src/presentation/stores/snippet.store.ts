@@ -119,6 +119,23 @@ function rebuildSnippet(
 	return updated;
 }
 
+/**
+ * Rebuild the snippet with one step swapped for an edited clone. The edit MUST
+ * go through `Step.with` so the step keeps its id — React keys, drag state and
+ * captured ids all rely on step identity surviving an edit. Returns null when
+ * no step matches (silent no-op at the call site).
+ */
+function replaceStep(snippet: Snippet, stepId: string, edit: (step: Step) => Step): Snippet | null {
+	const index = snippet.steps.findIndex((s) => s.id === stepId);
+	const step = snippet.steps[index];
+	if (!step) {
+		return null;
+	}
+	const steps = [...snippet.steps];
+	steps.splice(index, 1, edit(step));
+	return withSteps(snippet, steps);
+}
+
 /** Rebuild a snippet with a replacement steps array, keeping everything else. */
 function withSteps(snippet: Snippet, steps: Step[]): Snippet {
 	let rebuilt = Snippet.create({
@@ -263,60 +280,31 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	updateStepDuration: (stepId: string, duration: number) => {
-		const { snippet } = get();
-		const stepIndex = snippet.steps.findIndex((s) => s.id === stepId);
-		const oldStep = snippet.steps[stepIndex];
-		if (!oldStep) {
-			return;
+		const updated = replaceStep(get().snippet, stepId, (step) => step.with({ duration }));
+		if (updated) {
+			set({ snippet: updated });
 		}
-		const newStep = Step.create({
-			code: oldStep.code,
-			duration,
-			highlightRanges: [...oldStep.highlightRanges],
-			annotation: oldStep.annotation,
-		});
-		const steps = [...snippet.steps];
-		steps.splice(stepIndex, 1, newStep);
-		set({ snippet: withSteps(snippet, steps) });
 	},
 
 	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => {
-		const { snippet } = get();
-		const stepIndex = snippet.steps.findIndex((s) => s.id === stepId);
-		const oldStep = snippet.steps[stepIndex];
-		if (!oldStep) {
-			return;
-		}
-		const newStep = Step.create({
-			code: oldStep.code,
-			duration: oldStep.duration,
-			highlightRanges: ranges,
-			annotation: oldStep.annotation,
-		});
-		const steps = [...snippet.steps];
-		steps.splice(stepIndex, 1, newStep);
 		// Focus is applied at render time (resolveView), so no plan rebuild needed.
-		set({ snippet: withSteps(snippet, steps) });
+		const updated = replaceStep(get().snippet, stepId, (step) =>
+			step.with({ highlightRanges: ranges }),
+		);
+		if (updated) {
+			set({ snippet: updated });
+		}
 	},
 
 	updateStepAnnotation: (stepId: string, text: string) => {
-		const { snippet } = get();
-		const stepIndex = snippet.steps.findIndex((s) => s.id === stepId);
-		const oldStep = snippet.steps[stepIndex];
-		if (!oldStep) {
-			return;
-		}
-		const trimmed = text.trim();
-		const newStep = Step.create({
-			code: oldStep.code,
-			duration: oldStep.duration,
-			highlightRanges: [...oldStep.highlightRanges],
-			annotation: trimmed ? trimmed : undefined,
-		});
-		const steps = [...snippet.steps];
-		steps.splice(stepIndex, 1, newStep);
 		// Captions overlay at render time, so no plan rebuild is needed.
-		set({ snippet: withSteps(snippet, steps) });
+		const trimmed = text.trim();
+		const updated = replaceStep(get().snippet, stepId, (step) =>
+			step.with({ annotation: trimmed ? trimmed : undefined }),
+		);
+		if (updated) {
+			set({ snippet: updated });
+		}
 	},
 
 	reorderSteps: (orderedIds: string[]) => {
