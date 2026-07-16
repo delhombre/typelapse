@@ -76,7 +76,7 @@ function Hero() {
 			</FadeIn>
 			<FadeIn delay={0.08}>
 				<p className="mx-auto mt-5 max-w-lg text-pretty text-[17px] text-ash leading-relaxed">
-					Snippets — even whole pull requests — become video, token by token, exactly as you see it
+					Snippets (even whole pull requests) become video, token by token, exactly as you see it
 					here.
 				</p>
 			</FadeIn>
@@ -116,7 +116,7 @@ function Prose() {
 	return (
 		<FadeIn className="mx-auto max-w-md px-6 py-16 text-center">
 			<p className="text-[15px] text-ash leading-[1.9]">
-				Paste a snippet — or a unified diff, or a GitHub pull-request URL — capture a few steps, and
+				Paste a snippet (or a unified diff, or a GitHub pull-request URL), capture a few steps, and
 				export an MP4, WebM or GIF in 16:9, 1:1, 9:16, 4:5 or 3:4, with synthesized typing sounds if
 				you like. Typelapse is free and <ProseLink href={GITHUB_URL}>open source</ProseLink> under
 				the <ProseLink href={`${GITHUB_URL}/blob/main/LICENSE`}>MIT license</ProseLink>. It runs
@@ -164,7 +164,7 @@ function Footer() {
 			<div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-8">
 				<div className="flex items-center gap-2">
 					<LogoWordmark height={17} className="text-ink" />
-					<span className="text-[13px] text-ash">— a timelapse for your code</span>
+					<span className="text-[13px] text-ash">a timelapse for your code</span>
 				</div>
 				<div className="flex items-center gap-5 text-[13px]">
 					<Link to="/app" className="text-ash transition-colors hover:text-ink">

@@ -143,7 +143,7 @@ export function DiffImportMenu() {
 								onKeyDown={onTextareaKeyDown}
 								rows={10}
 								spellCheck={false}
-								placeholder={"paste a git diff — or a github pr url"}
+								placeholder={"paste a git diff, or a github pr url"}
 								className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 							/>
 							<div className="mt-2 flex items-center justify-between gap-2">

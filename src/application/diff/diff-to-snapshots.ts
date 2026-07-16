@@ -25,7 +25,7 @@ export function diffToSnapshots(
 	const files = filterLockfiles(parsed.files);
 	const hunkCount = files.reduce((sum, file) => sum + file.hunks.length, 0);
 	if (hunkCount === 0) {
-		throw new Error("No diff hunks found — paste the output of `git diff`.");
+		throw new Error("No diff hunks found: paste the output of `git diff`.");
 	}
 
 	// Windowed by default (readable on real PRs); options can force full frames.

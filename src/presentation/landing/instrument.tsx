@@ -321,7 +321,7 @@ export function Instrument() {
 			/>
 
 			<p className="mt-3 text-center text-[13px] text-ash">
-				This is the real engine — the export matches it frame for frame.
+				This is the real engine: the export matches it frame for frame.
 			</p>
 		</section>
 	);

@@ -356,9 +356,9 @@ function HashIcon() {
 }
 
 const TEMPO_PRESETS = [
-	{ ms: 400, label: "Snappy", title: "Snappy — 400 ms morph" },
-	{ ms: 650, label: "Smooth", title: "Smooth — 650 ms morph" },
-	{ ms: 1000, label: "Cine", title: "Cinematic — 1000 ms morph" },
+	{ ms: 400, label: "Snappy", title: "Snappy: 400 ms morph" },
+	{ ms: 650, label: "Smooth", title: "Smooth: 650 ms morph" },
+	{ ms: 1000, label: "Cine", title: "Cinematic: 1000 ms morph" },
 ] as const;
 
 /** Morph tempo — how long each step-to-step transition takes (preview + export). */

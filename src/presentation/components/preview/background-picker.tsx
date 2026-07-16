@@ -171,7 +171,7 @@ function ImageSwatch({ selected, onSelect }: BackgroundPickerProps) {
 			return;
 		}
 		if (file.size > MAX_IMAGE_BYTES) {
-			console.warn(`Image is ${(file.size / 1024 / 1024).toFixed(1)} MB — max is 4 MB. Ignored.`);
+			console.warn(`Image is ${(file.size / 1024 / 1024).toFixed(1)} MB, max is 4 MB. Ignored.`);
 			return;
 		}
 		const reader = new FileReader();
