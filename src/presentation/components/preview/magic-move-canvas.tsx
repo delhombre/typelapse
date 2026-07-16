@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { gutterLabels } from "../../../application/line-numbers/gutter";
 import type { RenderToken } from "../../../application/magic-move/engine";
 
 interface MagicMoveCanvasProps {
@@ -13,6 +14,8 @@ interface MagicMoveCanvasProps {
 	fontFamily: string;
 	color: string;
 	showLineNumbers?: boolean;
+	/** First gutter number (display-only; focus stays relative to line 1). */
+	lineNumberStart?: number;
 	lineNumberColor?: string;
 	padding: number;
 	/** Typewriter caret position (line/col), or null to hide it. */
@@ -34,6 +37,7 @@ export function MagicMoveCanvas({
 	fontFamily,
 	color,
 	showLineNumbers = true,
+	lineNumberStart = 1,
 	lineNumberColor,
 	padding,
 	cursor,
@@ -41,6 +45,11 @@ export function MagicMoveCanvas({
 	const lineHeight = fontSize * lineHeightRatio;
 	const gutterRows = Math.max(1, Math.round(lineNumberCount ?? lineCount));
 	const bodyHeight = Math.max(lineHeight, lineCount * lineHeight);
+	// Display-only gutter labels. Focus / highlight ranges stay relative to the
+	// snippet's own lines (line 1 = first line) regardless of lineNumberStart, so
+	// the gutter offset must never be fed back into focus math.
+	const labels = gutterLabels(lineNumberStart, gutterRows);
+	const gutterDigits = Math.max(2, labels[labels.length - 1]?.length ?? 2);
 
 	return (
 		<div style={{ padding, fontFamily, fontSize, lineHeight: `${lineHeight}px` }}>
@@ -64,12 +73,12 @@ export function MagicMoveCanvas({
 							userSelect: "none",
 							color: lineNumberColor ?? `${color}33`,
 							paddingRight: fontSize,
-							minWidth: `${Math.max(2, String(gutterRows).length) + 1}ch`,
+							minWidth: `${gutterDigits + 1}ch`,
 						}}
 					>
-						{Array.from({ length: gutterRows }, (_, i) => (
+						{labels.map((label, i) => (
 							<div key={`ln-${i + 1}`} style={{ height: lineHeight }}>
-								{String(i + 1).padStart(2, "0")}
+								{label}
 							</div>
 						))}
 					</div>

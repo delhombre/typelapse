@@ -44,6 +44,12 @@ interface SnippetState {
 	windowChrome: WindowChrome;
 	setWindowChrome: (chrome: WindowChrome) => void;
 
+	// Line numbers
+	showLineNumbers: boolean;
+	setShowLineNumbers: (show: boolean) => void;
+	lineNumberStart: number;
+	setLineNumberStart: (start: number) => void;
+
 	// Frame padding
 	framePadding: number;
 	setFramePadding: (padding: number) => void;
@@ -198,6 +204,18 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 	setWindowChrome: (chrome: WindowChrome) => {
 		set({ windowChrome: chrome });
+	},
+
+	showLineNumbers: true,
+
+	setShowLineNumbers: (show: boolean) => {
+		set({ showLineNumbers: show });
+	},
+
+	lineNumberStart: 1,
+
+	setLineNumberStart: (start: number) => {
+		set({ lineNumberStart: Math.max(1, Math.floor(start)) });
 	},
 
 	framePadding: 24,
@@ -386,7 +404,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	exportToJson: () => {
-		const { snippet, background, windowChrome } = get();
+		const { snippet, background, windowChrome, showLineNumbers, lineNumberStart } = get();
 		const data = {
 			title: snippet.title,
 			code: snippet.code,
@@ -394,6 +412,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			themeName: snippet.theme.name,
 			background,
 			windowChrome,
+			showLineNumbers,
+			lineNumberStart,
 			steps: snippet.steps.map((step) => {
 				const focus = formatLineRanges(step.highlightRanges);
 				const serialized: {
@@ -491,12 +511,20 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		const background = typeof obj.background === "string" ? obj.background : get().background;
 		// Defensive: unknown/missing chrome degrades to the default macOS chrome.
 		const windowChrome = isWindowChrome(obj.windowChrome) ? obj.windowChrome : "macos";
+		// Defensive: line-number settings default to on / start at 1 when absent.
+		const showLineNumbers = typeof obj.showLineNumbers === "boolean" ? obj.showLineNumbers : true;
+		const lineNumberStart =
+			typeof obj.lineNumberStart === "number" && obj.lineNumberStart >= 1
+				? Math.floor(obj.lineNumberStart)
+				: 1;
 
 		cancelRaf();
 		set({
 			snippet,
 			background,
 			windowChrome,
+			showLineNumbers,
+			lineNumberStart,
 			currentStepIndex: 0,
 			isPlaying: false,
 			playback: null,

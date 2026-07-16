@@ -83,7 +83,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 
 	const frame = useCurrentFrame();
 	const { fps, width, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, windowChrome, framePadding, transitionMs, loop, typewriter, progressStyle, watermark } =
+	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, transitionMs, loop, typewriter, progressStyle, watermark } =
 		input;
 
 	const segments = buildSegments(
@@ -125,6 +125,8 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				theme={theme}
 				title={title}
 				windowChrome={windowChrome}
+				showLineNumbers={showLineNumbers}
+				lineNumberStart={lineNumberStart}
 				framePadding={framePadding}
 				canvasWidth={width}
 				caption={
@@ -146,6 +148,8 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 					lineHeightRatio={LINE_HEIGHT_RATIO}
 					fontFamily={theme.fontFamily}
 					color={theme.foreground}
+					showLineNumbers={showLineNumbers}
+					lineNumberStart={lineNumberStart}
 					lineNumberColor={`${theme.foreground}30`}
 					padding={framePadding * VIDEO_SCALE}
 					cursor={cursor}
@@ -237,6 +241,8 @@ function CenteredFrame({
 	theme,
 	title,
 	windowChrome,
+	showLineNumbers,
+	lineNumberStart,
 	framePadding,
 	canvasWidth,
 	caption,
@@ -246,6 +252,8 @@ function CenteredFrame({
 	theme: ThemeData;
 	title: string;
 	windowChrome: RenderInput["windowChrome"];
+	showLineNumbers: boolean;
+	lineNumberStart: number;
 	framePadding: number;
 	canvasWidth: number;
 	caption?: React.ReactNode;
@@ -258,7 +266,10 @@ function CenteredFrame({
 
 	const maxCols = widestLine(plan);
 	const maxLines = Math.max(1, ...plan.frames.map((f) => f.lineCount));
-	const gutterWidth = (String(maxLines).length + 1) * fontSize * CHAR_WIDTH_RATIO + fontSize;
+	// Widest rendered gutter number decides the gutter width; hidden gutter = 0.
+	const maxLineNo = Math.max(1, Math.floor(lineNumberStart)) + maxLines - 1;
+	const gutterDigits = Math.max(2, String(maxLineNo).length);
+	const gutterWidth = showLineNumbers ? (gutterDigits + 1) * fontSize * CHAR_WIDTH_RATIO + fontSize : 0;
 	const codeWidth = (maxCols + 2) * fontSize * CHAR_WIDTH_RATIO;
 	// Never exceed the canvas — critical for square/vertical aspect ratios.
 	const maxCardWidth = Math.min(1720, canvasWidth * 0.9);

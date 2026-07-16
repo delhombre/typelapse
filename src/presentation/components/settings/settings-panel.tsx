@@ -39,6 +39,11 @@ export function SettingsStrip() {
 				<ChromePicker />
 			</StripCell>
 
+			{/* Line numbers */}
+			<StripCell label="Lines">
+				<LineNumberPicker />
+			</StripCell>
+
 			{/* Padding */}
 			<StripCell label="Pad">
 				<PaddingPicker selected={framePadding} onSelect={setFramePadding} />
@@ -284,6 +289,69 @@ function ChromePicker() {
 				);
 			})}
 		</div>
+	);
+}
+
+/** Line-number gutter toggle + starting number (preview + export). */
+function LineNumberPicker() {
+	const showLineNumbers = useSnippetStore((s) => s.showLineNumbers);
+	const setShowLineNumbers = useSnippetStore((s) => s.setShowLineNumbers);
+	const lineNumberStart = useSnippetStore((s) => s.lineNumberStart);
+	const setLineNumberStart = useSnippetStore((s) => s.setLineNumberStart);
+
+	return (
+		<div className="flex items-center gap-2">
+			<motion.button
+				type="button"
+				onClick={() => setShowLineNumbers(!showLineNumbers)}
+				whileTap={{ scale: 0.96 }}
+				transition={springs.snappy}
+				className={`flex size-6 shrink-0 items-center justify-center rounded-lg border transition-colors ${
+					showLineNumbers
+						? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
+						: "border-neutral-200 text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-400"
+				}`}
+				title={showLineNumbers ? "Line numbers on" : "Line numbers off"}
+			>
+				<HashIcon />
+			</motion.button>
+			{showLineNumbers && (
+				<input
+					type="number"
+					min={1}
+					value={lineNumberStart}
+					onChange={(e) => {
+						const next = Number.parseInt(e.target.value, 10);
+						if (Number.isFinite(next)) {
+							setLineNumberStart(next);
+						}
+					}}
+					title="First line number"
+					className="h-8 w-14 rounded-lg border border-neutral-200/70 bg-white px-2 text-[11px] text-neutral-600 tabular-nums outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
+				/>
+			)}
+		</div>
+	);
+}
+
+function HashIcon() {
+	return (
+		<svg
+			width="9"
+			height="9"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2.5"
+			strokeLinecap="round"
+			role="img"
+		>
+			<title>Line numbers</title>
+			<line x1="4" y1="9" x2="20" y2="9" />
+			<line x1="4" y1="15" x2="20" y2="15" />
+			<line x1="10" y1="3" x2="8" y2="21" />
+			<line x1="16" y1="3" x2="14" y2="21" />
+		</svg>
 	);
 }
 

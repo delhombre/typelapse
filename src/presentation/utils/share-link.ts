@@ -11,6 +11,9 @@ interface ShareData {
 	background: string;
 	/** Window chrome variant. Optional; defaults to macos when absent. */
 	windowChrome?: string;
+	/** Line-number gutter settings. Optional; default on / start 1. */
+	showLineNumbers?: boolean;
+	lineNumberStart?: number;
 	steps: { code: string; duration: number; focus?: string; caption?: string }[];
 	/** Morph tempo in ms (400 | 650 | 1000). Optional; default 650 when absent. */
 	transitionMs?: number;
