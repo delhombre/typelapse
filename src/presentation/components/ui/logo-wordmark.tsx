@@ -8,7 +8,7 @@
  * below are pasted verbatim from its output (mnemos technique: y-flip via scale).
  */
 
-const VIEW_W = 110.36;
+const VIEW_W = 109.16;
 const VIEW_H = 20.93;
 
 export function LogoWordmark({ height = 24, className }: { height?: number; className?: string }) {
@@ -17,20 +17,24 @@ export function LogoWordmark({ height = 24, className }: { height?: number; clas
 			role="img"
 			height={height}
 			width={height * (VIEW_W / VIEW_H)}
-			viewBox="0 3.61 110.36 20.93"
+			viewBox="0 3.61 109.16 20.93"
 			fill="none"
 			className={className}
 		>
 			<title>Typelapse</title>
-			{/* Play-head mark — fixed 24-unit design, verbatim from logomark.tsx */}
-			<rect x="2" y="9.4" width="2.3" height="5.2" rx="1.15" fill="currentColor" opacity="0.3" />
-			<rect x="5.7" y="7.9" width="2.3" height="8.2" rx="1.15" fill="currentColor" opacity="0.55" />
+			{/* Play glyph — a monoline stroked rounded triangle, verbatim from logomark.tsx */}
 			<path
-				d="M10.4 7.3c0-1 1.1-1.6 2-1.05l7 4.7a1.25 1.25 0 0 1 0 2.1l-7 4.7c-.9.55-2-.05-2-1.05V7.3Z"
-				fill="currentColor"
+				d="M9.5 7.2L17.8 12L9.5 16.8Z"
+				stroke="currentColor"
+				strokeWidth="2"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				fill="none"
 			/>
+			{/* Record point — the filled accent dot */}
+			<circle cx="4.8" cy="12" r="1.7" fill="currentColor" />
 			{/* Lettering — "Typelapse" in Newsreader, each glyph a font-extracted path */}
-			<g fill="currentColor" transform="translate(25 18.5)">
+			<g fill="currentColor" transform="translate(23.8 18.5)">
 				<path
 					d="M573 1290L792 1290L792 105L955 52L955 0L411 0L411 52L573 105ZM1199 1236L160 1236L257 1266L112 960L43 969L89 1426L129 1426L269 1332L167 1352L1192 1352L1099 1332L1239 1426L1279 1426L1325 969L1256 960L1111 1266Z"
 					transform="translate(0 0) scale(0.009701493 -0.009701493)"
