@@ -230,6 +230,50 @@ describe("snippet store importDiff", () => {
 		expect(useSnippetStore.getState().snippet.steps).toHaveLength(3);
 	});
 
+	it("carries each snapshot's label onto its step as the caption", () => {
+		const twoHunk = [
+			"--- a/app.ts",
+			"+++ b/app.ts",
+			"@@ -1,2 +1,2 @@",
+			" const a = 1;",
+			"-const b = 2;",
+			"+const b = 20;",
+			"@@ -10,2 +10,3 @@",
+			" const c = 3;",
+			"+const d = 4;",
+			" const e = 5;",
+		].join("\n");
+
+		useSnippetStore.getState().importDiff(twoHunk);
+		const { steps } = useSnippetStore.getState().snippet;
+
+		// Snapshot labels narrate the walkthrough: before → the changed hunk → after.
+		expect(steps.map((s) => s.annotation)).toEqual(["Before", "Change 1", "After"]);
+	});
+
+	it("keeps each kept step's own label when the MAX cap trims a huge diff", () => {
+		// 45 single-line hunks → 46 stages; the store caps diff steps at 40, keeping
+		// the first 39 stages plus the final "after". Each kept step must retain the
+		// label of ITS OWN snapshot — the trim must not shift captions.
+		const HUNKS = 45;
+		const lines = ["--- a/big.ts", "+++ b/big.ts"];
+		for (let k = 1; k <= HUNKS; k++) {
+			lines.push(`@@ -${k},1 +${k},1 @@`);
+			lines.push(`-const v${k} = ${k};`);
+			lines.push(`+const v${k} = ${k * 10};`);
+		}
+
+		useSnippetStore.getState().importDiff(lines.join("\n"));
+		const { steps } = useSnippetStore.getState().snippet;
+
+		expect(steps).toHaveLength(40);
+		expect(steps[0]?.annotation).toBe("Before");
+		// The last kept stage keeps its own "After" label, not the trimmed neighbour's.
+		expect(steps[39]?.annotation).toBe("After");
+		// A kept middle stage keeps its own "Change N" label (index unshifted).
+		expect(steps[38]?.annotation).toBe("Change 38");
+	});
+
 	it("infers a non-default language and drops a new file's empty before frame", () => {
 		const pyDiff = [
 			"diff --git a/greeter.py b/greeter.py",

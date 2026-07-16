@@ -647,12 +647,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			renderConfig: snippet.renderConfig,
 		});
 		for (const snapshot of staged) {
+			// The snapshot's label ("Before" / a hunk heading or "Change N" / "After")
+			// narrates the step, so it lands as the caption and the walkthrough explains
+			// itself. An empty label leaves the caption unset; users edit/clear it later.
+			const annotation = snapshot.label ? snapshot.label : undefined;
 			rebuilt = rebuilt.addStep(
-				Step.create({
-					code: snapshot.code,
-					duration: DIFF_STEP_DURATION,
-					annotation: snapshot.label,
-				}),
+				Step.create({ code: snapshot.code, duration: DIFF_STEP_DURATION, annotation }),
 			);
 		}
 
