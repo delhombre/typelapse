@@ -6,7 +6,7 @@ import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
 
-/** Compact horizontal settings strip — sits below the preview */
+/** Compact horizontal settings strip: sits below the preview */
 export function SettingsStrip() {
 	const {
 		snippet,
@@ -373,7 +373,7 @@ const TEMPO_PRESETS = [
 	{ ms: 1000, label: "Cine", title: "Cinematic: 1000 ms morph" },
 ] as const;
 
-/** Morph tempo — how long each step-to-step transition takes (preview + export). */
+/** Morph tempo: how long each step-to-step transition takes (preview + export). */
 function TempoPicker() {
 	const transitionMs = useExportStore((s) => s.transitionMs);
 	const setTransitionMs = useExportStore((s) => s.setTransitionMs);

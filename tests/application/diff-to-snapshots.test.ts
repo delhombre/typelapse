@@ -120,7 +120,7 @@ describe("diffToSnapshots", () => {
 
 		expect(result.fileCount).toBe(1);
 		expect(result.path).toBe("package.json");
-		// No lockfile noise survives — and a single kept file needs no header.
+		// No lockfile noise survives, and a single kept file needs no header.
 		for (const snapshot of result.snapshots) {
 			expect(snapshot.code).not.toContain("lockfileVersion");
 			expect(snapshot.code).not.toContain("// ");
@@ -188,7 +188,7 @@ describe("diffToSnapshots", () => {
 
 		const result = diffToSnapshots(twoHunk, { windowing: false });
 
-		// Legacy behaviour: no windows, no separators — the full hunked frame.
+		// Legacy behaviour: no windows, no separators, the full hunked frame.
 		expect(result.snapshots[0]?.code).toBe(
 			nl(["const a = 1;", "const b = 2;", "const c = 3;", "const e = 5;"]),
 		);

@@ -152,7 +152,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 					) : null
 				}
 			>
-				{/* Focus zoom — identical transform to the preview so the video matches. */}
+				{/* Focus zoom: identical transform to the preview so the video matches. */}
 				<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * VIDEO_SCALE)}>
 					<MagicMoveCanvas
 						tokens={view.tokens}
@@ -188,7 +188,7 @@ type TypingFrameView = FrameView & { cursor: { line: number; col: number } | nul
 /**
  * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
  * Carries the window's border radius (concentric law) so a scaled, composited
- * layer never squares the window's corners — identical to the browser preview.
+ * layer never squares the window's corners: identical to the browser preview.
  */
 function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): React.CSSProperties {
 	if (!active) {
@@ -323,7 +323,7 @@ function CenteredFrame({
 		scale: VIDEO_SCALE,
 	});
 	// Uniform fit into the canvas with a safe-area margin each side, so a tall
-	// walkthrough or a wide line is never cropped — same idea as the preview.
+	// walkthrough or a wide line is never cropped: same idea as the preview.
 	const scale = fitScale(
 		natural.width,
 		natural.height,
@@ -346,9 +346,9 @@ function CenteredFrame({
 			}}
 		>
 			{/* The card keeps its natural pixel size; the whole unit is scaled to fit
-			    the canvas. Uniform scale preserves WYSIWYG — same layout, different zoom.
+			    the canvas. Uniform scale preserves WYSIWYG: same layout, different zoom.
 			    `position: relative` anchors the reels bar, which floats just above the
-			    window at the window's width — the same content column as the preview. */}
+			    window at the window's width: the same content column as the preview. */}
 			<div
 				style={{
 					position: "relative",

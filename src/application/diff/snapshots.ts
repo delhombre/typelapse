@@ -42,7 +42,7 @@ function stageLabel(hunks: DiffHunk[], appliedHunks: number): string {
  *
  * Hunks from every file are flattened in document order, so a single-file diff
  * (the common case) reads top-to-bottom and a multi-file diff walks each file's
- * changes in turn. By default each stage is *windowed* — only the code around
+ * changes in turn. By default each stage is *windowed*: only the code around
  * the changes renders, so real-world PRs stay readable; the windows are computed
  * once up front and reused for every stage, which keeps the magic-move morph
  * clean. Pass `windowing: false` for the legacy full-frame snapshots.

@@ -1,5 +1,5 @@
 /**
- * Focus zoom — pure. Turns a step's spotlight (the set of focused line numbers)
+ * Focus zoom: pure. Turns a step's spotlight (the set of focused line numbers)
  * into a cinematic push-in: a constant scale and a vertical origin centered on
  * the focused band. Shared by the browser preview and the Remotion video so the
  * export pushes in exactly like the preview (WYSIWYG).

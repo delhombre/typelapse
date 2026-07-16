@@ -10,7 +10,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
 /**
- * Popover that turns a pasted unified diff — or a GitHub PR / commit URL — into
+ * Popover that turns a pasted unified diff (or a GitHub PR / commit URL) into
  * an animated step walkthrough. A URL is fetched to its raw diff first; anything
  * else is treated as a raw diff paste.
  */
@@ -116,7 +116,7 @@ export function DiffImportMenu() {
 			<AnimatePresence>
 				{open && (
 					<>
-						{/* Backdrop — a click anywhere outside closes the popover. */}
+						{/* Backdrop: a click anywhere outside closes the popover. */}
 						<button
 							type="button"
 							aria-label="Close diff import"

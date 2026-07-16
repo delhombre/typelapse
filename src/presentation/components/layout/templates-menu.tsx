@@ -47,7 +47,7 @@ export function TemplatesMenu() {
 			<AnimatePresence>
 				{open && (
 					<>
-						{/* Backdrop — a click anywhere outside closes the menu. */}
+						{/* Backdrop: a click anywhere outside closes the menu. */}
 						<button
 							type="button"
 							aria-label="Close templates"

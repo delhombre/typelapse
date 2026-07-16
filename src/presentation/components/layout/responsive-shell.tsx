@@ -20,8 +20,8 @@ export function ResponsiveShell(props: ResponsiveShellProps) {
 	useKeyboardShortcuts();
 	const isDesktop = useIsDesktop();
 
-	// Leaving the studio disarms record mode — clears the pending debounce timer
-	// and flushes a trailing step — so nothing captures into a stale snippet.
+	// Leaving the studio disarms record mode: clears the pending debounce timer
+	// and flushes a trailing step, so nothing captures into a stale snippet.
 	useEffect(() => {
 		return () => {
 			useSnippetStore.getState().stopRecording();

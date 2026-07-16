@@ -4,7 +4,7 @@ import type { RenderToken } from "../../../application/magic-move/engine";
 
 interface MagicMoveCanvasProps {
 	tokens: RenderToken[];
-	/** Row count used to size the code area — fractional during a transition. */
+	/** Row count used to size the code area: fractional during a transition. */
 	lineCount: number;
 	/** Stable number of gutter rows for the whole segment (avoids flicker). */
 	lineNumberCount?: number;

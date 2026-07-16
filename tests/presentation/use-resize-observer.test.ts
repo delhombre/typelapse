@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * Regression guard for the fit-to-viewport bug: LivePreview's first render is a
  * placeholder (plan still building), so the measured elements mount LATER. A
  * RefObject-based observer hook runs its effect once with `.current === null`
- * and never retries — no observer is ever attached and the fit scale stays 1.
+ * and never retries: no observer is ever attached and the fit scale stays 1.
  * The node-based variant must attach the moment the element actually appears.
  */
 
@@ -57,7 +57,7 @@ describe("useResizeObserverNode", () => {
 		});
 		expect(allObserved()).toHaveLength(0);
 
-		// The real UI mounts on a later render — exactly what a RefObject misses.
+		// The real UI mounts on a later render: exactly what a RefObject misses.
 		const el = document.createElement("div");
 		rerender(el);
 

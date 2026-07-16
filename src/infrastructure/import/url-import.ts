@@ -1,6 +1,6 @@
 /**
  * Fetch code from a gist / GitHub / raw URL and shape it for the studio.
- * Uses only the browser fetch — GitHub's API and raw hosts send permissive CORS
+ * Uses only the browser fetch: GitHub's API and raw hosts send permissive CORS
  * headers, so no token or proxy is needed. Pure URL logic lives in the
  * application layer (`code-url.ts`); this adapter just does IO + parsing.
  */

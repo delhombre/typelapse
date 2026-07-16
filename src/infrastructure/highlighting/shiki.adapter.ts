@@ -8,7 +8,7 @@ import {
 } from "shiki";
 import { THEME_MAP, resolveShikiLanguage, resolveShikiTheme } from "./shiki-registry";
 
-/** Languages loaded eagerly on boot — the rest are fetched on demand. */
+/** Languages loaded eagerly on boot: the rest are fetched on demand. */
 const INITIAL_LANGS: BundledLanguage[] = ["typescript", "javascript", "python", "json"];
 
 export class ShikiAdapter implements HighlighterPort {

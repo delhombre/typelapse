@@ -7,15 +7,15 @@
 	--font-mono: "JetBrains Mono", ui-monospace, monospace;
 	--font-serif: "Newsreader", Georgia, serif;
 
-	/* One restrained accent — used only for focus + a hint of primary emphasis. */
+	/* One restrained accent: used only for focus + a hint of primary emphasis. */
 	--color-accent: oklch(0.62 0.19 268);
 
-	/* Editorial paper palette — the landing's whole world. */
+	/* Editorial paper palette: the landing's whole world. */
 	--color-paper: #faf9f6;
 	--color-ink: #1c1b19;
 	--color-ash: #6e6b64;
 
-	/* Strong custom easings — the built-in CSS curves are too weak. */
+	/* Strong custom easings: the built-in CSS curves are too weak. */
 	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 	--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 }
@@ -34,7 +34,7 @@ html {
 	background: oklch(0.62 0.19 268 / 0.28);
 }
 
-/* Crafted focus — only for keyboard users, in the accent color. */
+/* Crafted focus: only for keyboard users, in the accent color. */
 :focus-visible {
 	outline: 2px solid var(--color-accent);
 	outline-offset: 2px;
@@ -74,7 +74,7 @@ html {
 	}
 }
 
-/* Code frame — a pure-black hairline outline + layered shadows for depth. */
+/* Code frame: a pure-black hairline outline + layered shadows for depth. */
 .code-frame-glow {
 	box-shadow:
 		0 0 0 1px oklch(0 0 0 / 0.1),
@@ -124,7 +124,7 @@ html {
 	animation: gradient-drift 8s ease-in-out infinite;
 }
 
-/* Landing "studio" editor panel — flatten Shiki's own bg and add a line gutter. */
+/* Landing "studio" editor panel: flatten Shiki's own bg and add a line gutter. */
 .studio-code pre {
 	margin: 0;
 	background: transparent !important;

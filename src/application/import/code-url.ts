@@ -1,6 +1,6 @@
 /**
  * Pure resolver mapping a user-pasted gist / GitHub URL to a fetchable URL. No
- * network here — the infrastructure adapter does the fetching; this stays a
+ * network here: the infrastructure adapter does the fetching; this stays a
  * dependency-free, testable value map. The filename → language mapping lives in
  * the shared `language/language-from-filename` module (used by diff import too).
  */

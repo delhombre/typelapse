@@ -48,7 +48,7 @@ export interface CodeSnapshot {
 }
 
 /**
- * - `before-after`: two frames — the full old state, then the full new state.
+ * - `before-after`: two frames, the full old state, then the full new state.
  * - `hunk-by-hunk`: one extra frame per hunk, applying a single hunk at a time
  *   so the walkthrough morphs the change region-by-region (the default).
  */

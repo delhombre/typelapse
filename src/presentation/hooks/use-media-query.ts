@@ -23,7 +23,7 @@ export function useMediaQuery(query: string): boolean {
 	return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-/** Tailwind's `lg` breakpoint — the switch between the mobile sheet and the desktop split. */
+/** Tailwind's `lg` breakpoint: the switch between the mobile sheet and the desktop split. */
 export function useIsDesktop(): boolean {
 	return useMediaQuery("(min-width: 1024px)");
 }

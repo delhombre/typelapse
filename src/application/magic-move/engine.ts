@@ -1,5 +1,5 @@
 /**
- * Magic-move animation engine — pure, dependency-free.
+ * Magic-move animation engine: pure, dependency-free.
  *
  * Given syntax-highlighted tokens for two code frames (with stable keys already
  * assigned by the differ), it computes a deterministic, frame-perfect morph:
@@ -7,12 +7,12 @@
  * tokens fade in. The same engine drives the on-screen preview (via a timer)
  * and the exported video (via Remotion's frame counter), guaranteeing WYSIWYG.
  *
- * Positions are expressed in monospace grid units — `line` (rows) and `col`
+ * Positions are expressed in monospace grid units: `line` (rows) and `col`
  * (character columns). Renderers convert them to CSS with `1ch` per column and
  * a fixed line-height per row, so no DOM measurement is ever required.
  */
 
-/** A highlighted token before layout — `offset` is its index into the frame code. */
+/** A highlighted token before layout: `offset` is its index into the frame code. */
 export interface RawToken {
 	key: string;
 	content: string;
@@ -56,7 +56,7 @@ export interface FrameTransition {
 	to: LaidOutToken[];
 }
 
-/** A token laid out for typewriter reveal — keeps its start index in the source. */
+/** A token laid out for typewriter reveal: keeps its start index in the source. */
 export interface TypedToken {
 	key: string;
 	content: string;
@@ -116,7 +116,7 @@ const DEFAULT_TIMING: Required<MagicMoveTiming> = {
 
 /**
  * A spotlight over a frame: the set of 1-indexed line numbers to keep bright.
- * `undefined` (or an empty set) means no focus — every line renders at full
+ * `undefined` (or an empty set) means no focus: every line renders at full
  * opacity, so the engine's output is byte-for-byte what it was before focus.
  */
 export type FocusSpec = Set<number> | undefined;
@@ -128,7 +128,7 @@ export const DIM_OPACITY = 0.25;
  * Dim multiplier for a token on a 0-indexed grid `line` given a focus spec.
  * Grid rows are 0-indexed while the user thinks in 1-indexed line numbers, so a
  * token is bright iff `focus` contains `line + 1`. Fractional lines (a token
- * mid-glide) never reach here — callers evaluate dim at integer endpoints and
+ * mid-glide) never reach here: callers evaluate dim at integer endpoints and
  * lerp between them.
  */
 function dimFactor(line: number, focus: FocusSpec): number {
@@ -167,7 +167,7 @@ function lerp(from: number, to: number, t: number): number {
 /**
  * Place tokens on the monospace grid by walking the source once, tracking the
  * visual column (tabs advance to the next tab stop). Whitespace-only tokens are
- * dropped — they never paint and only add nodes to animate.
+ * dropped: they never paint and only add nodes to animate.
  */
 export function layoutFrame(code: string, tokens: RawToken[], tabSize = 2): LaidOutToken[] {
 	const positions = buildPositionIndex(code, tabSize);
@@ -272,7 +272,7 @@ export function renderTransition(
 		}
 	}
 
-	// Entering tokens — fade in at their final position after the glide.
+	// Entering tokens: fade in at their final position after the glide.
 	for (const token of to) {
 		if (fromByKey.has(token.key)) {
 			continue;

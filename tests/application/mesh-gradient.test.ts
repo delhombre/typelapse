@@ -40,7 +40,7 @@ describe("meshGradientCss", () => {
 		expect(css).toContain(preset.base);
 	});
 
-	it("loops seamlessly — t=0 and t=period produce the same CSS", () => {
+	it("loops seamlessly: t=0 and t=period produce the same CSS", () => {
 		if (!preset) {
 			throw new Error("expected a preset");
 		}

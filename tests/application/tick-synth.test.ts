@@ -121,7 +121,7 @@ describe("renderTickTrack", () => {
 		expect(buffer.every((s) => s >= -1 && s <= 1)).toBe(true);
 	});
 
-	it("is deterministic — identical output for identical input", () => {
+	it("is deterministic: identical output for identical input", () => {
 		const events: TickEvent[] = [
 			{ timeMs: 5, kind: "key" },
 			{ timeMs: 12, kind: "key" },

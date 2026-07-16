@@ -1,5 +1,5 @@
 /**
- * Animated mesh-gradient backgrounds — pure and time-driven.
+ * Animated mesh-gradient backgrounds: pure and time-driven.
  *
  * Produces a CSS `background` string for a given preset and time `t` (seconds).
  * Colored blobs drift along looping sine paths, giving the flowing "liquid"
@@ -34,7 +34,7 @@ export interface MeshPreset {
 	blobs: Blob[];
 }
 
-/** Loop period in seconds — the animation repeats seamlessly every LOOP_PERIOD. */
+/** Loop period in seconds: the animation repeats seamlessly every LOOP_PERIOD. */
 export const MESH_LOOP_PERIOD = 16;
 
 const TAU = Math.PI * 2;

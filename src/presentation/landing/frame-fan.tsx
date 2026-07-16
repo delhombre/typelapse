@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { StaticFrame } from "./static-frame";
 
-/** The fanned hand — one snippet, five ways: every card a different theme × mesh
+/** The fanned hand, one snippet, five ways: every card a different theme × mesh
     (a light frost card among them), each three short lines. */
 const FAN = [
 	{

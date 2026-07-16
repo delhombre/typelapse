@@ -2,7 +2,7 @@ import { fitScale } from "@/application/layout/fit-scale";
 import { describe, expect, it } from "vitest";
 
 describe("fitScale", () => {
-	it("never enlarges — a card smaller than the box stays at scale 1", () => {
+	it("never enlarges: a card smaller than the box stays at scale 1", () => {
 		expect(fitScale(400, 300, 800, 600)).toBe(1);
 	});
 

@@ -118,7 +118,7 @@ describe("snippet store record mode", () => {
 		store.setCode("const a = 21;");
 		store.setCode("const a = 22;");
 		store.setCode("const a = 23;");
-		// Nothing yet — the debounce is still pending.
+		// Nothing yet: the debounce is still pending.
 		expect(stepCount()).toBe(before);
 
 		vi.advanceTimersByTime(1500);
@@ -171,8 +171,8 @@ describe("snippet store record mode", () => {
 
 /**
  * importDiff: paste a unified diff, get an animated walkthrough. It replaces the
- * whole snippet — before-state code, inferred language, filename title, and a
- * step per hunk stage — and never mutates state when the paste is unusable.
+ * whole snippet (before-state code, inferred language, filename title, and a
+ * step per hunk stage) and never mutates state when the paste is unusable.
  */
 describe("snippet store importDiff", () => {
 	const SINGLE_HUNK_DIFF = [
@@ -254,7 +254,7 @@ describe("snippet store importDiff", () => {
 	it("keeps each kept step's own label when the MAX cap trims a huge diff", () => {
 		// 45 single-line hunks → 46 stages; the store caps diff steps at 40, keeping
 		// the first 39 stages plus the final "after". Each kept step must retain the
-		// label of ITS OWN snapshot — the trim must not shift captions.
+		// label of ITS OWN snapshot: the trim must not shift captions.
 		const HUNKS = 45;
 		const lines = ["--- a/big.ts", "+++ b/big.ts"];
 		for (let k = 1; k <= HUNKS; k++) {
@@ -288,7 +288,7 @@ describe("snippet store importDiff", () => {
 		useSnippetStore.getState().importDiff(pyDiff);
 		const { snippet } = useSnippetStore.getState();
 
-		// Inferred from the .py path — proves it overrode the baseline's typescript.
+		// Inferred from the .py path: proves it overrode the baseline's typescript.
 		expect(snippet.language).toBe("python");
 		expect(snippet.title).toBe("greeter.py");
 		expect(snippet.steps.every((s) => s.code.trim().length > 0)).toBe(true);

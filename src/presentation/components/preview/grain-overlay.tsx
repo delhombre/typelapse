@@ -1,5 +1,5 @@
 /**
- * A subtle film-grain layer over a gradient background — the premium texture
+ * A subtle film-grain layer over a gradient background: the premium texture
  * used by tools like ray.so and snipcast. Rendered identically in the browser
  * preview and in Remotion's headless Chrome so the exported video matches.
  */

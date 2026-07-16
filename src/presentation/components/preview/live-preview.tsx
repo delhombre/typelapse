@@ -60,7 +60,7 @@ function staticBackground(
 
 /**
  * Paint the background straight on the DOM node (no re-render). Mesh presets
- * animate via rAF; an uploaded image is painted once — feeding a giant data URL
+ * animate via rAF; an uploaded image is painted once: feeding a giant data URL
  * through motion's `animate` would be wasteful, so it is set imperatively here.
  */
 function useDynamicBackground(ref: RefObject<HTMLDivElement | null>, background: string) {
@@ -113,7 +113,7 @@ function useDynamicBackground(ref: RefObject<HTMLDivElement | null>, background:
 	}, [background, ref]);
 }
 
-/** Content box (padding excluded) of an element, read live — the fallback used on
+/** Content box (padding excluded) of an element, read live: the fallback used on
  *  the first layout before the ResizeObserver has fired, so the fit has no flash. */
 function contentBox(el: HTMLElement): { width: number; height: number } {
 	const s = getComputedStyle(el);
@@ -151,15 +151,15 @@ export function LivePreview() {
 	// the export bakes in), so the preview sounds identical to the video.
 	useTickAudio();
 
-	// Fit-to-viewport: the card keeps its natural (unscaled) layout size — so the
-	// PNG/video export captures it untouched — while the whole frame is visually
+	// Fit-to-viewport: the card keeps its natural (unscaled) layout size, so the
+	// PNG/video export captures it untouched, while the whole frame is visually
 	// scaled to fit the viewport. Uniform scale preserves WYSIWYG (same pixels,
 	// different zoom) and a long walkthrough no longer overflows the pane.
 	//
 	// The measured elements live behind a conditional: the first render shows an
 	// EmptyState while the plan builds, so the real UI (and its refs) mounts on a
 	// LATER render. RefObjects never re-run effects when `.current` changes, so
-	// the nodes flow through callback refs into state — the observers attach the
+	// the nodes flow through callback refs into state: the observers attach the
 	// moment the elements exist.
 	const [containerNode, setContainerNode] = useState<HTMLDivElement | null>(null);
 	const [cardNode, setCardNode] = useState<HTMLDivElement | null>(null);
@@ -172,7 +172,7 @@ export function LivePreview() {
 	const containerEntry = useResizeObserverNode(containerNode);
 	const cardEntry = useResizeObserverNode(cardNode);
 	const [fitScaleValue, setFitScaleValue] = useState(1);
-	// The content-shape deps (plan, padding, chrome, gutter) are not read below —
+	// The content-shape deps (plan, padding, chrome, gutter) are not read below:
 	// they re-run this measure right after the DOM they shape has been committed,
 	// so the scale is right pre-paint even when an observer delivery is still queued.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: content-shape deps are intentional re-measure triggers for the imperative DOM reads
@@ -181,7 +181,7 @@ export function LivePreview() {
 			return;
 		}
 		// Prefer the observers' measurements; on the first layout they have not fired
-		// yet, so read the live DOM (correct at layout time, before paint — no flash).
+		// yet, so read the live DOM (correct at layout time, before paint: no flash).
 		const box = containerEntry?.contentRect ?? contentBox(containerNode);
 		const cardSize = cardEntry?.borderBoxSize?.[0];
 		// offsetWidth/Height are pre-transform, so the wrapper's own scale never
@@ -278,7 +278,7 @@ export function LivePreview() {
 						{/* One content column. The reels bar, the window, the caption and the
 						    watermark all live in this z-10 box, so the progress bar lines up
 						    with the window's edges instead of bleeding past it over the mesh.
-						    FrameShell is block-level `w-full`, so it always fills the column —
+						    FrameShell is block-level `w-full`, so it always fills the column:
 						    the reels wrapper, caption and watermark span the same width. */}
 						<div className="relative z-10 w-full">
 							{!isTransparent && segments >= 2 && (
@@ -292,7 +292,7 @@ export function LivePreview() {
 							)}
 							<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
 								{/* Focus zoom pushes the code toward the spotlighted band. Playback
-							    drives every frame, so there is no CSS transition — the FrameShell
+							    drives every frame, so there is no CSS transition: the FrameShell
 							    body clips the overflow. The zoom wrapper carries the window's own
 							    border radius so a scaled (composited) layer never squares the
 							    corners. Same transform runs in the Remotion video. */}
