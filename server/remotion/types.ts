@@ -8,6 +8,8 @@ export interface StepData {
 	duration: number; // ms
 	/** 1-indexed line numbers to spotlight for this step; others dim. Missing = no focus. */
 	focus?: number[];
+	/** Caption shown beneath the frame during this step. Missing = none. */
+	caption?: string;
 }
 
 export interface ThemeData {

@@ -66,6 +66,8 @@ interface SnippetState {
 	updateStepDuration: (stepId: string, duration: number) => void;
 	/** Set the spotlight lines for a step. Applied at render time — no re-tokenize. */
 	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => void;
+	/** Set the caption shown beneath the frame during a step. */
+	updateStepAnnotation: (stepId: string, text: string) => void;
 	reorderSteps: (orderedIds: string[]) => void;
 
 	// Playback
@@ -296,6 +298,26 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		set({ snippet: withSteps(snippet, steps) });
 	},
 
+	updateStepAnnotation: (stepId: string, text: string) => {
+		const { snippet } = get();
+		const stepIndex = snippet.steps.findIndex((s) => s.id === stepId);
+		const oldStep = snippet.steps[stepIndex];
+		if (!oldStep) {
+			return;
+		}
+		const trimmed = text.trim();
+		const newStep = Step.create({
+			code: oldStep.code,
+			duration: oldStep.duration,
+			highlightRanges: [...oldStep.highlightRanges],
+			annotation: trimmed ? trimmed : undefined,
+		});
+		const steps = [...snippet.steps];
+		steps.splice(stepIndex, 1, newStep);
+		// Captions overlay at render time, so no plan rebuild is needed.
+		set({ snippet: withSteps(snippet, steps) });
+	},
+
 	reorderSteps: (orderedIds: string[]) => {
 		set({ snippet: get().snippet.reorderSteps(orderedIds) });
 		get().rebuildPlan();
@@ -367,12 +389,20 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			background,
 			steps: snippet.steps.map((step) => {
 				const focus = formatLineRanges(step.highlightRanges);
-				const serialized: { code: string; duration: number; focus?: string } = {
+				const serialized: {
+					code: string;
+					duration: number;
+					focus?: string;
+					caption?: string;
+				} = {
 					code: step.code,
 					duration: step.duration,
 				};
 				if (focus) {
 					serialized.focus = focus;
+				}
+				if (step.annotation) {
+					serialized.caption = step.annotation;
 				}
 				return serialized;
 			}),
@@ -443,7 +473,11 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 				if (typeof s.focus === "string") {
 					highlightRanges = parseLineRanges(s.focus) ?? [];
 				}
-				snippet = snippet.addStep(Step.create({ code: s.code, duration, highlightRanges }));
+				const annotation =
+					typeof s.caption === "string" && s.caption.trim() ? s.caption : undefined;
+				snippet = snippet.addStep(
+					Step.create({ code: s.code, duration, highlightRanges, annotation }),
+				);
 			}
 		}
 
