@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gradient";
+import { fitScale } from "../../src/application/layout/fit-scale";
+import { LINE_HEIGHT_RATIO, frameNaturalSize } from "../../src/application/layout/frame-metrics";
 import {
 	type LaidOutFrame,
 	easeInOutCubic,
@@ -25,9 +27,8 @@ import type { RenderInput, ThemeData } from "./types";
 
 /** Upscale factor from the 14px editor preview to crisp 1080p/4K text. */
 const VIDEO_SCALE = 2.2;
-const LINE_HEIGHT_RATIO = 1.6;
-/** Estimated monospace advance as a fraction of the font size (for card width). */
-const CHAR_WIDTH_RATIO = 0.62;
+/** Safe-area margin on each side of the canvas the card is fit into. */
+const CANVAS_MARGIN = 0.05;
 
 function useFontLoaded(fontFamily: string) {
 	const [handle] = useState(() => delayRender(`Loading fonts: ${fontFamily}`));
@@ -88,7 +89,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	useFontLoaded(input.theme.fontFamily);
 
 	const frame = useCurrentFrame();
-	const { fps, width, durationInFrames } = useVideoConfig();
+	const { fps, width, height, durationInFrames } = useVideoConfig();
 	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, transitionMs, loop, typewriter, focusZoom, progressStyle, watermark, audioDataUrl } =
 		input;
 
@@ -137,6 +138,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				lineNumberStart={lineNumberStart}
 				framePadding={framePadding}
 				canvasWidth={width}
+				canvasHeight={height}
 				caption={
 					hasCaptions ? (
 						<StepCaption
@@ -275,6 +277,7 @@ function CenteredFrame({
 	lineNumberStart,
 	framePadding,
 	canvasWidth,
+	canvasHeight,
 	caption,
 	children,
 }: {
@@ -286,6 +289,7 @@ function CenteredFrame({
 	lineNumberStart: number;
 	framePadding: number;
 	canvasWidth: number;
+	canvasHeight: number;
 	caption?: React.ReactNode;
 	children: React.ReactNode;
 }) {
@@ -294,16 +298,29 @@ function CenteredFrame({
 	const radius = theme.borderRadius * VIDEO_SCALE;
 	const isDark = isColorDark(theme.background);
 
-	const maxCols = widestLine(plan);
-	const maxLines = Math.max(1, ...plan.frames.map((f) => f.lineCount));
-	// Widest rendered gutter number decides the gutter width; hidden gutter = 0.
-	const maxLineNo = Math.max(1, Math.floor(lineNumberStart)) + maxLines - 1;
-	const gutterDigits = Math.max(2, String(maxLineNo).length);
-	const gutterWidth = showLineNumbers ? (gutterDigits + 1) * fontSize * CHAR_WIDTH_RATIO + fontSize : 0;
-	const codeWidth = (maxCols + 2) * fontSize * CHAR_WIDTH_RATIO;
-	// Never exceed the canvas — critical for square/vertical aspect ratios.
-	const maxCardWidth = Math.min(1720, canvasWidth * 0.9);
-	const cardWidth = Math.min(maxCardWidth, Math.round(padding * 2 + gutterWidth + codeWidth));
+	// Natural (unscaled) size of the card + caption unit, laid out the same way
+	// MagicMoveCanvas / FrameChrome do. Uses the segment-max line count so the fit
+	// scale is constant for the whole video (no zoom-pump between steps), and the
+	// full, uncapped width so long lines scale down instead of clipping.
+	const natural = frameNaturalSize({
+		chrome: windowChrome,
+		maxCols: widestLine(plan),
+		maxLines: Math.max(1, ...plan.frames.map((f) => f.lineCount)),
+		fontSize,
+		padding,
+		showLineNumbers,
+		lineNumberStart,
+		hasCaption: caption != null,
+		scale: VIDEO_SCALE,
+	});
+	// Uniform fit into the canvas with a safe-area margin each side, so a tall
+	// walkthrough or a wide line is never cropped — same idea as the preview.
+	const scale = fitScale(
+		natural.width,
+		natural.height,
+		canvasWidth * (1 - 2 * CANVAS_MARGIN),
+		canvasHeight * (1 - 2 * CANVAS_MARGIN),
+	);
 
 	const boxShadow = isDark
 		? "0 0 0 1px rgba(255,255,255,0.05), 0 24px 64px -16px rgba(0,0,0,0.55), 0 8px 24px -8px rgba(0,0,0,0.4)"
@@ -315,21 +332,40 @@ function CenteredFrame({
 				position: "absolute",
 				inset: 0,
 				display: "flex",
-				flexDirection: "column",
 				alignItems: "center",
 				justifyContent: "center",
 			}}
 		>
-			<div style={{ width: cardWidth, background: theme.background, borderRadius: radius, overflow: "hidden", boxShadow }}>
-				<FrameChrome
-					chrome={windowChrome}
-					title={title}
-					foreground={theme.foreground}
-					scale={VIDEO_SCALE}
-				/>
-				{children}
+			{/* The card keeps its natural pixel size; the whole unit is scaled to fit
+			    the canvas. Uniform scale preserves WYSIWYG — same layout, different zoom. */}
+			<div
+				style={{
+					display: "flex",
+					flexDirection: "column",
+					alignItems: "center",
+					transform: `scale(${scale})`,
+					transformOrigin: "center center",
+				}}
+			>
+				<div
+					style={{
+						width: natural.width,
+						background: theme.background,
+						borderRadius: radius,
+						overflow: "hidden",
+						boxShadow,
+					}}
+				>
+					<FrameChrome
+						chrome={windowChrome}
+						title={title}
+						foreground={theme.foreground}
+						scale={VIDEO_SCALE}
+					/>
+					{children}
+				</div>
+				{caption}
 			</div>
-			{caption}
 		</div>
 	);
 }
