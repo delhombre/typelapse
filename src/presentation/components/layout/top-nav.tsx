@@ -9,6 +9,7 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { DiffImportMenu } from "./diff-import-menu";
 import { TemplatesMenu } from "./templates-menu";
 import { UrlImportMenu } from "./url-import-menu";
 
@@ -136,6 +137,7 @@ export function TopNav() {
 			</div>
 			<div className="flex items-center gap-1">
 				<UrlImportMenu />
+				<DiffImportMenu />
 				<NavButton onClick={handleImport} title="Import JSON">
 					<UploadIcon />
 				</NavButton>

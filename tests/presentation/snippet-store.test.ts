@@ -168,3 +168,98 @@ describe("snippet store record mode", () => {
 		expect(vi.getTimerCount()).toBe(0);
 	});
 });
+
+/**
+ * importDiff: paste a unified diff, get an animated walkthrough. It replaces the
+ * whole snippet — before-state code, inferred language, filename title, and a
+ * step per hunk stage — and never mutates state when the paste is unusable.
+ */
+describe("snippet store importDiff", () => {
+	const SINGLE_HUNK_DIFF = [
+		"diff --git a/src/greet.ts b/src/greet.ts",
+		"--- a/src/greet.ts",
+		"+++ b/src/greet.ts",
+		"@@ -1,3 +1,3 @@",
+		" function greet(name) {",
+		'-  return "Hello " + name;',
+		"+  return `Hello, ${name}!`;",
+		" }",
+	].join("\n");
+
+	beforeEach(() => {
+		// Start from a known baseline so we can prove importDiff overwrites it.
+		useSnippetStore.getState().importFromJson(BASE);
+	});
+
+	it("replaces steps with staged snapshots and sets title, language and before-code", () => {
+		useSnippetStore.getState().importDiff(SINGLE_HUNK_DIFF);
+		const { snippet, currentStepIndex, isPlaying } = useSnippetStore.getState();
+
+		// One hunk → before + after = 2 steps.
+		expect(snippet.steps).toHaveLength(2);
+		expect(snippet.title).toBe("greet.ts");
+		expect(snippet.language).toBe("typescript");
+		// The snippet opens on the "before" state; step 0 matches it.
+		expect(snippet.code).toBe(
+			["function greet(name) {", '  return "Hello " + name;', "}"].join("\n"),
+		);
+		expect(snippet.steps[0]?.code).toBe(snippet.code);
+		expect(snippet.steps[1]?.code).toBe(
+			["function greet(name) {", "  return `Hello, ${name}!`;", "}"].join("\n"),
+		);
+		expect(currentStepIndex).toBe(0);
+		expect(isPlaying).toBe(false);
+	});
+
+	it("stages one step per hunk for a multi-hunk diff", () => {
+		const twoHunk = [
+			"--- a/app.ts",
+			"+++ b/app.ts",
+			"@@ -1,2 +1,2 @@",
+			" const a = 1;",
+			"-const b = 2;",
+			"+const b = 20;",
+			"@@ -10,2 +10,3 @@",
+			" const c = 3;",
+			"+const d = 4;",
+			" const e = 5;",
+		].join("\n");
+
+		useSnippetStore.getState().importDiff(twoHunk);
+		// 2 hunks → before, after-hunk-1, after-hunk-2 = 3 steps.
+		expect(useSnippetStore.getState().snippet.steps).toHaveLength(3);
+	});
+
+	it("infers a non-default language and drops a new file's empty before frame", () => {
+		const pyDiff = [
+			"diff --git a/greeter.py b/greeter.py",
+			"new file mode 100644",
+			"--- /dev/null",
+			"+++ b/greeter.py",
+			"@@ -0,0 +1,2 @@",
+			"+def greet(name):",
+			'+    return f"Hello, {name}!"',
+		].join("\n");
+
+		useSnippetStore.getState().importDiff(pyDiff);
+		const { snippet } = useSnippetStore.getState();
+
+		// Inferred from the .py path — proves it overrode the baseline's typescript.
+		expect(snippet.language).toBe("python");
+		expect(snippet.title).toBe("greeter.py");
+		expect(snippet.steps.every((s) => s.code.trim().length > 0)).toBe(true);
+		expect(snippet.code).toBe(["def greet(name):", '    return f"Hello, {name}!"'].join("\n"));
+	});
+
+	it("throws on an unusable diff without mutating state", () => {
+		const before = useSnippetStore.getState().snippet;
+
+		expect(() => useSnippetStore.getState().importDiff("")).toThrow();
+		expect(() => useSnippetStore.getState().importDiff("just some prose, not a diff")).toThrow();
+
+		// Same snippet instance → nothing was set.
+		const after = useSnippetStore.getState().snippet;
+		expect(after).toBe(before);
+		expect(after.steps).toHaveLength(2);
+	});
+});

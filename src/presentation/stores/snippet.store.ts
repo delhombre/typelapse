@@ -1,3 +1,4 @@
+import { type CodeSnapshot, diffToSnapshots } from "@/application/diff";
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
 import { Snippet } from "@/domain/entities/snippet";
@@ -97,6 +98,12 @@ interface SnippetState {
 	// Import/Export
 	exportToJson: () => string;
 	importFromJson: (json: string) => void;
+	/**
+	 * Turn a pasted unified diff into an animated walkthrough: replace the snippet
+	 * with the diff's before-state code and a step per hunk stage (before→…→after).
+	 * Throws a user-facing Error on unusable input — the caller surfaces it.
+	 */
+	importDiff: (diffText: string) => void;
 }
 
 let rawShikiHighlighter: Highlighter | null = null;
@@ -105,6 +112,12 @@ let recordTimerId: ReturnType<typeof setTimeout> | null = null;
 
 /** A pause this long after the last keystroke captures a step while recording. */
 const RECORD_DEBOUNCE_MS = 1500;
+
+/** Per-step hold applied to each step generated from a diff. */
+const DIFF_STEP_DURATION = 1200;
+
+/** Upper bound on diff-generated steps so a pathological diff can't explode playback. */
+const MAX_DIFF_STEPS = 40;
 
 export function setHighlighter(highlighter: HighlighterPort) {
 	if ("getRawHighlighter" in highlighter) {
@@ -203,6 +216,20 @@ function isCapturable(snippet: Snippet): boolean {
 /** The codes the plan animates over: the captured steps, or the live code. */
 function effectiveCodes(snippet: Snippet): string[] {
 	return snippet.steps.length > 0 ? snippet.steps.map((s) => s.code) : [snippet.code];
+}
+
+/**
+ * Cap diff snapshots at {@link MAX_DIFF_STEPS}, always keeping the final "after"
+ * frame so the walkthrough still ends on the complete change (only pathologically
+ * large diffs are ever trimmed).
+ */
+function capSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
+	if (snapshots.length <= MAX_DIFF_STEPS) {
+		return snapshots;
+	}
+	const last = snapshots[snapshots.length - 1];
+	const head = snapshots.slice(0, MAX_DIFF_STEPS - 1);
+	return last ? [...head, last] : head;
 }
 
 async function ensureLanguageLoaded(language: string): Promise<void> {
@@ -594,6 +621,50 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			isPlaying: false,
 			playback: null,
 			playbackProgress: 0,
+			isRecording: false,
+		});
+
+		get().rebuildPlan();
+	},
+
+	importDiff: (diffText: string) => {
+		// diffToSnapshots throws a user-facing Error on unusable input; it runs
+		// before any set(), so a bad paste leaves the current snippet untouched.
+		const { snapshots, language, path } = diffToSnapshots(diffText);
+		const staged = capSnapshots(snapshots);
+		const { snippet } = get();
+
+		// Open on the "before" state (first frame); playback morphs forward to "after".
+		const beforeCode = staged[0]?.code ?? snippet.code;
+		// Adopt the changed file's name as the title, like URL import does.
+		const basename = path?.split("/").pop();
+
+		let rebuilt = Snippet.create({
+			title: basename ? basename : snippet.title,
+			code: beforeCode,
+			language: language ?? snippet.language,
+			theme: snippet.theme,
+			renderConfig: snippet.renderConfig,
+		});
+		for (const snapshot of staged) {
+			rebuilt = rebuilt.addStep(
+				Step.create({
+					code: snapshot.code,
+					duration: DIFF_STEP_DURATION,
+					annotation: snapshot.label,
+				}),
+			);
+		}
+
+		cancelRaf();
+		clearRecordTimer();
+		set({
+			snippet: rebuilt,
+			currentStepIndex: 0,
+			isPlaying: false,
+			isPreparing: false,
+			playbackProgress: 0,
+			playback: null,
 			isRecording: false,
 		});
 
