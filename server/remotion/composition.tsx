@@ -9,6 +9,7 @@ import {
 } from "../../src/application/magic-move/engine";
 import { captionAt } from "../../src/application/captions/caption-timing";
 import { renderTyping, typedCharCount } from "../../src/application/magic-move/typewriter";
+import { FrameChrome } from "../../src/presentation/components/preview/frame-chrome";
 import { GrainOverlay } from "../../src/presentation/components/preview/grain-overlay";
 import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic-move-canvas";
 import { ReelsProgress } from "../../src/presentation/components/preview/reels-progress";
@@ -82,7 +83,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 
 	const frame = useCurrentFrame();
 	const { fps, width, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, framePadding, transitionMs, loop, typewriter, progressStyle, watermark } =
+	const { plan, steps, theme, title, background, windowChrome, framePadding, transitionMs, loop, typewriter, progressStyle, watermark } =
 		input;
 
 	const segments = buildSegments(
@@ -123,6 +124,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				plan={plan}
 				theme={theme}
 				title={title}
+				windowChrome={windowChrome}
 				framePadding={framePadding}
 				canvasWidth={width}
 				caption={
@@ -229,11 +231,12 @@ function staticView(held: LaidOutFrame | undefined, focus?: Set<number>): FrameV
 	};
 }
 
-/** Themed card with macOS chrome, centered and sized to fit the widest line. */
+/** Themed card with window chrome, centered and sized to fit the widest line. */
 function CenteredFrame({
 	plan,
 	theme,
 	title,
+	windowChrome,
 	framePadding,
 	canvasWidth,
 	caption,
@@ -242,6 +245,7 @@ function CenteredFrame({
 	plan: RenderInput["plan"];
 	theme: ThemeData;
 	title: string;
+	windowChrome: RenderInput["windowChrome"];
 	framePadding: number;
 	canvasWidth: number;
 	caption?: React.ReactNode;
@@ -260,7 +264,6 @@ function CenteredFrame({
 	const maxCardWidth = Math.min(1720, canvasWidth * 0.9);
 	const cardWidth = Math.min(maxCardWidth, Math.round(padding * 2 + gutterWidth + codeWidth));
 
-	const dot = Math.round(11 * VIDEO_SCALE);
 	const boxShadow = isDark
 		? "0 0 0 1px rgba(255,255,255,0.05), 0 24px 64px -16px rgba(0,0,0,0.55), 0 8px 24px -8px rgba(0,0,0,0.4)"
 		: "0 0 0 1px rgba(0,0,0,0.06), 0 24px 64px -16px rgba(0,0,0,0.18), 0 8px 24px -8px rgba(0,0,0,0.12)";
@@ -277,41 +280,17 @@ function CenteredFrame({
 			}}
 		>
 			<div style={{ width: cardWidth, background: theme.background, borderRadius: radius, overflow: "hidden", boxShadow }}>
-				<div
-					style={{
-						display: "flex",
-						alignItems: "center",
-						gap: Math.round(8 * VIDEO_SCALE),
-						padding: `${Math.round(13 * VIDEO_SCALE)}px ${Math.round(18 * VIDEO_SCALE)}px`,
-						borderBottom: `1px solid ${theme.foreground}12`,
-					}}
-				>
-					<Dot size={dot} color="#ff5f57" />
-					<Dot size={dot} color="#febc2e" />
-					<Dot size={dot} color="#28c840" />
-					{title && (
-						<span
-							style={{
-								marginLeft: Math.round(8 * VIDEO_SCALE),
-								fontFamily: theme.fontFamily,
-								fontSize: Math.round(11 * VIDEO_SCALE),
-								letterSpacing: "-0.02em",
-								color: `${theme.foreground}59`,
-							}}
-						>
-							{title}
-						</span>
-					)}
-				</div>
+				<FrameChrome
+					chrome={windowChrome}
+					title={title}
+					foreground={theme.foreground}
+					scale={VIDEO_SCALE}
+				/>
 				{children}
 			</div>
 			{caption}
 		</div>
 	);
-}
-
-function Dot({ size, color }: { size: number; color: string }) {
-	return <div style={{ width: size, height: size, borderRadius: "50%", background: color }} />;
 }
 
 function widestLine(plan: RenderInput["plan"]): number {
