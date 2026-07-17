@@ -307,3 +307,117 @@ describe("snippet store importDiff", () => {
 		expect(after.steps).toHaveLength(2);
 	});
 });
+
+/**
+ * importChapters: a PR's commits become one walkthrough, each commit a chapter
+ * played in order. It reuses importDiff's staging (same MAX cap and captions),
+ * heads each chapter's first step "k/N · subject", and never mutates state when
+ * no chapter carries changes.
+ */
+describe("snippet store importChapters", () => {
+	const edit = (path: string, from: string, to: string) =>
+		[
+			`--- a/${path}`,
+			`+++ b/${path}`,
+			"@@ -1,3 +1,3 @@",
+			" const head = 0;",
+			`-${from}`,
+			`+${to}`,
+			" const tail = 9;",
+		].join("\n");
+
+	beforeEach(() => {
+		useSnippetStore.getState().importFromJson(BASE);
+	});
+
+	it("chapters the commits in order, heading each with k/N and setting the PR title", () => {
+		useSnippetStore.getState().importChapters(
+			[
+				{ title: "add alpha", diffText: edit("a.ts", "const x = 1;", "const x = 2;") },
+				{ title: "add beta", diffText: edit("b.ts", "const y = 1;", "const y = 2;") },
+			],
+			{ title: "My pull request" },
+		);
+		const { snippet, currentStepIndex, isPlaying } = useSnippetStore.getState();
+
+		expect(snippet.title).toBe("My pull request");
+		// Chapter 1 keeps its before + after; chapter 2 drops its redundant before.
+		expect(snippet.steps.map((s) => s.annotation)).toEqual([
+			"1/2 · add alpha",
+			"After",
+			"2/2 · add beta",
+		]);
+		// Opens on chapter 1's before-state.
+		expect(snippet.code).toBe(["const head = 0;", "const x = 1;", "const tail = 9;"].join("\n"));
+		expect(snippet.steps[0]?.code).toBe(snippet.code);
+		expect(currentStepIndex).toBe(0);
+		expect(isPlaying).toBe(false);
+	});
+
+	it("caps chaptered steps at MAX_DIFF_STEPS, keeping the final after-frame", () => {
+		// Two chapters of 25 single-line hunks each: 26 + 25 = 51 stages after the
+		// second chapter's redundant before is dropped. The store caps at 40, keeping
+		// the first 39 plus the final after so the walkthrough still ends complete.
+		const bigDiff = (path: string) => {
+			const lines = [`--- a/${path}`, `+++ b/${path}`];
+			for (let k = 1; k <= 25; k++) {
+				lines.push(`@@ -${k},1 +${k},1 @@`);
+				lines.push(`-const v${k} = ${k};`);
+				lines.push(`+const v${k} = ${k * 10};`);
+			}
+			return lines.join("\n");
+		};
+
+		useSnippetStore.getState().importChapters(
+			[
+				{ title: "first half", diffText: bigDiff("one.ts") },
+				{ title: "second half", diffText: bigDiff("two.ts") },
+			],
+			{ title: "big pr" },
+		);
+		const { steps } = useSnippetStore.getState().snippet;
+
+		expect(steps).toHaveLength(40);
+		// The final kept step is chapter 2's after-frame, with its own "After" label.
+		expect(steps[39]?.annotation).toBe("After");
+		expect(steps[39]?.code).toContain("const v25 = 250;");
+	});
+
+	it("infers a non-default language from the chapters", () => {
+		useSnippetStore
+			.getState()
+			.importChapters(
+				[{ title: "python change", diffText: edit("greeter.py", "y = 1", "y = 2") }],
+				{ title: "py pr" },
+			);
+		// Overrode the baseline's typescript from the .py chapter path.
+		expect(useSnippetStore.getState().snippet.language).toBe("python");
+	});
+
+	it("throws without mutating state when every chapter is lockfiles-only or empty", () => {
+		const lockOnly = [
+			"--- a/pnpm-lock.yaml",
+			"+++ b/pnpm-lock.yaml",
+			"@@ -1,2 +1,2 @@",
+			"-lockfileVersion: '6.0'",
+			"+lockfileVersion: '9.0'",
+			" settings:",
+		].join("\n");
+		const before = useSnippetStore.getState().snippet;
+
+		expect(() =>
+			useSnippetStore.getState().importChapters(
+				[
+					{ title: "bump deps", diffText: lockOnly },
+					{ title: "nothing", diffText: "" },
+				],
+				{ title: "noop pr" },
+			),
+		).toThrow();
+
+		// Same snippet instance → nothing was set.
+		const after = useSnippetStore.getState().snippet;
+		expect(after).toBe(before);
+		expect(after.steps).toHaveLength(2);
+	});
+});

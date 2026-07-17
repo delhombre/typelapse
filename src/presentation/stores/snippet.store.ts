@@ -1,4 +1,9 @@
-import { type CodeSnapshot, diffToSnapshots } from "@/application/diff";
+import {
+	type CodeSnapshot,
+	type DiffChapter,
+	chapterSnapshots,
+	diffToSnapshots,
+} from "@/application/diff";
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
 import { Snippet } from "@/domain/entities/snippet";
@@ -108,6 +113,13 @@ interface SnippetState {
 	 * Throws a user-facing Error on unusable input: the caller surfaces it.
 	 */
 	importDiff: (diffText: string) => void;
+	/**
+	 * Turn a PR's commits into one chaptered walkthrough: each commit is a chapter
+	 * (its own windowed staged sequence), played in order. Applies the SAME
+	 * MAX_DIFF_STEPS cap and caption wiring as {@link importDiff}. Throws when no
+	 * chapter carries changes, before any mutation, so the snippet stays intact.
+	 */
+	importChapters: (chapters: DiffChapter[], meta: { title: string }) => void;
 }
 
 let rawShikiHighlighter: Highlighter | null = null;
@@ -254,6 +266,69 @@ function capSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
 	const last = snapshots[snapshots.length - 1];
 	const head = snapshots.slice(0, MAX_DIFF_STEPS - 1);
 	return last ? [...head, last] : head;
+}
+
+/** The playback fields reset whenever an import replaces the whole snippet. */
+const PLAYBACK_RESET = {
+	currentStepIndex: 0,
+	isPlaying: false,
+	isPreparing: false,
+	playbackProgress: 0,
+	playback: null,
+	isRecording: false,
+} as const;
+
+/**
+ * Build the snippet a diff or chapters import replaces the studio with: cap the
+ * staged snapshots, open on the first frame's before-state, and turn each snapshot
+ * into a step whose caption is its label. Pure: the caller commits it and rebuilds
+ * the plan. A blank title or absent language falls back to the current snippet's.
+ */
+function buildDiffSnippet(
+	base: Snippet,
+	snapshots: CodeSnapshot[],
+	meta: { title?: string; language?: string },
+): Snippet {
+	const staged = capSnapshots(snapshots);
+	// Open on the "before" state (first frame); playback morphs forward to "after".
+	const beforeCode = staged[0]?.code ?? base.code;
+	let rebuilt = Snippet.create({
+		title: meta.title ? meta.title : base.title,
+		code: beforeCode,
+		language: meta.language ?? base.language,
+		theme: base.theme,
+		renderConfig: base.renderConfig,
+	});
+	for (const snapshot of staged) {
+		// The snapshot's label ("Before" / a hunk heading / "After" / a "k/N · subject"
+		// chapter head) narrates the step, so it lands as the caption and the
+		// walkthrough explains itself. An empty label leaves the caption unset.
+		const annotation = snapshot.label ? snapshot.label : undefined;
+		rebuilt = rebuilt.addStep(
+			Step.create({ code: snapshot.code, duration: DIFF_STEP_DURATION, annotation }),
+		);
+	}
+	return rebuilt;
+}
+
+/**
+ * The Shiki language for a chaptered import: the first chapter whose primary file
+ * has a recognizable extension. Reuses diffToSnapshots' own inference so chapters
+ * tag their language exactly as a single-diff import would; a lockfiles-only or
+ * unparseable chapter carries none, so we try the next.
+ */
+function inferChapterLanguage(chapters: DiffChapter[]): string | undefined {
+	for (const chapter of chapters) {
+		try {
+			const { language } = diffToSnapshots(chapter.diffText);
+			if (language) {
+				return language;
+			}
+		} catch {
+			// No usable diff in this chapter: its language is undecidable, try the next.
+		}
+	}
+	return undefined;
 }
 
 async function ensureLanguageLoaded(language: string): Promise<void> {
@@ -666,42 +741,35 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		// diffToSnapshots throws a user-facing Error on unusable input; it runs
 		// before any set(), so a bad paste leaves the current snippet untouched.
 		const { snapshots, language, path } = diffToSnapshots(diffText);
-		const staged = capSnapshots(snapshots);
-		const { snippet } = get();
-
-		// Open on the "before" state (first frame); playback morphs forward to "after".
-		const beforeCode = staged[0]?.code ?? snippet.code;
 		// Adopt the changed file's name as the title, like URL import does.
-		const basename = path?.split("/").pop();
-
-		let rebuilt = Snippet.create({
-			title: basename ? basename : snippet.title,
-			code: beforeCode,
-			language: language ?? snippet.language,
-			theme: snippet.theme,
-			renderConfig: snippet.renderConfig,
+		const rebuilt = buildDiffSnippet(get().snippet, snapshots, {
+			title: path?.split("/").pop(),
+			language,
 		});
-		for (const snapshot of staged) {
-			// The snapshot's label ("Before" / a hunk heading or "Change N" / "After")
-			// narrates the step, so it lands as the caption and the walkthrough explains
-			// itself. An empty label leaves the caption unset; users edit/clear it later.
-			const annotation = snapshot.label ? snapshot.label : undefined;
-			rebuilt = rebuilt.addStep(
-				Step.create({ code: snapshot.code, duration: DIFF_STEP_DURATION, annotation }),
-			);
-		}
 
 		cancelRaf();
 		clearRecordTimer();
-		set({
-			snippet: rebuilt,
-			currentStepIndex: 0,
-			isPlaying: false,
-			isPreparing: false,
-			playbackProgress: 0,
-			playback: null,
-			isRecording: false,
+		set({ snippet: rebuilt, ...PLAYBACK_RESET });
+
+		get().rebuildPlan();
+	},
+
+	importChapters: (chapters: DiffChapter[], meta: { title: string }) => {
+		// chapterSnapshots skips lockfiles-only / empty chapters; if that leaves
+		// nothing to animate we throw before any set(), so a dead PR leaves the
+		// current snippet untouched, exactly like importDiff's contract.
+		const snapshots = chapterSnapshots(chapters);
+		if (snapshots.length === 0) {
+			throw new Error("These commits contain no changes to animate");
+		}
+		const rebuilt = buildDiffSnippet(get().snippet, snapshots, {
+			title: meta.title,
+			language: inferChapterLanguage(chapters),
 		});
+
+		cancelRaf();
+		clearRecordTimer();
+		set({ snippet: rebuilt, ...PLAYBACK_RESET });
 
 		get().rebuildPlan();
 	},

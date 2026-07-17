@@ -1,7 +1,8 @@
-import { resolveCommitUrl, resolvePrUrl } from "@/application/import/pr-url";
+import { type PrRef, resolveCommitUrl, resolvePrUrl } from "@/application/import/pr-url";
 import {
 	type Walkthrough,
 	fetchCommitDiff,
+	fetchPrChapters,
 	fetchPrWalkthrough,
 } from "@/infrastructure/import/pr-import";
 import { springs } from "@/presentation/motion";
@@ -9,20 +10,35 @@ import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
+/** How a PR URL is imported: one squashed change, or one chapter per commit. */
+type ImportMode = "whole" | "commit";
+
+const IMPORT_MODES: { key: ImportMode; label: string }[] = [
+	{ key: "whole", label: "Whole change" },
+	{ key: "commit", label: "By commit" },
+];
+
 /**
  * Popover that turns a pasted unified diff (or a GitHub PR / commit URL) into
  * an animated step walkthrough. A URL is fetched to its raw diff first; anything
- * else is treated as a raw diff paste.
+ * else is treated as a raw diff paste. A PR URL also offers a "By commit" mode
+ * that chapters the walkthrough one segment per commit.
  */
 export function DiffImportMenu() {
 	const [open, setOpen] = useState(false);
 	const [text, setText] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [mode, setMode] = useState<ImportMode>("whole");
+	const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const importDiff = useSnippetStore((s) => s.importDiff);
+	const importChapters = useSnippetStore((s) => s.importChapters);
 	const setTitle = useSnippetStore((s) => s.setTitle);
+
+	// The textarea doubles as a URL bar; the commit toggle only applies to PR URLs.
+	const prRef = resolvePrUrl(text.trim());
 
 	useEffect(() => {
 		if (!open) {
@@ -46,12 +62,16 @@ export function DiffImportMenu() {
 		if (trimmed === "" || loading) {
 			return;
 		}
-		// The textarea doubles as a URL bar: a PR / commit link fetches its diff first.
-		const prRef = resolvePrUrl(trimmed);
+		// A PR link chapters by commit when asked; otherwise it fetches one squashed diff.
 		if (prRef) {
-			await runFetch(() => fetchPrWalkthrough(prRef));
+			if (mode === "commit") {
+				await runChapters(prRef);
+			} else {
+				await runFetch(() => fetchPrWalkthrough(prRef));
+			}
 			return;
 		}
+		// Commit URLs and raw diffs ignore the toggle: they are single sequences.
 		const commitRef = resolveCommitUrl(trimmed);
 		if (commitRef) {
 			await runFetch(() => fetchCommitDiff(commitRef));
@@ -77,6 +97,26 @@ export function DiffImportMenu() {
 		}
 	}
 
+	async function runChapters(ref: PrRef) {
+		setLoading(true);
+		setError(null);
+		setProgress(null);
+		try {
+			const { title, chapters } = await fetchPrChapters(ref, (done, total) =>
+				setProgress({ done, total }),
+			);
+			// importChapters sets the PR title itself, so no separate setTitle is needed.
+			importChapters(chapters, { title });
+			setText("");
+			setOpen(false);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Could not fetch the commits.");
+		} finally {
+			setLoading(false);
+			setProgress(null);
+		}
+	}
+
 	function applyRawDiff(trimmed: string) {
 		try {
 			importDiff(trimmed);
@@ -94,6 +134,13 @@ export function DiffImportMenu() {
 			e.preventDefault();
 			void apply();
 		}
+	}
+
+	function hint() {
+		if (loading && mode === "commit" && prRef) {
+			return progress ? `fetching commit ${progress.done}/${progress.total}…` : "fetching commits…";
+		}
+		return "git diff | pbcopy · or github.com/…/pull/42";
 	}
 
 	return (
@@ -146,9 +193,28 @@ export function DiffImportMenu() {
 								placeholder={"paste a git diff, or a github pr url"}
 								className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 							/>
+							<AnimatePresence initial={false}>
+								{prRef && (
+									// A PR link can play as one change or chapter by commit; quiet secondary row.
+									<motion.div
+										initial={{ opacity: 0, height: 0 }}
+										animate={{ opacity: 1, height: "auto" }}
+										exit={{ opacity: 0, height: 0 }}
+										transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+										className="overflow-hidden"
+									>
+										<div className="mt-2 flex items-center gap-2">
+											<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+												play as
+											</span>
+											<ModeToggle mode={mode} onSelect={setMode} />
+										</div>
+									</motion.div>
+								)}
+							</AnimatePresence>
 							<div className="mt-2 flex items-center justify-between gap-2">
 								<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
-									git diff | pbcopy · or github.com/…/pull/42
+									{hint()}
 								</span>
 								<motion.button
 									type="button"
@@ -166,6 +232,43 @@ export function DiffImportMenu() {
 					</>
 				)}
 			</AnimatePresence>
+		</div>
+	);
+}
+
+/** A two-option segmented control: whole change vs one chapter per commit. */
+function ModeToggle({
+	mode,
+	onSelect,
+}: { mode: ImportMode; onSelect: (mode: ImportMode) => void }) {
+	return (
+		<div className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800">
+			{IMPORT_MODES.map((item) => {
+				const isSelected = item.key === mode;
+				return (
+					<motion.button
+						key={item.key}
+						type="button"
+						onClick={() => onSelect(item.key)}
+						whileTap={{ scale: 0.96 }}
+						transition={springs.snappy}
+						className={`relative rounded-md px-2 py-1 text-[11px] font-medium transition-colors duration-150 ${
+							isSelected
+								? "text-white dark:text-neutral-900"
+								: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300"
+						}`}
+					>
+						{isSelected && (
+							<motion.span
+								layoutId="diff-import-mode"
+								className="absolute inset-0 rounded-md bg-neutral-900 dark:bg-neutral-100"
+								transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
+							/>
+						)}
+						<span className="relative z-10">{item.label}</span>
+					</motion.button>
+				);
+			})}
 		</div>
 	);
 }
