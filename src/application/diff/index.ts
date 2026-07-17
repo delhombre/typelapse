@@ -1,3 +1,5 @@
+export { chapterSnapshots } from "./chapters";
+export type { DiffChapter } from "./chapters";
 export { diffToSnapshots } from "./diff-to-snapshots";
 export { parseUnifiedDiff } from "./parse-unified-diff";
 export { generateSnapshots, normalizeSnapshots } from "./snapshots";
