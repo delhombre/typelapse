@@ -1,8 +1,11 @@
+import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import type { RenderFormat } from "@/domain/entities/render-config";
 import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download.adapter";
+import { CloudRenderAdapter } from "@/infrastructure/export/cloud-render.adapter";
 import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
 import { create } from "zustand";
+import { usePlanStore } from "./plan.store";
 import { useSnippetStore } from "./snippet.store";
 
 export interface ExportProgress {
@@ -46,8 +49,24 @@ interface ExportState {
 }
 
 const exporter = new BrowserDownloadAdapter();
+const cloudExporter = new CloudRenderAdapter();
 
 const API_BASE = "/api";
+
+/**
+ * Hosted rendering is gated off during rollout: the /api/cloud/* backend is a
+ * stub. While the app runs on Plan.local (which never targets the cloud)
+ * export always goes through the local server.
+ * Flip this on in dev to exercise the cloud path:
+ * localStorage.setItem("typelapse:cloud", "on").
+ */
+function isCloudExportEnabled(): boolean {
+	try {
+		return localStorage.getItem("typelapse:cloud") === "on";
+	} catch {
+		return false;
+	}
+}
 
 export const useExportStore = create<ExportState>((set, get) => ({
 	isExporting: false,
@@ -105,6 +124,12 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			transitionMs,
 		} = get();
 
+		const { plan } = usePlanStore.getState();
+		// Apply plan entitlements (resolution/fps caps + watermark) in one place so
+		// the preview and the export never disagree. Under Plan.local this is a
+		// pass-through no-op: nothing is clamped and the user's watermark is kept.
+		const resolved = resolveExport(plan, { width, height, fps, format, userWatermark: watermark });
+
 		set({
 			isExporting: true,
 			progress: { phase: "preparing", message: "Sending to server..." },
@@ -113,19 +138,43 @@ export const useExportStore = create<ExportState>((set, get) => ({
 
 		try {
 			const { theme } = snippet;
+			const themePayload = {
+				name: theme.name,
+				background: theme.background,
+				foreground: theme.foreground,
+				fontFamily: theme.fontFamily,
+				fontSize: theme.fontSize,
+				padding: theme.padding,
+				borderRadius: theme.borderRadius,
+			};
+
+			// Hosted render path (Pro/Team). The backend is a stub today and gated
+			// off, and Plan.local never targets the cloud, so this branch stays
+			// dormant in the local app.
+			if (resolved.target === "cloud" && isCloudExportEnabled()) {
+				set({ progress: { phase: "rendering", message: "Rendering on our servers..." } });
+				const job = await cloudExporter.submitRender({
+					title: snippet.title,
+					language: snippet.language,
+					theme: themePayload,
+					steps: snippet.steps.map((s) => ({ code: s.code, duration: s.duration })),
+					background,
+					framePadding,
+					config: resolved.config,
+					watermark: resolved.watermark,
+				});
+				set({
+					isExporting: false,
+					progress: null,
+					error: job.message ?? "Hosted rendering is rolling out soon, your job was queued.",
+				});
+				return;
+			}
 
 			const body = {
 				title: snippet.title,
 				language: snippet.language,
-				theme: {
-					name: theme.name,
-					background: theme.background,
-					foreground: theme.foreground,
-					fontFamily: theme.fontFamily,
-					fontSize: theme.fontSize,
-					padding: theme.padding,
-					borderRadius: theme.borderRadius,
-				},
+				theme: themePayload,
 				steps: snippet.steps.map((s) => {
 					const focus = [...focusLineSet(s.highlightRanges)];
 					return {
@@ -140,17 +189,17 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				showLineNumbers,
 				lineNumberStart,
 				framePadding,
-				width,
-				height,
-				fps,
-				format,
+				width: resolved.config.width,
+				height: resolved.config.height,
+				fps: resolved.config.fps,
+				format: resolved.config.format,
 				loop,
 				typewriter,
 				focusZoom,
 				sound,
 				progressStyle,
 				transitionMs,
-				watermark: watermark || undefined,
+				watermark: resolved.watermark,
 			};
 
 			set({ progress: { phase: "rendering", message: "Rendering video..." } });
@@ -172,7 +221,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 
 			const blob = await response.blob();
 			const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
-			await exporter.export(blob, filename, format);
+			await exporter.export(blob, filename, resolved.config.format);
 
 			set({ isExporting: false, progress: null });
 		} catch (err) {
