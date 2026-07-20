@@ -7,27 +7,34 @@ import {
 	safeZoneFor,
 } from "@/application/social/safe-zones";
 import { AnimatePresence, type Transition, motion, useReducedMotion } from "motion/react";
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, memo } from "react";
 
 interface SocialPreviewOverlayProps {
 	platform: SocialPlatform;
 	showGuides: boolean;
-	/** Outer corner radius of the card, so scrims and labels never overhang it. */
+	/** Corner radius of the aspect box, so scrims and labels never overhang it. */
 	radius: number;
 }
 
 /**
- * A preview-only, GENERIC evocation of a platform feed drawn on top of the
- * export card. It carries NO real logos, wordmarks or brand colors: plain
- * geometric glyphs and the platform name as text, so it reads as UI furniture,
- * not as the user's content. It is a design aid, never captured by the PNG or
- * baked into the video (it lives outside [data-export-target]).
+ * A preview-only, GENERIC evocation of a platform feed drawn over the export
+ * ASPECT CANVAS (fractions of the full 9:16 / 1:1 / 4:5 box, so the guides mark
+ * the regions the platform UI really occludes, not the bare code window). It
+ * carries NO real logos, wordmarks or brand colors: plain geometric glyphs and
+ * the platform name as text, so it reads as UI furniture, not the user's
+ * content. A design aid, never captured by the PNG nor baked into the video: it
+ * lives OUTSIDE [data-export-target], as a sibling of the card.
  *
- * Layer A (chrome) always shows; Layer B (safe-zone guides) toggles on top.
- * All geometry comes from the safe-zone spec as fractions, and every size is
- * expressed in `cqmin`-based `em`, so the whole mockup scales with the card.
+ * Layer A (chrome) always shows; Layer B (safe-zone guides) toggles on top. All
+ * geometry comes from the safe-zone spec as fractions, and every size is a
+ * `cqmin`-based `em`, so the whole mockup scales with the canvas. Memoized so
+ * playback frames (which re-render the card) never re-render the furniture.
  */
-export function SocialPreviewOverlay({ platform, showGuides, radius }: SocialPreviewOverlayProps) {
+export const SocialPreviewOverlay = memo(function SocialPreviewOverlay({
+	platform,
+	showGuides,
+	radius,
+}: SocialPreviewOverlayProps) {
 	const reduce = useReducedMotion();
 	const hidden = reduce ? { opacity: 0 } : { opacity: 0, scale: 1.015 };
 	const shown = { opacity: 1, scale: 1 };
@@ -64,7 +71,7 @@ export function SocialPreviewOverlay({ platform, showGuides, radius }: SocialPre
 			</AnimatePresence>
 		</motion.div>
 	);
-}
+});
 
 /* ──────────── Layer A: feed chrome ──────────── */
 
@@ -291,7 +298,8 @@ function GuideBand({ region }: { region: OccludedRegion }) {
 		<div style={style}>
 			<span
 				style={{
-					fontSize: "0.82em",
+					// Floor keeps the label legible even when the aspect box is small.
+					fontSize: "max(10px, 0.9em)",
 					fontWeight: 600,
 					letterSpacing: "0.03em",
 					color: "rgba(255,255,255,0.92)",
@@ -330,7 +338,7 @@ function PlatformTag({ label }: { label: string }) {
 	return (
 		<span
 			style={{
-				fontSize: "0.82em",
+				fontSize: "max(9px, 0.82em)",
 				fontWeight: 600,
 				letterSpacing: "0.07em",
 				textTransform: "uppercase",

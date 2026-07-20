@@ -7,6 +7,7 @@ import {
 } from "@/application/backgrounds/mesh-gradient";
 import { captionAt } from "@/application/captions/caption-timing";
 import { focusLineSet } from "@/application/focus/line-ranges";
+import { fitCardToCanvas } from "@/application/layout/canvas-fit";
 import { concentric } from "@/application/layout/concentric";
 import { fitScale } from "@/application/layout/fit-scale";
 import { LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
@@ -30,7 +31,7 @@ import {
 	useSocialPreviewStore,
 } from "@/presentation/stores/social-preview.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import {
 	type CSSProperties,
 	type ReactNode,
@@ -38,6 +39,7 @@ import {
 	useCallback,
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -128,6 +130,16 @@ function contentBox(el: HTMLElement): { width: number; height: number } {
 	return { width: el.clientWidth - padX, height: el.clientHeight - padY };
 }
 
+// Mirror the Remotion composition's canvas constants so the social preview places
+// the window at the same fraction of the aspect canvas the video renders.
+const SOCIAL_VIDEO_SCALE = 2.2;
+const SOCIAL_CANVAS_MARGIN = 0.05;
+
+/** Gentle phone-screen rounding for the social aspect box, proportional and capped. */
+function socialCanvasRadius(width: number, height: number): number {
+	return Math.round(Math.min(28, Math.min(width, height) * 0.05));
+}
+
 export function LivePreview() {
 	const {
 		snippet,
@@ -149,31 +161,20 @@ export function LivePreview() {
 	const progressStyle = useExportStore((s) => s.progressStyle);
 	const typewriter = useExportStore((s) => s.typewriter);
 	const focusZoom = useExportStore((s) => s.focusZoom);
-	// Social-preview view state (ephemeral): drives an overlay painted OUTSIDE the
-	// export target, so it never reaches the PNG capture or the render payload.
+	// Social-preview view state (ephemeral): drives a faithful aspect-canvas
+	// preview painted OUTSIDE the export target, so it never reaches the PNG
+	// capture or the render payload.
 	const exportWidth = useExportStore((s) => s.width);
 	const exportHeight = useExportStore((s) => s.height);
 	const socialEnabled = useSocialPreviewStore((s) => s.enabled);
 	const socialPlatform = useSocialPreviewStore((s) => s.platform);
 	const socialShowGuides = useSocialPreviewStore((s) => s.showGuides);
+
 	const previewRef = useRef<HTMLDivElement>(null);
+	const boxRef = useRef<HTMLDivElement>(null);
 	const isMesh = isMeshBackground(background);
 	const isImage = isImageBackground(background);
-	useDynamicBackground(previewRef, background);
-	// Play the synthesized tick track during preview playback (same rendered WAV
-	// the export bakes in), so the preview sounds identical to the video.
-	useTickAudio();
 
-	// Leaving the studio stops the playback loop: pause() cancels the rAF so it
-	// never ticks against an unmounted view. Record mode (and its debounce timer)
-	// is disarmed separately by ResponsiveShell's own unmount cleanup.
-	useEffect(() => () => useSnippetStore.getState().pause(), []);
-
-	// Fit-to-viewport: the card keeps its natural (unscaled) layout size, so the
-	// PNG/video export captures it untouched, while the whole frame is visually
-	// scaled to fit the viewport. Uniform scale preserves WYSIWYG (same pixels,
-	// different zoom) and a long walkthrough no longer overflows the pane.
-	//
 	// The measured elements live behind a conditional: the first render shows an
 	// EmptyState while the plan builds, so the real UI (and its refs) mounts on a
 	// LATER render. RefObjects never re-run effects when `.current` changes, so
@@ -190,6 +191,92 @@ export function LivePreview() {
 	const containerEntry = useResizeObserverNode(containerNode);
 	const cardEntry = useResizeObserverNode(cardNode);
 	const [fitScaleValue, setFitScaleValue] = useState(1);
+	const [cardNatural, setCardNatural] = useState<{ width: number; height: number } | null>(null);
+
+	// Reconcile the social platform against the export aspect (null when off, or
+	// when the aspect has no immersive platform, e.g. 16:9).
+	const activeSocialPlatform = resolveSocialPlatform(
+		socialEnabled,
+		socialPlatform,
+		exportWidth,
+		exportHeight,
+	);
+
+	// Social mode swaps the fit-to-viewport code window for a faithful miniature of
+	// the EXPORT ASPECT CANVAS: an aspect box fit into the viewport, filled with the
+	// export's mesh, holding the code window centered at the SAME fraction the video
+	// renders it (shared fitCardToCanvas math). The chrome + guides then sit over the
+	// FULL canvas, so they mark the real occluded regions, not the bare window.
+	const availWidth = containerEntry?.contentRect.width;
+	const availHeight = containerEntry?.contentRect.height;
+	const hasCaptionText = snippet.steps.some((s) => (s.annotation ?? "") !== "");
+	const socialCanvas = useMemo(() => {
+		if (!activeSocialPlatform || !plan || plan.frames.length === 0 || !cardNatural) {
+			return null;
+		}
+		if (!availWidth || !availHeight || availWidth <= 0 || availHeight <= 0) {
+			return null;
+		}
+		const fit = fitCardToCanvas({
+			plan,
+			chrome: windowChrome,
+			fontSize: snippet.theme.fontSize,
+			padding: framePadding,
+			cardMargin,
+			showLineNumbers,
+			lineNumberStart,
+			hasCaption: hasCaptionText,
+			scale: SOCIAL_VIDEO_SCALE,
+			canvasWidth: exportWidth,
+			canvasHeight: exportHeight,
+			canvasMargin: SOCIAL_CANVAS_MARGIN,
+		});
+		const boxScale = fitScale(exportWidth, exportHeight, availWidth, availHeight);
+		const boxWidth = exportWidth * boxScale;
+		const boxHeight = exportHeight * boxScale;
+		// Fit the window's real (fixed-width) footprint into the same padded-card slot
+		// the video reserves for it: widthFraction x heightFraction of the canvas.
+		const cardScale = Math.min(
+			(fit.widthFraction * boxWidth) / cardNatural.width,
+			(fit.heightFraction * boxHeight) / cardNatural.height,
+		);
+		return { boxWidth, boxHeight, cardScale, radius: socialCanvasRadius(boxWidth, boxHeight) };
+	}, [
+		activeSocialPlatform,
+		plan,
+		cardNatural,
+		availWidth,
+		availHeight,
+		windowChrome,
+		snippet.theme.fontSize,
+		framePadding,
+		cardMargin,
+		showLineNumbers,
+		lineNumberStart,
+		hasCaptionText,
+		exportWidth,
+		exportHeight,
+	]);
+	const socialActive = socialCanvas !== null;
+
+	// In social mode the window's mesh margin goes transparent and the mesh moves to
+	// the aspect box, so the window sits opaque over one continuous canvas (seamless
+	// margins), exactly like the export's full-bleed background AbsoluteFill.
+	useDynamicBackground(previewRef, socialActive ? "transparent" : background);
+	useDynamicBackground(boxRef, socialActive ? background : "transparent");
+	// Play the synthesized tick track during preview playback (same rendered WAV the
+	// export bakes in), so the preview sounds identical to the video.
+	useTickAudio();
+
+	// Leaving the studio stops the playback loop: pause() cancels the rAF so it
+	// never ticks against an unmounted view. Record mode (and its debounce timer)
+	// is disarmed separately by ResponsiveShell's own unmount cleanup.
+	useEffect(() => () => useSnippetStore.getState().pause(), []);
+
+	// Fit-to-viewport for the plain (non-social) code window, plus the card's natural
+	// footprint the social placement centers in its aspect box. Both read the same
+	// pre-transform measurement, so social scaling never feeds back into it.
+	//
 	// The content-shape deps (plan, padding, chrome, gutter) are not read below:
 	// they re-run this measure right after the DOM they shape has been committed,
 	// so the scale is right pre-paint even when an observer delivery is still queued.
@@ -207,6 +294,11 @@ export function LivePreview() {
 		const naturalW = cardSize?.inlineSize ?? cardNode.offsetWidth;
 		const naturalH = cardSize?.blockSize ?? cardNode.offsetHeight;
 		setFitScaleValue(fitScale(naturalW, naturalH, box.width, box.height));
+		setCardNatural((prev) =>
+			prev && prev.width === naturalW && prev.height === naturalH
+				? prev
+				: { width: naturalW, height: naturalH },
+		);
 	}, [
 		containerEntry,
 		cardEntry,
@@ -258,15 +350,97 @@ export function LivePreview() {
 				};
 
 	const isTransparent = background === "transparent";
-	// Outer corner radius of the card (concentric law), reused by the social
-	// overlay so its scrims and labels follow the same rounded frame.
+	// Outer corner radius of the card (concentric law).
 	const cardRadius = isTransparent ? 0 : concentric(snippet.theme.borderRadius, cardMargin);
-	// Null unless social mode is on AND a platform actually uses the export aspect.
-	const activeSocialPlatform = resolveSocialPlatform(
-		socialEnabled,
-		socialPlatform,
-		exportWidth,
-		exportHeight,
+
+	// In social mode the window's mesh margin goes transparent so the aspect box's
+	// canvas shows through as one continuous mesh; everywhere else the card paints
+	// its own background exactly as before, so Social off stays byte-identical.
+	const cardPaintsMesh = isMesh && !socialActive;
+	const cardPaintsImage = isImage && !socialActive;
+	const cardBackgroundAnimate =
+		cardPaintsMesh || cardPaintsImage
+			? undefined
+			: { background: isTransparent || socialActive ? "transparent" : background };
+
+	// The single code card: one source of truth for playback AND the PNG capture,
+	// reparented between the plain fit-to-viewport wrapper and the social aspect box.
+	const cardElement = (
+		<motion.div
+			ref={attachCard}
+			data-export-target
+			className={`relative w-[42rem] ${isPlaying && !isTransparent && !socialActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
+			animate={cardBackgroundAnimate}
+			transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+			style={{
+				opacity: isBuilding ? 0.85 : 1,
+				padding: isTransparent ? 0 : cardMargin,
+				// Concentric law: the outer corner follows the window's radius plus the
+				// margin, so a square window (radius 0) yields a square card.
+				borderRadius: cardRadius,
+				// Mesh + image are painted imperatively by useDynamicBackground; this is
+				// the pre-paint fallback so there is no flash. In social mode the mesh
+				// lives on the box, so the card's own margin stays clear.
+				background: socialActive ? undefined : staticBackground(background, isMesh, isImage),
+			}}
+		>
+			{!isTransparent && <GrainOverlay />}
+
+			{/* One content column. The reels bar, the window, the caption and the
+						    watermark all live in this z-10 box, so the progress bar lines up
+						    with the window's edges instead of bleeding past it over the mesh.
+						    FrameShell is block-level `w-full`, so it always fills the column:
+						    the reels wrapper, caption and watermark span the same width. */}
+			<div className="relative z-10 w-full">
+				{!isTransparent && segments >= 2 && (
+					<div className="pointer-events-none absolute inset-x-0 z-20" style={{ top: -10 }}>
+						<ReelsProgress style={progressStyle} segments={segments} progress={reelsProgress} />
+					</div>
+				)}
+				<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
+					{/* Focus zoom pushes the code toward the spotlighted band. Playback
+							    drives every frame, so there is no CSS transition: the FrameShell
+							    body clips the overflow. The zoom wrapper carries the window's own
+							    border radius so a scaled (composited) layer never squares the
+							    corners. Same transform runs in the Remotion video. */}
+					<div style={zoomStyle(view.zoom, focusZoom, snippet.theme.borderRadius)}>
+						<MagicMoveCanvas
+							tokens={view.tokens}
+							lineCount={view.lineCount}
+							lineNumberCount={view.lineNumberCount}
+							fontSize={snippet.theme.fontSize}
+							lineHeightRatio={LINE_HEIGHT_RATIO}
+							fontFamily={snippet.theme.fontFamily}
+							color={snippet.theme.foreground}
+							showLineNumbers={showLineNumbers}
+							lineNumberStart={lineNumberStart}
+							lineNumberColor={`${snippet.theme.foreground}26`}
+							padding={framePadding}
+							cursor={view.cursor}
+						/>
+					</div>
+				</FrameShell>
+
+				{hasCaptions && (
+					<StepCaption
+						text={caption.text}
+						opacity={caption.opacity}
+						color={getWatermarkColor(background, snippet.theme.foreground)}
+					/>
+				)}
+
+				{watermark && (
+					<div className="mt-2 text-right">
+						<span
+							className="font-mono text-[10px]"
+							style={{ color: getWatermarkColor(background, snippet.theme.foreground) }}
+						>
+							{watermark}
+						</span>
+					</div>
+				)}
+			</div>
+		</motion.div>
 	);
 
 	return (
@@ -275,108 +449,51 @@ export function LivePreview() {
 				ref={setContainerNode}
 				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
 			>
-				<div
-					className="relative shrink-0"
-					style={{ transform: `scale(${fitScaleValue})`, transformOrigin: "center center" }}
-				>
+				{socialCanvas && activeSocialPlatform ? (
+					// Faithful aspect-canvas preview: the export's mesh box with the code
+					// window centered at the video's true fraction, and the chrome + guides
+					// over the FULL canvas. The overlay is a SIBLING of [data-export-target]
+					// (never a descendant), so the PNG capture and the Remotion render never
+					// see it.
 					<motion.div
-						ref={attachCard}
-						data-export-target
-						className={`relative w-[42rem] ${isPlaying && !isTransparent && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
+						ref={boxRef}
+						className="relative shrink-0 overflow-hidden"
+						style={{
+							width: socialCanvas.boxWidth,
+							height: socialCanvas.boxHeight,
+							borderRadius: socialCanvas.radius,
+							background: staticBackground(background, isMesh, isImage),
+						}}
 						animate={
 							isMesh || isImage
 								? undefined
 								: { background: isTransparent ? "transparent" : background }
 						}
 						transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-						style={{
-							opacity: isBuilding ? 0.85 : 1,
-							padding: isTransparent ? 0 : cardMargin,
-							// Concentric law: the outer corner follows the window's radius plus the
-							// margin, so a square window (radius 0) yields a square card. A soft
-							// outer corner around a sharp window reads incoherent.
-							borderRadius: cardRadius,
-							// Mesh + image are painted imperatively by useDynamicBackground; this is
-							// the pre-paint fallback so there is no flash before the effect runs.
-							background: staticBackground(background, isMesh, isImage),
-						}}
 					>
-						{!isTransparent && <GrainOverlay />}
-
-						{/* One content column. The reels bar, the window, the caption and the
-						    watermark all live in this z-10 box, so the progress bar lines up
-						    with the window's edges instead of bleeding past it over the mesh.
-						    FrameShell is block-level `w-full`, so it always fills the column:
-						    the reels wrapper, caption and watermark span the same width. */}
-						<div className="relative z-10 w-full">
-							{!isTransparent && segments >= 2 && (
-								<div className="pointer-events-none absolute inset-x-0 z-20" style={{ top: -10 }}>
-									<ReelsProgress
-										style={progressStyle}
-										segments={segments}
-										progress={reelsProgress}
-									/>
-								</div>
-							)}
-							<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
-								{/* Focus zoom pushes the code toward the spotlighted band. Playback
-							    drives every frame, so there is no CSS transition: the FrameShell
-							    body clips the overflow. The zoom wrapper carries the window's own
-							    border radius so a scaled (composited) layer never squares the
-							    corners. Same transform runs in the Remotion video. */}
-								<div style={zoomStyle(view.zoom, focusZoom, snippet.theme.borderRadius)}>
-									<MagicMoveCanvas
-										tokens={view.tokens}
-										lineCount={view.lineCount}
-										lineNumberCount={view.lineNumberCount}
-										fontSize={snippet.theme.fontSize}
-										lineHeightRatio={LINE_HEIGHT_RATIO}
-										fontFamily={snippet.theme.fontFamily}
-										color={snippet.theme.foreground}
-										showLineNumbers={showLineNumbers}
-										lineNumberStart={lineNumberStart}
-										lineNumberColor={`${snippet.theme.foreground}26`}
-										padding={framePadding}
-										cursor={view.cursor}
-									/>
-								</div>
-							</FrameShell>
-
-							{hasCaptions && (
-								<StepCaption
-									text={caption.text}
-									opacity={caption.opacity}
-									color={getWatermarkColor(background, snippet.theme.foreground)}
-								/>
-							)}
-
-							{watermark && (
-								<div className="mt-2 text-right">
-									<span
-										className="font-mono text-[10px]"
-										style={{ color: getWatermarkColor(background, snippet.theme.foreground) }}
-									>
-										{watermark}
-									</span>
-								</div>
-							)}
+						<div
+							className="absolute top-1/2 left-1/2"
+							style={{
+								transform: `translate(-50%, -50%) scale(${socialCanvas.cardScale})`,
+								transformOrigin: "center center",
+							}}
+						>
+							{cardElement}
 						</div>
+						<SocialPreviewOverlay
+							platform={activeSocialPlatform}
+							showGuides={socialShowGuides}
+							radius={socialCanvas.radius}
+						/>
 					</motion.div>
-
-					{/* Social-preview overlay: a SIBLING of the export-target card (never a
-					    descendant), so the PNG capture and the Remotion render never see it. It
-					    sits inside the fit-scaled wrapper, so it tracks the card's visible
-					    on-screen rect at any viewport size for free. */}
-					<AnimatePresence>
-						{activeSocialPlatform && (
-							<SocialPreviewOverlay
-								platform={activeSocialPlatform}
-								showGuides={socialShowGuides}
-								radius={cardRadius}
-							/>
-						)}
-					</AnimatePresence>
-				</div>
+				) : (
+					<div
+						className="shrink-0"
+						style={{ transform: `scale(${fitScaleValue})`, transformOrigin: "center center" }}
+					>
+						{cardElement}
+					</div>
+				)}
 			</div>
 
 			<div className="flex shrink-0 flex-col items-center gap-2 pb-3">
