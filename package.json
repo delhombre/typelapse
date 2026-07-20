@@ -7,13 +7,14 @@
 	"scripts": {
 		"dev": "vite",
 		"dev:server": "tsx watch server/index.ts",
-		"build": "tsc && vite build",
+		"build": "tsc && tsc -p server/tsconfig.json && vite build",
 		"preview": "vite preview",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"check-types": "tsc --noEmit"
+		"check-types": "tsc --noEmit",
+		"typecheck:server": "tsc -p server/tsconfig.json"
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.19.11",

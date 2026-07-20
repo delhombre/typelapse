@@ -113,6 +113,15 @@ describe("renderTransition", () => {
 		expect(gone?.opacity).toBe(1);
 	});
 
+	it("keeps opacities finite when a custom timing sets leaveEnd to 0", () => {
+		// Divide-by-zero guard: at t=0 progress/leaveEnd would be 0/0 = NaN.
+		for (const t of [0, 0.5, 1]) {
+			for (const token of renderTransition(from, to, t, { leaveEnd: 0 })) {
+				expect(Number.isFinite(token.opacity)).toBe(true);
+			}
+		}
+	});
+
 	it("holds entering tokens invisible until their start", () => {
 		const entered = renderTransition(from, to, 0.5, { enterStart: 0.5 }).find(
 			(t) => t.key === "new",

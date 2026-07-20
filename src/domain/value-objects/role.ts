@@ -1,3 +1,4 @@
+// Groundwork: team-workspaces domain, intentional but not yet wired into the running app.
 const ROLE_NAMES = ["owner", "admin", "member"] as const;
 export type RoleName = (typeof ROLE_NAMES)[number];
 

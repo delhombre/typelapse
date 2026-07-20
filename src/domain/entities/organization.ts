@@ -1,3 +1,4 @@
+// Groundwork: team-workspaces domain, intentional but not yet wired into the running app.
 import { Plan } from "../value-objects/plan";
 import { type Permission, Role } from "../value-objects/role";
 import { Member } from "./member";

@@ -7,7 +7,6 @@ export interface CloudThemePayload {
 	foreground: string;
 	fontFamily: string;
 	fontSize: number;
-	padding: number;
 	borderRadius: number;
 }
 

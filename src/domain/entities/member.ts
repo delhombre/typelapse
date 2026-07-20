@@ -1,3 +1,4 @@
+// Groundwork: team-workspaces domain, intentional but not yet wired into the running app.
 import type { Permission, Role } from "../value-objects/role";
 
 export interface MemberProps {
