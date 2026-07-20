@@ -25,8 +25,12 @@ import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	resolveSocialPlatform,
+	useSocialPreviewStore,
+} from "@/presentation/stores/social-preview.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
 	type CSSProperties,
 	type ReactNode,
@@ -41,6 +45,8 @@ import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
+import { SocialControls } from "./social-controls";
+import { SocialPreviewOverlay } from "./social-preview-overlay";
 import { StepCaption } from "./step-caption";
 
 /** Pre-paint background for the node: mesh base color, image cover CSS, or none. */
@@ -143,6 +149,13 @@ export function LivePreview() {
 	const progressStyle = useExportStore((s) => s.progressStyle);
 	const typewriter = useExportStore((s) => s.typewriter);
 	const focusZoom = useExportStore((s) => s.focusZoom);
+	// Social-preview view state (ephemeral): drives an overlay painted OUTSIDE the
+	// export target, so it never reaches the PNG capture or the render payload.
+	const exportWidth = useExportStore((s) => s.width);
+	const exportHeight = useExportStore((s) => s.height);
+	const socialEnabled = useSocialPreviewStore((s) => s.enabled);
+	const socialPlatform = useSocialPreviewStore((s) => s.platform);
+	const socialShowGuides = useSocialPreviewStore((s) => s.showGuides);
 	const previewRef = useRef<HTMLDivElement>(null);
 	const isMesh = isMeshBackground(background);
 	const isImage = isImageBackground(background);
@@ -245,6 +258,16 @@ export function LivePreview() {
 				};
 
 	const isTransparent = background === "transparent";
+	// Outer corner radius of the card (concentric law), reused by the social
+	// overlay so its scrims and labels follow the same rounded frame.
+	const cardRadius = isTransparent ? 0 : concentric(snippet.theme.borderRadius, cardMargin);
+	// Null unless social mode is on AND a platform actually uses the export aspect.
+	const activeSocialPlatform = resolveSocialPlatform(
+		socialEnabled,
+		socialPlatform,
+		exportWidth,
+		exportHeight,
+	);
 
 	return (
 		<div className="flex h-full flex-col">
@@ -253,7 +276,7 @@ export function LivePreview() {
 				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
 			>
 				<div
-					className="shrink-0"
+					className="relative shrink-0"
 					style={{ transform: `scale(${fitScaleValue})`, transformOrigin: "center center" }}
 				>
 					<motion.div
@@ -272,7 +295,7 @@ export function LivePreview() {
 							// Concentric law: the outer corner follows the window's radius plus the
 							// margin, so a square window (radius 0) yields a square card. A soft
 							// outer corner around a sharp window reads incoherent.
-							borderRadius: isTransparent ? 0 : concentric(snippet.theme.borderRadius, cardMargin),
+							borderRadius: cardRadius,
 							// Mesh + image are painted imperatively by useDynamicBackground; this is
 							// the pre-paint fallback so there is no flash before the effect runs.
 							background: staticBackground(background, isMesh, isImage),
@@ -339,11 +362,26 @@ export function LivePreview() {
 							)}
 						</div>
 					</motion.div>
+
+					{/* Social-preview overlay: a SIBLING of the export-target card (never a
+					    descendant), so the PNG capture and the Remotion render never see it. It
+					    sits inside the fit-scaled wrapper, so it tracks the card's visible
+					    on-screen rect at any viewport size for free. */}
+					<AnimatePresence>
+						{activeSocialPlatform && (
+							<SocialPreviewOverlay
+								platform={activeSocialPlatform}
+								showGuides={socialShowGuides}
+								radius={cardRadius}
+							/>
+						)}
+					</AnimatePresence>
 				</div>
 			</div>
 
-			<div className="flex shrink-0 justify-center pb-3">
+			<div className="flex shrink-0 flex-col items-center gap-2 pb-3">
 				<PlaybackControls />
+				<SocialControls />
 			</div>
 		</div>
 	);
