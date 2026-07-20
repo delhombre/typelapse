@@ -1,3 +1,9 @@
+export {
+	MAX_WALKTHROUGH_FILES,
+	MAX_WALKTHROUGH_LINES,
+	budgetWalkthrough,
+} from "./budget";
+export type { BudgetedWalkthrough } from "./budget";
 export { chapterSnapshots } from "./chapters";
 export type { DiffChapter } from "./chapters";
 export { diffToSnapshots } from "./diff-to-snapshots";
