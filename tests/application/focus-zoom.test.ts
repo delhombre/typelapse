@@ -48,7 +48,12 @@ describe("zoomForFocus", () => {
 describe("interpolateZoom", () => {
 	it("returns the eased midpoint of scale and origin", () => {
 		// easeInOutCubic(0.5) === 0.5, so this is the linear midpoint.
-		const mid = interpolateZoom(NO_ZOOM, { scale: ZOOM_SCALE, originYRatio: 0.25 }, 0.5, easeInOutCubic);
+		const mid = interpolateZoom(
+			NO_ZOOM,
+			{ scale: ZOOM_SCALE, originYRatio: 0.25 },
+			0.5,
+			easeInOutCubic,
+		);
 		expect(mid.scale).toBeCloseTo(1.125, 6);
 		expect(mid.originYRatio).toBeCloseTo(0.375, 6);
 	});

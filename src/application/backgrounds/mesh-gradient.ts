@@ -123,16 +123,55 @@ export function isSolidBackground(background: string): boolean {
 	return SOLID_HEX.test(background);
 }
 
-/** `image:<dataURL>` → the data URL; anything else → null. */
+/**
+ * `image:<dataURL>` → the inline data-image URL; anything else → null.
+ *
+ * Only `data:image/...` payloads are honored. A remote or other-scheme payload
+ * (`image:http://...`, `image:javascript:...`, `image:data:text/html,...`) is
+ * rejected here: it would otherwise flow into a CSS `url(...)` and make the
+ * renderer (headless Chrome, server-side) fetch it, an SSRF vector.
+ */
 export function parseImageBackground(background: string): string | null {
 	if (!background.startsWith("image:")) {
 		return null;
 	}
-	return background.slice("image:".length);
+	const payload = background.slice("image:".length);
+	return payload.startsWith("data:image/") ? payload : null;
 }
 
 export function isImageBackground(background: string): boolean {
 	return parseImageBackground(background) !== null;
+}
+
+/**
+ * True when a background string is safe to paint server-side: it can never make
+ * the renderer fetch a remote resource. The render route validates the untrusted
+ * payload with this at the trust boundary, falling back to a default mesh when it
+ * fails. Default-deny: only these known-safe forms pass.
+ *  - `mesh:<id>` and `transparent`: no resource reference at all.
+ *  - a solid hex color.
+ *  - a CSS gradient that contains no `url(` (so it cannot reference a URL).
+ *  - `image:data:image/...`: an inline data URL only (see parseImageBackground).
+ * Anything else, notably a raw `url(...)` or an `image:` with a non-data scheme,
+ * is rejected.
+ */
+export function isSafeBackground(background: string): boolean {
+	if (background === "transparent") {
+		return true;
+	}
+	if (background.startsWith("mesh:")) {
+		return true;
+	}
+	if (isSolidBackground(background)) {
+		return true;
+	}
+	if (background.startsWith("image:")) {
+		return parseImageBackground(background) !== null;
+	}
+	if (/gradient\(/i.test(background)) {
+		return !/url\(/i.test(background);
+	}
+	return false;
 }
 
 /** CSS `background` string for a preset at time `t` seconds (loops every MESH_LOOP_PERIOD). */
