@@ -133,6 +133,22 @@ describe("chapterSnapshots", () => {
 		expect(out[0]?.label).toBe(`1/1 · ${"a".repeat(59)}…`);
 	});
 
+	it("keeps a deletion-only later chapter so the k/N numbering still holds", () => {
+		// A commit that deletes a file normalizes to a lone "Before" frame (its empty
+		// "After" is dropped). Slicing that away would empty the chapter while N still
+		// counts it, so its k/N heading vanishes. It must be kept and reheaded instead.
+		const deleteFile = nl(["--- a/gone.ts", "+++ /dev/null", "@@ -1,2 +0,0 @@", "-a", "-b"]);
+		const out = chapterSnapshots([
+			{ title: "seed", diffText: editDiff("a.ts", "const x = 1;", "const x = 2;") },
+			{ title: "remove gone", diffText: deleteFile },
+		]);
+
+		expect(out.map((s) => s.label)).toEqual(["1/2 · seed", "After", "2/2 · remove gone"]);
+		const deletion = out.at(-1);
+		expect(deletion?.code).toContain("a");
+		expect(deletion?.code).toContain("b");
+	});
+
 	it("does not over-drop a later chapter that is a brand-new file (it has no before frame)", () => {
 		const out = chapterSnapshots([
 			{ title: "seed", diffText: editDiff("a.ts", "const x = 1;", "const x = 2;") },
