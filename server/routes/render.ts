@@ -87,6 +87,7 @@ interface RenderRequest {
 	showLineNumbers?: boolean;
 	lineNumberStart?: number;
 	framePadding: number;
+	cardMargin?: number;
 	width?: number;
 	height?: number;
 	fps?: number;
@@ -127,6 +128,9 @@ const MAX_STEP_DURATION_MS = 30_000;
 const DEFAULT_STEP_DURATION_MS = 1200;
 const MIN_TRANSITION_MS = 100;
 const MAX_TRANSITION_MS = 5_000;
+const MIN_CARD_MARGIN = 16;
+const MAX_CARD_MARGIN = 64;
+const DEFAULT_CARD_MARGIN = 32;
 const MAX_STEPS = 50;
 /** Overflow guard for durationInFrames, above the maximum the clamps above allow. */
 const MAX_TOTAL_FRAMES = 108_000;
@@ -199,6 +203,12 @@ renderRoute.post(
 			MIN_TRANSITION_MS,
 			MAX_TRANSITION_MS,
 			TRANSITION_MS,
+		);
+		const cardMargin = clampNumber(
+			body.cardMargin,
+			MIN_CARD_MARGIN,
+			MAX_CARD_MARGIN,
+			DEFAULT_CARD_MARGIN,
 		);
 		const fmt = safeFormat(body.format);
 		// Clamp each step's hold; the code / focus / caption pass through untouched.
@@ -273,6 +283,7 @@ renderRoute.post(
 				showLineNumbers,
 				lineNumberStart,
 				framePadding,
+				cardMargin,
 				plan,
 				transitionMs,
 				loop,

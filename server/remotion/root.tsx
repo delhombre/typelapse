@@ -26,6 +26,7 @@ const DEFAULT_INPUT: RenderInput = {
 	showLineNumbers: true,
 	lineNumberStart: 1,
 	framePadding: 24,
+	cardMargin: 32,
 	transitionMs: 650,
 	loop: false,
 	typewriter: false,

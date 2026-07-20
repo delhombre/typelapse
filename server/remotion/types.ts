@@ -36,6 +36,9 @@ export interface RenderInput {
 	/** First gutter number (display-only; focus stays relative to line 1). */
 	lineNumberStart: number;
 	framePadding: number;
+	/** Mesh gap (px, unscaled) between the window edge and the card edge, matching
+	 *  the preview's cardMargin so the exported video keeps the same proportion. */
+	cardMargin: number;
 	/** Laid-out magic-move frames + transitions, precomputed server-side. */
 	plan: MagicMovePlan;
 	/** Morph duration between steps, in milliseconds. */
