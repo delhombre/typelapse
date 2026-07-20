@@ -155,6 +155,29 @@ function normalizeCardMargin(value: unknown): number {
 	);
 }
 
+/**
+ * Apply the export-store-owned settings (tempo / typewriter / zoom / progress
+ * style) carried by an imported snapshot or share link. Each is applied only when
+ * present and valid, so an older file that omits them keeps the current values
+ * (the defaults on a fresh load): back-compatible by construction.
+ */
+function applyExportSettings(obj: Record<string, unknown>): void {
+	const ex = useExportStore.getState();
+	const { transitionMs, typewriter, focusZoom, progressStyle } = obj;
+	if (transitionMs === 400 || transitionMs === 650 || transitionMs === 1000) {
+		ex.setTransitionMs(transitionMs);
+	}
+	if (typeof typewriter === "boolean") {
+		ex.setTypewriter(typewriter);
+	}
+	if (typeof focusZoom === "boolean") {
+		ex.setFocusZoom(focusZoom);
+	}
+	if (progressStyle === "reels" || progressStyle === "bar" || progressStyle === "none") {
+		ex.setProgressStyle(progressStyle);
+	}
+}
+
 export function setHighlighter(highlighter: HighlighterPort) {
 	if ("getRawHighlighter" in highlighter) {
 		(highlighter as { getRawHighlighter: () => Promise<Highlighter> })
@@ -600,8 +623,19 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	exportToJson: () => {
-		const { snippet, background, windowChrome, showLineNumbers, lineNumberStart, cardMargin } =
-			get();
+		const {
+			snippet,
+			background,
+			windowChrome,
+			showLineNumbers,
+			lineNumberStart,
+			framePadding,
+			cardMargin,
+			watermark,
+		} = get();
+		// The export store owns tempo / typewriter / zoom / progress style; pull
+		// them in so a single JSON file captures the ENTIRE studio state.
+		const { transitionMs, typewriter, focusZoom, progressStyle } = useExportStore.getState();
 		const data = {
 			title: snippet.title,
 			code: snippet.code,
@@ -611,7 +645,13 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			windowChrome,
 			showLineNumbers,
 			lineNumberStart,
+			framePadding,
 			cardMargin,
+			watermark,
+			progressStyle,
+			typewriter,
+			focusZoom,
+			transitionMs,
 			steps: snippet.steps.map((step) => {
 				const focus = formatLineRanges(step.highlightRanges);
 				const serialized: {
@@ -717,6 +757,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 				: 1;
 		// Defensive: absent or out-of-set margins snap to a valid preset (default 32).
 		const cardMargin = normalizeCardMargin(obj.cardMargin);
+		// Defensive: absent/invalid framePadding and watermark fall back to defaults.
+		const framePadding =
+			typeof obj.framePadding === "number" && Number.isFinite(obj.framePadding)
+				? obj.framePadding
+				: 24;
+		const watermark = typeof obj.watermark === "string" ? obj.watermark : "";
 
 		cancelRaf();
 		clearRecordTimer();
@@ -726,13 +772,18 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			windowChrome,
 			showLineNumbers,
 			lineNumberStart,
+			framePadding,
 			cardMargin,
+			watermark,
 			currentStepIndex: 0,
 			isPlaying: false,
 			playback: null,
 			playbackProgress: 0,
 			isRecording: false,
 		});
+		// The export store owns tempo / typewriter / zoom / progress style: apply
+		// those from the same snapshot so a JSON file or share link restores them too.
+		applyExportSettings(obj);
 
 		get().rebuildPlan();
 	},

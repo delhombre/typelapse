@@ -27,16 +27,10 @@ export function TopNav() {
 		const shareData = decodeShareLink();
 		if (shareData) {
 			try {
+				// importFromJson restores the export-store settings (tempo, zoom,
+				// typewriter, progress style) from the same snapshot, so no manual
+				// re-application is needed here.
 				importFromJson(JSON.stringify(shareData));
-				// Morph tempo lives in the export store, so apply it alongside the import.
-				const tempo = shareData.transitionMs;
-				if (tempo === 400 || tempo === 650 || tempo === 1000) {
-					useExportStore.getState().setTransitionMs(tempo);
-				}
-				// Focus zoom is an export-store toggle too; restore it from the link.
-				if (typeof shareData.focusZoom === "boolean") {
-					useExportStore.getState().setFocusZoom(shareData.focusZoom);
-				}
 				history.replaceState(null, "", window.location.pathname);
 			} catch {
 				// Invalid share data
@@ -46,8 +40,19 @@ export function TopNav() {
 
 	const handleShare = useCallback(async () => {
 		const state = useSnippetStore.getState();
-		const { snippet, background, windowChrome, showLineNumbers, lineNumberStart, cardMargin } =
-			state;
+		const {
+			snippet,
+			background,
+			windowChrome,
+			showLineNumbers,
+			lineNumberStart,
+			framePadding,
+			cardMargin,
+			watermark,
+		} = state;
+		// The export store owns tempo / typewriter / zoom / progress style; carry
+		// them in the link so it restores the ENTIRE studio state on open.
+		const exportState = useExportStore.getState();
 		const link = encodeShareLink({
 			title: snippet.title,
 			code: snippet.code,
@@ -57,7 +62,9 @@ export function TopNav() {
 			windowChrome,
 			showLineNumbers,
 			lineNumberStart,
+			framePadding,
 			cardMargin,
+			watermark,
 			steps: snippet.steps.map((s) => {
 				const focus = formatLineRanges(s.highlightRanges);
 				return {
@@ -67,8 +74,10 @@ export function TopNav() {
 					caption: s.annotation || undefined,
 				};
 			}),
-			transitionMs: useExportStore.getState().transitionMs,
-			focusZoom: useExportStore.getState().focusZoom,
+			progressStyle: exportState.progressStyle,
+			typewriter: exportState.typewriter,
+			transitionMs: exportState.transitionMs,
+			focusZoom: exportState.focusZoom,
 		});
 		const copied = await copyToClipboard(link);
 		if (copied) {
