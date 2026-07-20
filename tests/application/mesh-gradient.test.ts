@@ -3,6 +3,7 @@ import {
 	MESH_PRESETS,
 	isImageBackground,
 	isMeshBackground,
+	isSafeBackground,
 	isSolidBackground,
 	meshGradientCss,
 	parseImageBackground,
@@ -105,5 +106,38 @@ describe("image backgrounds", () => {
 	it("recognizes image backgrounds", () => {
 		expect(isImageBackground(`image:${url}`)).toBe(true);
 		expect(isImageBackground("#1e293b")).toBe(false);
+	});
+
+	it("only honors inline data-image payloads, never a remote or other-scheme URL", () => {
+		// SSRF guard: a non-data payload would make the renderer fetch it, so it is
+		// rejected at the parse boundary (returns null, and is not an image background).
+		expect(parseImageBackground("image:http://169.254.169.254/latest")).toBeNull();
+		expect(parseImageBackground("image:https://evil.example/a.png")).toBeNull();
+		expect(parseImageBackground("image:javascript:alert(1)")).toBeNull();
+		expect(parseImageBackground("image:data:text/html,<script>")).toBeNull();
+		expect(isImageBackground("image:http://internal/x")).toBe(false);
+	});
+});
+
+describe("isSafeBackground", () => {
+	it("accepts backgrounds that can never trigger a network fetch", () => {
+		expect(isSafeBackground("mesh:aurora")).toBe(true);
+		expect(isSafeBackground("mesh:whatever")).toBe(true);
+		expect(isSafeBackground("#1e293b")).toBe(true);
+		expect(isSafeBackground("#abc")).toBe(true);
+		expect(isSafeBackground("transparent")).toBe(true);
+		expect(isSafeBackground("linear-gradient(#000, #111)")).toBe(true);
+		expect(isSafeBackground("radial-gradient(circle at 50% 50%, #000, #fff)")).toBe(true);
+		expect(isSafeBackground("image:data:image/png;base64,AAAA")).toBe(true);
+	});
+
+	it("rejects anything that would make the server fetch a remote resource", () => {
+		expect(isSafeBackground("image:http://169.254.169.254/latest/meta-data")).toBe(false);
+		expect(isSafeBackground("image:https://evil.example/a.png")).toBe(false);
+		expect(isSafeBackground("image:javascript:alert(1)")).toBe(false);
+		expect(isSafeBackground("url(http://internal/secret)")).toBe(false);
+		expect(isSafeBackground("linear-gradient(#000, url(http://evil))")).toBe(false);
+		expect(isSafeBackground("http://evil.example/x.png")).toBe(false);
+		expect(isSafeBackground("")).toBe(false);
 	});
 });
