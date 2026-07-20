@@ -5,50 +5,105 @@
 @theme {
 	--font-sans: "Inter", system-ui, sans-serif;
 	--font-mono: "JetBrains Mono", ui-monospace, monospace;
+	--font-serif: "Newsreader", Georgia, serif;
+
+	/* One restrained accent: used only for focus + a hint of primary emphasis. */
+	--color-accent: oklch(0.62 0.19 268);
+
+	/* Editorial paper palette: the landing's whole world. */
+	--color-paper: #faf9f6;
+	--color-ink: #1c1b19;
+	--color-ash: #6e6b64;
+
+	/* Strong custom easings: the built-in CSS curves are too weak. */
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+	--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+html {
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
 }
 
 * {
 	scrollbar-width: thin;
-	scrollbar-color: oklch(0.3 0 0) transparent;
+	scrollbar-color: color-mix(in oklch, currentColor 18%, transparent) transparent;
 }
 
 ::selection {
-	background: oklch(0.6 0.15 250 / 0.3);
+	background: oklch(0.62 0.19 268 / 0.28);
 }
 
-/* Progress bar glow */
-@keyframes progress-glow {
-	0%,
-	100% {
-		box-shadow: 0 0 4px 0 oklch(0.65 0.15 250 / 0.4);
+/* Crafted focus: only for keyboard users, in the accent color. */
+:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* Reduced motion: keep opacity/color, drop movement (Apple's guidance). */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
 	}
-	50% {
-		box-shadow: 0 0 8px 2px oklch(0.65 0.15 250 / 0.6);
+	.bg-animate-playing {
+		animation: none !important;
 	}
 }
 
-.progress-bar-active {
-	animation: progress-glow 2s ease-in-out infinite;
+/* Reduced transparency: drop the frosted-glass blur on material surfaces. */
+/* biome-ignore lint/correctness/noUnknownMediaFeatureName: prefers-reduced-transparency is a valid Media Queries Level 5 feature */
+@media (prefers-reduced-transparency: reduce) {
+	* {
+		backdrop-filter: none !important;
+	}
 }
 
-/* Code frame premium glow — layered shadows for depth */
+/* Higher contrast: make the keyboard focus ring more prominent. */
+@media (prefers-contrast: more) {
+	:focus-visible {
+		outline-width: 3px;
+		outline-offset: 3px;
+	}
+}
+
+/* Code frame: a pure-black hairline outline + layered shadows for depth. */
 .code-frame-glow {
 	box-shadow:
-		0 0 0 1px oklch(0.3 0 0 / 0.08),
+		0 0 0 1px oklch(0 0 0 / 0.1),
 		0 1px 2px oklch(0 0 0 / 0.06),
 		0 4px 12px -2px oklch(0 0 0 / 0.12),
 		0 12px 36px -8px oklch(0 0 0 / 0.16),
 		0 24px 60px -12px oklch(0 0 0 / 0.1);
 }
 
+/* Dark: a pure-white hairline + a bright top inner edge (light on the material). */
 :where(.dark) .code-frame-glow {
 	box-shadow:
-		0 0 0 1px oklch(1 0 0 / 0.04),
+		inset 0 1px 0 oklch(1 0 0 / 0.06),
+		0 0 0 1px oklch(1 0 0 / 0.1),
 		0 1px 2px oklch(0 0 0 / 0.3),
 		0 4px 12px -2px oklch(0 0 0 / 0.4),
 		0 12px 36px -8px oklch(0 0 0 / 0.5),
 		0 24px 60px -12px oklch(0 0 0 / 0.35),
 		0 0 80px -20px oklch(0.5 0.12 250 / 0.06);
+}
+
+/* The landing is always paper. Even when the OS puts `dark` on <html>, the fan's
+   code frames keep a soft, light shadow (two classes outrank the :where() rule). */
+.landing-root .code-frame-glow {
+	box-shadow:
+		0 0 0 1px oklch(0 0 0 / 0.07),
+		0 2px 6px -2px oklch(0 0 0 / 0.08),
+		0 12px 32px -10px oklch(0 0 0 / 0.16),
+		0 26px 60px -18px oklch(0 0 0 / 0.14);
 }
 
 /* Subtle gradient drift during playback */
@@ -69,17 +124,25 @@
 	animation: gradient-drift 8s ease-in-out infinite;
 }
 
-@keyframes shine {
-	0% {
-		left: -50%;
-		top: -20%;
-	}
-	100% {
-		left: 150%;
-		top: 20%;
-	}
+/* Landing "studio" editor panel: flatten Shiki's own bg and add a line gutter. */
+.studio-code pre {
+	margin: 0;
+	background: transparent !important;
+	white-space: pre;
 }
-
-.group:hover .shine-effect {
-	animation: shine 0.9s ease-out 0.3s;
+.studio-code code {
+	counter-reset: studio-line;
+	display: block;
+}
+.studio-code .line {
+	counter-increment: studio-line;
+	display: block;
+}
+.studio-code .line::before {
+	content: counter(studio-line, decimal-leading-zero);
+	display: inline-block;
+	width: 2ch;
+	margin-right: 1.75em;
+	text-align: right;
+	color: color-mix(in oklch, currentColor 22%, transparent);
 }

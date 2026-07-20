@@ -49,3 +49,47 @@ describe("Step", () => {
 		expect(() => Step.create({ code: "x", duration: -100 })).toThrow();
 	});
 });
+
+describe("Step.with", () => {
+	const base = Step.create({
+		code: "const x = 1;",
+		duration: 1500,
+		highlightRanges: [HighlightRange.create({ startLine: 1, endLine: 2 })],
+		annotation: "declare",
+	});
+
+	it("preserves the step id across an edit", () => {
+		expect(base.with({ duration: 2000 }).id).toBe(base.id);
+		expect(base.with({ annotation: "renamed" }).id).toBe(base.id);
+		expect(base.with({ highlightRanges: [] }).id).toBe(base.id);
+	});
+
+	it("applies the requested change and keeps every other field", () => {
+		const edited = base.with({ duration: 2000 });
+
+		expect(edited.duration).toBe(2000);
+		expect(edited.code).toBe(base.code);
+		expect(edited.highlightRanges).toEqual(base.highlightRanges);
+		expect(edited.annotation).toBe("declare");
+	});
+
+	it("returns a new instance, leaving the original untouched", () => {
+		const edited = base.with({ duration: 2000 });
+
+		expect(edited).not.toBe(base);
+		expect(base.duration).toBe(1500);
+	});
+
+	it("clears the annotation when explicitly set to undefined", () => {
+		expect(base.with({ annotation: undefined }).annotation).toBeUndefined();
+	});
+
+	it("keeps the annotation when the change does not mention it", () => {
+		expect(base.with({ highlightRanges: [] }).annotation).toBe("declare");
+	});
+
+	it("validates like create", () => {
+		expect(() => base.with({ code: "  " })).toThrow();
+		expect(() => base.with({ duration: 0 })).toThrow();
+	});
+});

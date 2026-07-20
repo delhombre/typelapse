@@ -9,7 +9,26 @@ interface ShareData {
 	language: string;
 	themeName: string;
 	background: string;
-	steps: { code: string; duration: number }[];
+	/** Window chrome variant. Optional; defaults to macos when absent. */
+	windowChrome?: string;
+	/** Line-number gutter settings. Optional; default on / start 1. */
+	showLineNumbers?: boolean;
+	lineNumberStart?: number;
+	/** Code padding inside the window (px). Optional; default 24 when absent. */
+	framePadding?: number;
+	/** Mesh margin around the code window (px). Optional; default 32 when absent. */
+	cardMargin?: number;
+	/** Watermark text overlay. Optional; default none when absent. */
+	watermark?: string;
+	steps: { code: string; duration: number; focus?: string; caption?: string }[];
+	/** Progress indicator style. Optional; default "reels" when absent. */
+	progressStyle?: string;
+	/** Type the first step out character by character. Optional; default false. */
+	typewriter?: boolean;
+	/** Morph tempo in ms (400 | 650 | 1000). Optional; default 650 when absent. */
+	transitionMs?: number;
+	/** Cinematic push-in on focused lines. Optional; default false when absent. */
+	focusZoom?: boolean;
 }
 
 export function encodeShareLink(data: ShareData): string {
