@@ -103,6 +103,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			showLineNumbers,
 			lineNumberStart,
 			framePadding,
+			cardMargin,
 			watermark,
 		} = snippetState;
 
@@ -189,6 +190,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				showLineNumbers,
 				lineNumberStart,
 				framePadding,
+				cardMargin,
 				width: resolved.config.width,
 				height: resolved.config.height,
 				fps: resolved.config.fps,

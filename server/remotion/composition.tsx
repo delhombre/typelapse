@@ -90,7 +90,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 
 	const frame = useCurrentFrame();
 	const { fps, width, height, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, transitionMs, loop, typewriter, focusZoom, progressStyle, watermark, audioDataUrl } =
+	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, loop, typewriter, focusZoom, progressStyle, watermark, audioDataUrl } =
 		input;
 
 	const segments = buildSegments(
@@ -129,6 +129,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				showLineNumbers={showLineNumbers}
 				lineNumberStart={lineNumberStart}
 				framePadding={framePadding}
+				cardMargin={cardMargin}
 				canvasWidth={width}
 				canvasHeight={height}
 				reels={
@@ -283,6 +284,7 @@ function CenteredFrame({
 	showLineNumbers,
 	lineNumberStart,
 	framePadding,
+	cardMargin,
 	canvasWidth,
 	canvasHeight,
 	reels,
@@ -296,6 +298,7 @@ function CenteredFrame({
 	showLineNumbers: boolean;
 	lineNumberStart: number;
 	framePadding: number;
+	cardMargin: number;
 	canvasWidth: number;
 	canvasHeight: number;
 	reels?: React.ReactNode;
@@ -322,11 +325,15 @@ function CenteredFrame({
 		hasCaption: caption != null,
 		scale: VIDEO_SCALE,
 	});
-	// Uniform fit into the canvas with a safe-area margin each side, so a tall
-	// walkthrough or a wide line is never cropped: same idea as the preview.
+	// The card wraps the window (and caption) in a proportional mesh border: the
+	// same cardMargin the preview paints, as transparent padding the full-bleed
+	// background AbsoluteFill shows through. Fit the PADDED card into the canvas
+	// (still inside the safe-area margin) so the border scales with cardMargin,
+	// exactly as the preview does, instead of being a fixed safe-area gap.
+	const cardPadding = cardMargin * VIDEO_SCALE;
 	const scale = fitScale(
-		natural.width,
-		natural.height,
+		natural.width + 2 * cardPadding,
+		natural.height + 2 * cardPadding,
 		canvasWidth * (1 - 2 * CANVAS_MARGIN),
 		canvasHeight * (1 - 2 * CANVAS_MARGIN),
 	);
@@ -345,52 +352,60 @@ function CenteredFrame({
 				justifyContent: "center",
 			}}
 		>
-			{/* The card keeps its natural pixel size; the whole unit is scaled to fit
-			    the canvas. Uniform scale preserves WYSIWYG: same layout, different zoom.
-			    `position: relative` anchors the reels bar, which floats just above the
-			    window at the window's width: the same content column as the preview. */}
+			{/* The card = the content column + a transparent mesh border of cardPadding
+			    on all four sides; the full-bleed background AbsoluteFill shows through
+			    it. The whole card is uniformly scaled to fit the canvas, so the border
+			    is proportional to cardMargin exactly as in the preview (WYSIWYG). */}
 			<div
 				style={{
-					position: "relative",
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
+					padding: cardPadding,
 					transform: `scale(${scale})`,
 					transformOrigin: "center center",
 				}}
 			>
-				{reels && (
-					<div
-						style={{
-							position: "absolute",
-							top: -(10 * VIDEO_SCALE),
-							left: 0,
-							width: natural.width,
-							zIndex: 20,
-							pointerEvents: "none",
-						}}
-					>
-						{reels}
-					</div>
-				)}
+				{/* Content column: `position: relative` anchors the reels bar, which
+				    floats just above the window at the window's width. */}
 				<div
 					style={{
-						width: natural.width,
-						background: theme.background,
-						borderRadius: radius,
-						overflow: "hidden",
-						boxShadow,
+						position: "relative",
+						display: "flex",
+						flexDirection: "column",
+						alignItems: "center",
 					}}
 				>
-					<FrameChrome
-						chrome={windowChrome}
-						title={title}
-						foreground={theme.foreground}
-						scale={VIDEO_SCALE}
-					/>
-					{children}
+					{reels && (
+						<div
+							style={{
+								position: "absolute",
+								top: -(10 * VIDEO_SCALE),
+								left: 0,
+								width: natural.width,
+								zIndex: 20,
+								pointerEvents: "none",
+							}}
+						>
+							{reels}
+						</div>
+					)}
+					<div
+						style={{
+							width: natural.width,
+							background: theme.background,
+							borderRadius: radius,
+							overflow: "hidden",
+							boxShadow,
+						}}
+					>
+						<FrameChrome
+							chrome={windowChrome}
+							title={title}
+							foreground={theme.foreground}
+							scale={VIDEO_SCALE}
+						/>
+						{children}
+					</div>
+					{caption}
 				</div>
-				{caption}
 			</div>
 		</div>
 	);
