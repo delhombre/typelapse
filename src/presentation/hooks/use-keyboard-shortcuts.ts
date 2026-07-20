@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 /**
  * Returns true if the active element is an input, textarea, contenteditable,
- * or inside a Monaco editor — meaning keyboard shortcuts should be suppressed.
+ * or inside a Monaco editor: meaning keyboard shortcuts should be suppressed.
  */
 function isEditableElementFocused(): boolean {
 	const el = document.activeElement;
@@ -33,7 +33,7 @@ export function useKeyboardShortcuts(): void {
 		function handleKeyDown(e: KeyboardEvent) {
 			const store = useSnippetStore.getState();
 
-			// Ctrl+Enter / Cmd+Enter — capture step (works even when typing)
+			// Ctrl+Enter / Cmd+Enter: capture step (works even when typing)
 			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				store.captureStep();

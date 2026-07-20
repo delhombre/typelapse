@@ -1,4 +1,4 @@
-import Editor, { type Monaco } from "@monaco-editor/react";
+import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { useCallback, useRef } from "react";
 
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -49,8 +49,21 @@ export function CodeEditor() {
 			? "typelapse-dark"
 			: "typelapse-light";
 
-	const handleMount = useCallback((_: unknown, monaco: Monaco) => {
+	const handleMount = useCallback<OnMount>((editor, monaco) => {
 		monacoRef.current = monaco;
+
+		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
+		// toggles it: same keybinding VS Code uses. Also surfaces in the command
+		// palette (F1 → "Toggle word wrap") for discoverability.
+		editor.addAction({
+			id: "toggle-word-wrap",
+			label: "Toggle word wrap",
+			keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
+			run: (ed) => {
+				const wrapped = ed.getOption(monaco.editor.EditorOption.wordWrap) !== "off";
+				ed.updateOptions({ wordWrap: wrapped ? "off" : "on" });
+			},
+		});
 
 		// App-level themes (follow light/dark mode)
 		monaco.editor.defineTheme("typelapse-dark", {
@@ -118,18 +131,18 @@ export function CodeEditor() {
 
 	return (
 		<div className="flex h-full flex-col gap-3">
-			<div className="flex items-center gap-3">
+			<div className="flex items-center gap-2">
 				<input
 					type="text"
 					value={snippet.title}
 					onChange={(e) => setTitle(e.target.value)}
-					placeholder="Snippet title…"
-					className="h-8 flex-1 border border-neutral-200 bg-transparent px-3 font-mono text-xs text-neutral-900 outline-none transition-colors focus:border-neutral-400 dark:border-neutral-800 dark:text-neutral-100 dark:focus:border-neutral-500"
+					placeholder="Untitled snippet"
+					className="h-9 flex-1 rounded-xl border border-neutral-200/70 bg-white px-3 text-sm text-neutral-900 outline-none transition focus:border-neutral-300 focus:ring-2 focus:ring-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-700 dark:focus:ring-white/5"
 				/>
 				<select
 					value={snippet.language}
 					onChange={(e) => setLanguage(e.target.value)}
-					className="h-8 border border-neutral-200 bg-transparent px-2 font-mono text-[10px] uppercase tracking-wider text-neutral-600 outline-none transition-colors focus:border-neutral-400 dark:border-neutral-800 dark:text-neutral-400 dark:focus:border-neutral-500"
+					className="h-9 rounded-xl border border-neutral-200/70 bg-white px-2.5 text-xs font-medium text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 				>
 					{LANGUAGES.map((lang) => (
 						<option key={lang.value} value={lang.value}>
@@ -138,14 +151,18 @@ export function CodeEditor() {
 					))}
 				</select>
 			</div>
-			<div className="min-h-0 flex-1 overflow-hidden border border-neutral-200 dark:border-neutral-800">
+			<div
+				title="⌥Z: toggle word wrap"
+				className="min-h-[260px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800"
+			>
 				<Editor
-					defaultValue={snippet.code}
+					value={snippet.code}
 					language={snippet.language}
 					theme={editorTheme}
 					onChange={handleChange}
 					onMount={handleMount}
 					options={{
+						fixedOverflowWidgets: true,
 						minimap: { enabled: false },
 						fontSize: 13,
 						fontFamily: "'JetBrains Mono', ui-monospace, monospace",
@@ -164,7 +181,7 @@ export function CodeEditor() {
 							verticalScrollbarSize: 6,
 							horizontalScrollbarSize: 6,
 						},
-						wordWrap: "on",
+						wordWrap: "off",
 						tabSize: 2,
 						autoIndent: "full",
 						formatOnPaste: true,
