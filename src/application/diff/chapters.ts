@@ -100,7 +100,10 @@ export function chapterSnapshots(
 		let frames = chapter.snapshots;
 		// Every chapter but the first opens on a before-state the previous chapter
 		// already established; drop it so the walkthrough never stalls on a rerun.
-		if (position > 1 && frames[0]?.label === BEFORE_LABEL) {
+		// But a deletion/emptying commit normalizes to a LONE "Before" frame: that
+		// frame IS the whole chapter, so keep it (the length guard) and let it be
+		// reheaded below like any first frame, or the counted chapter would vanish.
+		if (position > 1 && frames.length > 1 && frames[0]?.label === BEFORE_LABEL) {
 			frames = frames.slice(1);
 		}
 		const heading = chapterHeading(position, total, chapter.title);
