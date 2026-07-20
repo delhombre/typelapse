@@ -14,7 +14,6 @@ const DEFAULT_INPUT: RenderInput = {
 		foreground: FG,
 		fontFamily: "'JetBrains Mono', monospace",
 		fontSize: 14,
-		padding: 24,
 		borderRadius: 12,
 	},
 	steps: [

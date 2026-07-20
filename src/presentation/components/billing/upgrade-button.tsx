@@ -1,3 +1,4 @@
+// Groundwork: billing UI, intentionally not mounted yet; the hosted build wires it in.
 import { springs } from "@/presentation/motion";
 import { usePlanStore } from "@/presentation/stores/plan.store";
 import { motion } from "motion/react";

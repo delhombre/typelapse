@@ -151,6 +151,11 @@ export function LivePreview() {
 	// the export bakes in), so the preview sounds identical to the video.
 	useTickAudio();
 
+	// Leaving the studio stops the playback loop: pause() cancels the rAF so it
+	// never ticks against an unmounted view. Record mode (and its debounce timer)
+	// is disarmed separately by ResponsiveShell's own unmount cleanup.
+	useEffect(() => () => useSnippetStore.getState().pause(), []);
+
 	// Fit-to-viewport: the card keeps its natural (unscaled) layout size, so the
 	// PNG/video export captures it untouched, while the whole frame is visually
 	// scaled to fit the viewport. Uniform scale preserves WYSIWYG (same pixels,

@@ -16,7 +16,7 @@ import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradien
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
 import { resolveShikiLanguage, resolveShikiTheme } from "../../src/infrastructure/highlighting/shiki-registry";
 import { buildServerMagicMovePlan } from "../remotion/magic-move-plan";
-import type { RenderInput, StepData, ThemeData } from "../remotion/types";
+import type { RenderInput, RenderRequestBody, StepData } from "../remotion/types";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -76,30 +76,6 @@ function getBundle() {
 	return bundlePromise;
 }
 getHighlighter().catch(console.error);
-
-interface RenderRequest {
-	title: string;
-	language: string;
-	theme: ThemeData;
-	steps: StepData[];
-	background: string;
-	windowChrome?: RenderInput["windowChrome"];
-	showLineNumbers?: boolean;
-	lineNumberStart?: number;
-	framePadding: number;
-	cardMargin?: number;
-	width?: number;
-	height?: number;
-	fps?: number;
-	format?: "mp4" | "webm" | "gif";
-	loop?: boolean;
-	typewriter?: boolean;
-	focusZoom?: boolean;
-	sound?: boolean;
-	progressStyle?: RenderInput["progressStyle"];
-	transitionMs?: number;
-	watermark?: string;
-}
 
 /* ── Request hardening ─────────────────────────────────────────────────────
    The render route is an untrusted trust boundary: the payload drives headless
@@ -168,7 +144,7 @@ renderRoute.post(
 		onError: (c) => c.json({ error: "Payload too large" }, 413),
 	}),
 	async (c) => {
-		const body = (await c.req.json()) as RenderRequest;
+		const body = (await c.req.json()) as RenderRequestBody;
 
 		const {
 			title,

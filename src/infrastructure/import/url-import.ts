@@ -17,6 +17,47 @@ export interface ImportedCode {
 /** Abort a hung request after this many ms. */
 const TIMEOUT_MS = 10_000;
 
+/** Cap the response read into memory so a huge gist cannot OOM the tab. */
+const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+const TOO_LARGE = "That file is too large to import (over 2 MB)";
+
+/**
+ * Read a response body into text, bounded at `maxBytes`. Rejects up front on a
+ * declared Content-Length over the cap, then streams and aborts the moment the
+ * accumulated bytes exceed it, so an unbounded (chunked) response cannot OOM the
+ * tab. Falls back to a bounded `text()` when the body is not streamable.
+ */
+async function readCapped(response: Response, maxBytes: number): Promise<string> {
+	const declared = Number(response.headers.get("content-length"));
+	if (Number.isFinite(declared) && declared > maxBytes) {
+		throw new Error(TOO_LARGE);
+	}
+	const body = response.body;
+	if (!body) {
+		const text = await response.text();
+		if (text.length > maxBytes) {
+			throw new Error(TOO_LARGE);
+		}
+		return text;
+	}
+	const reader = body.getReader();
+	const decoder = new TextDecoder();
+	let text = "";
+	let total = 0;
+	let chunk = await reader.read();
+	while (!chunk.done) {
+		total += chunk.value.byteLength;
+		if (total > maxBytes) {
+			await reader.cancel();
+			throw new Error(TOO_LARGE);
+		}
+		text += decoder.decode(chunk.value, { stream: true });
+		chunk = await reader.read();
+	}
+	text += decoder.decode();
+	return text;
+}
+
 interface GistFile {
 	filename?: string;
 	content?: string;
@@ -59,8 +100,10 @@ export async function importCodeFromUrl(input: string): Promise<ImportedCode> {
 			throw new Error(`Could not fetch (HTTP ${response.status})`);
 		}
 
+		const payload = await readCapped(response, MAX_IMPORT_BYTES);
+
 		if (resolved.kind === "gist-api") {
-			const data = (await response.json()) as GistResponse;
+			const data = JSON.parse(payload) as GistResponse;
 			const file = firstGistFile(data);
 			if (!file?.content) {
 				throw new Error("That gist has no readable files");
@@ -69,7 +112,7 @@ export async function importCodeFromUrl(input: string): Promise<ImportedCode> {
 			return { code: file.content, language: languageFromFilename(title), title };
 		}
 
-		const code = await response.text();
+		const code = payload;
 		const title = filenameFromUrl(resolved.fetchUrl);
 		return { code, language: languageFromFilename(title), title };
 	} catch (err) {

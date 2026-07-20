@@ -267,7 +267,9 @@ export function renderTransition(
 				fontStyle: target.fontStyle,
 			});
 		} else {
-			const fade = 1 - easeOutCubic(clamp01(progress / leaveEnd));
+			// Guard leaveEnd against 0 (like the move/enter windows) so a custom
+			// timing can't produce 0/0 = NaN opacity.
+			const fade = 1 - easeOutCubic(clamp01(progress / Math.max(0.0001, leaveEnd)));
 			result.push({ ...token, opacity: fade * dimFactor(token.line, fromFocus) });
 		}
 	}

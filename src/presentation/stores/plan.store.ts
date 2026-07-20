@@ -25,8 +25,9 @@ interface PlanState {
  * calls refresh(), so nothing is ever gated: the export machinery reads this
  * plan and every entitlement check is a pass-through no-op. The refresh /
  * upgrade / downgrade actions and the billing adapter exist for the hosted
- * (cloud) build, where the plan becomes server-authoritative and the billing
- * UI is mounted (see src/presentation/components/billing).
+ * (cloud) build, where the plan becomes server-authoritative. The billing UI
+ * (src/presentation/components/billing) ships unmounted today, pending the
+ * hosted build that wires it in.
  */
 export const usePlanStore = create<PlanState>((set) => ({
 	plan: Plan.local(),

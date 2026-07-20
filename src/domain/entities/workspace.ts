@@ -1,3 +1,4 @@
+// Groundwork: team-workspaces domain, intentional but not yet wired into the running app.
 export interface WorkspaceCreateProps {
 	organizationId: string;
 	name: string;

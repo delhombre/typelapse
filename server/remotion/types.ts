@@ -1,6 +1,7 @@
 /** Shared types between the server and the Remotion composition. */
 
 import type { MagicMovePlan } from "../../src/application/magic-move/engine";
+import type { RenderFormat } from "../../src/domain/entities/render-config";
 import type { WindowChrome } from "../../src/presentation/components/preview/frame-chrome";
 import type { ProgressStyle } from "../../src/presentation/components/preview/reels-progress";
 
@@ -19,7 +20,6 @@ export interface ThemeData {
 	foreground: string;
 	fontFamily: string;
 	fontSize: number;
-	padding: number;
 	borderRadius: number;
 }
 
@@ -59,4 +59,35 @@ export interface RenderInput {
 	 * (e.g. GIF, or the sound toggle off).
 	 */
 	audioDataUrl?: string;
+}
+
+/**
+ * The exact JSON body the client POSTs to /api/render. Typing BOTH the client
+ * that builds it (the export store) and the server that parses it (the render
+ * route) against this one shape makes any client/server drift a compile error.
+ * It is a type-only contract: the route still clamps and whitelists every field
+ * at runtime, since the body is untrusted.
+ */
+export interface RenderRequestBody {
+	title: string;
+	language: string;
+	theme: ThemeData;
+	steps: StepData[];
+	background: string;
+	windowChrome: WindowChrome;
+	showLineNumbers: boolean;
+	lineNumberStart: number;
+	framePadding: number;
+	cardMargin: number;
+	width: number;
+	height: number;
+	fps: number;
+	format: RenderFormat;
+	loop: boolean;
+	typewriter: boolean;
+	focusZoom: boolean;
+	sound: boolean;
+	progressStyle: ProgressStyle;
+	transitionMs: number;
+	watermark?: string;
 }

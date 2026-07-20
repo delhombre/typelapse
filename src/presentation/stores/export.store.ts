@@ -5,6 +5,9 @@ import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download
 import { CloudRenderAdapter } from "@/infrastructure/export/cloud-render.adapter";
 import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
 import { create } from "zustand";
+// Type-only: the render request contract lives with the other render DTOs. This
+// import is erased at build time, so no server code enters the client bundle.
+import type { RenderRequestBody } from "../../../server/remotion/types";
 import { usePlanStore } from "./plan.store";
 import { useSnippetStore } from "./snippet.store";
 
@@ -145,7 +148,6 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				foreground: theme.foreground,
 				fontFamily: theme.fontFamily,
 				fontSize: theme.fontSize,
-				padding: theme.padding,
 				borderRadius: theme.borderRadius,
 			};
 
@@ -172,7 +174,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				return;
 			}
 
-			const body = {
+			const body: RenderRequestBody = {
 				title: snippet.title,
 				language: snippet.language,
 				theme: themePayload,

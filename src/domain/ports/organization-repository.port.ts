@@ -1,3 +1,4 @@
+// Groundwork: team-workspaces domain, intentional but not yet wired into the running app.
 import type { Organization } from "../entities/organization";
 
 /**
