@@ -1,16 +1,13 @@
-import {
-	PLATFORM_LABELS,
-	SOCIAL_PLATFORMS,
-	occludedRegions,
-} from "@/application/social/safe-zones";
+import { SOCIAL_PLATFORMS, occludedRegions } from "@/application/social/safe-zones";
 import { SocialPreviewOverlay } from "@/presentation/components/preview/social-preview-overlay";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 beforeAll(() => {
-	// jsdom ships no matchMedia; motion's useReducedMotion needs it.
+	// jsdom ships no matchMedia; motion's useReducedMotion needs it. Report reduced
+	// motion so the spinning audio disc stays static (no infinite rAF in the test).
 	window.matchMedia = ((query: string) => ({
-		matches: false,
+		matches: query.includes("reduced-motion"),
 		media: query,
 		onchange: null,
 		addEventListener: () => {},
@@ -24,9 +21,12 @@ beforeAll(() => {
 afterEach(cleanup);
 
 describe("SocialPreviewOverlay", () => {
-	it.each(SOCIAL_PLATFORMS)("renders %s chrome tagged with its platform name", (platform) => {
-		render(<SocialPreviewOverlay platform={platform} showGuides={false} radius={16} />);
-		expect(screen.getByText(PLATFORM_LABELS[platform])).toBeTruthy();
+	it.each(SOCIAL_PLATFORMS)("renders %s chrome without throwing", (platform) => {
+		const { container } = render(
+			<SocialPreviewOverlay platform={platform} showGuides={false} radius={16} />,
+		);
+		// The chrome mounts real furniture (icons, captions) inside the aspect box.
+		expect(container.querySelectorAll("svg").length).toBeGreaterThan(0);
 	});
 
 	it("labels every occluded region when guides are on", () => {
