@@ -3,7 +3,7 @@ import {
 	type SocialPlatform,
 	occludedRegions,
 } from "@/application/social/safe-zones";
-import { AnimatePresence, type Transition, motion, useReducedMotion } from "motion/react";
+import { type Transition, motion, useReducedMotion } from "motion/react";
 import { type CSSProperties, memo } from "react";
 import { SocialChrome } from "./social-chrome";
 import { SANS } from "./social-chrome/shared";
@@ -51,22 +51,22 @@ export const SocialPreviewOverlay = memo(function SocialPreviewOverlay({
 			exit={hidden}
 			transition={appear}
 		>
-			{/* Cross-dissolve the chrome + guides when the platform changes; the
-			    container-query root above keeps cqmin stable through the swap. */}
-			<AnimatePresence mode="wait">
-				<motion.div
-					key={platform}
-					className="absolute inset-0"
-					style={{ fontSize: "2.7cqmin", fontFamily: SANS }}
-					initial={{ opacity: 0 }}
-					animate={{ opacity: 1 }}
-					exit={{ opacity: 0 }}
-					transition={swap}
-				>
-					<SocialChrome platform={platform} />
-					{showGuides && <SafeZoneGuides regions={occludedRegions(platform)} />}
-				</motion.div>
-			</AnimatePresence>
+			{/* Swap the chrome + guides when the platform changes. A keyed fade-in
+			    (NOT AnimatePresence mode="wait", which deadlocks here: the exiting
+			    child never completes, freezing the chrome on the first platform)
+			    keeps the switch instant and reliable. The container-query root above
+			    keeps cqmin stable through the swap. */}
+			<motion.div
+				key={platform}
+				className="absolute inset-0"
+				style={{ fontSize: "2.7cqmin", fontFamily: SANS }}
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				transition={swap}
+			>
+				<SocialChrome platform={platform} />
+				{showGuides && <SafeZoneGuides regions={occludedRegions(platform)} />}
+			</motion.div>
 		</motion.div>
 	);
 });
