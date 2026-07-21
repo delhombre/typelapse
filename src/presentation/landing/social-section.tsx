@@ -40,7 +40,10 @@ export function SocialSection() {
 					</Reveal>
 
 					<Reveal delay={0.1} className="flex items-center justify-center">
-						<div className="flex items-center justify-center">
+						{/* w-full gives the phones a definite width to resolve their
+						    percentage widths against: without it the flex row shrinks to
+						    content, and content sized off that row collapses to zero. */}
+						<div className="flex w-full items-center justify-center">
 							<SocialShot
 								platform="tiktok"
 								themeName="dracula"

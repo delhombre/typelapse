@@ -40,35 +40,42 @@ export function SocialShot({
 	return (
 		<div
 			className={`lp-phone relative overflow-hidden ${className}`}
-			style={{ aspectRatio: "9 / 16", borderRadius: PHONE_RADIUS, containerType: "size" }}
+			style={{ aspectRatio: "9 / 16", borderRadius: PHONE_RADIUS }}
 		>
-			<div
-				aria-hidden
-				className="absolute inset-0"
-				style={{ background: preset ? meshGradientCss(preset, meshTime) : undefined }}
-			/>
-			<GrainOverlay />
+			{/* The inner layer fills the sized phone box and IS the container-query
+			    root, so the `cqmin`-based chrome resolves against real pixels. Keeping
+			    `container-type` OFF the aspect-ratio box above is deliberate: a size
+			    container ignores its content for sizing, and with only a percentage
+			    width it collapses the box (and the chrome) to zero. */}
+			<div className="absolute inset-0" style={{ containerType: "size" }}>
+				<div
+					aria-hidden
+					className="absolute inset-0"
+					style={{ background: preset ? meshGradientCss(preset, meshTime) : undefined }}
+				/>
+				<GrainOverlay />
 
-			<div className="absolute inset-0 flex items-center justify-center">
-				{/* The `w-[68%]` wrapper is a direct child of this full-size layer, so its
-				    width resolves against the phone, not the shrink-wrapped window. */}
-				<div className="w-[68%]" style={{ transform: "translateY(-4%)" }}>
-					<StaticFrame
-						themeName={themeName}
-						presetId={presetId}
-						code={code}
-						title={title}
-						meshTime={meshTime}
-						meshPadding={0}
-						framePadding={13}
-						fontSize={10.5}
-						className="w-full lp-nogutter"
-					/>
+				<div className="absolute inset-0 flex items-center justify-center">
+					{/* The `w-[68%]` wrapper is a direct child of this full-size layer, so its
+					    width resolves against the phone, not the shrink-wrapped window. */}
+					<div className="w-[68%]" style={{ transform: "translateY(-4%)" }}>
+						<StaticFrame
+							themeName={themeName}
+							presetId={presetId}
+							code={code}
+							title={title}
+							meshTime={meshTime}
+							meshPadding={0}
+							framePadding={13}
+							fontSize={10.5}
+							className="w-full lp-nogutter"
+						/>
+					</div>
 				</div>
-			</div>
 
-			<div className="absolute inset-0" style={{ fontSize: "2.7cqmin", fontFamily: SANS }}>
-				<SocialChrome platform={platform} />
+				<div className="absolute inset-0" style={{ fontSize: "2.7cqmin", fontFamily: SANS }}>
+					<SocialChrome platform={platform} />
+				</div>
 			</div>
 		</div>
 	);
