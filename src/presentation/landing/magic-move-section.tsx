@@ -47,7 +47,7 @@ function BeforeAfter() {
 				title="total.ts"
 				code={AFTER}
 				label="The same code frame after the magic move, with a third line added"
-				meshTime={8}
+				meshTime={3}
 				fontSize={11}
 				framePadding={14}
 				meshPadding={8}
