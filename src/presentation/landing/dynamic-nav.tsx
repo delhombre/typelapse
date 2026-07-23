@@ -35,19 +35,22 @@ const ISLAND_SHADOW = [
 const COLLAPSE_AT = 60;
 const EXPAND_AT = 16;
 
-/** The two resting side-paddings (px), and the transient wider one the return
-    passes through. The pill length is the content plus twice this. */
-const COMPACT_PAD = 8;
-const BASE_PAD = 15;
-const OVERSHOOT_PAD = 34;
+/** The two resting side-paddings (px), plus the transient wide overshoot and the
+    small rebound the return springs through. The pill length is the content plus
+    twice this, so animating it lengthens the island without touching the content. */
+const COMPACT_PAD = 10;
+const BASE_PAD = 18;
+const OVERSHOOT_PAD = 40;
+const REBOUND_PAD = 15;
 
 /** Compressing down is firm and quick, with no overshoot. */
 const COLLAPSE_TRANSITION: Transition = { type: "spring", bounce: 0, duration: 0.42 };
-/** Returning to the top stretches past its resting length, then settles: the
-    elastic "revient". A keyframed overshoot, so the stretch is actually visible. */
+/** Returning to the top springs past its resting length, dips back, then settles:
+    a keyframed spring so the elastic "revient" is actually visible on a short travel
+    (a real spring's overshoot would be swallowed by how little the padding moves). */
 const EXPAND_TRANSITION: Transition = {
-	duration: 0.62,
-	times: [0, 0.5, 1],
+	duration: 0.66,
+	times: [0, 0.4, 0.72, 1],
 	ease: [0.16, 1, 0.3, 1],
 };
 
@@ -83,8 +86,8 @@ export function DynamicNav() {
 		pad = COMPACT_PAD;
 		transition = COLLAPSE_TRANSITION;
 	} else if (primed.current) {
-		// From wherever it is (null keyframe), stretch longer, then settle to rest.
-		pad = [null, OVERSHOOT_PAD, BASE_PAD];
+		// From wherever it is (null keyframe), spring wide, dip back, settle to rest.
+		pad = [null, OVERSHOOT_PAD, REBOUND_PAD, BASE_PAD];
 		transition = EXPAND_TRANSITION;
 	} else {
 		// First paint at the top: no visible move (initial already sits at base).
