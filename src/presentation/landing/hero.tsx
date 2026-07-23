@@ -4,7 +4,7 @@ import { CONTAINER } from "./tokens";
 
 /**
  * Hero: one confident display line, one calm subhead, then the live Instrument as
- * the product shot, and a quiet mono stamp. The headline / subhead / instrument /
+ * the product shot, and a quiet sans stamp. The headline / subhead / instrument /
  * microline stagger in on mount (they are already in view). The Instrument keeps
  * its own width (`max-w-5xl`) so it reads as the focal object of the page.
  */

@@ -1,3 +1,4 @@
+import { Logomark } from "@/presentation/components/ui/logomark";
 import { type Variants, motion, useReducedMotion } from "motion/react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -154,9 +155,24 @@ export function InkButton({ to, href, children, size = "md", className = "" }: I
 
 /* ──────────── Small type atoms ──────────── */
 
-/** A mono uppercase kicker above a heading (its accent dot is drawn in CSS). */
+/** A sans uppercase kicker above a heading (its accent dot is drawn in CSS). */
 export function Eyebrow({ children, className = "" }: { children: ReactNode; className?: string }) {
 	return <p className={`lp-eyebrow ${className}`}>{children}</p>;
+}
+
+/** The landing brand lockup: the play-head mark next to "Typelapse" in the landing
+    sans, mirroring the studio top-nav treatment so both read as one brand. Ink on
+    the paper sections; `markSize` and `textClassName` tune the two nav vs footer sizes. */
+export function LogoLockup({
+	markSize,
+	textClassName,
+}: { markSize: number; textClassName: string }) {
+	return (
+		<span className="inline-flex items-center gap-2 text-ink">
+			<Logomark size={markSize} />
+			<span className={`font-semibold tracking-tight ${textClassName}`}>Typelapse</span>
+		</span>
+	);
 }
 
 /** A pill chip for the format / aspect / platform rows. Text auto-inverts inside

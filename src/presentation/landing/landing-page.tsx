@@ -1,4 +1,3 @@
-import { LogoWordmark } from "@/presentation/components/ui/logo-wordmark";
 import { Link } from "react-router-dom";
 import { CapabilityLedger } from "./capability-ledger";
 import { DiffSection } from "./diff-section";
@@ -6,7 +5,7 @@ import { ExportSection } from "./export-section";
 import { Hero } from "./hero";
 import { MagicMoveSection } from "./magic-move-section";
 import { Nav } from "./nav";
-import { InkButton, Reveal } from "./primitives";
+import { InkButton, LogoLockup, Reveal } from "./primitives";
 import { SocialSection } from "./social-section";
 import { CONTAINER, GITHUB_URL, HAIRLINE, SECTION_PY } from "./tokens";
 
@@ -63,7 +62,7 @@ function Footer() {
 				className={`${CONTAINER} flex flex-col gap-4 py-10 sm:flex-row sm:items-center sm:justify-between`}
 			>
 				<div className="flex items-center gap-3">
-					<LogoWordmark height={18} className="text-ink" />
+					<LogoLockup markSize={17} textClassName="text-base" />
 					<span className="text-[13px] text-ash">Your code, in motion.</span>
 				</div>
 				<div className="flex items-center gap-6 text-[13px]">

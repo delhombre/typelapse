@@ -515,7 +515,7 @@ function AspectOption({
 			type="button"
 			onClick={onClick}
 			aria-pressed={active}
-			className={`relative rounded-full px-2.5 py-1 font-mono text-[11px] transition-colors ${
+			className={`relative rounded-full px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors ${
 				active ? "text-white" : "text-ash hover:text-ink"
 			}`}
 		>

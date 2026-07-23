@@ -14,7 +14,7 @@ interface FeatureSectionProps {
 }
 
 /**
- * A clean, spacious feature block: a mono eyebrow, a heading, one line, and a
+ * A clean, spacious feature block: a sans eyebrow, a heading, one line, and a
  * product visual. `left` / `right` lay copy and visual in an alternating two
  * column grid on desktop; `center` stacks them. Copy and visual reveal on scroll,
  * the visual a beat behind.
