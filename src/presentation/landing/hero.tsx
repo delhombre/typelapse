@@ -13,7 +13,7 @@ export function Hero() {
 		<section className="pt-16 pb-14 sm:pt-24 sm:pb-20">
 			<RevealGroup immediate className={`${CONTAINER} text-center`}>
 				<RevealItem>
-					<span className="inline-flex items-center gap-2 rounded-lg bg-accent/10 px-3.5 py-1.5 font-medium text-[13px] text-ink">
+					<span className="inline-flex items-center gap-2 rounded-full bg-accent/10 px-3.5 py-1.5 font-medium text-[13px] text-ink">
 						<span aria-hidden className="size-1.5 rounded-full bg-accent" />
 						Free and open source
 					</span>

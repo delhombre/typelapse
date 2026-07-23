@@ -399,7 +399,7 @@ function Toolbar({
 }) {
 	return (
 		<div className="mt-6 flex justify-center">
-			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-black/8 bg-white px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
+			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-full border border-black/8 bg-white px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
 				<button
 					type="button"
 					onClick={onPlayToggle}
@@ -519,7 +519,7 @@ function AspectOption({
 			type="button"
 			onClick={onClick}
 			aria-pressed={active}
-			className={`relative rounded-lg px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors ${
+			className={`relative rounded-full px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors ${
 				active ? "text-white" : "text-ash hover:text-ink"
 			}`}
 		>
@@ -527,7 +527,7 @@ function AspectOption({
 				<motion.span
 					layoutId="aspect-pill"
 					aria-hidden="true"
-					className="absolute inset-0 rounded-lg bg-ink"
+					className="absolute inset-0 rounded-full bg-ink"
 					transition={reduce ? { duration: 0 } : springs.snappy}
 				/>
 			)}
