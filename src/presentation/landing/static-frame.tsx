@@ -27,6 +27,9 @@ interface StaticFrameProps {
 	fontSize?: number;
 	/** Stretch the window to fill the card (aspect set via className) and centre the code. */
 	fill?: boolean;
+	/** Alt text: these are product shots, so screen readers get one concise label
+	    instead of the raw, tokenized Shiki markup. */
+	label?: string;
 	className?: string;
 }
 
@@ -46,6 +49,7 @@ export function StaticFrame({
 	framePadding = 18,
 	fontSize = 12,
 	fill = false,
+	label,
 	className = "",
 }: StaticFrameProps) {
 	const theme = useMemo(() => (THEMES[themeName] ?? Theme.aurora)(), [themeName]);
@@ -72,6 +76,8 @@ export function StaticFrame({
 
 	return (
 		<div
+			role={label ? "img" : undefined}
+			aria-label={label}
 			className={`code-frame-glow relative overflow-hidden ${className}`}
 			style={{
 				padding: meshPadding,

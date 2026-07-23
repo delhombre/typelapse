@@ -95,6 +95,7 @@ export function FrameFan() {
 								title={card.title}
 								language={card.language}
 								code={card.code}
+								label={`Code video frame, ${card.themeName} theme, ${card.title}`}
 								meshTime={card.meshTime}
 								fontSize={11}
 								framePadding={16}
@@ -116,6 +117,7 @@ export function FrameFan() {
 							title={card.title}
 							language={card.language}
 							code={card.code}
+							label={`Code video frame, ${card.themeName} theme, ${card.title}`}
 							meshTime={card.meshTime}
 							fontSize={11}
 							framePadding={16}

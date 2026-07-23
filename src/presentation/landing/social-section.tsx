@@ -6,18 +6,18 @@ import { CONTAINER, SECTION_PY } from "./tokens";
 /**
  * Feature c: the social preview, given the one dark, full-bleed section so the
  * phones pop. Copy on the left, a fanned pair of in-feed product shots on the
- * right, over a faint accent glow.
+ * right, over a clean near-black with just a whisper of neutral light.
  */
 export function SocialSection() {
 	return (
 		<section className="lp-dark relative overflow-hidden">
-			{/* Faint accent glow anchored behind the phones. */}
+			{/* A whisper of neutral light behind the phones: enough to lift them off a
+			    clean near-black, with no brand tint (minimal aesthetic, no decoration). */}
 			<div
 				aria-hidden
 				className="pointer-events-none absolute inset-0"
 				style={{
-					background:
-						"radial-gradient(60% 55% at 78% 42%, oklch(0.62 0.19 268 / 0.22), transparent 70%)",
+					background: "radial-gradient(55% 50% at 75% 40%, oklch(1 0 0 / 0.04), transparent 70%)",
 				}}
 			/>
 			<div className={`${CONTAINER} ${SECTION_PY} relative`}>
@@ -46,6 +46,7 @@ export function SocialSection() {
 						<div className="flex w-full items-center justify-center">
 							<SocialShot
 								platform="tiktok"
+								label="TikTok in-feed preview of a code video"
 								themeName="dracula"
 								presetId="nebula"
 								title="app.ts"
@@ -55,6 +56,7 @@ export function SocialSection() {
 							/>
 							<SocialShot
 								platform="reels"
+								label="Instagram Reels in-feed preview of a code video"
 								themeName="aurora"
 								presetId="aurora"
 								title="ship.ts"

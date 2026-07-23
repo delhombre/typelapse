@@ -195,14 +195,12 @@ html {
 	color: #f5f5f7;
 }
 
-/* A phone "product shot": hairline + layered shadow + a faint accent glow, sized
-   to read on the dark section. */
+/* A phone "product shot": a hairline plus a neutral layered shadow, sized to read
+   on the dark section. No brand-tinted glow: the depth is all neutral, so the only
+   color on the section is the product mesh inside the phone. */
 .landing-root .lp-phone {
-	box-shadow:
-		0 0 0 1px oklch(1 0 0 / 0.08),
-		0 2px 8px -2px oklch(0 0 0 / 0.4),
-		0 30px 80px -24px oklch(0 0 0 / 0.75),
-		0 0 100px -28px oklch(0.62 0.19 268 / 0.28);
+	box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08), 0 2px 8px -2px oklch(0 0 0 / 0.4), 0 30px 80px -24px
+		oklch(0 0 0 / 0.75);
 }
 
 /* Subtle gradient drift during playback */
