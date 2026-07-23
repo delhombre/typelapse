@@ -66,7 +66,7 @@ export function DynamicNav() {
 
 	const shellTarget = collapsed
 		? {
-				maxWidth: 272,
+				maxWidth: 252,
 				height: 46,
 				borderRadius: 999,
 				y: 10,
@@ -130,10 +130,13 @@ export function DynamicNav() {
 					</nav>
 				</motion.div>
 
-				{/* Collapsed content: the compact pill. White on near-black. */}
+				{/* Collapsed content: the compact pill. The logo hugs the left rounded end
+				    and the violet capsule nests at the right with an even 7px inset, so its
+				    corner (r16) sits concentric inside the pill (h46, r23): 23 - 16 = 7 on
+				    every side. justify-between fills the pill edge to edge, no black caps. */}
 				<motion.div
 					inert={!collapsed || undefined}
-					className="absolute inset-0 flex items-center justify-center gap-2.5"
+					className="absolute inset-0 flex items-center justify-between pr-[7px] pl-[15px]"
 					initial={false}
 					animate={{ opacity: collapsed ? 1 : 0 }}
 					transition={contentTransition}
@@ -141,15 +144,14 @@ export function DynamicNav() {
 					<Link
 						to="/"
 						aria-label="Typelapse home"
-						className="flex h-full items-center gap-2 pl-4 text-white"
+						className="flex items-center gap-2 text-white"
 					>
 						<Logomark size={17} />
 						<span className="font-semibold text-[14px] text-white tracking-tight">Typelapse</span>
 					</Link>
-					<span aria-hidden className="h-4 w-px bg-white/15" />
 					<Link
 						to="/app"
-						className="flex h-full items-center pr-2 outline-offset-4"
+						className="flex h-full items-center outline-offset-4"
 						aria-label="Open studio"
 					>
 						<span className="inline-flex h-8 items-center rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-white shadow-[0_6px_16px_-6px_oklch(0.56_0.19_268/0.6)]">
