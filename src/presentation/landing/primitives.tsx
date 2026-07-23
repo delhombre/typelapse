@@ -117,8 +117,8 @@ export function RevealItem({ children, className }: { children: ReactNode; class
 }
 
 /* ──────────── Buttons ────────────
-   A confident accent-violet pill (the Tuple signature), with a soft accent-tinted
-   shadow for depth and a slight hover brighten. The press scale lives on a
+   A confident accent-violet rounded rect (the Tuple signature), with a soft
+   accent-tinted shadow for depth and a slight hover brighten. The press scale lives on a
    `motion.span` wrapper (a transform-only, ~160ms ease-out feedback), so the inner
    Link stays the honest navigation target and we never animate `all`. */
 
@@ -133,7 +133,7 @@ interface InkButtonProps {
 export function InkButton({ to, href, children, size = "md", className = "" }: InkButtonProps) {
 	const reduce = useReducedMotion();
 	const sizing = size === "lg" ? "h-12 px-7 text-[15px]" : "h-11 px-5 text-sm";
-	const inner = `inline-flex items-center justify-center rounded-full bg-[var(--color-cta)] font-medium text-white shadow-[0_6px_20px_-6px_oklch(0.56_0.19_268/0.45)] transition-[filter] duration-200 hover:brightness-95 ${sizing}`;
+	const inner = `inline-flex items-center justify-center rounded-xl bg-[var(--color-cta)] font-medium text-white shadow-[0_6px_20px_-6px_oklch(0.56_0.19_268/0.45)] transition-[filter] duration-200 hover:brightness-95 ${sizing}`;
 
 	return (
 		<motion.span
@@ -176,8 +176,8 @@ export function LogoLockup({
 	);
 }
 
-/** A pill chip for the format / aspect / platform rows. Text auto-inverts inside
-    the dark section; only the hairline changes with `tone`. */
+/** A rounded-rect chip for the format / aspect / platform rows. Text auto-inverts
+    inside the dark section; only the hairline changes with `tone`. */
 export function Chip({
 	children,
 	tone = "light",
@@ -185,7 +185,7 @@ export function Chip({
 	const border = tone === "dark" ? "border-white/15" : "border-black/10";
 	return (
 		<span
-			className={`inline-flex h-9 items-center rounded-full border ${border} px-4 font-medium text-[13px] text-ink tabular-nums`}
+			className={`inline-flex h-9 items-center rounded-[10px] border ${border} px-4 font-medium text-[13px] text-ink tabular-nums`}
 		>
 			{children}
 		</span>

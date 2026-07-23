@@ -14,6 +14,11 @@ const THEMES: Record<string, () => Theme> = {
 	nord: Theme.nord,
 };
 
+/** Restrained, Tuple-like corner radii: a crisp inner window, and a mesh frame
+    that stays a touch rounder (capped, so it never balloons with the padding). */
+const WINDOW_RADIUS = 10;
+const MESH_RADIUS_GAP = 10;
+
 interface StaticFrameProps {
 	themeName: string;
 	presetId: string;
@@ -81,8 +86,9 @@ export function StaticFrame({
 			className={`code-frame-glow relative overflow-hidden ${className}`}
 			style={{
 				padding: meshPadding,
-				// Concentric: outer radius = inner (theme.borderRadius) + the mesh padding.
-				borderRadius: theme.borderRadius + meshPadding,
+				// Concentric, kept tight: inner window radius plus a capped gap, so the
+				// frame reads rounder than the window without ballooning with the padding.
+				borderRadius: WINDOW_RADIUS + Math.min(meshPadding, MESH_RADIUS_GAP),
 				background: preset ? meshGradientCss(preset, meshTime) : undefined,
 			}}
 		>
@@ -112,7 +118,7 @@ function FrameShell({
 			className={`overflow-hidden ${fill ? "flex h-full flex-1 flex-col" : ""}`}
 			style={{
 				background: theme.background,
-				borderRadius: theme.borderRadius,
+				borderRadius: WINDOW_RADIUS,
 				boxShadow: "0 18px 44px -20px rgb(0 0 0 / 0.55)",
 			}}
 		>
