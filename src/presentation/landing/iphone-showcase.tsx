@@ -117,7 +117,14 @@ function SocialScreen({ config }: { config: ScreenConfig }) {
 				</div>
 			</div>
 
-			<div className="absolute inset-0" style={{ fontSize: "2.7cqmin", fontFamily: SANS }}>
+			{/* Inset the feed's chrome below the Dynamic Island (device chrome at ~36px
+			    from the screen top): the mesh stays full-bleed under the island, but the
+			    top bar (tabs, search, title) clears it like a real app's safe area, while
+			    the bottom-anchored chrome (caption, action rail) stays put via bottom:0. */}
+			<div
+				className="absolute inset-x-0 bottom-0"
+				style={{ top: 44, fontSize: "2.7cqmin", fontFamily: SANS }}
+			>
 				<SocialChrome platform={config.platform} />
 			</div>
 		</div>
