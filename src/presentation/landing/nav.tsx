@@ -25,7 +25,7 @@ export function Nav() {
 							href={GITHUB_URL}
 							target="_blank"
 							rel="noreferrer"
-							className="flex h-11 items-center rounded-full px-3 text-ash text-sm transition-colors hover:text-ink"
+							className="flex h-11 items-center rounded-lg px-3 text-ash text-sm transition-colors hover:text-ink"
 						>
 							GitHub
 						</a>

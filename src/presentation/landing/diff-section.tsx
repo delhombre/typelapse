@@ -40,6 +40,10 @@ const STYLE: Record<DiffKind, { sign: string; text: string; bg: string }> = {
 };
 
 const DIFF_PAD = 18;
+/** Restrained, Tuple-like corner radii: a crisp inner window with a slightly
+    rounder mesh frame around it (concentric, just tighter than the padding). */
+const WINDOW_RADIUS = 10;
+const MESH_RADIUS = 20;
 
 /** A GitHub-flavored diff frame on a mesh backdrop: the diff-import product shot. */
 function DiffFrame() {
@@ -53,7 +57,7 @@ function DiffFrame() {
 			className="code-frame-glow relative w-[300px] overflow-hidden sm:w-[368px]"
 			style={{
 				padding: DIFF_PAD,
-				borderRadius: theme.borderRadius + DIFF_PAD,
+				borderRadius: MESH_RADIUS,
 				background: preset ? meshGradientCss(preset, 6) : undefined,
 			}}
 		>
@@ -62,7 +66,7 @@ function DiffFrame() {
 				className="relative z-10 overflow-hidden"
 				style={{
 					background: theme.background,
-					borderRadius: theme.borderRadius,
+					borderRadius: WINDOW_RADIUS,
 					boxShadow: "0 18px 44px -20px rgb(0 0 0 / 0.55)",
 				}}
 			>

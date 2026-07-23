@@ -72,6 +72,10 @@ const LOOP_CODES = [...DEMO_FRAMES, DEMO_FRAMES[0] ?? ""];
 const HOLDS = [1300, 1500, 2200, 800];
 
 const MESH_PAD = 26;
+/** Restrained, Tuple-like corner radii: a crisp inner window with a slightly
+    rounder mesh frame around it (concentric, just tighter than the padding). */
+const WINDOW_RADIUS = 10;
+const MESH_RADIUS = 20;
 const WINDOW_WIDTH = 452;
 const WINDOW_FONT = 13;
 const FRAME_PADDING = 18;
@@ -280,8 +284,9 @@ export function Instrument() {
 						width: meshW,
 						height: meshH,
 						padding: MESH_PAD,
-						// Concentric: outer radius = window radius + the mesh padding.
-						borderRadius: theme.borderRadius + MESH_PAD,
+						// Concentric, kept tight: the mesh frame is a touch rounder than the
+						// inner window rather than tracking the full padding.
+						borderRadius: MESH_RADIUS,
 						boxShadow: OBJECT_SHADOW,
 					}}
 					className="relative mx-auto flex max-w-full items-center justify-center overflow-hidden"
@@ -347,7 +352,7 @@ function CodeWindow({
 			style={{
 				width: WINDOW_WIDTH,
 				background: theme.background,
-				borderRadius: theme.borderRadius,
+				borderRadius: WINDOW_RADIUS,
 				boxShadow: "0 20px 50px -20px rgb(0 0 0 / 0.55)",
 			}}
 		>
@@ -395,7 +400,7 @@ function Toolbar({
 }) {
 	return (
 		<div className="mt-6 flex justify-center">
-			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-full border border-black/8 bg-white px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
+			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-black/8 bg-white px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
 				<button
 					type="button"
 					onClick={onPlayToggle}
@@ -498,7 +503,7 @@ function Dot({
 	);
 }
 
-/** One option in the aspect segmented control; the black pill glides via layoutId. */
+/** One option in the aspect segmented control; the black indicator glides via layoutId. */
 function AspectOption({
 	id,
 	active,
@@ -515,7 +520,7 @@ function AspectOption({
 			type="button"
 			onClick={onClick}
 			aria-pressed={active}
-			className={`relative rounded-full px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors ${
+			className={`relative rounded-lg px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors ${
 				active ? "text-white" : "text-ash hover:text-ink"
 			}`}
 		>
@@ -523,7 +528,7 @@ function AspectOption({
 				<motion.span
 					layoutId="aspect-pill"
 					aria-hidden="true"
-					className="absolute inset-0 rounded-full bg-ink"
+					className="absolute inset-0 rounded-lg bg-ink"
 					transition={reduce ? { duration: 0 } : springs.snappy}
 				/>
 			)}
