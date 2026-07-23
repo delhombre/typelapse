@@ -19,7 +19,7 @@ interface SocialShotProps {
 }
 
 /** Phone-screen rounding for the 9:16 product shot. */
-const PHONE_RADIUS = 20;
+const PHONE_RADIUS = 30;
 
 /**
  * A static "product shot" of a 9:16 export sitting in a real platform feed: the

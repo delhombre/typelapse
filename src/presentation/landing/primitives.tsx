@@ -146,7 +146,7 @@ interface InkButtonProps {
 export function InkButton({ to, href, children, size = "md", className = "" }: InkButtonProps) {
 	const reduce = useReducedMotion();
 	const sizing = size === "lg" ? "h-12 px-7 text-[15px]" : "h-11 px-5 text-sm";
-	const inner = `inline-flex items-center justify-center rounded-xl bg-[var(--color-cta)] font-medium text-white shadow-[0_6px_20px_-6px_oklch(0.56_0.19_268/0.45)] transition-[filter,box-shadow] duration-200 hover:brightness-95 hover:shadow-[0_11px_28px_-7px_oklch(0.56_0.19_268/0.62)] ${sizing}`;
+	const inner = `inline-flex items-center justify-center rounded-full bg-[var(--color-cta)] font-medium text-white shadow-[0_6px_20px_-6px_oklch(0.56_0.19_268/0.45)] transition-[filter,box-shadow] duration-200 hover:brightness-95 hover:shadow-[0_11px_28px_-7px_oklch(0.56_0.19_268/0.62)] ${sizing}`;
 
 	return (
 		<motion.span
@@ -199,7 +199,7 @@ export function Chip({
 	const border = tone === "dark" ? "border-white/15" : "border-black/10";
 	return (
 		<span
-			className={`inline-flex h-9 items-center rounded-[10px] border ${border} px-4 font-medium text-[13px] text-ink tabular-nums`}
+			className={`inline-flex h-9 items-center rounded-full border ${border} px-4 font-medium text-[13px] text-ink tabular-nums`}
 		>
 			{children}
 		</span>
