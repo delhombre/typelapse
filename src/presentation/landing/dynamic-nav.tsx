@@ -1,20 +1,22 @@
 import { Logomark } from "@/presentation/components/ui/logomark";
 import {
+	type Transition,
 	motion,
+	useMotionValueEvent,
 	useReducedMotion,
 	useScroll,
-	useSpring,
-	useTransform,
-	useVelocity,
 } from "motion/react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 /**
  * A Dynamic Island nav: one compact, always-centered near-black pill floating at
- * the top. It never spans the page. Scroll velocity stretches it elastically along
- * its width: scrolling down squeezes it narrower, scrolling back up stretches it
- * wider, and a bouncy spring snaps it back to its resting width when you stop.
- * Reduced motion keeps it perfectly still.
+ * the top. It never spans the page. It has two resting widths keyed to scroll
+ * position: full at the top of the page, a touch narrower once you have scrolled
+ * down. Scrolling back to the top overshoots wider and settles, so the return
+ * reads as an elastic snap, while scrolling down compresses firmly with no bounce.
+ * The stretch only plays on those two threshold crossings, never on every scroll
+ * tick. Reduced motion keeps it perfectly still.
  */
 
 /** The near-black of the real Dynamic Island. */
@@ -26,17 +28,66 @@ const ISLAND_SHADOW = [
 	"inset 0 1px 0 rgba(255,255,255,0.06)",
 ].join(", ");
 
+/** Hysteresis: collapse once past the upper mark, expand only back under the lower
+    one, so the state cannot flicker while the scroll hovers a single boundary. */
+const COLLAPSE_AT = 60;
+const EXPAND_AT = 16;
+
+/** The two resting widths, and the transient overshoot the return passes through. */
+const COMPACT_SCALE_X = 0.9;
+const BASE_SCALE_X = 1;
+const OVERSHOOT_SCALE_X = 1.1;
+
+/** Compressing down is firm and quick, with no overshoot. */
+const COLLAPSE_TRANSITION: Transition = { type: "spring", bounce: 0, duration: 0.42 };
+/** Returning to the top stretches past its resting width, then settles: the
+    elastic "revient". A keyframed overshoot rather than a spring bounce, so the
+    stretch is actually visible and not swallowed by the tiny travel. */
+const EXPAND_TRANSITION: Transition = {
+	duration: 0.62,
+	times: [0, 0.5, 1],
+	ease: [0.16, 1, 0.3, 1],
+};
+
+function readInitialScrolled(): boolean {
+	if (typeof window === "undefined") {
+		return false;
+	}
+	return window.scrollY > COLLAPSE_AT;
+}
+
 export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
-	const velocity = useVelocity(scrollY);
-	// Smooth the raw scroll velocity with a loose, bouncy spring so the stretch
-	// overshoots and settles elastically once the scroll stops.
-	const smoothVelocity = useSpring(velocity, { stiffness: 200, damping: 14, restDelta: 1 });
-	// Signed velocity drives a directional stretch along the width: scrolling up
-	// (negative) stretches the island wider, scrolling down (positive) squeezes it
-	// narrower, and at rest (velocity 0) it snaps back to its resting width.
-	const stretchX = useTransform(smoothVelocity, [-2200, 0, 2200], [1.11, 1, 0.94], { clamp: true });
+	const [scrolled, setScrolled] = useState(readInitialScrolled);
+	// True once the island has ever been in its collapsed state, so the first paint
+	// at the top of the page does not fire the overshoot animation on load.
+	const primed = useRef(readInitialScrolled());
+
+	useMotionValueEvent(scrollY, "change", (y) => {
+		if (y > COLLAPSE_AT) {
+			primed.current = true;
+			setScrolled(true);
+		} else if (y < EXPAND_AT) {
+			setScrolled(false);
+		}
+	});
+
+	let animateScaleX: number | (number | null)[] = BASE_SCALE_X;
+	let transition: Transition = { duration: 0 };
+	if (!reduce && scrolled) {
+		animateScaleX = COMPACT_SCALE_X;
+		transition = COLLAPSE_TRANSITION;
+	} else if (!reduce) {
+		// From wherever it is (null keyframe), overshoot wide, then settle to rest.
+		animateScaleX = primed.current ? [null, OVERSHOOT_SCALE_X, BASE_SCALE_X] : BASE_SCALE_X;
+		transition = EXPAND_TRANSITION;
+	}
+
+	let initialScaleX = BASE_SCALE_X;
+	if (!reduce && scrolled) {
+		initialScaleX = COMPACT_SCALE_X;
+	}
 
 	return (
 		<header className="pointer-events-none sticky top-0 z-50 flex justify-center pt-2.5">
@@ -45,10 +96,12 @@ export function DynamicNav() {
 				style={{
 					background: ISLAND_BG,
 					boxShadow: ISLAND_SHADOW,
-					scaleX: reduce ? 1 : stretchX,
 					transformOrigin: "center",
 					willChange: "transform",
 				}}
+				initial={{ scaleX: initialScaleX }}
+				animate={{ scaleX: animateScaleX }}
+				transition={transition}
 			>
 				<Link to="/" aria-label="Typelapse home" className="flex items-center gap-2 text-white">
 					<Logomark size={17} />
