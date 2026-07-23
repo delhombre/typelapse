@@ -29,28 +29,24 @@ function BeforeAfter() {
 	return (
 		<div className="flex w-full flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
 			<StaticFrame
+				bare
 				themeName="one-dark"
-				presetId="nebula"
 				title="total.ts"
 				code={BEFORE}
 				label="Code frame before the magic move, showing two lines"
-				meshTime={3}
-				fontSize={11}
-				framePadding={14}
-				meshPadding={8}
+				fontSize={12}
+				framePadding={16}
 				className={FRAME}
 			/>
 			<Arrow />
 			<StaticFrame
+				bare
 				themeName="one-dark"
-				presetId="nebula"
 				title="total.ts"
 				code={AFTER}
 				label="The same code frame after the magic move, with a third line added"
-				meshTime={3}
-				fontSize={11}
-				framePadding={14}
-				meshPadding={8}
+				fontSize={12}
+				framePadding={16}
 				className={FRAME}
 			/>
 		</div>
