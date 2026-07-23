@@ -71,10 +71,10 @@ const DEMO_FRAMES = [
 const LOOP_CODES = [...DEMO_FRAMES, DEMO_FRAMES[0] ?? ""];
 const HOLDS = [1300, 1500, 2200, 800];
 
-const MESH_PAD = 16;
+const MESH_PAD = 12;
 /** Restrained, Tuple-like corner radii: a crisp inner window with a mesh frame
     that is exactly concentric with it (outer = inner + the mesh padding). */
-const WINDOW_RADIUS = 8;
+const WINDOW_RADIUS = 6;
 const WINDOW_WIDTH = 452;
 const WINDOW_FONT = 13;
 const FRAME_PADDING = 18;

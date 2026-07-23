@@ -10,7 +10,7 @@ const AFTER = `const a = get()
 const b = a.id
 const c = b + 1`;
 
-const FRAME = "w-[64%] max-w-[240px] lp-nogutter sm:w-[42%]";
+const FRAME = "w-[64%] max-w-[240px] lp-nogutter lp-lift sm:w-[42%]";
 
 /** Feature a: the signature magic-move, shown as a crisp before then after. */
 export function MagicMoveSection() {
@@ -37,7 +37,7 @@ function BeforeAfter() {
 				meshTime={3}
 				fontSize={11}
 				framePadding={14}
-				meshPadding={12}
+				meshPadding={8}
 				className={FRAME}
 			/>
 			<Arrow />
@@ -50,7 +50,7 @@ function BeforeAfter() {
 				meshTime={8}
 				fontSize={11}
 				framePadding={14}
-				meshPadding={12}
+				meshPadding={8}
 				className={FRAME}
 			/>
 		</div>

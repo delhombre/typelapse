@@ -9,11 +9,18 @@ export const GITHUB_URL = "https://github.com/delhombre/typelapse";
 /** Strong ease-out (matches `--ease-out` in app.css): entrances decelerate. */
 export const LP_EASE: [number, number, number, number] = [0.23, 1, 0.32, 1];
 
+/** A stronger ease-out for the materialized reveal: a longer, softer tail so the
+    block reads as coming into focus rather than sliding in. */
+export const REVEAL_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
 /** Scroll-reveal viewport: fire once, a touch before the element is fully in view. */
 export const REVEAL_VIEWPORT = { once: true, margin: "-80px" } as const;
 
-/** Soft vertical rise on entrance, in px (never a scale from 0). */
-export const REVEAL_RISE = 10;
+/** Materialize on entrance: a soft rise, a whisper of scale-up (never from 0), and
+    a blur that resolves — the section comes into focus. */
+export const REVEAL_RISE = 12;
+export const REVEAL_SCALE = 0.985;
+export const REVEAL_BLUR = "blur(6px)";
 
 /** Stagger between revealed siblings, in seconds. */
 export const REVEAL_STAGGER = 0.06;
