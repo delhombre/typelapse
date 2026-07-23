@@ -4,16 +4,17 @@ import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
 import { SocialChrome } from "@/presentation/components/preview/social-chrome";
 import { SANS } from "@/presentation/components/preview/social-chrome/shared";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { DeviceFrame } from "./device-frame";
 import { StaticFrame } from "./static-frame";
 
 /**
  * The hero of the social section: a realistic iPhone whose screen auto-cycles
  * through TikTok, Reels and Shorts feeds, each showing one of our code exports.
- * Every platform swap swipes like the next reel — the current feed slides up and
- * out while the next slides in from below — while the bezel and Dynamic Island
- * stay put. Reduced motion drops the cycle and the float for a single static feed.
+ * Switching apps slides horizontally — the current app leaves to the left while the
+ * next enters from the right, the way you swipe between apps, not the vertical feed
+ * scroll that would read as the next video in the same app — while the bezel and
+ * Dynamic Island stay put. Reduced motion drops the cycle and float for one feed.
  */
 
 interface ScreenConfig {
@@ -60,7 +61,7 @@ export const CYCLE_PLATFORMS: readonly SocialPlatform[] = SCREEN_CONFIGS.map((c)
 /** How long each feed holds before swiping to the next. */
 const HOLD_MS = 3600;
 
-/** Apple critically-damped swipe: no overshoot, a firm settle. */
+/** Apple critically-damped horizontal app-switch: no overshoot, a firm settle. */
 const SWIPE_TRANSITION = { type: "spring", bounce: 0, duration: 0.6 } as const;
 
 /**
@@ -117,13 +118,15 @@ function SocialScreen({ config }: { config: ScreenConfig }) {
 				</div>
 			</div>
 
-			{/* Inset the feed's chrome below the Dynamic Island (device chrome at ~36px
-			    from the screen top): the mesh stays full-bleed under the island, but the
-			    top bar (tabs, search, title) clears it like a real app's safe area, while
-			    the bottom-anchored chrome (caption, action rail) stays put via bottom:0. */}
+			{/* The feed chrome is full-bleed, so its top gradient scrim runs continuously
+			    from the very top of the screen (no colour seam under the Dynamic Island).
+			    Only the interactive top furniture is pushed down by `--safe-top` to clear
+			    the island, like a real app honouring the status-bar safe area. */}
 			<div
-				className="absolute inset-x-0 bottom-0"
-				style={{ top: 44, fontSize: "2.7cqmin", fontFamily: SANS }}
+				className="absolute inset-0"
+				style={
+					{ fontSize: "2.7cqmin", fontFamily: SANS, "--safe-top": "44px" } as CSSProperties
+				}
 			>
 				<SocialChrome platform={config.platform} />
 			</div>
@@ -149,9 +152,9 @@ export function IphoneShowcase({ platform, className = "" }: IphoneShowcaseProps
 			<motion.div
 				key={config.platform}
 				className="absolute inset-0"
-				initial={{ y: "100%", opacity: 0.5 }}
-				animate={{ y: "0%", opacity: 1 }}
-				exit={{ y: "-100%", opacity: 0.5 }}
+				initial={{ x: "100%", opacity: 0.6 }}
+				animate={{ x: "0%", opacity: 1 }}
+				exit={{ x: "-100%", opacity: 0.6 }}
 				transition={SWIPE_TRANSITION}
 			>
 				<SocialScreen config={config} />

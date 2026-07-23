@@ -26,7 +26,7 @@ function Header({ zone }: { zone: SafeZone }) {
 		<div
 			style={{
 				position: "absolute",
-				top: 0,
+				top: "var(--safe-top, 0px)",
 				left: 0,
 				right: 0,
 				background: CARD_BG,

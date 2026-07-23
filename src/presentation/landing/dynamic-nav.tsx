@@ -1,15 +1,24 @@
 import { Logomark } from "@/presentation/components/ui/logomark";
-import { motion, useMotionValueEvent, useReducedMotion, useScroll } from "motion/react";
-import { useState } from "react";
+import {
+	type TargetAndTransition,
+	type Transition,
+	motion,
+	useMotionValueEvent,
+	useReducedMotion,
+	useScroll,
+} from "motion/react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 /**
  * A Dynamic Island nav: one compact, centered near-black pill floating at the top,
  * never spanning the page. It is one solid block, so the logo and CTA move together
- * with it. Past a certain scroll depth it hides when you scroll down and springs
- * back into view when you scroll up (the classic reveal-on-scroll-up header); near
- * the very top it always stays. The reveal uses a springy transition for an elastic
- * drop-in. Reduced motion keeps it pinned and visible.
+ * with it. Past a certain scroll depth it hides when you scroll down and drops back
+ * into view when you scroll up (the classic reveal-on-scroll-up header); near the
+ * very top it always stays. On the way back in it also gives a short elastic length
+ * pulse (its real horizontal padding springs wider, then settles), so the island
+ * feels alive without ever scaling or distorting its content. Reduced motion keeps
+ * it pinned, visible and still.
  */
 
 /** The near-black of the real Dynamic Island. */
@@ -26,14 +35,30 @@ const REVEAL_AT = 90;
 /** How far up the hidden island tucks (past the top edge). */
 const HIDDEN_Y = -104;
 
-/** An elastic drop-in on reveal; a quick, clean tuck on hide. */
-const REVEAL_TRANSITION = { type: "spring" as const, bounce: 0.26, duration: 0.6 };
-const HIDE_TRANSITION = { type: "spring" as const, bounce: 0, duration: 0.32 };
+/** Resting side paddings (the logo nests left, the CTA capsule nests concentric
+    right at 6px), and how much wider each side springs during the reveal pulse. */
+const BASE_PL = 15;
+const BASE_PR = 6;
+const PULSE = 13;
+
+/** Drop back in with a soft spring; tuck away quickly and cleanly. */
+const REVEAL_TRANSITION: Transition = { type: "spring", bounce: 0.2, duration: 0.5 };
+const HIDE_TRANSITION: Transition = { type: "spring", bounce: 0, duration: 0.32 };
+/** The elastic length pulse: stretch wide, then settle. Keyframed so the overshoot
+    is visible on a short travel rather than swallowed by a plain spring. */
+const PULSE_TRANSITION: Transition = {
+	duration: 0.6,
+	times: [0, 0.42, 1],
+	ease: [0.16, 1, 0.3, 1],
+};
 
 export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
 	const [hidden, setHidden] = useState(false);
+	// True once the island has hidden at least once, so the reveal pulse only fires
+	// on a genuine scroll-up return, never on the first paint.
+	const primed = useRef(false);
 
 	useMotionValueEvent(scrollY, "change", (y) => {
 		const previous = scrollY.getPrevious() ?? 0;
@@ -41,27 +66,55 @@ export function DynamicNav() {
 			setHidden(false);
 		} else {
 			// Scrolling down (y grows) hides it; scrolling up brings it back.
-			setHidden(y > previous);
+			const goingDown = y > previous;
+			if (goingDown) {
+				primed.current = true;
+			}
+			setHidden(goingDown);
 		}
 	});
 
 	const isHidden = hidden && !reduce;
 
+	let animate: TargetAndTransition;
+	let transition: Transition;
+	if (isHidden) {
+		animate = { y: HIDDEN_Y, opacity: 0, paddingLeft: BASE_PL, paddingRight: BASE_PR };
+		transition = HIDE_TRANSITION;
+	} else if (primed.current && !reduce) {
+		// Reveal: drop in, and pulse the padding wider then back for the elastic snap.
+		animate = {
+			y: 0,
+			opacity: 1,
+			paddingLeft: [BASE_PL, BASE_PL + PULSE, BASE_PL],
+			paddingRight: [BASE_PR, BASE_PR + PULSE, BASE_PR],
+		};
+		transition = {
+			y: REVEAL_TRANSITION,
+			opacity: { duration: 0.28 },
+			paddingLeft: PULSE_TRANSITION,
+			paddingRight: PULSE_TRANSITION,
+		};
+	} else {
+		animate = { y: 0, opacity: 1, paddingLeft: BASE_PL, paddingRight: BASE_PR };
+		transition = { duration: 0 };
+	}
+
 	return (
 		<header className="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center">
 			<motion.div
-				className="pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px]"
+				className="pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full"
 				style={{ background: ISLAND_BG, boxShadow: ISLAND_SHADOW }}
 				initial={false}
-				animate={{ y: isHidden ? HIDDEN_Y : 0, opacity: isHidden ? 0 : 1 }}
-				transition={reduce ? { duration: 0 } : isHidden ? HIDE_TRANSITION : REVEAL_TRANSITION}
+				animate={animate}
+				transition={transition}
 			>
 				<Link to="/" aria-label="Typelapse home" className="flex items-center gap-2 text-white">
 					<Logomark size={17} />
 					<span className="font-semibold text-[14px] text-white tracking-tight">Typelapse</span>
 				</Link>
 				{/* The violet capsule nests concentric in the pill: pill h44 r22, capsule
-				    h32 r16, so an even 6px inset (pr-[6px] + the 6px top/bottom gap). */}
+				    h32 r16, so an even 6px inset at rest (BASE_PR + the 6px top/bottom gap). */}
 				<Link
 					to="/app"
 					aria-label="Open studio"
