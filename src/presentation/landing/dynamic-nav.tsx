@@ -1,7 +1,7 @@
 import { Logomark } from "@/presentation/components/ui/logomark";
 import {
-	type Transition,
 	motion,
+	type Transition,
 	useMotionValueEvent,
 	useReducedMotion,
 	useScroll,
@@ -11,12 +11,14 @@ import { Link } from "react-router-dom";
 
 /**
  * A Dynamic Island nav: one compact, always-centered near-black pill floating at
- * the top. It never spans the page. It has two resting widths keyed to scroll
- * position: full at the top of the page, a touch narrower once you have scrolled
- * down. Scrolling back to the top overshoots wider and settles, so the return
- * reads as an elastic snap, while scrolling down compresses firmly with no bounce.
- * The stretch only plays on those two threshold crossings, never on every scroll
- * tick. Reduced motion keeps it perfectly still.
+ * the top. It never spans the page. The content (logo + CTA) is one solid centred
+ * block that never moves relative to itself; the pill's symmetric horizontal
+ * padding is what animates, so the island physically lengthens and shortens around
+ * the content, like the real Dynamic Island. Full at the top, a touch shorter once
+ * you scroll down, and on the way back up it overshoots longer then settles, so the
+ * return reads as an elastic snap. Animating padding (not a scaleX) keeps the round
+ * end-caps and the text intact, and can never clip or tear the content. Reduced
+ * motion keeps it perfectly still.
  */
 
 /** The near-black of the real Dynamic Island. */
@@ -33,16 +35,16 @@ const ISLAND_SHADOW = [
 const COLLAPSE_AT = 60;
 const EXPAND_AT = 16;
 
-/** The two resting widths, and the transient overshoot the return passes through. */
-const COMPACT_SCALE_X = 0.9;
-const BASE_SCALE_X = 1;
-const OVERSHOOT_SCALE_X = 1.1;
+/** The two resting side-paddings (px), and the transient wider one the return
+    passes through. The pill length is the content plus twice this. */
+const COMPACT_PAD = 8;
+const BASE_PAD = 15;
+const OVERSHOOT_PAD = 34;
 
 /** Compressing down is firm and quick, with no overshoot. */
 const COLLAPSE_TRANSITION: Transition = { type: "spring", bounce: 0, duration: 0.42 };
-/** Returning to the top stretches past its resting width, then settles: the
-    elastic "revient". A keyframed overshoot rather than a spring bounce, so the
-    stretch is actually visible and not swallowed by the tiny travel. */
+/** Returning to the top stretches past its resting length, then settles: the
+    elastic "revient". A keyframed overshoot, so the stretch is actually visible. */
 const EXPAND_TRANSITION: Transition = {
 	duration: 0.62,
 	times: [0, 0.5, 1],
@@ -60,8 +62,8 @@ export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
 	const [scrolled, setScrolled] = useState(readInitialScrolled);
-	// True once the island has ever been in its collapsed state, so the first paint
-	// at the top of the page does not fire the overshoot animation on load.
+	// True once the island has ever been collapsed, so the first paint at the top
+	// of the page does not fire the overshoot animation on load.
 	const primed = useRef(readInitialScrolled());
 
 	useMotionValueEvent(scrollY, "change", (y) => {
@@ -73,42 +75,36 @@ export function DynamicNav() {
 		}
 	});
 
-	let animateScaleX: number | (number | null)[] = BASE_SCALE_X;
+	let pad: number | (number | null)[] = BASE_PAD;
 	let transition: Transition = { duration: 0 };
-	if (!reduce && scrolled) {
-		animateScaleX = COMPACT_SCALE_X;
+	if (reduce) {
+		pad = scrolled ? COMPACT_PAD : BASE_PAD;
+	} else if (scrolled) {
+		pad = COMPACT_PAD;
 		transition = COLLAPSE_TRANSITION;
-	} else if (!reduce) {
-		// From wherever it is (null keyframe), overshoot wide, then settle to rest.
-		animateScaleX = primed.current ? [null, OVERSHOOT_SCALE_X, BASE_SCALE_X] : BASE_SCALE_X;
+	} else if (primed.current) {
+		// From wherever it is (null keyframe), stretch longer, then settle to rest.
+		pad = [null, OVERSHOOT_PAD, BASE_PAD];
 		transition = EXPAND_TRANSITION;
+	} else {
+		// First paint at the top: no visible move (initial already sits at base).
+		pad = BASE_PAD;
 	}
-
-	let initialScaleX = BASE_SCALE_X;
-	if (!reduce && scrolled) {
-		initialScaleX = COMPACT_SCALE_X;
-	}
+	const initialPad = scrolled ? COMPACT_PAD : BASE_PAD;
 
 	return (
 		<header className="pointer-events-none sticky top-0 z-50 flex justify-center pt-2.5">
 			<motion.div
-				className="pointer-events-auto flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px]"
-				style={{
-					background: ISLAND_BG,
-					boxShadow: ISLAND_SHADOW,
-					transformOrigin: "center",
-					willChange: "transform",
-				}}
-				initial={{ scaleX: initialScaleX }}
-				animate={{ scaleX: animateScaleX }}
+				className="pointer-events-auto inline-flex h-11 items-center gap-5 rounded-full"
+				style={{ background: ISLAND_BG, boxShadow: ISLAND_SHADOW }}
+				initial={{ paddingLeft: initialPad, paddingRight: initialPad }}
+				animate={{ paddingLeft: pad, paddingRight: pad }}
 				transition={transition}
 			>
 				<Link to="/" aria-label="Typelapse home" className="flex items-center gap-2 text-white">
 					<Logomark size={17} />
 					<span className="font-semibold text-[14px] text-white tracking-tight">Typelapse</span>
 				</Link>
-				{/* The violet capsule nests concentric in the pill: pill h44 r22, capsule
-				    h32 r16, so an even 6px inset (pr-[6px] + the 6px top/bottom gap). */}
 				<Link
 					to="/app"
 					aria-label="Open studio"
