@@ -99,7 +99,7 @@ export function FrameFan() {
 								meshTime={card.meshTime}
 								fontSize={11}
 								framePadding={16}
-								meshPadding={20}
+								meshPadding={14}
 								className={CARD_CLASS}
 							/>
 						</motion.div>
@@ -121,7 +121,7 @@ export function FrameFan() {
 							meshTime={card.meshTime}
 							fontSize={11}
 							framePadding={16}
-							meshPadding={20}
+							meshPadding={14}
 							className={CARD_CLASS}
 						/>
 					</div>

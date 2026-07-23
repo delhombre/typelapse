@@ -71,11 +71,10 @@ const DEMO_FRAMES = [
 const LOOP_CODES = [...DEMO_FRAMES, DEMO_FRAMES[0] ?? ""];
 const HOLDS = [1300, 1500, 2200, 800];
 
-const MESH_PAD = 26;
-/** Restrained, Tuple-like corner radii: a crisp inner window with a slightly
-    rounder mesh frame around it (concentric, just tighter than the padding). */
-const WINDOW_RADIUS = 10;
-const MESH_RADIUS = 20;
+const MESH_PAD = 16;
+/** Restrained, Tuple-like corner radii: a crisp inner window with a mesh frame
+    that is exactly concentric with it (outer = inner + the mesh padding). */
+const WINDOW_RADIUS = 8;
 const WINDOW_WIDTH = 452;
 const WINDOW_FONT = 13;
 const FRAME_PADDING = 18;
@@ -284,9 +283,9 @@ export function Instrument() {
 						width: meshW,
 						height: meshH,
 						padding: MESH_PAD,
-						// Concentric, kept tight: the mesh frame is a touch rounder than the
-						// inner window rather than tracking the full padding.
-						borderRadius: MESH_RADIUS,
+						// True concentric: outer radius = inner window radius + the mesh padding,
+						// so the frame and window corners nest exactly.
+						borderRadius: WINDOW_RADIUS + MESH_PAD,
 						boxShadow: OBJECT_SHADOW,
 					}}
 					className="relative mx-auto flex max-w-full items-center justify-center overflow-hidden"

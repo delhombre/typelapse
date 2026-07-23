@@ -37,7 +37,7 @@ function BeforeAfter() {
 				meshTime={3}
 				fontSize={11}
 				framePadding={14}
-				meshPadding={16}
+				meshPadding={12}
 				className={FRAME}
 			/>
 			<Arrow />
@@ -50,7 +50,7 @@ function BeforeAfter() {
 				meshTime={8}
 				fontSize={11}
 				framePadding={14}
-				meshPadding={16}
+				meshPadding={12}
 				className={FRAME}
 			/>
 		</div>
