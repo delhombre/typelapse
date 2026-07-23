@@ -15,9 +15,8 @@ const THEMES: Record<string, () => Theme> = {
 };
 
 /** Restrained, Tuple-like corner radii: a crisp inner window, and a mesh frame
-    that stays a touch rounder (capped, so it never balloons with the padding). */
-const WINDOW_RADIUS = 10;
-const MESH_RADIUS_GAP = 10;
+    that is exactly concentric with it (outer = inner + the mesh padding). */
+const WINDOW_RADIUS = 8;
 
 interface StaticFrameProps {
 	themeName: string;
@@ -50,7 +49,7 @@ export function StaticFrame({
 	language = "typescript",
 	title,
 	meshTime = 3,
-	meshPadding = 22,
+	meshPadding = 14,
 	framePadding = 18,
 	fontSize = 12,
 	fill = false,
@@ -86,9 +85,9 @@ export function StaticFrame({
 			className={`code-frame-glow relative overflow-hidden ${className}`}
 			style={{
 				padding: meshPadding,
-				// Concentric, kept tight: inner window radius plus a capped gap, so the
-				// frame reads rounder than the window without ballooning with the padding.
-				borderRadius: WINDOW_RADIUS + Math.min(meshPadding, MESH_RADIUS_GAP),
+				// True concentric: outer radius = inner window radius + the mesh padding,
+				// so the frame and window corners nest exactly.
+				borderRadius: WINDOW_RADIUS + meshPadding,
 				background: preset ? meshGradientCss(preset, meshTime) : undefined,
 			}}
 		>
