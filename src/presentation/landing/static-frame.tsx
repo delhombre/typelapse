@@ -14,13 +14,27 @@ const THEMES: Record<string, () => Theme> = {
 	nord: Theme.nord,
 };
 
-/** Restrained, Tuple-like corner radii: a crisp inner window, and a mesh frame
-    that is exactly concentric with it (outer = inner + the mesh padding). */
+/** Inner code-window radius when the window sits inside a mesh frame. */
 const WINDOW_RADIUS = 6;
+/** A bare card is its own window, so it carries a slightly larger, crisp radius. */
+export const BARE_RADIUS = 11;
+/** Refined, layered shadow for a dark code card resting on the light paper: a
+    hairline outline, a tight contact shadow, two soft depth shadows, and a top
+    inner light-catch. Shadows over borders, as the craft rules prescribe. */
+export const CARD_SHADOW = [
+	"0 0 0 1px rgb(0 0 0 / 0.04)",
+	"0 1px 2px rgb(0 0 0 / 0.05)",
+	"0 8px 20px -8px rgb(0 0 0 / 0.16)",
+	"0 26px 50px -22px rgb(0 0 0 / 0.16)",
+	"inset 0 1px 0 rgb(255 255 255 / 0.06)",
+].join(", ");
+/** Shadow for the window when it sits inside a mesh frame (deep, on the mesh). */
+const MESH_WINDOW_SHADOW = "0 18px 44px -20px rgb(0 0 0 / 0.55)";
 
 interface StaticFrameProps {
 	themeName: string;
-	presetId: string;
+	/** Mesh preset id. Ignored (and optional) for a `bare` card. */
+	presetId?: string;
 	code: string;
 	language?: string;
 	title: string;
@@ -31,6 +45,10 @@ interface StaticFrameProps {
 	fontSize?: number;
 	/** Stretch the window to fill the card (aspect set via className) and centre the code. */
 	fill?: boolean;
+	/** Drop the mesh backdrop entirely: a clean dark code window on the page, with
+	    a refined grounding shadow. Used where the code, not the export look, is the
+	    subject (the magic-move and diff shots). */
+	bare?: boolean;
 	/** Alt text: these are product shots, so screen readers get one concise label
 	    instead of the raw, tokenized Shiki markup. */
 	label?: string;
@@ -38,9 +56,10 @@ interface StaticFrameProps {
 }
 
 /**
- * A single, static, syntax-highlighted code frame on an animated-mesh backdrop:
- * the same look the studio exports, rendered once (no loop). Used for the theme
- * gallery and aspect-ratio showcase where variety, not motion, is the point.
+ * A single, static, syntax-highlighted code frame. By default it sits on an
+ * animated-mesh backdrop (the same look the studio exports). With `bare` it
+ * renders as a clean dark code card on the page instead, for shots where the
+ * code, not the export look, is the subject.
  */
 export function StaticFrame({
 	themeName,
@@ -53,6 +72,7 @@ export function StaticFrame({
 	framePadding = 18,
 	fontSize = 12,
 	fill = false,
+	bare = false,
 	label,
 	className = "",
 }: StaticFrameProps) {
@@ -78,6 +98,25 @@ export function StaticFrame({
 		};
 	}, [code, language, themeName]);
 
+	const codeBlock = (
+		<div
+			className={`studio-code font-mono leading-[1.6] ${fill ? "flex flex-1 items-center" : ""}`}
+			style={{ padding: framePadding, fontSize, color: theme.foreground }}
+			// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output from our own highlighter
+			dangerouslySetInnerHTML={{ __html: html }}
+		/>
+	);
+
+	if (bare) {
+		return (
+			<div role={label ? "img" : undefined} aria-label={label} className={`relative ${className}`}>
+				<FrameShell theme={theme} title={title} fill={fill} radius={BARE_RADIUS} shadow={CARD_SHADOW}>
+					{codeBlock}
+				</FrameShell>
+			</div>
+		);
+	}
+
 	return (
 		<div
 			role={label ? "img" : undefined}
@@ -94,12 +133,7 @@ export function StaticFrame({
 			<GrainOverlay />
 			<div className={`relative z-10 ${fill ? "flex h-full w-full" : ""}`}>
 				<FrameShell theme={theme} title={title} fill={fill}>
-					<div
-						className={`studio-code font-mono leading-[1.6] ${fill ? "flex flex-1 items-center" : ""}`}
-						style={{ padding: framePadding, fontSize, color: theme.foreground }}
-						// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output from our own highlighter
-						dangerouslySetInnerHTML={{ __html: html }}
-					/>
+					{codeBlock}
 				</FrameShell>
 			</div>
 		</div>
@@ -111,14 +145,23 @@ function FrameShell({
 	title,
 	children,
 	fill = false,
-}: { theme: Theme; title: string; children: ReactNode; fill?: boolean }) {
+	radius = WINDOW_RADIUS,
+	shadow = MESH_WINDOW_SHADOW,
+}: {
+	theme: Theme;
+	title: string;
+	children: ReactNode;
+	fill?: boolean;
+	radius?: number;
+	shadow?: string;
+}) {
 	return (
 		<div
 			className={`overflow-hidden ${fill ? "flex h-full flex-1 flex-col" : ""}`}
 			style={{
 				background: theme.background,
-				borderRadius: WINDOW_RADIUS,
-				boxShadow: "0 18px 44px -20px rgb(0 0 0 / 0.55)",
+				borderRadius: radius,
+				boxShadow: shadow,
 			}}
 		>
 			<div

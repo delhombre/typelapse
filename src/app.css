@@ -181,13 +181,6 @@ html {
 	text-transform: uppercase;
 	color: var(--color-ash);
 }
-.landing-root .lp-eyebrow::before {
-	content: "";
-	width: 0.34em;
-	height: 0.34em;
-	border-radius: 999px;
-	background: var(--color-accent);
-}
 
 /* Sans microline: the quiet stamp under the hero / CTA. */
 .landing-root .lp-micro {
