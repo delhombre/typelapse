@@ -7,6 +7,8 @@ import { StaticFrame } from "./static-frame";
 
 interface SocialShotProps {
 	platform: SocialPlatform;
+	/** Alt text: this mockup is a product shot, so screen readers get one label. */
+	label: string;
 	themeName: string;
 	presetId: string;
 	code: string;
@@ -28,6 +30,7 @@ const PHONE_RADIUS = 30;
  */
 export function SocialShot({
 	platform,
+	label,
 	themeName,
 	presetId,
 	code,
@@ -39,6 +42,8 @@ export function SocialShot({
 
 	return (
 		<div
+			role="img"
+			aria-label={label}
 			className={`lp-phone relative overflow-hidden ${className}`}
 			style={{ aspectRatio: "9 / 16", borderRadius: PHONE_RADIUS }}
 		>

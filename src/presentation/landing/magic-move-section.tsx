@@ -33,6 +33,7 @@ function BeforeAfter() {
 				presetId="nebula"
 				title="total.ts"
 				code={BEFORE}
+				label="Code frame before the magic move, showing two lines"
 				meshTime={3}
 				fontSize={11}
 				framePadding={14}
@@ -45,6 +46,7 @@ function BeforeAfter() {
 				presetId="nebula"
 				title="total.ts"
 				code={AFTER}
+				label="The same code frame after the magic move, with a third line added"
 				meshTime={8}
 				fontSize={11}
 				framePadding={14}

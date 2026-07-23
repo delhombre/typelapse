@@ -274,6 +274,8 @@ export function Instrument() {
 		<section className="mx-auto w-full max-w-5xl px-6">
 			<div ref={wrapperRef} className="w-full">
 				<motion.div
+					role="img"
+					aria-label="Live preview: a code snippet morphing token by token on a mesh gradient background"
 					style={{
 						width: meshW,
 						height: meshH,

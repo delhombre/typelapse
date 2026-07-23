@@ -48,6 +48,8 @@ function DiffFrame() {
 
 	return (
 		<div
+			role="img"
+			aria-label="A GitHub pull request diff shown as a code video frame, with one line removed and two added"
 			className="code-frame-glow relative w-[300px] overflow-hidden sm:w-[368px]"
 			style={{
 				padding: DIFF_PAD,
