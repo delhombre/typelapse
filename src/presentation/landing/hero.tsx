@@ -10,24 +10,24 @@ import { CONTAINER } from "./tokens";
  */
 export function Hero() {
 	return (
-		<section className="pt-16 pb-14 sm:pt-24 sm:pb-20">
+		<section className="flex min-h-[100svh] flex-col justify-center py-12">
 			<RevealGroup immediate className={`${CONTAINER} text-center`}>
 				<RevealItem>
 					<h1 className="lp-display mx-auto max-w-[15ch] text-ink">Your code, in motion.</h1>
 				</RevealItem>
 				<RevealItem>
-					<p className="lp-lead mx-auto mt-6 max-w-[48ch]">
+					<p className="lp-lead mx-auto mt-5 max-w-[48ch]">
 						Paste a snippet, a diff, or a whole pull request. Typelapse turns it into a smooth,
 						token by token video that's ready to drop straight into your feed.
 					</p>
 				</RevealItem>
 			</RevealGroup>
 
-			<Reveal immediate delay={0.18} className="mt-14 sm:mt-16">
+			<Reveal immediate delay={0.18} className="mt-8 sm:mt-10">
 				<Instrument />
 			</Reveal>
 
-			<Reveal immediate delay={0.3} className={`${CONTAINER} mt-8 text-center`}>
+			<Reveal immediate delay={0.3} className={`${CONTAINER} mt-6 text-center`}>
 				<p className="lp-micro">No account, no upload. It all runs in your browser.</p>
 			</Reveal>
 		</section>
