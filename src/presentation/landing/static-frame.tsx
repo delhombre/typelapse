@@ -110,7 +110,13 @@ export function StaticFrame({
 	if (bare) {
 		return (
 			<div role={label ? "img" : undefined} aria-label={label} className={`relative ${className}`}>
-				<FrameShell theme={theme} title={title} fill={fill} radius={BARE_RADIUS} shadow={CARD_SHADOW}>
+				<FrameShell
+					theme={theme}
+					title={title}
+					fill={fill}
+					radius={BARE_RADIUS}
+					shadow={CARD_SHADOW}
+				>
 					{codeBlock}
 				</FrameShell>
 			</div>
