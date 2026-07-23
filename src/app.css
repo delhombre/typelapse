@@ -157,15 +157,15 @@ html {
 	text-wrap: pretty;
 }
 
-/* Mono eyebrow: small uppercase kicker above a heading. */
+/* Sans eyebrow: small uppercase kicker above a heading. */
 .landing-root .lp-eyebrow {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.6em;
-	font-family: var(--font-mono);
-	font-weight: 500;
+	font-family: var(--font-sans);
+	font-weight: 600;
 	font-size: 0.6875rem;
-	letter-spacing: 0.2em;
+	letter-spacing: 0.18em;
 	text-transform: uppercase;
 	color: var(--color-ash);
 }
@@ -177,11 +177,11 @@ html {
 	background: var(--color-accent);
 }
 
-/* Mono microline: the quiet stamp under the hero / CTA. */
+/* Sans microline: the quiet stamp under the hero / CTA. */
 .landing-root .lp-micro {
-	font-family: var(--font-mono);
-	font-size: 0.6875rem;
-	letter-spacing: 0.14em;
+	font-family: var(--font-sans);
+	font-size: 0.75rem;
+	letter-spacing: 0.01em;
 	color: var(--color-ash);
 	font-variant-numeric: tabular-nums;
 }

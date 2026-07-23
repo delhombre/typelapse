@@ -1,6 +1,5 @@
-import { LogoWordmark } from "@/presentation/components/ui/logo-wordmark";
 import { Link } from "react-router-dom";
-import { InkButton } from "./primitives";
+import { InkButton, LogoLockup } from "./primitives";
 import { CONTAINER, GITHUB_URL } from "./tokens";
 
 /**
@@ -19,7 +18,7 @@ export function Nav() {
 				/>
 				<div className={`${CONTAINER} flex h-16 items-center justify-between`}>
 					<Link to="/" aria-label="Typelapse home" className="-m-2 flex items-center p-2">
-						<LogoWordmark height={21} className="text-ink" />
+						<LogoLockup markSize={20} textClassName="text-lg" />
 					</Link>
 					<nav className="flex items-center gap-1 sm:gap-2">
 						<a
