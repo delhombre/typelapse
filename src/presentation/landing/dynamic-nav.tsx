@@ -11,10 +11,10 @@ import { Link } from "react-router-dom";
 
 /**
  * A Dynamic Island nav: one compact, always-centered near-black pill floating at
- * the top. It never spans the page. As you scroll it springs a little larger and
- * settles back with a hint of bounce, like the real Dynamic Island reacting to
- * motion, driven by scroll velocity so it breathes while scrolling and rests when
- * you stop. Reduced motion keeps it perfectly still.
+ * the top. It never spans the page. Scroll velocity stretches it elastically along
+ * its width: scrolling down squeezes it narrower, scrolling back up stretches it
+ * wider, and a bouncy spring snaps it back to its resting width when you stop.
+ * Reduced motion keeps it perfectly still.
  */
 
 /** The near-black of the real Dynamic Island. */
@@ -30,12 +30,13 @@ export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
 	const velocity = useVelocity(scrollY);
-	// Smooth the raw scroll velocity so the island breathes rather than jitters,
-	// and springs back (a hint of bounce) when the scroll stops.
-	const smoothVelocity = useSpring(velocity, { stiffness: 280, damping: 20, restDelta: 1 });
-	// Any fast scroll, either direction, nudges it a little larger; at rest the
-	// velocity is 0, so it settles back to its resting size.
-	const scale = useTransform(smoothVelocity, [-1800, 0, 1800], [1.06, 1, 1.06], { clamp: true });
+	// Smooth the raw scroll velocity with a loose, bouncy spring so the stretch
+	// overshoots and settles elastically once the scroll stops.
+	const smoothVelocity = useSpring(velocity, { stiffness: 200, damping: 14, restDelta: 1 });
+	// Signed velocity drives a directional stretch along the width: scrolling up
+	// (negative) stretches the island wider, scrolling down (positive) squeezes it
+	// narrower, and at rest (velocity 0) it snaps back to its resting width.
+	const stretchX = useTransform(smoothVelocity, [-2200, 0, 2200], [1.11, 1, 0.94], { clamp: true });
 
 	return (
 		<header className="pointer-events-none sticky top-0 z-50 flex justify-center pt-2.5">
@@ -44,7 +45,7 @@ export function DynamicNav() {
 				style={{
 					background: ISLAND_BG,
 					boxShadow: ISLAND_SHADOW,
-					scale: reduce ? 1 : scale,
+					scaleX: reduce ? 1 : stretchX,
 					transformOrigin: "center",
 					willChange: "transform",
 				}}
