@@ -16,7 +16,7 @@ const THEMES: Record<string, () => Theme> = {
 
 /** Restrained, Tuple-like corner radii: a crisp inner window, and a mesh frame
     that is exactly concentric with it (outer = inner + the mesh padding). */
-const WINDOW_RADIUS = 8;
+const WINDOW_RADIUS = 6;
 
 interface StaticFrameProps {
 	themeName: string;
@@ -49,7 +49,7 @@ export function StaticFrame({
 	language = "typescript",
 	title,
 	meshTime = 3,
-	meshPadding = 14,
+	meshPadding = 10,
 	framePadding = 18,
 	fontSize = 12,
 	fill = false,

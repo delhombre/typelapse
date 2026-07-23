@@ -39,10 +39,10 @@ const STYLE: Record<DiffKind, { sign: string; text: string; bg: string }> = {
 	del: { sign: "-", text: "#ffa198", bg: "rgba(248,81,73,0.15)" },
 };
 
-const DIFF_PAD = 12;
+const DIFF_PAD = 8;
 /** Restrained, Tuple-like corner radii: a crisp inner window with a mesh frame
     that is exactly concentric with it (outer = inner + the diff padding). */
-const WINDOW_RADIUS = 8;
+const WINDOW_RADIUS = 6;
 
 /** A GitHub-flavored diff frame on a mesh backdrop: the diff-import product shot. */
 function DiffFrame() {
@@ -53,7 +53,7 @@ function DiffFrame() {
 		<div
 			role="img"
 			aria-label="A GitHub pull request diff shown as a code video frame, with one line removed and two added"
-			className="code-frame-glow relative w-[300px] overflow-hidden sm:w-[368px]"
+			className="code-frame-glow lp-lift relative w-[300px] overflow-hidden sm:w-[368px]"
 			style={{
 				padding: DIFF_PAD,
 				borderRadius: WINDOW_RADIUS + DIFF_PAD,

@@ -44,7 +44,7 @@ export function SocialShot({
 		<div
 			role="img"
 			aria-label={label}
-			className={`lp-phone relative overflow-hidden ${className}`}
+			className={`lp-phone lp-lift relative overflow-hidden ${className}`}
 			style={{ aspectRatio: "9 / 16", borderRadius: PHONE_RADIUS }}
 		>
 			{/* The inner layer fills the sized phone box and IS the container-query

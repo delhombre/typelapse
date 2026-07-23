@@ -6,17 +6,21 @@ import {
 	LP_EASE,
 	PRESS_DURATION,
 	PRESS_SCALE,
+	REVEAL_BLUR,
 	REVEAL_DURATION,
 	REVEAL_DURATION_REDUCED,
+	REVEAL_EASE,
 	REVEAL_RISE,
+	REVEAL_SCALE,
 	REVEAL_STAGGER,
 	REVEAL_VIEWPORT,
 } from "./tokens";
 
 /* ──────────── Scroll reveal ────────────
-   Soft opacity + a small rise, played once as the block scrolls in. Reduced
-   motion drops the movement and just cross-fades. `immediate` plays on mount
-   (for above-the-fold hero content, which is already in view). */
+   The block materializes as it scrolls in: opacity, a small rise, a whisper of
+   scale-up and a blur that resolves, so it reads as coming into focus rather than
+   a flat fade. Reduced motion drops every transform and blur and just cross-fades.
+   `immediate` plays on mount (for above-the-fold hero content, already in view). */
 
 interface RevealProps {
 	children: ReactNode;
@@ -27,11 +31,13 @@ interface RevealProps {
 
 export function Reveal({ children, className, delay = 0, immediate = false }: RevealProps) {
 	const reduce = useReducedMotion();
-	const hidden = reduce ? { opacity: 0 } : { opacity: 0, y: REVEAL_RISE };
-	const shown = reduce ? { opacity: 1 } : { opacity: 1, y: 0 };
+	const hidden = reduce
+		? { opacity: 0 }
+		: { opacity: 0, y: REVEAL_RISE, scale: REVEAL_SCALE, filter: REVEAL_BLUR };
+	const shown = reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
 	const transition = {
 		duration: reduce ? REVEAL_DURATION_REDUCED : REVEAL_DURATION,
-		ease: LP_EASE,
+		ease: reduce ? LP_EASE : REVEAL_EASE,
 		delay,
 	};
 
@@ -106,8 +112,14 @@ export function RevealItem({ children, className }: { children: ReactNode; class
 				shown: { opacity: 1, transition: { duration: REVEAL_DURATION_REDUCED, ease: LP_EASE } },
 			}
 		: {
-				hidden: { opacity: 0, y: REVEAL_RISE },
-				shown: { opacity: 1, y: 0, transition: { duration: REVEAL_DURATION, ease: LP_EASE } },
+				hidden: { opacity: 0, y: REVEAL_RISE, scale: REVEAL_SCALE, filter: REVEAL_BLUR },
+				shown: {
+					opacity: 1,
+					y: 0,
+					scale: 1,
+					filter: "blur(0px)",
+					transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE },
+				},
 			};
 	return (
 		<motion.div className={className} variants={variants}>
@@ -118,8 +130,9 @@ export function RevealItem({ children, className }: { children: ReactNode; class
 
 /* ──────────── Buttons ────────────
    A confident accent-violet rounded rect (the Tuple signature), with a soft
-   accent-tinted shadow for depth and a slight hover brighten. The press scale lives on a
-   `motion.span` wrapper (a transform-only, ~160ms ease-out feedback), so the inner
+   accent-tinted shadow for depth. On hover it lifts a hair and its accent shadow
+   deepens (physical, not bouncy); on press it scales down. The lift + press scale
+   live on a `motion.span` wrapper (transform-only, ~160ms ease-out), so the inner
    Link stays the honest navigation target and we never animate `all`. */
 
 interface InkButtonProps {
@@ -133,11 +146,12 @@ interface InkButtonProps {
 export function InkButton({ to, href, children, size = "md", className = "" }: InkButtonProps) {
 	const reduce = useReducedMotion();
 	const sizing = size === "lg" ? "h-12 px-7 text-[15px]" : "h-11 px-5 text-sm";
-	const inner = `inline-flex items-center justify-center rounded-xl bg-[var(--color-cta)] font-medium text-white shadow-[0_6px_20px_-6px_oklch(0.56_0.19_268/0.45)] transition-[filter] duration-200 hover:brightness-95 ${sizing}`;
+	const inner = `inline-flex items-center justify-center rounded-xl bg-[var(--color-cta)] font-medium text-white shadow-[0_6px_20px_-6px_oklch(0.56_0.19_268/0.45)] transition-[filter,box-shadow] duration-200 hover:brightness-95 hover:shadow-[0_11px_28px_-7px_oklch(0.56_0.19_268/0.62)] ${sizing}`;
 
 	return (
 		<motion.span
 			className={`inline-flex ${className}`}
+			whileHover={reduce ? undefined : { y: -1 }}
 			whileTap={reduce ? undefined : { scale: PRESS_SCALE }}
 			transition={{ duration: PRESS_DURATION, ease: LP_EASE }}
 		>
