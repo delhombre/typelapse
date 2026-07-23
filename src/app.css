@@ -113,27 +113,39 @@ html {
    dark section (`.lp-dark`) only has to remap those two vars to invert cleanly.
    ───────────────────────────────────────────────────────────────────────── */
 .landing-root {
+	/* Characterful landing display face (Tuple-style warmth). Scoped here so the
+	   /app studio keeps the neutral @theme sans and is never affected. */
+	--font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
+	/* Primary CTA fill: one lightness step deeper than the light `--color-accent`
+	   token so white button text clears WCAG AA (4.86:1). Landing-scoped, so the
+	   accent token itself (focus ring, eyebrow dot, pill) is untouched. */
+	--color-cta: oklch(0.56 0.19 268);
 	font-family: var(--font-sans);
 	font-optical-sizing: auto;
 	font-synthesis-weight: none;
 	color: var(--color-ink);
 }
 
-/* Big confident display: heavy weight, tight tracking + leading, balanced wrap. */
+/* Big confident display: the characterful face, heavy + bold, the star of the
+   page. Bricolage runs a touch wider, so tracking is tightened and leading
+   pulled close for a dense, warm headline. */
 .landing-root .lp-display {
-	font-weight: 700;
+	font-family: var(--font-display);
+	font-weight: 800;
 	font-size: clamp(2.75rem, 1.4rem + 5.6vw, 4.75rem);
-	line-height: 1.03;
-	letter-spacing: -0.033em;
+	line-height: 1.02;
+	letter-spacing: -0.028em;
 	text-wrap: balance;
 }
 
-/* Section heading: a touch lighter than the display for an elegant large size. */
+/* Section heading: same characterful face, a step down in weight for elegance
+   at a large size. */
 .landing-root .lp-h2 {
-	font-weight: 600;
+	font-family: var(--font-display);
+	font-weight: 700;
 	font-size: clamp(2rem, 1.25rem + 2.8vw, 3.05rem);
-	line-height: 1.06;
-	letter-spacing: -0.028em;
+	line-height: 1.05;
+	letter-spacing: -0.021em;
 	text-wrap: balance;
 }
 

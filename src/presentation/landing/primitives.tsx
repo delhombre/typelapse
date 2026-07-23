@@ -117,9 +117,10 @@ export function RevealItem({ children, className }: { children: ReactNode; class
 }
 
 /* ──────────── Buttons ────────────
-   A solid ink pill. The press scale lives on a `motion.span` wrapper (a
-   transform-only, ~160ms ease-out feedback), so the inner Link stays the honest
-   navigation target and we never animate `all`. */
+   A confident accent-violet pill (the Tuple signature), with a soft accent-tinted
+   shadow for depth and a slight hover brighten. The press scale lives on a
+   `motion.span` wrapper (a transform-only, ~160ms ease-out feedback), so the inner
+   Link stays the honest navigation target and we never animate `all`. */
 
 interface InkButtonProps {
 	to?: string;
@@ -132,7 +133,7 @@ interface InkButtonProps {
 export function InkButton({ to, href, children, size = "md", className = "" }: InkButtonProps) {
 	const reduce = useReducedMotion();
 	const sizing = size === "lg" ? "h-12 px-7 text-[15px]" : "h-11 px-5 text-sm";
-	const inner = `inline-flex items-center justify-center rounded-full bg-ink font-medium text-white transition-colors hover:bg-black ${sizing}`;
+	const inner = `inline-flex items-center justify-center rounded-full bg-[var(--color-cta)] font-medium text-white shadow-[0_6px_20px_-6px_oklch(0.56_0.19_268/0.45)] transition-[filter] duration-200 hover:brightness-95 ${sizing}`;
 
 	return (
 		<motion.span
