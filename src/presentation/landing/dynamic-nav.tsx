@@ -1,23 +1,15 @@
 import { Logomark } from "@/presentation/components/ui/logomark";
-import {
-	type Transition,
-	motion,
-	useMotionValueEvent,
-	useReducedMotion,
-	useScroll,
-} from "motion/react";
+import { motion, useMotionValueEvent, useReducedMotion, useScroll } from "motion/react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
 /**
- * A Dynamic Island nav (after the 21st.dev component): one compact, always-centered
- * near-black pill floating at the top. It never spans the page. Its length is driven
- * by scroll state through the pill's horizontal padding, and Motion's `layout`
- * springs that size change, so scrolling down settles it firmly shorter and
- * returning to the top snaps it elastically longer. The inner content also carries
- * `layout`, so Motion counter-scales it and the logo and text stay crisp while only
- * the pill's box stretches (no scaleX distortion of the content). Reduced motion
- * makes the change instant.
+ * A Dynamic Island nav: one compact, centered near-black pill floating at the top,
+ * never spanning the page. It is one solid block, so the logo and CTA move together
+ * with it. Past a certain scroll depth it hides when you scroll down and springs
+ * back into view when you scroll up (the classic reveal-on-scroll-up header); near
+ * the very top it always stays. The reveal uses a springy transition for an elastic
+ * drop-in. Reduced motion keeps it pinned and visible.
  */
 
 /** The near-black of the real Dynamic Island. */
@@ -29,67 +21,56 @@ const ISLAND_SHADOW = [
 	"inset 0 1px 0 rgba(255,255,255,0.06)",
 ].join(", ");
 
-/** Hysteresis: collapse once past the upper mark, expand only back under the lower
-    one, so the state cannot flicker while the scroll hovers a single boundary. */
-const COLLAPSE_AT = 60;
-const EXPAND_AT = 16;
+/** Above this scroll depth the island always shows; below it, direction decides. */
+const REVEAL_AT = 90;
+/** How far up the hidden island tucks (past the top edge). */
+const HIDDEN_Y = -104;
 
-/** The two resting side-paddings (px). The pill length is the content plus twice
-    this, so springing it between the two lengthens and shortens the island. */
-const COMPACT_PAD = 10;
-const BASE_PAD = 26;
-
-function readInitialScrolled(): boolean {
-	if (typeof window === "undefined") {
-		return false;
-	}
-	return window.scrollY > COLLAPSE_AT;
-}
+/** An elastic drop-in on reveal; a quick, clean tuck on hide. */
+const REVEAL_TRANSITION = { type: "spring" as const, bounce: 0.26, duration: 0.6 };
+const HIDE_TRANSITION = { type: "spring" as const, bounce: 0, duration: 0.32 };
 
 export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
-	const [scrolled, setScrolled] = useState(readInitialScrolled);
+	const [hidden, setHidden] = useState(false);
 
 	useMotionValueEvent(scrollY, "change", (y) => {
-		if (y > COLLAPSE_AT) {
-			setScrolled(true);
-		} else if (y < EXPAND_AT) {
-			setScrolled(false);
+		const previous = scrollY.getPrevious() ?? 0;
+		if (y < REVEAL_AT) {
+			setHidden(false);
+		} else {
+			// Scrolling down (y grows) hides it; scrolling up brings it back.
+			setHidden(y > previous);
 		}
 	});
 
-	const pad = scrolled ? COMPACT_PAD : BASE_PAD;
-	// Firm, no-overshoot settle on the way down; an elastic snap on the way back up.
-	let transition: Transition = { type: "spring", bounce: scrolled ? 0.14 : 0.52, duration: 0.6 };
-	if (reduce) {
-		transition = { duration: 0 };
-	}
+	const isHidden = hidden && !reduce;
 
 	return (
-		<header className="pointer-events-none sticky top-0 z-50 flex justify-center pt-2.5">
+		<header className="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center">
 			<motion.div
-				layout
-				transition={transition}
-				className="pointer-events-auto inline-flex h-11 items-center rounded-full"
-				style={{
-					background: ISLAND_BG,
-					boxShadow: ISLAND_SHADOW,
-					paddingLeft: pad,
-					paddingRight: pad,
-				}}
+				className="pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px]"
+				style={{ background: ISLAND_BG, boxShadow: ISLAND_SHADOW }}
+				initial={false}
+				animate={{ y: isHidden ? HIDDEN_Y : 0, opacity: isHidden ? 0 : 1 }}
+				transition={reduce ? { duration: 0 } : isHidden ? HIDE_TRANSITION : REVEAL_TRANSITION}
 			>
-				<motion.div layout className="flex items-center gap-5">
-					<Link to="/" aria-label="Typelapse home" className="flex items-center gap-2 text-white">
-						<Logomark size={17} />
-						<span className="font-semibold text-[14px] text-white tracking-tight">Typelapse</span>
-					</Link>
-					<Link to="/app" aria-label="Open studio" className="flex items-center outline-offset-4">
-						<span className="inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-white shadow-[0_6px_16px_-6px_oklch(0.56_0.19_268/0.6)]">
-							Open studio
-						</span>
-					</Link>
-				</motion.div>
+				<Link to="/" aria-label="Typelapse home" className="flex items-center gap-2 text-white">
+					<Logomark size={17} />
+					<span className="font-semibold text-[14px] text-white tracking-tight">Typelapse</span>
+				</Link>
+				{/* The violet capsule nests concentric in the pill: pill h44 r22, capsule
+				    h32 r16, so an even 6px inset (pr-[6px] + the 6px top/bottom gap). */}
+				<Link
+					to="/app"
+					aria-label="Open studio"
+					className="flex h-full items-center outline-offset-4"
+				>
+					<span className="inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-white shadow-[0_6px_16px_-6px_oklch(0.56_0.19_268/0.6)]">
+						Open studio
+					</span>
+				</Link>
 			</motion.div>
 		</header>
 	);
