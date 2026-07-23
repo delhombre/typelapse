@@ -53,6 +53,22 @@ export const SCREEN_CONFIGS = [
 		code: "queue.push(job)\nqueue.flush()",
 		meshTime: 13,
 	},
+	{
+		platform: "x",
+		themeName: "nord",
+		presetId: "ember",
+		title: "post.ts",
+		code: "const thread = compose()\nthread.ship()",
+		meshTime: 17,
+	},
+	{
+		platform: "linkedin",
+		themeName: "catppuccin",
+		presetId: "forest",
+		title: "share.ts",
+		code: "const reach = publish()\nreach.grow()",
+		meshTime: 21,
+	},
 ] as const satisfies readonly ScreenConfig[];
 
 /** The platforms in the cycle, so the section can dim any chip that is not shown. */
