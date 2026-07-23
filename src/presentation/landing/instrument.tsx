@@ -44,11 +44,13 @@ const THEME_DOTS: { name: string; bg: string }[] = [
 	{ name: "nord", bg: "#2e3440" },
 ];
 
-/** The three live aspects: the mesh canvas springs between these sizes. */
+/** The three live aspects: the mesh canvas springs between these sizes. Kept
+    compact so the whole hero (headline, subhead, this object, toolbar) fits within
+    the first viewport. */
 const ASPECTS = [
-	{ id: "16:9", w: 760, h: 428 },
-	{ id: "1:1", w: 470, h: 470 },
-	{ id: "9:16", w: 300, h: 534 },
+	{ id: "16:9", w: 636, h: 358 },
+	{ id: "1:1", w: 392, h: 392 },
+	{ id: "9:16", w: 252, h: 448 },
 ] as const;
 
 type AspectId = (typeof ASPECTS)[number]["id"];
@@ -398,7 +400,7 @@ function Toolbar({
 	onAspectChange: (id: AspectId) => void;
 }) {
 	return (
-		<div className="mt-6 flex justify-center">
+		<div className="mt-5 flex justify-center">
 			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-full border border-black/8 bg-white px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
 				<button
 					type="button"
