@@ -77,7 +77,7 @@ function TopBar({ zone }: { zone: SafeZone }) {
 		<div
 			style={{
 				position: "absolute",
-				top: "3.6%",
+				top: "calc(var(--safe-top, 0px) + 3.6%)",
 				left: `${zone.left * 100}%`,
 				right: "4%",
 				display: "flex",

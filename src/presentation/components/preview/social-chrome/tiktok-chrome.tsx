@@ -83,7 +83,7 @@ export function TikTokChrome({ zone }: { zone: SafeZone }) {
 
 function TopBar() {
 	return (
-		<div style={{ position: "absolute", top: "3%", left: 0, right: 0 }}>
+		<div style={{ position: "absolute", top: "calc(var(--safe-top, 0px) + 3%)", left: 0, right: 0 }}>
 			<div
 				style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1.4em" }}
 			>
