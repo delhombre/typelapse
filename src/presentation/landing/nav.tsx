@@ -1,9 +1,9 @@
 import { DynamicNav } from "./dynamic-nav";
 
 /**
- * Landing nav. A scroll-reactive Dynamic Island: a full-bleed frosted bar at the
- * top that retracts into a compact, centered, floating near-black pill on scroll,
- * and unfolds again at the top. The morph itself lives in `DynamicNav`.
+ * Landing nav. A permanent, centered Dynamic Island pill that stretches
+ * elastically with scroll velocity (narrower down, wider up, springing back to
+ * rest). The behaviour lives in `DynamicNav`.
  */
 export function Nav() {
 	return <DynamicNav />;
