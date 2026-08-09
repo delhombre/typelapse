@@ -149,17 +149,25 @@ L'ordre compte plus que le contenu.
 
 ---
 
-## 4. La contrainte Remotion, risque structurant
+## 4. La licence Remotion, contrainte réelle mais pas bloquante
 
-Remotion n'est pas MIT. Sa licence est gratuite pour les individus et les entreprises de trois personnes ou moins ; au-delà, elle exige une Company License, et le rendu cloud demande des seats dédiés (Cloud Rendering Units).
+Remotion n'est pas MIT, et sa licence se lit sur deux axes qu'il ne faut pas confondre.
 
-Deux conséquences directes, aucune n'est théorique.
+**Axe 1, qui tu es.** La Free License couvre les individus, les organisations à but lucratif jusqu'à trois personnes (contractants inclus depuis la 5.0) et les non-profits. La Company License devient obligatoire à partir de quatre personnes.
 
-**Sur le service hébergé.** Opérer un rendu Remotion commercial demande de vérifier notre propre éligibilité auprès de Remotion. Tant que le projet est porté par une personne seule, la licence gratuite s'applique vraisemblablement, mais le rendu cloud a ses propres règles. **Action obligatoire avant d'encaisser le premier euro : écrire à Remotion pour faire confirmer par écrit le cas d'usage exact.** Ce n'est pas une question technique et elle ne se tranche pas en lisant la documentation.
+**Axe 2, ce que tu en fais.** La Company License se décline en `Remotion for Creators` (25 $ par siège et par mois, création manuelle) et `Remotion for Automators` (0,01 $ par rendu, minimum 100 $ par mois, dès qu'un programme déclenche les rendus). Ces deux grilles sont des composants de la Company License : **elles ne s'appliquent qu'aux entités qui n'ont pas droit à la Free License.**
 
-**Sur les utilisateurs qui auto-hébergent.** Une entreprise de quatre personnes ou plus qui installe Typelapse a besoin de sa propre licence Remotion. Ce n'est pas notre problème juridique, mais c'est notre problème d'honnêteté : le README doit le dire clairement. C'est aussi, incidemment, un argument commercial pour l'offre hébergée.
+La page officielle de pricing est explicite : la Free License, pour « individuals and companies of up to 3 people », inclut « **Create and automate** », « All features included » et « **Unlimited commercial use** ». La Company License, elle, est « Required for collaborations and companies of 4+ people ».
 
-**Option de repli à garder ouverte.** Un chemin d'export navigateur via WebCodecs supprimerait la dépendance Remotion pour le tier local. Ce n'est pas à faire maintenant, mais toute décision d'architecture doit garder l'export derrière `ExporterPort` pour que ce repli reste possible sans réécriture.
+**Conséquence pour Typelapse aujourd'hui.** Le projet est porté par une personne seule. Opérer le rendu hébergé, commercialement et de façon automatisée, est donc couvert par la Free License, sans coût ni seat. **Il n'y a aucun blocage licence sur la monétisation.**
+
+**Le vrai déclencheur, à surveiller.** Passer à quatre personnes, contractants compris. À ce moment, l'usage de Typelapse hébergé relève d'`Automators`, soit 100 $ par mois de plancher quel que soit le volume, ce qui doit entrer dans le calcul avant tout recrutement ou toute collaboration formalisée. Le terme « collaborations » figure dans les conditions et mérite d'être clarifié avec Remotion le jour où un contributeur régulier rejoint le projet.
+
+**Deux limites qui restent vraies quelle que soit la taille.** Il est interdit de vendre un dérivé de Remotion, et interdit d'opérer un service où des utilisateurs soumettent leur propre code Remotion à rendre. Typelapse ne fait ni l'un ni l'autre : la composition est la nôtre, l'utilisateur n'envoie que du texte et des réglages.
+
+**Sur les utilisateurs qui auto-hébergent.** Une entreprise de quatre personnes ou plus qui installe Typelapse a besoin de sa propre licence Remotion. Ce n'est pas notre problème juridique, mais c'est notre problème d'honnêteté : le README doit le dire clairement.
+
+**Option de repli, sans urgence.** Un chemin d'export via WebCodecs supprimerait la dépendance Remotion. Ce n'est pas justifié aujourd'hui puisque rien n'est dû, mais garder l'export derrière `ExporterPort` maintient l'option ouverte sans réécriture.
 
 ---
 
@@ -215,7 +223,7 @@ server/middleware/require-session.ts   traduit une requête en Session ou 401
 
 Objectif : avoir des utilisateurs à qui vendre quelque chose.
 
-Livrables : landing déployée sur un domaine, démo publique fonctionnelle, README qui dit la contrainte de licence Remotion, une première publication publique (Show HN, Product Hunt ou équivalent).
+Livrables : landing déployée sur un domaine, démo publique fonctionnelle, README qui dit la contrainte de licence Remotion pour les entreprises de 4 personnes ou plus qui auto-hébergent, une première publication publique (Show HN, Product Hunt ou équivalent).
 
 Critères de sortie : le site est en ligne, la démo tourne pour un visiteur qui n'installe rien, et il existe au moins un canal de retour utilisateur.
 
@@ -233,7 +241,7 @@ Objectif : encaisser.
 
 Livrables : Stripe Checkout réel, webhook à signature vérifiée, entité `Subscription`, réconciliation d'état, portail client.
 
-Critères de sortie : un paiement de test fait passer **une organisation** de free à pro de bout en bout ; un webhook non signé est rejeté ; une résiliation la redescend. L'abonnement porte sur l'organisation, jamais sur le compte : c'est ce que dit le modèle de la section 5, et c'est ce qui rend le comptage de sièges possible. **Bloqué tant que la question de licence Remotion (section 4) n'a pas de réponse écrite.**
+Critères de sortie : un paiement de test fait passer **une organisation** de free à pro de bout en bout ; un webhook non signé est rejeté ; une résiliation la redescend. L'abonnement porte sur l'organisation, jamais sur le compte : c'est ce que dit le modèle de la section 5, et c'est ce qui rend le comptage de sièges possible. La licence Remotion ne bloque rien tant que le projet reste à une personne (section 4).
 
 ### Phase 4 — Rendu hébergé réel
 
@@ -271,7 +279,7 @@ Une tranche est terminée quand, et seulement quand :
 
 | Risque | Gravité | Réponse |
 |---|---|---|
-| Licence Remotion incompatible avec un service commercial | **bloquant** | confirmation écrite de Remotion avant la phase 3 ; garder l'export derrière `ExporterPort` pour préserver le repli WebCodecs |
+| Passage à 4 personnes : le rendu hébergé bascule sous `Remotion for Automators`, 100 $/mois de plancher | moyen | intégrer ce coût à toute décision de recrutement ou de collaboration formalisée ; garder l'export derrière `ExporterPort` pour préserver le repli WebCodecs |
 | Aucun utilisateur au moment du lancement du paiement | élevé | phase 1 avant tout le reste, non négociable |
 | Le coût de rendu dépasse le prix de l'abonnement | élevé | quotas dès la phase 4, mesure du coût par minute rendue avant d'annoncer un prix |
 | Un concurrent reprend le dépôt MIT | faible | la valeur est dans la distribution et l'intégration GitHub, pas dans le code ; ne pas surréagir par la licence |
