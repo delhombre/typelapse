@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useCallback, useState } from "react";
 import { AspectGlyph, BackGlyph, BackdropGlyph, PauseGlyph, PlayGlyph, ThemeGlyph } from "./icons";
 
 const BACKDROPS = [
@@ -18,6 +19,35 @@ const THEMES = [
 ];
 
 const ASPECTS = ["16:9", "1:1", "9:16"];
+
+/**
+ * Every number here was sampled off ui.camera frame by frame, not guessed.
+ *
+ * WIDTH: their island runs 348 → 322.4 → 324 over ~480ms, so it undershoots by
+ * ~1.6px on a 24px move and settles back: a spring with bounce left in it.
+ *
+ * ROW: the incoming row does not fade. Its first frame is already at opacity
+ * 0.99 and the work is done by a scale that overshoots (0.996 → 1.0068 → 1).
+ * The outgoing row is the dramatic half: opacity to 0, blur to 4px, scale to
+ * 1.20 in ~156ms.
+ */
+const WIDTH_SPRING = { type: "spring", stiffness: 260, damping: 26, mass: 1 } as const;
+const EASE = [0.23, 1, 0.32, 1] as const;
+
+const ROW_MOTION = {
+	initial: { opacity: 0.99, scale: 0.996, filter: "blur(0.4px)" },
+	animate: { opacity: 1, scale: [0.996, 1.0068, 1] as number[], filter: "blur(0px)" },
+	exit: { opacity: 0, scale: 1.2, filter: "blur(4px)" },
+	transition: { duration: 0.32, ease: EASE as [number, number, number, number] },
+};
+
+/** The swatch under a control cross-fades rather than cutting to the new value. */
+const VALUE_FADE = {
+	initial: { opacity: 0 },
+	animate: { opacity: 1 },
+	exit: { opacity: 0 },
+	transition: { duration: 0.22, ease: EASE as [number, number, number, number] },
+};
 
 /** Shared state so flipping between directions compares like with like. */
 function useIslandState() {
@@ -392,143 +422,197 @@ export function Specimen() {
  */
 export function Combined() {
 	const s = useIslandState();
-	const frame = (ratio: string) => {
+
+	// Measure the row on mount so the island can spring to a real number.
+	// `width: auto` cannot be animated, and a ref callback fires on every panel
+	// change because the row is keyed.
+	const [rowWidth, setRowWidth] = useState<number | null>(null);
+	const measureRow = useCallback((node: HTMLDivElement | null) => {
+		if (node) {
+			setRowWidth(node.scrollWidth);
+		}
+	}, []);
+
+	/**
+	 * The aspect frame morphs by scaling a 14px square rather than animating
+	 * width and height. Same picture, but scale is composited while width and
+	 * height force a layout pass on every frame of the transition.
+	 */
+	const frameScale = (ratio: string) => {
 		const [w, h] = ratio.split(":").map(Number);
-		const scale = 14 / Math.max(w ?? 1, h ?? 1);
-		return {
-			width: Math.max(6, Math.round((w ?? 1) * scale)),
-			height: Math.max(6, Math.round((h ?? 1) * scale)),
-		};
+		const max = Math.max(w ?? 1, h ?? 1);
+		return { scaleX: (w ?? 1) / max, scaleY: (h ?? 1) / max };
 	};
+
+	const swatch = (b: (typeof BACKDROPS)[number]) => `linear-gradient(135deg, ${b.from}, ${b.to})`;
 
 	return (
 		<div className="iproto-dock">
-			<div className="iproto-island" role="toolbar" aria-label="Preview controls">
-				{s.open === null ? (
-					<>
-						<button
-							type="button"
-							className="iproto-btn"
-							onClick={() => s.setPlaying(!s.playing)}
-							aria-label={s.playing ? "Pause" : "Play"}
-						>
-							{s.playing ? <PauseGlyph /> : <PlayGlyph />}
-						</button>
-
-						<button
-							type="button"
-							className="iproto-btn"
-							style={{ minWidth: 30, padding: 0 }}
-							onClick={() => s.setOpen("backdrop")}
-							aria-label={`Backdrop: ${s.backdrop?.label}. Open backdrop control`}
-						>
-							<span
-								className="iproto-spec"
-								style={{
-									width: 18,
-									height: 15,
-									background: `linear-gradient(135deg, ${s.backdrop?.from}, ${s.backdrop?.to})`,
-								}}
-							/>
-						</button>
-
-						<button
-							type="button"
-							className="iproto-btn"
-							style={{ minWidth: 30, padding: 0 }}
-							onClick={() => s.setOpen("theme")}
-							aria-label={`Theme: ${s.theme?.label}. Open theme control`}
-						>
-							<span className="iproto-spec-theme" style={{ background: s.theme?.bg }}>
-								<span
-									className="iproto-spec-line"
-									style={{ background: s.theme?.a, width: "100%" }}
-								/>
-								<span
-									className="iproto-spec-line"
-									style={{ background: s.theme?.b, width: "62%" }}
-								/>
-							</span>
-						</button>
-
-						<button
-							type="button"
-							className="iproto-btn"
-							onClick={s.cycleAspect}
-							aria-label={`Cycle aspect ratio. ${s.aspect} active.`}
-							data-on=""
-						>
-							<span
-								className="iproto-spec"
-								style={{ ...frame(s.aspect ?? "16:9"), background: "rgb(255 255 255 / 0.16)" }}
-							/>
-							{s.aspect}
-						</button>
-
-						<a className="iproto-cta iproto-cta-inline" href="#open">
-							Open studio
-						</a>
-					</>
-				) : (
-					<>
-						<button
-							type="button"
-							className="iproto-btn"
-							onClick={() => s.setOpen(null)}
-							aria-label="Back to controls"
-						>
-							<BackGlyph />
-						</button>
-						{s.open === "backdrop" &&
-							BACKDROPS.map((b) => (
-								<button
-									key={b.id}
-									type="button"
-									className="iproto-btn"
-									style={{ minWidth: 30, padding: 0 }}
-									onClick={() => s.setBackdrop(b)}
-									aria-label={`Backdrop ${b.label}`}
-									{...(s.backdrop?.id === b.id ? { "data-on": "" } : {})}
-								>
-									<span
-										className="iproto-spec"
-										style={{
-											width: 18,
-											height: 15,
-											background: `linear-gradient(135deg, ${b.from}, ${b.to})`,
-											outline: s.backdrop?.id === b.id ? "2px solid #f2f2f4" : undefined,
-											outlineOffset: 2,
-										}}
-									/>
-								</button>
-							))}
-						{s.open === "theme" &&
-							THEMES.map((t) => (
-								<button
-									key={t.id}
-									type="button"
-									className="iproto-btn"
-									style={{ minWidth: 30, padding: 0 }}
-									onClick={() => s.setTheme(t)}
-									aria-label={`Theme ${t.label}`}
-									{...(s.theme?.id === t.id ? { "data-on": "" } : {})}
-								>
-									<span
-										className="iproto-spec-theme"
-										style={{
-											background: t.bg,
-											outline: s.theme?.id === t.id ? "2px solid #f2f2f4" : undefined,
-											outlineOffset: 2,
-										}}
+			<motion.div
+				className="iproto-island iproto-island-animated"
+				role="toolbar"
+				aria-label="Preview controls"
+				initial={false}
+				animate={rowWidth === null ? undefined : { width: rowWidth + 12 }}
+				transition={WIDTH_SPRING}
+			>
+				<AnimatePresence mode="wait" initial={false}>
+					{s.open === null ? (
+						<motion.div key="collapsed" ref={measureRow} className="iproto-row" {...ROW_MOTION}>
+							<button
+								type="button"
+								className="iproto-btn"
+								onClick={() => s.setPlaying(!s.playing)}
+								aria-label={s.playing ? "Pause" : "Play"}
+							>
+								<AnimatePresence mode="wait" initial={false}>
+									<motion.span
+										key={s.playing ? "pause" : "play"}
+										className="iproto-glyph"
+										initial={{ opacity: 0, scale: 0.7 }}
+										animate={{ opacity: 1, scale: 1 }}
+										exit={{ opacity: 0, scale: 0.7 }}
+										transition={{ duration: 0.16, ease: EASE as [number, number, number, number] }}
 									>
-										<span className="iproto-spec-line" style={{ background: t.a, width: "100%" }} />
-										<span className="iproto-spec-line" style={{ background: t.b, width: "62%" }} />
-									</span>
-								</button>
-							))}
-					</>
-				)}
-			</div>
+										{s.playing ? <PauseGlyph /> : <PlayGlyph />}
+									</motion.span>
+								</AnimatePresence>
+							</button>
+
+							<button
+								type="button"
+								className="iproto-btn iproto-btn-tight"
+								onClick={() => s.setOpen("backdrop")}
+								aria-label={`Backdrop: ${s.backdrop?.label}. Open backdrop control`}
+							>
+								{/* Cross-fade: two layers, so changing backdrop is a dissolve
+								    rather than a cut. */}
+								<span className="iproto-spec iproto-spec-stack">
+									<AnimatePresence initial={false}>
+										<motion.span
+											key={s.backdrop?.id}
+											className="iproto-spec-layer"
+											style={{ background: s.backdrop ? swatch(s.backdrop) : undefined }}
+											{...VALUE_FADE}
+										/>
+									</AnimatePresence>
+								</span>
+							</button>
+
+							<button
+								type="button"
+								className="iproto-btn iproto-btn-tight"
+								onClick={() => s.setOpen("theme")}
+								aria-label={`Theme: ${s.theme?.label}. Open theme control`}
+							>
+								<motion.span
+									className="iproto-spec-theme"
+									animate={{ backgroundColor: s.theme?.bg }}
+									transition={{ duration: 0.22, ease: EASE as [number, number, number, number] }}
+								>
+									<motion.span
+										className="iproto-spec-line"
+										animate={{ backgroundColor: s.theme?.a }}
+										transition={{ duration: 0.22, ease: EASE as [number, number, number, number] }}
+										style={{ width: "100%" }}
+									/>
+									<motion.span
+										className="iproto-spec-line"
+										animate={{ backgroundColor: s.theme?.b }}
+										transition={{ duration: 0.22, ease: EASE as [number, number, number, number] }}
+										style={{ width: "62%" }}
+									/>
+								</motion.span>
+							</button>
+
+							<button
+								type="button"
+								className="iproto-btn"
+								onClick={s.cycleAspect}
+								aria-label={`Cycle aspect ratio. ${s.aspect} active.`}
+								data-on=""
+							>
+								<span className="iproto-frame-box">
+									<motion.span
+										className="iproto-frame"
+										animate={frameScale(s.aspect ?? "16:9")}
+										transition={{ type: "spring", stiffness: 420, damping: 30, mass: 0.7 }}
+									/>
+								</span>
+								<span className="iproto-num">{s.aspect}</span>
+							</button>
+
+							<a className="iproto-cta iproto-cta-inline" href="#open">
+								Open studio
+							</a>
+						</motion.div>
+					) : (
+						<motion.div key={s.open} ref={measureRow} className="iproto-row" {...ROW_MOTION}>
+							<button
+								type="button"
+								className="iproto-btn"
+								onClick={() => s.setOpen(null)}
+								aria-label="Back to controls"
+							>
+								<BackGlyph />
+							</button>
+
+							{s.open === "backdrop" &&
+								BACKDROPS.map((b) => (
+									<button
+										key={b.id}
+										type="button"
+										className="iproto-btn iproto-btn-tight"
+										onClick={() => s.setBackdrop(b)}
+										aria-label={`Backdrop ${b.label}`}
+										{...(s.backdrop?.id === b.id ? { "data-on": "" } : {})}
+									>
+										<span className="iproto-spec" style={{ background: swatch(b) }} />
+										{/* One ring that glides between options instead of one
+										    appearing and another vanishing. */}
+										{s.backdrop?.id === b.id && (
+											<motion.span
+												layoutId="island-ring"
+												className="iproto-ring"
+												transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.7 }}
+											/>
+										)}
+									</button>
+								))}
+
+							{s.open === "theme" &&
+								THEMES.map((t) => (
+									<button
+										key={t.id}
+										type="button"
+										className="iproto-btn iproto-btn-tight"
+										onClick={() => s.setTheme(t)}
+										aria-label={`Theme ${t.label}`}
+										{...(s.theme?.id === t.id ? { "data-on": "" } : {})}
+									>
+										<span className="iproto-spec-theme" style={{ background: t.bg }}>
+											<span
+												className="iproto-spec-line"
+												style={{ background: t.a, width: "100%" }}
+											/>
+											<span
+												className="iproto-spec-line"
+												style={{ background: t.b, width: "62%" }}
+											/>
+										</span>
+										{s.theme?.id === t.id && (
+											<motion.span
+												layoutId="island-ring"
+												className="iproto-ring"
+												transition={{ type: "spring", stiffness: 420, damping: 32, mass: 0.7 }}
+											/>
+										)}
+									</button>
+								))}
+						</motion.div>
+					)}
+				</AnimatePresence>
+			</motion.div>
 		</div>
 	);
 }
