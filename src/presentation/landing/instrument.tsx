@@ -16,9 +16,18 @@ import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
 import { MagicMoveCanvas } from "@/presentation/components/preview/magic-move-canvas";
 import { useResizeObserver } from "@/presentation/hooks/use-resize-observer";
 import { springs } from "@/presentation/motion";
-import { motion, useReducedMotion, useSpring, useTransform } from "motion/react";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform } from "motion/react";
+import {
+	type MouseEvent as ReactMouseEvent,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Link } from "react-router-dom";
+import { BackGlyph, PauseGlyph, PlayGlyph } from "./island-icons";
 
 /* The instrument runs the real product parts: the same three-step `api/users.ts`
    demo, tokenized by Shiki, keyed + morphed by the shared magic-move engine, and
@@ -34,15 +43,20 @@ const THEMES: Record<string, () => Theme> = {
 	nord: Theme.nord,
 };
 
-/** Theme swatches for the toolbar: name + the theme's own background hex. */
-const THEME_DOTS: { name: string; bg: string }[] = [
-	{ name: "midnight", bg: "#0d1117" },
-	{ name: "aurora", bg: "#1a1b2e" },
-	{ name: "frost", bg: "#f0f4f8" },
-	{ name: "dracula", bg: "#282a36" },
-	{ name: "one-dark", bg: "#282c34" },
-	{ name: "catppuccin", bg: "#1e1e2e" },
-	{ name: "nord", bg: "#2e3440" },
+/**
+ * Theme chips: the theme's own background plus two of its syntax colours, so
+ * the control is a miniature of the theme rather than a label for it. Taken
+ * from each palette's keyword and string hues, which are what a viewer
+ * actually recognises a theme by.
+ */
+const THEME_DOTS: { name: string; bg: string; a: string; b: string }[] = [
+	{ name: "midnight", bg: "#0d1117", a: "#79c0ff", b: "#7ee787" },
+	{ name: "aurora", bg: "#1a1b2e", a: "#c4b5fd", b: "#6ee7b7" },
+	{ name: "frost", bg: "#f0f4f8", a: "#2563eb", b: "#047857" },
+	{ name: "dracula", bg: "#282a36", a: "#ff79c6", b: "#50fa7b" },
+	{ name: "one-dark", bg: "#282c34", a: "#c678dd", b: "#98c379" },
+	{ name: "catppuccin", bg: "#1e1e2e", a: "#cba6f7", b: "#a6e3a1" },
+	{ name: "nord", bg: "#2e3440", a: "#88c0d0", b: "#a3be8c" },
 ];
 
 /** The three live aspects: the mesh canvas springs between these sizes. Kept
@@ -379,6 +393,17 @@ function CodeWindow({
 
 /* ──────────── The floating toolbar ──────────── */
 
+/**
+ * The control island (docs/decisions/2026-08-09-instrument-island.md).
+ *
+ * One rule sets every control's treatment: a preview where the setting has an
+ * appearance, a drawn icon where it does not. Backdrop and theme show
+ * themselves; play cannot be previewed; aspect takes both, because at this size
+ * a frame's silhouette alone cannot separate 1:1 from 4:5.
+ *
+ * A second rule sets interaction, reverse-engineered from an external reference: a value
+ * that fits on its button cycles in place, one that does not opens a panel.
+ */
 function Toolbar({
 	reduce,
 	playing,
@@ -400,15 +425,44 @@ function Toolbar({
 	aspect: AspectId;
 	onAspectChange: (id: AspectId) => void;
 }) {
-	const [open, setOpen] = useState<null | "background" | "theme">(null);
-	// an external reference drives the island width as a number, not as `auto`, because auto
-	// cannot be animated. A ref callback measures each row as it mounts, which
-	// fires on every panel change since the row is keyed.
-	const [rowWidth, setRowWidth] = useState<number | null>(null);
-	const measureRow = useCallback((node: HTMLDivElement | null) => {
-		if (node) {
-			setRowWidth(node.scrollWidth);
+	const [open, setOpen] = useState<null | "backdrop" | "theme">(null);
+
+	/**
+	 * The hovered control's label, and where to centre its helper.
+	 *
+	 * The helper lives outside the island because the island clips its own
+	 * overflow while it resizes, which would cut a tooltip in half. It is the
+	 * same material as the island — same fill, same pill radius — so it reads as
+	 * a piece of the instrument rather than a browser tooltip.
+	 */
+	const [helper, setHelper] = useState<{ label: string; x: number } | null>(null);
+	const dockRef = useRef<HTMLDivElement>(null);
+
+	const showHelper = (label: string) => (event: ReactMouseEvent<HTMLElement>) => {
+		const dock = dockRef.current;
+		if (!dock) {
+			return;
 		}
+		const target = event.currentTarget.getBoundingClientRect();
+		const base = dock.getBoundingClientRect();
+		setHelper({ label, x: target.left + target.width / 2 - base.left });
+	};
+
+	// The island springs to a measured width, since `width: auto` cannot be
+	// animated. A ResizeObserver rather than a mount callback: the row's content
+	// changes without remounting, and measuring only on mount left the island
+	// clipping its own CTA.
+	const [rowWidth, setRowWidth] = useState<number | null>(null);
+	const observerRef = useRef<ResizeObserver | null>(null);
+	const measureRow = useCallback((node: HTMLDivElement | null) => {
+		observerRef.current?.disconnect();
+		if (!node) {
+			return;
+		}
+		setRowWidth(node.scrollWidth);
+		const observer = new ResizeObserver(() => setRowWidth(node.scrollWidth));
+		observer.observe(node);
+		observerRef.current = observer;
 	}, []);
 
 	const preset = MESH_PRESETS.find((p) => p.id === presetId) ?? MESH_PRESETS[0];
@@ -416,15 +470,14 @@ function Toolbar({
 	const swatchOf = (p: (typeof MESH_PRESETS)[number]) =>
 		`linear-gradient(135deg, ${p.blobs[0]?.color ?? p.accent}, ${p.blobs[2]?.color ?? p.accent})`;
 
-	const toggle = (panel: "background" | "theme") =>
-		setOpen((current) => (current === panel ? null : panel));
+	/** Scaling a fixed square, not animating width and height: the morph runs on
+	    the compositor instead of forcing a layout pass every frame. */
+	const frameScale = (ratio: AspectId) => {
+		const [w, h] = ratio.split(":").map(Number);
+		const max = Math.max(w ?? 1, h ?? 1);
+		return { scaleX: (w ?? 1) / max, scaleY: (h ?? 1) / max };
+	};
 
-	/**
-	 * an external reference splits its controls by one rule: a setting whose value fits on
-	 * the button and has few options cycles in place (ratio, zoom, preset), while
-	 * one that cannot be summarised as text opens a panel (backdrop, blur, focus).
-	 * Aspect is the first kind, backdrop and theme the second.
-	 */
 	const cycleAspect = () => {
 		const index = ASPECTS.findIndex((a) => a.id === aspect);
 		const next = ASPECTS[(index + 1) % ASPECTS.length];
@@ -434,67 +487,90 @@ function Toolbar({
 	};
 
 	return (
-		<div className="lp-island-dock mt-5 justify-center">
+		<div ref={dockRef} className="lp-island-dock mt-5" onMouseLeave={() => setHelper(null)}>
+			<AnimatePresence>
+				{helper && (
+					<motion.span
+						key={helper.label}
+						className="lp-island-helper"
+						style={{ left: helper.x }}
+						initial={{ opacity: 0, y: 4, scale: 0.96 }}
+						animate={{ opacity: 1, y: 0, scale: 1 }}
+						exit={{ opacity: 0, y: 2, scale: 0.98 }}
+						transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+						aria-hidden="true"
+					>
+						{helper.label}
+					</motion.span>
+				)}
+			</AnimatePresence>
 			<motion.div
 				className="lp-island"
 				role="toolbar"
 				aria-label="Preview controls"
-				// `initial={false}` plus an explicit style width: Motion cannot
-				// interpolate from `auto`, and without a known starting number the
-				// island jumps straight to its target instead of springing to it.
 				initial={false}
-				style={{ width: rowWidth === null ? "max-content" : undefined }}
 				animate={rowWidth === null ? undefined : { width: rowWidth + ISLAND_PADDING }}
 				transition={reduce ? { duration: 0 } : ISLAND_SPRING}
 			>
 				{open === null ? (
-					<motion.div
-						key="collapsed"
-						ref={measureRow}
-						className="lp-island-row"
-						{...islandMotion(reduce)}
-					>
+					<motion.div ref={measureRow} className="lp-island-row" {...islandMotion(reduce)}>
 						<button
 							type="button"
 							onClick={onPlayToggle}
+							onMouseEnter={showHelper(playing ? "Pause" : "Play")}
 							aria-label={playing ? "Pause" : "Play"}
-							className="lp-island-button lp-island-play"
+							className="lp-island-button"
 						>
-							{playing ? <PauseIcon /> : <PlayIcon />}
+							{playing ? <PauseGlyph /> : <PlayGlyph />}
 						</button>
 
 						<button
 							type="button"
-							onClick={() => toggle("background")}
-							aria-expanded={false}
+							onClick={() => setOpen("backdrop")}
+							onMouseEnter={showHelper(`Backdrop · ${preset?.label ?? ""}`)}
 							aria-label={`Backdrop: ${preset?.label ?? ""}. Open backdrop control`}
-							className="lp-island-button"
-						>
-							<span className="lp-swatch" style={{ background: preset ? swatchOf(preset) : "" }} />
-						</button>
-
-						<button
-							type="button"
-							onClick={() => toggle("theme")}
-							aria-expanded={false}
-							aria-label={`Theme: ${themeName}. Open theme control`}
-							className="lp-island-button"
+							className="lp-island-button lp-island-button-tight"
 						>
 							<span
-								className="lp-swatch lp-swatch-square"
-								style={{ background: themeDot?.bg ?? "" }}
+								className="lp-spec"
+								style={{ background: preset ? swatchOf(preset) : undefined }}
 							/>
 						</button>
 
 						<button
 							type="button"
+							onClick={() => setOpen("theme")}
+							onMouseEnter={showHelper(`Theme · ${themeName}`)}
+							aria-label={`Theme: ${themeName}. Open theme control`}
+							className="lp-island-button lp-island-button-tight"
+						>
+							<span className="lp-spec-theme" style={{ background: themeDot?.bg }}>
+								<span className="lp-spec-line" style={{ background: themeDot?.a, width: "100%" }} />
+								<span className="lp-spec-line" style={{ background: themeDot?.b, width: "62%" }} />
+							</span>
+						</button>
+
+						<button
+							type="button"
 							onClick={cycleAspect}
+							onMouseEnter={showHelper("Aspect ratio")}
 							aria-label={`Cycle aspect ratio. ${aspect} active.`}
 							className="lp-island-button"
 							data-active=""
 						>
-							{aspect}
+							<span className="lp-frame-box">
+								<motion.span
+									className="lp-frame"
+									animate={frameScale(aspect)}
+									transition={reduce ? { duration: 0 } : FRAME_SPRING}
+								/>
+							</span>
+							<span className="lp-island-num">{aspect}</span>
 						</button>
+
+						<Link to="/app" className="lp-island-cta">
+							Open studio
+						</Link>
 					</motion.div>
 				) : (
 					<motion.div
@@ -509,155 +585,93 @@ function Toolbar({
 							aria-label="Back to controls"
 							className="lp-island-button"
 						>
-							<BackIcon />
+							<BackGlyph />
 						</button>
 
-						{open === "background" &&
+						{open === "backdrop" &&
 							MESH_PRESETS.map((p) => (
-								<Swatch
+								<button
 									key={p.id}
-									reduce={reduce}
-									selected={presetId === p.id}
+									type="button"
 									onClick={() => onPresetChange(p.id)}
-									label={`Backdrop ${p.label}`}
-									background={swatchOf(p)}
-								/>
+									aria-label={`Backdrop ${p.label}`}
+									className="lp-island-button lp-island-button-tight"
+									{...(presetId === p.id ? { "data-active": "" } : {})}
+								>
+									<span className="lp-spec" style={{ background: swatchOf(p) }} />
+									{presetId === p.id && (
+										<motion.span
+											layoutId="island-ring"
+											className="lp-island-ring"
+											transition={reduce ? { duration: 0 } : RING_SPRING}
+										/>
+									)}
+								</button>
 							))}
 
 						{open === "theme" &&
 							THEME_DOTS.map((t) => (
-								<Swatch
+								<button
 									key={t.name}
-									square
-									reduce={reduce}
-									selected={themeName === t.name}
+									type="button"
 									onClick={() => onThemeChange(t.name)}
-									label={`Theme ${t.name}`}
-									background={t.bg}
-								/>
+									aria-label={`Theme ${t.name}`}
+									className="lp-island-button lp-island-button-tight"
+									{...(themeName === t.name ? { "data-active": "" } : {})}
+								>
+									<span className="lp-spec-theme" style={{ background: t.bg }}>
+										<span className="lp-spec-line" style={{ background: t.a, width: "100%" }} />
+										<span className="lp-spec-line" style={{ background: t.b, width: "62%" }} />
+									</span>
+									{themeName === t.name && (
+										<motion.span
+											layoutId="island-ring"
+											className="lp-island-ring"
+											transition={reduce ? { duration: 0 } : RING_SPRING}
+										/>
+									)}
+								</button>
 							))}
 					</motion.div>
 				)}
 			</motion.div>
-
-			{/* Outside the island, like an external reference's Capture: the island holds
-			    settings, this holds the one thing a visitor came to do. */}
-			<Link to="/app" className="lp-island-cta">
-				Open studio
-			</Link>
 		</div>
 	);
 }
 
-/**
- * The island's width spring, taken frame by frame off an external reference rather than
- * guessed: 348 → 322.4 → 324 over roughly 480ms. It undershoots by about 1.6px
- * on a 24px move and settles back, so it is a spring with a little bounce left
- * in it, not a damped tween.
- */
+/** Sampled off an external reference: 348 → 322.4 → 324 over ~480ms, so it undershoots and
+    settles back rather than easing in. */
 const ISLAND_SPRING = { type: "spring", stiffness: 260, damping: 26, mass: 1 } as const;
 
+/** restDelta matters: without it the spring writes sub-pixel values for seconds
+    after the movement is over. A take measured one morph running 2666ms. */
+const FRAME_SPRING = {
+	type: "spring",
+	stiffness: 420,
+	damping: 30,
+	mass: 0.7,
+	restDelta: 0.004,
+	restSpeed: 0.01,
+} as const;
+
+const RING_SPRING = { type: "spring", stiffness: 420, damping: 32, mass: 0.7 } as const;
+
 /** The island's own horizontal padding, which the measured row does not include. */
-const ISLAND_PADDING = 16;
+const ISLAND_PADDING = 12;
 
 /**
- * The row entrance, measured off an external reference frame by frame.
- *
- * The counter-intuitive part, and the reason a hand-tuned version looks cheap:
- * the incoming row does **not** fade in. Its first frame is already at opacity
- * 0.99. All the work is done by a tiny scale that overshoots — 0.996 up to
- * 1.0068, then back to 1 — with a barely-there blur. An entrance from
- * `opacity: 0, scale: 0.94` reads as a slideshow next to it.
- *
- * The outgoing row is the dramatic one: opacity to 0, blur to 4px, scale to
- * 1.20 over ~156ms, running at the same time as the width change rather than
- * before it.
+ * The row entrance, measured rather than chosen: it does not fade. The first
+ * frame is already at opacity 0.99 and the work is a scale that overshoots.
+ * An entrance from opacity 0 reads as a slideshow beside it.
  */
 const islandMotion = (reduce: boolean) =>
 	reduce
 		? { initial: false as const, animate: { opacity: 1 } }
 		: {
-				initial: { opacity: 0.99, scale: 0.996, filter: "blur(0.04px)" },
-				animate: { opacity: 1, scale: [0.996, 1.0068, 1], filter: "blur(0px)" },
-				transition: { duration: 0.32, ease: [0.23, 1, 0.32, 1] as const },
+				initial: { opacity: 0.99, scale: 0.996 },
+				animate: { opacity: 1, scale: [0.996, 1.0068, 1] as number[] },
+				transition: {
+					duration: 0.32,
+					ease: [0.23, 1, 0.32, 1] as [number, number, number, number],
+				},
 			};
-
-function BackIcon() {
-	return (
-		<svg
-			width="13"
-			height="13"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.4"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			role="img"
-			aria-label="Back"
-		>
-			<path d="M15 18l-6-6 6-6" />
-		</svg>
-	);
-}
-
-/**
- * A restyle control: round for backgrounds, soft-square for themes.
- *
- * Scale on hover and tap only. The previous version animated a ring whose
- * offset colour was hard-coded white, which the dark theme turned into a halo
- * on nothing; the ring now takes the dock's own background.
- */
-function Swatch({
-	selected,
-	onClick,
-	background,
-	label,
-	square = false,
-	reduce,
-}: {
-	selected: boolean;
-	onClick: () => void;
-	background: string;
-	label: string;
-	square?: boolean;
-	reduce: boolean;
-}) {
-	return (
-		<motion.button
-			type="button"
-			onClick={onClick}
-			aria-label={label}
-			aria-pressed={selected}
-			whileHover={reduce ? undefined : { scale: 1.12 }}
-			whileTap={reduce ? undefined : { scale: 0.9 }}
-			transition={springs.snappy}
-			className="lp-island-button"
-			style={{ minWidth: 26, padding: 0 }}
-			{...(selected ? { "data-active": "" } : {})}
-		>
-			<span className={`lp-swatch ${square ? "lp-swatch-square" : ""}`} style={{ background }} />
-		</motion.button>
-	);
-}
-
-/* ──────────── Icons ──────────── */
-
-function PlayIcon() {
-	return (
-		<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" role="img">
-			<title>Play</title>
-			<path d="M8 5v14l11-7z" style={{ transform: "translateX(1px)" }} />
-		</svg>
-	);
-}
-
-function PauseIcon() {
-	return (
-		<svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" role="img">
-			<title>Pause</title>
-			<rect x="6" y="5" width="4" height="14" rx="1" />
-			<rect x="14" y="5" width="4" height="14" rx="1" />
-		</svg>
-	);
-}
