@@ -1,0 +1,307 @@
+- generic [ref=f30e1]:
+  - banner [ref=f30e2]:
+    - link [ref=f30e4] [cursor=pointer]:
+      - /url: /
+      - img "aiforui logo" [ref=f30e5]
+    - list [ref=f30e7]:
+      - listitem [ref=f30e8]:
+        - link "Lessons" [ref=f30e9] [cursor=pointer]:
+          - /url: /learn
+      - listitem [ref=f30e10]:
+        - link "Skills" [ref=f30e11] [cursor=pointer]:
+          - /url: /learn/skills
+      - listitem [ref=f30e12]:
+        - link "Vault" [ref=f30e13] [cursor=pointer]:
+          - /url: /vault
+      - listitem [ref=f30e14]:
+        - link "Discord" [ref=f30e15] [cursor=pointer]:
+          - /url: https://discord.gg/qq5kAw2jr6
+      - listitem [ref=f30e16]:
+        - button "Account" [ref=f30e18] [cursor=pointer]
+  - generic [ref=f30e22]:
+    - complementary [ref=f30e23]:
+      - navigation [ref=f30e24]:
+        - generic [ref=f30e25]:
+          - paragraph [ref=f30e26]: Lessons
+          - list [ref=f30e27]:
+            - listitem [ref=f30e28]:
+              - link "Intro" [ref=f30e29] [cursor=pointer]:
+                - /url: /learn/intro
+            - listitem [ref=f30e31]:
+              - link "How to write good skills" [ref=f30e32] [cursor=pointer]:
+                - /url: /learn/how-to-write-good-skills
+            - listitem [ref=f30e34]:
+              - link "Prototyping interfaces" [ref=f30e35] [cursor=pointer]:
+                - /url: /learn/prototyping-interfaces
+        - generic [ref=f30e37]:
+          - paragraph [ref=f30e38]: Workflows
+          - list [ref=f30e39]:
+            - listitem [ref=f30e40]:
+              - link "Reviewing animations" [ref=f30e41] [cursor=pointer]:
+                - /url: /learn/workflows/reviewing-animations/setting-up-lapse
+              - list [ref=f30e42]:
+                - listitem [ref=f30e43]:
+                  - link "Setting up Lapse" [ref=f30e44] [cursor=pointer]:
+                    - /url: /learn/workflows/reviewing-animations/setting-up-lapse
+                - listitem [ref=f30e46]:
+                  - link "Recording an interaction" [ref=f30e47] [cursor=pointer]:
+                    - /url: /learn/workflows/reviewing-animations/recording-an-interaction
+                - listitem [ref=f30e49]:
+                  - link "Handing it to your agent" [ref=f30e50] [cursor=pointer]:
+                    - /url: /learn/workflows/reviewing-animations/handing-it-to-your-agent
+    - generic [ref=f30e53]:
+      - heading "Prototyping interfaces" [level=1] [ref=f30e54]
+      - paragraph [ref=f30e55]: Prototyping is an essential part of building a great interface because it allows you to actually touch and feel the interface, see how it feels in different states and scenarios and iterate on it until you find the perfect solution.
+      - paragraph [ref=f30e56]: That’s why building actual variants of a flow or component is way better than drawing wireframes or mockups. You can experience the thing instead of just imagining how it would feel.
+      - paragraph [ref=f30e57]: And don’t get me wrong, you should still explore design directions in a design tool, but your goal should be to move to a living interface as soon as possible. That’s where ideas get validated.
+      - paragraph [ref=f30e58]: You can experience it yourself, what gives you a better idea of whether this UI works or not? A static wireframe, or a live interface?
+      - generic [ref=f30e60]:
+        - generic:
+          - generic [ref=f30e63]:
+            - generic [ref=f30e64]: Step 1 of 4
+            - generic [ref=f30e73]:
+              - heading "Let’s get you set up" [level=3] [ref=f30e74]
+              - paragraph [ref=f30e75]: We’ll use this to create your course account.
+              - generic [ref=f30e76]:
+                - generic [ref=f30e77]: Name
+                - textbox "Name" [ref=f30e78]: Emil
+              - generic [ref=f30e79]:
+                - generic [ref=f30e80]: Email
+                - textbox "Email" [ref=f30e81]: e@emilkowal.ski
+            - generic [ref=f30e82]:
+              - button "Back" [disabled] [ref=f30e83]
+              - button "Continue" [ref=f30e84] [cursor=pointer]
+          - slider "Compare the wireframe with the real component" [ref=f30e86]
+      - paragraph [ref=f30e88]:
+        - text: Before AI, building out a few different options was often a
+        - emphasis [ref=f30e89]: very
+        - text: time-consuming process. A process that in some cases couldn’t be done to the extent you would want it to be, or maybe even not at all. Code was the expensive part.
+      - paragraph [ref=f30e90]: But now that code is becoming cheaper to produce, you can to spend some tokens on prototyping to improve the outcome of your work.
+      - paragraph [ref=f30e91]: However, just asking the agent to create a few different types of the sign up flow for example might not always be the best way to go. There are things you should do, and things you shouldn’t. This lesson is about how you should approach prototyping with AI.
+      - link [ref=f30e92] [cursor=pointer]:
+        - /url: "#when-should-you-actually-prototype?"
+        - heading "When should you actually prototype?" [level=2] [ref=f30e93]
+      - paragraph [ref=f30e94]: In the exploration phase of your project or feature.
+      - paragraph [ref=f30e95]: That is when you have a rough description of what you want to build, but you are not sure of the exact details of how it should happen or how it should look.
+      - paragraph [ref=f30e96]: You can then use that rough description to ask your agent for a few protoypes. You most likely have a few different ideas of what a flow should look like. Describe them to an agent and let it build them for you so you can see how they feel and compare them.
+      - paragraph [ref=f30e97]: "Here’s how I would approach prototyping a new onboarding flow:"
+      - paragraph [ref=f30e99]:
+        - generic [ref=f30e100]: ">"
+        - generic [ref=f30e101]:
+          - text: /prototype Build me a new multi-step onboarding in three different
+          - generic [ref=f30e102]: ways.
+      - paragraph [ref=f30e104]:
+        - text: Here’s what came back when I used the
+        - code [ref=f30e105]: /prototype
+        - text: "skill you’ll learn about soon. Same questions in all three, three different answers to how you get through them:"
+      - generic [ref=f30e107]:
+        - generic:
+          - generic [ref=f30e112]:
+            - generic [ref=f30e113]: Step 1 of 4
+            - generic [ref=f30e123]:
+              - heading "Let’s get you set up" [level=3] [ref=f30e124]
+              - paragraph [ref=f30e125]: We’ll use this to create your course account.
+              - generic [ref=f30e127]:
+                - generic [ref=f30e128]:
+                  - generic [ref=f30e129]: Name
+                  - textbox "Name" [ref=f30e130]: Emil
+                - generic [ref=f30e131]:
+                  - generic [ref=f30e132]: Email
+                  - textbox "Email" [ref=f30e133]: e@emilkowal.ski
+            - generic [ref=f30e134]:
+              - button "Back" [disabled] [ref=f30e135]
+              - button "Continue" [ref=f30e136] [cursor=pointer]
+          - navigation "Prototype variants" [ref=f30e137]:
+            - button "Quiet" [ref=f30e139] [cursor=pointer]
+            - button "Focus" [ref=f30e140] [cursor=pointer]
+            - button "Ledger" [ref=f30e141] [cursor=pointer]
+            - button "Replay from the first step (R)" [ref=f30e143] [cursor=pointer]
+      - paragraph [ref=f30e147]: I couldn’t have told you which one I wanted before seeing them. You need to interact with the material to know, to experience its texture and feel.
+      - link [ref=f30e148] [cursor=pointer]:
+        - /url: "#how-to-prototype-with-ai"
+        - heading "How to prototype with AI" [level=2] [ref=f30e149]
+      - paragraph [ref=f30e150]: "A good prototyping flow you build with your agent should do a few things:"
+      - list [ref=f30e151]:
+        - listitem [ref=f30e152]:
+          - generic [ref=f30e153]:
+            - text: It builds three to five genuinely different directions, that’s the whole idea of prototyping, trying
+            - emphasis [ref=f30e154]: different
+            - text: solutions to the same problem.
+        - listitem [ref=f30e155]: It renders a switcher so you can go through the different variants.
+        - listitem [ref=f30e156]:
+          - generic [ref=f30e157]:
+            - text: It pulls in other skills while it builds. Prototyping a type treatment loads
+            - code [ref=f30e158]: /typography
+            - text: ", a card loads"
+            - code [ref=f30e159]: /surfaces
+            - text: ", an enter animation loads"
+            - code [ref=f30e160]: /animations
+            - text: . You want to reject a direction because it doesn’t work, not because it doesn’t look good.
+        - listitem [ref=f30e161]: It saves the selected version via query parameters so you can easily share it with teammates.
+      - paragraph [ref=f30e162]:
+        - text: You could write all this down in a prompt each time you need a prototype, but I’ve written this and some more detailed instructions in the
+        - code [ref=f30e163]: /prototype
+        - text: skill so you can focus on the things that matter most.
+      - generic [ref=f30e164]:
+        - code [ref=f30e166]:
+          - generic [ref=f30e168]:
+            - text: npx
+            - generic [ref=f30e169]: "@aiforui/install prototype"
+            - text: "--token=..."
+        - button "Copy code" [ref=f30e170] [cursor=pointer]
+      - paragraph [ref=f30e175]:
+        - text: There’s also a
+        - code [ref=f30e176]: prototype
+        - text: skill in my
+        - link "public skills library" [ref=f30e177] [cursor=pointer]:
+          - /url: https://github.com/emilkowalski/skills
+        - text: . The difference is that the skill here also points to other skills from aiforui like
+        - code [ref=f30e178]: /typography
+        - text: and
+        - code [ref=f30e179]: /animations
+        - text: so they get puled in automatically to ensure that the prototype is built with the right general advice.
+      - paragraph [ref=f30e180]: "With it, you can simply go for a prompt like this:"
+      - paragraph [ref=f30e182]:
+        - generic [ref=f30e183]: ">"
+        - generic [ref=f30e184]:
+          - text: /prototype Build me a few different variants of the drag and drop
+          - generic [ref=f30e185]: interaction.
+      - link [ref=f30e187] [cursor=pointer]:
+        - /url: "#let-people-tweak-the-values"
+        - heading "Let people tweak the values" [level=2] [ref=f30e188]
+      - paragraph [ref=f30e189]: In the latter stages of a prototype you want to get the details right.
+      - paragraph [ref=f30e190]: Wheter it’s a drag interaction or a intro animation, it’s often something that needs fine-tuning and the way I like to do it is via control panels.
+      - paragraph [ref=f30e191]:
+        - text: By binding a variable like
+        - code [ref=f30e192]: Offset X
+        - text: to a slider you can immidiately try different variations of an interaction by simply dragging it. This shortens the feedback loop and allows you to iterate on the interaction much faster.
+      - paragraph [ref=f30e193]:
+        - text: This can be done pretty quickly with tools like
+        - link "DialKit" [ref=f30e194] [cursor=pointer]:
+          - /url: https://github.com/joshpuckett/dialkit
+        - text: which supports binding variables to sliders, color pickers, or even spring and bezier curves.
+      - paragraph [ref=f30e195]: "Here’s the dithered Linear logo we made a while back at Linear. Move your cursor over it, click it a few times, then open the controls and try different values:"
+      - generic [ref=f30e197]:
+        - img "The Linear logo, drawn as a grid of dots" [ref=f30e198]
+        - button "Tweak the values" [ref=f30e199] [cursor=pointer]
+      - paragraph [ref=f30e200]:
+        - text: "When I was building it, I intentionally shared a preview link with the controls so everyone can tweak them and try their own variations. That’s great advice in general:"
+        - strong [ref=f30e201]: share as much as possible, as often as possible
+        - text: with your team to get their feedback.
+      - paragraph [ref=f30e202]: Instead of tens of slack messages, everyone can tweak the values themselves, and share the configuration with me if they end up with something they like. This way it’s also easier for people to participate, because you lower the barrier to entry, and it’s just fun to play with.
+      - paragraph [ref=f30e203]: This was the main reason why people on X loved it so much. Because everyone on the team could contribute to the design process, it wasn’t just a back and forth between the designer and an engineer. Everyone on the team (that we thought was a good fit for giving feedback here) was able to participate.
+      - generic [ref=f30e204]:
+        - link "Emil Kowalski Emil Kowalski Verified account @emilkowalski Made this interaction of Linear’s dithered logo for our latest release. It’s using canvas with a lot of tiny dots. There’s an invisible circle around the cursor. Any dot inside it gets pushed outward with a cubic falloff so it’s gentle on the edges, and strong at the center. Mar 25, 2026 I almost text you yesterday when I saw this. Awesome stuff as always, Emil. The bounce after the click is such a nice easter egg! So many great decisions to get it this level of craft" [ref=f30e205] [cursor=pointer]:
+          - /url: https://x.com/emilkowalski/status/2036778116748542220
+          - generic [ref=f30e206]:
+            - img "Emil Kowalski" [ref=f30e208]
+            - generic [ref=f30e210]:
+              - generic [ref=f30e211]:
+                - text: Emil Kowalski
+                - img "Verified account" [ref=f30e212]
+              - generic [ref=f30e214]: "@emilkowalski"
+          - generic [ref=f30e215]:
+            - generic [ref=f30e216]: Made this interaction of Linear’s dithered logo for our latest release.
+            - generic [ref=f30e217]: It’s using canvas with a lot of tiny dots. There’s an invisible circle around the cursor.
+            - generic [ref=f30e218]: Any dot inside it gets pushed outward with a cubic falloff so it’s gentle on the edges, and strong at the center.
+          - time [ref=f30e222]: Mar 25, 2026
+          - generic [ref=f30e224]:
+            - generic [ref=f30e225]: I almost text you yesterday when I saw this. Awesome stuff as always, Emil.
+            - generic [ref=f30e229]: The bounce after the click is such a nice easter egg!
+            - generic [ref=f30e233]: So many great decisions to get it this level of craft
+        - paragraph [ref=f30e237]: A few comments from the thread.
+      - paragraph [ref=f30e238]:
+        - text: Here’s another one, a pixel board by
+        - link "Glenn" [ref=f30e239] [cursor=pointer]:
+          - /url: https://x.com/glennui/status/2071976470700773404
+        - text: for
+        - link "index.how" [ref=f30e240] [cursor=pointer]:
+          - /url: http://index.how/
+        - text: "that we interated on. Click it to play the entrance again, and open the controls to change the shape, glow, and more:"
+      - generic [ref=f30e241]:
+        - img "A grid of glowing pixels behind a CRT warp" [ref=f30e243] [cursor=pointer]
+        - button "Tweak the values" [ref=f30e244] [cursor=pointer]
+      - link [ref=f30e245] [cursor=pointer]:
+        - /url: "#use-your-worst-content"
+        - heading "Use your worst content" [level=2] [ref=f30e246]
+      - paragraph [ref=f30e247]: If the content is dynamic, based on user data, make sure you test with the worst-case scenario. Long user names, two-line titles, forty rows. It’s much better to find out that something might break during prototyping than in production.
+      - generic [ref=f30e249]:
+        - generic:
+          - generic [ref=f30e253]:
+            - generic [ref=f30e254]:
+              - generic [ref=f30e255]:
+                - heading "Members" [level=3] [ref=f30e256]
+                - generic [ref=f30e257]: 5 members
+              - button "Invite" [ref=f30e258] [cursor=pointer]
+            - generic [ref=f30e259]:
+              - generic [ref=f30e260]:
+                - generic [ref=f30e261]: SC
+                - generic [ref=f30e262]:
+                  - paragraph [ref=f30e263]: Sarah Chen
+                  - paragraph [ref=f30e264]: Design
+                - generic [ref=f30e265]: Active
+                - button "Manage Sarah Chen" [ref=f30e267] [cursor=pointer]
+              - generic [ref=f30e272]:
+                - generic [ref=f30e273]: MR
+                - generic [ref=f30e274]:
+                  - paragraph [ref=f30e275]: Marco Ruiz
+                  - paragraph [ref=f30e276]: Engineering
+                - generic [ref=f30e277]: Active
+                - button "Manage Marco Ruiz" [ref=f30e279] [cursor=pointer]
+              - generic [ref=f30e284]:
+                - generic [ref=f30e285]: AO
+                - generic [ref=f30e286]:
+                  - paragraph [ref=f30e287]: Ada Owens
+                  - paragraph [ref=f30e288]: Product
+                - generic [ref=f30e289]: Active
+                - button "Manage Ada Owens" [ref=f30e291] [cursor=pointer]
+              - generic [ref=f30e296]:
+                - generic [ref=f30e297]: TW
+                - generic [ref=f30e298]:
+                  - paragraph [ref=f30e299]: Tom Weber
+                  - paragraph [ref=f30e300]: Marketing
+                - generic [ref=f30e301]: Invited
+                - button "Manage Tom Weber" [ref=f30e302] [cursor=pointer]
+              - generic [ref=f30e307]:
+                - generic [ref=f30e308]: LP
+                - generic [ref=f30e309]:
+                  - paragraph [ref=f30e310]: Lena Park
+                  - paragraph [ref=f30e311]: Design
+                - generic [ref=f30e312]: Active
+                - button "Manage Lena Park" [ref=f30e314] [cursor=pointer]
+            - generic [ref=f30e319]:
+              - generic [ref=f30e320]: Showing all 5
+              - generic [ref=f30e321]: Updated just now
+          - radiogroup "Which content the table is holding" [ref=f30e322]:
+            - radio "Demo data" [checked] [ref=f30e324] [cursor=pointer]
+            - radio "Worst case" [ref=f30e325] [cursor=pointer]
+      - paragraph [ref=f30e326]: This example is obviously exaggerated, but it’s good to keep this in mind.
+      - link [ref=f30e327] [cursor=pointer]:
+        - /url: "#summary"
+        - heading "Summary" [level=2] [ref=f30e328]
+      - list [ref=f30e329]:
+        - listitem [ref=f30e330]: Build the thing instead of drawing it. A live interfaces gives you much more insights than a static wireframe.
+        - listitem [ref=f30e331]:
+          - generic [ref=f30e332]:
+            - text: Use the
+            - code [ref=f30e333]: /prototype
+            - text: skill to follow the rules laid out in this lesson automatically.
+        - listitem [ref=f30e334]: Bind the details to a control panel for a shorther feedback loop.
+        - listitem [ref=f30e335]: Test with your worst content. Long names, two-line titles, forty rows. Finding out it breaks during prototyping is better than finding out in production.
+        - listitem [ref=f30e336]: Share as much as possible, as often as possible with your team to get their feedback.
+      - paragraph [ref=f30e337]:
+        - text: Again, all of this is packaged into the
+        - code [ref=f30e338]: /prototype
+        - text: skill, If you installed the skills using the
+        - link "general install command" [ref=f30e339] [cursor=pointer]:
+          - /url: /learn/skills
+        - text: ", you don’t have to install it again."
+      - generic [ref=f30e340]:
+        - code [ref=f30e342]:
+          - generic [ref=f30e344]:
+            - text: npx
+            - generic [ref=f30e345]: "@aiforui/install prototype"
+            - text: "--token=..."
+        - button "Copy code" [ref=f30e346] [cursor=pointer]
+      - button "Copy page as markdown" [ref=f30e352] [cursor=pointer]: Copy page
+  - alert [ref=f30e357]
