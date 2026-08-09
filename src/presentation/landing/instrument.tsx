@@ -401,12 +401,12 @@ function Toolbar({
 }) {
 	return (
 		<div className="mt-5 flex justify-center">
-			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-full border border-black/8 bg-white px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
+			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-full border border-hairline bg-surface px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
 				<button
 					type="button"
 					onClick={onPlayToggle}
 					aria-label={playing ? "Pause" : "Play"}
-					className="flex size-8 items-center justify-center rounded-full bg-ink text-white"
+					className="hit-target flex size-8 items-center justify-center rounded-full bg-ink text-paper"
 				>
 					{playing ? <PauseIcon /> : <PlayIcon />}
 				</button>
@@ -462,7 +462,7 @@ function Toolbar({
 }
 
 function Divider() {
-	return <span aria-hidden="true" className="h-4 w-px bg-black/10" />;
+	return <span aria-hidden="true" className="h-4 w-px bg-hairline" />;
 }
 
 /** A restyle swatch: round for backgrounds, soft-square for themes. */
@@ -496,7 +496,7 @@ function Dot({
 		>
 			<span
 				className={`size-5 ${round ? "rounded-full" : "rounded-[6px]"} ${
-					bordered ? "border border-black/10" : ""
+					bordered ? "border border-hairline" : ""
 				} ${selected ? "ring-2 ring-ink ring-offset-2 ring-offset-white" : ""}`}
 				style={{ background }}
 			/>
@@ -522,7 +522,7 @@ function AspectOption({
 			onClick={onClick}
 			aria-pressed={active}
 			className={`relative rounded-full px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors ${
-				active ? "text-white" : "text-ash hover:text-ink"
+				active ? "text-paper" : "text-ash hover:text-ink"
 			}`}
 		>
 			{active && (
