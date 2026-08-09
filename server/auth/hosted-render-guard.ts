@@ -36,11 +36,15 @@ export const defaultHostedRenderDeps: HostedRenderDeps = {
  * Whether it is a bearer token or a cookie jar is the adapter's business; this
  * only decides which header carries it.
  */
+const BEARER = /^Bearer[ ]+/i;
+
 const credentialFrom = (c: Context): string | null => {
 	const authorization = c.req.header("authorization");
 
-	if (authorization?.startsWith("Bearer ")) {
-		return authorization.slice("Bearer ".length);
+	// RFC 7235 makes the auth scheme case-insensitive, so a client sending
+	// "bearer" must not silently fall through to the cookie and get a 401.
+	if (authorization !== undefined && BEARER.test(authorization)) {
+		return authorization.replace(BEARER, "");
 	}
 
 	return c.req.header("cookie") ?? null;

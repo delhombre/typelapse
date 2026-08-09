@@ -100,6 +100,29 @@ describe("hosted render entitlement", () => {
 		expect(response.status).toBe(400);
 	});
 
+	it.each(["Bearer", "bearer", "BEARER"])(
+		"reads a %s token, since the scheme is case-insensitive",
+		async (scheme) => {
+			let seen = "";
+			const route = createCloudRoute({
+				auth: {
+					verify: async (credential) => {
+						seen = credential;
+						return { accountId: "acc_1", expiresAt: new Date(Date.now() + 60_000) };
+					},
+				},
+				subscriptions: on(Plan.pro()),
+			});
+
+			const response = await hostedApp(route).request(
+				renderRequest({ authorization: `${scheme} tok_abc` }),
+			);
+
+			expect(seen).toBe("tok_abc");
+			expect(response.status).toBe(202);
+		},
+	);
+
 	it("refuses an expired session even though the provider returned one", async () => {
 		const expired: AuthPort = {
 			verify: async () => ({
