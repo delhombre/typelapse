@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { AspectGlyph, BackGlyph, BackdropGlyph, PauseGlyph, PlayGlyph, ThemeGlyph } from "./icons";
 
 const BACKDROPS = [
@@ -32,6 +32,21 @@ const ASPECTS = ["16:9", "1:1", "9:16"];
  * 1.20 in ~156ms.
  */
 const WIDTH_SPRING = { type: "spring", stiffness: 260, damping: 26, mass: 1 } as const;
+
+/**
+ * The aspect frame's morph. `restDelta` is the point here: without it the
+ * spring keeps writing imperceptible sub-pixel values for seconds — a Lapse
+ * take measured one morph running 2666ms, which keeps the compositor awake
+ * long after the movement is over.
+ */
+const FRAME_SPRING = {
+	type: "spring",
+	stiffness: 420,
+	damping: 30,
+	mass: 0.7,
+	restDelta: 0.004,
+	restSpeed: 0.01,
+} as const;
 const EASE = [0.23, 1, 0.32, 1] as const;
 
 const ROW_MOTION = {
@@ -423,14 +438,23 @@ export function Specimen() {
 export function Combined() {
 	const s = useIslandState();
 
-	// Measure the row on mount so the island can spring to a real number.
-	// `width: auto` cannot be animated, and a ref callback fires on every panel
-	// change because the row is keyed.
+	// The island springs to a measured number, because `width: auto` cannot be
+	// animated. A ref callback alone is not enough: it fires on mount, but
+	// cycling the ratio changes the button's label (1:1 → 9:16) without
+	// remounting the row, so the island kept the old width and `overflow:
+	// hidden` clipped the CTA off the end. A ResizeObserver follows the content
+	// instead of the mount.
 	const [rowWidth, setRowWidth] = useState<number | null>(null);
+	const observerRef = useRef<ResizeObserver | null>(null);
 	const measureRow = useCallback((node: HTMLDivElement | null) => {
-		if (node) {
-			setRowWidth(node.scrollWidth);
+		observerRef.current?.disconnect();
+		if (!node) {
+			return;
 		}
+		setRowWidth(node.scrollWidth);
+		const observer = new ResizeObserver(() => setRowWidth(node.scrollWidth));
+		observer.observe(node);
+		observerRef.current = observer;
 	}, []);
 
 	/**
@@ -536,7 +560,7 @@ export function Combined() {
 									<motion.span
 										className="iproto-frame"
 										animate={frameScale(s.aspect ?? "16:9")}
-										transition={{ type: "spring", stiffness: 420, damping: 30, mass: 0.7 }}
+										transition={FRAME_SPRING}
 									/>
 								</span>
 								<span className="iproto-num">{s.aspect}</span>
