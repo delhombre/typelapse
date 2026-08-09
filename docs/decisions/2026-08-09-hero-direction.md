@@ -46,3 +46,9 @@ The morph currently loops forever. That kept the page from ever settling, which
 is a real cost (CPU, and it prevented screenshot tooling from stabilising).
 Playing once on entrance and replaying on hover is the likely answer, not
 decided yet.
+
+Ioskeley Mono ships at roughly 480 KB per weight, which is Iosevka's glyph
+coverage rather than a packaging mistake. Two weights are loaded, so the hero
+currently costs about 940 KB of font. Subsetting to latin should bring that
+down to tens of KB; it must happen before this goes in front of real traffic,
+and it is not done here.

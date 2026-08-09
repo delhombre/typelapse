@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export type LandingTheme = "light" | "dark";
 
@@ -11,20 +11,21 @@ const STORAGE_KEY = "typelapse.landing-theme";
  * that, because someone who has picked a side on this site means it more than
  * their system default does.
  */
+const resolveTheme = (): LandingTheme => {
+	const stored = window.localStorage.getItem(STORAGE_KEY);
+
+	if (stored === "light" || stored === "dark") {
+		return stored;
+	}
+
+	return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+
 export function useLandingTheme(): [LandingTheme, () => void] {
-	const [theme, setTheme] = useState<LandingTheme>("light");
-
-	useEffect(() => {
-		const stored = window.localStorage.getItem(STORAGE_KEY);
-
-		if (stored === "light" || stored === "dark") {
-			setTheme(stored);
-			return;
-		}
-
-		const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-		setTheme(prefersDark ? "dark" : "light");
-	}, []);
+	// Resolved during the first render rather than in an effect: starting on
+	// light and correcting afterwards flashes a white page at every dark-theme
+	// visitor, which is the one moment they are guaranteed to notice.
+	const [theme, setTheme] = useState<LandingTheme>(resolveTheme);
 
 	const toggle = useCallback(() => {
 		setTheme((current) => {
