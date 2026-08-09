@@ -202,3 +202,72 @@
 	padding: 0 14px;
 	font-size: 11px;
 }
+
+/* ── Animated island ─────────────────────────────────────────────────────
+   Width is driven as a number by the component, so the pill can spring; the
+   row is clipped while it does. */
+.iproto-island-animated {
+	overflow: hidden;
+}
+
+.iproto-row {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	white-space: nowrap;
+}
+
+.iproto-btn-tight {
+	min-width: 30px;
+	padding: 0;
+}
+
+.iproto-glyph {
+	display: inline-flex;
+}
+
+.iproto-num {
+	font-variant-numeric: tabular-nums;
+}
+
+/* Backdrop cross-fade: two stacked layers rather than a cut. */
+.iproto-spec-stack {
+	position: relative;
+	width: 18px;
+	height: 15px;
+	overflow: hidden;
+}
+
+.iproto-spec-layer {
+	position: absolute;
+	inset: 0;
+	border-radius: 4px;
+}
+
+/* The aspect frame is a fixed 14px box scaled on each axis, so the morph runs
+   on the compositor instead of forcing layout every frame. */
+.iproto-frame-box {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+}
+
+.iproto-frame {
+	display: block;
+	width: 14px;
+	height: 14px;
+	border-radius: 3px;
+	background: rgb(255 255 255 / 0.16);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.22);
+}
+
+/* One selection ring, shared across options, so it glides. */
+.iproto-ring {
+	position: absolute;
+	inset: 1px;
+	border-radius: 999px;
+	box-shadow: 0 0 0 2px var(--island), 0 0 0 3.5px var(--island-ink);
+	pointer-events: none;
+}
