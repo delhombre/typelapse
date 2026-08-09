@@ -192,3 +192,13 @@
 		animation-duration: 0.01ms !important;
 	}
 }
+
+/* The CTA living inside the island. It keeps the button height of its
+   neighbours so the pill reads as one object, and it stays the only filled
+   shape in the whole zone. */
+.iproto-cta-inline {
+	height: 30px;
+	margin-left: 3px;
+	padding: 0 14px;
+	font-size: 11px;
+}

@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { Picker } from "../hero-picker";
 import "./proto.css";
-import { Instrument, Marks, Specimen } from "./variants";
+import { Combined, Instrument, Specimen } from "./variants";
 
 const VARIANTS = [
+	{ name: "Combined", render: () => <Combined /> },
 	{ name: "Instrument", render: () => <Instrument /> },
-	{ name: "Marks", render: () => <Marks /> },
 	{ name: "Specimen", render: () => <Specimen /> },
 ];
 
