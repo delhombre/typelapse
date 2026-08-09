@@ -13,7 +13,7 @@ import { CONTAINER, GITHUB_URL } from "./tokens";
  */
 export function Hero() {
 	return (
-		<section className="flex min-h-[100svh] flex-col justify-center py-12">
+		<section className="flex min-h-[100svh] flex-col justify-center py-8">
 			<RevealGroup immediate className={CONTAINER}>
 				<RevealItem>
 					<p className="lp-prompt mb-5">
@@ -26,13 +26,13 @@ export function Hero() {
 					<h1 className="lp-display-mono max-w-[30ch] text-ink">Your pull request, as a video</h1>
 				</RevealItem>
 				<RevealItem>
-					<p className="lp-lead mt-5 max-w-[58ch]">
+					<p className="lp-lead mt-4 max-w-[58ch]">
 						Paste a snippet, a unified diff, or a whole GitHub pull request. Typelapse morphs it
 						token by token and exports a video that matches the preview frame for frame.
 					</p>
 				</RevealItem>
 				<RevealItem>
-					<div className="mt-8 flex flex-wrap gap-3">
+					<div className="mt-6 flex flex-wrap gap-3">
 						<Link
 							to="/app"
 							className="inline-flex items-center rounded-[10px] bg-ink px-5 py-3 font-semibold text-[0.875rem] text-paper transition-opacity hover:opacity-88"
@@ -51,11 +51,11 @@ export function Hero() {
 				</RevealItem>
 			</RevealGroup>
 
-			<Reveal immediate delay={0.24} className="mt-10">
+			<Reveal immediate delay={0.24} className="mt-7">
 				<Instrument />
 			</Reveal>
 
-			<Reveal immediate delay={0.32} className={`${CONTAINER} mt-6`}>
+			<Reveal immediate delay={0.32} className={`${CONTAINER} mt-4`}>
 				<p className="lp-micro">MIT licensed. Runs on your machine. No account needed.</p>
 			</Reveal>
 		</section>

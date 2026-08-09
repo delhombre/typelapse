@@ -59,16 +59,30 @@ const THEME_DOTS: { name: string; bg: string; a: string; b: string }[] = [
 	{ name: "nord", bg: "#2e3440", a: "#88c0d0", b: "#a3be8c" },
 ];
 
-/** The three live aspects: the mesh canvas springs between these sizes. Kept
-    compact so the whole hero (headline, subhead, this object, toolbar) fits within
-    the first viewport. */
+/** One stage, and three ratios fitted inside it.
+    The aspects used to carry their own sizes, from 358px tall at 16:9 to 448px
+    at 9:16, so cycling the ratio grew the frame and pushed the dock, the caption
+    and the whole page below it down by up to 90px. A Lapse take named it:
+    `div in 'Live preview…' animates height (layout)`. The stage is now a
+    constant box the frame is fitted into, so the ratio changes what you see
+    without moving anything around it. Kept compact so the whole hero (headline,
+    subhead, this object, toolbar) still fits within the first viewport. */
+const STAGE = { w: 636, h: 400 } as const;
+
 const ASPECTS = [
-	{ id: "16:9", w: 636, h: 358 },
-	{ id: "1:1", w: 392, h: 392 },
-	{ id: "9:16", w: 252, h: 448 },
+	{ id: "16:9", ratio: 16 / 9 },
+	{ id: "1:1", ratio: 1 },
+	{ id: "9:16", ratio: 9 / 16 },
 ] as const;
 
 type AspectId = (typeof ASPECTS)[number]["id"];
+
+/** Largest box of this ratio that fits the stage: wide ratios are bound by its
+    width and letterbox vertically, tall ones fill its height. */
+const fitToStage = (ratio: number) => {
+	const w = Math.min(STAGE.w, STAGE.h * ratio);
+	return { w, h: w / ratio };
+};
 
 const DEMO_FRAMES = [
 	`export async function GET(req) {
@@ -168,17 +182,23 @@ export function Instrument() {
 	const initedRef = useRef(false);
 	const meshRef = useRef<HTMLDivElement>(null);
 
-	// Responsive fit: measure the available width and shrink the whole canvas so a
-	// 760px-wide 16:9 frame never overflows a phone. Each aspect fills up to the
-	// available width but is never upscaled past its natural size.
+	// Responsive fit: measure the available width and shrink the whole stage so it
+	// never overflows a phone. The stage scales, never the ratio inside it, so the
+	// frame keeps its proportions at every width.
 	const wrapperRef = useRef<HTMLDivElement>(null);
 	const resize = useResizeObserver(wrapperRef);
-	const target = ASPECTS.find((a) => a.id === aspect) ?? ASPECTS[0];
+	const current = ASPECTS.find((a) => a.id === aspect) ?? ASPECTS[0];
+	const target = fitToStage(current.ratio);
+	// Both axes: the stage's rendered height comes from CSS (it shrinks on a short
+	// viewport), so the frame has to answer to it as well as to the width.
 	const availW = resize?.contentRect?.width;
-	const fitScale = availW ? Math.min(1, availW / target.w) : 1;
+	const availH = resize?.contentRect?.height;
+	const fitScale = Math.min(1, availW ? availW / STAGE.w : 1, availH ? availH / STAGE.h : 1);
 
 	const meshW = useSpring(target.w * fitScale, springs.gentle);
 	const meshH = useSpring(target.h * fitScale, springs.gentle);
+	// Depends on the two numbers, not on `target`: it is a fresh object every
+	// render, and depending on it would re-set the springs on every render.
 	useEffect(() => {
 		const w = target.w * fitScale;
 		const h = target.h * fitScale;
@@ -189,7 +209,7 @@ export function Instrument() {
 		}
 		meshW.set(w);
 		meshH.set(h);
-	}, [target, fitScale, reduce, meshW, meshH]);
+	}, [target.w, target.h, fitScale, reduce, meshW, meshH]);
 
 	// The code window keeps its natural size and centres in the mesh, scaling down
 	// only when the current aspect is too narrow to hold it (9:16, or on mobile).
@@ -292,7 +312,10 @@ export function Instrument() {
 
 	return (
 		<section className="mx-auto w-full max-w-5xl px-6">
-			<div ref={wrapperRef} className="w-full">
+			{/* The stage: a box the frame is centred in, sized by CSS so it gives back
+			    height on a short viewport instead of pushing the dock past the fold.
+			    Its height is also what keeps the dock still while the ratio cycles. */}
+			<div ref={wrapperRef} className="lp-stage flex w-full items-center justify-center">
 				<motion.div
 					role="img"
 					aria-label="Live preview: a code snippet morphing token by token on a mesh gradient background"
@@ -341,11 +364,8 @@ export function Instrument() {
 				onThemeChange={setThemeName}
 				aspect={aspect}
 				onAspectChange={setAspect}
+				caption="This is the real engine: the export matches it frame for frame."
 			/>
-
-			<p className="mt-3 text-center text-[13px] text-ash">
-				This is the real engine: the export matches it frame for frame.
-			</p>
 		</section>
 	);
 }
@@ -414,6 +434,7 @@ function Toolbar({
 	onThemeChange,
 	aspect,
 	onAspectChange,
+	caption,
 }: {
 	reduce: boolean;
 	playing: boolean;
@@ -424,6 +445,7 @@ function Toolbar({
 	onThemeChange: (name: string) => void;
 	aspect: AspectId;
 	onAspectChange: (id: AspectId) => void;
+	caption: string;
 }) {
 	const [open, setOpen] = useState<null | "backdrop" | "theme">(null);
 
@@ -487,7 +509,7 @@ function Toolbar({
 	};
 
 	return (
-		<div ref={dockRef} className="lp-island-dock mt-5" onMouseLeave={() => setHelper(null)}>
+		<div ref={dockRef} className="lp-island-dock mt-4" onMouseLeave={() => setHelper(null)}>
 			<AnimatePresence>
 				{helper && (
 					<motion.span
@@ -498,9 +520,10 @@ function Toolbar({
 						// the stylesheet: Motion writes `transform` to animate y and scale,
 						// which overwrites a CSS translateX outright. Keeping it in the
 						// variants lets Motion compose the three together.
-						initial={{ opacity: 0, y: 4, scale: 0.96, x: "-50%" }}
+						// Enters from the island it belongs to, which is now above it.
+						initial={{ opacity: 0, y: -4, scale: 0.96, x: "-50%" }}
 						animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-						exit={{ opacity: 0, y: 2, scale: 0.98, x: "-50%" }}
+						exit={{ opacity: 0, y: -2, scale: 0.98, x: "-50%" }}
 						transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
 						aria-hidden="true"
 					>
@@ -639,6 +662,14 @@ function Toolbar({
 					</motion.div>
 				)}
 			</motion.div>
+
+			{/* The caption and the helper share one lane. Reserving a strip of its own
+			    for the helper cost 38px of a viewport the hero was already
+			    overflowing; here the line the instrument describes itself with steps
+			    aside for the line describing the control under the cursor. */}
+			<p className="lp-island-caption" data-quiet={helper ? "" : undefined}>
+				{caption}
+			</p>
 		</div>
 	);
 }

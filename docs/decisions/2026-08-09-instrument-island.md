@@ -90,6 +90,27 @@ Related: the helper pill is centred by Motion, not by CSS. Motion writes
 `transform` to animate y and scale, so a stylesheet `translateX(-50%)` on the
 same element is overwritten the moment the entrance runs.
 
+## The stage, and the lane the helper borrows
+
+**The ratio no longer resizes the page.** Each aspect used to carry its own
+size — 636×358 at 16:9, up to 252×448 at 9:16 — so cycling grew the frame and
+pushed the dock, the caption and everything below it down by up to 90px. A Lapse
+take named the mechanism outright: `div in 'Live preview…' animates height
+(layout)`. The frame is now fitted into a stage whose height the ratio cannot
+change, and the drift measures 0px across all three.
+
+**The stage's height is the hero's shock absorber.** Everything else in the
+first viewport costs a fixed ~460px, so the stage takes what is left,
+`clamp(232px, 100svh - 460px, 400px)`, and the frame scales to whatever it gets.
+On a 700px-tall window the hero fits where it used to run 199px past the fold.
+
+**The helper and the caption share one lane.** The helper opens below the island
+rather than above it, because above it covered the preview it was describing.
+Giving it a reserved strip of its own cost 38px of a viewport already
+overflowing, so instead the caption steps aside: the line the instrument
+describes itself with yields to the line describing the control under the
+cursor, and the exchange costs no height at all.
+
 ## Open
 
 The island holds four controls where an external reference holds eight, so it reads

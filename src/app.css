@@ -409,6 +409,21 @@ html[data-landing-theme="dark"] {
 	--dock-hairline: rgb(255 255 255 / 0.1);
 }
 
+/* The stage the preview is fitted into.
+   Its height is the hero's shock absorber. Everything else in the first
+   viewport — the eyebrow, the headline, the lead, the two buttons, the dock and
+   its caption — costs a fixed ~460px, so the stage takes what is left and gives
+   height back on a short laptop instead of pushing the dock past the fold. The
+   frame inside scales to whatever it gets, so the ratios stay true at every
+   size, and the floor stops it collapsing to a stamp on a very short window. */
+.landing-root {
+	--hero-chrome: 460px;
+}
+
+.landing-root .lp-stage {
+	height: clamp(232px, calc(100svh - var(--hero-chrome)), 400px);
+}
+
 /* On the dark theme the island cannot be "the dark thing"; it lifts instead. */
 .landing-root[data-theme="dark"] {
 	--dock-bg: #24232a;
@@ -611,18 +626,37 @@ html[data-landing-theme="dark"] {
 /* The island's helper, measured off an external reference's `.top-setting-helper`.
    Same fill and same pill radius as the island itself, which is what makes it
    read as part of the instrument rather than as a browser tooltip: 11px at
-   weight 500, a lighter shadow than the island, 10px above and centred on the
-   control. It sits outside the island because the island clips its own
-   overflow while resizing. */
+   weight 500, a lighter shadow than the island, 10px clear of it and centred on
+   the control. Ours opens downwards where theirs opens up, because our island
+   has the preview above it and theirs has a canvas it may cover. It sits outside
+   the island because the island clips its own overflow while resizing. */
 .landing-root .lp-island-dock {
 	position: relative;
 	display: flex;
-	justify-content: center;
+	flex-direction: column;
+	align-items: center;
+}
+
+/* The lane the helper borrows. */
+.landing-root .lp-island-caption {
+	margin-top: 12px;
+	color: var(--color-ash);
+	font-size: 13px;
+	line-height: 20px;
+	text-align: center;
+	transition: opacity 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.landing-root .lp-island-caption[data-quiet] {
+	opacity: 0;
 }
 
 .landing-root .lp-island-helper {
 	position: absolute;
-	bottom: calc(100% + 10px);
+	/* Below the island, not above it: opening upwards put the pill straight over
+	   the preview it was describing. 40px of island plus a 10px gap — measured
+	   from the dock's content box, so the reserved lane below does not move it. */
+	top: 50px;
 	z-index: 20;
 	display: inline-flex;
 	align-items: center;
