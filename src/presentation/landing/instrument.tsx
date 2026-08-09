@@ -17,7 +17,7 @@ import { MagicMoveCanvas } from "@/presentation/components/preview/magic-move-ca
 import { useResizeObserver } from "@/presentation/hooks/use-resize-observer";
 import { springs } from "@/presentation/motion";
 import { motion, useReducedMotion, useSpring, useTransform } from "motion/react";
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /* The instrument runs the real product parts: the same three-step `api/users.ts`
    demo, tokenized by Shiki, keyed + morphed by the shared magic-move engine, and
@@ -399,15 +399,38 @@ function Toolbar({
 	aspect: AspectId;
 	onAspectChange: (id: AspectId) => void;
 }) {
-	const [open, setOpen] = useState<null | "background" | "theme" | "aspect">(null);
+	const [open, setOpen] = useState<null | "background" | "theme">(null);
+	// ui.camera drives the island width as a number, not as `auto`, because auto
+	// cannot be animated. A ref callback measures each row as it mounts, which
+	// fires on every panel change since the row is keyed.
+	const [rowWidth, setRowWidth] = useState<number | null>(null);
+	const measureRow = useCallback((node: HTMLDivElement | null) => {
+		if (node) {
+			setRowWidth(node.scrollWidth);
+		}
+	}, []);
 
 	const preset = MESH_PRESETS.find((p) => p.id === presetId) ?? MESH_PRESETS[0];
 	const themeDot = THEME_DOTS.find((t) => t.name === themeName) ?? THEME_DOTS[0];
 	const swatchOf = (p: (typeof MESH_PRESETS)[number]) =>
 		`linear-gradient(135deg, ${p.blobs[0]?.color ?? p.accent}, ${p.blobs[2]?.color ?? p.accent})`;
 
-	const toggle = (panel: "background" | "theme" | "aspect") =>
+	const toggle = (panel: "background" | "theme") =>
 		setOpen((current) => (current === panel ? null : panel));
+
+	/**
+	 * ui.camera splits its controls by one rule: a setting whose value fits on
+	 * the button and has few options cycles in place (ratio, zoom, preset), while
+	 * one that cannot be summarised as text opens a panel (backdrop, blur, focus).
+	 * Aspect is the first kind, backdrop and theme the second.
+	 */
+	const cycleAspect = () => {
+		const index = ASPECTS.findIndex((a) => a.id === aspect);
+		const next = ASPECTS[(index + 1) % ASPECTS.length];
+		if (next) {
+			onAspectChange(next.id);
+		}
+	};
 
 	return (
 		<div className="mt-5 flex justify-center">
@@ -415,10 +438,21 @@ function Toolbar({
 				className="lp-island"
 				role="toolbar"
 				aria-label="Preview controls"
+				// `initial={false}` plus an explicit style width: Motion cannot
+				// interpolate from `auto`, and without a known starting number the
+				// island jumps straight to its target instead of springing to it.
+				initial={false}
+				style={{ width: rowWidth === null ? "max-content" : undefined }}
+				animate={rowWidth === null ? undefined : { width: rowWidth + ISLAND_PADDING }}
 				transition={reduce ? { duration: 0 } : ISLAND_SPRING}
 			>
 				{open === null ? (
-					<motion.div key="collapsed" className="lp-island-row" {...islandMotion(reduce)}>
+					<motion.div
+						key="collapsed"
+						ref={measureRow}
+						className="lp-island-row"
+						{...islandMotion(reduce)}
+					>
 						<button
 							type="button"
 							onClick={onPlayToggle}
@@ -455,16 +489,21 @@ function Toolbar({
 
 						<button
 							type="button"
-							onClick={() => toggle("aspect")}
-							aria-expanded={false}
-							aria-label={`Aspect ratio: ${aspect}. Open aspect control`}
+							onClick={cycleAspect}
+							aria-label={`Cycle aspect ratio. ${aspect} active.`}
 							className="lp-island-button"
+							data-active=""
 						>
 							{aspect}
 						</button>
 					</motion.div>
 				) : (
-					<motion.div key={open} className="lp-island-row" {...islandMotion(reduce)}>
+					<motion.div
+						key={open}
+						ref={measureRow}
+						className="lp-island-row"
+						{...islandMotion(reduce)}
+					>
 						<button
 							type="button"
 							onClick={() => setOpen(null)}
@@ -500,20 +539,6 @@ function Toolbar({
 									background={t.bg}
 								/>
 							))}
-
-						{open === "aspect" &&
-							ASPECTS.map((a) => (
-								<button
-									key={a.id}
-									type="button"
-									onClick={() => onAspectChange(a.id)}
-									aria-pressed={aspect === a.id}
-									className="lp-island-button"
-									{...(aspect === a.id ? { "data-active": "" } : {})}
-								>
-									{a.id}
-								</button>
-							))}
 					</motion.div>
 				)}
 			</motion.div>
@@ -521,26 +546,37 @@ function Toolbar({
 	);
 }
 
-/** Entrance spring for the island itself. */
-const ISLAND_SPRING = { type: "spring", stiffness: 420, damping: 34, mass: 0.7 } as const;
+/**
+ * The island's width spring, taken frame by frame off ui.camera rather than
+ * guessed: 348 → 322.4 → 324 over roughly 480ms. It undershoots by about 1.6px
+ * on a 24px move and settles back, so it is a spring with a little bounce left
+ * in it, not a damped tween.
+ */
+const ISLAND_SPRING = { type: "spring", stiffness: 260, damping: 26, mass: 1 } as const;
+
+/** The island's own horizontal padding, which the measured row does not include. */
+const ISLAND_PADDING = 16;
 
 /**
- * The row swap. Keyed on the open panel, so React remounts it and the entrance
- * replays; the island's own `layout` spring carries the width change around it.
+ * The row entrance, measured off ui.camera frame by frame.
  *
- * Deliberately no AnimatePresence. Both `popLayout` and `wait` left the
- * outgoing row parked in the DOM at opacity 0 with its exit never completing,
- * which meant the island kept measuring the wrong content and clipped the new
- * row. An exit animation is not worth a control that intermittently refuses to
- * open.
+ * The counter-intuitive part, and the reason a hand-tuned version looks cheap:
+ * the incoming row does **not** fade in. Its first frame is already at opacity
+ * 0.99. All the work is done by a tiny scale that overshoots — 0.996 up to
+ * 1.0068, then back to 1 — with a barely-there blur. An entrance from
+ * `opacity: 0, scale: 0.94` reads as a slideshow next to it.
+ *
+ * The outgoing row is the dramatic one: opacity to 0, blur to 4px, scale to
+ * 1.20 over ~156ms, running at the same time as the width change rather than
+ * before it.
  */
 const islandMotion = (reduce: boolean) =>
 	reduce
 		? { initial: false as const, animate: { opacity: 1 } }
 		: {
-				initial: { opacity: 0, scale: 0.94 },
-				animate: { opacity: 1, scale: 1 },
-				transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] as const },
+				initial: { opacity: 0.99, scale: 0.996, filter: "blur(0.04px)" },
+				animate: { opacity: 1, scale: [0.996, 1.0068, 1], filter: "blur(0px)" },
+				transition: { duration: 0.32, ease: [0.23, 1, 0.32, 1] as const },
 			};
 
 function BackIcon() {

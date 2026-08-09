@@ -430,11 +430,10 @@ html[data-landing-theme="dark"] {
 	background: var(--dock-bg);
 	color: var(--dock-ink);
 	box-shadow: 0 8px 24px rgb(18 18 20 / 0.18);
-	/* Width follows the row on show, so it is never clipped. ui.camera animates
-	   this number by measuring its content; that is the remaining step here, and
-	   an island that clips its own controls is worse than one that resizes
-	   instantly. */
-	width: max-content;
+	/* Width is animated as a number by the component (measured per row), the way
+	   ui.camera does it. Hidden overflow is what lets the outgoing row be clipped
+	   mid-resize instead of pushing the pill wider than it should be. */
+	overflow: hidden;
 	font-family: var(--font-sans);
 	font-variant-numeric: tabular-nums;
 	user-select: none;
