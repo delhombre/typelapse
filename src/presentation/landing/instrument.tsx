@@ -66,8 +66,14 @@ const THEME_DOTS: { name: string; bg: string; a: string; b: string }[] = [
     `div in 'Live preview…' animates height (layout)`. The stage is now a
     constant box the frame is fitted into, so the ratio changes what you see
     without moving anything around it. Kept compact so the whole hero (headline,
-    subhead, this object, toolbar) still fits within the first viewport. */
-const STAGE = { w: 636, h: 400 } as const;
+    subhead, this object, toolbar) still fits within the first viewport.
+
+    `h` is the frame's box, not the stage's: the stage keeps a strip below it
+    (`--helper-lane`) that the frame never enters, which is where the helper
+    opens. Carving that strip out of the stage rather than adding it under the
+    dock is what lets the helper sit above the island without either covering the
+    preview or costing the hero a pixel. */
+const STAGE = { w: 636, h: 366 } as const;
 
 const ASPECTS = [
 	{ id: "16:9", ratio: 16 / 9 },
@@ -520,10 +526,10 @@ function Toolbar({
 						// the stylesheet: Motion writes `transform` to animate y and scale,
 						// which overwrites a CSS translateX outright. Keeping it in the
 						// variants lets Motion compose the three together.
-						// Enters from the island it belongs to, which is now above it.
-						initial={{ opacity: 0, y: -4, scale: 0.96, x: "-50%" }}
+						// Enters from the island it belongs to, which sits below it.
+						initial={{ opacity: 0, y: 4, scale: 0.96, x: "-50%" }}
 						animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
-						exit={{ opacity: 0, y: -2, scale: 0.98, x: "-50%" }}
+						exit={{ opacity: 0, y: 2, scale: 0.98, x: "-50%" }}
 						transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
 						aria-hidden="true"
 					>
@@ -663,13 +669,7 @@ function Toolbar({
 				)}
 			</motion.div>
 
-			{/* The caption and the helper share one lane. Reserving a strip of its own
-			    for the helper cost 38px of a viewport the hero was already
-			    overflowing; here the line the instrument describes itself with steps
-			    aside for the line describing the control under the cursor. */}
-			<p className="lp-island-caption" data-quiet={helper ? "" : undefined}>
-				{caption}
-			</p>
+			<p className="lp-island-caption">{caption}</p>
 		</div>
 	);
 }
