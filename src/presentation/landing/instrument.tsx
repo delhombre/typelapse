@@ -401,23 +401,22 @@ function Toolbar({
 }) {
 	return (
 		<div className="mt-5 flex justify-center">
-			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-full border border-hairline bg-surface px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
+			<div className="lp-dock" role="toolbar" aria-label="Preview controls">
 				<button
 					type="button"
 					onClick={onPlayToggle}
 					aria-label={playing ? "Pause" : "Play"}
-					className="hit-target flex size-8 items-center justify-center rounded-full bg-ink text-paper"
+					className="lp-dock-button lp-dock-play"
 				>
 					{playing ? <PauseIcon /> : <PlayIcon />}
 				</button>
 
-				<Divider />
+				<span className="lp-dock-divider" aria-hidden="true" />
 
-				<div className="flex items-center gap-2.5">
+				<div className="lp-dock-group">
 					{MESH_PRESETS.map((p) => (
-						<Dot
+						<Swatch
 							key={p.id}
-							round
 							reduce={reduce}
 							selected={presetId === p.id}
 							onClick={() => onPresetChange(p.id)}
@@ -427,13 +426,13 @@ function Toolbar({
 					))}
 				</div>
 
-				<Divider />
+				<span className="lp-dock-divider" aria-hidden="true" />
 
-				<div className="flex items-center gap-2.5">
+				<div className="lp-dock-group">
 					{THEME_DOTS.map((t) => (
-						<Dot
+						<Swatch
 							key={t.name}
-							bordered
+							square
 							reduce={reduce}
 							selected={themeName === t.name}
 							onClick={() => onThemeChange(t.name)}
@@ -443,9 +442,9 @@ function Toolbar({
 					))}
 				</div>
 
-				<Divider />
+				<span className="lp-dock-divider" aria-hidden="true" />
 
-				<div className="flex items-center gap-0.5">
+				<div className="lp-dock-group">
 					{ASPECTS.map((a) => (
 						<AspectOption
 							key={a.id}
@@ -461,26 +460,26 @@ function Toolbar({
 	);
 }
 
-function Divider() {
-	return <span aria-hidden="true" className="h-4 w-px bg-hairline" />;
-}
-
-/** A restyle swatch: round for backgrounds, soft-square for themes. */
-function Dot({
+/**
+ * A restyle control: round for backgrounds, soft-square for themes.
+ *
+ * Scale on hover and tap only. The previous version animated a ring whose
+ * offset colour was hard-coded white, which the dark theme turned into a halo
+ * on nothing; the ring now takes the dock's own background.
+ */
+function Swatch({
 	selected,
 	onClick,
 	background,
 	label,
-	round = false,
-	bordered = false,
+	square = false,
 	reduce,
 }: {
 	selected: boolean;
 	onClick: () => void;
 	background: string;
 	label: string;
-	round?: boolean;
-	bordered?: boolean;
+	square?: boolean;
 	reduce: boolean;
 }) {
 	return (
@@ -492,19 +491,20 @@ function Dot({
 			whileHover={reduce ? undefined : { scale: 1.12 }}
 			whileTap={reduce ? undefined : { scale: 0.9 }}
 			transition={springs.snappy}
-			className="flex items-center justify-center rounded-full"
+			className="lp-dock-button"
+			style={{ minWidth: 26, padding: 0 }}
+			{...(selected ? { "data-active": "" } : {})}
 		>
-			<span
-				className={`size-5 ${round ? "rounded-full" : "rounded-[6px]"} ${
-					bordered ? "border border-hairline" : ""
-				} ${selected ? "ring-2 ring-ink ring-offset-2 ring-offset-white" : ""}`}
-				style={{ background }}
-			/>
+			<span className={`lp-swatch ${square ? "lp-swatch-square" : ""}`} style={{ background }} />
 		</motion.button>
 	);
 }
 
-/** One option in the aspect segmented control; the black indicator glides via layoutId. */
+/**
+ * One option in the aspect control. The selected indicator glides between
+ * options with a shared layoutId, which Motion drives on transform rather than
+ * on position, so switching ratio never costs a layout pass.
+ */
 function AspectOption({
 	id,
 	active,
@@ -521,19 +521,19 @@ function AspectOption({
 			type="button"
 			onClick={onClick}
 			aria-pressed={active}
-			className={`relative rounded-full px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors ${
-				active ? "text-paper" : "text-ash hover:text-ink"
-			}`}
+			className="lp-dock-button"
+			{...(active ? { "data-active": "" } : {})}
 		>
 			{active && (
 				<motion.span
 					layoutId="aspect-pill"
 					aria-hidden="true"
-					className="absolute inset-0 rounded-full bg-ink"
+					className="absolute inset-0 rounded-full"
+					style={{ background: "var(--dock-active)" }}
 					transition={reduce ? { duration: 0 } : springs.snappy}
 				/>
 			)}
-			<span className="relative z-10">{id}</span>
+			<span className="relative">{id}</span>
 		</button>
 	);
 }
