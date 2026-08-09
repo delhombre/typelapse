@@ -399,64 +399,166 @@ function Toolbar({
 	aspect: AspectId;
 	onAspectChange: (id: AspectId) => void;
 }) {
+	const [open, setOpen] = useState<null | "background" | "theme" | "aspect">(null);
+
+	const preset = MESH_PRESETS.find((p) => p.id === presetId) ?? MESH_PRESETS[0];
+	const themeDot = THEME_DOTS.find((t) => t.name === themeName) ?? THEME_DOTS[0];
+	const swatchOf = (p: (typeof MESH_PRESETS)[number]) =>
+		`linear-gradient(135deg, ${p.blobs[0]?.color ?? p.accent}, ${p.blobs[2]?.color ?? p.accent})`;
+
+	const toggle = (panel: "background" | "theme" | "aspect") =>
+		setOpen((current) => (current === panel ? null : panel));
+
 	return (
 		<div className="mt-5 flex justify-center">
-			<div className="lp-dock" role="toolbar" aria-label="Preview controls">
-				<button
-					type="button"
-					onClick={onPlayToggle}
-					aria-label={playing ? "Pause" : "Play"}
-					className="lp-dock-button lp-dock-play"
-				>
-					{playing ? <PauseIcon /> : <PlayIcon />}
-				</button>
+			<motion.div
+				className="lp-island"
+				role="toolbar"
+				aria-label="Preview controls"
+				transition={reduce ? { duration: 0 } : ISLAND_SPRING}
+			>
+				{open === null ? (
+					<motion.div key="collapsed" className="lp-island-row" {...islandMotion(reduce)}>
+						<button
+							type="button"
+							onClick={onPlayToggle}
+							aria-label={playing ? "Pause" : "Play"}
+							className="lp-island-button lp-island-play"
+						>
+							{playing ? <PauseIcon /> : <PlayIcon />}
+						</button>
 
-				<span className="lp-dock-divider" aria-hidden="true" />
+						<span className="lp-island-divider" aria-hidden="true" />
 
-				<div className="lp-dock-group">
-					{MESH_PRESETS.map((p) => (
-						<Swatch
-							key={p.id}
-							reduce={reduce}
-							selected={presetId === p.id}
-							onClick={() => onPresetChange(p.id)}
-							label={`Background ${p.label}`}
-							background={`linear-gradient(135deg, ${p.blobs[0]?.color ?? p.accent}, ${p.blobs[2]?.color ?? p.accent})`}
-						/>
-					))}
-				</div>
+						<button
+							type="button"
+							onClick={() => toggle("background")}
+							aria-expanded={false}
+							aria-label={`Backdrop: ${preset?.label ?? ""}. Open backdrop control`}
+							className="lp-island-button"
+						>
+							<span className="lp-swatch" style={{ background: preset ? swatchOf(preset) : "" }} />
+						</button>
 
-				<span className="lp-dock-divider" aria-hidden="true" />
+						<button
+							type="button"
+							onClick={() => toggle("theme")}
+							aria-expanded={false}
+							aria-label={`Theme: ${themeName}. Open theme control`}
+							className="lp-island-button"
+						>
+							<span
+								className="lp-swatch lp-swatch-square"
+								style={{ background: themeDot?.bg ?? "" }}
+							/>
+						</button>
 
-				<div className="lp-dock-group">
-					{THEME_DOTS.map((t) => (
-						<Swatch
-							key={t.name}
-							square
-							reduce={reduce}
-							selected={themeName === t.name}
-							onClick={() => onThemeChange(t.name)}
-							label={`Theme ${t.name}`}
-							background={t.bg}
-						/>
-					))}
-				</div>
+						<button
+							type="button"
+							onClick={() => toggle("aspect")}
+							aria-expanded={false}
+							aria-label={`Aspect ratio: ${aspect}. Open aspect control`}
+							className="lp-island-button"
+						>
+							{aspect}
+						</button>
+					</motion.div>
+				) : (
+					<motion.div key={open} className="lp-island-row" {...islandMotion(reduce)}>
+						<button
+							type="button"
+							onClick={() => setOpen(null)}
+							aria-label="Back to controls"
+							className="lp-island-button"
+						>
+							<BackIcon />
+						</button>
 
-				<span className="lp-dock-divider" aria-hidden="true" />
+						<span className="lp-island-divider" aria-hidden="true" />
 
-				<div className="lp-dock-group">
-					{ASPECTS.map((a) => (
-						<AspectOption
-							key={a.id}
-							id={a.id}
-							reduce={reduce}
-							active={aspect === a.id}
-							onClick={() => onAspectChange(a.id)}
-						/>
-					))}
-				</div>
-			</div>
+						{open === "background" &&
+							MESH_PRESETS.map((p) => (
+								<Swatch
+									key={p.id}
+									reduce={reduce}
+									selected={presetId === p.id}
+									onClick={() => onPresetChange(p.id)}
+									label={`Backdrop ${p.label}`}
+									background={swatchOf(p)}
+								/>
+							))}
+
+						{open === "theme" &&
+							THEME_DOTS.map((t) => (
+								<Swatch
+									key={t.name}
+									square
+									reduce={reduce}
+									selected={themeName === t.name}
+									onClick={() => onThemeChange(t.name)}
+									label={`Theme ${t.name}`}
+									background={t.bg}
+								/>
+							))}
+
+						{open === "aspect" &&
+							ASPECTS.map((a) => (
+								<button
+									key={a.id}
+									type="button"
+									onClick={() => onAspectChange(a.id)}
+									aria-pressed={aspect === a.id}
+									className="lp-island-button"
+									{...(aspect === a.id ? { "data-active": "" } : {})}
+								>
+									{a.id}
+								</button>
+							))}
+					</motion.div>
+				)}
+			</motion.div>
 		</div>
+	);
+}
+
+/** Entrance spring for the island itself. */
+const ISLAND_SPRING = { type: "spring", stiffness: 420, damping: 34, mass: 0.7 } as const;
+
+/**
+ * The row swap. Keyed on the open panel, so React remounts it and the entrance
+ * replays; the island's own `layout` spring carries the width change around it.
+ *
+ * Deliberately no AnimatePresence. Both `popLayout` and `wait` left the
+ * outgoing row parked in the DOM at opacity 0 with its exit never completing,
+ * which meant the island kept measuring the wrong content and clipped the new
+ * row. An exit animation is not worth a control that intermittently refuses to
+ * open.
+ */
+const islandMotion = (reduce: boolean) =>
+	reduce
+		? { initial: false as const, animate: { opacity: 1 } }
+		: {
+				initial: { opacity: 0, scale: 0.94 },
+				animate: { opacity: 1, scale: 1 },
+				transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] as const },
+			};
+
+function BackIcon() {
+	return (
+		<svg
+			width="13"
+			height="13"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2.4"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			role="img"
+			aria-label="Back"
+		>
+			<path d="M15 18l-6-6 6-6" />
+		</svg>
 	);
 }
 
@@ -491,50 +593,12 @@ function Swatch({
 			whileHover={reduce ? undefined : { scale: 1.12 }}
 			whileTap={reduce ? undefined : { scale: 0.9 }}
 			transition={springs.snappy}
-			className="lp-dock-button"
+			className="lp-island-button"
 			style={{ minWidth: 26, padding: 0 }}
 			{...(selected ? { "data-active": "" } : {})}
 		>
 			<span className={`lp-swatch ${square ? "lp-swatch-square" : ""}`} style={{ background }} />
 		</motion.button>
-	);
-}
-
-/**
- * One option in the aspect control. The selected indicator glides between
- * options with a shared layoutId, which Motion drives on transform rather than
- * on position, so switching ratio never costs a layout pass.
- */
-function AspectOption({
-	id,
-	active,
-	onClick,
-	reduce,
-}: {
-	id: AspectId;
-	active: boolean;
-	onClick: () => void;
-	reduce: boolean;
-}) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			aria-pressed={active}
-			className="lp-dock-button"
-			{...(active ? { "data-active": "" } : {})}
-		>
-			{active && (
-				<motion.span
-					layoutId="aspect-pill"
-					aria-hidden="true"
-					className="absolute inset-0 rounded-full"
-					style={{ background: "var(--dock-active)" }}
-					transition={reduce ? { duration: 0 } : springs.snappy}
-				/>
-			)}
-			<span className="relative">{id}</span>
-		</button>
 	);
 }
 

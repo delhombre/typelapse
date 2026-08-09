@@ -394,10 +394,18 @@ html[data-landing-theme="dark"] {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   The instrument dock. Modelled on an external reference: one opaque dark pill, a single
-   soft shadow, no glass. Glass would drag whatever is behind it into a control
-   whose whole job is to sit still while the artwork above it changes.
-   Measured from that reference: 40px tall, 999px radius, 3px gap, 32px targets.
+   The instrument island.
+
+   Modelled on an external reference, measured off the real element rather than its wrapper:
+   40px tall, #151517 opaque, 999px radius, 7px gap, 0 8px padding, and a single
+   `0 8px 24px rgb(18 18 20 / 0.18)` shadow.
+
+   The shape matters more than the numbers. It is an *island*, not a bar: it
+   shows one setting at a time and resizes to whatever it is showing, so the
+   controls never compete with the artwork above them. `overflow: hidden` is
+   what makes that readable, clipping the outgoing content while the width
+   animates. The project already speaks this language in its nav, so the dock
+   borrowing it is consistency rather than pastiche.
    ───────────────────────────────────────────────────────────────────────── */
 .landing-root {
 	--dock-bg: #151517;
@@ -407,52 +415,47 @@ html[data-landing-theme="dark"] {
 	--dock-active: rgb(255 255 255 / 0.12);
 }
 
-/* On the dark theme the dock cannot be "the dark thing" any more, so it lifts
-   off the page instead of sinking into it. */
+/* On the dark theme the island cannot be "the dark thing"; it lifts instead. */
 .landing-root[data-theme="dark"] {
 	--dock-bg: #24232a;
 	--dock-hairline: rgb(255 255 255 / 0.12);
 }
 
-.landing-root .lp-dock {
-	display: inline-flex;
+.landing-root .lp-island {
+	display: flex;
 	align-items: center;
-	gap: 3px;
 	height: 40px;
-	padding: 0 4px;
+	padding: 0 8px;
 	border-radius: 999px;
 	background: var(--dock-bg);
 	color: var(--dock-ink);
-	box-shadow: 0 5px 16px rgb(18 18 20 / 0.16);
-	/* The dock's own type never inherits the page's mono. */
+	box-shadow: 0 8px 24px rgb(18 18 20 / 0.18);
+	/* Width follows the row on show, so it is never clipped. an external reference animates
+	   this number by measuring its content; that is the remaining step here, and
+	   an island that clips its own controls is worse than one that resizes
+	   instantly. */
+	width: max-content;
 	font-family: var(--font-sans);
 	font-variant-numeric: tabular-nums;
 	user-select: none;
 }
 
-.landing-root .lp-dock-group {
-	display: inline-flex;
+.landing-root .lp-island-row {
+	display: flex;
 	align-items: center;
-	gap: 3px;
-	padding-inline: 3px;
+	gap: 7px;
+	white-space: nowrap;
 }
 
-.landing-root .lp-dock-divider {
-	width: 1px;
-	height: 16px;
-	margin-inline: 3px;
-	background: var(--dock-hairline);
-}
-
-/* Every control keeps a 32px visual box and a 44px pointer target. */
-.landing-root .lp-dock-button {
+/* 36px visual, 44px pointer target: density without losing reachability. */
+.landing-root .lp-island-button {
 	position: relative;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 32px;
-	height: 32px;
-	padding: 0 9px;
+	min-width: 36px;
+	height: 36px;
+	padding: 0 10px;
 	border: 0;
 	border-radius: 999px;
 	background: transparent;
@@ -461,12 +464,12 @@ html[data-landing-theme="dark"] {
 	font-size: 12px;
 	font-weight: 500;
 	cursor: pointer;
-	/* Colour only: never let a control animate a layout or paint-heavy property
-	   while the preview above it is mid-morph. */
+	/* Colour only. Nothing in this island animates a layout or paint-heavy
+	   property while a morph is running above it. */
 	transition: color 140ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.landing-root .lp-dock-button::after {
+.landing-root .lp-island-button::after {
 	content: "";
 	position: absolute;
 	top: 50%;
@@ -476,38 +479,47 @@ html[data-landing-theme="dark"] {
 	transform: translate(-50%, -50%);
 }
 
-.landing-root .lp-dock-button:hover {
+.landing-root .lp-island-button:hover,
+.landing-root .lp-island-button[data-active] {
 	color: var(--dock-ink);
 }
 
-.landing-root .lp-dock-button[data-active] {
-	color: var(--dock-ink);
-}
-
-.landing-root .lp-dock-button:focus-visible {
+.landing-root .lp-island-button:focus-visible {
 	outline: 2px solid var(--dock-ink);
-	outline-offset: 2px;
+	outline-offset: -2px;
 }
 
-/* The primary control is the one filled shape in the dock. */
-.landing-root .lp-dock-play {
-	min-width: 32px;
+/* The one filled shape in the island. */
+.landing-root .lp-island-play {
+	min-width: 36px;
 	padding: 0;
 	background: var(--dock-ink);
 	color: var(--dock-bg);
 }
 
-.landing-root .lp-dock-play:hover {
+.landing-root .lp-island-play:hover {
 	color: var(--dock-bg);
 	opacity: 0.9;
 }
 
-/* Swatches: the selection ring reads against the dock, not against the page,
-   so it takes the dock's own background as its offset colour. */
+.landing-root .lp-island-divider {
+	width: 1px;
+	height: 18px;
+	background: var(--dock-hairline);
+}
+
+.landing-root .lp-island-label {
+	padding-inline: 2px;
+	color: var(--dock-ink-dim);
+	font-size: 11px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
 .landing-root .lp-swatch {
 	display: block;
-	width: 18px;
-	height: 18px;
+	width: 20px;
+	height: 20px;
 	border-radius: 999px;
 	box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
 }
@@ -516,6 +528,8 @@ html[data-landing-theme="dark"] {
 	border-radius: 6px;
 }
 
-.landing-root .lp-dock-button[data-active] .lp-swatch {
+/* The selection ring reads against the island, so it takes the island's own
+   background as its offset colour rather than a hard-coded white. */
+.landing-root .lp-island-button[data-active] .lp-swatch {
 	box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25), 0 0 0 2px var(--dock-bg), 0 0 0 4px var(--dock-ink);
 }
