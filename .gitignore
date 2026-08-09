@@ -12,3 +12,6 @@ CLAUDE.md
 .env
 .env.*
 !.env.example
+
+# Browser automation snapshots, never part of the project
+.playwright-mcp/
