@@ -39,5 +39,6 @@ export const CONTAINER = "mx-auto w-full max-w-[1100px] px-6 sm:px-8";
 /** Big vertical rhythm between full sections (96 / 128 / 160px). */
 export const SECTION_PY = "py-24 sm:py-32 lg:py-40";
 
-/** A pure-black hairline at low alpha, the page's only "border" weight. */
-export const HAIRLINE = "border-black/8";
+/** The page's only border weight. A token, not a literal, so it survives a
+    theme flip: a black hairline is invisible on a dark background. */
+export const HAIRLINE = "border-hairline";

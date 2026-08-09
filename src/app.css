@@ -32,6 +32,11 @@
 	--color-paper: #faf9f6;
 	--color-ink: #1c1b19;
 	--color-ash: #6e6b64;
+	/* Raised surface (control bars, cards) and the one hairline weight. Both are
+	   tokens rather than literals so a theme flip carries them; hard-coded
+	   bg-white and border-black are what broke the dark theme the first time. */
+	--color-surface: #ffffff;
+	--color-hairline: rgb(28 27 25 / 0.1);
 
 	/* Strong custom easings: the built-in CSS curves are too weak. */
 	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -177,6 +182,8 @@ html[data-landing-theme="dark"] {
 	--color-paper: #121110;
 	--color-ink: #f5f3ef;
 	--color-ash: #a8a39a;
+	--color-surface: #1e1c1a;
+	--color-hairline: rgb(245 243 239 / 0.12);
 }
 
 /* The hero headline, set in the product's own material. Decided in
@@ -367,4 +374,21 @@ html[data-landing-theme="dark"] {
    before/after pair, the phone windows), where it is noise and eats width. */
 .landing-root .lp-nogutter .studio-code .line::before {
 	content: none;
+}
+
+/* Pointer-target floor. Keeps a control's visual size while giving it the 44px
+   hit area the accessibility floor asks for, instead of inflating the design.
+   See the touch-and-accessibility skill. */
+.hit-target {
+	position: relative;
+}
+
+.hit-target::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 44px;
+	height: 44px;
+	transform: translate(-50%, -50%);
 }
