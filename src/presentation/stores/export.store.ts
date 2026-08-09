@@ -10,6 +10,7 @@ import { create } from "zustand";
 import type { RenderRequestBody } from "../../../server/remotion/types";
 import { usePlanStore } from "./plan.store";
 import { useSnippetStore } from "./snippet.store";
+import { useSocialPreviewStore } from "./social-preview.store";
 
 export interface ExportProgress {
 	phase: "preparing" | "rendering" | "downloading";
@@ -250,6 +251,19 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			error: null,
 		});
 
+		// Social-preview mode makes the card margin transparent (the mesh moves to
+		// the aspect box). A PNG must always capture the clean mesh card, so drop
+		// out of social mode for the snapshot and restore it afterward.
+		const social = useSocialPreviewStore.getState();
+		const restoreSocial = social.enabled;
+		if (restoreSocial) {
+			social.setEnabled(false);
+			// Let React repaint the card with its own mesh before capturing.
+			await new Promise<void>((resolve) => {
+				requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+			});
+		}
+
 		try {
 			const { domToBlob } = await import("modern-screenshot");
 			const blob = await domToBlob(el, {
@@ -272,6 +286,10 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				progress: null,
 				error: err instanceof Error ? err.message : "PNG export failed",
 			});
+		} finally {
+			if (restoreSocial) {
+				social.setEnabled(true);
+			}
 		}
 	},
 }));

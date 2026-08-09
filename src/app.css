@@ -106,6 +106,142 @@ html {
 		0 26px 60px -18px oklch(0 0 0 / 0.14);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Landing typography system (OpenAI x Apple): a refined SANS scale. Everything
+   is scoped under `.landing-root` so the /app studio is never affected. The
+   type classes read their color from `--color-ink` / `--color-ash`, so the one
+   dark section (`.lp-dark`) only has to remap those two vars to invert cleanly.
+   ───────────────────────────────────────────────────────────────────────── */
+.landing-root {
+	/* Characterful landing display face (Tuple-style warmth). Scoped here so the
+	   /app studio keeps the neutral @theme sans and is never affected. */
+	--font-display: "Bricolage Grotesque", "Inter", system-ui, sans-serif;
+	/* Primary CTA fill: one lightness step deeper than the light `--color-accent`
+	   token so white button text clears WCAG AA (4.86:1). Landing-scoped, so the
+	   accent token itself (focus ring, eyebrow dot, pill) is untouched. */
+	--color-cta: oklch(0.56 0.19 268);
+	font-family: var(--font-sans);
+	font-optical-sizing: auto;
+	font-synthesis-weight: none;
+	color: var(--color-ink);
+}
+
+/* Big confident display: the characterful face, heavy + bold, the star of the
+   page. Bricolage runs a touch wider, so tracking is tightened and leading
+   pulled close for a dense, warm headline. */
+.landing-root .lp-display {
+	font-family: var(--font-display);
+	font-weight: 800;
+	font-size: clamp(2.75rem, 1.4rem + 5.6vw, 4.75rem);
+	line-height: 1.02;
+	letter-spacing: -0.028em;
+	text-wrap: balance;
+}
+
+/* Section heading: same characterful face, a step down in weight for elegance
+   at a large size. */
+.landing-root .lp-h2 {
+	font-family: var(--font-display);
+	font-weight: 700;
+	font-size: clamp(2rem, 1.25rem + 2.8vw, 3.05rem);
+	line-height: 1.05;
+	letter-spacing: -0.021em;
+	text-wrap: balance;
+}
+
+/* Hero lead line: calm, secondary, comfortable leading. */
+.landing-root .lp-lead {
+	font-weight: 400;
+	font-size: clamp(1.1875rem, 1.05rem + 0.7vw, 1.4375rem);
+	line-height: 1.5;
+	letter-spacing: -0.012em;
+	color: var(--color-ash);
+	text-wrap: pretty;
+}
+
+/* Feature body line: one confident sentence under a heading. */
+.landing-root .lp-line {
+	font-weight: 400;
+	font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.1875rem);
+	line-height: 1.6;
+	letter-spacing: -0.006em;
+	color: var(--color-ash);
+	text-wrap: pretty;
+}
+
+/* Sans eyebrow: small uppercase kicker above a heading. */
+.landing-root .lp-eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.6em;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	font-size: 0.6875rem;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+	color: var(--color-ash);
+}
+
+/* Sans microline: the quiet stamp under the hero / CTA. */
+.landing-root .lp-micro {
+	font-family: var(--font-sans);
+	font-size: 0.75rem;
+	letter-spacing: 0.01em;
+	color: var(--color-ash);
+	font-variant-numeric: tabular-nums;
+}
+
+/* The one dark, full-bleed section. Remapping the two text vars flips every
+   `.lp-*` line and every Tailwind `text-ink` / `text-ash` inside it to light. */
+.landing-root .lp-dark {
+	--color-ink: #f5f5f7;
+	--color-ash: #a1a1aa;
+	background: #0a0a0c;
+	color: #f5f5f7;
+}
+
+/* A phone "product shot": a hairline plus a neutral layered shadow, sized to read
+   on the dark section. No brand-tinted glow: the depth is all neutral, so the only
+   color on the section is the product mesh inside the phone. */
+.landing-root .lp-phone {
+	box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08), 0 2px 8px -2px oklch(0 0 0 / 0.4), 0 30px 80px -24px
+		oklch(0 0 0 / 0.75);
+}
+
+/* Product shots come to life on hover: a subtle lift plus a deeper shadow, so the
+   frame reads as rising off the page (Tuple-like depth). Fine pointers only, and
+   the lift rides the `transform` property so it composes with Tailwind's native
+   `translate` / `rotate` on the tilted phones instead of clobbering them. */
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-lift {
+		transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
+	}
+	.landing-root .lp-lift:hover {
+		transform: translateY(-6px);
+	}
+	.landing-root .code-frame-glow.lp-lift:hover {
+		box-shadow:
+			0 0 0 1px oklch(0 0 0 / 0.08),
+			0 6px 16px -6px oklch(0 0 0 / 0.12),
+			0 20px 44px -12px oklch(0 0 0 / 0.2),
+			0 40px 80px -22px oklch(0 0 0 / 0.18);
+	}
+	.landing-root .lp-phone.lp-lift:hover {
+		box-shadow: 0 0 0 1px oklch(1 0 0 / 0.1), 0 6px 18px -4px oklch(0 0 0 / 0.5), 0 44px 100px -26px
+			oklch(0 0 0 / 0.85);
+	}
+}
+
+/* Reduced motion: keep the shadow response, drop the movement. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+	.landing-root .lp-lift {
+		transition: box-shadow 0.35s var(--ease-out);
+	}
+	.landing-root .lp-lift:hover {
+		transform: none;
+	}
+}
+
 /* Subtle gradient drift during playback */
 @keyframes gradient-drift {
 	0% {
@@ -145,4 +281,10 @@ html {
 	margin-right: 1.75em;
 	text-align: right;
 	color: color-mix(in oklch, currentColor 22%, transparent);
+}
+
+/* Landing: drop the line-number gutter on the small product-shot frames (the
+   before/after pair, the phone windows), where it is noise and eats width. */
+.landing-root .lp-nogutter .studio-code .line::before {
+	content: none;
 }

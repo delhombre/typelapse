@@ -44,11 +44,13 @@ const THEME_DOTS: { name: string; bg: string }[] = [
 	{ name: "nord", bg: "#2e3440" },
 ];
 
-/** The three live aspects: the mesh canvas springs between these sizes. */
+/** The three live aspects: the mesh canvas springs between these sizes. Kept
+    compact so the whole hero (headline, subhead, this object, toolbar) fits within
+    the first viewport. */
 const ASPECTS = [
-	{ id: "16:9", w: 760, h: 428 },
-	{ id: "1:1", w: 470, h: 470 },
-	{ id: "9:16", w: 300, h: 534 },
+	{ id: "16:9", w: 636, h: 358 },
+	{ id: "1:1", w: 392, h: 392 },
+	{ id: "9:16", w: 252, h: 448 },
 ] as const;
 
 type AspectId = (typeof ASPECTS)[number]["id"];
@@ -71,7 +73,10 @@ const DEMO_FRAMES = [
 const LOOP_CODES = [...DEMO_FRAMES, DEMO_FRAMES[0] ?? ""];
 const HOLDS = [1300, 1500, 2200, 800];
 
-const MESH_PAD = 26;
+const MESH_PAD = 12;
+/** Restrained, Tuple-like corner radii: a crisp inner window with a mesh frame
+    that is exactly concentric with it (outer = inner + the mesh padding). */
+const WINDOW_RADIUS = 6;
 const WINDOW_WIDTH = 452;
 const WINDOW_FONT = 13;
 const FRAME_PADDING = 18;
@@ -274,12 +279,15 @@ export function Instrument() {
 		<section className="mx-auto w-full max-w-5xl px-6">
 			<div ref={wrapperRef} className="w-full">
 				<motion.div
+					role="img"
+					aria-label="Live preview: a code snippet morphing token by token on a mesh gradient background"
 					style={{
 						width: meshW,
 						height: meshH,
 						padding: MESH_PAD,
-						// Concentric: outer radius = window radius + the mesh padding.
-						borderRadius: theme.borderRadius + MESH_PAD,
+						// True concentric: outer radius = inner window radius + the mesh padding,
+						// so the frame and window corners nest exactly.
+						borderRadius: WINDOW_RADIUS + MESH_PAD,
 						boxShadow: OBJECT_SHADOW,
 					}}
 					className="relative mx-auto flex max-w-full items-center justify-center overflow-hidden"
@@ -345,7 +353,7 @@ function CodeWindow({
 			style={{
 				width: WINDOW_WIDTH,
 				background: theme.background,
-				borderRadius: theme.borderRadius,
+				borderRadius: WINDOW_RADIUS,
 				boxShadow: "0 20px 50px -20px rgb(0 0 0 / 0.55)",
 			}}
 		>
@@ -392,7 +400,7 @@ function Toolbar({
 	onAspectChange: (id: AspectId) => void;
 }) {
 	return (
-		<div className="mt-6 flex justify-center">
+		<div className="mt-5 flex justify-center">
 			<div className="inline-flex flex-wrap items-center justify-center gap-3 rounded-full border border-black/8 bg-white px-3 py-2 shadow-[0_10px_30px_-12px_rgb(0_0_0/0.18)]">
 				<button
 					type="button"
@@ -496,7 +504,7 @@ function Dot({
 	);
 }
 
-/** One option in the aspect segmented control; the black pill glides via layoutId. */
+/** One option in the aspect segmented control; the black indicator glides via layoutId. */
 function AspectOption({
 	id,
 	active,
@@ -513,7 +521,7 @@ function AspectOption({
 			type="button"
 			onClick={onClick}
 			aria-pressed={active}
-			className={`relative rounded-full px-2.5 py-1 font-mono text-[11px] transition-colors ${
+			className={`relative rounded-full px-2.5 py-1 text-[11px] font-medium tabular-nums transition-colors ${
 				active ? "text-white" : "text-ash hover:text-ink"
 			}`}
 		>

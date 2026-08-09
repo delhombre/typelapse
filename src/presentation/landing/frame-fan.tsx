@@ -1,7 +1,10 @@
-import { springs } from "@/presentation/motion";
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { StaticFrame } from "./static-frame";
+
+/** The unified product-shot hover feel: critically damped (no bounce), a short,
+    confident settle. Shared with the CSS lift on the static frames and phones. */
+const LIFT_SPRING = { type: "spring" as const, bounce: 0, duration: 0.35 };
 
 /** The fanned hand, one snippet, five ways: every card a different theme × mesh
     (a light frost card among them), each three short lines. */
@@ -71,11 +74,7 @@ export function FrameFan() {
 	const [hovered, setHovered] = useState<number | null>(null);
 
 	return (
-		<section className="mx-auto w-full max-w-5xl px-6 py-20">
-			<p className="mx-auto mb-14 max-w-md text-center font-serif text-[15px] text-ash italic">
-				Seven themes, five living backdrops: the same snippet, dressed differently.
-			</p>
-
+		<section className="mx-auto w-full max-w-5xl px-6 py-6">
 			{/* Desktop: the fan. */}
 			<div className="relative hidden h-[360px] md:block">
 				{FAN.map((card, i) => {
@@ -91,7 +90,7 @@ export function FrameFan() {
 							initial={false}
 							animate={{ x: card.x - CARD_HALF, y: 0, rotate: card.rot }}
 							whileHover={reduce ? undefined : { y: -14, rotate: rotToward }}
-							transition={springs.snappy}
+							transition={LIFT_SPRING}
 						>
 							<StaticFrame
 								themeName={card.themeName}
@@ -99,10 +98,11 @@ export function FrameFan() {
 								title={card.title}
 								language={card.language}
 								code={card.code}
+								label={`Code video frame, ${card.themeName} theme, ${card.title}`}
 								meshTime={card.meshTime}
 								fontSize={11}
 								framePadding={16}
-								meshPadding={20}
+								meshPadding={10}
 								className={CARD_CLASS}
 							/>
 						</motion.div>
@@ -120,10 +120,11 @@ export function FrameFan() {
 							title={card.title}
 							language={card.language}
 							code={card.code}
+							label={`Code video frame, ${card.themeName} theme, ${card.title}`}
 							meshTime={card.meshTime}
 							fontSize={11}
 							framePadding={16}
-							meshPadding={20}
+							meshPadding={10}
 							className={CARD_CLASS}
 						/>
 					</div>

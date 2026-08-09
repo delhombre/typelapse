@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gradient";
-import { fitScale } from "../../src/application/layout/fit-scale";
-import { LINE_HEIGHT_RATIO, frameNaturalSize } from "../../src/application/layout/frame-metrics";
+import { fitCardToCanvas } from "../../src/application/layout/canvas-fit";
+import { LINE_HEIGHT_RATIO } from "../../src/application/layout/frame-metrics";
 import {
 	type LaidOutFrame,
 	easeInOutCubic,
@@ -305,38 +305,35 @@ function CenteredFrame({
 	caption?: React.ReactNode;
 	children: React.ReactNode;
 }) {
-	const fontSize = theme.fontSize * VIDEO_SCALE;
-	const padding = framePadding * VIDEO_SCALE;
 	const radius = theme.borderRadius * VIDEO_SCALE;
 	const isDark = isColorDark(theme.background);
 
-	// Natural (unscaled) size of the card + caption unit, laid out the same way
-	// MagicMoveCanvas / FrameChrome do. Uses the segment-max line count so the fit
-	// scale is constant for the whole video (no zoom-pump between steps), and the
-	// full, uncapped width so long lines scale down instead of clipping.
-	const natural = frameNaturalSize({
+	// Natural size of the card + caption unit and its fit into the canvas, from
+	// the SHARED placement math (application/layout/canvas-fit): the same function
+	// the browser social preview calls, so the window lands at the exact same
+	// fraction of the canvas in the video and the preview. Uses the segment-max
+	// line count so the fit is constant for the whole video (no zoom-pump between
+	// steps), and the full, uncapped width so long lines scale down not clip.
+	const fit = fitCardToCanvas({
+		plan,
 		chrome: windowChrome,
-		maxCols: widestLine(plan),
-		maxLines: Math.max(1, ...plan.frames.map((f) => f.lineCount)),
-		fontSize,
-		padding,
+		fontSize: theme.fontSize,
+		padding: framePadding,
+		cardMargin,
 		showLineNumbers,
 		lineNumberStart,
 		hasCaption: caption != null,
 		scale: VIDEO_SCALE,
+		canvasWidth,
+		canvasHeight,
+		canvasMargin: CANVAS_MARGIN,
 	});
+	const natural = fit.natural;
+	const scale = fit.scale;
 	// The card wraps the window (and caption) in a proportional mesh border: the
 	// same cardMargin the preview paints, as transparent padding the full-bleed
-	// background AbsoluteFill shows through. Fit the PADDED card into the canvas
-	// (still inside the safe-area margin) so the border scales with cardMargin,
-	// exactly as the preview does, instead of being a fixed safe-area gap.
+	// background AbsoluteFill shows through.
 	const cardPadding = cardMargin * VIDEO_SCALE;
-	const scale = fitScale(
-		natural.width + 2 * cardPadding,
-		natural.height + 2 * cardPadding,
-		canvasWidth * (1 - 2 * CANVAS_MARGIN),
-		canvasHeight * (1 - 2 * CANVAS_MARGIN),
-	);
 
 	const boxShadow = isDark
 		? "0 0 0 1px rgba(255,255,255,0.05), 0 24px 64px -16px rgba(0,0,0,0.55), 0 8px 24px -8px rgba(0,0,0,0.4)"
@@ -409,16 +406,6 @@ function CenteredFrame({
 			</div>
 		</div>
 	);
-}
-
-function widestLine(plan: RenderInput["plan"]): number {
-	let max = 0;
-	for (const frame of plan.frames) {
-		for (const token of frame.tokens) {
-			max = Math.max(max, token.col + token.content.length);
-		}
-	}
-	return max;
 }
 
 /**
