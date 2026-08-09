@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type LandingTheme = "light" | "dark";
 
@@ -26,6 +26,19 @@ export function useLandingTheme(): [LandingTheme, () => void] {
 	// light and correcting afterwards flashes a white page at every dark-theme
 	// visitor, which is the one moment they are guaranteed to notice.
 	const [theme, setTheme] = useState<LandingTheme>(resolveTheme);
+
+	// The page element cannot colour what sits outside it: overscroll rubber-band
+	// on macOS, and any viewport the layout does not fill, both fall through to
+	// the document's own background, which is white by default. Marking the root
+	// element lets CSS paint those too, and `color-scheme` hands the browser the
+	// right scrollbars and form controls.
+	useEffect(() => {
+		document.documentElement.dataset.landingTheme = theme;
+
+		return () => {
+			document.documentElement.removeAttribute("data-landing-theme");
+		};
+	}, [theme]);
 
 	const toggle = useCallback(() => {
 		setTheme((current) => {
