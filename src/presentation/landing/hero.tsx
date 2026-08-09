@@ -21,7 +21,9 @@ export function Hero() {
 					</p>
 				</RevealItem>
 				<RevealItem>
-					<h1 className="lp-display-mono max-w-[20ch] text-ink">Your pull request, as a video</h1>
+					{/* 30ch, not 20: the headline is 29 characters and the whole point of
+					    shortening it was to let it hold one line on desktop. */}
+					<h1 className="lp-display-mono max-w-[30ch] text-ink">Your pull request, as a video</h1>
 				</RevealItem>
 				<RevealItem>
 					<p className="lp-lead mt-5 max-w-[58ch]">
