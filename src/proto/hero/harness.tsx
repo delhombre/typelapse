@@ -1,23 +1,22 @@
 import { useCallback, useState } from "react";
 import { Picker } from "./picker";
 import "./proto.css";
-import { Editorial, Split, Terminal } from "./variants";
+import { Terminal } from "./variants";
 
-const VARIANTS = [
-	{ name: "Terminal", render: () => <Terminal /> },
-	{ name: "Editorial", render: () => <Editorial /> },
-	{ name: "Split", render: () => <Split /> },
-];
+/**
+ * The direction is settled (Terminal). This round compares themes, so the
+ * variants are the two palettes rather than two layouts.
+ */
+const THEMES = ["Light", "Dark"] as const;
 
 const initialIndex = () => {
 	const raw = new URLSearchParams(window.location.search).get("v");
 	const n = Number.parseInt(raw ?? "", 10);
-	return n >= 1 && n <= VARIANTS.length ? n - 1 : 0;
+	return n >= 1 && n <= THEMES.length ? n - 1 : 0;
 };
 
 export function HeroProto() {
 	const [current, setCurrent] = useState(initialIndex);
-	// Bumping the key re-mounts the variant so entrance animations re-run.
 	const [nonce, setNonce] = useState(0);
 
 	const select = useCallback((i: number) => {
@@ -30,15 +29,17 @@ export function HeroProto() {
 
 	const replay = useCallback(() => setNonce((n) => n + 1), []);
 
-	const variant = VARIANTS[current] ?? VARIANTS[0];
+	const theme = current === 1 ? "dark" : "light";
 
 	return (
-		<div className="proto-root">
-			<div key={`${current}-${nonce}`}>{variant?.render()}</div>
-			{/* Editorial and Terminal both put a microline at bottom-centre, which
-			    the picker would cover. The spec's one allowed modification. */}
+		<div className="proto-root" data-theme={theme}>
+			<div key={`${current}-${nonce}`}>
+				<Terminal />
+			</div>
+			{/* The microline sits at bottom-centre, so the picker moves to the top:
+			    the spec's one allowed modification. */}
 			<Picker
-				names={VARIANTS.map((v) => v.name)}
+				names={[...THEMES]}
 				current={current}
 				onSelect={select}
 				onReplay={replay}
