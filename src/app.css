@@ -449,7 +449,11 @@ html[data-landing-theme="dark"] {
 	height: 30px;
 	padding: 0 8px;
 	border: 0;
-	border-radius: 999px;
+	/* Concentric with the previews it holds, not a circle around them: the
+	   swatch is a 4px rounded rect with 6px of button around it, and
+	   inner + padding = 10px. The pill radius is reserved for the CTA, which is
+	   then the only pill as well as the only filled shape. */
+	border-radius: 10px;
 	background: transparent;
 	color: var(--dock-dim);
 	font: inherit;
@@ -485,15 +489,14 @@ html[data-landing-theme="dark"] {
 	transform: scale(0.96);
 }
 
-/* The ring goes *outside* the control, not inside it.
-   A negative offset drew it through the 30px button and straight across the
-   preview it was meant to highlight. The island leaves 5px above and below a
-   control and 6px at each end, and a 2px ring at 2px offset needs 4, so it
-   surrounds the control without the island's hidden overflow clipping it. */
+/* The island leaves exactly 5px above and below a control, so the focus ring
+   gets 1px of offset and 2px of stroke: 3 of the 5, and it clears the island's
+   hidden overflow with room instead of touching it. It follows the control's
+   own 10px radius, so it is a rounded rect around a rounded rect. */
 .landing-root .lp-island-button:focus-visible,
 .landing-root .lp-island-cta:focus-visible {
 	outline: 2px solid var(--dock-ink);
-	outline-offset: 2px;
+	outline-offset: 1px;
 }
 
 .landing-root .lp-island-button-tight {
@@ -511,8 +514,12 @@ html[data-landing-theme="dark"] {
 	font-variant-numeric: tabular-nums;
 }
 
-/* Previews: the control is a miniature of what it changes. */
+/* Previews: the control is a miniature of what it changes.
+   Positioned so the selection plate, which paints after them in the DOM, sits
+   behind the colour rather than washing it out. */
 .landing-root .lp-spec {
+	position: relative;
+	z-index: 1;
 	display: block;
 	width: 18px;
 	height: 15px;
@@ -521,6 +528,8 @@ html[data-landing-theme="dark"] {
 }
 
 .landing-root .lp-spec-theme {
+	position: relative;
+	z-index: 1;
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -557,11 +566,20 @@ html[data-landing-theme="dark"] {
 }
 
 /* One ring shared across options, so selection glides instead of blinking. */
+/* Selection is a plate, not a ring around the control.
+   The ring version drew 3.5px of ink outside a 30px button inside a 40px
+   island: 39px of indicator in a 40px track, so it read as a circle jammed
+   against both edges of the dock, and a circle around a rectangular swatch at
+   that. A plate lives inside the control, takes the control's own shape, and
+   cannot collide with anything. It glides between swatches on the same
+   layoutId, so the motion the ring had is kept. */
 .landing-root .lp-island-ring {
 	position: absolute;
-	inset: 1px;
-	border-radius: 999px;
-	box-shadow: 0 0 0 2px var(--dock-bg), 0 0 0 3.5px var(--dock-ink);
+	inset: 0;
+	z-index: 0;
+	border-radius: inherit;
+	background: rgb(255 255 255 / 0.16);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.26);
 	pointer-events: none;
 }
 
@@ -618,9 +636,9 @@ html[data-landing-theme="dark"] {
 	font-size: 11px;
 	font-weight: 500;
 	white-space: nowrap;
-	/* Translated by half its own width so it centres on the control, whatever
-	   the label's length. */
-	transform: translateX(-50%);
+	/* The centring translate is applied by Motion, not here: it animates
+	   `transform`, so a CSS translateX on the same element would be overwritten
+	   the moment the entrance runs. */
 	pointer-events: none;
 }
 

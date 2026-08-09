@@ -494,9 +494,13 @@ function Toolbar({
 						key={helper.label}
 						className="lp-island-helper"
 						style={{ left: helper.x }}
-						initial={{ opacity: 0, y: 4, scale: 0.96 }}
-						animate={{ opacity: 1, y: 0, scale: 1 }}
-						exit={{ opacity: 0, y: 2, scale: 0.98 }}
+						// The -50% that centres the helper on its control lives here, not in
+						// the stylesheet: Motion writes `transform` to animate y and scale,
+						// which overwrites a CSS translateX outright. Keeping it in the
+						// variants lets Motion compose the three together.
+						initial={{ opacity: 0, y: 4, scale: 0.96, x: "-50%" }}
+						animate={{ opacity: 1, y: 0, scale: 1, x: "-50%" }}
+						exit={{ opacity: 0, y: 2, scale: 0.98, x: "-50%" }}
 						transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
 						aria-hidden="true"
 					>
