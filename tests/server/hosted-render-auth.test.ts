@@ -100,28 +100,41 @@ describe("hosted render entitlement", () => {
 		expect(response.status).toBe(400);
 	});
 
-	it.each(["Bearer", "bearer", "BEARER"])(
-		"reads a %s token, since the scheme is case-insensitive",
-		async (scheme) => {
-			let seen = "";
-			const route = createCloudRoute({
-				auth: {
-					verify: async (credential) => {
-						seen = credential;
-						return { accountId: "acc_1", expiresAt: new Date(Date.now() + 60_000) };
-					},
+	it("keeps the cookie when a bearer header is also present", async () => {
+		let seen = "";
+		const route = createCloudRoute({
+			auth: {
+				verify: async (credential) => {
+					seen = credential;
+					return { accountId: "acc_1", expiresAt: new Date(Date.now() + 60_000) };
 				},
-				subscriptions: on(Plan.pro()),
-			});
+			},
+			subscriptions: on(Plan.pro()),
+		});
 
-			const response = await hostedApp(route).request(
-				renderRequest({ authorization: `${scheme} tok_abc` }),
-			);
+		const response = await hostedApp(route).request(
+			renderRequest({
+				cookie: "better-auth.session_token=valid",
+				authorization: "Bearer tok_that_nothing_can_verify",
+			}),
+		);
 
-			expect(seen).toBe("tok_abc");
-			expect(response.status).toBe(202);
-		},
-	);
+		expect(seen).toBe("better-auth.session_token=valid");
+		expect(response.status).toBe(202);
+	});
+
+	it("ignores a bearer header on its own, since no bearer plugin is enabled", async () => {
+		const route = createCloudRoute({
+			auth: signedInAs("acc_1"),
+			subscriptions: on(Plan.pro()),
+		});
+
+		const response = await hostedApp(route).request(
+			renderRequest({ authorization: "Bearer tok_abc" }),
+		);
+
+		expect(response.status).toBe(401);
+	});
 
 	it("refuses an expired session even though the provider returned one", async () => {
 		const expired: AuthPort = {
