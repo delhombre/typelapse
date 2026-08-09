@@ -378,3 +378,157 @@ export function Specimen() {
 		</div>
 	);
 }
+
+/**
+ * D — Combined. The synthesis you asked for, and it has a rule of its own:
+ * **a preview where the setting has an appearance, a drawn icon where it does
+ * not.** Backdrop and theme show themselves, because their value *is* a look.
+ * Play cannot be previewed, so it stays an icon. Aspect gets both — a frame
+ * drawn at the true proportion, plus the number, because the shape alone is
+ * ambiguous between 1:1 and 4:5 at 15px.
+ *
+ * The CTA moves inside the island: one object rather than two, so the whole
+ * zone reads as a single instrument.
+ */
+export function Combined() {
+	const s = useIslandState();
+	const frame = (ratio: string) => {
+		const [w, h] = ratio.split(":").map(Number);
+		const scale = 14 / Math.max(w ?? 1, h ?? 1);
+		return {
+			width: Math.max(6, Math.round((w ?? 1) * scale)),
+			height: Math.max(6, Math.round((h ?? 1) * scale)),
+		};
+	};
+
+	return (
+		<div className="iproto-dock">
+			<div className="iproto-island" role="toolbar" aria-label="Preview controls">
+				{s.open === null ? (
+					<>
+						<button
+							type="button"
+							className="iproto-btn"
+							onClick={() => s.setPlaying(!s.playing)}
+							aria-label={s.playing ? "Pause" : "Play"}
+						>
+							{s.playing ? <PauseGlyph /> : <PlayGlyph />}
+						</button>
+
+						<button
+							type="button"
+							className="iproto-btn"
+							style={{ minWidth: 30, padding: 0 }}
+							onClick={() => s.setOpen("backdrop")}
+							aria-label={`Backdrop: ${s.backdrop?.label}. Open backdrop control`}
+						>
+							<span
+								className="iproto-spec"
+								style={{
+									width: 18,
+									height: 15,
+									background: `linear-gradient(135deg, ${s.backdrop?.from}, ${s.backdrop?.to})`,
+								}}
+							/>
+						</button>
+
+						<button
+							type="button"
+							className="iproto-btn"
+							style={{ minWidth: 30, padding: 0 }}
+							onClick={() => s.setOpen("theme")}
+							aria-label={`Theme: ${s.theme?.label}. Open theme control`}
+						>
+							<span className="iproto-spec-theme" style={{ background: s.theme?.bg }}>
+								<span
+									className="iproto-spec-line"
+									style={{ background: s.theme?.a, width: "100%" }}
+								/>
+								<span
+									className="iproto-spec-line"
+									style={{ background: s.theme?.b, width: "62%" }}
+								/>
+							</span>
+						</button>
+
+						<button
+							type="button"
+							className="iproto-btn"
+							onClick={s.cycleAspect}
+							aria-label={`Cycle aspect ratio. ${s.aspect} active.`}
+							data-on=""
+						>
+							<span
+								className="iproto-spec"
+								style={{ ...frame(s.aspect ?? "16:9"), background: "rgb(255 255 255 / 0.16)" }}
+							/>
+							{s.aspect}
+						</button>
+
+						<a className="iproto-cta iproto-cta-inline" href="#open">
+							Open studio
+						</a>
+					</>
+				) : (
+					<>
+						<button
+							type="button"
+							className="iproto-btn"
+							onClick={() => s.setOpen(null)}
+							aria-label="Back to controls"
+						>
+							<BackGlyph />
+						</button>
+						{s.open === "backdrop" &&
+							BACKDROPS.map((b) => (
+								<button
+									key={b.id}
+									type="button"
+									className="iproto-btn"
+									style={{ minWidth: 30, padding: 0 }}
+									onClick={() => s.setBackdrop(b)}
+									aria-label={`Backdrop ${b.label}`}
+									{...(s.backdrop?.id === b.id ? { "data-on": "" } : {})}
+								>
+									<span
+										className="iproto-spec"
+										style={{
+											width: 18,
+											height: 15,
+											background: `linear-gradient(135deg, ${b.from}, ${b.to})`,
+											outline: s.backdrop?.id === b.id ? "2px solid #f2f2f4" : undefined,
+											outlineOffset: 2,
+										}}
+									/>
+								</button>
+							))}
+						{s.open === "theme" &&
+							THEMES.map((t) => (
+								<button
+									key={t.id}
+									type="button"
+									className="iproto-btn"
+									style={{ minWidth: 30, padding: 0 }}
+									onClick={() => s.setTheme(t)}
+									aria-label={`Theme ${t.label}`}
+									{...(s.theme?.id === t.id ? { "data-on": "" } : {})}
+								>
+									<span
+										className="iproto-spec-theme"
+										style={{
+											background: t.bg,
+											outline: s.theme?.id === t.id ? "2px solid #f2f2f4" : undefined,
+											outlineOffset: 2,
+										}}
+									>
+										<span className="iproto-spec-line" style={{ background: t.a, width: "100%" }} />
+										<span className="iproto-spec-line" style={{ background: t.b, width: "62%" }} />
+									</span>
+								</button>
+							))}
+					</>
+				)}
+			</div>
+		</div>
+	);
+}
