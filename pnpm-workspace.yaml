@@ -1,3 +1,9 @@
+# .lapse holds a local-only, licence-gated dev tool. Without this exclusion
+# pnpm treats it as a workspace member and writes its dependency into the
+# root lockfile, which then makes CI try to fetch a package it cannot auth for.
+packages:
+  - '!.lapse'
+
 allowBuilds:
   '@biomejs/biome': true
   esbuild: true
