@@ -104,12 +104,14 @@ first viewport costs a fixed ~460px, so the stage takes what is left,
 `clamp(232px, 100svh - 460px, 400px)`, and the frame scales to whatever it gets.
 On a 700px-tall window the hero fits where it used to run 199px past the fold.
 
-**The helper and the caption share one lane.** The helper opens below the island
-rather than above it, because above it covered the preview it was describing.
-Giving it a reserved strip of its own cost 38px of a viewport already
-overflowing, so instead the caption steps aside: the line the instrument
-describes itself with yields to the line describing the control under the
-cursor, and the exchange costs no height at all.
+**The helper opens upward, into a strip carved out of the stage.** Above the
+island is where it belongs, and it is also where it used to cover the preview it
+was describing. The fix is not to move the helper but to give it somewhere to
+go: the stage keeps a 34px strip at its bottom that the frame never enters, so
+the pill opens into empty page at every ratio. Taking the strip out of the stage
+rather than adding it under the dock is what makes it free — the hero pays
+nothing for it. Measured at all three ratios: 16px to 20px between the frame and
+the pill, 10px between the pill and the island, 0px off centre.
 
 ## Open
 
