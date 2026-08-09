@@ -15,3 +15,6 @@ CLAUDE.md
 
 # Browser automation snapshots, never part of the project
 .playwright-mcp/
+
+# Local-only Lapse tooling: a licence-gated package that must not gate anyone else
+.lapse/
