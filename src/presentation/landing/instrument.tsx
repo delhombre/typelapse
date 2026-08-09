@@ -18,6 +18,7 @@ import { useResizeObserver } from "@/presentation/hooks/use-resize-observer";
 import { springs } from "@/presentation/motion";
 import { motion, useReducedMotion, useSpring, useTransform } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 /* The instrument runs the real product parts: the same three-step `api/users.ts`
    demo, tokenized by Shiki, keyed + morphed by the shared magic-move engine, and
@@ -433,7 +434,7 @@ function Toolbar({
 	};
 
 	return (
-		<div className="mt-5 flex justify-center">
+		<div className="lp-island-dock mt-5 justify-center">
 			<motion.div
 				className="lp-island"
 				role="toolbar"
@@ -461,8 +462,6 @@ function Toolbar({
 						>
 							{playing ? <PauseIcon /> : <PlayIcon />}
 						</button>
-
-						<span className="lp-island-divider" aria-hidden="true" />
 
 						<button
 							type="button"
@@ -513,8 +512,6 @@ function Toolbar({
 							<BackIcon />
 						</button>
 
-						<span className="lp-island-divider" aria-hidden="true" />
-
 						{open === "background" &&
 							MESH_PRESETS.map((p) => (
 								<Swatch
@@ -542,6 +539,12 @@ function Toolbar({
 					</motion.div>
 				)}
 			</motion.div>
+
+			{/* Outside the island, like ui.camera's Capture: the island holds
+			    settings, this holds the one thing a visitor came to do. */}
+			<Link to="/app" className="lp-island-cta">
+				Open studio
+			</Link>
 		</div>
 	);
 }
