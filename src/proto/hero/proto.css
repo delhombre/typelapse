@@ -1,0 +1,188 @@
+/* Throwaway prototype styles. Deleted with the rest of src/proto. */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap");
+
+@font-face {
+	font-family: "Ioskeley Mono";
+	src: url("/fonts/IoskeleyMono-Regular.woff2") format("woff2");
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Ioskeley Mono";
+	src: url("/fonts/IoskeleyMono-SemiBold.woff2") format("woff2");
+	font-weight: 600;
+	font-style: normal;
+	font-display: swap;
+}
+
+.proto-root {
+	/* Neutral OKLCH, chroma 0 throughout: colour belongs to the code, never the
+	   chassis. Lifted from the an external reference reading, not invented. */
+	--bg: oklch(14.5% 0 0);
+	--surface: oklch(20.5% 0 0);
+	--sidebar: #101010;
+	--ink: oklch(98.5% 0 0);
+	--ink-muted: oklch(70% 0 0);
+	--ink-faint: oklch(55% 0 0);
+	--hairline: rgb(255 255 255 / 0.1);
+	--radius: 0.625rem;
+
+	--sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+	--mono: "Ioskeley Mono", ui-monospace, SFMono-Regular, monospace;
+
+	/* One scale. Every size below traces back to a step here. */
+	--step-display: clamp(2.75rem, 6vw, 4.5rem);
+	--step-title: clamp(1.75rem, 3vw, 2.5rem);
+	--step-lead: 1.125rem;
+	--step-body: 1rem;
+	--step-small: 0.875rem;
+	--step-micro: 0.8125rem;
+
+	background: var(--bg);
+	color: var(--ink);
+	font-family: var(--sans);
+	/* Only Regular and SemiBold are loaded; a faked bold must fail loudly. */
+	font-synthesis: none;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	min-height: 100vh;
+}
+
+.proto-display {
+	font-size: var(--step-display);
+	line-height: 1.05;
+	letter-spacing: -0.03em;
+	font-weight: 600;
+	text-wrap: balance;
+}
+
+.proto-lead {
+	font-size: var(--step-lead);
+	line-height: 1.55;
+	color: var(--ink-muted);
+	max-width: 60ch;
+	text-wrap: pretty;
+}
+
+.proto-micro {
+	font-size: var(--step-micro);
+	line-height: 1.5;
+	color: var(--ink-faint);
+}
+
+.proto-mono {
+	font-family: var(--mono);
+	font-variant-numeric: tabular-nums;
+}
+
+.proto-cta {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	border-radius: var(--radius);
+	padding: 0.75rem 1.25rem;
+	font-size: var(--step-small);
+	font-weight: 600;
+	background: var(--ink);
+	color: var(--bg);
+	border: 0;
+	cursor: pointer;
+	transition: opacity 140ms ease-out, transform 140ms ease-out;
+}
+
+.proto-cta:hover {
+	opacity: 0.9;
+}
+
+.proto-cta:active {
+	transform: scale(0.98);
+}
+
+.proto-cta-ghost {
+	background: transparent;
+	color: var(--ink);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+}
+
+.proto-cta-ghost:hover {
+	background: rgb(255 255 255 / 0.04);
+	opacity: 1;
+}
+
+.proto-frame {
+	border-radius: var(--radius);
+	background: var(--sidebar);
+	box-shadow: inset 0 0 0 1px var(--hairline);
+	overflow: hidden;
+}
+
+.proto-frame-bar {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.625rem 0.875rem;
+	border-bottom: 1px solid var(--hairline);
+}
+
+.proto-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+	background: rgb(255 255 255 / 0.14);
+}
+
+.proto-code {
+	font-family: var(--mono);
+	font-size: var(--step-small);
+	line-height: 1.65;
+	padding: 1rem 0;
+	overflow-x: auto;
+	font-variant-numeric: tabular-nums;
+}
+
+.proto-line {
+	display: grid;
+	grid-template-columns: 3ch 1fr;
+	gap: 1.25rem;
+	padding-inline: 1rem;
+	white-space: pre;
+}
+
+.proto-gutter {
+	color: var(--ink-faint);
+	text-align: end;
+	user-select: none;
+}
+
+/* The only saturated colour in the whole prototype, and it is semantic:
+   syntax and diff state. The chassis stays neutral. */
+.tok-key {
+	color: oklch(70.4% 0.14 182.5);
+}
+.tok-str {
+	color: oklch(69.6% 0.17 162.5);
+}
+.tok-fn {
+	color: oklch(62.3% 0.214 259.8);
+}
+.tok-com {
+	color: var(--ink-faint);
+}
+.tok-add {
+	color: oklch(62.7% 0.194 149.2);
+}
+.tok-del {
+	color: oklch(64.5% 0.246 16.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.proto-root *,
+	.proto-root *::before,
+	.proto-root *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+	}
+}
