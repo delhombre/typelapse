@@ -7,18 +7,30 @@ import { MagicMoveSection } from "./magic-move-section";
 import { Nav } from "./nav";
 import { InkButton, LogoLockup, Reveal } from "./primitives";
 import { SocialSection } from "./social-section";
+import { ThemeToggle } from "./theme-toggle";
 import { CONTAINER, GITHUB_URL, HAIRLINE, SECTION_PY } from "./tokens";
+import { useLandingTheme } from "./use-landing-theme";
 
 /**
  * Marketing landing at `/`. A refined, product-forward page (OpenAI x Apple):
  * a translucent nav, the live Instrument as the hero, four spacious feature
  * blocks (one of them a dark, full-bleed social showcase), a quiet capability
- * ledger, and a confident close. Presentation only, always paper.
+ * ledger, and a confident close. Presentation only.
+ *
+ * The theme lives here rather than in a store: it is one boolean that nothing
+ * outside the landing reads, and every section already takes its colour from
+ * `--color-ink` / `--color-ash` / `--color-paper`.
  */
 export function LandingPage() {
+	const [theme, toggleTheme] = useLandingTheme();
+
 	return (
-		<div className="landing-root relative flex min-h-dvh flex-col bg-paper text-ink antialiased">
+		<div
+			className="landing-root relative flex min-h-dvh flex-col bg-paper text-ink antialiased"
+			data-theme={theme}
+		>
 			<Nav />
+			<ThemeToggle theme={theme} onToggle={toggleTheme} />
 			<main className="flex-1">
 				<Hero />
 				<MagicMoveSection />
