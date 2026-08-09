@@ -71,6 +71,25 @@ Three defects a Lapse take caught that review would not have:
    control slid under the cursor. The label now reserves its widest width, and
    the cycle costs no layout at all.
 
+## Shape, and why the selection stopped being a ring
+
+**Controls are 10px rounded rects, not pills.** The radius is concentric with
+the previews they hold: a 4px swatch with 6px of button around it gives
+4 + 6 = 10. The pill is left to the CTA, which makes it the only pill as well as
+the only filled shape.
+
+**Selection is a plate inside the control, not a ring around it.** A 40px island
+holding 30px controls leaves 5px above and below, and the ring spent 5.5 of it —
+39px of indicator in a 40px track, drawn as a circle around a rectangular
+swatch. The plate takes the control's own shape, cannot collide with anything,
+and still glides between swatches on the same `layoutId`. The focus ring lives
+in the remaining budget: 2px of stroke at 1px offset, 2.06px of clearance top
+and bottom.
+
+Related: the helper pill is centred by Motion, not by CSS. Motion writes
+`transform` to animate y and scale, so a stylesheet `translateX(-50%)` on the
+same element is overwritten the moment the entrance runs.
+
 ## Open
 
 The island holds four controls where an external reference holds eight, so it reads
