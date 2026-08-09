@@ -1,6 +1,8 @@
-import { type AccountId, type AuthPort, isSessionActive } from "@/domain/ports/auth.port";
-import type { SubscriptionPort } from "@/domain/ports/subscription.port";
-import type { Plan } from "@/domain/value-objects/plan";
+// Relative rather than aliased: this module is imported by the Hono server,
+// which runs under tsx and does not resolve the "@/" path mapping at runtime.
+import { type AccountId, type AuthPort, isSessionActive } from "../../domain/ports/auth.port";
+import type { SubscriptionPort } from "../../domain/ports/subscription.port";
+import type { Plan } from "../../domain/value-objects/plan";
 
 /**
  * Whether a caller may run a render on our infrastructure.
