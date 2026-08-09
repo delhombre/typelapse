@@ -7,8 +7,6 @@ import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { LandingPage } from "@/presentation/landing/landing-page";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
-// proto:hero — throwaway exploration, delete with src/proto
-import { HeroProto } from "@/proto/hero/harness";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
@@ -44,8 +42,6 @@ createRoot(root).render(
 			<Routes>
 				<Route path="/" element={<LandingPage />} />
 				<Route path="/app" element={<Studio />} />
-				{/* proto:hero — throwaway exploration route, delete with src/proto */}
-				<Route path="/proto/hero" element={<HeroProto />} />
 			</Routes>
 		</BrowserRouter>
 	</StrictMode>,

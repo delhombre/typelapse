@@ -1,34 +1,60 @@
+import { Link } from "react-router-dom";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
-import { CONTAINER } from "./tokens";
+import { CONTAINER, GITHUB_URL } from "./tokens";
 
 /**
- * Hero: one confident display line, one calm subhead, then the live Instrument as
- * the product shot, and a quiet sans stamp. The headline / subhead / instrument /
- * microline stagger in on mount (they are already in view). The Instrument keeps
- * its own width (`max-w-5xl`) so it reads as the focal object of the page.
+ * Hero, "Terminal" direction (docs/decisions/2026-08-09-hero-direction.md).
+ *
+ * The headline is set in the mono, left aligned: a developer arriving from a
+ * link reads what this is from the typeface before they reach the copy. The
+ * Instrument sits below as the product shot, running the real engine, because
+ * a product that sells motion should not advertise itself with a still.
  */
 export function Hero() {
 	return (
 		<section className="flex min-h-[100svh] flex-col justify-center py-12">
-			<RevealGroup immediate className={`${CONTAINER} text-center`}>
+			<RevealGroup immediate className={CONTAINER}>
 				<RevealItem>
-					<h1 className="lp-display mx-auto max-w-[15ch] text-ink">Your code, in motion.</h1>
+					<p className="lp-prompt mb-5">
+						<span aria-hidden="true">$ </span>typelapse --from-pr 1247
+					</p>
 				</RevealItem>
 				<RevealItem>
-					<p className="lp-lead mx-auto mt-5 max-w-[48ch]">
-						Paste a snippet, a diff, or a whole pull request. Typelapse turns it into a smooth,
-						token by token video that's ready to drop straight into your feed.
+					<h1 className="lp-display-mono max-w-[20ch] text-ink">Your pull request, as a video</h1>
+				</RevealItem>
+				<RevealItem>
+					<p className="lp-lead mt-5 max-w-[58ch]">
+						Paste a snippet, a unified diff, or a whole GitHub pull request. Typelapse morphs it
+						token by token and exports a video that matches the preview frame for frame.
 					</p>
+				</RevealItem>
+				<RevealItem>
+					<div className="mt-8 flex flex-wrap gap-3">
+						<Link
+							to="/app"
+							className="inline-flex items-center rounded-[10px] bg-ink px-5 py-3 font-semibold text-[0.875rem] text-paper transition-opacity hover:opacity-88"
+						>
+							Open the studio
+						</Link>
+						<a
+							href={GITHUB_URL}
+							target="_blank"
+							rel="noreferrer"
+							className="inline-flex items-center rounded-[10px] px-5 py-3 font-semibold text-[0.875rem] text-ink shadow-[inset_0_0_0_1px_currentColor]/10 transition-colors hover:bg-ink/5"
+						>
+							View source
+						</a>
+					</div>
 				</RevealItem>
 			</RevealGroup>
 
-			<Reveal immediate delay={0.18} className="mt-8 sm:mt-10">
+			<Reveal immediate delay={0.24} className="mt-10">
 				<Instrument />
 			</Reveal>
 
-			<Reveal immediate delay={0.3} className={`${CONTAINER} mt-6 text-center`}>
-				<p className="lp-micro">No account, no upload. It all runs in your browser.</p>
+			<Reveal immediate delay={0.32} className={`${CONTAINER} mt-6`}>
+				<p className="lp-micro">MIT licensed. Runs on your machine. No account needed.</p>
 			</Reveal>
 		</section>
 	);
