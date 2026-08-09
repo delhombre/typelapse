@@ -158,12 +158,31 @@ export function EngineFrames({
 		};
 	}, [plan, reduce]);
 
+	// The canvas positions every token absolutely on a `ch` grid, so its wrapper
+	// has no intrinsic width and any attempt to centre it centres a 57px box. The
+	// width is therefore stated: the longest line across all frames, plus the
+	// gutter's own columns when it is shown.
+	const maxCols = frames.reduce(
+		(n, frame) => Math.max(n, ...frame.split("\n").map((line) => line.length)),
+		0,
+	);
+	// `ch` resolves against the element's own font, so the wrapper has to carry
+	// the canvas's font size and family — inheriting the page's 16px made the
+	// stated width far too small and the card clipped every long line.
+	const sizing = {
+		width: `${maxCols + (lineNumbers ? 5 : 1)}ch`,
+		fontSize,
+		fontFamily: theme.fontFamily,
+	};
+
 	if (!view) {
-		return <div className={className} style={{ minHeight: fontSize * lineHeightRatio }} />;
+		return (
+			<div className={className} style={{ ...sizing, minHeight: fontSize * lineHeightRatio }} />
+		);
 	}
 
 	return (
-		<div className={className} role="img" aria-label={ariaLabel}>
+		<div className={className} role="img" aria-label={ariaLabel} style={sizing}>
 			<MagicMoveCanvas
 				tokens={view.tokens}
 				lineCount={view.lineCount}

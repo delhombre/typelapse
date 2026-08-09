@@ -2,13 +2,15 @@ import { useLandingTheme } from "@/presentation/landing/use-landing-theme";
 import { useCallback, useState } from "react";
 import { Picker } from "./picker";
 import "./proto.css";
-import { Console, Continuum, Sentence, Split } from "./variants";
+import { Filmstrip, InstrumentDirection, Ledger, Monolith, Reveal, Slider } from "./variants";
 
 const VARIANTS = [
-	{ name: "Sentence", render: () => <Sentence /> },
-	{ name: "Continuum", render: () => <Continuum /> },
-	{ name: "Console", render: () => <Console /> },
-	{ name: "Split", render: () => <Split /> },
+	{ name: "Ledger", render: () => <Ledger /> },
+	{ name: "Reveal", render: () => <Reveal /> },
+	{ name: "Filmstrip", render: () => <Filmstrip /> },
+	{ name: "Monolith", render: () => <Monolith /> },
+	{ name: "Slider", render: () => <Slider /> },
+	{ name: "Instrument", render: () => <InstrumentDirection /> },
 ];
 
 const initialIndex = () => {

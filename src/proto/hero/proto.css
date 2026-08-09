@@ -1,164 +1,281 @@
-/* Proto-only styles. Everything here dies with src/proto once a direction is
-   picked; nothing in the real landing depends on it. */
+@import "./system.css";
 
-.proto-root {
-	min-height: 100svh;
-}
+/* Per-direction styles. Proto-only; dies with src/proto. */
 
-/* Each variant owns the whole viewport, so the picker can be judged against a
-   real first screen rather than a fragment. */
 .proto-hero {
 	position: relative;
+	padding-top: clamp(72px, 11vh, 136px);
+	padding-bottom: 96px;
 }
 
-/* ── Split ── */
+/* ── The artefact's interior ── */
 
-/* The instrument ships as a centred section with its own max width; inside a
-   column it should fill the column instead. */
-.proto-split-artefact section {
-	max-width: none;
-	padding-left: 0;
-	padding-right: 0;
-}
-
-@media (max-width: 1023px) {
-	.proto-split-artefact {
-		margin-top: 8px;
-	}
-}
-
-/* ── Console ── */
-
-.proto-console {
-	padding: 18px 20px 22px;
-	border-radius: 14px;
-	background: color-mix(in oklch, var(--color-ink) 5%, transparent);
-	box-shadow: inset 0 0 0 1px var(--color-hairline);
-	font-family: var(--font-mono);
-	font-size: 13px;
-	line-height: 1.75;
-}
-
-.proto-console-line {
+.proto-card-chrome {
 	display: flex;
-	gap: 8px;
-	align-items: baseline;
-	color: var(--color-ash);
-	white-space: pre-wrap;
-	word-break: break-word;
-}
-
-.proto-console-line[data-tone="ok"] {
-	color: color-mix(in oklch, var(--color-ink) 78%, transparent);
-}
-
-.proto-console-prompt {
-	color: color-mix(in oklch, var(--color-ink) 45%, transparent);
-}
-
-/* A block caret on the character the command has reached. */
-.proto-console-caret {
-	display: inline-block;
-	width: 7px;
-	height: 15px;
-	translate: 0 2px;
-	background: var(--color-ink);
-	animation: proto-caret 1s steps(1, end) infinite;
-}
-
-@keyframes proto-caret {
-	0%,
-	50% {
-		opacity: 1;
-	}
-	50.01%,
-	100% {
-		opacity: 0;
-	}
-}
-
-.proto-console-headline {
-	margin-top: 20px;
-	font-size: clamp(1.75rem, 1.1rem + 2.4vw, 2.6rem);
-}
-
-/* ── Proof ── */
-
-.proto-proof-pair {
-	display: grid;
-	grid-template-columns: minmax(0, 0.78fr) auto minmax(0, 1fr);
 	align-items: center;
+	gap: 10px;
+	height: 38px;
+	padding: 0 14px;
+	box-shadow: inset 0 -1px 0 rgb(255 255 255 / 0.06);
+}
+
+.proto-card-dots {
+	display: inline-flex;
+	gap: 6px;
+}
+
+.proto-card-dots i {
+	width: 10px;
+	height: 10px;
+	border-radius: 999px;
+	background: rgb(255 255 255 / 0.14);
+}
+
+.proto-card-title {
+	color: rgb(255 255 255 / 0.42);
+	font-family: var(--font-mono);
+	font-size: 11.5px;
+	letter-spacing: 0.01em;
+}
+
+/* 16:9, because the artefact is a video frame and a card that is not the shape
+   of its output is the first thing that reads as a mock-up. The code is centred
+   in it the way the real product centres its window in the mesh. */
+.proto-card-body {
+	display: grid;
+	place-items: center;
+	aspect-ratio: 16 / 9;
+	padding: 24px;
+}
+
+/* ── 1. Ledger ──
+   A 16:9 frame at the full 1240px is taller than the space the copy leaves, so
+   the object is cut by the fold. The cut is the invitation to scroll, and it is
+   the only one the page issues. */
+
+/* ── 2. Reveal ──
+   A clip that wipes down from the top edge. `inset` animates on the compositor
+   and the frame never moves, so nothing below it shifts while it opens. */
+
+.proto-reveal-clip {
+	clip-path: inset(0 0 100% 0 round 14px);
+	transition: clip-path 900ms cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+.proto-reveal-clip[data-open] {
+	clip-path: inset(0 0 0 0 round 14px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.proto-reveal-clip {
+		clip-path: inset(0 0 0 0 round 14px);
+		transition: none;
+	}
+}
+
+/* ── 3. Filmstrip ──
+   Bleeds off the right edge on purpose: a strip that ends inside the container
+   reads as three cards, and a strip that runs out of the page reads as film. */
+
+.proto-strip {
+	display: grid;
+	grid-auto-flow: column;
+	grid-auto-columns: 436px;
 	gap: 20px;
+	align-items: start;
+	/* Starts on the copy's own left edge rather than the page's, so the strip
+	   and the headline share one axis. */
+	padding-left: max(24px, calc((100vw - 896px) / 2 + 24px));
+	overflow-x: auto;
+	scrollbar-width: none;
+	scroll-snap-type: x proximity;
 }
 
-@media (max-width: 899px) {
-	.proto-proof-pair {
-		grid-template-columns: minmax(0, 1fr);
-		gap: 12px;
-	}
-	.proto-proof-arrow {
-		rotate: 90deg;
-		justify-self: center;
-	}
+.proto-strip::-webkit-scrollbar {
+	display: none;
 }
 
-.proto-proof-arrow {
-	color: var(--color-ash);
-	font-size: 20px;
+/* The stills are dimmed by fading their *contents*, never the card: dropping the
+   opacity of a near-black card over a warm page turns it grey, and three muddy
+   grey rectangles was the single ugliest thing in the first pass. */
+.proto-strip-cell .proto-card-body {
+	opacity: 0.42;
+	transition: opacity 200ms var(--ease-out);
 }
 
-.proto-proof-result section {
-	max-width: none;
-	padding-left: 0;
-	padding-right: 0;
+.proto-strip-cell[data-live] .proto-card-body {
+	opacity: 1;
 }
 
-.proto-diff {
-	padding: 16px 18px;
-	border-radius: 12px;
-	box-shadow: 0 20px 50px -22px rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.12);
-	font-family: var(--font-mono);
-	font-size: 12px;
-	line-height: 1.8;
+.proto-strip-cell:hover .proto-card-body {
+	opacity: 0.72;
 }
 
-.proto-diff-file {
-	margin-bottom: 10px;
-	color: #6e7681;
-	font-size: 11px;
+/* The live frame is marked by a hairline rather than by contrast, so the three
+   cards stay the same material. */
+.proto-strip-cell[data-live] .proto-artefact {
+	box-shadow: 0 0 0 1px var(--color-ink);
 }
 
-.proto-diff-line {
+.proto-strip-cell figcaption {
+	font-variant-numeric: tabular-nums;
+}
+
+/* A last, empty cell so the strip has somewhere to run out to. */
+.proto-strip-tail {
+	width: 24px;
+}
+
+/* ── 4. Monolith ──
+   The one direction that repaints the page instead of sitting on it. */
+
+.proto-monolith {
+	min-height: 100svh;
 	display: flex;
-	gap: 8px;
-	padding: 0 6px;
-	border-radius: 3px;
-	white-space: pre;
+	align-items: center;
+	margin: 0;
+	background: #070707;
+}
+
+.proto-monolith-inner {
+	width: 100%;
+	max-width: 1000px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-monolith-headline {
+	color: #f2f2f0;
+}
+
+.proto-monolith-meta {
+	color: rgb(255 255 255 / 0.38);
+}
+
+/* The code has no card, no border and no background of its own: it is painted
+   straight onto the surface, which is what removes the last piece of packaging
+   between the visitor and the product. */
+.proto-monolith-code {
+	max-width: 720px;
+}
+
+.proto-monolith-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.proto-cta-invert {
+	background: #f2f2f0;
+	color: #070707;
+}
+
+.proto-cta-quiet-invert {
+	color: #f2f2f0;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+}
+
+.proto-cta-quiet-invert:hover {
+	background: rgb(255 255 255 / 0.07);
+}
+
+/* ── 5. Slider ──
+   The two halves have to be different materials or there is nothing to compare:
+   the source you pasted is a plain paper editor, the frame it exports is the
+   product's own near-black. The divider then separates two worlds rather than
+   two halves of the same black rectangle. */
+
+.proto-slider-source > .proto-artefact {
+	background: var(--color-surface);
+	box-shadow: inset 0 0 0 1px var(--color-hairline);
+}
+
+.proto-slider-source .proto-card-chrome {
+	box-shadow: inset 0 -1px 0 var(--color-hairline);
+}
+
+.proto-slider-source .proto-card-dots i {
+	background: color-mix(in oklch, var(--color-ink) 14%, transparent);
+}
+
+.proto-slider-source .proto-card-title {
+	color: var(--color-ash);
+}
+
+/* Both sides pin their code to the same top-left corner, so a line on the left
+   and the line it becomes on the right sit on the same row and the same column.
+   Centring each block independently put them at different depths and different
+   offsets, and the comparison stopped comparing anything. */
+.proto-slider .proto-card-body {
+	place-items: start;
+	padding: 40px 0 0 40px;
+}
+
+/* Narrower than the other artefacts on purpose: a comparison only compares where
+   both layers have content, so the code has to span most of the frame's width
+   rather than float in the middle of a 1240px black field. */
+.proto-slider-track {
+	position: relative;
+	max-width: 940px;
+	margin-inline: auto;
+	touch-action: none;
+	cursor: ew-resize;
+	user-select: none;
+}
+
+.proto-slider-result {
+	position: absolute;
+	inset: 0;
+}
+
+.proto-slider-result > .proto-artefact {
+	height: 100%;
+}
+
+.proto-slider-handle {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: rgb(255 255 255 / 0.55);
+	translate: -1px 0;
+	pointer-events: none;
+}
+
+.proto-slider-grip {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 34px;
+	height: 34px;
+	border-radius: 999px;
+	background: #fff;
+	box-shadow: 0 2px 10px rgb(0 0 0 / 0.28);
+	transform: translate(-50%, -50%);
+}
+
+/* The keyboard path for the same value. Visible, because a control that only
+   works with a pointer is not a control. */
+.proto-slider-input {
+	display: block;
+	max-width: 940px;
+	margin: 14px auto 0;
+	padding-inline: 24px;
+}
+
+.proto-slider-input input {
+	width: 100%;
+	accent-color: var(--color-ink);
+}
+
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
 	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-/* ── Sentence ── */
-
-/* The engine paints on a monospace grid at whatever font size it is given, so
-   the headline's "typography" is really a canvas. It gets the display face's
-   tracking and nothing else. */
-.proto-sentence {
-	min-height: 132px;
-	letter-spacing: -0.01em;
-}
-
-/* ── Continuum ── */
-
-.proto-continuum {
-	padding: 22px 24px 26px;
-	border-radius: 14px;
-	box-shadow: 0 30px 80px -24px rgb(0 0 0 / 0.25), 0 2px 8px rgb(0 0 0 / 0.06);
-}
-
-.proto-continuum-file {
-	margin-bottom: 14px;
-	color: #6e7681;
-	font-family: var(--font-mono);
-	font-size: 11px;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border-width: 0;
 }
