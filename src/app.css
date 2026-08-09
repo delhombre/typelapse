@@ -418,12 +418,16 @@ html[data-landing-theme="dark"] {
    size, and the floor stops it collapsing to a stamp on a very short window. */
 .landing-root {
 	--hero-chrome: 460px;
+	/* The stage's ceiling. A variable because a hero that gives the instrument
+	   the whole viewport wants a bigger one than a hero that puts copy beside it,
+	   and that is a composition decision, not a component one. */
+	--stage-max: 400px;
 	/* Pill (24px) plus its gap (10px). The helper opens into this strip. */
 	--helper-lane: 34px;
 }
 
 .landing-root .lp-stage {
-	height: clamp(232px, calc(100svh - var(--hero-chrome)), 400px);
+	height: clamp(232px, calc(100svh - var(--hero-chrome)), var(--stage-max));
 	/* The frame is centred in what is left above the lane, so the strip the
 	   helper opens into is always empty whatever the ratio. The observer that
 	   scales the frame reads the content box, so it respects this for free. */

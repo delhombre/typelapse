@@ -161,7 +161,7 @@ function resolveView(plan: MagicMovePlan, pos: ReturnType<typeof locate>): DemoV
  * and a floating toolbar restyles it: play/pause, five mesh backgrounds, seven
  * themes, three aspects. Everything below the frame just tunes this one object.
  */
-export function Instrument() {
+export function Instrument({ maxScale = 1 }: { maxScale?: number } = {}) {
 	const reduce = useReducedMotion();
 	const [themeName, setThemeName] = useState("aurora");
 	const [presetId, setPresetId] = useState("aurora");
@@ -199,7 +199,15 @@ export function Instrument() {
 	// viewport), so the frame has to answer to it as well as to the width.
 	const availW = resize?.contentRect?.width;
 	const availH = resize?.contentRect?.height;
-	const fitScale = Math.min(1, availW ? availW / STAGE.w : 1, availH ? availH / STAGE.h : 1);
+	// `maxScale` is how far past its natural size the frame may grow when a
+	// composition gives it more room than it needs. 1 everywhere the hero puts
+	// copy around it; a hero that hands the instrument the whole viewport raises
+	// it, which is a composition decision rather than a component one.
+	const fitScale = Math.min(
+		maxScale,
+		availW ? availW / STAGE.w : maxScale,
+		availH ? availH / STAGE.h : maxScale,
+	);
 
 	const meshW = useSpring(target.w * fitScale, springs.gentle);
 	const meshH = useSpring(target.h * fitScale, springs.gentle);
