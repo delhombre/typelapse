@@ -1,0 +1,164 @@
+/* Proto-only styles. Everything here dies with src/proto once a direction is
+   picked; nothing in the real landing depends on it. */
+
+.proto-root {
+	min-height: 100svh;
+}
+
+/* Each variant owns the whole viewport, so the picker can be judged against a
+   real first screen rather than a fragment. */
+.proto-hero {
+	position: relative;
+}
+
+/* ── Split ── */
+
+/* The instrument ships as a centred section with its own max width; inside a
+   column it should fill the column instead. */
+.proto-split-artefact section {
+	max-width: none;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+@media (max-width: 1023px) {
+	.proto-split-artefact {
+		margin-top: 8px;
+	}
+}
+
+/* ── Console ── */
+
+.proto-console {
+	padding: 18px 20px 22px;
+	border-radius: 14px;
+	background: color-mix(in oklch, var(--color-ink) 5%, transparent);
+	box-shadow: inset 0 0 0 1px var(--color-hairline);
+	font-family: var(--font-mono);
+	font-size: 13px;
+	line-height: 1.75;
+}
+
+.proto-console-line {
+	display: flex;
+	gap: 8px;
+	align-items: baseline;
+	color: var(--color-ash);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.proto-console-line[data-tone="ok"] {
+	color: color-mix(in oklch, var(--color-ink) 78%, transparent);
+}
+
+.proto-console-prompt {
+	color: color-mix(in oklch, var(--color-ink) 45%, transparent);
+}
+
+/* A block caret on the character the command has reached. */
+.proto-console-caret {
+	display: inline-block;
+	width: 7px;
+	height: 15px;
+	translate: 0 2px;
+	background: var(--color-ink);
+	animation: proto-caret 1s steps(1, end) infinite;
+}
+
+@keyframes proto-caret {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	50.01%,
+	100% {
+		opacity: 0;
+	}
+}
+
+.proto-console-headline {
+	margin-top: 20px;
+	font-size: clamp(1.75rem, 1.1rem + 2.4vw, 2.6rem);
+}
+
+/* ── Proof ── */
+
+.proto-proof-pair {
+	display: grid;
+	grid-template-columns: minmax(0, 0.78fr) auto minmax(0, 1fr);
+	align-items: center;
+	gap: 20px;
+}
+
+@media (max-width: 899px) {
+	.proto-proof-pair {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 12px;
+	}
+	.proto-proof-arrow {
+		rotate: 90deg;
+		justify-self: center;
+	}
+}
+
+.proto-proof-arrow {
+	color: var(--color-ash);
+	font-size: 20px;
+}
+
+.proto-proof-result section {
+	max-width: none;
+	padding-left: 0;
+	padding-right: 0;
+}
+
+.proto-diff {
+	padding: 16px 18px;
+	border-radius: 12px;
+	box-shadow: 0 20px 50px -22px rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.12);
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1.8;
+}
+
+.proto-diff-file {
+	margin-bottom: 10px;
+	color: #6e7681;
+	font-size: 11px;
+}
+
+.proto-diff-line {
+	display: flex;
+	gap: 8px;
+	padding: 0 6px;
+	border-radius: 3px;
+	white-space: pre;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ── Sentence ── */
+
+/* The engine paints on a monospace grid at whatever font size it is given, so
+   the headline's "typography" is really a canvas. It gets the display face's
+   tracking and nothing else. */
+.proto-sentence {
+	min-height: 132px;
+	letter-spacing: -0.01em;
+}
+
+/* ── Continuum ── */
+
+.proto-continuum {
+	padding: 22px 24px 26px;
+	border-radius: 14px;
+	box-shadow: 0 30px 80px -24px rgb(0 0 0 / 0.25), 0 2px 8px rgb(0 0 0 / 0.06);
+}
+
+.proto-continuum-file {
+	margin-bottom: 14px;
+	color: #6e7681;
+	font-family: var(--font-mono);
+	font-size: 11px;
+}
