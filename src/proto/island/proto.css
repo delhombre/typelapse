@@ -226,7 +226,17 @@
 	display: inline-flex;
 }
 
+/* Reserved space, and the reason the dock used to jump sideways.
+   The ratio cycles between 1:1 (three characters) and 16:9 / 9:16 (four), so
+   the button changed width on every click. The island is centred, so it grew
+   from both edges and every control slid under the cursor mid-click.
+   Sizing the label for its widest value means the cycle costs no layout at all:
+   no width animation, no shift, no re-measure. Tabular figures keep the digits
+   from jittering inside that fixed box. */
 .iproto-num {
+	display: inline-block;
+	min-width: 4ch;
+	text-align: center;
 	font-variant-numeric: tabular-nums;
 }
 
