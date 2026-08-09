@@ -122,24 +122,7 @@ importers:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@25.4.0)(jiti@2.6.1)(jsdom@26.1.0(supports-color@8.1.1))(lightningcss@1.31.1)(supports-color@8.1.1)(terser@5.46.0)(tsx@4.21.0)
 
-  .lapse:
-    dependencies:
-      '@aiforui/lapse':
-        specifier: ^0.19.0
-        version: 0.19.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-
 packages:
-
-  '@aiforui/lapse@0.19.0':
-    resolution: {integrity: sha512-+QRQVPe/l5XQGcO3R52z3SLklmHoouFzG8uUwmvOLJwTzcV13dU62qoBZwdizOPSF5KgWIL3V5pJftZiT05ZNg==}
-    peerDependencies:
-      react: '>=18.0.0'
-      react-dom: '>=18.0.0'
-    peerDependenciesMeta:
-      react:
-        optional: true
-      react-dom:
-        optional: true
 
   '@asamuzakjp/css-color@3.2.0':
     resolution: {integrity: sha512-K1A6z8tS3XsmCMM86xoWdn7Fkdn9m6RSVtocUrJYIwZnFVkng/PvkEoWtOWmP+Scc6saYWHWZYbndEEXxl24jw==}
@@ -3327,11 +3310,6 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
-
-  '@aiforui/lapse@0.19.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
-    optionalDependencies:
-      react: 19.2.4
-      react-dom: 19.2.4(react@19.2.4)
 
   '@asamuzakjp/css-color@3.2.0':
     dependencies:
