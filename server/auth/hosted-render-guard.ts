@@ -31,22 +31,18 @@ export const defaultHostedRenderDeps: HostedRenderDeps = {
 };
 
 /**
- * The request's credential, as an opaque string.
+ * The request's credential, as an opaque string: the cookie header.
  *
- * Whether it is a bearer token or a cookie jar is the adapter's business; this
- * only decides which header carries it.
+ * Cookies only, on purpose. better-auth authenticates by signed cookie unless
+ * its bearer plugin is enabled, and it is not. An earlier version also accepted
+ * `Authorization: Bearer`, which was worse than useless: a request carrying
+ * both a valid cookie and a bearer header had its cookie discarded in favour of
+ * a token nothing could verify, turning a valid session into a 401. API tokens
+ * are a real need for the GitHub App later, and the honest way to add them is
+ * the bearer plugin plus a credential the adapter can tell apart, not a string
+ * that silently means two things.
  */
-const BEARER = /^Bearer[ ]+/i;
-
 const credentialFrom = (c: Context): string | null => {
-	const authorization = c.req.header("authorization");
-
-	// RFC 7235 makes the auth scheme case-insensitive, so a client sending
-	// "bearer" must not silently fall through to the cookie and get a 401.
-	if (authorization !== undefined && BEARER.test(authorization)) {
-		return authorization.replace(BEARER, "");
-	}
-
 	return c.req.header("cookie") ?? null;
 };
 

@@ -7,7 +7,7 @@
 	"packageManager": "pnpm@11.20.0",
 	"scripts": {
 		"dev": "vite",
-		"dev:server": "tsx watch server/index.ts",
+		"dev:server": "tsx watch --env-file-if-exists=.env server/index.ts",
 		"build": "tsc && tsc -p server/tsconfig.json && vite build",
 		"preview": "vite preview",
 		"test": "vitest run",
