@@ -15,14 +15,19 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"check-types": "tsc --noEmit",
-		"typecheck:server": "tsc -p server/tsconfig.json"
+		"typecheck:server": "tsc -p server/tsconfig.json",
+		"db:generate": "drizzle-kit generate",
+		"db:migrate": "drizzle-kit migrate"
 	},
 	"dependencies": {
 		"@hono/node-server": "^2.0.10",
 		"@monaco-editor/react": "^4.7.0",
+		"@neondatabase/serverless": "^1.1.0",
 		"@remotion/bundler": "^4.0.434",
 		"@remotion/cli": "^4.0.434",
 		"@remotion/renderer": "^4.0.434",
+		"better-auth": "^1.6.26",
+		"drizzle-orm": "^0.45.2",
 		"hono": "^4.12.34",
 		"modern-screenshot": "^4.6.8",
 		"motion": "^12.0.0",
@@ -44,6 +49,7 @@
 		"@types/react": "^19.0.0",
 		"@types/react-dom": "^19.0.0",
 		"@vitejs/plugin-react": "^4.0.0",
+		"drizzle-kit": "^0.31.10",
 		"fontkit": "^2.0.4",
 		"jsdom": "^26.0.0",
 		"tailwindcss": "^4.0.0",
