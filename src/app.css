@@ -43,6 +43,20 @@ html {
 	text-rendering: optimizeLegibility;
 }
 
+/* Set while the landing is mounted. The landing element paints itself, but not
+   the overscroll area or any viewport its layout does not fill; both fall
+   through to the document background. `color-scheme` also gives the browser the
+   matching scrollbars instead of light ones on a dark page. */
+html[data-landing-theme="light"] {
+	background: #faf9f6;
+	color-scheme: light;
+}
+
+html[data-landing-theme="dark"] {
+	background: #121110;
+	color-scheme: dark;
+}
+
 * {
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in oklch, currentColor 18%, transparent) transparent;
