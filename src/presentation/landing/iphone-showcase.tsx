@@ -140,9 +140,7 @@ function SocialScreen({ config }: { config: ScreenConfig }) {
 			    the island, like a real app honouring the status-bar safe area. */}
 			<div
 				className="absolute inset-0"
-				style={
-					{ fontSize: "2.7cqmin", fontFamily: SANS, "--safe-top": "44px" } as CSSProperties
-				}
+				style={{ fontSize: "2.7cqmin", fontFamily: SANS, "--safe-top": "44px" } as CSSProperties}
 			>
 				<SocialChrome platform={config.platform} />
 			</div>
