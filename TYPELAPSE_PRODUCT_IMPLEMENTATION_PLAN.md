@@ -126,13 +126,15 @@ Retrait du watermark, brand kit, thèmes et presets partagés. Faible en revenu 
 | | Free | Pro (~12 €/mois) | Team (~10 €/siège/mois, 3 sièges min) |
 |---|---|---|---|
 | Studio local, export local | illimité | illimité | illimité |
-| Exports hébergés | 5/mois, 1080p, watermark | illimités (fair use), 4K | illimités, file prioritaire |
+| Exports hébergés | aucun | illimités (fair use), 4K | illimités, file prioritaire |
 | Watermark personnalisé | non | oui | oui |
 | Brand kit, presets partagés | non | non | oui |
 | Workspaces partagés | non | non | oui |
 | GitHub App PR vers vidéo | non | non | oui |
 
 Le paywall structurel du domaine team est déjà décidé : **le tier gratuit donne un siège**. Le second siège est l'acte d'achat.
+
+Le tier gratuit ne donne aucun export hébergé, et c'est volontaire. Un quota gratuit de rendus contredirait la règle de la section 3.2, coûterait du CPU réel dès le premier abus, et `Plan.free()` encode déjà `allowsCloudExport: false`. L'essai sans engagement passe par la démo publique de la phase 1, pas par un compteur à surveiller.
 
 ### 3.6 Séquence
 
@@ -231,7 +233,7 @@ Objectif : encaisser.
 
 Livrables : Stripe Checkout réel, webhook à signature vérifiée, entité `Subscription`, réconciliation d'état, portail client.
 
-Critères de sortie : un paiement de test fait passer un compte de free à pro de bout en bout ; un webhook non signé est rejeté ; une résiliation redescend le compte. **Bloqué tant que la question de licence Remotion (section 4) n'a pas de réponse écrite.**
+Critères de sortie : un paiement de test fait passer **une organisation** de free à pro de bout en bout ; un webhook non signé est rejeté ; une résiliation la redescend. L'abonnement porte sur l'organisation, jamais sur le compte : c'est ce que dit le modèle de la section 5, et c'est ce qui rend le comptage de sièges possible. **Bloqué tant que la question de licence Remotion (section 4) n'a pas de réponse écrite.**
 
 ### Phase 4 — Rendu hébergé réel
 
@@ -299,8 +301,14 @@ Une tranche est terminée quand, et seulement quand :
 
 ## 11. Prochain pas concret
 
-Phase 2, tranche 1 : `AuthPort` et l'adapter better-auth, en TDD, sans toucher au reste. Le test d'acceptation qui guide la tranche est :
+La phase 1 reste la priorité produit, et rien de ce qui suit ne la remplace.
+
+Une exception, et une seule : `POST /api/cloud/render` accorde aujourd'hui un rendu hébergé à quiconque envoie l'en-tête `x-typelapse-plan: pro`. C'est un défaut de sécurité présent en production, pas une fonctionnalité manquante, et un défaut de sécurité ne se planifie pas derrière une phase de distribution. La fermeture de cette faille se fait donc immédiatement, en empruntant les fondations de la phase 2, sans que cela ne réordonne le plan.
+
+Le test d'acceptation qui guide la tranche :
 
 > Une requête `POST /api/cloud/render` portant `x-typelapse-plan: pro` mais aucune session valide reçoit un 401.
 
-Ce test échoue aujourd'hui : la route répond 202.
+Ce test échouait au moment de la rédaction : la route répondait 202.
+
+Une fois la faille fermée, l'ordre de la section 3.6 reprend : distribution, puis le reste de la phase 2.
