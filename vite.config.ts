@@ -2,19 +2,15 @@ import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { lapse } from "./vite-plugin-lapse";
 
-export default defineConfig(({ command }) => ({
-	plugins: [react(), tailwindcss()],
+export default defineConfig({
+	// `lapse` is a no-op unless @aiforui/lapse is installed locally, and it never
+	// applies to a build. See vite-plugin-lapse.ts.
+	plugins: [react(), tailwindcss(), lapse()],
 	resolve: {
 		alias: {
 			"@": resolve(__dirname, "./src"),
-			// Lapse patches the clock APIs, which has to happen before Motion caches
-			// them, so the entry imports it statically and a DEV check cannot wrap
-			// it. Swapping the module at build time keeps those patches out of
-			// production entirely. See src/dev/lapse-noop.ts.
-			...(command === "build"
-				? { "@aiforui/lapse/install": resolve(__dirname, "./src/dev/lapse-noop.ts") }
-				: {}),
 		},
 	},
 	server: {
@@ -30,4 +26,4 @@ export default defineConfig(({ command }) => ({
 		environment: "jsdom",
 		include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
 	},
-}));
+});
