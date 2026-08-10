@@ -53,6 +53,9 @@ interface StaticFrameProps {
 	/** Alt text: these are product shots, so screen readers get one concise label
 	    instead of the raw, tokenized Shiki markup. */
 	label?: string;
+	/** A small corner annotation (the aspect ratio on the export fan), drawn the
+	    way a proof sheet marks its prints. Mesh cards only. */
+	badge?: string;
 	className?: string;
 }
 
@@ -75,6 +78,7 @@ export function StaticFrame({
 	fill = false,
 	bare = false,
 	label,
+	badge,
 	className = "",
 }: StaticFrameProps) {
 	const theme = useMemo(() => (THEMES[themeName] ?? Theme.aurora)(), [themeName]);
@@ -150,6 +154,21 @@ export function StaticFrame({
 					{codeBlock}
 				</FrameShell>
 			</div>
+			{badge && (
+				<span
+					aria-hidden="true"
+					className="absolute right-2 bottom-2 z-20 font-mono text-[9px] tabular-nums"
+					style={{
+						padding: "2px 6px",
+						borderRadius: 999,
+						color: "rgba(255,255,255,0.85)",
+						background: "rgba(0,0,0,0.32)",
+						textShadow: "0 1px 2px rgba(0,0,0,0.4)",
+					}}
+				>
+					{badge}
+				</span>
+			)}
 		</div>
 	);
 }

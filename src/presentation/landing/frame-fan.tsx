@@ -6,8 +6,13 @@ import { StaticFrame } from "./static-frame";
     confident settle. Shared with the CSS lift on the static frames and phones. */
 const LIFT_SPRING = { type: "spring" as const, bounce: 0, duration: 0.35 };
 
-/** The fanned hand, one snippet, five ways: every card a different theme × mesh
-    (a light frost card among them), each three short lines. */
+/** The hand, refanned 2026-08-10: five cards, five *shapes*.
+    The section's claim is "every aspect", and the previous fan showed five
+    identical rectangles while a chip row named the ratios — saying what it
+    should show. Now each card is cut to a real export ratio and wears its
+    ratio as a proof-sheet corner mark, so the claim is performed by the
+    object and the chip row could be retired. Theme and mesh still vary per
+    card; widths are tuned so every shape reads at the fan's scale. */
 const FAN = [
 	{
 		themeName: "nord",
@@ -15,7 +20,10 @@ const FAN = [
 		title: "server.ts",
 		language: "typescript",
 		code: 'const app = Hono()\napp.get("/", ok)\napp.fire()',
-		x: -260,
+		ratio: "16:9",
+		width: 300,
+		aspect: "16 / 9",
+		x: -285,
 		rot: -10,
 		meshTime: 2,
 	},
@@ -25,7 +33,10 @@ const FAN = [
 		title: "store.ts",
 		language: "typescript",
 		code: "const s = create()\ns.set({ n: 0 })\nexport { s }",
-		x: -130,
+		ratio: "4:5",
+		width: 210,
+		aspect: "4 / 5",
+		x: -140,
 		rot: -5,
 		meshTime: 5,
 	},
@@ -35,6 +46,9 @@ const FAN = [
 		title: "route.ts",
 		language: "typescript",
 		code: "function get() {\n  return json(x)\n}",
+		ratio: "9:16",
+		width: 180,
+		aspect: "9 / 16",
 		x: 0,
 		rot: 0,
 		meshTime: 8,
@@ -45,7 +59,10 @@ const FAN = [
 		title: "hook.ts",
 		language: "typescript",
 		code: "function useNow() {\n  return Date.now()\n}",
-		x: 130,
+		ratio: "1:1",
+		width: 230,
+		aspect: "1 / 1",
+		x: 145,
 		rot: 5,
 		meshTime: 11,
 	},
@@ -55,14 +72,14 @@ const FAN = [
 		title: "main.py",
 		language: "python",
 		code: 'def greet(n):\n    msg = f"hi {n}"\n    return msg',
-		x: 260,
+		ratio: "3:4",
+		width: 215,
+		aspect: "3 / 4",
+		x: 288,
 		rot: 10,
 		meshTime: 14,
 	},
 ];
-
-const CARD_HALF = 125;
-const CARD_CLASS = "w-[250px]";
 
 /**
  * A held hand of code cards (the Interface Craft move). On desktop they overlap
@@ -76,7 +93,7 @@ export function FrameFan() {
 	return (
 		<section className="mx-auto w-full max-w-5xl px-6 py-6">
 			{/* Desktop: the fan. */}
-			<div className="relative hidden h-[360px] md:block">
+			<div className="relative hidden h-[380px] md:block">
 				{FAN.map((card, i) => {
 					const rotToward = card.rot - Math.sign(card.rot) * 2;
 					const baseZ = 30 - Math.abs(i - 2) * 10;
@@ -86,9 +103,13 @@ export function FrameFan() {
 							onHoverStart={() => setHovered(i)}
 							onHoverEnd={() => setHovered(null)}
 							className="absolute bottom-4 left-1/2"
-							style={{ zIndex: hovered === i ? 50 : baseZ }}
+							style={{
+								zIndex: hovered === i ? 50 : baseZ,
+								width: card.width,
+								aspectRatio: card.aspect,
+							}}
 							initial={false}
-							animate={{ x: card.x - CARD_HALF, y: 0, rotate: card.rot }}
+							animate={{ x: card.x - card.width / 2, y: 0, rotate: card.rot }}
 							whileHover={reduce ? undefined : { y: -14, rotate: rotToward }}
 							transition={LIFT_SPRING}
 						>
@@ -98,12 +119,14 @@ export function FrameFan() {
 								title={card.title}
 								language={card.language}
 								code={card.code}
-								label={`Code video frame, ${card.themeName} theme, ${card.title}`}
+								label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
 								meshTime={card.meshTime}
 								fontSize={11}
 								framePadding={16}
 								meshPadding={10}
-								className={CARD_CLASS}
+								fill
+								badge={card.ratio}
+								className="h-full w-full"
 							/>
 						</motion.div>
 					);
@@ -113,19 +136,25 @@ export function FrameFan() {
 			{/* Mobile: a plain scroll-snap row, no rotation. */}
 			<div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 				{FAN.map((card) => (
-					<div key={card.title} className="shrink-0 snap-center">
+					<div
+						key={card.title}
+						className="shrink-0 snap-center self-center"
+						style={{ width: card.width, aspectRatio: card.aspect }}
+					>
 						<StaticFrame
 							themeName={card.themeName}
 							presetId={card.presetId}
 							title={card.title}
 							language={card.language}
 							code={card.code}
-							label={`Code video frame, ${card.themeName} theme, ${card.title}`}
+							label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
 							meshTime={card.meshTime}
 							fontSize={11}
 							framePadding={16}
 							meshPadding={10}
-							className={CARD_CLASS}
+							fill
+							badge={card.ratio}
+							className="h-full w-full"
 						/>
 					</div>
 				))}

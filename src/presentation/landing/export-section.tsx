@@ -3,7 +3,6 @@ import { Chip, Eyebrow, Reveal, RevealGroup, RevealItem } from "./primitives";
 import { CONTAINER, SECTION_PY } from "./tokens";
 
 const FORMATS = ["MP4", "WebM", "GIF", "PNG"];
-const ASPECTS = ["16:9", "1:1", "9:16", "4:5", "3:4"];
 
 /** Feature d: export breadth, shown as format + aspect chips over the theme fan. */
 export function ExportSection() {
@@ -18,15 +17,13 @@ export function ExportSection() {
 				</p>
 			</Reveal>
 
+			{/* Formats stay as chips — a file format has no visual form. The aspect
+			    chips are gone: the fan below now *is* the aspect list, each card cut
+			    to a real ratio and marked like a proof sheet. */}
 			<RevealGroup className="mt-10 flex flex-col items-center gap-3">
 				<RevealItem className="flex flex-wrap justify-center gap-2">
 					{FORMATS.map((format) => (
 						<Chip key={format}>{format}</Chip>
-					))}
-				</RevealItem>
-				<RevealItem className="flex flex-wrap justify-center gap-2">
-					{ASPECTS.map((aspect) => (
-						<Chip key={aspect}>{aspect}</Chip>
 					))}
 				</RevealItem>
 			</RevealGroup>
