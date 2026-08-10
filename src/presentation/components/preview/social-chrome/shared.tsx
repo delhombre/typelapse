@@ -235,12 +235,15 @@ export function Pill({
 	color = WHITE,
 	background = "transparent",
 	border,
+	radius = "0.5em",
 }: {
 	label: string;
 	size: string;
 	color?: string;
 	background?: string;
 	border?: string;
+	/** Reels uses a rounded rect; X and LinkedIn are fully rounded (`999px`). */
+	radius?: string;
 }) {
 	return (
 		<span
@@ -251,7 +254,7 @@ export function Pill({
 				background,
 				color,
 				border,
-				borderRadius: "0.5em",
+				borderRadius: radius,
 				padding: "0.4em 0.85em",
 				fontSize: size,
 				fontWeight: 700,
@@ -395,35 +398,6 @@ export function AvatarStack({ size, count = 3 }: { size: string; count?: number 
 					</span>
 				</div>
 			))}
-		</div>
-	);
-}
-
-/** A LinkedIn reaction coin: a colored circle with a tiny white glyph. */
-export function ReactionCoin({
-	size,
-	background,
-	children,
-}: {
-	size: string;
-	background: string;
-	children: ReactNode;
-}) {
-	return (
-		<div
-			style={{
-				width: size,
-				height: size,
-				borderRadius: "999px",
-				background,
-				border: "0.1em solid #fff",
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				color: "#fff",
-			}}
-		>
-			<span style={{ width: "62%", height: "62%", display: "inline-flex" }}>{children}</span>
 		</div>
 	);
 }
