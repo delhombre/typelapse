@@ -14,7 +14,7 @@ interface AppShellProps {
 /** Desktop workspace: a fixed, non-scrolling two-column layout (renders at lg and up). */
 export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 	return (
-		<div className="flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+		<div className="studio-root flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
 			<TopNav />
 
 			{/* ── Body ── */}

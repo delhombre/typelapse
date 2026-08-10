@@ -74,7 +74,7 @@ export function TemplatesMenu() {
 									<span className="text-[13px] font-medium text-neutral-800 dark:text-neutral-100">
 										{template.name}
 									</span>
-									<span className="font-mono text-[10px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+									<span className="font-mono text-[11px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
 										{template.language}
 									</span>
 								</button>

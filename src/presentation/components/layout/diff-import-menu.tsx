@@ -204,7 +204,7 @@ export function DiffImportMenu() {
 										className="overflow-hidden"
 									>
 										<div className="mt-2 flex items-center gap-2">
-											<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+											<span className="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
 												play as
 											</span>
 											<ModeToggle mode={mode} onSelect={setMode} />
@@ -213,7 +213,7 @@ export function DiffImportMenu() {
 								)}
 							</AnimatePresence>
 							<div className="mt-2 flex items-center justify-between gap-2">
-								<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+								<span className="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
 									{hint()}
 								</span>
 								<motion.button

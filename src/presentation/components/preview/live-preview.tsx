@@ -432,7 +432,7 @@ export function LivePreview() {
 				{watermark && (
 					<div className="mt-2 text-right">
 						<span
-							className="font-mono text-[10px]"
+							className="font-mono text-[11px]"
 							style={{ color: getWatermarkColor(background, snippet.theme.foreground) }}
 						>
 							{watermark}

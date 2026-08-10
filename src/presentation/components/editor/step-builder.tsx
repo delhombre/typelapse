@@ -185,7 +185,7 @@ export function StepBuilder() {
 								onClick={() => setCurrentStepIndex(index)}
 								className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
 							>
-								<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[10px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+								<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[11px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
 									{index + 1}
 								</span>
 								<span className="truncate font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
@@ -208,7 +208,7 @@ export function StepBuilder() {
 									className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 									title="Duration (ms)"
 								/>
-								<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+								<span className="font-mono text-[11px] text-neutral-400 dark:text-neutral-600">
 									ms
 								</span>
 							</div>

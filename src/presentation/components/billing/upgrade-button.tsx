@@ -23,7 +23,7 @@ export function UpgradeButton() {
 				whileTap={{ scale: 0.95 }}
 				transition={springs.snappy}
 				title="Pro: hosted export, no watermark, 4K/60fps. Click to reset (dev)."
-				className="flex items-center gap-1 border border-amber-400/60 bg-amber-400/10 px-2 py-1 font-mono text-[10px] text-amber-600 dark:text-amber-400"
+				className="flex items-center gap-1 border border-amber-400/60 bg-amber-400/10 px-2 py-1 font-mono text-[11px] text-amber-600 dark:text-amber-400"
 			>
 				<SparkIcon />
 				PRO
@@ -39,7 +39,7 @@ export function UpgradeButton() {
 			whileTap={{ scale: 0.97 }}
 			transition={springs.snappy}
 			title="Upgrade to Pro: hosted export, no watermark, 4K/60fps, longer videos"
-			className="group relative flex items-center gap-1 overflow-hidden border border-neutral-300 px-2 py-1 font-mono text-[10px] text-neutral-500 transition-colors hover:border-amber-400 hover:text-amber-600 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-amber-400 dark:hover:text-amber-400"
+			className="group relative flex items-center gap-1 overflow-hidden border border-neutral-300 px-2 py-1 font-mono text-[11px] text-neutral-500 transition-colors hover:border-amber-400 hover:text-amber-600 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-amber-400 dark:hover:text-amber-400"
 		>
 			<SparkIcon />
 			{isUpgrading ? "..." : "Upgrade"}
