@@ -36,8 +36,11 @@ export const PRESS_DURATION = 0.16;
 /** Max content width + responsive side padding: the shared grid frame. */
 export const CONTAINER = "mx-auto w-full max-w-[1100px] px-6 sm:px-8";
 
-/** Big vertical rhythm between full sections (96 / 128 / 160px). */
-export const SECTION_PY = "py-24 sm:py-32 lg:py-40";
+/** Vertical rhythm between full sections (80 / 96 / 112px).
+    Was 96 / 128 / 160, which put 320px of empty paper between two sections whose
+    content is a heading, three lines and one frame. Measured on the shot, the
+    gap read as the page having run out rather than as breathing room. */
+export const SECTION_PY = "py-20 sm:py-24 lg:py-28";
 
 /** The page's only border weight. A token, not a literal, so it survives a
     theme flip: a black hairline is invisible on a dark background. */
