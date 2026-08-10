@@ -12,6 +12,7 @@ import {
 	buildMagicMovePlan,
 } from "@/infrastructure/highlighting/magic-move-keyer";
 import { MagicMoveCanvas } from "@/presentation/components/preview/magic-move-canvas";
+import { useInViewPlayback } from "@/presentation/hooks/use-in-view-playback";
 import { useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 
@@ -64,6 +65,10 @@ export function LoopingFrames({
 		timeline: ReturnType<typeof buildTimeline>;
 	} | null>(null);
 	const elapsedRef = useRef(0);
+	// Two of these run below the fold on the landing page. Each is a persistent
+	// rAF loop pushing token state through React, so each one left running while
+	// the visitor is elsewhere is measurable jank somewhere else on the page.
+	const { ref: observeFrame, inView } = useInViewPlayback<HTMLDivElement>();
 
 	// `frames` and `holds` are depended on by identity, which is why every caller
 	// passes module constants: an array literal in JSX would rebuild the plan on
@@ -134,6 +139,13 @@ export function LoopingFrames({
 			return;
 		}
 
+		// Off screen: hold the last painted frame. `elapsedRef` keeps the clock and
+		// `last` is re-read on resume, so the morph continues from where it stopped
+		// instead of jumping by the time spent away.
+		if (!inView) {
+			return;
+		}
+
 		let raf = 0;
 		let cancelled = false;
 		let last = performance.now();
@@ -158,7 +170,7 @@ export function LoopingFrames({
 			cancelled = true;
 			cancelAnimationFrame(raf);
 		};
-	}, [plan, reduce]);
+	}, [plan, reduce, inView]);
 
 	// The canvas positions every token absolutely on a `ch` grid, so its wrapper
 	// has no intrinsic width and any attempt to centre it centres a 57px box. The
@@ -179,12 +191,16 @@ export function LoopingFrames({
 
 	if (!view) {
 		return (
-			<div className={className} style={{ ...sizing, minHeight: fontSize * lineHeightRatio }} />
+			<div
+				ref={observeFrame}
+				className={className}
+				style={{ ...sizing, minHeight: fontSize * lineHeightRatio }}
+			/>
 		);
 	}
 
 	return (
-		<div className={className} role="img" aria-label={ariaLabel} style={sizing}>
+		<div ref={observeFrame} className={className} role="img" aria-label={ariaLabel} style={sizing}>
 			<MagicMoveCanvas
 				tokens={view.tokens}
 				lineCount={view.lineCount}

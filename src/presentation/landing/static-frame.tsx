@@ -2,7 +2,8 @@ import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gr
 import { Theme } from "@/domain/entities/theme";
 import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useReducer } from "react";
+import { highlightCacheKey, highlightOnce, readHighlight } from "./highlight-cache";
 
 const THEMES: Record<string, () => Theme> = {
 	midnight: Theme.midnight,
@@ -81,22 +82,29 @@ export function StaticFrame({
 		() => MESH_PRESETS.find((p) => p.id === presetId) ?? MESH_PRESETS[0],
 		[presetId],
 	);
-	const [html, setHtml] = useState("");
+	/* The memo is the state: a frame that has been highlighted once anywhere on the
+	   page paints its code on the very first render, with no empty-then-swap. Only
+	   a miss goes async, and the resolved highlight re-renders this frame. */
+	const cacheKey = highlightCacheKey(themeName, language, code);
+	const [, onHighlighted] = useReducer((n: number) => n + 1, 0);
+	const html = readHighlight(cacheKey) ?? "";
 
 	useEffect(() => {
+		if (readHighlight(cacheKey) !== undefined) {
+			return;
+		}
 		let cancelled = false;
-		shikiAdapter
-			.highlight(code, language, themeName)
-			.then((h) => {
+		highlightOnce(cacheKey, () => shikiAdapter.highlight(code, language, themeName))
+			.then(() => {
 				if (!cancelled) {
-					setHtml(h);
+					onHighlighted();
 				}
 			})
 			.catch(() => undefined);
 		return () => {
 			cancelled = true;
 		};
-	}, [code, language, themeName]);
+	}, [cacheKey, code, language, themeName]);
 
 	const codeBlock = (
 		<div
