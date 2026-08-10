@@ -14,6 +14,7 @@ import {
 } from "@/infrastructure/highlighting/magic-move-keyer";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
 import { MagicMoveCanvas } from "@/presentation/components/preview/magic-move-canvas";
+import { useInViewPlayback } from "@/presentation/hooks/use-in-view-playback";
 import { useResizeObserver } from "@/presentation/hooks/use-resize-observer";
 import { springs } from "@/presentation/motion";
 import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform } from "motion/react";
@@ -201,6 +202,17 @@ export function Instrument({
 	// frame keeps its proportions at every width.
 	const wrapperRef = useRef<HTMLDivElement>(null);
 	const resize = useResizeObserver(wrapperRef);
+	// Playback is suspended while the stage is off screen: the loop repaints a
+	// 636×366 gradient layer every frame, and a visitor reading the sections below
+	// pays for it in dropped frames without ever seeing it.
+	const { ref: observeStage, inView } = useInViewPlayback<HTMLDivElement>();
+	const setStage = useCallback(
+		(node: HTMLDivElement | null) => {
+			wrapperRef.current = node;
+			observeStage(node);
+		},
+		[observeStage],
+	);
 	const current = ASPECTS.find((a) => a.id === aspect) ?? ASPECTS[0];
 	const target = fitToStage(current.ratio);
 	// Both axes: the stage's rendered height comes from CSS (it shrinks on a short
@@ -277,14 +289,20 @@ export function Instrument({
 		};
 	}, [theme.name, reduce]);
 
+	/** Paused by the visitor, or suspended because the stage is off screen. The
+	    two are deliberately one state here and two states outside: whoever paused
+	    stays paused, and a playing instrument that scrolls away resumes where it
+	    left off rather than restarting. */
+	const suspended = !playing || !inView;
+
 	// Drive playback. While playing, advance the clock and drift the mesh; while
-	// paused, hold the exact morph position (the mesh freezes at its last moment).
+	// suspended, hold the exact morph position (the mesh freezes at its last moment).
 	useEffect(() => {
 		if (!plan) {
 			return;
 		}
 		const { plan: built, timeline } = plan;
-		if (!playing) {
+		if (suspended) {
 			setView(resolveView(built, locate(timeline, elapsedRef.current)));
 			return;
 		}
@@ -305,7 +323,11 @@ export function Instrument({
 				lastSig.current = sig;
 				setView(resolveView(built, pos));
 			}
-			meshTRef.current = now / 1000;
+			// The mesh clock accumulates the same delta as the playback clock rather
+			// than reading the absolute `now`: a suspended loop hands back a stale
+			// `last`, and an absolute clock would jump the backdrop forward by the
+			// whole time spent off screen the instant it came back into view.
+			meshTRef.current += dt / 1000;
 			const livePreset = presetRef.current;
 			if (meshRef.current && livePreset) {
 				meshRef.current.style.background = meshGradientCss(livePreset, meshTRef.current);
@@ -317,18 +339,19 @@ export function Instrument({
 			cancelled = true;
 			cancelAnimationFrame(raf);
 		};
-	}, [plan, playing]);
+	}, [plan, suspended]);
 
-	// Recolour a paused mesh when the background swatch changes (the rAF loop owns
-	// the mesh while playing).
+	// Recolour a suspended mesh when the background swatch changes (the rAF loop
+	// owns the mesh while it runs). Painted at the frozen `meshTRef`, so the
+	// backdrop changes colour without moving.
 	useEffect(() => {
-		if (playing || !preset) {
+		if (!suspended || !preset) {
 			return;
 		}
 		if (meshRef.current) {
 			meshRef.current.style.background = meshGradientCss(preset, meshTRef.current);
 		}
-	}, [preset, playing]);
+	}, [preset, suspended]);
 
 	const bodyHeight = 5 * WINDOW_FONT * LINE_HEIGHT_RATIO;
 
@@ -337,7 +360,7 @@ export function Instrument({
 			{/* The stage: a box the frame is centred in, sized by CSS so it gives back
 			    height on a short viewport instead of pushing the dock past the fold.
 			    Its height is also what keeps the dock still while the ratio cycles. */}
-			<div ref={wrapperRef} className="lp-stage flex w-full items-center justify-center">
+			<div ref={setStage} className="lp-stage flex w-full items-center justify-center">
 				<motion.div
 					role="img"
 					aria-label="Live preview: a code snippet morphing token by token on a mesh gradient background"

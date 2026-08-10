@@ -3,9 +3,10 @@ import type { SocialPlatform } from "@/application/social/safe-zones";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
 import { SocialChrome } from "@/presentation/components/preview/social-chrome";
 import { SANS } from "@/presentation/components/preview/social-chrome/shared";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { type CSSProperties, useEffect, useState } from "react";
 import { DeviceFrame } from "./device-frame";
+import { screenPlacement } from "./screen-switch";
 import { StaticFrame } from "./static-frame";
 
 /**
@@ -14,7 +15,10 @@ import { StaticFrame } from "./static-frame";
  * Switching apps slides horizontally — the current app leaves to the left while the
  * next enters from the right, the way you swipe between apps, not the vertical feed
  * scroll that would read as the next video in the same app — while the bezel and
- * Dynamic Island stay put. Reduced motion drops the cycle and float for one feed.
+ * Dynamic Island stay put. Every feed is mounted for the life of the page and
+ * only its transform changes, so a switch composites layers that were already
+ * rastered instead of painting a new screen mid-spring (see `ScreenSwitcher`).
+ * Reduced motion drops the cycle and float for one feed.
  */
 
 interface ScreenConfig {
@@ -97,6 +101,9 @@ const SWITCH_SCALE = 0.94;
 /* A released flick settles in well under half a second. Spring rather than a
    curve so an interrupted cycle lands somewhere sensible instead of snapping. */
 const SWIPE_TRANSITION = { type: "spring", bounce: 0, duration: 0.44 } as const;
+/* Used for the offscreen repositioning the ring needs on each wrap: both ends of
+   that move are out of sight, so it must land in one frame, not travel. */
+const INSTANT_TRANSITION = { duration: 0 } as const;
 
 /**
  * Drive the cycle index on a timed loop. Reduced motion pins it to the first
@@ -166,6 +173,52 @@ function SocialScreen({ config }: { config: ScreenConfig }) {
 	);
 }
 
+/**
+ * All five feeds, mounted once and never unmounted, laid out on one ring: only
+ * transforms change between switches.
+ *
+ * Mounting the arriving feed *during* the swipe was the whole cost of the
+ * gesture — a mesh gradient, a grain blend and a fresh Shiki highlight all had
+ * to be painted and rastered on the first frame of the spring, and the screen
+ * was thrown away again straight after, so every 3.6s pass paid it anew. Kept
+ * mounted, each screen is rastered once and a switch is pure composition:
+ * `will-change: transform` asks the compositor to keep those layers around.
+ *
+ * The screens off the ring stay painted rather than hidden — `visibility:
+ * hidden` would drop exactly the raster we are trying to keep — so they are held
+ * offscreen by their own transform and clipped by the device's screen well.
+ * `inert` keeps them out of tab order and off the pointer; the well itself is
+ * already `aria-hidden`, so no screen reader sees them either.
+ */
+function ScreenSwitcher({ activeIndex }: { activeIndex: number }) {
+	return (
+		<>
+			{SCREEN_CONFIGS.map((config, index) => {
+				const placement = screenPlacement({
+					index,
+					activeIndex,
+					count: SCREEN_CONFIGS.length,
+					gap: SWITCH_GAP,
+					offscreenScale: SWITCH_SCALE,
+				});
+				return (
+					<motion.div
+						key={config.platform}
+						className="absolute inset-0"
+						style={{ willChange: "transform" }}
+						inert={index !== activeIndex}
+						initial={false}
+						animate={{ x: placement.x, scale: placement.scale }}
+						transition={placement.animated ? SWIPE_TRANSITION : INSTANT_TRANSITION}
+					>
+						<SocialScreen config={config} />
+					</motion.div>
+				);
+			})}
+		</>
+	);
+}
+
 interface IphoneShowcaseProps {
 	/** The currently-shown platform (from `usePlatformCycle`), which the screen keys on. */
 	platform: SocialPlatform;
@@ -174,24 +227,17 @@ interface IphoneShowcaseProps {
 
 export function IphoneShowcase({ platform, className = "" }: IphoneShowcaseProps) {
 	const reduce = useReducedMotion();
-	const config: ScreenConfig =
-		SCREEN_CONFIGS.find((c) => c.platform === platform) ?? SCREEN_CONFIGS[0];
+	const activeIndex = Math.max(
+		0,
+		SCREEN_CONFIGS.findIndex((c) => c.platform === platform),
+	);
+	const config: ScreenConfig = SCREEN_CONFIGS[activeIndex] ?? SCREEN_CONFIGS[0];
 
+	/* Reduced motion never cycles, so it mounts the one feed it will ever show. */
 	const screen = reduce ? (
 		<SocialScreen config={config} />
 	) : (
-		<AnimatePresence initial={false}>
-			<motion.div
-				key={config.platform}
-				className="absolute inset-0"
-				initial={{ x: `${100 + SWITCH_GAP}%`, scale: SWITCH_SCALE }}
-				animate={{ x: "0%", scale: 1 }}
-				exit={{ x: `${-100 - SWITCH_GAP}%`, scale: SWITCH_SCALE }}
-				transition={SWIPE_TRANSITION}
-			>
-				<SocialScreen config={config} />
-			</motion.div>
-		</AnimatePresence>
+		<ScreenSwitcher activeIndex={activeIndex} />
 	);
 
 	const device = (
