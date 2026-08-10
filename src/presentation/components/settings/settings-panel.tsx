@@ -93,7 +93,7 @@ function StripCell({
 }: { label: string; title?: string; children: React.ReactNode }) {
 	return (
 		<div className="flex items-center gap-2.5 px-3" title={title}>
-			<span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+			<span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
 				{label}
 			</span>
 			{children}
@@ -252,7 +252,7 @@ function PaddingPicker({
 						onClick={() => onSelect(value)}
 						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
-						className={`rounded-md px-2 py-1 text-[10px] font-medium tabular-nums transition-colors ${
+						className={`rounded-md px-2 py-1 text-[11px] font-medium tabular-nums transition-colors ${
 							isSelected
 								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
 								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
@@ -290,7 +290,7 @@ function ChromePicker() {
 						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
 						title={chrome.title}
-						className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+						className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
 							isSelected
 								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
 								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
@@ -390,7 +390,7 @@ function TempoPicker() {
 						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
 						title={tempo.title}
-						className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+						className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
 							isSelected
 								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
 								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
@@ -445,7 +445,7 @@ function FontPicker() {
 						}}
 						whileTap={{ scale: 0.95 }}
 						transition={springs.snappy}
-						className={`rounded-md border px-2 py-1 text-[10px] font-medium transition-colors ${
+						className={`rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${
 							isSelected
 								? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
 								: "border-neutral-200/70 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:border-neutral-800 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
