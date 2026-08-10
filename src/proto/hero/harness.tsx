@@ -2,15 +2,15 @@ import { useLandingTheme } from "@/presentation/landing/use-landing-theme";
 import { useCallback, useState } from "react";
 import { Picker } from "./picker";
 import "./proto.css";
-import { Filmstrip, InstrumentDirection, Ledger, Monolith, Reveal, Slider } from "./variants";
+import { Bleed, Canvas, InstrumentDirection, Poster, Recto, Stack } from "./variants";
 
 const VARIANTS = [
-	{ name: "Ledger", render: () => <Ledger /> },
-	{ name: "Reveal", render: () => <Reveal /> },
-	{ name: "Filmstrip", render: () => <Filmstrip /> },
-	{ name: "Monolith", render: () => <Monolith /> },
-	{ name: "Slider", render: () => <Slider /> },
 	{ name: "Instrument", render: () => <InstrumentDirection /> },
+	{ name: "Bleed", render: () => <Bleed /> },
+	{ name: "Recto", render: () => <Recto /> },
+	{ name: "Poster", render: () => <Poster /> },
+	{ name: "Stack", render: () => <Stack /> },
+	{ name: "Canvas", render: () => <Canvas /> },
 ];
 
 const initialIndex = () => {
@@ -20,9 +20,9 @@ const initialIndex = () => {
 };
 
 /**
- * Four hero directions behind a live picker, each running the real Instrument on
- * the real palette. Judged at full size on the same content, which is the only
- * way a composition argument settles.
+ * Six hero directions behind a live picker, all running the real Instrument.
+ * The material is settled; what varies is where the object sits, how much of it
+ * you get, and what it is allowed to do to the page around it.
  *
  * Throwaway: delete src/proto and the marked route in main.tsx once one wins.
  */

@@ -22,7 +22,7 @@ const { chromium } = require(PLAYWRIGHT);
 
 const OUT = resolve(process.argv[2] ?? "/tmp/typelapse-proto");
 const BASE = "http://localhost:5173/proto/hero";
-const VARIANTS = ["Ledger", "Reveal", "Filmstrip", "Monolith", "Slider", "Instrument"];
+const VARIANTS = ["Instrument", "Bleed", "Recto", "Poster", "Stack", "Canvas"];
 
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 
@@ -65,7 +65,7 @@ for (const [i, name] of VARIANTS.entries()) {
 			const a = read();
 			await wait(1400);
 			const b = read();
-			const art = document.querySelector(".proto-hero .proto-artefact");
+			const art = document.querySelector('.proto-hero [role="img"][aria-label^="Live preview"]');
 			const code = document.querySelector('.proto-hero [role="img"]');
 			const h1 = document.querySelector(".proto-hero h1");
 			const ar = art?.getBoundingClientRect();

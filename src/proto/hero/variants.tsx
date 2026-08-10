@@ -1,19 +1,20 @@
-import { Theme } from "@/domain/entities/theme";
+import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gradient";
 import { Instrument } from "@/presentation/landing/instrument";
 import { GITHUB_URL } from "@/presentation/landing/tokens";
 import { motion, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { CARD_THEME, CodeCard } from "./code-card";
-import { EngineFrames } from "./engine-frames";
 
-/* Six hero directions. Each has one idea and one move; none of them is a
-   rearrangement of the same boxes.
+/* Six hero directions on one material.
+   The flat near-black pass lost: the object Bruno wants is the Instrument, mesh
+   backdrop and dock included. So the material is fixed and only the *idea*
+   varies — where the object sits, how much of it you get, what it does to the
+   page around it. Five new compositions plus the incumbent, unchanged, as the
+   thing they have to beat.
 
-   The material system is in system.css and was sampled rather than invented.
-   The motion follows a source's rules: entrances ease-out and under 300ms,
-   scale from 0.94 rather than 0, blur used to mask the gap between two states,
-   and nothing animated that a visitor would trigger more than a few times.
+   Type and spacing still come from the sampled system in system.css. Motion
+   still follows a source: ease-out entrances, nothing over 300ms that a
+   visitor triggers repeatedly, blur to bridge two states.
 
    Throwaway. Delete src/proto and the route in main.tsx once one wins. */
 
@@ -22,40 +23,6 @@ const LEAD =
 	"Paste a snippet, a diff, or a GitHub pull request. Typelapse morphs it token by token and exports a video that matches the preview frame for frame.";
 const MICRO = "MIT licensed · runs on your machine · no account";
 
-/* A real change on a real file, not a three-line toy. The frame is 16:9 because
-   that is the shape of the output, and a 16:9 frame holding four lines of code
-   is three-quarters empty black — which is what made the earlier pass read as a
-   placeholder. Ten lines fill it, and give the morph something to actually do. */
-const STEP_1 = `import { db } from "@/lib/db"
-
-export async function GET(req: Request) {
-  const users = await db.users.all()
-  return Response.json(users)
-}`;
-const STEP_2 = `import { db } from "@/lib/db"
-
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const users = await db.users.all()
-  const active = users.filter((u) => u.active)
-  return Response.json(active)
-}`;
-const STEP_3 = `import { db } from "@/lib/db"
-
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const page = Number(searchParams.get("page") ?? 1)
-  const users = await db.users.all()
-  const active = users.filter((u) => u.active)
-  const slice = active.slice((page - 1) * 20, page * 20)
-  return Response.json({ page, users: slice })
-}`;
-
-const FRAMES = [STEP_1, STEP_2, STEP_3];
-const HOLDS = [1600, 1800, 2600, 900];
-
-/* Entrances. One curve, one duration, used everywhere, so the page reads as one
-   object arriving rather than six components each doing their own thing. */
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 function rise(delay: number, reduce: boolean) {
@@ -66,354 +33,265 @@ function rise(delay: number, reduce: boolean) {
 	};
 }
 
-function Actions({ micro = true }: { micro?: boolean }) {
+function Actions({ invert = false }: { invert?: boolean }) {
 	return (
-		<>
-			<div className="proto-actions">
-				<Link to="/app" className="proto-cta">
-					Open the studio
-				</Link>
-				<a href={GITHUB_URL} target="_blank" rel="noreferrer" className="proto-cta-quiet">
-					View source
-				</a>
-			</div>
-			{micro && <p className="proto-meta mt-5">{MICRO}</p>}
-		</>
+		<div className="proto-actions">
+			<Link to="/app" className={invert ? "proto-cta proto-cta-invert" : "proto-cta"}>
+				Open the studio
+			</Link>
+			<a
+				href={GITHUB_URL}
+				target="_blank"
+				rel="noreferrer"
+				className={invert ? "proto-cta-quiet proto-cta-quiet-invert" : "proto-cta-quiet"}
+			>
+				View source
+			</a>
+		</div>
 	);
 }
 
-/* ══════════════════ 1. Ledger ══════════════════
-   The restrained one, and the control against which the other five have to
-   justify themselves. Pierre's grammar taken at its word: a 60px headline at a
-   line-height of 1, a 20px lead in true grey, and one enormous unlit artefact
-   that runs off the bottom of the screen instead of being squeezed above it.
-   Nothing is decorated. The only reason to scroll is that the object is cut. */
-
-export function Ledger() {
-	const reduce = useReducedMotion() ?? false;
-
-	return (
-		<section className="proto-hero proto-ledger">
-			<div className="proto-col">
-				<motion.p className="proto-meta mb-6" {...rise(0, reduce)}>
-					typelapse --from-pr 1247
-				</motion.p>
-				<motion.h1 className="proto-display max-w-[15ch]" {...rise(0.06, reduce)}>
-					{HEADLINE}
-				</motion.h1>
-				<motion.p className="proto-lead mt-6" {...rise(0.12, reduce)}>
-					{LEAD}
-				</motion.p>
-				<motion.div className="mt-9" {...rise(0.18, reduce)}>
-					<Actions />
-				</motion.div>
-			</div>
-
-			<motion.div className="proto-wide mt-14" {...rise(0.26, reduce)}>
-				<CodeCard
-					frames={FRAMES}
-					holds={HOLDS}
-					title="api/users.ts"
-					fontSize={24}
-					ariaLabel="A code snippet morphing token by token"
-				/>
-			</motion.div>
-		</section>
-	);
-}
-
-/* ══════════════════ 2. Reveal ══════════════════
-   Same materials, one move: the artefact is not faded in, it is *uncovered*.
-   A clip-path inset wipes from the top edge down, which is hardware accelerated,
-   causes no layout shift because the frame is already there, and reads as the
-   video being developed rather than a card appearing. a source's technique, used
-   once, on the one element that deserves it. */
-
-export function Reveal() {
-	const reduce = useReducedMotion() ?? false;
-	const [open, setOpen] = useState(reduce);
+/**
+ * A drifting mesh, painted on any element.
+ *
+ * The Instrument owns one of these inside its own frame; these compositions need
+ * a second one on the page itself, which is why it is pulled out here. Pure
+ * time-driven CSS, same generator as the export, so the page and the video are
+ * literally the same gradient.
+ */
+function useMeshBackdrop(presetId: string, playing = true) {
+	const ref = useRef<HTMLDivElement>(null);
+	const reduce = useReducedMotion();
 
 	useEffect(() => {
-		if (reduce) {
-			setOpen(true);
+		const preset = MESH_PRESETS.find((p) => p.id === presetId) ?? MESH_PRESETS[0];
+		const el = ref.current;
+		if (!el || !preset) {
 			return;
 		}
-		const id = window.setTimeout(() => setOpen(true), 420);
-		return () => window.clearTimeout(id);
-	}, [reduce]);
+		if (reduce || !playing) {
+			el.style.background = meshGradientCss(preset, 3);
+			return;
+		}
+		let raf = 0;
+		let cancelled = false;
+		const tick = (now: number) => {
+			if (cancelled) {
+				return;
+			}
+			el.style.background = meshGradientCss(preset, now / 1000);
+			raf = requestAnimationFrame(tick);
+		};
+		raf = requestAnimationFrame(tick);
+		return () => {
+			cancelled = true;
+			cancelAnimationFrame(raf);
+		};
+	}, [presetId, playing, reduce]);
+
+	return ref;
+}
+
+/* ══════════════════ 1. Bleed ══════════════════
+   The product shot stops being a card. The frame runs the full width of the
+   window with no radius and no edge, so the mesh is the top of the page rather
+   than something sitting on it, and the code window floats in open colour. The
+   dock hangs below it on the paper.
+
+   This is the direction that treats the instrument as the page's own material
+   instead of its illustration. */
+
+export function Bleed() {
+	const reduce = useReducedMotion() ?? false;
 
 	return (
-		<section className="proto-hero proto-reveal">
-			<div className="proto-col">
-				<motion.h1 className="proto-display max-w-[14ch]" {...rise(0, reduce)}>
+		<section className="proto-hero proto-bleed">
+			<motion.div className="proto-bleed-stage" {...rise(0, reduce)}>
+				<Instrument maxScale={2.6} />
+			</motion.div>
+
+			<div className="proto-col proto-bleed-copy">
+				<motion.h1 className="proto-display max-w-[15ch]" {...rise(0.14, reduce)}>
 					{HEADLINE}
 				</motion.h1>
-				<motion.p className="proto-lead mt-6" {...rise(0.08, reduce)}>
+				<motion.p className="proto-lead mt-5" {...rise(0.2, reduce)}>
 					{LEAD}
 				</motion.p>
-				<motion.div className="mt-9" {...rise(0.14, reduce)}>
-					<Actions />
-				</motion.div>
-			</div>
-
-			<div className="proto-wide mt-16">
-				<div className="proto-reveal-clip" data-open={open ? "" : undefined}>
-					<CodeCard
-						frames={FRAMES}
-						holds={HOLDS}
-						title="api/users.ts"
-						fontSize={24}
-						ariaLabel="A code snippet morphing token by token"
-					/>
-				</div>
+				<motion.p className="proto-meta mt-7" {...rise(0.26, reduce)}>
+					{MICRO}
+				</motion.p>
 			</div>
 		</section>
 	);
 }
 
-/* ══════════════════ 3. Filmstrip ══════════════════
-   The name of the product, drawn. Four frames of the same snippet laid out as a
-   contact sheet, bleeding off the right edge so the strip reads as continuing;
-   one of them is live and the others are its neighbours in time. A visitor
-   understands "timelapse, for code" before reading a word, and it is a shape no
-   other developer tool on the page is using. */
+/* ══════════════════ 2. Recto ══════════════════
+   Argument left, object right, and the object is deliberately too big for the
+   page: it is cropped by the right edge rather than politely contained. A
+   product shot that fits inside the margin reads as a screenshot; one that runs
+   out of the window reads as a thing you are looking at part of.
 
-const STRIP = [
-	{ code: STEP_1, label: "00:00" },
-	{ code: STEP_2, label: "00:04" },
-	{ code: STEP_3, label: "00:09" },
-];
+   The crop is the whole idea, so nothing else in the composition competes. */
 
-export function Filmstrip() {
+export function Recto() {
 	const reduce = useReducedMotion() ?? false;
 
 	return (
-		<section className="proto-hero proto-filmstrip">
+		<section className="proto-hero proto-recto">
+			<div className="proto-recto-grid">
+				<div className="proto-recto-copy">
+					<motion.p className="proto-meta mb-6" {...rise(0, reduce)}>
+						typelapse --from-pr 1247
+					</motion.p>
+					<motion.h1 className="proto-display max-w-[13ch]" {...rise(0.06, reduce)}>
+						{HEADLINE}
+					</motion.h1>
+					<motion.p className="proto-lead mt-6 max-w-[38ch]" {...rise(0.12, reduce)}>
+						{LEAD}
+					</motion.p>
+					<motion.div className="mt-8" {...rise(0.18, reduce)}>
+						<Actions />
+					</motion.div>
+					<motion.p className="proto-meta mt-6" {...rise(0.24, reduce)}>
+						{MICRO}
+					</motion.p>
+				</div>
+
+				<motion.div className="proto-recto-object" {...rise(0.3, reduce)}>
+					<Instrument maxScale={1.45} />
+				</motion.div>
+			</div>
+		</section>
+	);
+}
+
+/* ══════════════════ 3. Poster ══════════════════
+   The frame is hung, not embedded. It sits centred with air on every side and
+   the headline goes *underneath* it, set small, the way a gallery labels a
+   print rather than the way a landing page shouts over one.
+
+   Inverts the usual hierarchy: the object speaks first and the words explain
+   afterwards. Only works if the object is worth the wall, which is the bet. */
+
+export function Poster() {
+	const reduce = useReducedMotion() ?? false;
+
+	return (
+		<section className="proto-hero proto-poster">
+			<motion.div className="proto-poster-frame" {...rise(0, reduce)}>
+				<Instrument maxScale={1.15} />
+			</motion.div>
+
+			<div className="proto-poster-caption">
+				<motion.h1 className="proto-poster-title" {...rise(0.18, reduce)}>
+					{HEADLINE}
+				</motion.h1>
+				<motion.p className="proto-lead proto-poster-lead mt-4" {...rise(0.24, reduce)}>
+					{LEAD}
+				</motion.p>
+				<motion.div className="proto-poster-actions mt-7" {...rise(0.3, reduce)}>
+					<Actions />
+				</motion.div>
+			</div>
+		</section>
+	);
+}
+
+/* ══════════════════ 4. Stack ══════════════════
+   One pull request is not one video: it is a chapter per commit, a cut per
+   ratio, a version per theme. So the hero is a short stack of frames offset
+   behind the live one, like prints left on a desk.
+
+   It sells the thing the single-frame heroes cannot: that the output is a set,
+   and that the tool made all of it from one paste. */
+
+const STACK_BACKS = ["forest", "ember"];
+
+export function Stack() {
+	const reduce = useReducedMotion() ?? false;
+	const back1 = useMeshBackdrop(STACK_BACKS[0] ?? "aurora", false);
+	const back2 = useMeshBackdrop(STACK_BACKS[1] ?? "aurora", false);
+
+	return (
+		<section className="proto-hero proto-stack">
 			<div className="proto-col">
-				<motion.h1 className="proto-display max-w-[16ch]" {...rise(0, reduce)}>
-					Every step of the change, in one take
+				<motion.h1 className="proto-display max-w-[15ch]" {...rise(0, reduce)}>
+					One paste. Every cut you need.
 				</motion.h1>
 				<motion.p className="proto-lead mt-6" {...rise(0.08, reduce)}>
-					{LEAD}
+					A chapter per commit, a frame per ratio, a version per theme. Typelapse renders the whole
+					set from one pull request, and the preview you tune is the file you ship.
 				</motion.p>
 			</div>
 
-			<motion.div className="proto-strip mt-14" {...rise(0.16, reduce)}>
-				{/* The live one sits second: the eye lands left-of-centre, and the
-				    stills on either side give it a before and an after. */}
-				{STRIP.map((cell, i) => (
-					<figure
-						key={cell.label}
-						className="proto-strip-cell"
-						data-live={i === 1 ? "" : undefined}
-					>
-						<CodeCard
-							frames={i === 1 ? FRAMES : [cell.code]}
-							holds={i === 1 ? HOLDS : [4000]}
-							loop={i === 1}
-							fontSize={11}
-							lineNumbers={false}
-							ariaLabel={i === 1 ? "The live frame, morphing" : `Frame at ${cell.label}`}
-						/>
-						<figcaption className="proto-meta mt-3">{cell.label}</figcaption>
-					</figure>
-				))}
-				<div className="proto-strip-tail" aria-hidden="true" />
+			<motion.div className="proto-stack-deck mt-14" {...rise(0.18, reduce)}>
+				{/* The two behind are still frames, not live instruments: three engines
+				    and three rAF loops for one composition is a cost the page would pay
+				    on every visit, for something a visitor reads as one object. */}
+				<div className="proto-stack-back proto-stack-back-2" ref={back2} aria-hidden="true" />
+				<div className="proto-stack-back proto-stack-back-1" ref={back1} aria-hidden="true" />
+				<div className="proto-stack-live">
+					<Instrument maxScale={1.05} />
+				</div>
 			</motion.div>
 
 			<div className="proto-col mt-12">
 				<Actions />
+				<p className="proto-meta mt-5">{MICRO}</p>
 			</div>
 		</section>
 	);
 }
 
-/* ══════════════════ 4. Monolith ══════════════════
-   The page inverts. Instead of a light page holding a dark card, the hero *is*
-   the dark surface and the code sits in it with nothing around it at all — no
-   chrome, no card, no border. The headline is set in the product's own mono in
-   the same near-white as the code, so type and artefact are the same material.
-   The most dramatic of the six, and the one that would set the brand. */
+/* ══════════════════ 5. Canvas ══════════════════
+   The dock does not restyle a card, it restyles the page. Pick a backdrop and
+   the whole hero takes that colour; the frame stops being an object on a page
+   and becomes a window cut into it.
 
-export function Monolith() {
+   The most opinionated of the five, and the only one where the controls change
+   something a visitor cannot miss. It is also the honest reading of what the
+   product is: a thing that makes the look, not a thing that shows one. */
+
+export function Canvas() {
 	const reduce = useReducedMotion() ?? false;
+	const [presetId, setPresetId] = useState("aurora");
+	const wash = useMeshBackdrop(presetId);
 
 	return (
-		<section className="proto-hero proto-monolith">
-			<div className="proto-monolith-inner">
-				<motion.p className="proto-meta proto-monolith-meta mb-8" {...rise(0, reduce)}>
-					typelapse --from-pr 1247
-				</motion.p>
+		<section className="proto-hero proto-canvas">
+			{/* The page's own wash: the same generator as the frame's, run at a much
+			    lower opacity so the code inside stays the brightest thing on screen. */}
+			<div className="proto-canvas-wash" ref={wash} aria-hidden="true" />
 
-				<motion.h1
-					className="proto-display-mono proto-monolith-headline max-w-[18ch]"
-					{...rise(0.06, reduce)}
-				>
-					{HEADLINE}
-				</motion.h1>
-
-				{/* No card: the code is painted straight onto the surface, which is
-				    what makes the page feel like one object rather than a layout. */}
-				<motion.div className="proto-monolith-code mt-12" {...rise(0.16, reduce)}>
-					<EngineFrames
-						frames={FRAMES}
-						holds={HOLDS}
-						theme={CARD_THEME}
-						fontSize={18}
-						lineNumbers
-						ariaLabel="A code snippet morphing token by token"
-					/>
-				</motion.div>
-
-				<motion.div className="proto-monolith-actions mt-14" {...rise(0.22, reduce)}>
-					<Link to="/app" className="proto-cta proto-cta-invert">
-						Open the studio
-					</Link>
-					<a
-						href={GITHUB_URL}
-						target="_blank"
-						rel="noreferrer"
-						className="proto-cta-quiet proto-cta-quiet-invert"
+			<div className="proto-canvas-inner">
+				<div className="proto-col">
+					<motion.h1
+						className="proto-display mx-auto max-w-[15ch] text-center"
+						{...rise(0, reduce)}
 					>
-						View source
-					</a>
-				</motion.div>
-			</div>
-		</section>
-	);
-}
-
-/* ══════════════════ 5. Slider ══════════════════
-   The claim is "what you paste becomes what you export", so the hero lets you
-   check. One frame, two layers, a handle: drag left for the source you gave it,
-   drag right for the video it made. Built on the same clip-path inset as
-   Reveal, so the two layers stay in place and only the clip moves.
-
-   Friction as a feature: the visitor does one small piece of work and gets a
-   verified claim instead of a promised one. */
-
-export function Slider() {
-	const reduce = useReducedMotion() ?? false;
-	const [pos, setPos] = useState(58);
-	const trackRef = useRef<HTMLDivElement>(null);
-	const draggingRef = useRef(false);
-
-	const moveTo = useCallback((clientX: number) => {
-		const el = trackRef.current;
-		if (!el) return;
-		const r = el.getBoundingClientRect();
-		const pct = ((clientX - r.left) / r.width) * 100;
-		setPos(Math.min(96, Math.max(4, pct)));
-	}, []);
-
-	useEffect(() => {
-		const onMove = (e: PointerEvent) => {
-			if (draggingRef.current) moveTo(e.clientX);
-		};
-		const onUp = () => {
-			draggingRef.current = false;
-		};
-		window.addEventListener("pointermove", onMove);
-		window.addEventListener("pointerup", onUp);
-		return () => {
-			window.removeEventListener("pointermove", onMove);
-			window.removeEventListener("pointerup", onUp);
-		};
-	}, [moveTo]);
-
-	return (
-		<section className="proto-hero proto-slider">
-			<div className="proto-col">
-				<motion.h1 className="proto-display max-w-[15ch]" {...rise(0, reduce)}>
-					What you paste. What you get.
-				</motion.h1>
-				<motion.p className="proto-lead mt-6" {...rise(0.08, reduce)}>
-					Drag the handle. On the left is the diff you gave Typelapse; on the right is the frame it
-					exports, rendered by the same engine that draws this page.
-				</motion.p>
-			</div>
-
-			<motion.div className="proto-wide mt-14" {...rise(0.16, reduce)}>
-				{/* Pointer drag only, deliberately: the keyboard path is the range input
-				    below, which owns the same value and is visible rather than hidden. */}
-				<div
-					className="proto-slider-track"
-					ref={trackRef}
-					onPointerDown={(e) => {
-						draggingRef.current = true;
-						moveTo(e.clientX);
-					}}
-				>
-					<div className="proto-slider-layer proto-slider-source">
-						<CodeCard
-							frames={[SOURCE_DIFF]}
-							holds={[4000]}
-							loop={false}
-							theme={SOURCE_THEME}
-							title="what you pasted — the diff"
-							fontSize={17}
-							lineNumbers={false}
-							ariaLabel="The pasted diff"
-						/>
-					</div>
-
-					<div
-						className="proto-slider-layer proto-slider-result"
-						style={{ clipPath: `inset(0 0 0 ${pos}%)` }}
-					>
-						<CodeCard
-							frames={FRAMES}
-							holds={HOLDS}
-							title="what it exports — the video"
-							fontSize={17}
-							ariaLabel="The exported frame, morphing"
-						/>
-					</div>
-
-					<div className="proto-slider-handle" style={{ left: `${pos}%` }} aria-hidden="true">
-						<span className="proto-slider-grip" />
-					</div>
+						{HEADLINE}
+					</motion.h1>
+					<motion.p className="proto-lead mx-auto mt-6 text-center" {...rise(0.08, reduce)}>
+						{LEAD}
+					</motion.p>
 				</div>
 
-				<label className="proto-slider-input">
-					<span className="sr-only">Reveal the exported frame</span>
-					<input
-						type="range"
-						min={4}
-						max={96}
-						value={Math.round(pos)}
-						onChange={(e) => setPos(Number(e.target.value))}
-					/>
-				</label>
-			</motion.div>
+				<motion.div className="mt-12" {...rise(0.18, reduce)}>
+					<Instrument onPresetChange={setPresetId} />
+				</motion.div>
 
-			<div className="proto-col mt-10">
-				<Actions />
+				<motion.p className="proto-meta proto-canvas-micro mt-8" {...rise(0.26, reduce)}>
+					{MICRO}
+				</motion.p>
 			</div>
 		</section>
 	);
 }
 
-/* The pasted side is set in a light theme: it is paper, not video. */
-const SOURCE_THEME = Theme.frost();
-
-const SOURCE_DIFF = `@@ -3,6 +3,10 @@ export async function GET(req: Request) {
-   export async function GET(req: Request) {
-+    const { searchParams } = new URL(req.url)
-+    const page = Number(searchParams.get("page") ?? 1)
-     const users = await db.users.all()
--    return Response.json(users)
-+    const active = users.filter((u) => u.active)
-+    const slice = active.slice((page - 1) * 20, page * 20)
-+    return Response.json({ page, users: slice })
-   }`;
-
 /* ══════════════════ 6. Instrument ══════════════════
-   The current landing's object, kept honestly in the set so the five new
-   directions have the incumbent to beat, but re-set on the sampled scale: the
-   headline goes up to 60px at a line-height of 1, the lead becomes a real 20px
-   grey, and the copy loses the button row, since the dock already holds the
-   call to action. Same object, retyped. */
+   The incumbent, kept exactly as it ships apart from the headline being re-set
+   on the sampled scale. Every direction above has to be better than this to be
+   worth the change. */
 
 export function InstrumentDirection() {
 	const reduce = useReducedMotion() ?? false;
@@ -432,6 +310,10 @@ export function InstrumentDirection() {
 			<motion.div className="mt-12" {...rise(0.18, reduce)}>
 				<Instrument />
 			</motion.div>
+
+			<motion.p className="proto-meta proto-instrument-micro mt-8" {...rise(0.26, reduce)}>
+				{MICRO}
+			</motion.p>
 		</section>
 	);
 }

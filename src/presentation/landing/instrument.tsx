@@ -161,7 +161,15 @@ function resolveView(plan: MagicMovePlan, pos: ReturnType<typeof locate>): DemoV
  * and a floating toolbar restyles it: play/pause, five mesh backgrounds, seven
  * themes, three aspects. Everything below the frame just tunes this one object.
  */
-export function Instrument({ maxScale = 1 }: { maxScale?: number } = {}) {
+export function Instrument({
+	maxScale = 1,
+	onPresetChange: reportPreset,
+}: {
+	maxScale?: number;
+	/** Reports the live backdrop outward, for a composition that wants to take
+	    its own colour from whatever the visitor picked. */
+	onPresetChange?: (id: string) => void;
+} = {}) {
 	const reduce = useReducedMotion();
 	const [themeName, setThemeName] = useState("aurora");
 	const [presetId, setPresetId] = useState("aurora");
@@ -373,7 +381,10 @@ export function Instrument({ maxScale = 1 }: { maxScale?: number } = {}) {
 				playing={playing}
 				onPlayToggle={() => setPlaying((p) => !p)}
 				presetId={presetId}
-				onPresetChange={setPresetId}
+				onPresetChange={(id) => {
+					setPresetId(id);
+					reportPreset?.(id);
+				}}
 				themeName={themeName}
 				onThemeChange={setThemeName}
 				aspect={aspect}
