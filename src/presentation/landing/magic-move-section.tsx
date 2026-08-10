@@ -1,18 +1,28 @@
+import { Theme } from "@/domain/entities/theme";
+import { LoopingFrames } from "@/presentation/components/preview/looping-frames";
 import { FeatureSection } from "./feature-section";
-import { StaticFrame } from "./static-frame";
 
-/* One snippet, two states: the shared engine morphs the first into the second
-   token by token. Same theme + backdrop, so the eye reads only what changed.
-   Lines are kept short so both frames stay legible when they shrink on mobile. */
-const BEFORE = `const a = get()
-const b = a.id`;
-const AFTER = `const a = get()
-const b = a.id
-const c = b + 1`;
+/* The signature feature, performed rather than described.
+   This section used to be two static frames with an arrow between them, which
+   is the weakest way to sell a morph: the page was explaining that code would
+   glide, on a page where the engine that glides it was already running. These
+   are the same three states the hero cycles, played by the same engine, in a
+   frame with no chrome so the movement is the only thing to look at. */
+const STEPS = [
+	`const rows = db.all()
+return json(rows)`,
+	`const rows = db.all()
+const live = rows.filter(ok)
+return json(live)`,
+	`const rows = db.all()
+const live = rows.filter(ok)
+const page = live.slice(0, 20)
+return json(page)`,
+];
+/* Slower than the hero's: this one is read, not glanced at. */
+const HOLDS = [1900, 2100, 2600, 1000];
 
-const FRAME = "w-[64%] max-w-[240px] lp-nogutter lp-lift sm:w-[42%]";
-
-/** Feature a: the signature magic-move, shown as a crisp before then after. */
+/** Feature a: the signature magic-move, shown running. */
 export function MagicMoveSection() {
 	return (
 		<FeatureSection
@@ -20,59 +30,22 @@ export function MagicMoveSection() {
 			title="Token by token."
 			line="One engine lays out and morphs your code on a monospace grid. The browser preview and the exported video run that exact same engine, so what you see is what you ship."
 			align="left"
-			visual={<BeforeAfter />}
+			visual={<LiveMorph />}
 		/>
 	);
 }
 
-function BeforeAfter() {
+function LiveMorph() {
 	return (
-		<div className="flex w-full flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
-			<StaticFrame
-				bare
-				themeName="one-dark"
-				title="total.ts"
-				code={BEFORE}
-				label="Code frame before the magic move, showing two lines"
-				fontSize={12}
-				framePadding={16}
-				className={FRAME}
-			/>
-			<Arrow />
-			<StaticFrame
-				bare
-				themeName="one-dark"
-				title="total.ts"
-				code={AFTER}
-				label="The same code frame after the magic move, with a third line added"
-				fontSize={12}
-				framePadding={16}
-				className={FRAME}
+		<div className="lp-morph-frame">
+			<LoopingFrames
+				frames={STEPS}
+				holds={HOLDS}
+				theme={Theme.oneDark()}
+				fontSize={15}
+				lineNumbers
+				ariaLabel="A code snippet morphing token by token as two lines are added"
 			/>
 		</div>
-	);
-}
-
-/** A morph hint between the two states: points down when the frames stack. */
-function Arrow() {
-	return (
-		<svg
-			width="22"
-			height="22"
-			viewBox="0 0 24 24"
-			fill="none"
-			role="img"
-			aria-label="morphs into"
-			className="shrink-0 rotate-90 text-ash sm:rotate-0"
-		>
-			<title>morphs into</title>
-			<path
-				d="M4 12h15M13 6l6 6-6 6"
-				stroke="currentColor"
-				strokeWidth="1.6"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-			/>
-		</svg>
 	);
 }

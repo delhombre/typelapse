@@ -685,3 +685,16 @@ html[data-landing-theme="dark"] {
 		display: none;
 	}
 }
+
+/* The magic-move section's frame. No window chrome and no title bar: the
+   Instrument above already carries the product's furniture, and repeating it
+   here would make the page look like two screenshots of the same app rather
+   than one object and one detail of it. */
+.landing-root .lp-morph-frame {
+	display: flex;
+	justify-content: center;
+	padding: 30px 28px;
+	border-radius: 16px;
+	background: #1f2229;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 18px 44px -28px rgb(0 0 0 / 0.4);
+}
