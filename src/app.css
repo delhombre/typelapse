@@ -698,3 +698,22 @@ html[data-landing-theme="dark"] {
 	background: #1f2229;
 	box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 18px 44px -28px rgb(0 0 0 / 0.4);
 }
+
+/* Extended hit area for compact studio controls: the visual stays small, the
+   target grows to at least 44px in both axes (the island's pattern, shared).
+   Use only where neighbours leave the room — at tighter densities size the
+   button itself to WCAG's 24px floor instead, or the extensions steal each
+   other's clicks. */
+.hit-ext {
+	position: relative;
+}
+
+.hit-ext::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: max(100%, 44px);
+	height: max(100%, 44px);
+	transform: translate(-50%, -50%);
+}

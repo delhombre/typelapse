@@ -69,7 +69,7 @@ export function UrlImportMenu() {
 				onClick={() => setOpen((v) => !v)}
 				whileTap={{ scale: 0.96 }}
 				transition={springs.snappy}
-				className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
+				className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
 					open
 						? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
 						: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"

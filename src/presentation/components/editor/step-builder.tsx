@@ -220,7 +220,7 @@ export function StepBuilder() {
 									e.stopPropagation();
 									removeStep(step.id);
 								}}
-								className="shrink-0 text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 dark:text-neutral-700"
+								className="hit-ext flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 dark:text-neutral-700"
 								title="Remove step"
 							>
 								<svg
