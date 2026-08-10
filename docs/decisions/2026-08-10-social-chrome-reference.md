@@ -138,7 +138,7 @@ Done in `shorts-chrome.tsx`.
 X shipped a **brand-new immersive vertical video player** on iOS in Feb 2026. It
 has **no vertical rail and no back-header** — a from-memory drawing (and the old
 `x-chrome.tsx`) is wrong. Source: X's own announcement render + App Store v12.15
-(the live site is fully login-walled). Not yet implemented.
+(the live site is fully login-walled). Done in `x-chrome.tsx`.
 
 - **Author block** (bottom, above caption): small avatar (~7% vw) · name white
   bold · verified seal **`#1D9BF0`** · `@handle · 1h` dim on the line below · a
@@ -161,12 +161,15 @@ has **no vertical rail and no back-header** — a from-memory drawing (and the o
 ## LinkedIn — the immersive "Video"-tab player (new)
 
 LinkedIn now has a **separate full-screen Video-tab player**, distinct from the
-in-feed card the current `linkedin-chrome.tsx` draws. Source: recent press
-renders (live is login-walled). Not yet implemented.
+in-feed card the old `linkedin-chrome.tsx` drew. Source: recent press
+renders (live is login-walled). Done in `linkedin-chrome.tsx` (as the immersive
+player — the card belongs to the feed, not the Video tab this section previews).
 
-- **Right rail** (vertical, white, ~91-93% vw): like — **thumbs-up outline** `258`
-  · comment — **outline** `14` · share — **solid forward arrow**, no count ·
-  volume/mute (lower, separated). **No repost and no send in the rail** — those
+- **Right rail** (vertical, white, ~91-93% vw): like — **thumbs-up, SOLID** `258`
+  · comment — **solid white bubble with knocked-out text lines** `14` · share —
+  **solid forward arrow**, no count · volume/mute (lower, separated; solid).
+  (First pass of this doc said outline; the capture crops are unambiguous —
+  every rail glyph is solid.) **No repost and no send in the rail** — those
   live only in the feed card, so copying the card's four actions onto the rail is
   wrong.
 - **Author + caption** (bottom-left, above the nav): avatar (~7.8% vw) · name
