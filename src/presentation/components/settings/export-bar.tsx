@@ -219,7 +219,7 @@ function Segmented({
 						className={`relative rounded-md px-2 py-1 text-[11px] font-medium transition-colors duration-150 ${
 							isSelected
 								? "text-white dark:text-neutral-900"
-								: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300"
+								: "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300"
 						}`}
 					>
 						{isSelected && (
