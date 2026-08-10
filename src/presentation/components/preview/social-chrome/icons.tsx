@@ -97,6 +97,29 @@ export function DotsVertical() {
 	);
 }
 
+/** Reels "more" is now horizontal, not vertical (measured 2026-08-10). */
+export function DotsHorizontal() {
+	return (
+		<Svg fill="currentColor">
+			<circle cx="5" cy="12" r="1.7" />
+			<circle cx="12" cy="12" r="1.7" />
+			<circle cx="19" cy="12" r="1.7" />
+		</Svg>
+	);
+}
+
+/** Reels top-right control: a sliders / tune glyph (replaced the camera). */
+export function Tune({ stroke = 1.8 }: GlyphProps) {
+	return (
+		<Svg fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round">
+			<path d="M4 8h9M17 8h3" />
+			<path d="M4 16h3M11 16h9" />
+			<circle cx="15" cy="8" r="2.1" fill="currentColor" stroke="none" />
+			<circle cx="9" cy="16" r="2.1" fill="currentColor" stroke="none" />
+		</Svg>
+	);
+}
+
 export function ThumbUp({ stroke = 1.7 }: GlyphProps) {
 	return (
 		<Svg fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinejoin="round">
