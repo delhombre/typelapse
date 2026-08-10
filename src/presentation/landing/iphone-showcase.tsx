@@ -77,8 +77,26 @@ export const CYCLE_PLATFORMS: readonly SocialPlatform[] = SCREEN_CONFIGS.map((c)
 /** How long each feed holds before swiping to the next. */
 const HOLD_MS = 3600;
 
-/** Apple critically-damped horizontal app-switch: no overshoot, a firm settle. */
-const SWIPE_TRANSITION = { type: "spring", bounce: 0, duration: 0.6 } as const;
+/* The iOS home-bar app switch, rebuilt from what the gesture actually does.
+   The screen was cross-sliding like a web carousel, which reads as one filmstrip
+   scrolling past a window. Three things separate the device's gesture from that,
+   and the page was doing none of them.
+
+   1. The apps never fade. Opacity is the carousel tell; on the device the app
+      leaving stays at full strength right up to the edge and you simply stop
+      seeing it.
+   2. There is a gap between them. You see the surface behind, which is what
+      makes two apps read as two cards rather than as one continuous strip.
+   3. They lift. Both are scaled down while they travel and settle back, which is
+      the entire reason the gesture feels physical rather than mechanical.
+
+   Reconstructed from the gesture's observable behaviour rather than from a
+   published Apple curve: the values below are ours, the shape is theirs. */
+const SWITCH_GAP = 6;
+const SWITCH_SCALE = 0.94;
+/* A released flick settles in well under half a second. Spring rather than a
+   curve so an interrupted cycle lands somewhere sensible instead of snapping. */
+const SWIPE_TRANSITION = { type: "spring", bounce: 0, duration: 0.44 } as const;
 
 /**
  * Drive the cycle index on a timed loop. Reduced motion pins it to the first
@@ -166,9 +184,9 @@ export function IphoneShowcase({ platform, className = "" }: IphoneShowcaseProps
 			<motion.div
 				key={config.platform}
 				className="absolute inset-0"
-				initial={{ x: "100%", opacity: 0.6 }}
-				animate={{ x: "0%", opacity: 1 }}
-				exit={{ x: "-100%", opacity: 0.6 }}
+				initial={{ x: `${100 + SWITCH_GAP}%`, scale: SWITCH_SCALE }}
+				animate={{ x: "0%", scale: 1 }}
+				exit={{ x: `${-100 - SWITCH_GAP}%`, scale: SWITCH_SCALE }}
 				transition={SWIPE_TRANSITION}
 			>
 				<SocialScreen config={config} />
