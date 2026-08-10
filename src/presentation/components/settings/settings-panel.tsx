@@ -128,7 +128,7 @@ function ThemePicker() {
 						whileTap={{ scale: 0.96 }}
 						whileHover={{ scale: 1.15 }}
 						transition={springs.snappy}
-						className="relative flex items-center justify-center"
+						className="relative flex size-6 items-center justify-center"
 						title={t.label}
 					>
 						{isSelected && (
