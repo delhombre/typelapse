@@ -119,5 +119,70 @@ rgba(0,0,0,0.35))`. Bottom = bottom 30% ramping to 0.35; top = top 20% ramping t
 - Whether Instagram still shows an audio thumbnail / rail counts — state
   dependent, absent from these captures.
 
-Source captures were in `/tmp/social-probe/` (ephemeral). Re-run the reconnaissance
-to regenerate them.
+## YouTube Shorts (measured 2026-08-10, live m.youtube.com/shorts DOM)
+
+**Right rail** — axis 91.9% vw, icons ~32pt: **three bare white actions**, no grey
+chips — like (thumbs-up outline) + count `50K`, comment (outline) + count `296`,
+share (forward arrow, no count), then a **square sound thumbnail** (~40pt). No
+dislike and no remix on the rail (the old chrome drew both).
+
+**Top**: YouTube/Shorts wordmark left, search magnifier + kebab (vertical dots)
+right. **Bottom-left**: avatar + `@handle` + **Subscribe pill — near-black
+`#0f0f0f`, not red** (YouTube dropped the red Subscribe years ago) + caption +
+sound row.
+
+Done in `shorts-chrome.tsx`.
+
+## X — the new immersive player (Feb 2026 redesign)
+
+X shipped a **brand-new immersive vertical video player** on iOS in Feb 2026. It
+has **no vertical rail and no back-header** — a from-memory drawing (and the old
+`x-chrome.tsx`) is wrong. Source: X's own announcement render + App Store v12.15
+(the live site is fully login-walled). Not yet implemented.
+
+- **Author block** (bottom, above caption): small avatar (~7% vw) · name white
+  bold · verified seal **`#1D9BF0`** · `@handle · 1h` dim on the line below · a
+  **Follow pill on the right edge** (~19% vw, translucent light fill, white bold).
+- **Caption**: white, 2 lines, ellipsis-truncated.
+- **Action row — HORIZONTAL pills** (translucent black ~25-30%, fully rounded,
+  ~30pt tall), left→right: reply `248` · repost `3.3K` · **like — heart OUTLINE,
+  white, not filled/pink** `19K` · bookmark (icon-only) · share (icon-only). All
+  white outline.
+- **Media control bar** below the pills (new, easy to miss): a thin **scrubber**
+  (white filled ~38% + faint track); under it a **play triangle + `-0:20`** left,
+  and volume · expand · PiP cluster right. Gentle bottom scrim.
+- The **timeline** in-feed post differs: like is **filled pink `#F91880`** there,
+  and it carries a **views-bars** count. The immersive player's like is outline.
+- Palette: monochrome white-on-black; accents verified `#1D9BF0`, timeline like
+  `#F91880`.
+- Unverified: the immersive player's top bar (close/overflow, cropped), exact
+  pill alpha.
+
+## LinkedIn — the immersive "Video"-tab player (new)
+
+LinkedIn now has a **separate full-screen Video-tab player**, distinct from the
+in-feed card the current `linkedin-chrome.tsx` draws. Source: recent press
+renders (live is login-walled). Not yet implemented.
+
+- **Right rail** (vertical, white, ~91-93% vw): like — **thumbs-up outline** `258`
+  · comment — **outline** `14` · share — **solid forward arrow**, no count ·
+  volume/mute (lower, separated). **No repost and no send in the rail** — those
+  live only in the feed card, so copying the card's four actions onto the rail is
+  wrong.
+- **Author + caption** (bottom-left, above the nav): avatar (~7.8% vw) · name
+  white bold · **Follow pill — outline** (thin white/grey border, transparent,
+  white text, fully rounded) immediately after the name · grey headline line ·
+  white caption ending `…see more` · a thin scrubber below.
+- **Bottom nav** — **opaque white**, ~70pt, 5 tabs: Home · **Video (2nd, selected:
+  filled black play-glyph in a rounded square, black label)** · My Network ·
+  Notifications (red `#CD141A` `20+` badge) · Jobs. The video does **not** run
+  edge-to-edge at the bottom.
+- Palette: brand blue **`#0A66C2`** (exact), notification red `#CD141A`, rail pure
+  white.
+- The existing in-feed card is also correct and only misses a leading
+  **your-avatar + dropdown caret** at the far left of its action row.
+- Unverified: whether the immersive rail also shows the user's own avatar at top;
+  exact tab spacing; the reacted-state like colour.
+
+Source captures were in `/tmp/social-probe/` and `/tmp/social-probe2/`
+(ephemeral). Re-run the reconnaissance to regenerate them.
