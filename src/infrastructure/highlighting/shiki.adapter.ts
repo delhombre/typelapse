@@ -21,6 +21,22 @@ export class ShikiAdapter implements HighlighterPort {
 		return this.getHighlighter();
 	}
 
+	/**
+	 * Load a language and hand back the id Shiki will accept.
+	 *
+	 * Callers that go through `highlight` get this for free. Callers that take the
+	 * raw highlighter and tokenize themselves — the magic-move keyer, and every
+	 * component built on it — do not, and `codeToTokens` throws for any language
+	 * outside INITIAL_LANGS. It throws quietly, inside a promise whose rejection
+	 * those callers swallow, so the symptom is a frame that simply never appears.
+	 * Awaiting this first is what makes a language other than the four preloaded
+	 * ones usable from the raw path.
+	 */
+	async loadLanguage(language: string): Promise<string> {
+		const highlighter = await this.getHighlighter();
+		return this.ensureLanguage(highlighter, language);
+	}
+
 	private async getHighlighter(): Promise<Highlighter> {
 		if (this.highlighter) {
 			return this.highlighter;

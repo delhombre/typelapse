@@ -71,9 +71,11 @@ export function LoopingFrames({
 	useEffect(() => {
 		let cancelled = false;
 		const codes = loop ? [...frames, frames[0] ?? ""] : frames;
-		shikiAdapter
-			.getRawHighlighter()
-			.then((h) => {
+		// The language is loaded before the plan is built: the keyer tokenizes off
+		// the raw highlighter, which only ever has the four boot languages unless
+		// someone asks for more.
+		Promise.all([shikiAdapter.getRawHighlighter(), shikiAdapter.loadLanguage(language)])
+			.then(([h]) => {
 				if (cancelled) {
 					return;
 				}
