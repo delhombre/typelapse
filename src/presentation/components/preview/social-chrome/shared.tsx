@@ -339,6 +339,66 @@ export function AudioThumb({ size }: { size: string }) {
 	);
 }
 
+/** TikTok's top-left LIVE entry: a rounded-square outline with LIVE inside. */
+export function LiveSquare({ size }: { size: string }) {
+	return (
+		<div
+			style={{
+				width: size,
+				height: size,
+				borderRadius: "0.32em",
+				border: "0.12em solid rgba(255,255,255,0.92)",
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				filter: ICON_SHADOW,
+			}}
+		>
+			<span
+				style={{
+					fontSize: "0.5em",
+					fontWeight: 800,
+					letterSpacing: "0.02em",
+					color: WHITE,
+				}}
+			>
+				LIVE
+			</span>
+		</div>
+	);
+}
+
+/** A short row of overlapping mini avatars — Instagram's "Liked by" proof row
+    and the cluster beside the Reels/Friends tabs. */
+export function AvatarStack({ size, count = 3 }: { size: string; count?: number }) {
+	const tints = ["#f0a", "#5ac8fa", "#ffd60a", "#30d158", "#bf5af2"];
+	return (
+		<div style={{ display: "inline-flex", filter: ICON_SHADOW }}>
+			{Array.from({ length: count }, (_, i) => (
+				<div
+					key={tints[i] ?? i}
+					style={{
+						width: size,
+						height: size,
+						borderRadius: "999px",
+						background: tints[i] ?? "#8e8e93",
+						border: "0.1em solid rgba(255,255,255,0.95)",
+						marginLeft: i === 0 ? 0 : `calc(${size} * -0.42)`,
+						overflow: "hidden",
+						display: "flex",
+						alignItems: "flex-end",
+						justifyContent: "center",
+					}}
+				>
+					<span style={{ width: "80%", height: "90%", display: "inline-flex" }}>
+						<PersonSilhouette />
+					</span>
+				</div>
+			))}
+		</div>
+	);
+}
+
 /** A LinkedIn reaction coin: a colored circle with a tiny white glyph. */
 export function ReactionCoin({
 	size,
