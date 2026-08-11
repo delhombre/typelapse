@@ -113,11 +113,17 @@ export function DynamicNav() {
 					aria-label="Open studio"
 					className="flex h-full items-center outline-offset-4"
 				>
+					{/* The glow belongs to the fill, so it flips with it. Left outside the
+					    branch it stayed the primary's yellow under an ink capsule — a
+					    coloured light under a shape that is not that colour, which reads
+					    as a halo rather than as depth. It transitions with the colours
+					    too: a shadow that cuts while the fill it belongs to fades is the
+					    same seam one step out. */}
 					<span
-						className={`inline-flex h-8 items-center whitespace-nowrap rounded-full px-3.5 font-medium text-[12.5px] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] transition-colors duration-300 ${
+						className={`inline-flex h-8 items-center whitespace-nowrap rounded-full px-3.5 font-medium text-[12.5px] transition-[background-color,color,box-shadow] duration-300 ${
 							onDark
-								? "bg-ink text-paper hover:bg-ink/86"
-								: "bg-[var(--color-cta)] text-[var(--color-on-primary)] hover:bg-[var(--color-primary-hover)]"
+								? "bg-ink text-paper shadow-[0_6px_16px_-6px_rgb(28_27_25/0.45)] hover:bg-ink/86"
+								: "bg-[var(--color-cta)] text-[var(--color-on-primary)] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] hover:bg-[var(--color-primary-hover)]"
 						}`}
 					>
 						Open studio
