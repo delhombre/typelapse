@@ -111,14 +111,12 @@ export function Prompt() {
    tool; it is how you drive it. The remaining categories collapse to one meta
    line under the examples. */
 
-export function Desk({
-	shape = "saddle",
-}: { shape?: "saddle" | "continuous" | "concentric" } = {}) {
+export function Desk() {
 	const [mode, setMode] = useState<(typeof MODES)[number]>("pull request");
 	const [value, setValue] = useState("");
 
 	return (
-		<section className="proto-hero proto-desk" data-shape={shape}>
+		<section className="proto-hero proto-desk">
 			<div className="proto-desk-col">
 				<RevealGroup immediate>
 					<RevealItem>
@@ -203,14 +201,6 @@ const SHEET: [string, string][] = [
 	["THEMES", "7 syntax themes · mesh, solid and image backdrops"],
 	["LICENSE", "MIT · runs on your machine · no account"],
 ];
-
-export function DeskContinuous() {
-	return <Desk shape="continuous" />;
-}
-
-export function DeskConcentric() {
-	return <Desk shape="concentric" />;
-}
 
 export function Sheet() {
 	const [value, setValue] = useState("");
