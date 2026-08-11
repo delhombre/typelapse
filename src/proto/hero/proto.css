@@ -213,11 +213,29 @@
 	padding-left: var(--text-x);
 }
 
+/* ── Two faces, and the line between them ──
+   The mono is for what the machine wrote: a URL, a hunk header, a line of
+   code, a file count. Geist is for what a person wrote. The whole hero was set
+   in the mono, which read as a terminal but said the sentence at the top was
+   output — and the pastilles too, and the CTA, none of which anything printed.
+
+   Only Regular and SemiBold of the mono exist and synthesis is off upstream, so
+   the mono stays on 400 and 600 and every intermediate weight here is Geist's.
+
+   Sizes: the lead is the only prose and there is no headline in this direction,
+   so it carries the voice and takes 17. What you type is the subject of the
+   whole object and takes 14 — one step over the 13 of the rows below, which are
+   a log and should sit under it. The labels stay at 13: they name the thing,
+   they are not the thing. */
 .proto-desk-lead {
-	max-width: 60ch;
-	font-size: 15px;
-	line-height: 24px;
+	max-width: 52ch;
+	font-family: var(--font-sans);
+	font-size: 17px;
+	line-height: 26px;
+	font-weight: 400;
+	letter-spacing: -0.01em;
 	color: var(--color-ash);
+	text-wrap: pretty;
 }
 
 /* ── One line, drawn once, from the field up into the strip ──
@@ -316,7 +334,9 @@
 .proto-desk-modes button {
 	height: var(--mode-h);
 	padding: 6px var(--text-x) 7px;
-	font: inherit;
+	font-family: var(--font-sans);
+	font-size: 13px;
+	font-weight: 500;
 	color: var(--color-ash);
 	/* Mixed into the paper rather than laid over it at 4% alpha: a pastille has
 	   to be opaque to do its half of the job. Translucent, it let the field's
@@ -387,6 +407,10 @@
 	display: flex;
 	align-items: center;
 	gap: 1ch;
+	/* Mono, on the field itself and not just on the input: the caret is sized in
+	   `em` and has to be one character of the text it stands after. */
+	font-family: var(--font-mono);
+	font-size: 14px;
 	padding: 0 6px 0 var(--text-x);
 	height: var(--field-h);
 	border-radius: 999px;
@@ -473,6 +497,8 @@
 	border-radius: 999px;
 	background: var(--color-ink);
 	color: var(--color-paper);
+	font-family: var(--font-sans);
+	font-size: 13px;
 	font-weight: 600;
 	white-space: nowrap;
 }
@@ -485,6 +511,9 @@
 	margin-top: 20px;
 	padding-top: 14px;
 	border-top: 1px solid var(--color-hairline);
+	font-family: var(--font-sans);
+	font-size: 13px;
+	line-height: 20px;
 	color: var(--color-ash);
 }
 
