@@ -236,12 +236,15 @@
 	overflow: hidden;
 }
 
-/* A pill sliced flat where it meets the field: fully round on top, square below,
-   so each tab still reads as a pill and still belongs to the object under it. */
+/* A pastille is a pill, closed on all four corners, laid on the field's edge —
+   not a tab notched into it. The drawing is explicit about this: its right end
+   is a full cap, curving back down onto the field's own line. Sliced flat at the
+   bottom, at this height, the radius clamps to 35 and the thing reads as a
+   gumdrop instead. */
 .proto-desk-modes button {
 	height: var(--mode-h);
 	padding: 6px 14px 7px;
-	border-radius: 999px 999px 0 0;
+	border-radius: 999px;
 	font: inherit;
 	color: var(--color-ash);
 	background: color-mix(in oklch, var(--color-ink) 4%, transparent);
@@ -257,7 +260,9 @@
    would ever show. */
 .proto-desk-modes button:first-child {
 	position: relative;
-	border-top-left-radius: 0;
+	/* No cap and no bottom corner on this side: the arc is the one, the field's
+	   own edge is the other. */
+	border-radius: 0 999px 999px 0;
 	/* At the label's own top the arc still stands at x = 21, so 30 clears it. */
 	padding-left: 30px;
 }
@@ -275,17 +280,21 @@
 	background: inherit;
 }
 
-/* The selected tab takes the field's own surface and its hairline on three
-   sides only — no bottom edge — so the two become one silhouette instead of a
-   box resting on another box. Drawn inside, because the strip's own clip would
-   cut an outer stroke away. */
+/* The selected pastille takes the field's own surface and a hairline on three
+   sides. Never the fourth: its lower edge is the field's edge, and the field
+   draws that itself — straight along the run and then turning down into the
+   arc. A closed ring would lay a straight line over that turn and flatten the
+   one thing the shape is for. On a pill the two side strokes are the caps, so
+   only the flat run at the bottom is left bare, which is exactly where the
+   field's own line lies. Drawn inside, because the strip's clip cuts an outer
+   stroke away. */
 .proto-desk-modes button[data-active] {
 	background: var(--color-surface);
 	box-shadow: inset 1px 0 0 var(--color-hairline), inset -1px 0 0 var(--color-hairline), inset 0 1px
 		0 var(--color-hairline);
 }
 
-/* Its left edge is no longer an edge — the arc is. */
+/* This one has no left cap to stroke — the arc is its end. */
 .proto-desk-modes button:first-child[data-active] {
 	box-shadow: inset -1px 0 0 var(--color-hairline), inset 0 1px 0 var(--color-hairline);
 }
