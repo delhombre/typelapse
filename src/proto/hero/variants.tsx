@@ -124,36 +124,9 @@ const PLACEHOLDERS: Record<(typeof MODES)[number], string> = {
 	snippet: "const users = await db.users.all()",
 };
 
-/* Three readings of the log under the field. It was one line of prose per row,
-   right-aligned as a block, which is why nothing in it stacked: a column cannot
-   line up while it is inside a sentence. All three are smaller — 12 over 20
-   against the 13 over 22 they were — and all three start on the same 418 as
-   every other line of text. What differs is how many columns they admit to.
-
-   A · one line. No columns at all, so nothing can fail to align: the counts
-   run on after the URL as a dim tail, the way a shell prints a line.
-
-   B · two columns, and less in them. The file count goes and the diffstat stays,
-   split so the added and the removed each stack, with the last of them landing
-   on the field's own right edge above.
-
-   C · the table. Every field gets its own column and the numeric ones are
-   right-aligned, so the counts stack whatever their width. The most ordered,
-   and the one that most looks like a tool rather than a page. */
-type Rows = "line" | "pair" | "table";
-
-function ExampleMeta({ rows, e }: { rows: Rows; e: Example }) {
-	if (rows === "line") {
-		return <span>{`· ${printed(e)}`}</span>;
-	}
-	if (rows === "pair") {
-		return (
-			<>
-				<span>{e.added}</span>
-				<span>{e.removed}</span>
-			</>
-		);
-	}
+/* The log's fields each take a column of their own, right-aligned where they
+   are numeric, so that they stack. */
+function ExampleMeta({ e }: { e: Example }) {
 	return (
 		<>
 			<span>{e.files}</span>
@@ -163,7 +136,7 @@ function ExampleMeta({ rows, e }: { rows: Rows; e: Example }) {
 	);
 }
 
-export function Desk({ rows = "line" }: { rows?: Rows } = {}) {
+export function Desk() {
 	const [mode, setMode] = useState<(typeof MODES)[number]>("pull request");
 	const [value, setValue] = useState("");
 	/* The field sizes to its own content so the caret can stand at the end of it,
@@ -178,7 +151,7 @@ export function Desk({ rows = "line" }: { rows?: Rows } = {}) {
 	const field = useRef<HTMLInputElement>(null);
 
 	return (
-		<section className="proto-hero proto-desk" data-rows={rows}>
+		<section className="proto-hero proto-desk">
 			<div className="proto-desk-col">
 				<RevealGroup immediate>
 					<RevealItem>
@@ -233,7 +206,7 @@ export function Desk({ rows = "line" }: { rows?: Rows } = {}) {
 							{EXAMPLES.map((e) => (
 								<li key={e.url}>
 									<Link to="/app">{e.url}</Link>
-									<ExampleMeta rows={rows} e={e} />
+									<ExampleMeta e={e} />
 								</li>
 							))}
 						</ul>
@@ -268,14 +241,6 @@ const SHEET: [string, string][] = [
 	["THEMES", "7 syntax themes · mesh, solid and image backdrops"],
 	["LICENSE", "MIT · runs on your machine · no account"],
 ];
-
-export function DeskRowsPair() {
-	return <Desk rows="pair" />;
-}
-
-export function DeskRowsTable() {
-	return <Desk rows="table" />;
-}
 
 export function Sheet() {
 	const [value, setValue] = useState("");
