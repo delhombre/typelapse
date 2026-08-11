@@ -44,7 +44,7 @@ export const SCREEN_CONFIGS = [
 	{
 		platform: "reels",
 		themeName: "aurora",
-		presetId: "aurora",
+		presetId: "solar",
 		title: "api/users.ts",
 		code: "const active = users.filter(\n  (u) => u.active\n)",
 		meshTime: 9,

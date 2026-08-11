@@ -40,6 +40,26 @@ export const MESH_LOOP_PERIOD = 16;
 const TAU = Math.PI * 2;
 
 export const MESH_PRESETS: MeshPreset[] = [
+	/* The brand's own light. First in the list, so it is what the landing shows
+	   and what `MESH_PRESETS[0]` falls back to: the backdrop behind the code is
+	   the largest colour on the page, and it answering the primary is what keeps
+	   the page one thing rather than a yellow button on a blue poster.
+
+	   Its accent is the primary exactly; the blobs walk from it into orange and
+	   red rather than reaching for a complement, and the base is a warm near
+	   black, so the dark code window still sits on it with room to spare. */
+	{
+		id: "solar",
+		label: "Solar",
+		base: "#160c02",
+		accent: "#f1be01",
+		blobs: [
+			{ color: "#f1be01", x: 27, y: 27, ax: 13, ay: 10, cx: 1, cy: 1, phase: 0.05, radius: 55 },
+			{ color: "#f97316", x: 73, y: 30, ax: 12, ay: 13, cx: 1, cy: 2, phase: 0.38, radius: 54 },
+			{ color: "#dc2626", x: 60, y: 76, ax: 15, ay: 11, cx: 2, cy: 1, phase: 0.68, radius: 50 },
+			{ color: "#b45309", x: 17, y: 74, ax: 10, ay: 12, cx: 1, cy: 1, phase: 0.9, radius: 46 },
+		],
+	},
 	{
 		id: "aurora",
 		label: "Aurora",

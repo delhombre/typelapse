@@ -42,7 +42,7 @@ const FAN = [
 	},
 	{
 		themeName: "aurora",
-		presetId: "aurora",
+		presetId: "solar",
 		title: "api/users.ts",
 		language: "typescript",
 		code: "const active = users.filter(\n  (u) => u.active\n)",
