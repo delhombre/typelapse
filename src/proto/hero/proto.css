@@ -349,12 +349,12 @@
 	   paper at that same 10% it is one value the whole way, and the same value
 	   the field's ring carries on with. */
 	border: 1px solid var(--edge);
-	/* Three turns and one square corner: the bottom left is the assembly's own
-	   edge running on down into the field, so it does not turn here. The bottom
-	   right does — it was the one corner of this object that met another edge at a
-	   right angle. Turned, it lands on the field's top edge horizontally, which is
-	   to say tangentially, and the silhouette runs on without a corner in it. */
-	border-radius: calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) 0;
+	/* Two turns on top and two square corners under it. The bottom of this block
+	   is not an outline, it is where the block sits: it lies flat on the field
+	   from one end to the other, and a seating surface does not curve away at its
+	   ends. On the left that corner is the assembly's own edge carrying on down
+	   into the field; on the right it is simply where the block stops. */
+	border-radius: calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) 0 0;
 }
 
 /* Glued, and ruled apart by a hairline rather than by a gap. */
@@ -401,7 +401,6 @@
 
 .proto-desk-modes button:last-child {
 	border-top-right-radius: var(--mode-r);
-	border-bottom-right-radius: var(--mode-r);
 }
 
 /* The selected pastille takes the field's own surface and no edge of its own:
