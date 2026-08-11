@@ -2,22 +2,30 @@ import { Instrument } from "@/presentation/landing/instrument";
 import { Reveal, RevealGroup, RevealItem } from "@/presentation/landing/primitives";
 import { GITHUB_URL } from "@/presentation/landing/tokens";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 
-/* Desk, taken up to the dock's level.
-   The flat version worked but read as a form sitting above a beautifully made
-   control. The move is to stop treating them as two widgets: the field becomes
-   the same object as the island below it, so the page reads as two islands with
-   the frame held between them — input above, controls below.
+/* Desk's field, kept — three text treatments around it.
 
-   Everything material is borrowed rather than invented. The fill, the ink and
-   the dim are the island's own `--dock-*` tokens, so the two can never drift
-   apart; the selection is the island's gliding plate on one `layoutId`; the
-   spring is the sampled an external reference width spring with bounce left in it. a source's
-   rules do the rest: entrances ease out under 300ms and never fade from zero,
-   the press scales to 0.97, the placeholder swap is masked with blur because
-   nothing else bridges two strings cleanly, and no transition is `all`.
+   The field was the part that worked, so it is now one shared component and
+   identical in all three: only restyled into our own tokens (warm surface, our
+   hairline, our accent) and given the island's craft rules — the selection is a
+   gliding plate rather than a border, controls are transparent until hovered,
+   the action is the only filled shape, and the radii are concentric.
+
+   What varies is the typography, which was the actual problem: the whole hero
+   was mono at 13px in one grey, one size, one register, so nothing had rank.
+
+   One rule governs the two faces, and it is not negotiable per variant:
+
+     Ioskeley Mono is a *code* face. It carries machine text only — the URL or
+     diff you paste, the example repositories and their diffstats, an inline
+     fragment quoted from a command. Geist carries everything a human wrote,
+     the headline included.
+
+   Setting a 52px headline in the code face was the flat version's other
+   mistake: it makes the sentence look like output when it is a claim, and it
+   spends the one face that should mean "this is literally your code".
 
    Throwaway. Delete src/proto and the route in main.tsx once one wins. */
 
@@ -33,245 +41,222 @@ const MODES = [
 	{ id: "snippet", label: "snippet", hint: "const users = await db.users.all()" },
 ] as const;
 
-/** an external reference's width spring, sampled: bounce left in, a short settle. */
-const ISLAND_SPRING = { type: "spring", stiffness: 260, damping: 26, mass: 1 } as const;
-/** The selection plate glides on the island's own curve. */
 const PLATE_SPRING = { type: "spring", stiffness: 420, damping: 32, mass: 0.7 } as const;
+const PRESS_SPRING = { type: "spring", stiffness: 260, damping: 26, mass: 1 } as const;
 
-/** The entrance does not fade: sampled off an external reference, it is a scale that
-    overshoots from 0.996 to 1.0068 and settles. */
-const rise = (reduce: boolean, delay: number) =>
-	reduce
-		? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.2, delay } }
-		: {
-				initial: { opacity: 0.99, scale: 0.996, y: 6 },
-				animate: { opacity: 1, scale: [0.996, 1.0068, 1] as number[], y: 0 },
-				transition: {
-					duration: 0.32,
-					ease: [0.23, 1, 0.32, 1] as [number, number, number, number],
-					delay,
-				},
-			};
-
-function Caret({ idle }: { idle: boolean }) {
-	return <span className="proto-caret" data-idle={idle ? "" : undefined} aria-hidden="true" />;
-}
-
-function Examples({ tone }: { tone?: "dark" }) {
-	return (
-		<ul className="proto-examples" data-tone={tone}>
-			{EXAMPLES.map(([url, meta]) => (
-				<li key={url}>
-					<Link to="/app">{url}</Link>
-					<span>{meta}</span>
-				</li>
-			))}
-		</ul>
-	);
-}
-
-/* ═══════════ 1. Twin ═══════════
-   The field is an island. Same fill, same pill, same rules as the dock below:
-   every control transparent until hovered, the selection a gliding plate, and
-   exactly one filled shape — the action. The frame is then held between two
-   objects of the same family rather than floating under a form. */
-
-export function Twin() {
+/** The field, unchanged across the three — the part that already worked. */
+function PasteField() {
 	const reduce = useReducedMotion() ?? false;
 	const [mode, setMode] = useState<(typeof MODES)[number]["id"]>("pr");
 	const [value, setValue] = useState("");
 	const active = MODES.find((m) => m.id === mode) ?? MODES[0];
 
 	return (
-		<section className="proto-hero proto-twin">
-			<div className="proto-twin-col">
-				<RevealGroup immediate>
-					<RevealItem>
-						<p className="proto-twin-lead">
-							Turn a code change into a video. Paste a pull request, a diff or a snippet — it morphs
-							token by token and renders for the feed.
-						</p>
-					</RevealItem>
-				</RevealGroup>
-
-				<motion.div className="proto-twin-island" {...rise(reduce, 0.08)}>
-					{/* The modes: transparent until hovered, the active one wearing the
-					    island's plate rather than a border. */}
-					<div className="proto-twin-modes" role="tablist" aria-label="What you are pasting">
-						{MODES.map((m) => (
-							<button
-								key={m.id}
-								type="button"
-								role="tab"
-								aria-selected={m.id === mode}
-								className="proto-twin-mode"
-								onClick={() => setMode(m.id)}
-							>
-								{m.id === mode && (
-									<motion.span
-										layoutId="twin-plate"
-										className="proto-twin-plate"
-										transition={reduce ? { duration: 0 } : PLATE_SPRING}
-									/>
-								)}
-								<span>{m.label}</span>
-							</button>
-						))}
-					</div>
-
-					<span className="proto-twin-sep" aria-hidden="true" />
-
-					<label className="proto-twin-field">
-						<span className="sr-only">Paste a {active.label}</span>
-						<input
-							type="text"
-							value={value}
-							onChange={(e) => setValue(e.target.value)}
-							spellCheck={false}
-							aria-label={`Paste a ${active.label}`}
-						/>
-						{/* The placeholder is a layer, not an attribute: swapping strings on
-						    a mode change needs a blur to bridge them, which an attribute
-						    cannot animate. */}
-						{value.length === 0 && (
-							<AnimatePresence mode="wait" initial={false}>
-								<motion.span
-									key={active.id}
-									className="proto-twin-hint"
-									initial={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
-									animate={{ opacity: 1, filter: "blur(0px)" }}
-									exit={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
-									transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-									aria-hidden="true"
-								>
-									{active.hint}
-								</motion.span>
-							</AnimatePresence>
+		<div className="proto-field-wrap">
+			<div className="proto-modes" role="tablist" aria-label="What you are pasting">
+				{MODES.map((m) => (
+					<button
+						key={m.id}
+						type="button"
+						role="tab"
+						aria-selected={m.id === mode}
+						className="proto-mode"
+						onClick={() => setMode(m.id)}
+					>
+						{m.id === mode && (
+							<motion.span
+								layoutId="proto-plate"
+								className="proto-plate"
+								transition={reduce ? { duration: 0 } : PLATE_SPRING}
+							/>
 						)}
-						<Caret idle={value.length === 0} />
-					</label>
-
-					<motion.div whileTap={reduce ? undefined : { scale: 0.97 }} transition={ISLAND_SPRING}>
-						<Link to="/app" className="proto-twin-go">
-							Render
-						</Link>
-					</motion.div>
-				</motion.div>
-
-				<motion.div {...rise(reduce, 0.16)}>
-					<Examples />
-					<p className="proto-twin-meta">
-						mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
-						<a href={GITHUB_URL} target="_blank" rel="noreferrer">
-							source
-						</a>
-					</p>
-				</motion.div>
+						<span>{m.label}</span>
+					</button>
+				))}
 			</div>
 
-			<Reveal immediate delay={0.26} className="mt-9">
+			<div className="proto-field">
+				<label className="proto-field-inner">
+					<span className="sr-only">Paste a {active.label}</span>
+					<input
+						type="text"
+						value={value}
+						onChange={(e) => setValue(e.target.value)}
+						spellCheck={false}
+						aria-label={`Paste a ${active.label}`}
+					/>
+					{/* A layer, not a placeholder attribute: swapping two strings on a mode
+					    change needs a blur to bridge them, and an attribute cannot animate. */}
+					{value.length === 0 && (
+						<AnimatePresence mode="wait" initial={false}>
+							<motion.span
+								key={active.id}
+								className="proto-hint"
+								initial={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
+								animate={{ opacity: 1, filter: "blur(0px)" }}
+								exit={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
+								transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+								aria-hidden="true"
+							>
+								{active.hint}
+							</motion.span>
+						</AnimatePresence>
+					)}
+					<span className="proto-caret" data-idle={value.length === 0 ? "" : undefined} />
+				</label>
+
+				<motion.div whileTap={reduce ? undefined : { scale: 0.97 }} transition={PRESS_SPRING}>
+					<Link to="/app" className="proto-go">
+						Render
+					</Link>
+				</motion.div>
+			</div>
+		</div>
+	);
+}
+
+/** The example log: a mono eyebrow, then rows whose numbers align. */
+function Log({ label = "Try one" }: { label?: string }) {
+	return (
+		<div className="proto-log">
+			<p className="proto-log-label">{label}</p>
+			<ul>
+				{EXAMPLES.map(([url, meta]) => (
+					<li key={url}>
+						<Link to="/app">{url}</Link>
+						<span>{meta}</span>
+					</li>
+				))}
+			</ul>
+		</div>
+	);
+}
+
+function Spec({ children }: { children?: ReactNode }) {
+	return (
+		<p className="lp-micro proto-spec">
+			{children}
+			mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
+			<a href={GITHUB_URL} target="_blank" rel="noreferrer">
+				source
+			</a>
+		</p>
+	);
+}
+
+/* ═══════════ 1. Statement ═══════════
+   The claim comes back, in the landing's own display mono, and the field sits
+   directly under it as the answer. Three registers doing three jobs: the mono
+   display states, the sans explains, small mono handles the machine. This is the
+   page's existing type system, simply applied — the flat version used none of
+   it. */
+
+export function Statement() {
+	return (
+		<section className="proto-hero proto-statement">
+			<div className="proto-col">
+				<RevealGroup immediate>
+					<RevealItem>
+						<h1 className="proto-title">Your pull request, as a video</h1>
+					</RevealItem>
+					<RevealItem>
+						<p className="lp-lead proto-sub">
+							Paste it below. Typelapse morphs the diff token by token and renders a file the feed
+							will take.
+						</p>
+					</RevealItem>
+					<RevealItem>
+						<PasteField />
+					</RevealItem>
+					<RevealItem>
+						<Log />
+					</RevealItem>
+					<RevealItem>
+						<Spec />
+					</RevealItem>
+				</RevealGroup>
+			</div>
+			<Reveal immediate delay={0.28} className="mt-9">
 				<Instrument />
 			</Reveal>
 		</section>
 	);
 }
 
-/* ═══════════ 2. Bench ═══════════
-   The same craft rules on paper instead of on the dark: a raised white pill with
-   the layered shadow the card system already uses, the plate in ink, and the
-   action as the only filled shape. Kept as the counterweight — two dark islands
-   stacked around a frame may be one dark object too many, and this answers that
-   without giving up the material relationship. */
+/* ═══════════ 2. Duet ═══════════
+   The two faces play against each other on one line rather than in two blocks:
+   the sentence starts in the sans and lands on `--from-pr 1247` in the mono, so
+   the typeface change *is* the emphasis. Pairing for contrast rather than for
+   similarity, which is the rule the flat version broke by setting everything in
+   one face at one size. */
 
-export function Bench() {
-	const reduce = useReducedMotion() ?? false;
-	const [mode, setMode] = useState<(typeof MODES)[number]["id"]>("pr");
-	const [value, setValue] = useState("");
-	const active = MODES.find((m) => m.id === mode) ?? MODES[0];
-
+export function Duet() {
 	return (
-		<section className="proto-hero proto-bench">
-			<div className="proto-bench-col">
+		<section className="proto-hero proto-duet">
+			<div className="proto-col">
 				<RevealGroup immediate>
 					<RevealItem>
-						<p className="proto-bench-lead">
-							Turn a code change into a video. Paste a pull request, a diff or a snippet — it morphs
-							token by token and renders for the feed.
+						<h1 className="proto-duet-title">
+							Turn <span className="proto-duet-mono">--from-pr 1247</span>
+							<br />
+							into something people watch.
+						</h1>
+					</RevealItem>
+					<RevealItem>
+						<p className="lp-lead proto-sub">
+							One engine morphs the diff and renders the export, so the preview is the file.
 						</p>
 					</RevealItem>
+					<RevealItem>
+						<PasteField />
+					</RevealItem>
+					<RevealItem>
+						<Log label="Recent" />
+					</RevealItem>
+					<RevealItem>
+						<Spec />
+					</RevealItem>
 				</RevealGroup>
-
-				<motion.div className="proto-bench-island" {...rise(reduce, 0.08)}>
-					<div className="proto-bench-modes" role="tablist" aria-label="What you are pasting">
-						{MODES.map((m) => (
-							<button
-								key={m.id}
-								type="button"
-								role="tab"
-								aria-selected={m.id === mode}
-								className="proto-bench-mode"
-								onClick={() => setMode(m.id)}
-							>
-								{m.id === mode && (
-									<motion.span
-										layoutId="bench-plate"
-										className="proto-bench-plate"
-										transition={reduce ? { duration: 0 } : PLATE_SPRING}
-									/>
-								)}
-								<span>{m.label}</span>
-							</button>
-						))}
-					</div>
-
-					<span className="proto-bench-sep" aria-hidden="true" />
-
-					<label className="proto-bench-field">
-						<span className="sr-only">Paste a {active.label}</span>
-						<input
-							type="text"
-							value={value}
-							onChange={(e) => setValue(e.target.value)}
-							spellCheck={false}
-							aria-label={`Paste a ${active.label}`}
-						/>
-						{value.length === 0 && (
-							<AnimatePresence mode="wait" initial={false}>
-								<motion.span
-									key={active.id}
-									className="proto-bench-hint"
-									initial={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
-									animate={{ opacity: 1, filter: "blur(0px)" }}
-									exit={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
-									transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-									aria-hidden="true"
-								>
-									{active.hint}
-								</motion.span>
-							</AnimatePresence>
-						)}
-						<Caret idle={value.length === 0} />
-					</label>
-
-					<motion.div whileTap={reduce ? undefined : { scale: 0.97 }} transition={ISLAND_SPRING}>
-						<Link to="/app" className="proto-bench-go">
-							Render
-						</Link>
-					</motion.div>
-				</motion.div>
-
-				<motion.div {...rise(reduce, 0.16)}>
-					<Examples />
-					<p className="proto-bench-meta">
-						mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
-						<a href={GITHUB_URL} target="_blank" rel="noreferrer">
-							source
-						</a>
-					</p>
-				</motion.div>
 			</div>
+			<Reveal immediate delay={0.28} className="mt-9">
+				<Instrument />
+			</Reveal>
+		</section>
+	);
+}
 
-			<Reveal immediate delay={0.26} className="mt-9">
+/* ═══════════ 3. Caption ═══════════
+   The weight moves under the field. The top is a quiet instruction — the field
+   is the first thing you meet, not a claim about it — and the display line sits
+   below, captioning the object it introduces the way a plate is labelled in a
+   catalogue. The most confident of the three, and the only one where the biggest
+   type is not the first thing read. */
+
+export function Caption() {
+	return (
+		<section className="proto-hero proto-caption">
+			<div className="proto-col">
+				<RevealGroup immediate>
+					<RevealItem>
+						<p className="lp-eyebrow proto-caption-eyebrow">Paste a change</p>
+					</RevealItem>
+					<RevealItem>
+						<PasteField />
+					</RevealItem>
+					<RevealItem>
+						<Log />
+					</RevealItem>
+					<RevealItem>
+						<h1 className="proto-caption-title">
+							…and get a video of it, <span className="proto-code">token by token</span>.
+						</h1>
+					</RevealItem>
+					<RevealItem>
+						<Spec />
+					</RevealItem>
+				</RevealGroup>
+			</div>
+			<Reveal immediate delay={0.28} className="mt-9">
 				<Instrument />
 			</Reveal>
 		</section>

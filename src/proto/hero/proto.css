@@ -1,10 +1,12 @@
 /* Proto-only styles. Dies with src/proto.
 
-   The field is built from the island's own tokens — `--dock-bg`, `--dock-ink`,
-   `--dock-dim` are read, never redeclared, so the two objects cannot drift. The
-   rules are the island's too: every control transparent until hovered, the
-   selection a plate rather than a ring, exactly one filled shape, concentric
-   radii, and named transition properties (never `all`). */
+   The field is Desk's, restyled into our tokens: warm surface, our hairline, our
+   accent, and the island's craft rules — a gliding plate instead of a border,
+   controls transparent until hovered, one filled shape, concentric radii.
+
+   Everything else here is typography, which was the real problem: the flat
+   version set the whole hero in mono at 13px in one grey, so nothing had rank.
+   These use the landing's own classes and only differ in where the weight sits. */
 
 .proto-root {
 	min-height: 100svh;
@@ -13,9 +15,15 @@
 .proto-hero {
 	padding-top: clamp(56px, 9vh, 104px);
 	padding-bottom: 76px;
-	font-family: var(--font-mono);
-	font-size: 13px;
-	line-height: 22px;
+	--hero-chrome: 660px;
+	--stage-max: 300px;
+}
+
+.proto-col {
+	width: 100%;
+	max-width: 720px;
+	margin-inline: auto;
+	padding-inline: 24px;
 }
 
 .sr-only {
@@ -30,17 +38,113 @@
 	border-width: 0;
 }
 
-/* ── The block caret ──
-   Blinks only while its field is empty, and never under reduced motion: a caret
-   that blinks forever is the animation a developer would see ten thousand
-   times, which is the one a source's rule says not to ship. */
+/* ══════════ The field (shared, unchanged across the three) ══════════ */
+
+.proto-field-wrap {
+	margin-top: 26px;
+}
+
+.proto-modes {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	margin-bottom: 8px;
+}
+
+.proto-mode {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	height: 28px;
+	padding: 0 10px;
+	border-radius: 8px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--color-ash);
+	white-space: nowrap;
+	transition: color 150ms var(--ease-out);
+}
+
+.proto-mode:hover,
+.proto-mode[aria-selected="true"] {
+	color: var(--color-ink);
+}
+
+.proto-mode > span {
+	position: relative;
+	z-index: 1;
+}
+
+/* Selection is a plate on the control's own shape, gliding between modes. */
+.proto-plate {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	border-radius: inherit;
+	background: color-mix(in oklch, var(--color-ink) 7%, transparent);
+}
+
+.proto-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	height: 52px;
+	/* Concentric: 52px tall with 7px of padding gives the action 38px at 12px. */
+	padding: 0 7px 0 14px;
+	border-radius: 12px;
+	background: var(--color-surface);
+	box-shadow: 0 0 0 1px var(--color-hairline), 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 20px -12px
+		rgb(0 0 0 / 0.12);
+	transition: box-shadow 160ms var(--ease-out);
+}
+
+.proto-field:focus-within {
+	box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-ink) 26%, transparent), 0 1px 2px
+		rgb(0 0 0 / 0.04), 0 10px 26px -12px rgb(0 0 0 / 0.16);
+}
+
+.proto-field-inner {
+	position: relative;
+	display: flex;
+	align-items: center;
+	flex: 1;
+	min-width: 0;
+	height: 100%;
+	cursor: text;
+}
+
+.proto-field-inner input {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	background: none;
+	border: 0;
+	outline: none;
+	padding: 0;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	color: var(--color-ink);
+	caret-color: transparent;
+}
+
+.proto-hint {
+	font-family: var(--font-mono);
+	font-size: 13px;
+	color: color-mix(in oklch, var(--color-ash) 80%, transparent);
+	pointer-events: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
 
 .proto-caret {
+	position: relative;
 	display: inline-block;
 	width: 0.6em;
 	height: 1.05em;
-	translate: 0 0.16em;
-	background: currentColor;
+	translate: 0 0.05em;
+	background: var(--color-ink);
+	font-size: 13px;
 	flex: none;
 }
 
@@ -65,358 +169,206 @@
 	}
 }
 
-/* ── Shared: the example log ── */
-
-.proto-examples {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	margin-top: 16px;
+/* The only filled shape. */
+.proto-go {
+	display: inline-flex;
+	align-items: center;
+	height: 38px;
+	padding: 0 16px;
+	border-radius: 8px;
+	background: var(--color-cta);
+	color: #fff;
+	font-family: var(--font-sans);
+	font-size: 13px;
+	font-weight: 650;
+	white-space: nowrap;
+	transition: filter 150ms var(--ease-out);
 }
 
-.proto-examples li {
+.proto-go:hover {
+	filter: brightness(1.08);
+}
+
+.proto-mode:focus-visible,
+.proto-go:focus-visible {
+	outline: 2px solid var(--color-ink);
+	outline-offset: 2px;
+}
+
+/* ══════════ The example log ══════════
+   A labelled log, not a bulleted list: the label is an uppercase mono eyebrow
+   and the weights are tabular, so the numbers form a column. */
+
+.proto-log {
+	margin-top: 22px;
+}
+
+.proto-log-label {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: color-mix(in oklch, var(--color-ash) 78%, transparent);
+	margin-bottom: 6px;
+}
+
+.proto-log ul {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+
+.proto-log li {
 	display: flex;
 	justify-content: space-between;
 	gap: 2ch;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	line-height: 20px;
 }
 
-.proto-examples a {
+.proto-log a {
 	color: var(--color-ash);
 	text-decoration: none;
 	transition: color 140ms var(--ease-out);
 }
 
-.proto-examples a:hover {
+.proto-log a:hover {
 	color: var(--color-ink);
 	text-decoration: underline;
 	text-underline-offset: 3px;
 }
 
-.proto-examples span {
-	color: color-mix(in oklch, var(--color-ash) 70%, transparent);
+.proto-log span {
+	color: color-mix(in oklch, var(--color-ash) 66%, transparent);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
 
-/* ══════════ 1. Twin — the field as an island ══════════ */
-
-.proto-twin {
-	--hero-chrome: 560px;
-	--stage-max: 340px;
-}
-
-.proto-twin-col,
-.proto-bench-col {
-	width: 100%;
-	max-width: 720px;
-	margin-inline: auto;
-	padding-inline: 24px;
-}
-
-.proto-twin-lead,
-.proto-bench-lead {
-	max-width: 58ch;
-	font-size: 15px;
-	line-height: 24px;
-	color: var(--color-ash);
-}
-
-/* The island. Taller than the dock's 40px on purpose: this one is typed into,
-   and the difference in height is what makes it the primary of the two. */
-.proto-twin-island {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	height: 54px;
+.proto-spec {
 	margin-top: 22px;
-	padding: 0 6px;
-	border-radius: 999px;
-	background: var(--dock-bg);
-	color: var(--dock-ink);
-	box-shadow: 0 8px 24px rgb(18 18 20 / 0.18);
-	overflow: hidden;
-}
-
-.proto-twin-modes {
-	display: flex;
-	align-items: center;
-	gap: 2px;
-	flex: none;
-}
-
-.proto-twin-mode {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-	height: 34px;
-	padding: 0 11px;
-	/* Concentric with the pill: 54px tall, 6px of padding, so 27 − 6 = 21. */
-	border-radius: 21px;
-	color: var(--dock-dim);
-	font: inherit;
-	white-space: nowrap;
-	transition: color 150ms var(--ease-out);
-}
-
-.proto-twin-mode:hover {
-	color: var(--dock-ink);
-}
-
-.proto-twin-mode[aria-selected="true"] {
-	color: var(--dock-ink);
-}
-
-.proto-twin-mode > span {
-	position: relative;
-	z-index: 1;
-}
-
-/* Selection is a plate on the control's own shape, gliding between modes — the
-   island's rule, and the reason nothing here needs a border. */
-.proto-twin-plate {
-	position: absolute;
-	inset: 0;
-	z-index: 0;
-	border-radius: inherit;
-	background: rgb(255 255 255 / 0.16);
-	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.24);
-}
-
-.proto-twin-sep {
-	width: 1px;
-	height: 20px;
-	flex: none;
-	background: var(--dock-hairline);
-	margin-inline: 2px;
-}
-
-.proto-twin-field {
-	position: relative;
-	display: flex;
-	align-items: center;
-	flex: 1;
-	min-width: 0;
-	height: 34px;
-	cursor: text;
-}
-
-.proto-twin-field input {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	background: none;
-	border: 0;
-	outline: none;
-	padding: 0;
-	font: inherit;
-	color: var(--dock-ink);
-	caret-color: transparent;
-}
-
-.proto-twin-hint {
-	color: color-mix(in oklch, var(--dock-dim) 82%, transparent);
-	pointer-events: none;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.proto-twin-field .proto-caret {
-	position: relative;
-	color: var(--dock-ink);
-}
-
-/* The only filled shape in the object, exactly as in the dock. */
-.proto-twin-go {
-	display: inline-flex;
-	align-items: center;
-	height: 38px;
-	padding: 0 16px;
-	border-radius: 999px;
-	background: var(--color-cta);
-	color: #fff;
-	font-family: var(--font-sans);
-	font-size: 13px;
-	font-weight: 650;
-	letter-spacing: 0.01em;
-	white-space: nowrap;
-	transition: filter 150ms var(--ease-out);
-}
-
-.proto-twin-go:hover {
-	filter: brightness(1.08);
-}
-
-/* The island clips its own overflow, so the ring sits inside with room. */
-.proto-twin-mode:focus-visible,
-.proto-twin-go:focus-visible {
-	outline: 2px solid var(--dock-ink);
-	outline-offset: -3px;
-}
-
-.proto-twin-meta,
-.proto-bench-meta {
-	margin-top: 18px;
 	padding-top: 14px;
 	border-top: 1px solid var(--color-hairline);
-	color: var(--color-ash);
 }
 
-.proto-twin-meta a,
-.proto-bench-meta a {
+.proto-spec a {
 	color: var(--color-ink);
 	text-decoration: underline;
 	text-underline-offset: 3px;
 }
 
-/* ══════════ 2. Bench — the same craft, on paper ══════════ */
+/* ══════════ The two faces ══════════
+   Ioskeley Mono is the code face: it appears on machine text only — what you
+   paste, the example repositories, an inline fragment quoted from a command.
+   Every claim a human wrote is set in Geist. A headline in the code face reads
+   as output rather than as a statement, and it spends the one face that should
+   mean "this is literally your code". */
 
-.proto-bench {
-	--hero-chrome: 560px;
-	--stage-max: 340px;
-}
-
-/* Layered rather than one big drop: a hairline, a contact shadow and two depth
-   shadows read as a physical object; a single 30px blur reads as a sticker. */
-.proto-bench-island {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	height: 54px;
-	margin-top: 22px;
-	padding: 0 6px;
-	border-radius: 999px;
-	background: var(--color-surface);
-	box-shadow:
-		0 0 0 1px rgb(0 0 0 / 0.05),
-		0 1px 2px rgb(0 0 0 / 0.05),
-		0 8px 20px -10px rgb(0 0 0 / 0.14),
-		0 22px 44px -24px rgb(0 0 0 / 0.16);
-	overflow: hidden;
-}
-
-.proto-bench-modes {
-	display: flex;
-	align-items: center;
-	gap: 2px;
-	flex: none;
-}
-
-.proto-bench-mode {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-	height: 34px;
-	padding: 0 11px;
-	border-radius: 21px;
-	color: var(--color-ash);
-	font: inherit;
-	white-space: nowrap;
-	transition: color 150ms var(--ease-out);
-}
-
-.proto-bench-mode:hover,
-.proto-bench-mode[aria-selected="true"] {
+.proto-display {
+	font-family: var(--font-sans);
+	font-weight: 600;
+	font-size: clamp(1.9rem, 1.1rem + 2.6vw, 3rem);
+	line-height: 1.1;
+	letter-spacing: -0.026em;
 	color: var(--color-ink);
+	text-wrap: balance;
 }
 
-.proto-bench-mode > span {
-	position: relative;
-	z-index: 1;
-}
-
-.proto-bench-plate {
-	position: absolute;
-	inset: 0;
-	z-index: 0;
-	border-radius: inherit;
+/* An inline fragment of the machine's own language, inside a human sentence. */
+.proto-code {
+	font-family: var(--font-mono);
+	font-weight: 600;
+	/* The mono runs larger at the same nominal size, so it steps down to sit on
+	   the sans's x-height instead of towering over it. */
+	font-size: 0.86em;
+	letter-spacing: -0.01em;
+	padding: 0.06em 0.26em;
+	border-radius: 0.22em;
 	background: color-mix(in oklch, var(--color-ink) 7%, transparent);
 }
 
-.proto-bench-sep {
-	width: 1px;
-	height: 20px;
-	flex: none;
-	background: var(--color-hairline);
-	margin-inline: 2px;
-}
+/* ══════════ 1. Statement ══════════ */
 
-.proto-bench-field {
-	position: relative;
-	display: flex;
-	align-items: center;
-	flex: 1;
-	min-width: 0;
-	height: 34px;
-	cursor: text;
+.proto-title {
+	max-width: 20ch;
 	color: var(--color-ink);
-}
-
-.proto-bench-field input {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	background: none;
-	border: 0;
-	outline: none;
-	padding: 0;
-	font: inherit;
-	color: var(--color-ink);
-	caret-color: transparent;
-}
-
-.proto-bench-hint {
-	color: color-mix(in oklch, var(--color-ash) 80%, transparent);
-	pointer-events: none;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.proto-bench-go {
-	display: inline-flex;
-	align-items: center;
-	height: 38px;
-	padding: 0 16px;
-	border-radius: 999px;
-	background: var(--color-cta);
-	color: #fff;
 	font-family: var(--font-sans);
-	font-size: 13px;
-	font-weight: 650;
-	letter-spacing: 0.01em;
-	white-space: nowrap;
-	transition: filter 150ms var(--ease-out);
+	font-weight: 600;
+	font-size: clamp(1.9rem, 1.1rem + 2.6vw, 3rem);
+	line-height: 1.1;
+	letter-spacing: -0.026em;
+	text-wrap: balance;
 }
 
-.proto-bench-go:hover {
-	filter: brightness(1.08);
+.proto-sub {
+	margin-top: 14px;
+	max-width: 52ch;
 }
 
-.proto-bench-mode:focus-visible,
-.proto-bench-go:focus-visible {
-	outline: 2px solid var(--color-ink);
-	outline-offset: -3px;
+/* Duet's headline is two lines by construction, so its stage gives back the
+   extra line rather than pushing the dock past the fold. */
+.proto-duet {
+	--hero-chrome: 720px;
+	--stage-max: 268px;
+}
+
+/* ══════════ 2. Duet ══════════
+   The typeface change is the emphasis: the sentence starts in the sans and
+   lands in the product's own mono. */
+
+.proto-duet-title {
+	font-family: var(--font-sans);
+	font-weight: 600;
+	font-size: clamp(1.9rem, 1.1rem + 2.6vw, 3rem);
+	line-height: 1.1;
+	letter-spacing: -0.026em;
+	color: var(--color-ink);
+	text-wrap: balance;
+}
+
+/* Duet was already using the two faces correctly: the mono only on the command
+   fragment. It now shares the rule with the other two. */
+.proto-duet-mono {
+	font-family: var(--font-mono);
+	font-weight: 600;
+	font-size: 0.86em;
+	letter-spacing: -0.01em;
+	padding: 0.06em 0.26em;
+	border-radius: 0.22em;
+	background: color-mix(in oklch, var(--color-ink) 7%, transparent);
+}
+
+/* ══════════ 3. Caption ══════════
+   The biggest type is not the first thing read. */
+
+.proto-caption-eyebrow {
+	display: block;
+}
+
+.proto-caption-title {
+	margin-top: 24px;
+	max-width: 22ch;
+	color: var(--color-ink);
+	font-family: var(--font-sans);
+	font-weight: 600;
+	font-size: clamp(1.75rem, 1.05rem + 2.3vw, 2.6rem);
+	line-height: 1.1;
+	letter-spacing: -0.026em;
+	text-wrap: balance;
 }
 
 @media (max-width: 620px) {
-	.proto-twin-island,
-	.proto-bench-island {
+	.proto-field {
 		height: auto;
 		flex-wrap: wrap;
-		gap: 8px;
 		padding: 8px;
-		border-radius: 22px;
+		gap: 8px;
 	}
-	.proto-twin-sep,
-	.proto-bench-sep {
-		display: none;
-	}
-	.proto-twin-field,
-	.proto-bench-field {
+	.proto-field-inner {
 		flex-basis: 100%;
+		height: 34px;
 	}
-	.proto-examples li {
+	.proto-log li {
 		flex-direction: column;
 		gap: 0;
 	}
