@@ -1,6 +1,13 @@
-import { motion, useReducedMotion } from "motion/react";
+import { type Variants, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { StaticFrame } from "./static-frame";
+import {
+	LP_EASE,
+	REVEAL_DURATION,
+	REVEAL_DURATION_REDUCED,
+	REVEAL_EASE,
+	REVEAL_VIEWPORT,
+} from "./tokens";
 
 /** Picking a card up and putting it down are not the same gesture, so they do
     not share a curve. Reaching in is deliberate and carries one soft breath of
@@ -25,6 +32,48 @@ const LIFT_STRAIGHTEN = 0.25;
     a fan that is never at rest, and the gesture stops meaning anything. */
 const NUDGE_X = 7;
 const NUDGE_ROT = 1.5;
+
+/** The hand deals itself in. It used to arrive as one 380px block, which is
+    what a single reveal around five cards buys you: the shapes are the claim
+    here, and they landed as a rectangle. Dealt one at a time they read as five
+    cards. Slower than the page's own stagger — these are objects, not lines of
+    a list, and 50ms is about the interval at which a hand stops looking
+    shuffled. No blur, though the page's reveals carry one: five layered blurs
+    in a single block is paint the rest of the page only ever pays for one
+    element at a time. */
+const DEAL_STAGGER = 0.05;
+const DEAL_RISE = 14;
+const DEAL_SCALE = 0.985;
+
+const DEAL_PARENT: Variants = {
+	hidden: {},
+	shown: { transition: { staggerChildren: DEAL_STAGGER } },
+};
+
+/** Reduced motion keeps the deal but drops the movement, exactly as the page's
+    own reveal items do: the cards still arrive one after another, they just
+    arrive by appearing. */
+const dealVariants = (reduce: boolean): Variants => {
+	if (reduce) {
+		return {
+			hidden: { opacity: 0 },
+			shown: {
+				opacity: 1,
+				transition: { duration: REVEAL_DURATION_REDUCED, ease: LP_EASE },
+			},
+		};
+	}
+
+	return {
+		hidden: { opacity: 0, y: DEAL_RISE, scale: DEAL_SCALE },
+		shown: {
+			opacity: 1,
+			y: 0,
+			scale: 1,
+			transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE },
+		},
+	};
+};
 
 /** The stack is asymmetric because the lift is: a card takes the front the
     instant it starts rising, and a card that is coming back down still has to
@@ -168,10 +217,18 @@ export function FrameFan() {
 		});
 	};
 
+	const deal = dealVariants(Boolean(reduce));
+
 	return (
 		<section className="mx-auto w-full max-w-5xl px-6 py-6">
 			{/* Desktop: the fan. */}
-			<div className="relative hidden h-[380px] md:block">
+			<motion.div
+				className="relative hidden h-[380px] md:block"
+				initial="hidden"
+				whileInView="shown"
+				viewport={REVEAL_VIEWPORT}
+				variants={DEAL_PARENT}
+			>
 				{FAN.map((card, i) => {
 					const baseZ = 30 - Math.abs(i - 2) * 10;
 					/* Only the cards touching the hovered one move aside, and they move
@@ -205,61 +262,77 @@ export function FrameFan() {
 								transform: `translateX(${card.x - card.width / 2}px)`,
 							}}
 						>
-							<motion.div
-								onHoverStart={() => setHovered(i)}
-								onHoverEnd={() => {
-									setHovered(null);
-									beginDescent(i);
-								}}
-								onAnimationComplete={() => endDescent(i)}
-								className="h-full w-full"
-								initial={false}
-								animate={{
-									x: restX,
-									y: 0,
-									rotate: restRot,
-									scale: 1,
-									transition: isNeighbour ? PICK_UP : PUT_DOWN,
-								}}
-								whileHover={
-									reduce
-										? undefined
-										: {
-												y: LIFT_Y,
-												scale: LIFT_SCALE,
-												rotate: card.rot * LIFT_STRAIGHTEN,
-												transition: PICK_UP,
-											}
-								}
-							>
-								<StaticFrame
-									themeName={card.themeName}
-									presetId={card.presetId}
-									title={card.title}
-									language={card.language}
-									code={card.code}
-									label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
-									meshTime={card.meshTime}
-									fontSize={11}
-									framePadding={16}
-									meshPadding={10}
-									fill
-									badge={card.ratio}
+							{/* The entrance is its own layer, between the wrapper that owns the
+							    stacking and the element that owns the hover. It has to be: the
+							    deal and the lift are different gestures on different clocks,
+							    and one element cannot hold two sets of transforms without one
+							    of them overwriting the other the moment they overlap. */}
+							<motion.div className="h-full w-full" variants={deal}>
+								<motion.div
+									onHoverStart={() => setHovered(i)}
+									onHoverEnd={() => {
+										setHovered(null);
+										beginDescent(i);
+									}}
+									onAnimationComplete={() => endDescent(i)}
 									className="h-full w-full"
-								/>
+									initial={false}
+									animate={{
+										x: restX,
+										y: 0,
+										rotate: restRot,
+										scale: 1,
+										transition: isNeighbour ? PICK_UP : PUT_DOWN,
+									}}
+									whileHover={
+										reduce
+											? undefined
+											: {
+													y: LIFT_Y,
+													scale: LIFT_SCALE,
+													rotate: card.rot * LIFT_STRAIGHTEN,
+													transition: PICK_UP,
+												}
+									}
+								>
+									<StaticFrame
+										themeName={card.themeName}
+										presetId={card.presetId}
+										title={card.title}
+										language={card.language}
+										code={card.code}
+										label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
+										meshTime={card.meshTime}
+										fontSize={11}
+										framePadding={16}
+										meshPadding={10}
+										fill
+										badge={card.ratio}
+										className="h-full w-full"
+									/>
+								</motion.div>
 							</motion.div>
 						</div>
 					);
 				})}
-			</div>
+			</motion.div>
 
-			{/* Mobile: a plain scroll-snap row, no rotation. */}
-			<div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+			{/* Mobile: a plain scroll-snap row, no rotation. It deals itself in too —
+			    the reveal that used to wrap the whole component is gone, and the row
+			    is as much a set of cards as the fan is. */}
+			<motion.div
+				className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+				initial="hidden"
+				whileInView="shown"
+				viewport={REVEAL_VIEWPORT}
+				variants={DEAL_PARENT}
+			>
 				{FAN.map((card) => (
-					<div
+					<motion.div
 						key={card.ratio}
 						className="shrink-0 snap-center self-center"
 						style={{ width: card.width, aspectRatio: card.aspect }}
+						variants={deal}
 					>
 						<StaticFrame
 							themeName={card.themeName}
@@ -276,9 +349,9 @@ export function FrameFan() {
 							badge={card.ratio}
 							className="h-full w-full"
 						/>
-					</div>
+					</motion.div>
 				))}
-			</div>
+			</motion.div>
 		</section>
 	);
 }
