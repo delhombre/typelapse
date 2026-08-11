@@ -587,128 +587,143 @@ function Toolbar({
 				animate={rowWidth === null ? undefined : { width: rowWidth + ISLAND_PADDING }}
 				transition={reduce ? { duration: 0 } : ISLAND_SPRING}
 			>
-				{open === null ? (
-					<motion.div ref={measureRow} className="lp-island-row" {...islandMotion(reduce)}>
-						<button
-							type="button"
-							onClick={onPlayToggle}
-							onMouseEnter={showHelper(playing ? "Pause" : "Play")}
-							aria-label={playing ? "Pause" : "Play"}
-							className="lp-island-button"
+				<AnimatePresence mode="wait" initial={false}>
+					{open === null ? (
+						<motion.div
+							key="root"
+							ref={measureRow}
+							className="lp-island-row"
+							{...islandMotion(reduce)}
+							exit={islandExit(reduce)}
 						>
-							{playing ? <PauseGlyph /> : <PlayGlyph />}
-						</button>
+							<button
+								type="button"
+								onClick={onPlayToggle}
+								onMouseEnter={showHelper(playing ? "Pause" : "Play")}
+								aria-label={playing ? "Pause" : "Play"}
+								className="lp-island-button"
+							>
+								{playing ? <PauseGlyph /> : <PlayGlyph />}
+							</button>
 
-						<button
-							type="button"
-							onClick={() => setOpen("backdrop")}
-							onMouseEnter={showHelper(`Backdrop · ${preset?.label ?? ""}`)}
-							aria-label={`Backdrop: ${preset?.label ?? ""}. Open backdrop control`}
-							className="lp-island-button lp-island-button-tight"
-						>
-							<span
-								className="lp-spec"
-								style={{ background: preset ? swatchOf(preset) : undefined }}
-							/>
-						</button>
-
-						<button
-							type="button"
-							onClick={() => setOpen("theme")}
-							onMouseEnter={showHelper(`Theme · ${themeName}`)}
-							aria-label={`Theme: ${themeName}. Open theme control`}
-							className="lp-island-button lp-island-button-tight"
-						>
-							<span className="lp-spec-theme" style={{ background: themeDot?.bg }}>
-								<span className="lp-spec-line" style={{ background: themeDot?.a, width: "100%" }} />
-								<span className="lp-spec-line" style={{ background: themeDot?.b, width: "62%" }} />
-							</span>
-						</button>
-
-						<button
-							type="button"
-							onClick={cycleAspect}
-							onMouseEnter={showHelper("Aspect ratio")}
-							aria-label={`Cycle aspect ratio. ${aspect} active.`}
-							className="lp-island-button"
-							data-active=""
-						>
-							<span className="lp-frame-box">
-								<motion.span
-									className="lp-frame"
-									animate={frameScale(aspect)}
-									transition={reduce ? { duration: 0 } : FRAME_SPRING}
+							<button
+								type="button"
+								onClick={() => setOpen("backdrop")}
+								onMouseEnter={showHelper(`Backdrop · ${preset?.label ?? ""}`)}
+								aria-label={`Backdrop: ${preset?.label ?? ""}. Open backdrop control`}
+								className="lp-island-button lp-island-button-tight"
+							>
+								<span
+									className="lp-spec"
+									style={{ background: preset ? swatchOf(preset) : undefined }}
 								/>
-							</span>
-							<span className="lp-island-num">{aspect}</span>
-						</button>
+							</button>
 
-						<Link to="/app" className="lp-island-cta">
-							Open studio
-						</Link>
-					</motion.div>
-				) : (
-					<motion.div
-						key={open}
-						ref={measureRow}
-						className="lp-island-row"
-						{...islandMotion(reduce)}
-					>
-						<button
-							type="button"
-							onClick={() => setOpen(null)}
-							aria-label="Back to controls"
-							className="lp-island-button"
+							<button
+								type="button"
+								onClick={() => setOpen("theme")}
+								onMouseEnter={showHelper(`Theme · ${themeName}`)}
+								aria-label={`Theme: ${themeName}. Open theme control`}
+								className="lp-island-button lp-island-button-tight"
+							>
+								<span className="lp-spec-theme" style={{ background: themeDot?.bg }}>
+									<span
+										className="lp-spec-line"
+										style={{ background: themeDot?.a, width: "100%" }}
+									/>
+									<span
+										className="lp-spec-line"
+										style={{ background: themeDot?.b, width: "62%" }}
+									/>
+								</span>
+							</button>
+
+							<button
+								type="button"
+								onClick={cycleAspect}
+								onMouseEnter={showHelper("Aspect ratio")}
+								aria-label={`Cycle aspect ratio. ${aspect} active.`}
+								className="lp-island-button"
+								data-active=""
+							>
+								<span className="lp-frame-box">
+									<motion.span
+										className="lp-frame"
+										animate={frameScale(aspect)}
+										transition={reduce ? { duration: 0 } : FRAME_SPRING}
+									/>
+								</span>
+								<span className="lp-island-num">{aspect}</span>
+							</button>
+
+							<Link to="/app" className="lp-island-cta">
+								Open studio
+							</Link>
+						</motion.div>
+					) : (
+						<motion.div
+							key={open}
+							ref={measureRow}
+							className="lp-island-row"
+							{...islandMotion(reduce)}
+							exit={islandExit(reduce)}
 						>
-							<BackGlyph />
-						</button>
+							<button
+								type="button"
+								onClick={() => setOpen(null)}
+								aria-label="Back to controls"
+								className="lp-island-button"
+							>
+								<BackGlyph />
+							</button>
 
-						{open === "backdrop" &&
-							MESH_PRESETS.map((p) => (
-								<button
-									key={p.id}
-									type="button"
-									onClick={() => onPresetChange(p.id)}
-									aria-label={`Backdrop ${p.label}`}
-									className="lp-island-button lp-island-button-tight"
-									{...(presetId === p.id ? { "data-active": "" } : {})}
-								>
-									<span className="lp-spec" style={{ background: swatchOf(p) }} />
-									{presetId === p.id && (
-										<motion.span
-											layoutId="island-ring"
-											className="lp-island-ring"
-											transition={reduce ? { duration: 0 } : RING_SPRING}
-										/>
-									)}
-								</button>
-							))}
+							{open === "backdrop" &&
+								MESH_PRESETS.map((p) => (
+									<button
+										key={p.id}
+										type="button"
+										onClick={() => onPresetChange(p.id)}
+										aria-label={`Backdrop ${p.label}`}
+										className="lp-island-button lp-island-button-tight"
+										{...(presetId === p.id ? { "data-active": "" } : {})}
+									>
+										<span className="lp-spec" style={{ background: swatchOf(p) }} />
+										{presetId === p.id && (
+											<motion.span
+												layoutId="island-ring"
+												className="lp-island-ring"
+												transition={reduce ? { duration: 0 } : RING_SPRING}
+											/>
+										)}
+									</button>
+								))}
 
-						{open === "theme" &&
-							THEME_DOTS.map((t) => (
-								<button
-									key={t.name}
-									type="button"
-									onClick={() => onThemeChange(t.name)}
-									aria-label={`Theme ${t.name}`}
-									className="lp-island-button lp-island-button-tight"
-									{...(themeName === t.name ? { "data-active": "" } : {})}
-								>
-									<span className="lp-spec-theme" style={{ background: t.bg }}>
-										<span className="lp-spec-line" style={{ background: t.a, width: "100%" }} />
-										<span className="lp-spec-line" style={{ background: t.b, width: "62%" }} />
-									</span>
-									{themeName === t.name && (
-										<motion.span
-											layoutId="island-ring"
-											className="lp-island-ring"
-											transition={reduce ? { duration: 0 } : RING_SPRING}
-										/>
-									)}
-								</button>
-							))}
-					</motion.div>
-				)}
+							{open === "theme" &&
+								THEME_DOTS.map((t) => (
+									<button
+										key={t.name}
+										type="button"
+										onClick={() => onThemeChange(t.name)}
+										aria-label={`Theme ${t.name}`}
+										className="lp-island-button lp-island-button-tight"
+										{...(themeName === t.name ? { "data-active": "" } : {})}
+									>
+										<span className="lp-spec-theme" style={{ background: t.bg }}>
+											<span className="lp-spec-line" style={{ background: t.a, width: "100%" }} />
+											<span className="lp-spec-line" style={{ background: t.b, width: "62%" }} />
+										</span>
+										{themeName === t.name && (
+											<motion.span
+												layoutId="island-ring"
+												className="lp-island-ring"
+												transition={reduce ? { duration: 0 } : RING_SPRING}
+											/>
+										)}
+									</button>
+								))}
+						</motion.div>
+					)}
+				</AnimatePresence>
 			</motion.div>
 
 			<p className="lp-island-caption">{caption}</p>
@@ -741,6 +756,25 @@ const ISLAND_PADDING = 12;
  * frame is already at opacity 0.99 and the work is a scale that overshoots.
  * An entrance from opacity 0 reads as a slideshow beside it.
  */
+/**
+ * And the row's departure, which it did not have: the outgoing controls were a
+ * ternary, so they were gone in the frame the panel opened while the arriving
+ * ones played a 320ms entrance over the hole they left. Quicker than the
+ * entrance on purpose — what is leaving does not need to be watched, it only
+ * needs to stop being in the way before the next thing is read.
+ */
+const islandExit = (reduce: boolean) =>
+	reduce
+		? { opacity: 0, transition: { duration: 0 } }
+		: {
+				opacity: 0,
+				scale: 0.99,
+				transition: {
+					duration: 0.1,
+					ease: [0.23, 1, 0.32, 1] as [number, number, number, number],
+				},
+			};
+
 const islandMotion = (reduce: boolean) =>
 	reduce
 		? { initial: false as const, animate: { opacity: 1 } }
