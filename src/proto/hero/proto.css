@@ -227,6 +227,16 @@
 	--field-h: 52px;
 	/* The field is fully round, so its arc is half its height. */
 	--field-r: calc(var(--field-h) / 2);
+	/* One value for the whole silhouette, because it is one silhouette. Focus
+	   used to darken the field's ring alone, which cut the line in two at the
+	   exact place the last several passes were spent joining it — the block's
+	   half stayed at the hairline while the field's went to 22%, a 227 against a
+	   201. Whatever it is, it has to be the same all the way round. */
+	--edge: var(--color-hairline);
+}
+
+.proto-desk-col:has(.proto-desk-field:focus-within) {
+	--edge: color-mix(in oklch, var(--color-ink) 22%, transparent);
 }
 
 /* One outline, around the union of the two, and none across the join. The
@@ -254,9 +264,10 @@
 	   it is covered by sitting next to the field rather than on top of it. Lap it
 	   and the block's own border overshoots by that much and leaves a stub of
 	   hairline hanging below the join, inside the field. */
-	border: 1px solid var(--color-hairline);
+	border: 1px solid var(--edge);
 	border-bottom: 0;
 	border-radius: calc(var(--field-r) + 1px) calc(var(--field-r) + 1px) 0 0;
+	transition: border-color 170ms var(--ease-out);
 }
 
 /* The join, one straight line the whole way. It used to stop at 26 and turn,
@@ -343,8 +354,12 @@
 /* Fully round, like the dock below it.
    A pill has no flat top edge, so the mode strip can no longer notch into it —
    it lifts off and becomes its own row of pills above (see .proto-desk-modes).
-   The left padding clears the curve: at 52px tall the radius is 26, so text
-   starting at 24 sits just inside the arc rather than on it.
+
+   The left padding is the pastilles' own 14, so what you are about to type
+   starts on the same vertical as the label of the mode you are typing it in.
+   It used to be 30, to clear an arc that is no longer there: with the corner
+   squared off the edge runs straight past the whole line of text, and at the
+   text's lowest point the field has still only come in to 1.6.
 
    The stroke matches the dock's delicacy. The island carries no ring at all,
    only `0 8px 24px / 0.18`; on paper this one still needs an edge to exist, so
@@ -355,7 +370,7 @@
 	display: flex;
 	align-items: center;
 	gap: 1ch;
-	padding: 0 6px 0 30px;
+	padding: 0 6px 0 14px;
 	height: var(--field-h);
 	border-radius: 999px;
 	/* Except here, where the block sits on it. This corner is the only place the
@@ -390,13 +405,9 @@
 	inset: -1px;
 	border-radius: 999px;
 	border-top-left-radius: 0;
-	box-shadow: inset 0 0 0 1px var(--color-hairline);
+	box-shadow: inset 0 0 0 1px var(--edge);
 	pointer-events: none;
 	transition: box-shadow 170ms var(--ease-out);
-}
-
-.proto-desk-field:focus-within::before {
-	box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-ink) 22%, transparent);
 }
 
 .proto-desk-field input {
