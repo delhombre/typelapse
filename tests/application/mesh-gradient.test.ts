@@ -5,6 +5,7 @@ import {
 	isMeshBackground,
 	isSafeBackground,
 	isSolidBackground,
+	meshBlobsAt,
 	meshGradientCss,
 	parseImageBackground,
 	parseMeshBackground,
@@ -53,6 +54,53 @@ describe("meshGradientCss", () => {
 			throw new Error("expected a preset");
 		}
 		expect(meshGradientCss(preset, 0)).not.toBe(meshGradientCss(preset, MESH_LOOP_PERIOD / 4));
+	});
+});
+
+describe("meshBlobsAt", () => {
+	const preset = MESH_PRESETS[0];
+
+	function requirePreset() {
+		if (!preset) {
+			throw new Error("expected a preset");
+		}
+		return preset;
+	}
+
+	it("places every blob at its base position when the drift is at rest", () => {
+		const p = requirePreset();
+		const blobs = meshBlobsAt(p, 0);
+		expect(blobs).toHaveLength(p.blobs.length);
+		for (const [i, blob] of blobs.entries()) {
+			const source = p.blobs[i];
+			if (!source) {
+				throw new Error("expected a source blob");
+			}
+			// At t=0 the drift is sin(phase) / cos(phase) around the base position.
+			const TAU = Math.PI * 2;
+			expect(blob.x).toBeCloseTo(source.x + source.ax * Math.sin(TAU * source.phase), 10);
+			expect(blob.y).toBeCloseTo(source.y + source.ay * Math.cos(TAU * source.phase), 10);
+			expect(blob.color).toBe(source.color);
+			expect(blob.radius).toBe(source.radius);
+		}
+	});
+
+	it("loops seamlessly: t=0 and t=period land on the same positions", () => {
+		const p = requirePreset();
+		expect(meshBlobsAt(p, MESH_LOOP_PERIOD)).toEqual(meshBlobsAt(p, 0));
+	});
+
+	it("drifts the blobs over time", () => {
+		const p = requirePreset();
+		expect(meshBlobsAt(p, MESH_LOOP_PERIOD / 4)).not.toEqual(meshBlobsAt(p, 0));
+	});
+
+	it("is the single source of the positions the CSS renders", () => {
+		const p = requirePreset();
+		const css = meshGradientCss(p, 3.7);
+		for (const blob of meshBlobsAt(p, 3.7)) {
+			expect(css).toContain(`circle at ${blob.x.toFixed(2)}% ${blob.y.toFixed(2)}%`);
+		}
 	});
 });
 

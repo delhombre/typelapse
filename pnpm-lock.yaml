@@ -45,6 +45,9 @@ importers:
       hono:
         specifier: ^4.12.34
         version: 4.12.34
+      mediabunny:
+        specifier: 1.53.0
+        version: 1.53.0
       modern-screenshot:
         specifier: ^4.6.8
         version: 4.6.8
@@ -2527,6 +2530,9 @@ packages:
 
   mediabunny@1.37.0:
     resolution: {integrity: sha512-eV7M9IJ29pr/8RNL1sYtIxNbdMfDMN1hMwMaOFfNLhwuKKGSC+eKwiJFpdVjEJ3zrMA4LGerF4Hps0SENFSAlg==}
+
+  mediabunny@1.53.0:
+    resolution: {integrity: sha512-RjWe9yJr9MPvb6kX4gSu54fZD2w1yf6RyCS0Jmgaml+fFSqEr7+XuASXoRxSqJxgc+wIe+7TujXWcyj3evJ3Bg==}
 
   memfs@3.4.3:
     resolution: {integrity: sha512-eivjfi7Ahr6eQTn44nvTnR60e4a1Fs1Via2kCR5lHo/kyNoiMWaXCNJ/GpSd0ilXas2JSOl9B5FTIhflXu0hlg==}
@@ -5382,6 +5388,11 @@ snapshots:
       vfile: 6.0.3
 
   mediabunny@1.37.0:
+    dependencies:
+      '@types/dom-mediacapture-transform': 0.1.11
+      '@types/dom-webcodecs': 0.1.13
+
+  mediabunny@1.53.0:
     dependencies:
       '@types/dom-mediacapture-transform': 0.1.11
       '@types/dom-webcodecs': 0.1.13
