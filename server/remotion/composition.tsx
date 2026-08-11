@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gradient";
-import { fitCardToCanvas } from "../../src/application/layout/canvas-fit";
+import { fitCardToCanvas, renderScaleFor } from "../../src/application/layout/canvas-fit";
 import { LINE_HEIGHT_RATIO } from "../../src/application/layout/frame-metrics";
 import {
 	type LaidOutFrame,
@@ -25,8 +25,13 @@ import { StepCaption } from "../../src/presentation/components/preview/step-capt
 import { getWatermarkColor } from "../../src/presentation/utils/watermark-color";
 import type { RenderInput, ThemeData } from "./types";
 
-/** Upscale factor from the 14px editor preview to crisp 1080p/4K text. */
-const VIDEO_SCALE = 2.2;
+/**
+ * Upscale factor from the 14px editor preview to crisp text at the reference
+ * 1080p tier. Higher tiers multiply it by their share of that short edge (see
+ * `renderScaleFor`), so 4K draws the same shot with twice the pixels rather
+ * than the same card marooned in a bigger background.
+ */
+const BASE_VIDEO_SCALE = 2.2;
 /** Safe-area margin on each side of the canvas the card is fit into. */
 const CANVAS_MARGIN = 0.05;
 
@@ -101,6 +106,10 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	);
 	const active = segments.find((s) => frame >= s.startFrame && frame < s.endFrame) ?? segments[segments.length - 1];
 
+	// Everything drawn at "video size" scales with the canvas's short edge, so the
+	// framing is identical at every resolution tier and only the fidelity changes.
+	const videoScale = renderScaleFor(width, height, BASE_VIDEO_SCALE);
+
 	const isTransparent = background === "transparent";
 	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
@@ -132,13 +141,14 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				cardMargin={cardMargin}
 				canvasWidth={width}
 				canvasHeight={height}
+				videoScale={videoScale}
 				reels={
 					steps.length >= 2 ? (
 						<ReelsProgress
 							style={progressStyle}
 							segments={steps.length}
 							progress={frame / Math.max(1, durationInFrames)}
-							scale={VIDEO_SCALE}
+							scale={videoScale}
 						/>
 					) : null
 				}
@@ -148,25 +158,25 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 							text={caption.text}
 							opacity={caption.opacity}
 							color={wmColor}
-							scale={VIDEO_SCALE}
+							scale={videoScale}
 						/>
 					) : null
 				}
 			>
 				{/* Focus zoom: identical transform to the preview so the video matches. */}
-				<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * VIDEO_SCALE)}>
+				<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * videoScale)}>
 					<MagicMoveCanvas
 						tokens={view.tokens}
 						lineCount={view.lineCount}
 						lineNumberCount={view.lineNumberCount}
-						fontSize={theme.fontSize * VIDEO_SCALE}
+						fontSize={theme.fontSize * videoScale}
 						lineHeightRatio={LINE_HEIGHT_RATIO}
 						fontFamily={theme.fontFamily}
 						color={theme.foreground}
 						showLineNumbers={showLineNumbers}
 						lineNumberStart={lineNumberStart}
 						lineNumberColor={`${theme.foreground}30`}
-						padding={framePadding * VIDEO_SCALE}
+						padding={framePadding * videoScale}
 						cursor={cursor}
 					/>
 				</div>
@@ -287,6 +297,7 @@ function CenteredFrame({
 	cardMargin,
 	canvasWidth,
 	canvasHeight,
+	videoScale,
 	reels,
 	caption,
 	children,
@@ -301,11 +312,13 @@ function CenteredFrame({
 	cardMargin: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	/** Upscale factor for this canvas, from `renderScaleFor`. */
+	videoScale: number;
 	reels?: React.ReactNode;
 	caption?: React.ReactNode;
 	children: React.ReactNode;
 }) {
-	const radius = theme.borderRadius * VIDEO_SCALE;
+	const radius = theme.borderRadius * videoScale;
 	const isDark = isColorDark(theme.background);
 
 	// Natural size of the card + caption unit and its fit into the canvas, from
@@ -323,7 +336,7 @@ function CenteredFrame({
 		showLineNumbers,
 		lineNumberStart,
 		hasCaption: caption != null,
-		scale: VIDEO_SCALE,
+		scale: videoScale,
 		canvasWidth,
 		canvasHeight,
 		canvasMargin: CANVAS_MARGIN,
@@ -333,7 +346,7 @@ function CenteredFrame({
 	// The card wraps the window (and caption) in a proportional mesh border: the
 	// same cardMargin the preview paints, as transparent padding the full-bleed
 	// background AbsoluteFill shows through.
-	const cardPadding = cardMargin * VIDEO_SCALE;
+	const cardPadding = cardMargin * videoScale;
 
 	const boxShadow = isDark
 		? "0 0 0 1px rgba(255,255,255,0.05), 0 24px 64px -16px rgba(0,0,0,0.55), 0 8px 24px -8px rgba(0,0,0,0.4)"
@@ -374,7 +387,7 @@ function CenteredFrame({
 						<div
 							style={{
 								position: "absolute",
-								top: -(10 * VIDEO_SCALE),
+								top: -(10 * videoScale),
 								left: 0,
 								width: natural.width,
 								zIndex: 20,
@@ -397,7 +410,7 @@ function CenteredFrame({
 							chrome={windowChrome}
 							title={title}
 							foreground={theme.foreground}
-							scale={VIDEO_SCALE}
+							scale={videoScale}
 						/>
 						{children}
 					</div>
