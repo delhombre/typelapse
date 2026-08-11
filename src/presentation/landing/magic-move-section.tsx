@@ -9,15 +9,21 @@ import { FeatureSection } from "./feature-section";
    are the same three states the hero cycles, played by the same engine, in a
    frame with no chrome so the movement is the only thing to look at. */
 const STEPS = [
-	`const rows = db.all()
-return json(rows)`,
-	`const rows = db.all()
-const live = rows.filter(ok)
-return json(live)`,
-	`const rows = db.all()
-const live = rows.filter(ok)
-const page = live.slice(0, 20)
-return json(page)`,
+	`export async function GET(req: Request) {
+  const users = await db.users.all()
+  return Response.json(users)
+}`,
+	`export async function GET(req: Request) {
+  const users = await db.users.all()
+  const active = users.filter((u) => u.active)
+  return Response.json(active)
+}`,
+	`export async function GET(req: Request) {
+  const users = await db.users.all()
+  const active = users.filter((u) => u.active)
+  const page = active.slice(0, 20)
+  return Response.json(page)
+}`,
 ];
 /* Slower than the hero's: this one is read, not glanced at. */
 const HOLDS = [1900, 2100, 2600, 1000];
@@ -26,9 +32,9 @@ const HOLDS = [1900, 2100, 2600, 1000];
 export function MagicMoveSection() {
 	return (
 		<FeatureSection
-			eyebrow="Magic move"
-			title="Token by token."
-			line="One engine lays out and morphs your code on a monospace grid. The browser preview and the exported video run that exact same engine, so what you see is what you ship."
+			eyebrow="Step 02 · Morph"
+			title="Then it moves."
+			line="The same steps, morphed token by token on a monospace grid. One engine draws the browser preview and the exported video, so what you see here is what you ship."
 			align="left"
 			visual={<LiveMorph />}
 		/>

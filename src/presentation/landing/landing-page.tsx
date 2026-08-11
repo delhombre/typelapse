@@ -33,8 +33,12 @@ export function LandingPage() {
 			<ThemeToggle theme={theme} onToggle={toggleTheme} />
 			<main className="flex-1">
 				<Hero />
-				<MagicMoveSection />
+				{/* The order follows the visitor's own workflow — bring a change in,
+				    watch it become motion, check where it lands, ship it — and each
+				    section is a numbered step of the same story rather than an
+				    independent feature card. */}
 				<DiffSection />
+				<MagicMoveSection />
 				<SocialSection />
 				<ExportSection />
 				<CapabilityLedger />

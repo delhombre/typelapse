@@ -9,11 +9,11 @@ export function ExportSection() {
 	return (
 		<section className={`${CONTAINER} ${SECTION_PY}`}>
 			<Reveal className="mx-auto max-w-2xl text-center">
-				<Eyebrow>Export</Eyebrow>
-				<h2 className="lp-h2 mt-4 text-ink">MP4, WebM, GIF. Every aspect.</h2>
+				<Eyebrow>Step 04 · Ship</Eyebrow>
+				<h2 className="lp-h2 mt-4 text-ink">Then ship it, every shape at once.</h2>
 				<p className="lp-line mx-auto mt-4 max-w-xl">
-					Render to any format and any shape, from a wide 16:9 to a vertical 9:16, in seven themes
-					over living mesh backdrops.
+					One clip, five cuts. The same change renders to MP4, WebM, GIF or PNG, in every aspect the
+					feeds ask for, across seven themes over living mesh backdrops.
 				</p>
 			</Reveal>
 
