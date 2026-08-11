@@ -1,59 +1,240 @@
 import { Instrument } from "@/presentation/landing/instrument";
 import { Reveal, RevealGroup, RevealItem } from "@/presentation/landing/primitives";
 import { GITHUB_URL } from "@/presentation/landing/tokens";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
-/* Four heroes, drawn from Pierre's own properties rather than from a memory of
-   them. Sampling the four sites showed they do not share one grammar — they run
-   three, and each suits a different claim:
+/* Three fusions of Console (an external reference: no headline, the tool's own field, real
+   examples) and Index (an external reference: a mono text document, a categorical
+   index, the block glyph).
 
-   · an external reference  — the entire page in mono at ONE size (12px/24px, headings at
-                     the same size as body, weight and position carrying all the
-                     hierarchy), a 500px column, no radius and no shadow at all.
-   · an external reference.com  — no headline whatsoever. A 16px grey sentence, then the
-                     tool's own input, then example links. The page opens on the
-                     product, not on a claim about it.
-   · an external reference     — a 60px/60px Geist headline at -0.025em, one 20px sentence in
-     & trees         a true grey, and an enormous artefact carrying no shadow.
-
-   The previous five all held our mono headline fixed and varied what sat under
-   it; none landed, which suggests the head was the wrong thing to hold constant.
-   None of these four keep it.
+   The joint between them is the glyph. an external reference prints `█` after its
+   name as an ornament; in a tool that takes a paste, the same block is a real
+   terminal caret. So the ornament becomes the cursor, and the index stops being
+   a decorative list of facts and becomes the interface: what you can paste is
+   not described beside the field, it *is* the field's own modes.
 
    Throwaway. Delete src/proto and the route in main.tsx once one wins. */
 
-const MICRO = "MIT licensed · runs on your machine · no account";
-
-/* ═══════════ 1. Terminal ═══════════
-   an external reference's grammar, honestly applied: one typeface, one size, one leading
-   for the whole hero. Nothing is bigger than anything else — the title is the
-   same 13px as the body and only weight separates it — and there is not a single
-   rounded corner or shadow in the composition. The instrument loses its radius
-   too, so it reads as a plate in a document rather than a card on a page. */
-
-const TERMINAL_ROWS = [
-	["WHAT", "a video of a code change, rendered from a diff"],
-	["INPUT", "a snippet, a unified diff, or a GitHub pull request URL"],
-	["OUTPUT", "MP4 · WebM · GIF · PNG, in every aspect the feeds ask for"],
-	["ENGINE", "one token-morph engine draws the preview and the export"],
-	["LICENSE", "MIT, runs on your machine, no account"],
+const EXAMPLES = [
+	["github.com/oven-sh/bun/pull/14210", "3 files · +41 −12"],
+	["github.com/vercel/next.js/pull/71102", "1 file · +18 −4"],
+	["github.com/honojs/hono/pull/3488", "2 files · +26 −9"],
 ] as const;
 
-export function Terminal() {
+const MODES = ["pull request", "diff", "snippet"] as const;
+
+/** The block caret. Blinks only when the field is empty, and never under
+    reduced motion — a cursor that blinks forever is the one animation a
+    developer sees ten thousand times. */
+function Caret({ idle }: { idle: boolean }) {
+	return <span className="proto-caret" data-idle={idle ? "" : undefined} aria-hidden="true" />;
+}
+
+/* ═══════════ 1. Prompt ═══════════
+   The whole hero is one shell session, and the prompt line is the product's
+   input. No headline, no boxed field, no button: you are looking at a terminal
+   that happens to accept a pull request, and the examples below are its history.
+   The index rides underneath as one dim spec line, the way a man page ends. */
+
+export function Prompt() {
+	const [value, setValue] = useState("");
+
 	return (
-		<section className="proto-hero proto-terminal">
-			<div className="proto-term-col">
+		<section className="proto-hero proto-prompt">
+			<div className="proto-prompt-col">
 				<RevealGroup immediate>
 					<RevealItem>
-						<p className="proto-term-meta">TYPELAPSE — CODE VIDEO TOOL — 2026</p>
+						<p className="proto-prompt-name">
+							TYPELAPSE <span aria-hidden="true">█</span>
+						</p>
 					</RevealItem>
 					<RevealItem>
-						<h1 className="proto-term-title">Your pull request, as a video.</h1>
+						<p className="proto-prompt-about">
+							Renders a code change as a video. Paste a pull request; it morphs the diff token by
+							token and exports for the feed.
+						</p>
 					</RevealItem>
 					<RevealItem>
-						<dl className="proto-term-rows">
-							{TERMINAL_ROWS.map(([k, v]) => (
-								<div key={k} className="proto-term-row">
+						{/* The prompt line is the field: a `$`, the caret, and nothing else.
+						    A boxed input here would turn a session into a form. */}
+						<label className="proto-prompt-line">
+							<span className="proto-prompt-sigil" aria-hidden="true">
+								$
+							</span>
+							<span className="proto-prompt-input">
+								<input
+									type="text"
+									value={value}
+									onChange={(e) => setValue(e.target.value)}
+									placeholder="typelapse --from-pr "
+									aria-label="Paste a pull request URL"
+									spellCheck={false}
+								/>
+								<Caret idle={value.length === 0} />
+							</span>
+						</label>
+					</RevealItem>
+					<RevealItem>
+						<ul className="proto-prompt-history">
+							{EXAMPLES.map(([url, meta]) => (
+								<li key={url}>
+									<Link to="/app">{url}</Link>
+									<span>{meta}</span>
+								</li>
+							))}
+						</ul>
+					</RevealItem>
+					<RevealItem>
+						<p className="proto-prompt-spec">
+							IN snippet · diff · pull request &nbsp;&nbsp; OUT mp4 · webm · gif · png &nbsp;&nbsp;
+							MIT ·{" "}
+							<a href={GITHUB_URL} target="_blank" rel="noreferrer">
+								source
+							</a>
+						</p>
+					</RevealItem>
+				</RevealGroup>
+			</div>
+
+			<Reveal immediate delay={0.24} className="proto-prompt-stage mt-11">
+				<Instrument maxScale={1.3} />
+			</Reveal>
+		</section>
+	);
+}
+
+/* ═══════════ 2. Desk ═══════════
+   Keeps Console's boxed field, but the Index's "Imports" category stops being a
+   list of facts beside it and becomes the field's own modes — three mono tabs
+   the field answers to. The index is no longer something you read about the
+   tool; it is how you drive it. The remaining categories collapse to one meta
+   line under the examples. */
+
+export function Desk() {
+	const [mode, setMode] = useState<(typeof MODES)[number]>("pull request");
+	const [value, setValue] = useState("");
+
+	return (
+		<section className="proto-hero proto-desk">
+			<div className="proto-desk-col">
+				<RevealGroup immediate>
+					<RevealItem>
+						<p className="proto-desk-lead">
+							Turn a code change into a video. Paste a pull request, a diff or a snippet — it morphs
+							token by token and renders for the feed.
+						</p>
+					</RevealItem>
+					<RevealItem>
+						<div className="proto-desk-modes" role="tablist" aria-label="What you are pasting">
+							{MODES.map((m) => (
+								<button
+									key={m}
+									type="button"
+									role="tab"
+									aria-selected={m === mode}
+									data-active={m === mode ? "" : undefined}
+									onClick={() => setMode(m)}
+								>
+									{m}
+								</button>
+							))}
+						</div>
+						<div className="proto-desk-field">
+							<input
+								type="text"
+								value={value}
+								onChange={(e) => setValue(e.target.value)}
+								placeholder={
+									mode === "pull request"
+										? "https://github.com/owner/repo/pull/1247"
+										: mode === "diff"
+											? "@@ -1,6 +1,10 @@"
+											: "const users = await db.users.all()"
+								}
+								aria-label={`Paste a ${mode}`}
+								spellCheck={false}
+							/>
+							<Caret idle={value.length === 0} />
+							<Link to="/app" className="proto-desk-go">
+								Render
+							</Link>
+						</div>
+					</RevealItem>
+					<RevealItem>
+						<ul className="proto-desk-examples">
+							{EXAMPLES.map(([url, meta]) => (
+								<li key={url}>
+									<Link to="/app">{url}</Link>
+									<span>{meta}</span>
+								</li>
+							))}
+						</ul>
+					</RevealItem>
+					<RevealItem>
+						<p className="proto-desk-meta">
+							Exports mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
+							<a href={GITHUB_URL} target="_blank" rel="noreferrer">
+								source
+							</a>
+						</p>
+					</RevealItem>
+				</RevealGroup>
+			</div>
+
+			<Reveal immediate delay={0.26} className="mt-10">
+				<Instrument />
+			</Reveal>
+		</section>
+	);
+}
+
+/* ═══════════ 3. Sheet ═══════════
+   The most literal fusion: the hero is Index's spec document, and the first row
+   of that document is live. INPUT is not a fact about the tool, it is the field;
+   everything under it is the rest of the sheet. A visitor reads a spec and finds
+   that the top line accepts a paste. */
+
+const SHEET: [string, string][] = [
+	["OUTPUT", "mp4 · webm · gif · png — 16:9, 1:1, 9:16, 4:5, 3:4"],
+	["ENGINE", "one token-morph engine draws the preview and the export"],
+	["THEMES", "7 syntax themes · mesh, solid and image backdrops"],
+	["LICENSE", "MIT · runs on your machine · no account"],
+];
+
+export function Sheet() {
+	const [value, setValue] = useState("");
+
+	return (
+		<section className="proto-hero proto-sheet">
+			<div className="proto-sheet-col">
+				<RevealGroup immediate>
+					<RevealItem>
+						<p className="proto-sheet-name">
+							TYPELAPSE <span aria-hidden="true">█</span> <span>CODE VIDEO TOOL</span>
+						</p>
+					</RevealItem>
+					<RevealItem>
+						<dl className="proto-sheet-rows">
+							{/* Row one is the product, not a description of it. */}
+							<div className="proto-sheet-row" data-live="">
+								<dt>INPUT</dt>
+								<dd>
+									<span className="proto-sheet-field">
+										<input
+											type="text"
+											value={value}
+											onChange={(e) => setValue(e.target.value)}
+											placeholder="paste a pull request, a diff, or a snippet"
+											aria-label="Paste a pull request, a diff, or a snippet"
+											spellCheck={false}
+										/>
+										<Caret idle={value.length === 0} />
+									</span>
+								</dd>
+							</div>
+							{SHEET.map(([k, v]) => (
+								<div key={k} className="proto-sheet-row">
 									<dt>{k}</dt>
 									<dd>{v}</dd>
 								</div>
@@ -61,64 +242,11 @@ export function Terminal() {
 						</dl>
 					</RevealItem>
 					<RevealItem>
-						<p className="proto-term-links">
-							<Link to="/app">[ OPEN THE STUDIO ]</Link>
-							<a href={GITHUB_URL} target="_blank" rel="noreferrer">
-								[ SOURCE ]
-							</a>
-						</p>
-					</RevealItem>
-				</RevealGroup>
-			</div>
-
-			<Reveal immediate delay={0.22} className="proto-term-stage mt-12">
-				<Instrument maxScale={1.35} />
-			</Reveal>
-		</section>
-	);
-}
-
-/* ═══════════ 2. Console ═══════════
-   an external reference's move: the page does not describe the tool, it hands it to you. One
-   grey sentence, then the field the product actually starts with, then real pull
-   requests to try. No headline claim at all, because a claim is what you write
-   when the visitor cannot use the thing on the spot. */
-
-const EXAMPLES = [
-	"github.com/oven-sh/bun/pull/14210",
-	"github.com/vercel/next.js/pull/71102",
-	"github.com/honojs/hono/pull/3488",
-];
-
-export function Console() {
-	return (
-		<section className="proto-hero proto-console">
-			<div className="proto-console-col">
-				<RevealGroup immediate>
-					<RevealItem>
-						<p className="proto-console-lead">
-							Turn any public GitHub pull request into a video — the diff, morphed token by token
-							and rendered for the feed.
-						</p>
-					</RevealItem>
-					<RevealItem>
-						<div className="proto-console-field">
-							<input
-								type="text"
-								placeholder="Paste a pull request URL"
-								aria-label="Paste a pull request URL"
-								readOnly
-							/>
-							<Link to="/app" className="proto-console-go">
-								Render
-							</Link>
-						</div>
-					</RevealItem>
-					<RevealItem>
-						<ul className="proto-console-examples">
-							{EXAMPLES.map((url) => (
+						<ul className="proto-sheet-examples">
+							{EXAMPLES.map(([url, meta]) => (
 								<li key={url}>
 									<Link to="/app">{url}</Link>
+									<span>{meta}</span>
 								</li>
 							))}
 						</ul>
@@ -126,111 +254,8 @@ export function Console() {
 				</RevealGroup>
 			</div>
 
-			<Reveal immediate delay={0.24} className="mt-10">
-				<Instrument />
-			</Reveal>
-		</section>
-	);
-}
-
-/* ═══════════ 3. Library ═══════════
-   an external reference and an external reference at their measured values: a 60px headline at a
-   line-height of exactly 1, one 20px sentence in a true grey, and then the
-   object — with no button row at all, because neither of their pages has one.
-   The restraint is the whole effect. */
-
-export function Library() {
-	return (
-		<section className="proto-hero proto-library">
-			<div className="proto-lib-col">
-				<RevealGroup immediate>
-					<RevealItem>
-						<h1 className="proto-lib-title">Your pull request, as a video</h1>
-					</RevealItem>
-					<RevealItem>
-						<p className="proto-lib-lead">
-							Typelapse is an open-source tool that turns a snippet, a diff or a whole GitHub pull
-							request into a video, morphed token by token by the same engine that renders the
-							export.
-						</p>
-					</RevealItem>
-					<RevealItem>
-						<p className="proto-lib-meta">Currently v0.9.2 · MIT</p>
-					</RevealItem>
-				</RevealGroup>
-			</div>
-
-			<Reveal immediate delay={0.24} className="mt-14">
-				<Instrument maxScale={1.2} />
-			</Reveal>
-		</section>
-	);
-}
-
-/* ═══════════ 4. Index ═══════════
-   an external reference's own page: the company site is a plain text document with a
-   block glyph after the name and a categorical index. Applied here, the hero is
-   an index of the product rather than a pitch for it — every line a fact, in
-   reading order, and the object underneath as the only thing that is not text. */
-
-const INDEX: [string, string[]][] = [
-	["Products", ["Studio — browser, free, no account", "Hosted render — coming"]],
-	["Imports", ["Snippet", "Unified diff", "GitHub pull request URL"]],
-	["Exports", ["MP4", "WebM", "GIF", "PNG"]],
-	["Source", ["MIT on GitHub"]],
-];
-
-export function LedgerIndex() {
-	return (
-		<section className="proto-hero proto-index">
-			<div className="proto-index-col">
-				<RevealGroup immediate>
-					<RevealItem>
-						<h1 className="proto-index-title">
-							TYPELAPSE <span aria-hidden="true">█</span>
-						</h1>
-					</RevealItem>
-					<RevealItem>
-						<p className="proto-index-sub">CODE VIDEO TOOL</p>
-						<p className="proto-index-sub">2026</p>
-					</RevealItem>
-					<RevealItem>
-						<p className="proto-index-about">
-							Typelapse renders a code change as a video: paste a snippet, a diff or a pull request
-							and it morphs token by token, then exports for the feed.
-						</p>
-					</RevealItem>
-					<RevealItem>
-						<div className="proto-index-lists">
-							{INDEX.map(([label, items]) => (
-								<section key={label}>
-									<h2>{label}</h2>
-									<ul>
-										{items.map((it) => (
-											<li key={it}>{it}</li>
-										))}
-									</ul>
-								</section>
-							))}
-						</div>
-					</RevealItem>
-					<RevealItem>
-						<p className="proto-index-links">
-							<Link to="/app">Open the studio</Link>
-							{" · "}
-							<a href={GITHUB_URL} target="_blank" rel="noreferrer">
-								GitHub
-							</a>
-						</p>
-					</RevealItem>
-				</RevealGroup>
-			</div>
-
-			<Reveal immediate delay={0.26} className="mt-12">
-				<Instrument />
-			</Reveal>
-			<Reveal immediate delay={0.32} className="proto-index-col mt-6">
-				<p className="proto-index-micro">{MICRO}</p>
+			<Reveal immediate delay={0.26} className="proto-sheet-stage mt-11">
+				<Instrument maxScale={1.25} />
 			</Reveal>
 		</section>
 	);

@@ -1,279 +1,381 @@
-/* Proto-only styles for the four Pierre-grammar heroes. Dies with src/proto.
-   Values are the ones sampled off an external reference, an external reference.com and an external reference,
-   translated to our own faces: Ioskeley Mono stands in for BerkeleyMono, Geist
-   is already what they use. */
+/* Proto-only styles for the three Console × Index fusions. Dies with src/proto.
+   The register is an external reference's: one mono face, one small size, one leading,
+   and no radius or shadow except where a real control needs to be grabbable. */
 
 .proto-root {
 	min-height: 100svh;
 }
 
 .proto-hero {
-	padding-top: clamp(56px, 9vh, 112px);
-	padding-bottom: 88px;
-}
-
-/* ══ 1. Terminal — an external reference ══
-   One face, one size, one leading for everything. 12px/24px was their measured
-   value; ours sits at 13px because Ioskeley runs a touch smaller at the same
-   nominal size. No radius and no shadow anywhere in the composition. */
-
-.proto-terminal {
-	font-family: var(--font-mono);
-	font-size: 13px;
-	line-height: 24px;
-	--hero-chrome: 500px;
-	--stage-max: 380px;
-}
-
-.proto-term-col {
-	width: 100%;
-	max-width: 560px;
-	margin-inline: auto;
-	padding-inline: 24px;
-}
-
-.proto-term-meta {
-	color: var(--color-ash);
-	letter-spacing: 0.02em;
-}
-
-/* The title is the same size as the body — only weight separates it. That is
-   the entire hierarchy, and departing from it is what would break the effect. */
-.proto-term-title {
-	margin-top: 24px;
-	font-size: 13px;
-	line-height: 24px;
-	font-weight: 700;
-	letter-spacing: normal;
-	color: var(--color-ink);
-}
-
-.proto-term-rows {
-	margin-top: 24px;
-}
-
-.proto-term-row {
-	display: grid;
-	grid-template-columns: 9ch minmax(0, 1fr);
-	gap: 1ch;
-}
-
-.proto-term-row dt {
-	color: var(--color-ash);
-}
-
-.proto-term-row dd {
-	color: var(--color-ink);
-}
-
-.proto-term-links {
-	margin-top: 24px;
-	display: flex;
-	gap: 2ch;
-}
-
-.proto-term-links a {
-	color: var(--color-ink);
-	text-decoration: none;
-}
-
-.proto-term-links a:hover {
-	background: var(--color-ink);
-	color: var(--color-paper);
-}
-
-/* The object drops its radius so it reads as a plate in a document. */
-.proto-term-stage [role="img"] {
-	border-radius: 0 !important;
-	box-shadow: none !important;
-}
-
-.proto-term-stage .lp-island {
-	border-radius: 0;
-}
-
-/* ══ 2. Console — an external reference ══
-   No headline. A grey sentence, the tool's field, then real things to try. */
-
-.proto-console-col {
-	width: 100%;
-	max-width: 672px;
-	margin-inline: auto;
-	padding-inline: 24px;
-}
-
-.proto-console-lead {
-	font-size: 16px;
-	line-height: 24px;
-	color: var(--color-ash);
-	max-width: 60ch;
-}
-
-.proto-console-field {
-	display: flex;
-	gap: 8px;
-	margin-top: 20px;
-}
-
-.proto-console-field input {
-	flex: 1;
-	height: 44px;
-	padding: 0 14px;
-	border-radius: 8px;
-	background: var(--color-surface);
-	box-shadow: inset 0 0 0 1px var(--color-hairline);
-	font-family: var(--font-mono);
-	font-size: 13px;
-	color: var(--color-ink);
-}
-
-.proto-console-field input::placeholder {
-	color: var(--color-ash);
-}
-
-.proto-console-go {
-	display: inline-flex;
-	align-items: center;
-	height: 44px;
-	padding: 0 18px;
-	border-radius: 8px;
-	background: var(--color-ink);
-	color: var(--color-paper);
-	font-size: 14px;
-	font-weight: 600;
-}
-
-/* Their examples are plain links in the product's own mono, not chips. */
-.proto-console-examples {
-	margin-top: 14px;
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	font-family: var(--font-mono);
-	font-size: 13px;
-	line-height: 20px;
-}
-
-.proto-console-examples a {
-	color: var(--color-ash);
-	text-decoration: none;
-}
-
-.proto-console-examples a:hover {
-	color: var(--color-ink);
-	text-decoration: underline;
-}
-
-/* ══ 3. Library — an external reference / trees ══ */
-
-.proto-lib-col {
-	width: 100%;
-	max-width: 896px;
-	margin-inline: auto;
-	padding-inline: 24px;
-}
-
-.proto-lib-title {
-	font-family: var(--font-sans);
-	font-size: clamp(2.25rem, 1rem + 3.4vw, 3.75rem);
-	line-height: 1;
-	letter-spacing: -0.025em;
-	font-weight: 600;
-	color: var(--color-ink);
-	text-wrap: balance;
-}
-
-.proto-lib-lead {
-	max-width: 740px;
-	margin-top: 20px;
-	font-size: 20px;
-	line-height: 28px;
-	color: var(--color-ash);
-}
-
-.proto-lib-meta {
-	margin-top: 20px;
-	font-size: 14px;
-	line-height: 20px;
-	color: var(--color-ash);
-}
-
-/* ══ 4. Index — an external reference ══
-   A plain text document: a name, a block glyph, and a categorical index. */
-
-/* The index is text first, so the object it introduces comes in at a size that
-   does not outrank it. */
-.proto-index {
+	padding-top: clamp(56px, 9vh, 108px);
+	padding-bottom: 80px;
 	font-family: var(--font-mono);
 	font-size: 13px;
 	line-height: 22px;
-	--hero-chrome: 600px;
-	--stage-max: 280px;
 }
 
-.proto-index-col {
+/* ── The block caret ──
+   an external reference's ornament, doing a real job. It blinks only while the field
+   is empty: a caret that blinks forever is the one animation a developer would
+   see ten thousand times, which is exactly what a source's rule says not to ship. */
+
+.proto-caret {
+	display: inline-block;
+	width: 0.62em;
+	height: 1.05em;
+	translate: 0 0.18em;
+	background: var(--color-ink);
+	flex: none;
+}
+
+.proto-caret[data-idle] {
+	animation: proto-blink 1.06s steps(1, end) infinite;
+}
+
+@keyframes proto-blink {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	50.01%,
+	100% {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.proto-caret[data-idle] {
+		animation: none;
+	}
+}
+
+/* Shared: the example rows both fusions carry — a link and its weight, aligned
+   in two columns so they read as a log rather than as a bulleted list. */
+.proto-prompt-history,
+.proto-desk-examples,
+.proto-sheet-examples {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.proto-prompt-history li,
+.proto-desk-examples li,
+.proto-sheet-examples li {
+	display: flex;
+	justify-content: space-between;
+	gap: 2ch;
+	max-width: 62ch;
+}
+
+.proto-prompt-history a,
+.proto-desk-examples a,
+.proto-sheet-examples a {
+	color: var(--color-ash);
+	text-decoration: none;
+}
+
+.proto-prompt-history a:hover,
+.proto-desk-examples a:hover,
+.proto-sheet-examples a:hover {
+	color: var(--color-ink);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.proto-prompt-history span,
+.proto-desk-examples span,
+.proto-sheet-examples span {
+	color: color-mix(in oklch, var(--color-ash) 70%, transparent);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+/* ══ 1. Prompt ══
+   One session. The prompt line is the field; a box around it would turn a
+   session into a form. */
+
+.proto-prompt {
+	--hero-chrome: 520px;
+	--stage-max: 360px;
+}
+
+.proto-prompt-col {
 	width: 100%;
 	max-width: 620px;
 	margin-inline: auto;
 	padding-inline: 24px;
 }
 
-.proto-index-title {
-	font-size: 13px;
-	line-height: 22px;
+.proto-prompt-name {
 	font-weight: 700;
 	letter-spacing: 0.04em;
 	color: var(--color-ink);
 }
 
-.proto-index-sub,
-.proto-index-micro {
+.proto-prompt-about {
+	margin-top: 18px;
+	max-width: 58ch;
 	color: var(--color-ash);
-	letter-spacing: 0.02em;
 }
 
-.proto-index-about {
+.proto-prompt-line {
+	display: flex;
+	align-items: baseline;
+	gap: 1ch;
 	margin-top: 22px;
-	max-width: 62ch;
+	cursor: text;
+}
+
+.proto-prompt-sigil {
+	color: var(--color-ash);
+}
+
+.proto-prompt-input {
+	display: flex;
+	align-items: baseline;
+	flex: 1;
+	min-width: 0;
+}
+
+.proto-prompt-input input {
+	flex: 1;
+	min-width: 0;
+	background: none;
+	border: 0;
+	outline: none;
+	padding: 0;
+	font: inherit;
 	color: var(--color-ink);
+	caret-color: transparent;
 }
 
-.proto-index-lists {
+.proto-prompt-input input::placeholder {
+	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+}
+
+.proto-prompt-history {
+	margin-top: 18px;
+}
+
+.proto-prompt-spec {
 	margin-top: 22px;
-	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: 18px 24px;
-}
-
-@media (max-width: 860px) {
-	.proto-index-lists {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-}
-
-@media (max-width: 560px) {
-	.proto-index-lists {
-		grid-template-columns: minmax(0, 1fr);
-	}
-}
-
-.proto-index-lists h2 {
-	font-size: 13px;
-	font-weight: 700;
-	color: var(--color-ink);
-}
-
-.proto-index-lists ul {
+	padding-top: 14px;
+	border-top: 1px solid var(--color-hairline);
 	color: var(--color-ash);
 }
 
-.proto-index-links {
-	margin-top: 22px;
-	color: var(--color-ash);
-}
-
-.proto-index-links a {
+.proto-prompt-spec a {
 	color: var(--color-ink);
 	text-decoration: underline;
 	text-underline-offset: 3px;
+}
+
+.proto-prompt-stage [role="img"] {
+	border-radius: 0 !important;
+	box-shadow: none !important;
+}
+
+/* ══ 2. Desk ══
+   Console's field, driven by the Index's own categories. */
+
+/* Desk carries the most furniture of the three (modes, field, examples, meta),
+   so its stage takes what is left rather than a fixed height. */
+.proto-desk {
+	--hero-chrome: 600px;
+	--stage-max: 330px;
+}
+
+.proto-desk-col {
+	width: 100%;
+	max-width: 680px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-desk-lead {
+	max-width: 60ch;
+	font-size: 15px;
+	line-height: 24px;
+	color: var(--color-ash);
+}
+
+/* The former "Imports" list, now the field's modes. */
+.proto-desk-modes {
+	display: flex;
+	gap: 1px;
+	margin-top: 22px;
+}
+
+.proto-desk-modes button {
+	padding: 5px 12px;
+	font: inherit;
+	color: var(--color-ash);
+	background: color-mix(in oklch, var(--color-ink) 4%, transparent);
+	transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.proto-desk-modes button:first-child {
+	border-radius: 6px 0 0 0;
+}
+
+.proto-desk-modes button:last-child {
+	border-radius: 0 6px 0 0;
+}
+
+.proto-desk-modes button[data-active] {
+	color: var(--color-paper);
+	background: var(--color-ink);
+}
+
+.proto-desk-field {
+	display: flex;
+	align-items: center;
+	gap: 1ch;
+	padding: 0 12px 0 14px;
+	height: 46px;
+	border-radius: 0 6px 6px 6px;
+	background: var(--color-surface);
+	box-shadow: inset 0 0 0 1px var(--color-hairline);
+}
+
+.proto-desk-field input {
+	flex: 1;
+	min-width: 0;
+	background: none;
+	border: 0;
+	outline: none;
+	font: inherit;
+	color: var(--color-ink);
+	caret-color: transparent;
+}
+
+.proto-desk-field input::placeholder {
+	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+}
+
+.proto-desk-go {
+	display: inline-flex;
+	align-items: center;
+	height: 32px;
+	padding: 0 14px;
+	border-radius: 6px;
+	background: var(--color-ink);
+	color: var(--color-paper);
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.proto-desk-examples {
+	margin-top: 14px;
+}
+
+.proto-desk-meta {
+	margin-top: 20px;
+	padding-top: 14px;
+	border-top: 1px solid var(--color-hairline);
+	color: var(--color-ash);
+}
+
+.proto-desk-meta a {
+	color: var(--color-ink);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+/* ══ 3. Sheet ══
+   The spec document whose first row is live. */
+
+.proto-sheet {
+	--hero-chrome: 540px;
+	--stage-max: 340px;
+}
+
+.proto-sheet-col {
+	width: 100%;
+	max-width: 660px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-sheet-name {
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	color: var(--color-ink);
+}
+
+.proto-sheet-name span:last-child {
+	margin-left: 1ch;
+	font-weight: 400;
+	color: var(--color-ash);
+}
+
+.proto-sheet-rows {
+	margin-top: 20px;
+	border-top: 1px solid var(--color-hairline);
+}
+
+.proto-sheet-row {
+	display: grid;
+	grid-template-columns: 9ch minmax(0, 1fr);
+	gap: 1ch;
+	padding: 7px 0;
+	border-bottom: 1px solid var(--color-hairline);
+}
+
+.proto-sheet-row dt {
+	color: var(--color-ash);
+}
+
+.proto-sheet-row dd {
+	color: var(--color-ink);
+}
+
+/* The live row sits on a whisper of fill, so a reader's eye finds the one line
+   that is a control among four that are facts. */
+.proto-sheet-row[data-live] {
+	background: color-mix(in oklch, var(--color-ink) 3.5%, transparent);
+	margin-inline: -10px;
+	padding-inline: 10px;
+}
+
+.proto-sheet-field {
+	display: flex;
+	align-items: baseline;
+	gap: 0;
+}
+
+.proto-sheet-field input {
+	flex: 1;
+	min-width: 0;
+	background: none;
+	border: 0;
+	outline: none;
+	font: inherit;
+	color: var(--color-ink);
+	caret-color: transparent;
+}
+
+.proto-sheet-field input::placeholder {
+	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+}
+
+.proto-sheet-examples {
+	margin-top: 18px;
+}
+
+.proto-sheet-stage [role="img"] {
+	border-radius: 0 !important;
+	box-shadow: none !important;
+}
+
+@media (max-width: 560px) {
+	.proto-sheet-row,
+	.proto-prompt-history li,
+	.proto-desk-examples li,
+	.proto-sheet-examples li {
+		grid-template-columns: minmax(0, 1fr);
+		flex-direction: column;
+		gap: 0;
+	}
 }
