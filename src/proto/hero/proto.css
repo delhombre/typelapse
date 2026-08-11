@@ -1,150 +1,30 @@
-/* Proto-only styles. Dies with src/proto.
-
-   The field is Desk's, restyled into our tokens: warm surface, our hairline, our
-   accent, and the island's craft rules — a gliding plate instead of a border,
-   controls transparent until hovered, one filled shape, concentric radii.
-
-   Everything else here is typography, which was the real problem: the flat
-   version set the whole hero in mono at 13px in one grey, so nothing had rank.
-   These use the landing's own classes and only differ in where the weight sits. */
+/* Proto-only styles for the three Console × Index fusions. Dies with src/proto.
+   The register is an external reference's: one mono face, one small size, one leading,
+   and no radius or shadow except where a real control needs to be grabbable. */
 
 .proto-root {
 	min-height: 100svh;
 }
 
 .proto-hero {
-	padding-top: clamp(56px, 9vh, 104px);
-	padding-bottom: 76px;
-	--hero-chrome: 660px;
-	--stage-max: 300px;
-}
-
-.proto-col {
-	width: 100%;
-	max-width: 720px;
-	margin-inline: auto;
-	padding-inline: 24px;
-}
-
-.sr-only {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	padding: 0;
-	margin: -1px;
-	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
-	white-space: nowrap;
-	border-width: 0;
-}
-
-/* ══════════ The field (shared, unchanged across the three) ══════════ */
-
-.proto-field-wrap {
-	margin-top: 26px;
-}
-
-.proto-modes {
-	display: flex;
-	align-items: center;
-	gap: 2px;
-	margin-bottom: 8px;
-}
-
-.proto-mode {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-	height: 28px;
-	padding: 0 10px;
-	border-radius: 8px;
-	font-family: var(--font-mono);
-	font-size: 12px;
-	color: var(--color-ash);
-	white-space: nowrap;
-	transition: color 150ms var(--ease-out);
-}
-
-.proto-mode:hover,
-.proto-mode[aria-selected="true"] {
-	color: var(--color-ink);
-}
-
-.proto-mode > span {
-	position: relative;
-	z-index: 1;
-}
-
-/* Selection is a plate on the control's own shape, gliding between modes. */
-.proto-plate {
-	position: absolute;
-	inset: 0;
-	z-index: 0;
-	border-radius: inherit;
-	background: color-mix(in oklch, var(--color-ink) 7%, transparent);
-}
-
-.proto-field {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	height: 52px;
-	/* Concentric: 52px tall with 7px of padding gives the action 38px at 12px. */
-	padding: 0 7px 0 14px;
-	border-radius: 12px;
-	background: var(--color-surface);
-	box-shadow: 0 0 0 1px var(--color-hairline), 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 20px -12px
-		rgb(0 0 0 / 0.12);
-	transition: box-shadow 160ms var(--ease-out);
-}
-
-.proto-field:focus-within {
-	box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-ink) 26%, transparent), 0 1px 2px
-		rgb(0 0 0 / 0.04), 0 10px 26px -12px rgb(0 0 0 / 0.16);
-}
-
-.proto-field-inner {
-	position: relative;
-	display: flex;
-	align-items: center;
-	flex: 1;
-	min-width: 0;
-	height: 100%;
-	cursor: text;
-}
-
-.proto-field-inner input {
-	position: absolute;
-	inset: 0;
-	width: 100%;
-	background: none;
-	border: 0;
-	outline: none;
-	padding: 0;
+	padding-top: clamp(56px, 9vh, 108px);
+	padding-bottom: 80px;
 	font-family: var(--font-mono);
 	font-size: 13px;
-	color: var(--color-ink);
-	caret-color: transparent;
+	line-height: 22px;
 }
 
-.proto-hint {
-	font-family: var(--font-mono);
-	font-size: 13px;
-	color: color-mix(in oklch, var(--color-ash) 80%, transparent);
-	pointer-events: none;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
+/* ── The block caret ──
+   an external reference's ornament, doing a real job. It blinks only while the field
+   is empty: a caret that blinks forever is the one animation a developer would
+   see ten thousand times, which is exactly what a source's rule says not to ship. */
 
 .proto-caret {
-	position: relative;
 	display: inline-block;
-	width: 0.6em;
+	width: 0.62em;
 	height: 1.05em;
-	translate: 0 0.05em;
+	translate: 0 0.18em;
 	background: var(--color-ink);
-	font-size: 13px;
 	flex: none;
 }
 
@@ -169,206 +49,332 @@
 	}
 }
 
-/* The only filled shape. */
-.proto-go {
-	display: inline-flex;
-	align-items: center;
-	height: 38px;
-	padding: 0 16px;
-	border-radius: 8px;
-	background: var(--color-cta);
-	color: #fff;
-	font-family: var(--font-sans);
-	font-size: 13px;
-	font-weight: 650;
-	white-space: nowrap;
-	transition: filter 150ms var(--ease-out);
-}
-
-.proto-go:hover {
-	filter: brightness(1.08);
-}
-
-.proto-mode:focus-visible,
-.proto-go:focus-visible {
-	outline: 2px solid var(--color-ink);
-	outline-offset: 2px;
-}
-
-/* ══════════ The example log ══════════
-   A labelled log, not a bulleted list: the label is an uppercase mono eyebrow
-   and the weights are tabular, so the numbers form a column. */
-
-.proto-log {
-	margin-top: 22px;
-}
-
-.proto-log-label {
-	font-family: var(--font-mono);
-	font-size: 11px;
-	letter-spacing: 0.12em;
-	text-transform: uppercase;
-	color: color-mix(in oklch, var(--color-ash) 78%, transparent);
-	margin-bottom: 6px;
-}
-
-.proto-log ul {
+/* Shared: the example rows both fusions carry — a link and its weight, aligned
+   in two columns so they read as a log rather than as a bulleted list. */
+.proto-prompt-history,
+.proto-desk-examples,
+.proto-sheet-examples {
 	display: flex;
 	flex-direction: column;
-	gap: 3px;
+	gap: 2px;
 }
 
-.proto-log li {
+.proto-prompt-history li,
+.proto-desk-examples li,
+.proto-sheet-examples li {
 	display: flex;
 	justify-content: space-between;
 	gap: 2ch;
-	font-family: var(--font-mono);
-	font-size: 13px;
-	line-height: 20px;
+	max-width: 62ch;
 }
 
-.proto-log a {
+.proto-prompt-history a,
+.proto-desk-examples a,
+.proto-sheet-examples a {
 	color: var(--color-ash);
 	text-decoration: none;
-	transition: color 140ms var(--ease-out);
 }
 
-.proto-log a:hover {
+.proto-prompt-history a:hover,
+.proto-desk-examples a:hover,
+.proto-sheet-examples a:hover {
 	color: var(--color-ink);
 	text-decoration: underline;
 	text-underline-offset: 3px;
 }
 
-.proto-log span {
-	color: color-mix(in oklch, var(--color-ash) 66%, transparent);
+.proto-prompt-history span,
+.proto-desk-examples span,
+.proto-sheet-examples span {
+	color: color-mix(in oklch, var(--color-ash) 70%, transparent);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
 
-.proto-spec {
+/* ══ 1. Prompt ══
+   One session. The prompt line is the field; a box around it would turn a
+   session into a form. */
+
+.proto-prompt {
+	--hero-chrome: 520px;
+	--stage-max: 360px;
+}
+
+.proto-prompt-col {
+	width: 100%;
+	max-width: 620px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-prompt-name {
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	color: var(--color-ink);
+}
+
+.proto-prompt-about {
+	margin-top: 18px;
+	max-width: 58ch;
+	color: var(--color-ash);
+}
+
+.proto-prompt-line {
+	display: flex;
+	align-items: baseline;
+	gap: 1ch;
+	margin-top: 22px;
+	cursor: text;
+}
+
+.proto-prompt-sigil {
+	color: var(--color-ash);
+}
+
+.proto-prompt-input {
+	display: flex;
+	align-items: baseline;
+	flex: 1;
+	min-width: 0;
+}
+
+.proto-prompt-input input {
+	flex: 1;
+	min-width: 0;
+	background: none;
+	border: 0;
+	outline: none;
+	padding: 0;
+	font: inherit;
+	color: var(--color-ink);
+	caret-color: transparent;
+}
+
+.proto-prompt-input input::placeholder {
+	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+}
+
+.proto-prompt-history {
+	margin-top: 18px;
+}
+
+.proto-prompt-spec {
 	margin-top: 22px;
 	padding-top: 14px;
 	border-top: 1px solid var(--color-hairline);
+	color: var(--color-ash);
 }
 
-.proto-spec a {
+.proto-prompt-spec a {
 	color: var(--color-ink);
 	text-decoration: underline;
 	text-underline-offset: 3px;
 }
 
-/* ══════════ The two faces ══════════
-   Ioskeley Mono is the code face: it appears on machine text only — what you
-   paste, the example repositories, an inline fragment quoted from a command.
-   Every claim a human wrote is set in Geist. A headline in the code face reads
-   as output rather than as a statement, and it spends the one face that should
-   mean "this is literally your code". */
+.proto-prompt-stage [role="img"] {
+	border-radius: 0 !important;
+	box-shadow: none !important;
+}
 
-.proto-display {
-	font-family: var(--font-sans);
-	font-weight: 600;
-	font-size: clamp(1.9rem, 1.1rem + 2.6vw, 3rem);
-	line-height: 1.1;
-	letter-spacing: -0.026em;
+/* ══ 2. Desk ══
+   Console's field, driven by the Index's own categories. */
+
+/* Desk carries the most furniture of the three (modes, field, examples, meta),
+   so its stage takes what is left rather than a fixed height. */
+.proto-desk {
+	--hero-chrome: 600px;
+	--stage-max: 330px;
+}
+
+.proto-desk-col {
+	width: 100%;
+	max-width: 680px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-desk-lead {
+	max-width: 60ch;
+	font-size: 15px;
+	line-height: 24px;
+	color: var(--color-ash);
+}
+
+/* The former "Imports" list, now the field's modes. */
+.proto-desk-modes {
+	display: flex;
+	gap: 1px;
+	margin-top: 22px;
+}
+
+.proto-desk-modes button {
+	padding: 5px 12px;
+	font: inherit;
+	color: var(--color-ash);
+	background: color-mix(in oklch, var(--color-ink) 4%, transparent);
+	transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.proto-desk-modes button:first-child {
+	border-radius: 6px 0 0 0;
+}
+
+.proto-desk-modes button:last-child {
+	border-radius: 0 6px 0 0;
+}
+
+.proto-desk-modes button[data-active] {
+	color: var(--color-paper);
+	background: var(--color-ink);
+}
+
+.proto-desk-field {
+	display: flex;
+	align-items: center;
+	gap: 1ch;
+	padding: 0 12px 0 14px;
+	height: 46px;
+	border-radius: 0 6px 6px 6px;
+	background: var(--color-surface);
+	box-shadow: inset 0 0 0 1px var(--color-hairline);
+}
+
+.proto-desk-field input {
+	flex: 1;
+	min-width: 0;
+	background: none;
+	border: 0;
+	outline: none;
+	font: inherit;
 	color: var(--color-ink);
-	text-wrap: balance;
+	caret-color: transparent;
 }
 
-/* An inline fragment of the machine's own language, inside a human sentence. */
-.proto-code {
-	font-family: var(--font-mono);
+.proto-desk-field input::placeholder {
+	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+}
+
+.proto-desk-go {
+	display: inline-flex;
+	align-items: center;
+	height: 32px;
+	padding: 0 14px;
+	border-radius: 6px;
+	background: var(--color-ink);
+	color: var(--color-paper);
 	font-weight: 600;
-	/* The mono runs larger at the same nominal size, so it steps down to sit on
-	   the sans's x-height instead of towering over it. */
-	font-size: 0.86em;
-	letter-spacing: -0.01em;
-	padding: 0.06em 0.26em;
-	border-radius: 0.22em;
-	background: color-mix(in oklch, var(--color-ink) 7%, transparent);
+	white-space: nowrap;
 }
 
-/* ══════════ 1. Statement ══════════ */
-
-.proto-title {
-	max-width: 20ch;
-	color: var(--color-ink);
-	font-family: var(--font-sans);
-	font-weight: 600;
-	font-size: clamp(1.9rem, 1.1rem + 2.6vw, 3rem);
-	line-height: 1.1;
-	letter-spacing: -0.026em;
-	text-wrap: balance;
-}
-
-.proto-sub {
+.proto-desk-examples {
 	margin-top: 14px;
-	max-width: 52ch;
 }
 
-/* Duet's headline is two lines by construction, so its stage gives back the
-   extra line rather than pushing the dock past the fold. */
-.proto-duet {
-	--hero-chrome: 720px;
-	--stage-max: 268px;
+.proto-desk-meta {
+	margin-top: 20px;
+	padding-top: 14px;
+	border-top: 1px solid var(--color-hairline);
+	color: var(--color-ash);
 }
 
-/* ══════════ 2. Duet ══════════
-   The typeface change is the emphasis: the sentence starts in the sans and
-   lands in the product's own mono. */
-
-.proto-duet-title {
-	font-family: var(--font-sans);
-	font-weight: 600;
-	font-size: clamp(1.9rem, 1.1rem + 2.6vw, 3rem);
-	line-height: 1.1;
-	letter-spacing: -0.026em;
+.proto-desk-meta a {
 	color: var(--color-ink);
-	text-wrap: balance;
+	text-decoration: underline;
+	text-underline-offset: 3px;
 }
 
-/* Duet was already using the two faces correctly: the mono only on the command
-   fragment. It now shares the rule with the other two. */
-.proto-duet-mono {
-	font-family: var(--font-mono);
-	font-weight: 600;
-	font-size: 0.86em;
-	letter-spacing: -0.01em;
-	padding: 0.06em 0.26em;
-	border-radius: 0.22em;
-	background: color-mix(in oklch, var(--color-ink) 7%, transparent);
+/* ══ 3. Sheet ══
+   The spec document whose first row is live. */
+
+.proto-sheet {
+	--hero-chrome: 540px;
+	--stage-max: 340px;
 }
 
-/* ══════════ 3. Caption ══════════
-   The biggest type is not the first thing read. */
-
-.proto-caption-eyebrow {
-	display: block;
+.proto-sheet-col {
+	width: 100%;
+	max-width: 660px;
+	margin-inline: auto;
+	padding-inline: 24px;
 }
 
-.proto-caption-title {
-	margin-top: 24px;
-	max-width: 22ch;
+.proto-sheet-name {
+	font-weight: 700;
+	letter-spacing: 0.04em;
 	color: var(--color-ink);
-	font-family: var(--font-sans);
-	font-weight: 600;
-	font-size: clamp(1.75rem, 1.05rem + 2.3vw, 2.6rem);
-	line-height: 1.1;
-	letter-spacing: -0.026em;
-	text-wrap: balance;
 }
 
-@media (max-width: 620px) {
-	.proto-field {
-		height: auto;
-		flex-wrap: wrap;
-		padding: 8px;
-		gap: 8px;
-	}
-	.proto-field-inner {
-		flex-basis: 100%;
-		height: 34px;
-	}
-	.proto-log li {
+.proto-sheet-name span:last-child {
+	margin-left: 1ch;
+	font-weight: 400;
+	color: var(--color-ash);
+}
+
+.proto-sheet-rows {
+	margin-top: 20px;
+	border-top: 1px solid var(--color-hairline);
+}
+
+.proto-sheet-row {
+	display: grid;
+	grid-template-columns: 9ch minmax(0, 1fr);
+	gap: 1ch;
+	padding: 7px 0;
+	border-bottom: 1px solid var(--color-hairline);
+}
+
+.proto-sheet-row dt {
+	color: var(--color-ash);
+}
+
+.proto-sheet-row dd {
+	color: var(--color-ink);
+}
+
+/* The live row sits on a whisper of fill, so a reader's eye finds the one line
+   that is a control among four that are facts. */
+.proto-sheet-row[data-live] {
+	background: color-mix(in oklch, var(--color-ink) 3.5%, transparent);
+	margin-inline: -10px;
+	padding-inline: 10px;
+}
+
+.proto-sheet-field {
+	display: flex;
+	align-items: baseline;
+	gap: 0;
+}
+
+.proto-sheet-field input {
+	flex: 1;
+	min-width: 0;
+	background: none;
+	border: 0;
+	outline: none;
+	font: inherit;
+	color: var(--color-ink);
+	caret-color: transparent;
+}
+
+.proto-sheet-field input::placeholder {
+	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+}
+
+.proto-sheet-examples {
+	margin-top: 18px;
+}
+
+.proto-sheet-stage [role="img"] {
+	border-radius: 0 !important;
+	box-shadow: none !important;
+}
+
+@media (max-width: 560px) {
+	.proto-sheet-row,
+	.proto-prompt-history li,
+	.proto-desk-examples li,
+	.proto-sheet-examples li {
+		grid-template-columns: minmax(0, 1fr);
 		flex-direction: column;
 		gap: 0;
 	}
