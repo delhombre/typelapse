@@ -165,6 +165,30 @@ describe("JSON export/import round-trips every studio setting", () => {
 		expect(s.cardMargin).toBe(32);
 		expect(s.watermark).toBe("");
 	});
+
+	it("resets the render settings a file omits instead of inheriting them", () => {
+		// A project fully determines its render. Otherwise loading the typewriter
+		// template and then another would leave the second one typing itself, and
+		// no file would be reproducible from its own contents.
+		useSnippetStore.getState().importFromJson(JSON.stringify(FULL));
+		useSnippetStore.getState().importFromJson(
+			JSON.stringify({
+				title: "plain",
+				code: "const a = 1;",
+				language: "typescript",
+				themeName: "midnight",
+				steps: [{ code: "const a = 1;", duration: 1000 }],
+			}),
+		);
+
+		const ex = useExportStore.getState();
+		expect(ex.typewriter).toBe(false);
+		expect(ex.focusZoom).toBe(false);
+		expect(ex.progressStyle).toBe("reels");
+		expect(ex.transitionMs).toBe(650);
+		expect(ex.width).toBe(1920);
+		expect(ex.height).toBe(1080);
+	});
 });
 
 describe("share link round-trips every studio setting", () => {
