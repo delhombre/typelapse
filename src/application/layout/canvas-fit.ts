@@ -54,6 +54,8 @@ export interface CardCanvasFitInput {
 	canvasHeight: number;
 	/** Safe-area margin kept on each side of the canvas (fraction). */
 	canvasMargin: number;
+	/** Measured monospace advance ÷ font size, when the target can measure it. */
+	charWidthRatio?: number;
 }
 
 export interface CardCanvasFit {
@@ -85,6 +87,7 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 		lineNumberStart: input.lineNumberStart,
 		hasCaption: input.hasCaption,
 		scale: input.scale,
+		charWidthRatio: input.charWidthRatio,
 	});
 	const cardPadding = input.cardMargin * input.scale;
 	const paddedWidth = natural.width + 2 * cardPadding;

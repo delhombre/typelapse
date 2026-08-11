@@ -71,6 +71,12 @@ export interface FrameNaturalSizeInput {
 	hasCaption: boolean;
 	/** Upscale factor: chrome bar and caption block scale with it. */
 	scale: number;
+	/**
+	 * Monospace advance as a fraction of the font size, when the target can
+	 * measure its own resolved font (a canvas can: `measureText("0").width`).
+	 * Defaults to `CHAR_WIDTH_RATIO`, the nominal value a DOM renderer assumes.
+	 */
+	charWidthRatio?: number;
 }
 
 /**
@@ -90,6 +96,7 @@ export function frameNaturalSize(input: FrameNaturalSizeInput): { width: number;
 		scale,
 	} = input;
 	const maxLines = Math.max(1, input.maxLines);
+	const charRatio = input.charWidthRatio ?? CHAR_WIDTH_RATIO;
 	const lineHeight = fontSize * LINE_HEIGHT_RATIO;
 
 	// Height: chrome bar + code area (padding top/bottom + one row per line) + caption.
@@ -100,10 +107,8 @@ export function frameNaturalSize(input: FrameNaturalSizeInput): { width: number;
 	// Width: padding + gutter (widest rendered line number) + widest code line.
 	const maxLineNo = Math.max(1, Math.floor(lineNumberStart)) + maxLines - 1;
 	const gutterDigits = Math.max(2, String(maxLineNo).length);
-	const gutterWidth = showLineNumbers
-		? (gutterDigits + 1) * fontSize * CHAR_WIDTH_RATIO + fontSize
-		: 0;
-	const codeWidth = (maxCols + 2) * fontSize * CHAR_WIDTH_RATIO;
+	const gutterWidth = showLineNumbers ? (gutterDigits + 1) * fontSize * charRatio + fontSize : 0;
+	const codeWidth = (maxCols + 2) * fontSize * charRatio;
 	const width = 2 * padding + gutterWidth + codeWidth;
 
 	return { width, height };
