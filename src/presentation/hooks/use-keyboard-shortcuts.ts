@@ -2,6 +2,16 @@ import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect } from "react";
 
 /**
+ * True when the studio's bare-key shortcuts must stand down: while the user is
+ * typing, and while a modal dialog is open. Space, arrows and Escape belong to
+ * whatever is in front; driving the animation underneath a gallery would be a
+ * surprise, and Escape has to reach the dialog that owns it.
+ */
+export function areShortcutsSuppressed(): boolean {
+	return isEditableElementFocused() || document.querySelector("dialog[open]") !== null;
+}
+
+/**
  * Returns true if the active element is an input, textarea, contenteditable,
  * or inside a Monaco editor: meaning keyboard shortcuts should be suppressed.
  */
@@ -33,6 +43,12 @@ export function useKeyboardShortcuts(): void {
 		function handleKeyDown(e: KeyboardEvent) {
 			const store = useSnippetStore.getState();
 
+			// A modal owns every key while it is open, including the one shortcut
+			// that otherwise fires mid-typing.
+			if (document.querySelector("dialog[open]") !== null) {
+				return;
+			}
+
 			// Ctrl+Enter / Cmd+Enter: capture step (works even when typing)
 			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
@@ -41,7 +57,7 @@ export function useKeyboardShortcuts(): void {
 			}
 
 			// All remaining shortcuts are suppressed when an editable element is focused
-			if (isEditableElementFocused()) {
+			if (areShortcutsSuppressed()) {
 				return;
 			}
 
