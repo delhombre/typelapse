@@ -1,22 +1,26 @@
-import { resolvePrUrl } from "@/application/import/pr-url";
-import { importCodeFromUrl } from "@/infrastructure/import/url-import";
+import { classifySource } from "@/application/import/classify-source";
+import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
-/** Popover that fetches code from a gist / GitHub URL and loads it into the studio. */
+/**
+ * Popover that turns a URL into something the studio is showing.
+ *
+ * It does not decide what the URL *is*: `classifySource` does, the same reader
+ * the landing hero and the diff dialog use, so the three cannot disagree about
+ * a link. What is left here is routing — which control finishes the job.
+ */
 export function UrlImportMenu() {
 	const [open, setOpen] = useState(false);
 	const [url, setUrl] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	const setCode = useSnippetStore((s) => s.setCode);
-	const setLanguage = useSnippetStore((s) => s.setLanguage);
-	const setTitle = useSnippetStore((s) => s.setTitle);
+	const { loading, error, run, reset } = useSourceImport();
+	/** Said by this control rather than by an import: the paste is not a URL it can route. */
+	const [refusal, setRefusal] = useState<string | null>(null);
+	const message = refusal ?? error;
 	const handOffToDiffImport = useDiffImportStore((s) => s.handOff);
 
 	useEffect(() => {
@@ -41,31 +45,33 @@ export function UrlImportMenu() {
 		if (!trimmed || loading) {
 			return;
 		}
-		// A pull request is a walkthrough, not a file, so this control cannot open
-		// one. The diff dialog beside it can, and already offers the whole-change
-		// or by-commit choice a PR needs: the URL goes there rather than coming
-		// back as "Unsupported URL" from a control that plainly recognised it.
-		if (resolvePrUrl(trimmed)) {
-			handOffToDiffImport(trimmed);
-			setUrl("");
-			setError(null);
-			setOpen(false);
-			return;
-		}
-		setLoading(true);
-		setError(null);
-		try {
-			const imported = await importCodeFromUrl(trimmed);
-			// Language before code so the plan rebuild tokenizes with the right grammar.
-			setTitle(imported.title);
-			setLanguage(imported.language);
-			setCode(imported.code);
-			setUrl("");
-			setOpen(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Import failed");
-		} finally {
-			setLoading(false);
+		setRefusal(null);
+		reset();
+
+		switch (classifySource(trimmed)) {
+			// A pull request is a walkthrough, not a file, and it is the one kind
+			// with a question still open: play the whole change, or a chapter per
+			// commit. The diff dialog beside this one is the control that asks it,
+			// so the URL goes there with the box already filled rather than coming
+			// back as "Unsupported URL" from a control that plainly recognised it.
+			case "pr":
+				handOffToDiffImport(trimmed);
+				setUrl("");
+				setOpen(false);
+				return;
+			// A commit and a file link have no such question, so this control
+			// finishes them itself — along the one import path, not a private copy.
+			case "commit":
+			case "code-url":
+				if (await run(trimmed)) {
+					setUrl("");
+					setOpen(false);
+				}
+				return;
+			// A raw diff or a stray paste is not a link, and a single-line field
+			// would have flattened a diff into an unusable one anyway.
+			default:
+				setRefusal("Unsupported URL: paste a gist, a GitHub file, a commit or a pull request link");
 		}
 	}
 
@@ -142,7 +148,7 @@ export function UrlImportMenu() {
 									{loading ? <Spinner /> : "Fetch"}
 								</motion.button>
 							</div>
-							{error && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{error}</p>}
+							{message && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{message}</p>}
 						</motion.div>
 					</>
 				)}
