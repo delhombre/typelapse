@@ -1,7 +1,7 @@
 import { Instrument } from "@/presentation/landing/instrument";
 import { Reveal, RevealGroup, RevealItem } from "@/presentation/landing/primitives";
 import { GITHUB_URL } from "@/presentation/landing/tokens";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 /* Three fusions of Console (an external reference: no headline, the tool's own field, real
@@ -117,13 +117,44 @@ const PLACEHOLDERS: Record<(typeof MODES)[number], string> = {
 	snippet: "const users = await db.users.all()",
 };
 
-/* Three readings of "the lead wants more weight", to be looked at side by side.
-   The markup is identical in all three — the opening claim is always its own
-   element — and only the type on it changes, so what you are comparing is the
-   typography and nothing else. */
-type Lead = "step" | "head" | "voice";
+/* The lead now opens on the name, in the weight that won the last pass: the
+   head takes 600 and the ink, the rest stays 400 and ash. What varies between
+   these three is only how much of the sentence the name is carrying — one
+   word, one claim, or a standing introduction — so what is being compared is
+   the writing, not the type.
 
-export function Desk({ lead = "step" }: { lead?: Lead } = {}) {
+   No dashes in any of them. The old line hung its second half off an em dash,
+   which is the punctuation this project does not use. */
+type Lead = "subject" | "claim" | "standing";
+
+const LEADS: Record<Lead, ReactNode> = {
+	/* A · the name is the subject. It does the work of the verb and nothing
+	   more; the claim itself reads at the same weight as the rest. */
+	subject: (
+		<>
+			<strong>Typelapse</strong> turns a code change into a video. Paste a pull request, a diff or a
+			snippet. It morphs token by token and renders for the feed.
+		</>
+	),
+	/* B · the name and its claim. The bold covers the whole first sentence, so
+	   the name arrives already saying what it does. */
+	claim: (
+		<>
+			<strong>Typelapse turns a code change into a video.</strong> Paste a pull request, a diff or a
+			snippet. It morphs token by token and renders for the feed.
+		</>
+	),
+	/* C · the name standing on its own, the way a spec sheet opens. The sentence
+	   after it keeps the imperative the line has always had. */
+	standing: (
+		<>
+			<strong>Typelapse.</strong> Turn a code change into a video. Paste a pull request, a diff or a
+			snippet. It morphs token by token and renders for the feed.
+		</>
+	),
+};
+
+export function Desk({ lead = "subject" }: { lead?: Lead } = {}) {
 	const [mode, setMode] = useState<(typeof MODES)[number]>("pull request");
 	const [value, setValue] = useState("");
 	/* The field sizes to its own content so the caret can stand at the end of it,
@@ -142,10 +173,7 @@ export function Desk({ lead = "step" }: { lead?: Lead } = {}) {
 			<div className="proto-desk-col">
 				<RevealGroup immediate>
 					<RevealItem>
-						<p className="proto-desk-lead">
-							<strong>Turn a code change into a video.</strong> Paste a pull request, a diff or a
-							snippet — it morphs token by token and renders for the feed.
-						</p>
+						<p className="proto-desk-lead">{LEADS[lead]}</p>
 					</RevealItem>
 					<RevealItem>
 						<div className="proto-desk-modes" role="tablist" aria-label="What you are pasting">
@@ -229,12 +257,12 @@ const SHEET: [string, string][] = [
 	["LICENSE", "MIT · runs on your machine · no account"],
 ];
 
-export function DeskLeadHead() {
-	return <Desk lead="head" />;
+export function DeskLeadClaim() {
+	return <Desk lead="claim" />;
 }
 
-export function DeskLeadVoice() {
-	return <Desk lead="voice" />;
+export function DeskLeadStanding() {
+	return <Desk lead="standing" />;
 }
 
 export function Sheet() {
