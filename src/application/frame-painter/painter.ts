@@ -23,6 +23,8 @@ import type { FrameScene, GrainTile } from "./scene";
 export interface FrameState {
 	/** Already-interpolated tokens, straight out of the magic-move engine. */
 	tokens: RenderToken[];
+	/** Row count of the code area, fractional through a morph. */
+	lineCount: number;
 	/** Stable number of gutter rows for the segment (avoids a flickering gutter). */
 	lineNumberCount: number;
 	/** Seconds since the start of the video: drives the mesh drift. */
@@ -50,8 +52,11 @@ export function paintFrame(ctx: PaintContext, scene: FrameScene, state: FrameSta
 	ctx.scale(scene.card.scale, scene.card.scale);
 	paintWindow(ctx, scene);
 	paintChrome(ctx, scene);
+	ctx.save();
+	clipCodeArea(ctx, scene, state.lineCount);
 	paintGutter(ctx, scene, state.lineNumberCount);
 	paintTokens(ctx, scene, state.tokens);
+	ctx.restore();
 	ctx.restore();
 }
 
@@ -182,6 +187,22 @@ function paintChrome(ctx: PaintContext, scene: FrameScene): void {
 	ctx.textBaseline = "middle";
 	ctx.fillStyle = withHexAlpha(theme.foreground, "59");
 	ctx.fillText(title, cx + LIGHT_GAP * unit, cy);
+}
+
+/**
+ * Clip the code area to the row count, which is fractional through a morph.
+ *
+ * The preview does this so a frame that gains or loses lines grows and shrinks
+ * smoothly instead of snapping to the taller of the two; without it a canvas
+ * shows a row the preview is still hiding, which is exactly the kind of
+ * difference nobody notices until the video is next to the app.
+ */
+function clipCodeArea(ctx: PaintContext, scene: FrameScene, lineCount: number): void {
+	const padding = scene.code.y - scene.window.y - scene.chromeHeight;
+	const bodyHeight = Math.max(scene.code.lineHeight, lineCount * scene.code.lineHeight);
+	ctx.beginPath();
+	ctx.rect(scene.window.x + padding, scene.code.y, scene.window.width - 2 * padding, bodyHeight);
+	ctx.clip();
 }
 
 function paintGutter(ctx: PaintContext, scene: FrameScene, lineNumberCount: number): void {
