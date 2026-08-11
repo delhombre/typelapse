@@ -25,10 +25,19 @@ function Svg(props: SVGProps<SVGSVGElement>) {
 
 /* ─────────── solid glyphs (TikTok, likes) ─────────── */
 
+/* One heart, drawn once and used at two weights.
+   The outline version used to carry a right-shoulder control point at x=22.9
+   where its mirror sits at 18.9 — four units off on a 24 grid, and past the
+   heart's own right edge at 21, so the right lobe bulged outward and the glyph
+   read as lopsided. Every control point below is mirrored about x=12 by
+   construction, so the two lobes cannot drift apart again. */
+const HEART_PATH =
+	"M12 20.6C7.2 16.2 3.2 13.2 3.2 9.3 3.2 6.6 5.3 4.5 7.9 4.5 9.6 4.5 11.1 5.4 12 6.8 12.9 5.4 14.4 4.5 16.1 4.5 18.7 4.5 20.8 6.6 20.8 9.3 20.8 13.2 16.8 16.2 12 20.6Z";
+
 export function HeartSolid() {
 	return (
 		<Svg fill="currentColor">
-			<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+			<path d={HEART_PATH} />
 		</Svg>
 	);
 }
@@ -63,7 +72,7 @@ export function ForwardArrow() {
 export function HeartOutline({ stroke = 1.8 }: GlyphProps) {
 	return (
 		<Svg fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinejoin="round">
-			<path d="M12 20.7l-1.32-1.2C5.9 15.15 3 12.4 3 9.1 3 6.42 5.1 4.3 7.75 4.3c1.5 0 2.94.7 3.88 1.8l.37.44.37-.44a5.1 5.1 0 0 1 3.88-1.8C22.9 4.3 21 6.42 21 9.1c0 3.3-2.9 6.05-7.68 10.4L12 20.7z" />
+			<path d={HEART_PATH} />
 		</Svg>
 	);
 }

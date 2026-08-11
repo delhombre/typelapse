@@ -17,9 +17,9 @@ const FAN = [
 	{
 		themeName: "nord",
 		presetId: "forest",
-		title: "server.ts",
+		title: "api/users.ts",
 		language: "typescript",
-		code: 'const app = Hono()\napp.get("/", ok)\napp.fire()',
+		code: "const active = users.filter(\n  (u) => u.active\n)",
 		ratio: "16:9",
 		width: 300,
 		aspect: "16 / 9",
@@ -30,9 +30,9 @@ const FAN = [
 	{
 		themeName: "dracula",
 		presetId: "nebula",
-		title: "store.ts",
+		title: "api/users.ts",
 		language: "typescript",
-		code: "const s = create()\ns.set({ n: 0 })\nexport { s }",
+		code: "const active = users.filter(\n  (u) => u.active\n)",
 		ratio: "4:5",
 		width: 210,
 		aspect: "4 / 5",
@@ -43,9 +43,9 @@ const FAN = [
 	{
 		themeName: "aurora",
 		presetId: "aurora",
-		title: "route.ts",
+		title: "api/users.ts",
 		language: "typescript",
-		code: "function get() {\n  return json(x)\n}",
+		code: "const active = users.filter(\n  (u) => u.active\n)",
 		ratio: "9:16",
 		width: 180,
 		aspect: "9 / 16",
@@ -56,9 +56,9 @@ const FAN = [
 	{
 		themeName: "frost",
 		presetId: "ocean",
-		title: "hook.ts",
+		title: "api/users.ts",
 		language: "typescript",
-		code: "function useNow() {\n  return Date.now()\n}",
+		code: "const active = users.filter(\n  (u) => u.active\n)",
 		ratio: "1:1",
 		width: 230,
 		aspect: "1 / 1",
@@ -69,9 +69,9 @@ const FAN = [
 	{
 		themeName: "catppuccin",
 		presetId: "ember",
-		title: "main.py",
-		language: "python",
-		code: 'def greet(n):\n    msg = f"hi {n}"\n    return msg',
+		title: "api/users.ts",
+		language: "typescript",
+		code: "const active = users.filter(\n  (u) => u.active\n)",
 		ratio: "3:4",
 		width: 215,
 		aspect: "3 / 4",
@@ -99,7 +99,7 @@ export function FrameFan() {
 					const baseZ = 30 - Math.abs(i - 2) * 10;
 					return (
 						<motion.div
-							key={card.title}
+							key={card.ratio}
 							onHoverStart={() => setHovered(i)}
 							onHoverEnd={() => setHovered(null)}
 							className="absolute bottom-4 left-1/2"
@@ -137,7 +137,7 @@ export function FrameFan() {
 			<div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 				{FAN.map((card) => (
 					<div
-						key={card.title}
+						key={card.ratio}
 						className="shrink-0 snap-center self-center"
 						style={{ width: card.width, aspectRatio: card.aspect }}
 					>

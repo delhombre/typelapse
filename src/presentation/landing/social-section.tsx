@@ -29,12 +29,12 @@ export function SocialSection() {
 			<div className={`${CONTAINER} ${SECTION_PY} relative`}>
 				<div className="grid grid-cols-1 items-center gap-14 lg:grid-cols-2 lg:gap-16">
 					<Reveal>
-						<Eyebrow>Social preview</Eyebrow>
-						<h2 className="lp-h2 mt-4">See it in the feed first.</h2>
+						<Eyebrow>Step 03 · Check</Eyebrow>
+						<h2 className="lp-h2 mt-4">Check where it lands.</h2>
 						<p className="lp-line mt-4 max-w-md">
-							Preview your export inside a faithful TikTok, Reels, or Shorts frame, with the real
-							safe zones, before you ever leave the studio. Nothing important lands under a caption
-							or an action rail.
+							The same clip, dropped into a faithful TikTok, Reels, Shorts, X or LinkedIn frame with
+							the real safe zones. You see what a caption or an action rail would cover before you
+							ever leave the studio.
 						</p>
 						<div className="mt-8 flex flex-wrap gap-2">
 							{SOCIAL_PLATFORMS.map((p) => (
