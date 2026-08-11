@@ -117,7 +117,13 @@ const PLACEHOLDERS: Record<(typeof MODES)[number], string> = {
 	snippet: "const users = await db.users.all()",
 };
 
-export function Desk() {
+/* Three readings of "the lead wants more weight", to be looked at side by side.
+   The markup is identical in all three — the opening claim is always its own
+   element — and only the type on it changes, so what you are comparing is the
+   typography and nothing else. */
+type Lead = "step" | "head" | "voice";
+
+export function Desk({ lead = "step" }: { lead?: Lead } = {}) {
 	const [mode, setMode] = useState<(typeof MODES)[number]>("pull request");
 	const [value, setValue] = useState("");
 	/* The field sizes to its own content so the caret can stand at the end of it,
@@ -132,13 +138,13 @@ export function Desk() {
 	const field = useRef<HTMLInputElement>(null);
 
 	return (
-		<section className="proto-hero proto-desk">
+		<section className="proto-hero proto-desk" data-lead={lead}>
 			<div className="proto-desk-col">
 				<RevealGroup immediate>
 					<RevealItem>
 						<p className="proto-desk-lead">
-							Turn a code change into a video. Paste a pull request, a diff or a snippet — it morphs
-							token by token and renders for the feed.
+							<strong>Turn a code change into a video.</strong> Paste a pull request, a diff or a
+							snippet — it morphs token by token and renders for the feed.
 						</p>
 					</RevealItem>
 					<RevealItem>
@@ -222,6 +228,14 @@ const SHEET: [string, string][] = [
 	["THEMES", "7 syntax themes · mesh, solid and image backdrops"],
 	["LICENSE", "MIT · runs on your machine · no account"],
 ];
+
+export function DeskLeadHead() {
+	return <Desk lead="head" />;
+}
+
+export function DeskLeadVoice() {
+	return <Desk lead="voice" />;
+}
 
 export function Sheet() {
 	const [value, setValue] = useState("");
