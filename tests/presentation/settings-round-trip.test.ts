@@ -1,3 +1,4 @@
+import type { ProjectPayload } from "@/application/project/project-payload";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { decodeShareLink, encodeShareLink } from "@/presentation/utils/share-link";
@@ -11,8 +12,13 @@ import { beforeEach, describe, expect, it } from "vitest";
  * focusZoom, transitionMs), plus per-step {code, duration, focus, caption}.
  */
 
-/** A snapshot with EVERY round-tripped setting at a non-default value. */
-const FULL = {
+/**
+ * A snapshot with EVERY round-tripped setting at a non-default value. Typed as
+ * `ProjectPayload` on purpose: the format's own type must be able to express a
+ * fully-populated project, so a field added to the studio but forgotten in the
+ * payload fails to compile here.
+ */
+const FULL: ProjectPayload = {
 	title: "Round Trip",
 	code: "const z = 42;",
 	language: "python",

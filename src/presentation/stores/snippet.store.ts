@@ -6,6 +6,7 @@ import {
 } from "@/application/diff";
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
+import type { ProjectPayload, ProjectStepPayload } from "@/application/project/project-payload";
 import { Snippet } from "@/domain/entities/snippet";
 import { Step } from "@/domain/entities/step";
 import { Theme } from "@/domain/entities/theme";
@@ -105,6 +106,12 @@ interface SnippetState {
 	pause: () => void;
 
 	// Import/Export
+	/**
+	 * The whole studio as a project payload: the single producer of the format.
+	 * JSON export stringifies it, share links encode it, and the template catalog
+	 * is authored in it, so the four paths can never drift apart.
+	 */
+	toProjectPayload: () => ProjectPayload;
 	exportToJson: () => string;
 	importFromJson: (json: string) => void;
 	/**
@@ -155,15 +162,37 @@ function normalizeCardMargin(value: unknown): number {
 	);
 }
 
+/** Render dimensions outside this range are nonsense; a file carrying them is ignored. */
+const MIN_DIMENSION = 16;
+const MAX_DIMENSION = 4096;
+
 /**
- * Apply the export-store-owned settings (tempo / typewriter / zoom / progress
- * style) carried by an imported snapshot or share link. Each is applied only when
- * present and valid, so an older file that omits them keeps the current values
- * (the defaults on a fresh load): back-compatible by construction.
+ * True for a plausible pixel dimension. Guards the aspect against hand-edited
+ * files and stale share links: a zero, a negative or an absurd size would
+ * otherwise reach the renderer.
+ */
+function isDimension(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= MIN_DIMENSION &&
+		value <= MAX_DIMENSION
+	);
+}
+
+/**
+ * Apply the export-store-owned settings (aspect / tempo / typewriter / zoom /
+ * progress style) carried by an imported snapshot or share link. Each is applied
+ * only when present and valid, so an older file that omits them keeps the current
+ * values (the defaults on a fresh load): back-compatible by construction.
  */
 function applyExportSettings(obj: Record<string, unknown>): void {
 	const ex = useExportStore.getState();
-	const { transitionMs, typewriter, focusZoom, progressStyle } = obj;
+	const { transitionMs, typewriter, focusZoom, progressStyle, width, height } = obj;
+	// Both or neither: a half-specified aspect would silently distort the export.
+	if (isDimension(width) && isDimension(height)) {
+		ex.setResolution(width, height);
+	}
 	if (transitionMs === 400 || transitionMs === 650 || transitionMs === 1000) {
 		ex.setTransitionMs(transitionMs);
 	}
@@ -622,7 +651,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		set({ isPlaying: false, isPreparing: false, playback: null });
 	},
 
-	exportToJson: () => {
+	toProjectPayload: () => {
 		const {
 			snippet,
 			background,
@@ -633,10 +662,11 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			cardMargin,
 			watermark,
 		} = get();
-		// The export store owns tempo / typewriter / zoom / progress style; pull
-		// them in so a single JSON file captures the ENTIRE studio state.
-		const { transitionMs, typewriter, focusZoom, progressStyle } = useExportStore.getState();
-		const data = {
+		// The export store owns aspect / tempo / typewriter / zoom / progress style;
+		// pull them in so a single JSON file captures the ENTIRE studio state.
+		const { transitionMs, typewriter, focusZoom, progressStyle, width, height } =
+			useExportStore.getState();
+		const data: ProjectPayload = {
 			title: snippet.title,
 			code: snippet.code,
 			language: snippet.language,
@@ -652,14 +682,11 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			typewriter,
 			focusZoom,
 			transitionMs,
+			width,
+			height,
 			steps: snippet.steps.map((step) => {
 				const focus = formatLineRanges(step.highlightRanges);
-				const serialized: {
-					code: string;
-					duration: number;
-					focus?: string;
-					caption?: string;
-				} = {
+				const serialized: ProjectStepPayload = {
 					code: step.code,
 					duration: step.duration,
 				};
@@ -672,8 +699,10 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 				return serialized;
 			}),
 		};
-		return JSON.stringify(data, null, 2);
+		return data;
 	},
+
+	exportToJson: () => JSON.stringify(get().toProjectPayload(), null, 2),
 
 	importFromJson: (json: string) => {
 		let data: unknown;
