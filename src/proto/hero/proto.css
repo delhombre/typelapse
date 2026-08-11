@@ -227,16 +227,14 @@
 	--field-h: 52px;
 	/* The field is fully round, so its arc is half its height. */
 	--field-r: calc(var(--field-h) / 2);
-	/* One value for the whole silhouette, because it is one silhouette. Focus
-	   used to darken the field's ring alone, which cut the line in two at the
-	   exact place the last several passes were spent joining it — the block's
-	   half stayed at the hairline while the field's went to 22%, a 227 against a
-	   201. Whatever it is, it has to be the same all the way round. */
-	--edge: var(--color-hairline);
-}
-
-.proto-desk-col:has(.proto-desk-field:focus-within) {
-	--edge: color-mix(in oklch, var(--color-ink) 22%, transparent);
+	/* One value for the whole silhouette, because it is one silhouette — and
+	   opaque, at the value a hairline reaches over paper. Two of these lines
+	   cross: the block's left border and its right one both pass through the row
+	   the field's ring occupies. Translucent, they added up there and left a dark
+	   cell at each end of the join — 207 and 206 against the 226 either side.
+	   Mixed into the paper instead they can overlap all they like: 10% of ink laid
+	   on paper twice is still 10% of ink laid on paper. */
+	--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
 }
 
 /* One outline, around the union of the two, and none across the join. The
@@ -267,7 +265,7 @@
 	border: 1px solid var(--edge);
 	border-bottom: 0;
 	border-radius: calc(var(--field-r) + 1px) calc(var(--field-r) + 1px) 0 0;
-	transition: border-color 170ms var(--ease-out);
+	transition: transform 220ms var(--ease-out);
 }
 
 /* The join, one straight line the whole way. It used to stop at 26 and turn,
@@ -292,7 +290,7 @@
 	right: 0;
 	bottom: 0;
 	height: 1px;
-	background: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
+	background: var(--edge);
 }
 
 /* Glued, and ruled apart by a hairline rather than by a gap. */
@@ -383,11 +381,27 @@
 	border-top-left-radius: 0;
 	background: var(--color-surface);
 	box-shadow: 0 8px 24px -10px rgb(18 18 20 / 0.14);
-	transition: box-shadow 170ms var(--ease-out);
+	transition: box-shadow 220ms var(--ease-out), transform 220ms var(--ease-out);
 }
 
-.proto-desk-field:focus-within {
-	box-shadow: 0 8px 24px -10px rgb(18 18 20 / 0.16);
+/* Focus lifts the thing off the paper instead of drawing on it. The line is the
+   one part of this object that took the most work to make continuous, and
+   thickening or darkening it on focus spends exactly that: it is the loudest
+   possible way to say something that does not need volume. A deeper shadow and
+   a millimetre of rise say it in the material instead — the object comes
+   forward, nothing about it is redrawn, and the edge is the same hairline
+   focused or not.
+
+   Both halves take the same rise, so the join does not move relative to itself.
+   Transitions collapse under prefers-reduced-motion globally (app.css), which
+   leaves the shadow doing the work on its own. */
+.proto-desk-col:has(.proto-desk-field:focus-within) .proto-desk-field {
+	transform: translateY(-2px);
+	box-shadow: 0 16px 34px -12px rgb(18 18 20 / 0.22);
+}
+
+.proto-desk-col:has(.proto-desk-field:focus-within) .proto-desk-modes {
+	transform: translateY(-2px);
 }
 
 /* The whole ring, all the way round, on its own layer. Along the flat run the
