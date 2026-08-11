@@ -6,14 +6,29 @@ import { StaticFrame } from "./static-frame";
     confident settle. Shared with the CSS lift on the static frames and phones. */
 const LIFT_SPRING = { type: "spring" as const, bounce: 0, duration: 0.35 };
 
-/** The stack is asymmetric because the lift is: a card must own the front the
-    instant it starts rising, and keep it until it has finished coming back
-    down. An integer that decides who is in front of whom cannot be eased, so
-    the way to make it late is not to animate it but to delay it — a zero-length
-    transition applies the new value whole, after the wait. Demote a card while
-    the spring is still returning it and its raised edge is clipped by the
-    neighbours it is still standing above; that clip is the pop. */
-const Z_SETTLE_MS = LIFT_SPRING.duration * 1000;
+/** The stack is asymmetric because the lift is: a card takes the front the
+    instant it starts rising, and a card that is coming back down still has to
+    cover the fan it has not yet rejoined — demote it on the frame the hover
+    leaves and its raised edge is clipped by neighbours it is still standing
+    above, which is the pop. But holding it at the *front* is the other error:
+    the cursor has usually moved to the next card, and an abandoned card that
+    keeps the front paints over the one being pointed at. So three tiers, not
+    two. Only the hovered card is at the front; a descending card outranks the
+    fan and nothing else; everyone else sits where the fan put them. This is why
+    it cannot be a CSS delay: a delay can only hold the value a card used to
+    have, and what a descending card needs is a value it has never held. */
+const Z_HOVERED = 60;
+const Z_DESCENDING = 50;
+
+function stackZ(hovered: boolean, descending: boolean, baseZ: number): number {
+	if (hovered) {
+		return Z_HOVERED;
+	}
+	if (descending) {
+		return Z_DESCENDING;
+	}
+	return baseZ;
+}
 
 /** The hand, refanned 2026-08-10: five cards, five *shapes*.
     The section's claim is "every aspect", and the previous fan showed five
@@ -98,6 +113,31 @@ const FAN = [
 export function FrameFan() {
 	const reduce = useReducedMotion();
 	const [hovered, setHovered] = useState<number | null>(null);
+	/* A set, not a slot: flicking across the fan leaves several cards falling at
+	   once, and a single slot would evict the first one while it was still in
+	   the air — the very clip this tier exists to prevent. Under reduced motion
+	   nothing lifts, so nothing is ever entered here and the demotion is plain. */
+	const [descending, setDescending] = useState<ReadonlySet<number>>(new Set());
+
+	const beginDescent = (i: number) => {
+		if (reduce) {
+			return;
+		}
+		setDescending((prev) => new Set(prev).add(i));
+	};
+
+	/* The descent is over when the spring says so, not when a timer guesses: the
+	   card reports its own landing, so the tier can never outlive the motion. */
+	const endDescent = (i: number) => {
+		setDescending((prev) => {
+			if (!prev.has(i)) {
+				return prev;
+			}
+			const next = new Set(prev);
+			next.delete(i);
+			return next;
+		});
+	};
 
 	return (
 		<section className="mx-auto w-full max-w-5xl px-6 py-6">
@@ -120,8 +160,7 @@ export function FrameFan() {
 							key={card.ratio}
 							className="absolute bottom-4 left-1/2"
 							style={{
-								zIndex: hovered === i ? 50 : baseZ,
-								transition: hovered === i ? "z-index 0s" : `z-index 0s ${Z_SETTLE_MS}ms`,
+								zIndex: stackZ(hovered === i, descending.has(i), baseZ),
 								width: card.width,
 								aspectRatio: card.aspect,
 								transform: `translateX(${card.x - card.width / 2}px)`,
@@ -129,7 +168,11 @@ export function FrameFan() {
 						>
 							<motion.div
 								onHoverStart={() => setHovered(i)}
-								onHoverEnd={() => setHovered(null)}
+								onHoverEnd={() => {
+									setHovered(null);
+									beginDescent(i);
+								}}
+								onAnimationComplete={() => endDescent(i)}
 								className="h-full w-full"
 								initial={false}
 								animate={{ y: 0, rotate: card.rot }}
