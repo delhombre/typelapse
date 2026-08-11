@@ -511,8 +511,70 @@
 	white-space: nowrap;
 }
 
+/* ── The log under the field ──
+   Smaller than the field it reports on, and tighter with it: 12 over 20
+   against the 13 over 22 the rows were carrying. That is a size a log should
+   be, and a leading that lets three of them read as one block rather than as
+   three sentences.
+
+   The right edge is the field's own right edge above, so the log is exactly as
+   wide as the object it reports on. The rows had no such edge before — they
+   were capped at 62ch and stopped wherever that fell, which is why the counts
+   ended on nothing. */
 .proto-desk-examples {
 	margin-top: 14px;
+	font-size: 12px;
+	line-height: 20px;
+}
+
+.proto-desk-examples li {
+	max-width: none;
+}
+
+/* A · one line. No columns at all, so nothing in it can fail to line up: the
+   counts run on after the URL as a dim tail, the way a shell prints a line. */
+.proto-desk[data-rows="line"] .proto-desk-examples li {
+	display: block;
+	white-space: nowrap;
+}
+
+.proto-desk[data-rows="line"] .proto-desk-examples span {
+	margin-left: 1ch;
+}
+
+/* B and C put the numbers in real columns — and a column that has to line up
+   across rows cannot be sized inside a row. Each `li` was its own grid, so
+   every row measured its own widest cell and they landed 6 and 14 apart. The
+   list owns the columns now; each row borrows them by subgrid. */
+
+/* B · two columns, and less in them. The file count goes and the diffstat
+   stays, split so the added and the removed each stack, the last of them
+   landing on the field's right edge. */
+.proto-desk[data-rows="pair"] .proto-desk-examples {
+	display: grid;
+	grid-template-columns: 1fr auto auto;
+	gap: 2px 2ch;
+}
+
+/* C · the table. The same, with the file count kept, so every field the row
+   carries has a column of its own. The most ordered of the three, and the one
+   that reads as a tool rather than as a page. */
+.proto-desk[data-rows="table"] .proto-desk-examples {
+	display: grid;
+	grid-template-columns: 1fr auto auto auto;
+	gap: 2px 2ch;
+}
+
+.proto-desk[data-rows="pair"] .proto-desk-examples li,
+.proto-desk[data-rows="table"] .proto-desk-examples li {
+	display: grid;
+	grid-column: 1 / -1;
+	grid-template-columns: subgrid;
+}
+
+.proto-desk[data-rows="pair"] .proto-desk-examples span,
+.proto-desk[data-rows="table"] .proto-desk-examples span {
+	text-align: right;
 }
 
 .proto-desk-meta {

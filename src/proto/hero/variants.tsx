@@ -1,7 +1,7 @@
 import { Instrument } from "@/presentation/landing/instrument";
 import { Reveal, RevealGroup, RevealItem } from "@/presentation/landing/primitives";
 import { GITHUB_URL } from "@/presentation/landing/tokens";
-import { type ReactNode, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 /* Three fusions of Console (an external reference: no headline, the tool's own field, real
@@ -16,11 +16,18 @@ import { Link } from "react-router-dom";
 
    Throwaway. Delete src/proto and the route in main.tsx once one wins. */
 
+/* Held apart rather than as one printed string: a log's columns cannot line up
+   if its columns are inside a sentence. Prompt and Sheet, which do print it as
+   one line, join it back. */
 const EXAMPLES = [
-	["github.com/oven-sh/bun/pull/14210", "3 files · +41 −12"],
-	["github.com/vercel/next.js/pull/71102", "1 file · +18 −4"],
-	["github.com/honojs/hono/pull/3488", "2 files · +26 −9"],
+	{ url: "github.com/oven-sh/bun/pull/14210", files: "3 files", added: "+41", removed: "−12" },
+	{ url: "github.com/vercel/next.js/pull/71102", files: "1 file", added: "+18", removed: "−4" },
+	{ url: "github.com/honojs/hono/pull/3488", files: "2 files", added: "+26", removed: "−9" },
 ] as const;
+
+type Example = (typeof EXAMPLES)[number];
+
+const printed = (e: Example) => `${e.files} · ${e.added} ${e.removed}`;
 
 const MODES = ["pull request", "diff", "snippet"] as const;
 
@@ -77,10 +84,10 @@ export function Prompt() {
 					</RevealItem>
 					<RevealItem>
 						<ul className="proto-prompt-history">
-							{EXAMPLES.map(([url, meta]) => (
-								<li key={url}>
-									<Link to="/app">{url}</Link>
-									<span>{meta}</span>
+							{EXAMPLES.map((e) => (
+								<li key={e.url}>
+									<Link to="/app">{e.url}</Link>
+									<span>{printed(e)}</span>
 								</li>
 							))}
 						</ul>
@@ -117,44 +124,46 @@ const PLACEHOLDERS: Record<(typeof MODES)[number], string> = {
 	snippet: "const users = await db.users.all()",
 };
 
-/* The lead now opens on the name, in the weight that won the last pass: the
-   head takes 600 and the ink, the rest stays 400 and ash. What varies between
-   these three is only how much of the sentence the name is carrying — one
-   word, one claim, or a standing introduction — so what is being compared is
-   the writing, not the type.
+/* Three readings of the log under the field. It was one line of prose per row,
+   right-aligned as a block, which is why nothing in it stacked: a column cannot
+   line up while it is inside a sentence. All three are smaller — 12 over 20
+   against the 13 over 22 they were — and all three start on the same 418 as
+   every other line of text. What differs is how many columns they admit to.
 
-   No dashes in any of them. The old line hung its second half off an em dash,
-   which is the punctuation this project does not use. */
-type Lead = "subject" | "claim" | "standing";
+   A · one line. No columns at all, so nothing can fail to align: the counts
+   run on after the URL as a dim tail, the way a shell prints a line.
 
-const LEADS: Record<Lead, ReactNode> = {
-	/* A · the name is the subject. It does the work of the verb and nothing
-	   more; the claim itself reads at the same weight as the rest. */
-	subject: (
-		<>
-			<strong>Typelapse</strong> turns a code change into a video. Paste a pull request, a diff or a
-			snippet. It morphs token by token and renders for the feed.
-		</>
-	),
-	/* B · the name and its claim. The bold covers the whole first sentence, so
-	   the name arrives already saying what it does. */
-	claim: (
-		<>
-			<strong>Typelapse turns a code change into a video.</strong> Paste a pull request, a diff or a
-			snippet. It morphs token by token and renders for the feed.
-		</>
-	),
-	/* C · the name standing on its own, the way a spec sheet opens. The sentence
-	   after it keeps the imperative the line has always had. */
-	standing: (
-		<>
-			<strong>Typelapse.</strong> Turn a code change into a video. Paste a pull request, a diff or a
-			snippet. It morphs token by token and renders for the feed.
-		</>
-	),
-};
+   B · two columns, and less in them. The file count goes and the diffstat stays,
+   split so the added and the removed each stack, with the last of them landing
+   on the field's own right edge above.
 
-export function Desk({ lead = "subject" }: { lead?: Lead } = {}) {
+   C · the table. Every field gets its own column and the numeric ones are
+   right-aligned, so the counts stack whatever their width. The most ordered,
+   and the one that most looks like a tool rather than a page. */
+type Rows = "line" | "pair" | "table";
+
+function ExampleMeta({ rows, e }: { rows: Rows; e: Example }) {
+	if (rows === "line") {
+		return <span>{`· ${printed(e)}`}</span>;
+	}
+	if (rows === "pair") {
+		return (
+			<>
+				<span>{e.added}</span>
+				<span>{e.removed}</span>
+			</>
+		);
+	}
+	return (
+		<>
+			<span>{e.files}</span>
+			<span>{e.added}</span>
+			<span>{e.removed}</span>
+		</>
+	);
+}
+
+export function Desk({ rows = "line" }: { rows?: Rows } = {}) {
 	const [mode, setMode] = useState<(typeof MODES)[number]>("pull request");
 	const [value, setValue] = useState("");
 	/* The field sizes to its own content so the caret can stand at the end of it,
@@ -169,11 +178,14 @@ export function Desk({ lead = "subject" }: { lead?: Lead } = {}) {
 	const field = useRef<HTMLInputElement>(null);
 
 	return (
-		<section className="proto-hero proto-desk" data-lead={lead}>
+		<section className="proto-hero proto-desk" data-rows={rows}>
 			<div className="proto-desk-col">
 				<RevealGroup immediate>
 					<RevealItem>
-						<p className="proto-desk-lead">{LEADS[lead]}</p>
+						<p className="proto-desk-lead">
+							<strong>Typelapse.</strong> Turn a code change into a video. Paste a pull request, a
+							diff or a snippet. It morphs token by token and renders for the feed.
+						</p>
 					</RevealItem>
 					<RevealItem>
 						<div className="proto-desk-modes" role="tablist" aria-label="What you are pasting">
@@ -218,10 +230,10 @@ export function Desk({ lead = "subject" }: { lead?: Lead } = {}) {
 					</RevealItem>
 					<RevealItem>
 						<ul className="proto-desk-examples">
-							{EXAMPLES.map(([url, meta]) => (
-								<li key={url}>
-									<Link to="/app">{url}</Link>
-									<span>{meta}</span>
+							{EXAMPLES.map((e) => (
+								<li key={e.url}>
+									<Link to="/app">{e.url}</Link>
+									<ExampleMeta rows={rows} e={e} />
 								</li>
 							))}
 						</ul>
@@ -257,12 +269,12 @@ const SHEET: [string, string][] = [
 	["LICENSE", "MIT · runs on your machine · no account"],
 ];
 
-export function DeskLeadClaim() {
-	return <Desk lead="claim" />;
+export function DeskRowsPair() {
+	return <Desk rows="pair" />;
 }
 
-export function DeskLeadStanding() {
-	return <Desk lead="standing" />;
+export function DeskRowsTable() {
+	return <Desk rows="table" />;
 }
 
 export function Sheet() {
@@ -306,10 +318,10 @@ export function Sheet() {
 					</RevealItem>
 					<RevealItem>
 						<ul className="proto-sheet-examples">
-							{EXAMPLES.map(([url, meta]) => (
-								<li key={url}>
-									<Link to="/app">{url}</Link>
-									<span>{meta}</span>
+							{EXAMPLES.map((e) => (
+								<li key={e.url}>
+									<Link to="/app">{e.url}</Link>
+									<span>{printed(e)}</span>
 								</li>
 							))}
 						</ul>
