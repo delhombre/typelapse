@@ -49,6 +49,20 @@ describe("frameNaturalSize", () => {
 		expect(height).toBeCloseTo(40 + 5 * 10 * LINE_HEIGHT_RATIO, 5);
 	});
 
+	it("honours a measured advance when the target can measure its own font", () => {
+		// A canvas can measure the resolved font instead of assuming 0.62, and the
+		// window has to be sized on the same advance the glyphs are painted with.
+		const measured = frameNaturalSize({ ...base, charWidthRatio: 0.5 });
+		expect(measured.width).toBeCloseTo(40 + 12 * 10 * 0.5, 5);
+		expect(measured.height).toBeCloseTo(frameNaturalSize(base).height, 5);
+	});
+
+	it("falls back to the nominal advance when none is measured", () => {
+		expect(frameNaturalSize({ ...base, charWidthRatio: undefined })).toEqual(
+			frameNaturalSize(base),
+		);
+	});
+
 	it("widens for the line-number gutter", () => {
 		const withGutter = frameNaturalSize({ ...base, showLineNumbers: true });
 		// gutterDigits = max(2, "5".length) = 2 ; gutterWidth = 3*10*0.62 + 10 = 28.6
