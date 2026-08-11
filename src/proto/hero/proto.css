@@ -280,16 +280,17 @@
 .proto-desk {
 	--mode-h: 35px;
 	--field-h: 52px;
-	/* The field is fully round, so its arc is half its height. */
-	--field-r: calc(var(--field-h) / 2);
-	/* The block's own turn, which is not the field's. It was 26 — the field's
-	   radius, borrowed back when the line still had to leave the field's arc and
-	   continue up. The field gave up that corner two passes ago and the left edge
-	   became one straight run, so the borrowing has no reason left; what remained
-	   was three quarters of a 35px band spent turning, on a value that was never
-	   chosen in the first place (26 is only what 999px comes to on a 52px field).
+	/* Every turn on the left of the assembly, top and bottom, and nothing else.
+	   It was the field's own radius up at the block — 26, borrowed back when the
+	   line still had to leave the field's arc and continue up. The field gave up
+	   that corner and the left edge became one straight run, so the borrowing had
+	   no reason left; and 26 was never chosen anyway, it is only what 999px comes
+	   to on a field 52 tall.
+
 	   14 is chosen: it is --text-x, so the edge finishes turning on the exact
-	   vertical the first character starts on. */
+	   vertical the first character starts on. The left side is now that turn, a
+	   straight run, and that turn again. Only the right end of the field stays
+	   fully round, because only the right end is still an end. */
 	--mode-r: var(--text-x);
 	/* One value for the whole silhouette, because it is one silhouette — and
 	   opaque, at the value a hairline reaches over paper. Two of these lines
@@ -440,14 +441,15 @@
 	padding: 0 6px 0 var(--text-x);
 	height: var(--field-h);
 	border-radius: 999px;
-	/* Except here, where the block sits on it. This corner is the only place the
-	   field's own roundness fought the assembly: it turned away from the left
-	   edge just as the block was coming down it, and the join line had to turn
-	   with it. Squared off, the field simply runs up to the edge, and the left
-	   side is one straight line between two turns — the block's at the top, the
-	   field's own at the bottom. It is not a pill's end any more because it is no
-	   longer an end: the block is there. */
+	/* Except down the left, which is not the field's end any more — the block is
+	   there. The top corner is square, because the field's roundness fought the
+	   assembly at exactly that point: it turned away from the left edge just as
+	   the block was coming down it, and the join line had to turn with it. And
+	   the bottom corner takes the block's turn rather than a full cap, so the
+	   left side is one straight run between two turns of the same size. Only the
+	   right end stays fully round, because only the right end is still an end. */
 	border-top-left-radius: 0;
+	border-bottom-left-radius: var(--mode-r);
 	background: var(--color-surface);
 	box-shadow: 0 8px 24px -10px rgb(18 18 20 / 0.14);
 	transition: box-shadow 220ms var(--ease-out);
@@ -468,6 +470,8 @@
 	inset: -1px;
 	border-radius: 999px;
 	border-top-left-radius: 0;
+	/* Concentric with the corner it traces: one pixel further out. */
+	border-bottom-left-radius: calc(var(--mode-r) + 1px);
 	box-shadow: inset 0 0 0 1px var(--edge);
 	pointer-events: none;
 	transition: box-shadow 170ms var(--ease-out);
