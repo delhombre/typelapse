@@ -173,7 +173,7 @@ export function Instrument({
 } = {}) {
 	const reduce = useReducedMotion();
 	const [themeName, setThemeName] = useState("aurora");
-	const [presetId, setPresetId] = useState("aurora");
+	const [presetId, setPresetId] = useState("solar");
 	const [aspect, setAspect] = useState<AspectId>("16:9");
 	const [playing, setPlaying] = useState(!reduce);
 	const [view, setView] = useState<DemoView | null>(null);

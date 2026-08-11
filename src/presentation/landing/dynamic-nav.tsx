@@ -6,16 +6,20 @@ import {
 	useReducedMotion,
 	useScroll,
 } from "motion/react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 /**
  * A Dynamic Island nav: one compact, centered near-black pill floating at the top,
  * never spanning the page. It is one solid block, so the logo and CTA move together
- * with it. Past a certain scroll depth it hides when you scroll down and drops back
- * into view when you scroll up (the classic reveal-on-scroll-up header); near the
- * very top it always stays. The move is a clean slide with no stretch. Reduced
- * motion keeps it pinned and visible.
+ * with it.
+ *
+ * It is absent for the whole hero. The hero already is what the nav offers — the
+ * product's name and the way in — so a pill repeating both, over the paste field
+ * of all things, is a second copy of the page's first screen. Past the hero it
+ * behaves as a header should: hidden on the way down, back on the way up. The
+ * move is a clean slide with no stretch; reduced motion keeps it put once it is
+ * earned, and still absent before that.
  */
 
 /** The near-black of the real Dynamic Island. */
@@ -27,8 +31,6 @@ const ISLAND_SHADOW = [
 	"inset 0 1px 0 rgba(255,255,255,0.06)",
 ].join(", ");
 
-/** Above this scroll depth the island always shows; below it, direction decides. */
-const REVEAL_AT = 90;
 /** How far up the hidden island tucks (past the top edge). */
 const HIDDEN_Y = -104;
 
@@ -39,19 +41,42 @@ const HIDE_TRANSITION: Transition = { type: "spring", bounce: 0, duration: 0.3 }
 export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
-	const [hidden, setHidden] = useState(false);
+	/* Starts away: the page opens on the hero, and the hero is where it does not
+	   belong. */
+	const [hidden, setHidden] = useState(true);
+	/* Measured rather than assumed to be one viewport: the hero is `min-h`, so
+	   its content can push it taller, and a resize can change it under us. */
+	const heroBottom = useRef(Number.POSITIVE_INFINITY);
+
+	useEffect(() => {
+		const hero = document.querySelector(".lp-hero");
+		if (!hero) {
+			// No hero on this page: nothing to stay out of the way of.
+			heroBottom.current = 0;
+			setHidden(false);
+			return;
+		}
+		const measure = () => {
+			heroBottom.current = hero.getBoundingClientRect().bottom + window.scrollY;
+			setHidden(window.scrollY < heroBottom.current);
+		};
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(hero);
+		return () => observer.disconnect();
+	}, []);
 
 	useMotionValueEvent(scrollY, "change", (y) => {
-		const previous = scrollY.getPrevious() ?? 0;
-		if (y < REVEAL_AT) {
-			setHidden(false);
-		} else {
-			// Scrolling down (y grows) hides it; scrolling up brings it back.
-			setHidden(y > previous);
+		if (y < heroBottom.current) {
+			setHidden(true);
+			return;
 		}
+		// Past the hero: scrolling down (y grows) hides it, scrolling up brings it
+		// back. Reduced motion keeps it put instead of sliding on every reversal.
+		setHidden(reduce ? false : y > (scrollY.getPrevious() ?? 0));
 	});
 
-	const isHidden = hidden && !reduce;
+	const isHidden = hidden;
 
 	return (
 		<header className="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center">
