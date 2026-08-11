@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { DiffImportMenu } from "./diff-import-menu";
-import { TemplatesMenu } from "./templates-menu";
+import { TemplateGallery } from "./template-gallery";
 import { UrlImportMenu } from "./url-import-menu";
 
 /** Top navigation bar: brand, templates, and the import/export/share/theme actions. */
@@ -105,7 +105,7 @@ export function TopNav() {
 					</div>
 					<span className="text-sm font-semibold tracking-tight">Typelapse</span>
 				</Link>
-				<TemplatesMenu />
+				<TemplateGallery />
 			</div>
 			<div className="flex items-center gap-1">
 				<UrlImportMenu />
