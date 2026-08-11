@@ -497,7 +497,18 @@ html[data-landing-theme="dark"] {
 	}
 }
 
-/* The field hugs its text, so the button is no longer pushed right by it. */
+/* Ink, not the primary, and this is the one place that is true. A filled button
+   has to be seen as a shape, not only read as a label: the primary measures
+   1.75:1 against the white it sits on here, under the 3:1 a non-text element
+   needs, so the button all but dissolved into its own field. Ink on that white
+   is 15:1.
+
+   The primary loses nothing by it — it is still on the dock, where the surface
+   is near-black and ink is the colour that would vanish, and it is the whole
+   backdrop below. The rule underneath both: the filled action takes whichever
+   of the two contrasts with what it is sitting on.
+
+   The field hugs its text, so the button is no longer pushed right by it. */
 .landing-root .lp-field-cta {
 	margin-left: auto;
 	display: inline-flex;
@@ -505,8 +516,8 @@ html[data-landing-theme="dark"] {
 	height: 40px;
 	padding: 0 18px;
 	border-radius: 999px;
-	background: var(--color-primary);
-	color: var(--color-on-primary);
+	background: var(--color-ink);
+	color: var(--color-paper);
 	font-family: var(--font-sans);
 	font-size: 13px;
 	font-weight: 600;
@@ -518,7 +529,7 @@ html[data-landing-theme="dark"] {
    hover colour until something else is touched. */
 @media (hover: hover) and (pointer: fine) {
 	.landing-root .lp-field-cta:hover {
-		background: var(--color-primary-hover);
+		background: color-mix(in oklch, var(--color-ink) 86%, var(--color-paper));
 	}
 }
 
