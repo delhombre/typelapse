@@ -16,16 +16,25 @@ const LIFT_SPRING = { type: "spring" as const, bounce: 0, duration: 0.35 };
     two. Only the hovered card is at the front; a descending card outranks the
     fan and nothing else; everyone else sits where the fan put them. This is why
     it cannot be a CSS delay: a delay can only hold the value a card used to
-    have, and what a descending card needs is a value it has never held. */
-const Z_HOVERED = 60;
-const Z_DESCENDING = 50;
+    have, and what a descending card needs is a value it has never held.
+
+    The tier is ordered by the fan's own resting order, so cards falling
+    together never trade places. A flat value for the whole tier would rank them
+    by document order instead the moment more than one is in the air — a sweep
+    across the fan replaces the hand's stacking with the DOM's, then unpicks it
+    in a series of snaps as each card lands, motionless. Lifting every descending
+    card by the same amount keeps their mutual order exactly as it will be when
+    they arrive, so the only overlaps that ever change are the ones the lift
+    itself owns. Between tiers: hovered above descending above at rest. */
+const Z_DESCENDING_BOOST = 50;
+const Z_HOVERED = 100;
 
 function stackZ(hovered: boolean, descending: boolean, baseZ: number): number {
 	if (hovered) {
 		return Z_HOVERED;
 	}
 	if (descending) {
-		return Z_DESCENDING;
+		return baseZ + Z_DESCENDING_BOOST;
 	}
 	return baseZ;
 }
