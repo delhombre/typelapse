@@ -7,6 +7,7 @@ import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { LandingPage } from "@/presentation/landing/landing-page";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import { HeroProto } from "@/proto/hero/harness";
 import { MotionConfig } from "motion/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -51,6 +52,8 @@ createRoot(root).render(
 				<Routes>
 					<Route path="/" element={<LandingPage />} />
 					<Route path="/app" element={<Studio />} />
+					{/* PROTO: delete this and src/proto once a hero is chosen. */}
+					<Route path="/proto/hero" element={<HeroProto />} />
 				</Routes>
 			</BrowserRouter>
 		</MotionConfig>
