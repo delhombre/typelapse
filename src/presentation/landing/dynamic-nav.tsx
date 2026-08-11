@@ -8,6 +8,7 @@ import {
 } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useOverDark } from "./use-over-dark";
 
 /**
  * A Dynamic Island nav: one compact, centered near-black pill floating at the top,
@@ -22,8 +23,14 @@ import { Link } from "react-router-dom";
  * earned, and still absent before that.
  */
 
-/** The near-black of the real Dynamic Island. */
+/** The near-black of the real Dynamic Island — and its inverse, for the
+    sections that are already dark. A near-black pill on a near-black band is a
+    pill you cannot see; the page alternates the two, so the island has to know
+    which it is over. */
 const ISLAND_BG = "rgba(11, 11, 15, 1)";
+const ISLAND_BG_ON_DARK = "#faf9f6";
+/** The strip the island floats in: 12 of top offset and 44 of pill. */
+const ISLAND_BAND = 56;
 /** An elevated float so the pill reads as hovering over the page. */
 const ISLAND_SHADOW = [
 	"0 14px 34px -10px rgba(0,0,0,0.38)",
@@ -41,6 +48,7 @@ const HIDE_TRANSITION: Transition = { type: "spring", bounce: 0, duration: 0.3 }
 export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
+	const onDark = useOverDark(ISLAND_BAND);
 	/* Starts away: the page opens on the hero, and the hero is where it does not
 	   belong. */
 	const [hidden, setHidden] = useState(true);
@@ -81,24 +89,37 @@ export function DynamicNav() {
 	return (
 		<header className="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center">
 			<motion.div
-				className="pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px]"
-				style={{ background: ISLAND_BG, boxShadow: ISLAND_SHADOW }}
+				className="pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px] transition-colors duration-300"
+				style={{ background: onDark ? ISLAND_BG_ON_DARK : ISLAND_BG, boxShadow: ISLAND_SHADOW }}
 				initial={false}
 				animate={{ y: isHidden ? HIDDEN_Y : 0, opacity: isHidden ? 0 : 1 }}
 				transition={reduce ? { duration: 0 } : isHidden ? HIDE_TRANSITION : REVEAL_TRANSITION}
 			>
-				<Link to="/" aria-label="Typelapse home" className="flex items-center gap-2 text-white">
+				<Link
+					to="/"
+					aria-label="Typelapse home"
+					className={`flex items-center gap-2 transition-colors duration-300 ${onDark ? "text-ink" : "text-white"}`}
+				>
 					<Logomark size={17} />
-					<span className="font-semibold text-[14px] text-white tracking-tight">Typelapse</span>
+					<span className="font-semibold text-[14px] tracking-tight">Typelapse</span>
 				</Link>
-				{/* The violet capsule nests concentric in the pill: pill h44 r22, capsule
-				    h32 r16, so an even 6px inset (pr-[6px] + the 6px top/bottom gap). */}
+				{/* The capsule nests concentric in the pill: pill h44 r22, capsule h32
+				    r16, so an even 6px inset (pr-[6px] + the 6px top/bottom gap). It
+				    takes the same rule every filled action takes — whichever of the
+				    primary and the ink contrasts with what it sits on — and here that is
+				    the pill, which has just flipped underneath it. */}
 				<Link
 					to="/app"
 					aria-label="Open studio"
 					className="flex h-full items-center outline-offset-4"
 				>
-					<span className="inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-[var(--color-on-primary)] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)]">
+					<span
+						className={`inline-flex h-8 items-center whitespace-nowrap rounded-full px-3.5 font-medium text-[12.5px] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] transition-colors duration-300 ${
+							onDark
+								? "bg-ink text-paper hover:bg-ink/86"
+								: "bg-[var(--color-cta)] text-[var(--color-on-primary)] hover:bg-[var(--color-primary-hover)]"
+						}`}
+					>
 						Open studio
 					</span>
 				</Link>
