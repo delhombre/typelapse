@@ -82,14 +82,17 @@ function Footer() {
 					<span className="text-[13px] text-ash">Your code, in motion.</span>
 				</div>
 				<div className="flex items-center gap-6 text-[13px]">
-					<Link to="/app" className="text-ash transition-colors hover:text-ink">
+					<Link
+						to="/app"
+						className="text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
+					>
 						Studio
 					</Link>
 					<a
 						href={GITHUB_URL}
 						target="_blank"
 						rel="noreferrer"
-						className="text-ash transition-colors hover:text-ink"
+						className="text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
 					>
 						GitHub
 					</a>
