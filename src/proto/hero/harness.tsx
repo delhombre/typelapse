@@ -2,9 +2,13 @@ import { useLandingTheme } from "@/presentation/landing/use-landing-theme";
 import { useCallback, useState } from "react";
 import { Picker } from "./picker";
 import "./proto.css";
-import { Desk } from "./variants";
+import { Desk, Prompt, Sheet } from "./variants";
 
-const VARIANTS = [{ name: "Desk", render: () => <Desk /> }];
+const VARIANTS = [
+	{ name: "Prompt", render: () => <Prompt /> },
+	{ name: "Desk", render: () => <Desk /> },
+	{ name: "Sheet", render: () => <Sheet /> },
+];
 
 const initialIndex = () => {
 	const raw = new URLSearchParams(window.location.search).get("v");
