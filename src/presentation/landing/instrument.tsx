@@ -498,6 +498,28 @@ function Toolbar({
 	const [open, setOpen] = useState<null | "backdrop" | "theme">(null);
 
 	/**
+	 * Which opener to hand focus back to once the root row returns.
+	 *
+	 * Opening a submenu replaces the whole row, so the button that was pressed
+	 * stops existing and focus falls to the body. Escape therefore cannot simply
+	 * refocus a ref: there is nothing to refocus until the root row has mounted
+	 * again, which `mode="wait"` delays until the outgoing row has finished
+	 * leaving. The row's own mount is the moment that is known to be right, so
+	 * the restore rides its ref callback rather than a timer.
+	 *
+	 * Only keyboard dismissal restores. A click outside is already a statement
+	 * about where the user wants to be, and yanking focus back would undo it.
+	 */
+	const restoreTo = useRef<null | "backdrop" | "theme">(null);
+
+	const closeSubmenu = useCallback((restoreFocus: boolean) => {
+		setOpen((current) => {
+			restoreTo.current = restoreFocus ? current : null;
+			return null;
+		});
+	}, []);
+
+	/**
 	 * The hovered control's label, and where to centre its helper.
 	 *
 	 * The helper lives outside the island because the island clips its own
@@ -534,6 +556,54 @@ function Toolbar({
 		observer.observe(node);
 		observerRef.current = observer;
 	}, []);
+
+	/**
+	 * The root row's mount is also where a pending focus restore lands, so the
+	 * opener the user came from is focused the instant it exists again.
+	 */
+	const mountRootRow = useCallback(
+		(node: HTMLDivElement | null) => {
+			measureRow(node);
+			const opener = restoreTo.current;
+			restoreTo.current = null;
+			if (node && opener) {
+				node.querySelector<HTMLElement>(`[data-island-opener="${opener}"]`)?.focus();
+			}
+		},
+		[measureRow],
+	);
+
+	/**
+	 * A submenu is a mode, and a mode needs both of its exits: Escape for the
+	 * keyboard, a press anywhere else for the pointer. Without them the only way
+	 * out is the back chevron, which the studio's own popovers do not ask for.
+	 */
+	useEffect(() => {
+		if (open === null) {
+			return;
+		}
+
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") {
+				closeSubmenu(true);
+			}
+		};
+		// pointerdown, not click: the submenu should be gone by the time the press
+		// resolves, the same beat a native menu dismisses on.
+		const onPointerDown = (event: PointerEvent) => {
+			const dock = dockRef.current;
+			if (dock && !event.composedPath().includes(dock)) {
+				closeSubmenu(false);
+			}
+		};
+
+		document.addEventListener("keydown", onKeyDown);
+		document.addEventListener("pointerdown", onPointerDown);
+		return () => {
+			document.removeEventListener("keydown", onKeyDown);
+			document.removeEventListener("pointerdown", onPointerDown);
+		};
+	}, [open, closeSubmenu]);
 
 	const preset = MESH_PRESETS.find((p) => p.id === presetId) ?? MESH_PRESETS[0];
 	const themeDot = THEME_DOTS.find((t) => t.name === themeName) ?? THEME_DOTS[0];
@@ -591,7 +661,7 @@ function Toolbar({
 					{open === null ? (
 						<motion.div
 							key="root"
-							ref={measureRow}
+							ref={mountRootRow}
 							className="lp-island-row"
 							{...islandMotion(reduce)}
 							exit={islandExit(reduce)}
@@ -609,6 +679,7 @@ function Toolbar({
 							<button
 								type="button"
 								onClick={() => setOpen("backdrop")}
+								data-island-opener="backdrop"
 								onMouseEnter={showHelper(`Backdrop · ${preset?.label ?? ""}`)}
 								aria-label={`Backdrop: ${preset?.label ?? ""}. Open backdrop control`}
 								className="lp-island-button lp-island-button-tight"
@@ -622,6 +693,7 @@ function Toolbar({
 							<button
 								type="button"
 								onClick={() => setOpen("theme")}
+								data-island-opener="theme"
 								onMouseEnter={showHelper(`Theme · ${themeName}`)}
 								aria-label={`Theme: ${themeName}. Open theme control`}
 								className="lp-island-button lp-island-button-tight"
@@ -670,7 +742,7 @@ function Toolbar({
 						>
 							<button
 								type="button"
-								onClick={() => setOpen(null)}
+								onClick={() => closeSubmenu(true)}
 								aria-label="Back to controls"
 								className="lp-island-button"
 							>
