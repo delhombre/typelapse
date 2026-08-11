@@ -238,6 +238,46 @@
 	text-wrap: pretty;
 }
 
+/* ── Three readings of "the lead wants more weight" ──
+   The claim is always its own element in the markup; what changes is only
+   whether the type does anything with it.
+
+   A · one step up. The whole sentence goes 400 → 500 and nothing else moves.
+   Geist at 500 on paper is the weight a UI label wants; the question is whether
+   it is the weight a *sentence* wants, or whether it just reads slightly heavy
+   throughout with nothing gained in hierarchy. */
+.proto-desk[data-lead="step"] .proto-desk-lead {
+	font-weight: 500;
+}
+
+/* B · a head on it. The claim takes 600 and the ink; the explanation stays 400
+   and ash. One sentence to land on and one to read after, which is what the
+   line is actually doing — and the weight is spent where it buys hierarchy
+   rather than spread evenly over both. */
+.proto-desk[data-lead="head"] .proto-desk-lead strong {
+	font-weight: 600;
+	color: var(--color-ink);
+}
+
+/* C · one louder voice. Bigger and inkier rather than bolder: 20 over 30 at
+   500, tracked a half-hundredth tighter as the size asks, on a shorter measure.
+   This direction was drawn with no headline on purpose, and this is the version
+   where the lead quietly becomes one. */
+.proto-desk[data-lead="voice"] .proto-desk-lead {
+	max-width: 46ch;
+	font-size: 20px;
+	line-height: 30px;
+	font-weight: 500;
+	letter-spacing: -0.015em;
+	color: var(--color-ink);
+}
+
+/* Everywhere it is not being used, the claim is just part of the sentence. */
+.proto-desk:not([data-lead="head"]) .proto-desk-lead strong {
+	font-weight: inherit;
+	color: inherit;
+}
+
 /* ── One line, drawn once, from the field up into the strip ──
    The field is 52px tall and fully round, so its end is a 26px circle centred
    at (26, 26): the arc leaves the bottom edge, turns, and stands exactly
