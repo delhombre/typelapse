@@ -251,12 +251,12 @@
 	border-left: 1px solid var(--color-hairline);
 }
 
-/* The two ends of the block, and nothing in between. */
+/* The two ends of the block, and nothing in between. The label needs no extra
+   room: at its own top the corner has already come back to x = 9.4, so the 14px
+   every other cell uses clears it, and the block keeps one rhythm. */
 .proto-desk-modes button:first-child {
 	position: relative;
 	border-top-left-radius: var(--field-r);
-	/* The label clears the corner: at its own top the arc still stands at x = 21. */
-	padding-left: 30px;
 }
 
 .proto-desk-modes button:last-child {
@@ -281,8 +281,8 @@
 }
 
 /* The selected pastille takes the field's own surface and no edge of its own:
-   the hairlines beside it already separate it, and with nothing drawn along the
-   bottom it runs straight into the field it points at. */
+   the hairlines beside it already separate it, and the field draws the one
+   below. */
 .proto-desk-modes button[data-active] {
 	background: var(--color-surface);
 }
@@ -303,6 +303,13 @@
    it takes the lightest possible — a single hairline at the token weight, with
    the same soft lift underneath rather than a second, heavier shadow. */
 .proto-desk-field {
+	/* Above the strip, and it must be *said*: the first pastille is positioned,
+	   for its own pseudo-element, and would otherwise paint over the field and
+	   blank the hairline across its whole width — the field's edge would start
+	   in mid-air at the first rule instead of running the length of the strip
+	   and turning down into the arc. That line is the pastille's lower edge. */
+	position: relative;
+	z-index: 1;
 	display: flex;
 	align-items: center;
 	gap: 1ch;
