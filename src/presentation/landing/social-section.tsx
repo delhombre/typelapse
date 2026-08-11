@@ -45,10 +45,19 @@ export function SocialSection() {
 							the real safe zones. You see what a caption or an action rail would cover before you
 							ever leave the studio.
 						</p>
-						{/* The row is read off the cycle, not alongside it. */}
+						{/* The row is read off the cycle, not alongside it, and now it
+						    drives the cycle too: it already looked like a set of controls,
+						    and a chip that looks pressable and is not is worse than no
+						    chip. Selecting is also the only way in without a pointer,
+						    since the phone answers a swipe and nothing else. */}
 						<div className="mt-8 flex flex-wrap gap-2">
-							{CYCLE_PLATFORMS.map((p) => (
-								<PlatformChip key={p} platform={p} active={p === platform} />
+							{CYCLE_PLATFORMS.map((p, i) => (
+								<PlatformChip
+									key={p}
+									platform={p}
+									active={p === platform}
+									onSelect={() => cycle.controls.select(i)}
+								/>
 							))}
 						</div>
 					</Reveal>
@@ -86,11 +95,24 @@ const INDICATOR_ROOM = 6;
 const CHIP_PAD = 22;
 
 /**
- * A platform chip that tracks the screen: the active platform brightens with a
- * hairline and a whisper of fill, the rest sit dim. Colours cross-fade so the
- * indicator glides from chip to chip as the feed swipes.
+ * A platform chip that tracks the screen and moves it: the active platform
+ * brightens with a hairline and a whisper of fill, the rest sit dim. Colours
+ * cross-fade so the indicator glides from chip to chip as the feed swipes,
+ * whether the swipe came from the clock, a thumb, or this chip.
+ *
+ * `aria-pressed` rather than a tab or a radio: the row is an indicator that
+ * happens to be operable, and the chips do not own the screen the way tabs own
+ * a panel — the clock moves it too.
  */
-function PlatformChip({ platform, active }: { platform: SocialPlatform; active: boolean }) {
+function PlatformChip({
+	platform,
+	active,
+	onSelect,
+}: {
+	platform: SocialPlatform;
+	active: boolean;
+	onSelect: () => void;
+}) {
 	/* The padding is a style rather than a class: it is arithmetic against the
 	   dot's offset and the label's step, and a class built by interpolation is
 	   a class Tailwind never sees to generate. */
@@ -119,7 +141,15 @@ function PlatformChip({ platform, active }: { platform: SocialPlatform; active: 
 	};
 
 	return (
-		<span className={`${base} ${tone}`} style={{ paddingInline: CHIP_PAD }}>
+		<button
+			type="button"
+			onClick={onSelect}
+			aria-pressed={active}
+			aria-label={`Show the ${PLATFORM_LABELS[platform]} frame`}
+			// 36px of chip, 44px of hit area: the row is the same one a thumb uses.
+			className={`${base} ${tone} hit-ext cursor-pointer`}
+			style={{ paddingInline: CHIP_PAD }}
+		>
 			<span
 				aria-hidden
 				className="absolute top-1/2 left-4 size-1.5 rounded-full bg-[var(--color-primary)]"
@@ -134,6 +164,6 @@ function PlatformChip({ platform, active }: { platform: SocialPlatform; active: 
 			>
 				{PLATFORM_LABELS[platform]}
 			</span>
-		</span>
+		</button>
 	);
 }
