@@ -46,12 +46,12 @@ describe("RenderConfig", () => {
 	 * edge is a render that fails deep inside ffmpeg rather than at the boundary.
 	 */
 	it("rejects odd dimensions, which no encoder we target accepts", () => {
-		expect(() => RenderConfig.create({ width: 1921, height: 1080, fps: 60, format: "mp4" })).toThrow(
-			"Dimensions must be even",
-		);
-		expect(() => RenderConfig.create({ width: 1920, height: 1081, fps: 60, format: "mp4" })).toThrow(
-			"Dimensions must be even",
-		);
+		expect(() =>
+			RenderConfig.create({ width: 1921, height: 1080, fps: 60, format: "mp4" }),
+		).toThrow("Dimensions must be even");
+		expect(() =>
+			RenderConfig.create({ width: 1920, height: 1081, fps: 60, format: "mp4" }),
+		).toThrow("Dimensions must be even");
 	});
 
 	it("rejects fractional dimensions", () => {
@@ -121,10 +121,9 @@ describe("resolution tiers", () => {
 			4 / 5,
 			6,
 		);
-		expect(dimensionsFor("16:9", "1440p").width / dimensionsFor("16:9", "1440p").height).toBeCloseTo(
-			16 / 9,
-			6,
-		);
+		expect(
+			dimensionsFor("16:9", "1440p").width / dimensionsFor("16:9", "1440p").height,
+		).toBeCloseTo(16 / 9, 6);
 	});
 
 	it("builds a valid RenderConfig from any preset combination", () => {
