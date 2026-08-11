@@ -146,7 +146,11 @@ interface InkButtonProps {
 export function InkButton({ to, href, children, size = "md", className = "" }: InkButtonProps) {
 	const reduce = useReducedMotion();
 	const sizing = size === "lg" ? "h-12 px-7 text-[15px]" : "h-11 px-5 text-sm";
-	const inner = `inline-flex items-center justify-center rounded-full bg-[var(--color-cta)] font-medium text-white shadow-[0_6px_20px_-6px_oklch(0.56_0.19_268/0.45)] transition-[filter,box-shadow] duration-200 hover:brightness-95 hover:shadow-[0_11px_28px_-7px_oklch(0.56_0.19_268/0.62)] ${sizing}`;
+	/* The hover is the primary's own lighter step, not a filter over it: a
+	   `brightness()` on a saturated yellow lifts the green as fast as the red and
+	   the hue walks. The glow under it is the primary too, so it reads as the
+	   button's own light rather than a grey shadow that happens to be there. */
+	const inner = `inline-flex items-center justify-center rounded-full bg-[var(--color-cta)] font-medium text-[var(--color-on-primary)] shadow-[0_6px_20px_-6px_var(--color-primary-glow)] transition-[background-color,box-shadow] duration-200 hover:bg-[var(--color-primary-hover)] hover:shadow-[0_11px_28px_-7px_var(--color-primary-glow)] ${sizing}`;
 
 	return (
 		<motion.span
