@@ -31,16 +31,13 @@ interface ScreenConfig {
 }
 
 /** The cycle, in order. One faithful feed + one code export per platform. A
-    non-empty tuple, so index 0 is always a defined fallback for the cycle. */
+    non-empty tuple, so index 0 is always a defined fallback for the cycle.
+
+    One order, one owner: this array is it. The chip row is an indicator of this
+    cycle, so it renders `CYCLE_PLATFORMS` rather than keeping a running order of
+    its own — two hand-aligned lists are two lists that can disagree, and the
+    disagreement shows up as a chip lit for a feed that is not on screen. */
 export const SCREEN_CONFIGS = [
-	{
-		platform: "tiktok",
-		themeName: "dracula",
-		presetId: "nebula",
-		title: "api/users.ts",
-		code: "const active = users.filter(\n  (u) => u.active\n)",
-		meshTime: 5,
-	},
 	{
 		platform: "reels",
 		themeName: "aurora",
@@ -48,6 +45,14 @@ export const SCREEN_CONFIGS = [
 		title: "api/users.ts",
 		code: "const active = users.filter(\n  (u) => u.active\n)",
 		meshTime: 9,
+	},
+	{
+		platform: "tiktok",
+		themeName: "dracula",
+		presetId: "nebula",
+		title: "api/users.ts",
+		code: "const active = users.filter(\n  (u) => u.active\n)",
+		meshTime: 5,
 	},
 	{
 		platform: "shorts",
@@ -75,7 +80,8 @@ export const SCREEN_CONFIGS = [
 	},
 ] as const satisfies readonly ScreenConfig[];
 
-/** The platforms in the cycle, so the section can dim any chip that is not shown. */
+/** The platforms in the cycle, in the cycle's order: what the chip row renders,
+    so a chip's position and a screen's position are the same fact. */
 export const CYCLE_PLATFORMS: readonly SocialPlatform[] = SCREEN_CONFIGS.map((c) => c.platform);
 
 /** How long each feed holds before swiping to the next. */

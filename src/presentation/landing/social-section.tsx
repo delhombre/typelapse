@@ -1,7 +1,7 @@
-import { PLATFORM_LABELS, SOCIAL_PLATFORMS } from "@/application/social/safe-zones";
+import { PLATFORM_LABELS } from "@/application/social/safe-zones";
 import type { SocialPlatform } from "@/application/social/safe-zones";
 import { useInViewPlayback } from "@/presentation/hooks/use-in-view-playback";
-import { IphoneShowcase, usePlatformCycle } from "./iphone-showcase";
+import { CYCLE_PLATFORMS, IphoneShowcase, usePlatformCycle } from "./iphone-showcase";
 import { Eyebrow, Reveal } from "./primitives";
 import { CONTAINER, SECTION_PY } from "./tokens";
 
@@ -42,8 +42,9 @@ export function SocialSection() {
 							the real safe zones. You see what a caption or an action rail would cover before you
 							ever leave the studio.
 						</p>
+						{/* The row is read off the cycle, not alongside it. */}
 						<div className="mt-8 flex flex-wrap gap-2">
-							{SOCIAL_PLATFORMS.map((p) => (
+							{CYCLE_PLATFORMS.map((p) => (
 								<PlatformChip key={p} platform={p} active={p === platform} />
 							))}
 						</div>
