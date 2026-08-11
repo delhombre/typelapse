@@ -6,6 +6,15 @@ import { StaticFrame } from "./static-frame";
     confident settle. Shared with the CSS lift on the static frames and phones. */
 const LIFT_SPRING = { type: "spring" as const, bounce: 0, duration: 0.35 };
 
+/** The stack is asymmetric because the lift is: a card must own the front the
+    instant it starts rising, and keep it until it has finished coming back
+    down. An integer that decides who is in front of whom cannot be eased, so
+    the way to make it late is not to animate it but to delay it — a zero-length
+    transition applies the new value whole, after the wait. Demote a card while
+    the spring is still returning it and its raised edge is clipped by the
+    neighbours it is still standing above; that clip is the pop. */
+const Z_SETTLE_MS = LIFT_SPRING.duration * 1000;
+
 /** The hand, refanned 2026-08-10: five cards, five *shapes*.
     The section's claim is "every aspect", and the previous fan showed five
     identical rectangles while a chip row named the ratios — saying what it
@@ -101,16 +110,18 @@ export function FrameFan() {
 						/* Three jobs, three owners. The card's place in the fan is static, so
 						   it is a transform in the style: it never animates and does not need
 						   a motion value to hold it. Its place in the *stack* is an integer
-						   and has to change on the frame the hover does — inside the motion
-						   element it was a target like any other, so the spring interpolated
-						   it and the lifted card climbed through its neighbours over the
-						   length of the lift instead of coming to the front. Only the lift
-						   itself is animated. */
+						   and has to arrive whole — inside the motion element it was a
+						   target like any other, so the spring interpolated it and the
+						   lifted card climbed through its neighbours over the length of the
+						   lift instead of coming to the front. Out here it is a step, taken
+						   at once on the way up and one settle late on the way down. Only
+						   the lift itself is animated. */
 						<div
 							key={card.ratio}
 							className="absolute bottom-4 left-1/2"
 							style={{
 								zIndex: hovered === i ? 50 : baseZ,
+								transition: hovered === i ? "z-index 0s" : `z-index 0s ${Z_SETTLE_MS}ms`,
 								width: card.width,
 								aspectRatio: card.aspect,
 								transform: `translateX(${card.x - card.width / 2}px)`,
