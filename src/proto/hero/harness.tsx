@@ -2,12 +2,11 @@ import { useLandingTheme } from "@/presentation/landing/use-landing-theme";
 import { useCallback, useState } from "react";
 import { Picker } from "./picker";
 import "./proto.css";
-import { Desk, Prompt, Sheet } from "./variants";
+import { Bench, Twin } from "./variants";
 
 const VARIANTS = [
-	{ name: "Prompt", render: () => <Prompt /> },
-	{ name: "Desk", render: () => <Desk /> },
-	{ name: "Sheet", render: () => <Sheet /> },
+	{ name: "Twin", render: () => <Twin /> },
+	{ name: "Bench", render: () => <Bench /> },
 ];
 
 const initialIndex = () => {
