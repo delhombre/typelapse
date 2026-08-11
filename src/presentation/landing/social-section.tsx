@@ -18,7 +18,10 @@ export function SocialSection() {
 	   watched neither of them has anything to say — and they must agree about
 	   when that is, or a chip would light for a feed that never swiped. */
 	const { ref: stageRef, inView } = useInViewPlayback<HTMLDivElement>();
-	const { platform } = usePlatformCycle(inView);
+	/* The whole cycle, not just what it is showing: the phone is draggable, so it
+	   needs the handles to move the cycle as well as to read it. */
+	const cycle = usePlatformCycle(inView);
+	const platform = cycle.platform;
 
 	return (
 		<section className="lp-dark relative overflow-hidden">
@@ -61,7 +64,7 @@ export function SocialSection() {
 										"radial-gradient(40% 38% at 50% 46%, oklch(1 0 0 / 0.06), transparent 72%)",
 								}}
 							/>
-							<IphoneShowcase platform={platform} active={inView} className="relative z-10" />
+							<IphoneShowcase cycle={cycle} active={inView} className="relative z-10" />
 						</div>
 					</Reveal>
 				</div>
