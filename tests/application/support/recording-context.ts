@@ -97,6 +97,10 @@ export class RecordingContext implements PaintContext {
 		this.commands.push("beginPath");
 	}
 
+	rect(x: number, y: number, w: number, h: number): void {
+		this.commands.push(`rect(${round(x)},${round(y)},${round(w)},${round(h)})`);
+	}
+
 	roundRect(x: number, y: number, w: number, h: number, radii?: number): void {
 		this.commands.push(
 			`roundRect(${round(x)},${round(y)},${round(w)},${round(h)},${round(radii ?? 0)})`,

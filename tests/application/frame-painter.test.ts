@@ -127,7 +127,7 @@ describe("paintFrame", () => {
 
 	function paint(time: number, tokens: RenderToken[] = [token()]) {
 		const ctx = new RecordingContext();
-		paintFrame(ctx, scene, { tokens, lineNumberCount: 2, timeSeconds: time });
+		paintFrame(ctx, scene, { tokens, lineCount: 2, lineNumberCount: 2, timeSeconds: time });
 		return ctx;
 	}
 
@@ -166,7 +166,12 @@ describe("paintFrame", () => {
 			...SCENE_INPUT,
 			grain: { image: {}, size: 160, opacity: 0.28 },
 		});
-		paintFrame(ctx, grained, { tokens: [token()], lineNumberCount: 2, timeSeconds: 0 });
+		paintFrame(ctx, grained, {
+			tokens: [token()],
+			lineCount: 2,
+			lineNumberCount: 2,
+			timeSeconds: 0,
+		});
 		const grainIndex = ctx.commands.indexOf("globalCompositeOperation=soft-light");
 		const cardIndex = ctx.commands.findIndex((c) => c === `fillStyle=${THEME.background}`);
 		expect(grainIndex).toBeGreaterThanOrEqual(0);
@@ -209,6 +214,7 @@ describe("paintFrame", () => {
 		const bare = new RecordingContext();
 		paintFrame(bare, frameScene({ ...SCENE_INPUT, chrome: "none" }), {
 			tokens: [token()],
+			lineCount: 2,
 			lineNumberCount: 2,
 			timeSeconds: 0,
 		});
@@ -224,6 +230,32 @@ describe("paintFrame", () => {
 		expect(ctx.commands).toContain(
 			`fillText("02",${right},${round(scene.code.y + 1.5 * scene.code.lineHeight)})`,
 		);
+	});
+
+	it("clips the code area to the interpolated body height, as the preview does", () => {
+		// Mid-morph the row count is fractional, and the preview clips the code area
+		// to it so the frame grows and shrinks smoothly instead of snapping to the
+		// taller frame. A canvas that skips the clip shows a row the preview hides.
+		const ctx = new RecordingContext();
+		paintFrame(ctx, scene, {
+			tokens: [token()],
+			lineCount: 3.5,
+			lineNumberCount: 4,
+			timeSeconds: 0,
+		});
+		const padding = 24 * 2.2;
+		expect(ctx.commands).toContain(
+			`rect(${round(scene.window.x + padding)},${round(scene.code.y)},${round(
+				scene.window.width - 2 * padding,
+			)},${round(3.5 * scene.code.lineHeight)})`,
+		);
+	});
+
+	it("never clips the code area to nothing, however short the frame", () => {
+		const ctx = new RecordingContext();
+		paintFrame(ctx, scene, { tokens: [token()], lineCount: 0, lineNumberCount: 1, timeSeconds: 0 });
+		const clip = ctx.commands.find((c) => c.startsWith("rect("));
+		expect(clip).toContain(`,${round(scene.code.lineHeight)})`);
 	});
 
 	it("is deterministic: the same time paints the same commands, twice", () => {

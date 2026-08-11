@@ -36,6 +36,7 @@ export interface PaintContext {
 	scale(x: number, y: number): void;
 
 	beginPath(): void;
+	rect(x: number, y: number, w: number, h: number): void;
 	roundRect(x: number, y: number, w: number, h: number, radii?: number): void;
 	arc(x: number, y: number, radius: number, startAngle: number, endAngle: number): void;
 	fill(): void;

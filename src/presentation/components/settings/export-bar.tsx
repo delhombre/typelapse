@@ -3,7 +3,7 @@ import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 /** Aspect-ratio presets for social-ready exports (wide, square, reels, portrait, tall). */
 const ASPECT_PRESETS = [
@@ -29,10 +29,94 @@ export function ExportBar() {
 			{hasSteps && (
 				<>
 					<ExportOptions />
+					{import.meta.env.DEV && <ClientExportSpikeButton />}
 					<ExportButton />
 				</>
 			)}
 			{error && <span className="text-xs text-red-500">{error}</span>}
+		</div>
+	);
+}
+
+/**
+ * SPIKE, dev builds only — export the first morph to MP4 without touching the
+ * server. Deliberately unstyled like a real control: it is an experiment, and
+ * it should never be mistaken for the shipped export.
+ */
+function ClientExportSpikeButton() {
+	const [state, setState] = useState<"idle" | "working" | "done" | "failed">("idle");
+	const [note, setNote] = useState("");
+
+	async function run() {
+		setState("working");
+		setNote("");
+		try {
+			const { downloadSpikeMp4 } = await import("@/infrastructure/export/webcodecs-renderer.spike");
+			const {
+				snippet,
+				plan,
+				background,
+				windowChrome,
+				showLineNumbers,
+				lineNumberStart,
+				framePadding,
+				cardMargin,
+			} = useSnippetStore.getState();
+			if (!plan) {
+				throw new Error("No plan built yet.");
+			}
+			const measurements = await downloadSpikeMp4({
+				plan,
+				theme: {
+					background: snippet.theme.background,
+					foreground: snippet.theme.foreground,
+					fontFamily: snippet.theme.fontFamily,
+					fontSize: snippet.theme.fontSize,
+					borderRadius: snippet.theme.borderRadius,
+				},
+				title: snippet.title,
+				background,
+				chrome: windowChrome,
+				padding: framePadding,
+				cardMargin,
+				showLineNumbers,
+				lineNumberStart,
+			});
+			// The numbers are the whole point of a spike, so they go where a human
+			// running it will see them.
+			console.info("[spike] client-side MP4", measurements);
+			setNote(
+				`${Math.round(measurements.bytes / 1024)} KB · ${Math.round(measurements.totalMs)} ms`,
+			);
+			setState("done");
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			console.error("[spike] client-side MP4 failed", error);
+			setNote(message);
+			setState("failed");
+		}
+	}
+
+	return (
+		<div className="flex items-center gap-2">
+			<button
+				type="button"
+				data-testid="client-export-spike"
+				onClick={run}
+				disabled={state === "working"}
+				title="SPIKE: render 3s of 720p H.264 in this tab, no server"
+				className="h-9 rounded-lg border border-dashed border-amber-500/60 px-3 text-[11px] font-medium text-amber-600 transition hover:bg-amber-500/10 disabled:opacity-50 dark:text-amber-400"
+			>
+				{state === "working" ? "spike…" : "spike: mp4 in-tab"}
+			</button>
+			{note && (
+				<span
+					data-testid="client-export-spike-note"
+					className={`text-[10px] ${state === "failed" ? "text-red-500" : "text-neutral-400"}`}
+				>
+					{note}
+				</span>
+			)}
 		</div>
 	);
 }
