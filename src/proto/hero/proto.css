@@ -17,7 +17,12 @@
 /* ── The block caret ──
    an external reference's ornament, doing a real job. It blinks only while the field
    is empty: a caret that blinks forever is the one animation a developer would
-   see ten thousand times, which is exactly what a source's rule says not to ship. */
+   see ten thousand times, which is exactly what a source's rule says not to ship.
+
+   In the Desk field it is the focus state as well: it is absent until the field
+   has focus, and it stands where the next character will go rather than at the
+   far end of the box (see .proto-desk-field). Which is the only honest place
+   for it — the real caret is hidden under it. */
 
 .proto-caret {
 	display: inline-block;
@@ -403,8 +408,14 @@
 	transition: box-shadow 170ms var(--ease-out);
 }
 
+/* Sized to what is in it, so the caret can stand at the end of the text instead
+   of at the end of the box. It still shrinks when the text outgrows the room,
+   and then the caret sits where the text visibly ends, which is the same place.
+   Where `field-sizing` is not understood the input falls back to filling the
+   row and the caret returns to the far end — no worse than it was. */
 .proto-desk-field input {
-	flex: 1;
+	field-sizing: content;
+	flex: 0 1 auto;
 	min-width: 0;
 	background: none;
 	border: 0;
@@ -418,7 +429,27 @@
 	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
 }
 
+/* Nothing between the text and the caret — a caret with a space in front of it
+   is not a caret. It is also not something you can click on: the field focuses
+   itself when you press anywhere in it, and the caret must not be in the way of
+   that. */
+.proto-desk-field .proto-caret {
+	margin-left: -1ch;
+	pointer-events: none;
+}
+
+/* Absent until the field has focus, since it is the whole focus state now.
+   By visibility and not by opacity: the blink is a keyframe animation on
+   opacity, and an animation outranks a declaration, so the caret went on
+   blinking away at a field nobody was in. */
+.proto-desk-field:not(:focus-within) .proto-caret {
+	visibility: hidden;
+	animation: none;
+}
+
 .proto-desk-go {
+	/* The field hugs its text now, so the button is no longer pushed right by it. */
+	margin-left: auto;
 	display: inline-flex;
 	align-items: center;
 	height: 40px;
