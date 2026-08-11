@@ -81,6 +81,9 @@ export function UrlImportMenu() {
 			<motion.button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
+				aria-haspopup="dialog"
+				aria-expanded={open}
+				aria-label="Import from URL"
 				whileTap={{ scale: 0.96 }}
 				transition={springs.snappy}
 				className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
@@ -109,6 +112,12 @@ export function UrlImportMenu() {
 							exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
 							transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
 							style={{ transformOrigin: "top right" }}
+							// biome-ignore lint/a11y/useSemanticElements: a native <dialog> cannot be
+							// anchored to its trigger the way this panel is, and loses its enter/exit
+							// animation with it. Non-modal by intent: the backdrop dismisses and
+							// nothing outside is inert, so no aria-modal is claimed.
+							role="dialog"
+							aria-label="Import from URL"
 							className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-neutral-200 bg-white p-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
 						>
 							<div className="flex items-center gap-1.5">

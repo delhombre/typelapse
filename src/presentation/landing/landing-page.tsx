@@ -32,6 +32,12 @@ export function LandingPage() {
 			<Nav />
 			<ThemeToggle theme={theme} onToggle={toggleTheme} />
 			<main className="flex-1">
+				{/* The page deliberately opens with the product's own field rather than a
+				    headline, so its heading outline started at h2 and it had no title at
+				    all for anyone arriving by screen reader or landmark list. The name
+				    the page is missing is said here instead of drawn: the design keeps
+				    its opening, the document gets its one h1. */}
+				<h1 className="sr-only">Typelapse: turn a code change into a video</h1>
 				<Hero />
 				{/* The order follows the visitor's own workflow — bring a change in,
 				    watch it become motion, check where it lands, ship it — and each
