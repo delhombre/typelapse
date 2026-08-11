@@ -2,13 +2,12 @@ import { useLandingTheme } from "@/presentation/landing/use-landing-theme";
 import { useCallback, useState } from "react";
 import { Picker } from "./picker";
 import "./proto.css";
-import { Console, LedgerIndex, Library, Terminal } from "./variants";
+import { Desk, Prompt, Sheet } from "./variants";
 
 const VARIANTS = [
-	{ name: "Terminal", render: () => <Terminal /> },
-	{ name: "Console", render: () => <Console /> },
-	{ name: "Library", render: () => <Library /> },
-	{ name: "Index", render: () => <LedgerIndex /> },
+	{ name: "Prompt", render: () => <Prompt /> },
+	{ name: "Desk", render: () => <Desk /> },
+	{ name: "Sheet", render: () => <Sheet /> },
 ];
 
 const initialIndex = () => {
