@@ -200,41 +200,94 @@
 	color: var(--color-ash);
 }
 
-/* The former "Imports" list, now the field's modes — fused to it, as before.
-   A pill only curves at its ends: on a 52px field the radius is 26, so the top
-   edge is flat everywhere between 26px and width−26px. The strip is inset past
-   that arc and lands on the flat run, which is what makes the fusion possible
-   at all. It overlaps by 1px so the field's own hairline passes behind it
-   rather than drawing a seam across the join. */
+/* ── The strip and the field are one pill ──
+   The field is 52px tall and fully round, so its own end is a 26px circle
+   centred at (26, 26) of its box. A pastille laid at the very left cannot keep
+   an end cap of its own there: by x = 0 the field has already turned away, and
+   a 17px cap would be floating in the air beside it.
+
+   So the strip stops being a row of pills placed *near* the field and becomes
+   the top of one taller pill — 35 + 52 − 1 = 86 tall, therefore radius 43 — of
+   which the field is the bottom. The first pastille is then simply whatever of
+   that pill is left above the field, and it needs no shape of its own at all:
+   the assembly's radius cuts its left end, and the field, drawn after the
+   strip, cuts its lower one. Its lower edge is the field's own edge — straight
+   along the run, turning down into the 26px arc at the left, where the pastille
+   narrows and dies on the curve at (1.1, 52.6).
+
+   The whole construction is two clips and no drawn curve. */
+.proto-desk {
+	--mode-h: 35px;
+	--field-h: 52px;
+	/* The strip laps 1px over the field so the join carries no seam of its own. */
+	--seam: 1px;
+	--assembly-h: calc(var(--mode-h) + var(--field-h) - var(--seam));
+}
+
 .proto-desk-modes {
-	position: relative;
-	z-index: 1;
 	display: flex;
-	align-items: flex-end;
+	align-items: flex-start;
 	gap: 3px;
 	margin-top: 22px;
-	margin-bottom: -1px;
-	padding-left: 30px;
+	/* Only the band takes space; the rest of the pill is where the field goes. */
+	margin-bottom: calc(-1 * var(--field-h));
+	height: var(--assembly-h);
+	border-radius: 999px;
+	overflow: hidden;
 }
 
 /* A pill sliced flat where it meets the field: fully round on top, square below,
    so each tab still reads as a pill and still belongs to the object under it. */
 .proto-desk-modes button {
+	height: var(--mode-h);
 	padding: 6px 14px 7px;
 	border-radius: 999px 999px 0 0;
 	font: inherit;
 	color: var(--color-ash);
 	background: color-mix(in oklch, var(--color-ink) 4%, transparent);
 	transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+	/* The strip clips its own top edge, so the focus ring has to be drawn inside. */
+	outline-offset: -2px;
+}
+
+/* The first pastille gives up its left cap to the assembly's radius, and grows
+   a body that runs on down past the field's top edge — the only part of it the
+   field does not cover is the sliver between the two arcs, which is the shape
+   the whole thing is for. 43px is the run of the assembly's arc; nothing wider
+   would ever show. */
+.proto-desk-modes button:first-child {
+	position: relative;
+	border-top-left-radius: 0;
+	/* At the label's own top the arc still stands at x = 21, so 30 clears it. */
+	padding-left: 30px;
+}
+
+.proto-desk-modes button:first-child::before {
+	content: "";
+	position: absolute;
+	/* Behind the field: being positioned, it would otherwise paint over it and
+	   the field would stop cutting anything. */
+	z-index: -1;
+	left: 0;
+	top: calc(100% - var(--seam));
+	width: calc(var(--assembly-h) / 2);
+	height: var(--field-h);
+	background: inherit;
 }
 
 /* The selected tab takes the field's own surface and its hairline on three
    sides only — no bottom edge — so the two become one silhouette instead of a
-   box resting on another box. */
+   box resting on another box. Drawn inside, because the strip's own clip would
+   cut an outer stroke away. */
 .proto-desk-modes button[data-active] {
 	background: var(--color-surface);
-	box-shadow: -1px 0 0 var(--color-hairline), 1px 0 0 var(--color-hairline), 0 -1px 0
-		var(--color-hairline);
+	box-shadow: inset 1px 0 0 var(--color-hairline), inset -1px 0 0 var(--color-hairline), inset 0 1px
+		0 var(--color-hairline);
+}
+
+/* Its left edge is no longer an edge — the arc is. */
+.proto-desk-modes button:first-child[data-active] {
+	box-shadow: inset -1px 0 0 var(--color-hairline), inset 0 1px 0 var(--color-hairline);
 }
 
 .proto-desk-modes button[data-active] {
@@ -257,7 +310,7 @@
 	align-items: center;
 	gap: 1ch;
 	padding: 0 6px 0 30px;
-	height: 52px;
+	height: var(--field-h);
 	border-radius: 999px;
 	background: var(--color-surface);
 	box-shadow: 0 0 0 1px var(--color-hairline), 0 8px 24px -10px rgb(18 18 20 / 0.14);
@@ -409,47 +462,4 @@
 		flex-direction: column;
 		gap: 0;
 	}
-}
-
-/* ══════════ Three readings of "build the first pill on the input's curve" ══════════
-   All three put the first pill hard against the left, where the field turns.
-   The field is 52px tall, so its corner is a 26px circle centred at (26, 26). */
-
-/* The strip sits at the very left in all three. */
-.proto-desk[data-shape] .proto-desk-modes {
-	padding-left: 0;
-}
-
-/* ── A · saddle ──
-   The pill's lower edge is *cut* to the field's arc, so it seats on the curve
-   the way a saddle seats on a back. The mask removes exactly the disc that
-   forms the field's top-left corner: a 26px circle whose centre sits 26px below
-   the pill's own bottom edge, on the same x. Nothing is approximated — it is
-   the field's corner, subtracted. */
-.proto-desk[data-shape="saddle"] .proto-desk-modes button:first-child {
-	border-radius: 999px 999px 0 0;
-	padding-left: 30px;
-	mask-image: radial-gradient(circle 26px at 26px calc(100% + 26px), transparent 99.5%, #000 100%);
-}
-
-/* ── B · continuous ──
-   The pill's bottom-left carries the field's own radius, so the two arcs meet
-   tangentially and the left side of the whole assembly reads as one edge
-   rising out of the field into the pill. */
-.proto-desk[data-shape="continuous"] .proto-desk-modes button:first-child {
-	border-radius: 999px 999px 0 26px;
-	padding-left: 26px;
-}
-
-/* ── C · concentric ──
-   The pill's bottom-left follows the field's arc at a constant offset — the
-   nesting rule the island already uses, inner = outer − the gap — so the curves
-   run parallel rather than touching. */
-.proto-desk[data-shape="concentric"] .proto-desk-modes {
-	padding-left: 6px;
-}
-
-.proto-desk[data-shape="concentric"] .proto-desk-modes button:first-child {
-	border-radius: 999px 999px 0 20px;
-	padding-left: 22px;
 }
