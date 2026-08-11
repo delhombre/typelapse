@@ -2,9 +2,29 @@ import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { StaticFrame } from "./static-frame";
 
-/** The unified product-shot hover feel: critically damped (no bounce), a short,
-    confident settle. Shared with the CSS lift on the static frames and phones. */
-const LIFT_SPRING = { type: "spring" as const, bounce: 0, duration: 0.35 };
+/** Picking a card up and putting it down are not the same gesture, so they do
+    not share a curve. Reaching in is deliberate and carries one soft breath of
+    overshoot — about a pixel and a half past where it lands, then down onto it,
+    which is what makes it read as a thing with mass rather than a layer whose
+    top value changed. The bounce is set by what that overshoot measures, not by
+    a number that sounds restrained: below roughly a pixel there is nothing left
+    to feel and the spring may as well be flat. Letting go is quicker and dead
+    flat: a release nobody should have to watch finish. */
+const PICK_UP = { type: "spring" as const, bounce: 0.4, duration: 0.4 };
+const PUT_DOWN = { type: "spring" as const, bounce: 0, duration: 0.3 };
+
+/** What the hover does to the card under the cursor: off the table (y), toward
+    the viewer (scale), and turned almost square to be read (rotate). The card
+    keeps a quarter of its fanned angle so it still belongs to the hand. */
+const LIFT_Y = -16;
+const LIFT_SCALE = 1.035;
+const LIFT_STRAIGHTEN = 0.25;
+
+/** And what it does to the two cards either side: they lean out of the way. The
+    rest of the hand holds still — a fan where every card answers every hover is
+    a fan that is never at rest, and the gesture stops meaning anything. */
+const NUDGE_X = 7;
+const NUDGE_ROT = 1.5;
 
 /** The stack is asymmetric because the lift is: a card takes the front the
     instant it starts rising, and a card that is coming back down still has to
@@ -153,8 +173,18 @@ export function FrameFan() {
 			{/* Desktop: the fan. */}
 			<div className="relative hidden h-[380px] md:block">
 				{FAN.map((card, i) => {
-					const rotToward = card.rot - Math.sign(card.rot) * 2;
 					const baseZ = 30 - Math.abs(i - 2) * 10;
+					/* Only the cards touching the hovered one move aside, and they move
+					   *away* from it: the sign comes from which side of the hover they
+					   sit on, never from their own position in the fan. The centre card
+					   is the reason the outward lean cannot simply follow the card's own
+					   angle — it has none, so it borrows the direction it is being
+					   pushed. */
+					const isNeighbour = !reduce && hovered !== null && Math.abs(hovered - i) === 1;
+					const away = hovered === null ? 0 : Math.sign(i - hovered);
+					const leanOut = card.rot === 0 ? away : Math.sign(card.rot);
+					const restX = isNeighbour ? NUDGE_X * away : 0;
+					const restRot = card.rot + (isNeighbour ? NUDGE_ROT * leanOut : 0);
 					return (
 						/* Three jobs, three owners. The card's place in the fan is static, so
 						   it is a transform in the style: it never animates and does not need
@@ -184,9 +214,23 @@ export function FrameFan() {
 								onAnimationComplete={() => endDescent(i)}
 								className="h-full w-full"
 								initial={false}
-								animate={{ y: 0, rotate: card.rot }}
-								whileHover={reduce ? undefined : { y: -14, rotate: rotToward }}
-								transition={LIFT_SPRING}
+								animate={{
+									x: restX,
+									y: 0,
+									rotate: restRot,
+									scale: 1,
+									transition: isNeighbour ? PICK_UP : PUT_DOWN,
+								}}
+								whileHover={
+									reduce
+										? undefined
+										: {
+												y: LIFT_Y,
+												scale: LIFT_SCALE,
+												rotate: card.rot * LIFT_STRAIGHTEN,
+												transition: PICK_UP,
+											}
+								}
 							>
 								<StaticFrame
 									themeName={card.themeName}
