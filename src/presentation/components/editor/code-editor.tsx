@@ -1,12 +1,15 @@
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { useCallback, useRef } from "react";
 
+import { monacoLanguage } from "@/presentation/components/editor/monaco-language";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 
 const LANGUAGES = [
 	{ value: "typescript", label: "TypeScript" },
+	{ value: "tsx", label: "TSX" },
 	{ value: "javascript", label: "JavaScript" },
+	{ value: "diff", label: "Diff" },
 	{ value: "python", label: "Python" },
 	{ value: "rust", label: "Rust" },
 	{ value: "go", label: "Go" },
@@ -157,7 +160,7 @@ export function CodeEditor() {
 			>
 				<Editor
 					value={snippet.code}
-					language={snippet.language}
+					language={monacoLanguage(snippet.language)}
 					theme={editorTheme}
 					onChange={handleChange}
 					onMount={handleMount}
