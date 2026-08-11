@@ -329,7 +329,12 @@
 	   hairline hanging below the join, inside the field. */
 	border: 1px solid var(--edge);
 	border-bottom: 0;
-	border-radius: calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) 0 0;
+	/* Three turns and one square corner: the bottom left is the assembly's own
+	   edge running on down into the field, so it does not turn here. The bottom
+	   right does — it was the one corner of this object that met another edge at a
+	   right angle. Turned, it lands on the field's top edge horizontally, which is
+	   to say tangentially, and the silhouette runs on without a corner in it. */
+	border-radius: calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) 0;
 }
 
 /* The join, one straight line the whole way. It used to stop at 26 and turn,
@@ -351,7 +356,10 @@
 	content: "";
 	position: absolute;
 	left: 0;
-	right: 0;
+	/* Stopping where the turn starts, since past that the block's fill has curved
+	   away from this row and the field's own ring is the line there. The two are
+	   the same value and the same row, so it reads as one. */
+	right: var(--mode-r);
 	bottom: 0;
 	height: 1px;
 	background: var(--edge);
@@ -401,6 +409,7 @@
 
 .proto-desk-modes button:last-child {
 	border-top-right-radius: var(--mode-r);
+	border-bottom-right-radius: var(--mode-r);
 }
 
 /* The selected pastille takes the field's own surface and no edge of its own:
