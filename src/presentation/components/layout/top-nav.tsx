@@ -1,7 +1,5 @@
-import { formatLineRanges } from "@/application/focus/line-ranges";
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { springs } from "@/presentation/motion";
-import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { copyToClipboard, decodeShareLink, encodeShareLink } from "@/presentation/utils/share-link";
@@ -39,46 +37,9 @@ export function TopNav() {
 	}, [importFromJson]);
 
 	const handleShare = useCallback(async () => {
-		const state = useSnippetStore.getState();
-		const {
-			snippet,
-			background,
-			windowChrome,
-			showLineNumbers,
-			lineNumberStart,
-			framePadding,
-			cardMargin,
-			watermark,
-		} = state;
-		// The export store owns tempo / typewriter / zoom / progress style; carry
-		// them in the link so it restores the ENTIRE studio state on open.
-		const exportState = useExportStore.getState();
-		const link = encodeShareLink({
-			title: snippet.title,
-			code: snippet.code,
-			language: snippet.language,
-			themeName: snippet.theme.name,
-			background,
-			windowChrome,
-			showLineNumbers,
-			lineNumberStart,
-			framePadding,
-			cardMargin,
-			watermark,
-			steps: snippet.steps.map((s) => {
-				const focus = formatLineRanges(s.highlightRanges);
-				return {
-					code: s.code,
-					duration: s.duration,
-					focus: focus || undefined,
-					caption: s.annotation || undefined,
-				};
-			}),
-			progressStyle: exportState.progressStyle,
-			typewriter: exportState.typewriter,
-			transitionMs: exportState.transitionMs,
-			focusZoom: exportState.focusZoom,
-		});
+		// One producer of the project format: the link carries exactly what a JSON
+		// export carries, so the two can never drift apart.
+		const link = encodeShareLink(useSnippetStore.getState().toProjectPayload());
 		const copied = await copyToClipboard(link);
 		if (copied) {
 			setShareCopied(true);
