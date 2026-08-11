@@ -1,7 +1,7 @@
 import { Instrument } from "@/presentation/landing/instrument";
 import { Reveal, RevealGroup, RevealItem } from "@/presentation/landing/primitives";
 import { GITHUB_URL } from "@/presentation/landing/tokens";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 /* Three fusions of Console (diffshub: no headline, the tool's own field, real
@@ -111,9 +111,25 @@ export function Prompt() {
    tool; it is how you drive it. The remaining categories collapse to one meta
    line under the examples. */
 
+const PLACEHOLDERS: Record<(typeof MODES)[number], string> = {
+	"pull request": "https://github.com/owner/repo/pull/1247",
+	diff: "@@ -1,6 +1,10 @@",
+	snippet: "const users = await db.users.all()",
+};
+
 export function Desk() {
 	const [mode, setMode] = useState<(typeof MODES)[number]>("pull request");
 	const [value, setValue] = useState("");
+	/* The field sizes to its own content so the caret can stand at the end of it,
+	   and an empty field's content is its placeholder — which would park the
+	   caret after the example rather than where you are about to type. So the
+	   example steps aside on focus and the caret takes its place. Nothing is
+	   lost by it: the pastille above the field says what is expected. */
+	const [focused, setFocused] = useState(false);
+	/* And since it no longer spans the row, pressing the empty part of the field
+	   has to put you in it — which is what an input filling the row used to do
+	   for free. Only presses on the field itself: Render is in there too. */
+	const field = useRef<HTMLInputElement>(null);
 
 	return (
 		<section className="proto-hero proto-desk">
@@ -140,18 +156,23 @@ export function Desk() {
 								</button>
 							))}
 						</div>
-						<div className="proto-desk-field">
+						<div
+							className="proto-desk-field"
+							onMouseDown={(e) => {
+								if (e.target === e.currentTarget) {
+									e.preventDefault();
+									field.current?.focus();
+								}
+							}}
+						>
 							<input
+								ref={field}
 								type="text"
 								value={value}
 								onChange={(e) => setValue(e.target.value)}
-								placeholder={
-									mode === "pull request"
-										? "https://github.com/owner/repo/pull/1247"
-										: mode === "diff"
-											? "@@ -1,6 +1,10 @@"
-											: "const users = await db.users.all()"
-								}
+								onFocus={() => setFocused(true)}
+								onBlur={() => setFocused(false)}
+								placeholder={focused ? "" : PLACEHOLDERS[mode]}
 								aria-label={`Paste a ${mode}`}
 								spellCheck={false}
 							/>
