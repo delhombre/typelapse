@@ -410,3 +410,46 @@
 		gap: 0;
 	}
 }
+
+/* ══════════ Three readings of "build the first pill on the input's curve" ══════════
+   All three put the first pill hard against the left, where the field turns.
+   The field is 52px tall, so its corner is a 26px circle centred at (26, 26). */
+
+/* The strip sits at the very left in all three. */
+.proto-desk[data-shape] .proto-desk-modes {
+	padding-left: 0;
+}
+
+/* ── A · saddle ──
+   The pill's lower edge is *cut* to the field's arc, so it seats on the curve
+   the way a saddle seats on a back. The mask removes exactly the disc that
+   forms the field's top-left corner: a 26px circle whose centre sits 26px below
+   the pill's own bottom edge, on the same x. Nothing is approximated — it is
+   the field's corner, subtracted. */
+.proto-desk[data-shape="saddle"] .proto-desk-modes button:first-child {
+	border-radius: 999px 999px 0 0;
+	padding-left: 30px;
+	mask-image: radial-gradient(circle 26px at 26px calc(100% + 26px), transparent 99.5%, #000 100%);
+}
+
+/* ── B · continuous ──
+   The pill's bottom-left carries the field's own radius, so the two arcs meet
+   tangentially and the left side of the whole assembly reads as one edge
+   rising out of the field into the pill. */
+.proto-desk[data-shape="continuous"] .proto-desk-modes button:first-child {
+	border-radius: 999px 999px 0 26px;
+	padding-left: 26px;
+}
+
+/* ── C · concentric ──
+   The pill's bottom-left follows the field's arc at a constant offset — the
+   nesting rule the island already uses, inner = outer − the gap — so the curves
+   run parallel rather than touching. */
+.proto-desk[data-shape="concentric"] .proto-desk-modes {
+	padding-left: 6px;
+}
+
+.proto-desk[data-shape="concentric"] .proto-desk-modes button:first-child {
+	border-radius: 999px 999px 0 20px;
+	padding-left: 22px;
+}
