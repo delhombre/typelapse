@@ -21,7 +21,7 @@ import { resolveShikiLanguage } from "@/infrastructure/highlighting/shiki-regist
 import { type WindowChrome, isWindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { Highlighter } from "shiki";
 import { create } from "zustand";
-import { useExportStore } from "./export.store";
+import { EXPORT_DEFAULTS, useExportStore } from "./export.store";
 
 /** Where playback currently sits: holding on a step, or morphing between two. */
 export interface PlaybackState {
@@ -194,9 +194,12 @@ function isDimension(value: unknown): value is number {
 
 /**
  * Apply the export-store-owned settings (aspect / tempo / typewriter / zoom /
- * progress style) carried by an imported snapshot or share link. Each is applied
- * only when present and valid, so an older file that omits them keeps the current
- * values (the defaults on a fresh load): back-compatible by construction.
+ * progress style) carried by an imported snapshot, share link or template.
+ *
+ * A project fully determines the render: a setting the file omits is reset to
+ * its default rather than inherited. Without that, opening the typewriter
+ * template and then any other one would leave the second typing itself, and no
+ * file would ever be reproducible from its own contents.
  */
 function applyExportSettings(obj: Record<string, unknown>): void {
 	const ex = useExportStore.getState();
@@ -204,19 +207,16 @@ function applyExportSettings(obj: Record<string, unknown>): void {
 	// Both or neither: a half-specified aspect would silently distort the export.
 	if (isDimension(width) && isDimension(height)) {
 		ex.setResolution(width, height);
+	} else {
+		ex.setResolution(EXPORT_DEFAULTS.width, EXPORT_DEFAULTS.height);
 	}
-	if (transitionMs === 400 || transitionMs === 650 || transitionMs === 1000) {
-		ex.setTransitionMs(transitionMs);
-	}
-	if (typeof typewriter === "boolean") {
-		ex.setTypewriter(typewriter);
-	}
-	if (typeof focusZoom === "boolean") {
-		ex.setFocusZoom(focusZoom);
-	}
-	if (progressStyle === "reels" || progressStyle === "bar" || progressStyle === "none") {
-		ex.setProgressStyle(progressStyle);
-	}
+	const isTempo = transitionMs === 400 || transitionMs === 650 || transitionMs === 1000;
+	ex.setTransitionMs(isTempo ? transitionMs : EXPORT_DEFAULTS.transitionMs);
+	ex.setTypewriter(typewriter === true);
+	ex.setFocusZoom(focusZoom === true);
+	const isProgress =
+		progressStyle === "reels" || progressStyle === "bar" || progressStyle === "none";
+	ex.setProgressStyle(isProgress ? progressStyle : EXPORT_DEFAULTS.progressStyle);
 }
 
 export function setHighlighter(highlighter: HighlighterPort) {
