@@ -728,7 +728,7 @@ function Toolbar({
 								<span className="lp-island-num">{aspect}</span>
 							</button>
 
-							<Link to="/app" className="lp-island-cta">
+							<Link to="/app" className="lp-island-cta hit-ext">
 								Open studio
 							</Link>
 						</motion.div>

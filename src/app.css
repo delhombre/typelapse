@@ -571,7 +571,18 @@ html[data-landing-theme="dark"] {
 	grid-template-columns: subgrid;
 }
 
+/* The URL is the column that gives. A grid track of `1fr` still refuses to go
+   below its content's min-content width, and an unbroken URL has no break
+   opportunity in it, so the track held its full length and pushed the three
+   nowrap stat columns off the right edge — at 390px the counts were cut through
+   the middle of a glyph. The row's numbers are the part that has to survive
+   intact, so the URL takes the ellipsis instead: min-width: 0 lets the track
+   shrink, and the truncation lands where a reader loses the least. */
 .landing-root .lp-log a {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	color: var(--color-ash);
 	text-decoration: none;
 }
@@ -993,13 +1004,34 @@ html[data-landing-theme="dark"] {
    Instrument above already carries the product's furniture, and repeating it
    here would make the page look like two screenshots of the same app rather
    than one object and one detail of it. */
+/* The code inside states its own width in `ch`, and the longest line of the demo
+   is 50 characters wide: about 460px at this size, in a column that is 342px at
+   390. Centred, the overflow split itself evenly and ate a character off BOTH
+   ends, and being wider than the viewport it dragged the whole document
+   sideways.
+
+   `safe center` is the whole fix for the first half: centred while it fits, and
+   the moment it does not, alignment falls back to the start so nothing is put
+   out of reach. Shrinking to fit was the alternative and it is not one: 50
+   characters inside 286px of content box is a 9px font, which is not a demo of
+   anything. It keeps its size and scrolls. */
 .landing-root .lp-morph-frame {
 	display: flex;
-	justify-content: center;
+	justify-content: safe center;
+	max-width: 100%;
+	overflow-x: auto;
 	padding: 30px 28px;
 	border-radius: 16px;
 	background: #1f2229;
 	box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 18px 44px -28px rgb(0 0 0 / 0.4);
+}
+
+/* A flex child shrinks by default, and a shrunk child does not overflow: the
+   frame stopped scrolling sideways and simply cut the code off instead, which
+   is the same clipping by another route. Holding its stated width is what turns
+   the cut into a scroll. */
+.landing-root .lp-morph-frame > * {
+	flex: none;
 }
 
 /* Extended hit area for compact studio controls: the visual stays small, the
