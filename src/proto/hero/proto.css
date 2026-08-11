@@ -200,29 +200,24 @@
 	color: var(--color-ash);
 }
 
-/* The former "Imports" list, now the field's modes. */
+/* The former "Imports" list, now the field's modes. Off the field rather than
+   notched into it, because the pill leaves nothing flat to notch into, and
+   aligned on where the field's own text begins. */
 .proto-desk-modes {
 	display: flex;
-	gap: 1px;
+	gap: 4px;
 	margin-top: 22px;
+	margin-bottom: 8px;
+	padding-left: 24px;
 }
 
 .proto-desk-modes button {
-	padding: 5px 12px;
+	padding: 5px 13px;
+	border-radius: 999px;
 	font: inherit;
 	color: var(--color-ash);
 	background: color-mix(in oklch, var(--color-ink) 4%, transparent);
 	transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
-}
-
-/* Rounder — the only change to the field. The tabs keep their square bottom
-   where they meet it, so the two still read as one stepped object. */
-.proto-desk-modes button:first-child {
-	border-radius: 12px 0 0 0;
-}
-
-.proto-desk-modes button:last-child {
-	border-radius: 0 12px 0 0;
 }
 
 .proto-desk-modes button[data-active] {
@@ -230,16 +225,31 @@
 	background: var(--color-ink);
 }
 
+/* Fully round, like the dock below it.
+   A pill has no flat top edge, so the mode strip can no longer notch into it —
+   it lifts off and becomes its own row of pills above (see .proto-desk-modes).
+   The left padding clears the curve: at 52px tall the radius is 26, so text
+   starting at 24 sits just inside the arc rather than on it.
+
+   The stroke matches the dock's delicacy. The island carries no ring at all,
+   only `0 8px 24px / 0.18`; on paper this one still needs an edge to exist, so
+   it takes the lightest possible — a single hairline at the token weight, with
+   the same soft lift underneath rather than a second, heavier shadow. */
 .proto-desk-field {
 	display: flex;
 	align-items: center;
 	gap: 1ch;
-	padding: 0 8px 0 16px;
-	height: 48px;
-	/* Square only where the tab strip lands on it. */
-	border-radius: 0 16px 16px 16px;
+	padding: 0 6px 0 24px;
+	height: 52px;
+	border-radius: 999px;
 	background: var(--color-surface);
-	box-shadow: inset 0 0 0 1px var(--color-hairline);
+	box-shadow: 0 0 0 1px var(--color-hairline), 0 8px 24px -10px rgb(18 18 20 / 0.14);
+	transition: box-shadow 170ms var(--ease-out);
+}
+
+.proto-desk-field:focus-within {
+	box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-ink) 22%, transparent), 0 8px 24px -10px
+		rgb(18 18 20 / 0.16);
 }
 
 .proto-desk-field input {
@@ -260,10 +270,10 @@
 .proto-desk-go {
 	display: inline-flex;
 	align-items: center;
-	height: 36px;
-	padding: 0 16px;
-	/* Concentric: the field's 16px less its 8px of padding. */
-	border-radius: 10px;
+	height: 40px;
+	padding: 0 18px;
+	/* A pill's concentric inner is a pill — the same rule the dock's CTA follows. */
+	border-radius: 999px;
 	background: var(--color-ink);
 	color: var(--color-paper);
 	font-weight: 600;
