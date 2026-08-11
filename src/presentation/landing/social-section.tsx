@@ -63,14 +63,29 @@ export function SocialSection() {
 	);
 }
 
+/** How far the label steps aside for the dot, and the padding that makes the
+    step affordable. The chip's width is fixed by its content, so every pixel
+    the label moves right is a pixel taken off the right inset: shove it the
+    full width of the dot and its air, and an active chip ends up 29px in on the
+    left and 5px in on the right — visibly lopsided, worst on a one-letter
+    label. Splitting the difference is what balances both states. The chip
+    carries 22px of padding instead of 16, and the label moves 6: at rest it
+    sits 22 in on both sides, and lit it runs from the dot at 16 to a right
+    inset of 16, so the *content* is centred either way. */
+const INDICATOR_ROOM = 6;
+const CHIP_PAD = 22;
+
 /**
  * A platform chip that tracks the screen: the active platform brightens with a
  * hairline and a whisper of fill, the rest sit dim. Colours cross-fade so the
  * indicator glides from chip to chip as the feed swipes.
  */
 function PlatformChip({ platform, active }: { platform: SocialPlatform; active: boolean }) {
+	/* The padding is a style rather than a class: it is arithmetic against the
+	   dot's offset and the label's step, and a class built by interpolation is
+	   a class Tailwind never sees to generate. */
 	const base =
-		"inline-flex h-9 items-center rounded-full border px-4 font-medium text-[13px] tabular-nums transition-colors duration-500";
+		"relative inline-flex h-9 items-center rounded-full border font-medium text-[13px] tabular-nums transition-colors duration-500";
 	/* The selected one wears the primary. This section is the darkest surface on
 	   the page, which is exactly where that colour is at its strongest, and a
 	   white-on-white indicator here was the one live control that had no idea
@@ -79,16 +94,36 @@ function PlatformChip({ platform, active }: { platform: SocialPlatform; active: 
 	const tone = active
 		? "border-[var(--color-primary)]/45 bg-[var(--color-primary)]/12 text-[var(--color-primary)]"
 		: "border-white/12 bg-transparent text-white/40";
+	/* The dot is always here. Mounted only while active it had to appear from
+	   nothing on the frame the carousel turned, in the middle of a 500ms colour
+	   fade — the one hard cut inside an otherwise slow change. And it sat in the
+	   flow, so the chip grew by its width and its margin as it lit up and the
+	   whole row reflowed around it. Out of the flow and never unmounted, it
+	   costs the layout nothing and can be faded and scaled like anything else;
+	   the label slides over to make the room the chip no longer has to find. */
+	const indicator = {
+		opacity: active ? 1 : 0,
+		transform: `translateY(-50%) scale(${active ? 1 : 0.5})`,
+		transition: "opacity 200ms var(--ease-out), transform 200ms var(--ease-out)",
+		boxShadow: "0 0 8px var(--color-primary-glow)",
+	};
+
 	return (
-		<span className={`${base} ${tone}`}>
-			{active ? (
-				<span
-					aria-hidden
-					className="mr-2 inline-block size-1.5 rounded-full bg-[var(--color-primary)]"
-					style={{ boxShadow: "0 0 8px var(--color-primary-glow)" }}
-				/>
-			) : null}
-			{PLATFORM_LABELS[platform]}
+		<span className={`${base} ${tone}`} style={{ paddingInline: CHIP_PAD }}>
+			<span
+				aria-hidden
+				className="absolute top-1/2 left-4 size-1.5 rounded-full bg-[var(--color-primary)]"
+				style={indicator}
+			/>
+			<span
+				className="inline-block"
+				style={{
+					transform: `translateX(${active ? INDICATOR_ROOM : 0}px)`,
+					transition: "transform 200ms var(--ease-out)",
+				}}
+			>
+				{PLATFORM_LABELS[platform]}
+			</span>
 		</span>
 	);
 }
