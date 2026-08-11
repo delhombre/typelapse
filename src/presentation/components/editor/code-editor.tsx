@@ -55,6 +55,25 @@ export function CodeEditor() {
 	const handleMount = useCallback<OnMount>((editor, monaco) => {
 		monacoRef.current = monaco;
 
+		// A snippet is a fragment, not a project: it imports nothing, resolves
+		// nothing, and is often mid-refactor by design. Semantic diagnostics would
+		// underline almost every template in red for being exactly what it is.
+		// Syntax errors still show, because those are the author's mistakes.
+		for (const defaults of [
+			monaco.languages.typescript.typescriptDefaults,
+			monaco.languages.typescript.javascriptDefaults,
+		]) {
+			defaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false });
+			// Monaco has no separate TSX mode, so JSX has to be turned on here or a
+			// React snippet is underlined as a syntax error for containing markup.
+			defaults.setCompilerOptions({
+				...defaults.getCompilerOptions(),
+				jsx: monaco.languages.typescript.JsxEmit.React,
+				allowJs: true,
+				target: monaco.languages.typescript.ScriptTarget.ESNext,
+			});
+		}
+
 		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
 		// toggles it: same keybinding VS Code uses. Also surfaces in the command
 		// palette (F1 → "Toggle word wrap") for discoverability.

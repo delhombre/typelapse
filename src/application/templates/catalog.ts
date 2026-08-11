@@ -28,7 +28,12 @@ export interface TemplateDefinition {
 
 /* ──────────── 1. Extract a custom hook ──────────── */
 
-const HOOK_INLINE = `export function Profile({ id }: { id: string }) {
+/** The import line is shared by all three frames, so it anchors the morph. */
+const HOOK_IMPORT = `import { useEffect, useState } from "react"
+`;
+
+const HOOK_INLINE = `${HOOK_IMPORT}
+export function Profile({ id }: { id: string }) {
   const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
@@ -40,7 +45,8 @@ const HOOK_INLINE = `export function Profile({ id }: { id: string }) {
   return <h1>{user?.name ?? "Loading…"}</h1>
 }`;
 
-const HOOK_EXTRACTED = `function useUser(id: string) {
+const HOOK_EXTRACTED = `${HOOK_IMPORT}
+function useUser(id: string) {
   const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
@@ -58,7 +64,8 @@ export function Profile({ id }: { id: string }) {
   return <h1>{user?.name ?? "Loading…"}</h1>
 }`;
 
-const HOOK_CANCELLED = `function useUser(id: string) {
+const HOOK_CANCELLED = `${HOOK_IMPORT}
+function useUser(id: string) {
   const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
