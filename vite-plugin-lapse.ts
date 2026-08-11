@@ -24,7 +24,91 @@ import type { Plugin } from "vite";
  */
 const VIRTUAL_ID = "virtual:lapse";
 const RESOLVED_ID = `\0${VIRTUAL_ID}`;
+const GUARD_ID = "virtual:lapse-guard";
+const RESOLVED_GUARD_ID = `\0${GUARD_ID}`;
 const LAPSE_DIST = ".lapse/node_modules/@aiforui/lapse/dist";
+
+/**
+ * Single-key shortcuts must not fire while the user is typing, and Lapse binds
+ * several (S scope, V video capture, R record, Space pause). Its own guard
+ * checks the target's tag name and `isContentEditable`, which was a complete
+ * test until editors moved to the EditContext API: Monaco >= 0.52 types into a
+ * bare `<div class="native-edit-context" role="textbox">` that is neither a
+ * form control nor contenteditable. So typing the letter "s" in the editor
+ * armed the scope picker, and latched scope mode then swallowed pointer, key
+ * and input events in the capture phase — which is why editor→preview sync,
+ * Capture and Share all went quiet at once.
+ *
+ * That is an upstream defect in a dev-only dependency, so it cannot be fixed
+ * in this repository. What this repository does own is the mount, so the guard
+ * goes here: Lapse's own key listeners are wrapped, at registration, with the
+ * app's editability predicate. Wrapping the listener rather than intercepting
+ * the event means propagation is untouched — the keystroke still reaches the
+ * editor exactly as before; only Lapse stops hearing it.
+ *
+ * Remove this once the upstream guard understands EditContext.
+ */
+const guardModule = (): string => {
+	return `
+import { isEditableEventTarget } from "/src/presentation/utils/editable-target";
+
+const GUARDED_EVENTS = new Set(["keydown", "keypress"]);
+/** Only listeners registered from inside the Lapse bundle are wrapped. */
+const LAPSE_FRAME = /@aiforui\\/lapse/;
+const wrapped = new WeakMap();
+
+const addListener = EventTarget.prototype.addEventListener;
+const removeListener = EventTarget.prototype.removeEventListener;
+
+/** A key that text entry consumes: letters, digits, punctuation, and space.
+ *  Escape, Tab, Enter and the arrows have longer names and stay untouched, so
+ *  Lapse keeps its escape hatches while typing. */
+const isTextKey = (event) =>
+	typeof event.key === "string" &&
+	event.key.length === 1 &&
+	!event.ctrlKey &&
+	!event.metaKey &&
+	!event.altKey;
+
+const guardFor = (type, listener) => {
+	let byType = wrapped.get(listener);
+	if (!byType) {
+		byType = new Map();
+		wrapped.set(listener, byType);
+	}
+
+	const existing = byType.get(type);
+	if (existing) {
+		return existing;
+	}
+
+	const guarded = function (event) {
+		if (isTextKey(event) && isEditableEventTarget(event)) {
+			return;
+		}
+		return listener.call(this, event);
+	};
+	byType.set(type, guarded);
+	return guarded;
+};
+
+const isLapseCaller = () => LAPSE_FRAME.test(new Error().stack || "");
+
+EventTarget.prototype.addEventListener = function (type, listener, options) {
+	if (GUARDED_EVENTS.has(type) && typeof listener === "function" && isLapseCaller()) {
+		return addListener.call(this, type, guardFor(type, listener), options);
+	}
+	return addListener.call(this, type, listener, options);
+};
+
+EventTarget.prototype.removeEventListener = function (type, listener, options) {
+	const guarded = GUARDED_EVENTS.has(type) && typeof listener === "function"
+		? wrapped.get(listener)?.get(type)
+		: undefined;
+	return removeListener.call(this, type, guarded ?? listener, options);
+};
+`;
+};
 
 export function lapse(): Plugin {
 	const root = process.cwd();
@@ -52,14 +136,27 @@ export function lapse(): Plugin {
 		},
 
 		resolveId(id) {
-			return id === VIRTUAL_ID ? RESOLVED_ID : null;
+			if (id === VIRTUAL_ID) {
+				return RESOLVED_ID;
+			}
+			return id === GUARD_ID ? RESOLVED_GUARD_ID : null;
 		},
 
 		load(id) {
+			if (id === RESOLVED_GUARD_ID) {
+				return guardModule();
+			}
 			if (id !== RESOLVED_ID) {
 				return null;
 			}
+			// Import order matters twice over. The guard is first because imports
+			// are hoisted and evaluated in source order, so it has to be in place
+			// before Lapse can register a listener. `install` is before `panel`
+			// because it patches the clock, and Motion caches rAF and Date.now on
+			// import — a cached reference keeps the real clock and slow-motion
+			// would silently do nothing.
 			return [
+				`import ${JSON.stringify(GUARD_ID)};`,
 				`import ${JSON.stringify(installEntry)};`,
 				`import { mountLapse } from ${JSON.stringify(panelEntry)};`,
 				"mountLapse();",
