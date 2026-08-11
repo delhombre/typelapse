@@ -611,48 +611,6 @@ html[data-landing-theme="dark"] {
 	background: #1c1a18;
 }
 
-/* A phone "product shot": a hairline plus a neutral layered shadow, sized to read
-   on the dark section. No brand-tinted glow: the depth is all neutral, so the only
-   color on the section is the product mesh inside the phone. */
-.landing-root .lp-phone {
-	box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08), 0 2px 8px -2px oklch(0 0 0 / 0.4), 0 30px 80px -24px
-		oklch(0 0 0 / 0.75);
-}
-
-/* Product shots come to life on hover: a subtle lift plus a deeper shadow, so the
-   frame reads as rising off the page (Tuple-like depth). Fine pointers only, and
-   the lift rides the `transform` property so it composes with Tailwind's native
-   `translate` / `rotate` on the tilted phones instead of clobbering them. */
-@media (hover: hover) and (pointer: fine) {
-	.landing-root .lp-lift {
-		transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
-	}
-	.landing-root .lp-lift:hover {
-		transform: translateY(-6px);
-	}
-	.landing-root .code-frame-glow.lp-lift:hover {
-		box-shadow:
-			0 0 0 1px oklch(0 0 0 / 0.08),
-			0 6px 16px -6px oklch(0 0 0 / 0.12),
-			0 20px 44px -12px oklch(0 0 0 / 0.2),
-			0 40px 80px -22px oklch(0 0 0 / 0.18);
-	}
-	.landing-root .lp-phone.lp-lift:hover {
-		box-shadow: 0 0 0 1px oklch(1 0 0 / 0.1), 0 6px 18px -4px oklch(0 0 0 / 0.5), 0 44px 100px -26px
-			oklch(0 0 0 / 0.85);
-	}
-}
-
-/* Reduced motion: keep the shadow response, drop the movement. */
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
-	.landing-root .lp-lift {
-		transition: box-shadow 0.35s var(--ease-out);
-	}
-	.landing-root .lp-lift:hover {
-		transform: none;
-	}
-}
-
 /* Subtle gradient drift during playback */
 @keyframes gradient-drift {
 	0% {
