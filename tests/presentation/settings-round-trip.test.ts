@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from "vitest";
  * Every studio setting must survive a JSON export/import AND a share-link
  * encode/decode. Both paths carry the same complete set, split across the snippet
  * store (title, code, language, theme, background, chrome, gutter, framePadding,
- * cardMargin, watermark) and the export store (progressStyle, typewriter,
+ * cardMargin, watermark) and the export store (aspect, progressStyle, typewriter,
  * focusZoom, transitionMs), plus per-step {code, duration, focus, caption}.
  */
 
@@ -28,6 +28,8 @@ const FULL = {
 	typewriter: true,
 	focusZoom: true,
 	transitionMs: 1000,
+	width: 1080,
+	height: 1920,
 	steps: [
 		{ code: "const z = 1;", duration: 900, focus: "1", caption: "start" },
 		{ code: "const z = 42;", duration: 1300, focus: "1", caption: "end" },
@@ -50,6 +52,7 @@ function resetStores() {
 	ex.setFocusZoom(false);
 	ex.setTypewriter(false);
 	ex.setProgressStyle("reels");
+	ex.setResolution(1920, 1080);
 }
 
 describe("JSON export/import round-trips every studio setting", () => {
@@ -76,6 +79,33 @@ describe("JSON export/import round-trips every studio setting", () => {
 		expect(ex.typewriter).toBe(true);
 		expect(ex.focusZoom).toBe(true);
 		expect(ex.transitionMs).toBe(1000);
+		expect(ex.width).toBe(1080);
+		expect(ex.height).toBe(1920);
+	});
+
+	it("keeps the aspect intact when a file carries a nonsense one", () => {
+		// Hand-edited files and old share links must never poison the render size.
+		useSnippetStore.getState().importFromJson(
+			JSON.stringify({
+				...FULL,
+				width: 0,
+				height: -8,
+			}),
+		);
+
+		const ex = useExportStore.getState();
+		expect(ex.width).toBe(1920);
+		expect(ex.height).toBe(1080);
+	});
+
+	it("keeps the aspect intact when only one dimension is present", () => {
+		// A half-specified aspect is not an aspect: applying it would silently
+		// distort the export.
+		useSnippetStore.getState().importFromJson(JSON.stringify({ ...FULL, height: undefined }));
+
+		const ex = useExportStore.getState();
+		expect(ex.width).toBe(1920);
+		expect(ex.height).toBe(1080);
 	});
 
 	it("reproduces every field on export", () => {
@@ -98,6 +128,8 @@ describe("JSON export/import round-trips every studio setting", () => {
 			typewriter: true,
 			focusZoom: true,
 			transitionMs: 1000,
+			width: 1080,
+			height: 1920,
 		});
 		expect(exported.steps).toHaveLength(2);
 		expect(exported.steps[0]).toMatchObject({
@@ -155,6 +187,8 @@ describe("share link round-trips every studio setting", () => {
 			typewriter: true,
 			focusZoom: true,
 			transitionMs: 1000,
+			width: 1080,
+			height: 1920,
 		});
 		expect(decoded?.steps).toHaveLength(2);
 		expect(decoded?.steps[0]).toMatchObject({
