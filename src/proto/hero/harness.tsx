@@ -2,14 +2,13 @@ import { useLandingTheme } from "@/presentation/landing/use-landing-theme";
 import { useCallback, useState } from "react";
 import { Picker } from "./picker";
 import "./proto.css";
-import { Aside, Current, Ledger, Output, Silent } from "./variants";
+import { Console, LedgerIndex, Library, Terminal } from "./variants";
 
 const VARIANTS = [
-	{ name: "Current", render: () => <Current /> },
-	{ name: "Output", render: () => <Output /> },
-	{ name: "Ledger", render: () => <Ledger /> },
-	{ name: "Silent", render: () => <Silent /> },
-	{ name: "Aside", render: () => <Aside /> },
+	{ name: "Terminal", render: () => <Terminal /> },
+	{ name: "Console", render: () => <Console /> },
+	{ name: "Library", render: () => <Library /> },
+	{ name: "Index", render: () => <LedgerIndex /> },
 ];
 
 const initialIndex = () => {

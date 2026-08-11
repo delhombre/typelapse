@@ -1,89 +1,279 @@
-/* Proto-only styles for the five hero heads. Dies with src/proto. */
+/* Proto-only styles for the four Pierre-grammar heroes. Dies with src/proto.
+   Values are the ones sampled off an external reference, an external reference.com and an external reference,
+   translated to our own faces: Ioskeley Mono stands in for BerkeleyMono, Geist
+   is already what they use. */
 
 .proto-root {
 	min-height: 100svh;
 }
 
-/* ── 1. Output ──
-   The shell answering its own prompt: mono, dim, tight, and deliberately not a
-   card — a box would make it furniture, and this has to read as text the
-   command printed. */
-
-.proto-output {
-	display: flex;
-	flex-direction: column;
-	gap: 0.35em;
-	font-family: var(--font-mono);
-	font-size: 0.8125rem;
-	line-height: 1.6;
+.proto-hero {
+	padding-top: clamp(56px, 9vh, 112px);
+	padding-bottom: 88px;
 }
 
-.proto-output-line {
+/* ══ 1. Terminal — an external reference ══
+   One face, one size, one leading for everything. 12px/24px was their measured
+   value; ours sits at 13px because Ioskeley runs a touch smaller at the same
+   nominal size. No radius and no shadow anywhere in the composition. */
+
+.proto-terminal {
+	font-family: var(--font-mono);
+	font-size: 13px;
+	line-height: 24px;
+	--hero-chrome: 500px;
+	--stage-max: 380px;
+}
+
+.proto-term-col {
+	width: 100%;
+	max-width: 560px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-term-meta {
 	color: var(--color-ash);
-	font-variant-numeric: tabular-nums;
+	letter-spacing: 0.02em;
 }
 
-/* The success line is the one that matters, so it comes up to ink weight. */
-.proto-output-line[data-tone="ok"] {
-	color: color-mix(in oklch, var(--color-ink) 82%, transparent);
-}
-
-/* ── 2. Ledger ──
-   Three spec lines on one hairline. The term column is fixed so the details
-   align down the page, which is what makes it read as a spec rather than as a
-   bulleted list. */
-
-.proto-steps {
-	max-width: 62ch;
-	border-top: 1px solid var(--color-hairline);
-}
-
-.proto-step {
-	display: grid;
-	grid-template-columns: 7ch minmax(0, 1fr);
-	gap: 1.5rem;
-	padding: 0.7rem 0;
-	border-bottom: 1px solid var(--color-hairline);
-}
-
-.proto-step dt {
-	font-family: var(--font-mono);
-	font-size: 0.8125rem;
-	font-weight: 600;
+/* The title is the same size as the body — only weight separates it. That is
+   the entire hierarchy, and departing from it is what would break the effect. */
+.proto-term-title {
+	margin-top: 24px;
+	font-size: 13px;
+	line-height: 24px;
+	font-weight: 700;
+	letter-spacing: normal;
 	color: var(--color-ink);
 }
 
-.proto-step dd {
-	font-size: 0.9375rem;
-	line-height: 1.45;
+.proto-term-rows {
+	margin-top: 24px;
+}
+
+.proto-term-row {
+	display: grid;
+	grid-template-columns: 9ch minmax(0, 1fr);
+	gap: 1ch;
+}
+
+.proto-term-row dt {
 	color: var(--color-ash);
 }
 
-@media (max-width: 560px) {
-	.proto-step {
-		grid-template-columns: minmax(0, 1fr);
-		gap: 0.2rem;
-	}
+.proto-term-row dd {
+	color: var(--color-ink);
 }
 
-/* ── 4. Aside ──
-   The head keeps its own column; everything else sits beside it in a narrow
-   one, so the hero stops being a single centred stack. */
+.proto-term-links {
+	margin-top: 24px;
+	display: flex;
+	gap: 2ch;
+}
 
-.proto-aside {
+.proto-term-links a {
+	color: var(--color-ink);
+	text-decoration: none;
+}
+
+.proto-term-links a:hover {
+	background: var(--color-ink);
+	color: var(--color-paper);
+}
+
+/* The object drops its radius so it reads as a plate in a document. */
+.proto-term-stage [role="img"] {
+	border-radius: 0 !important;
+	box-shadow: none !important;
+}
+
+.proto-term-stage .lp-island {
+	border-radius: 0;
+}
+
+/* ══ 2. Console — an external reference ══
+   No headline. A grey sentence, the tool's field, then real things to try. */
+
+.proto-console-col {
+	width: 100%;
+	max-width: 672px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-console-lead {
+	font-size: 16px;
+	line-height: 24px;
+	color: var(--color-ash);
+	max-width: 60ch;
+}
+
+.proto-console-field {
+	display: flex;
+	gap: 8px;
+	margin-top: 20px;
+}
+
+.proto-console-field input {
+	flex: 1;
+	height: 44px;
+	padding: 0 14px;
+	border-radius: 8px;
+	background: var(--color-surface);
+	box-shadow: inset 0 0 0 1px var(--color-hairline);
+	font-family: var(--font-mono);
+	font-size: 13px;
+	color: var(--color-ink);
+}
+
+.proto-console-field input::placeholder {
+	color: var(--color-ash);
+}
+
+.proto-console-go {
+	display: inline-flex;
+	align-items: center;
+	height: 44px;
+	padding: 0 18px;
+	border-radius: 8px;
+	background: var(--color-ink);
+	color: var(--color-paper);
+	font-size: 14px;
+	font-weight: 600;
+}
+
+/* Their examples are plain links in the product's own mono, not chips. */
+.proto-console-examples {
+	margin-top: 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-family: var(--font-mono);
+	font-size: 13px;
+	line-height: 20px;
+}
+
+.proto-console-examples a {
+	color: var(--color-ash);
+	text-decoration: none;
+}
+
+.proto-console-examples a:hover {
+	color: var(--color-ink);
+	text-decoration: underline;
+}
+
+/* ══ 3. Library — an external reference / trees ══ */
+
+.proto-lib-col {
+	width: 100%;
+	max-width: 896px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-lib-title {
+	font-family: var(--font-sans);
+	font-size: clamp(2.25rem, 1rem + 3.4vw, 3.75rem);
+	line-height: 1;
+	letter-spacing: -0.025em;
+	font-weight: 600;
+	color: var(--color-ink);
+	text-wrap: balance;
+}
+
+.proto-lib-lead {
+	max-width: 740px;
+	margin-top: 20px;
+	font-size: 20px;
+	line-height: 28px;
+	color: var(--color-ash);
+}
+
+.proto-lib-meta {
+	margin-top: 20px;
+	font-size: 14px;
+	line-height: 20px;
+	color: var(--color-ash);
+}
+
+/* ══ 4. Index — an external reference ══
+   A plain text document: a name, a block glyph, and a categorical index. */
+
+/* The index is text first, so the object it introduces comes in at a size that
+   does not outrank it. */
+.proto-index {
+	font-family: var(--font-mono);
+	font-size: 13px;
+	line-height: 22px;
+	--hero-chrome: 600px;
+	--stage-max: 280px;
+}
+
+.proto-index-col {
+	width: 100%;
+	max-width: 620px;
+	margin-inline: auto;
+	padding-inline: 24px;
+}
+
+.proto-index-title {
+	font-size: 13px;
+	line-height: 22px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	color: var(--color-ink);
+}
+
+.proto-index-sub,
+.proto-index-micro {
+	color: var(--color-ash);
+	letter-spacing: 0.02em;
+}
+
+.proto-index-about {
+	margin-top: 22px;
+	max-width: 62ch;
+	color: var(--color-ink);
+}
+
+.proto-index-lists {
+	margin-top: 22px;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr);
-	gap: 2rem;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 18px 24px;
 }
 
-@media (min-width: 900px) {
-	.proto-aside {
-		grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-		gap: 4rem;
-		align-items: end;
+@media (max-width: 860px) {
+	.proto-index-lists {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 
-.proto-aside-col {
-	max-width: 44ch;
+@media (max-width: 560px) {
+	.proto-index-lists {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.proto-index-lists h2 {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--color-ink);
+}
+
+.proto-index-lists ul {
+	color: var(--color-ash);
+}
+
+.proto-index-links {
+	margin-top: 22px;
+	color: var(--color-ash);
+}
+
+.proto-index-links a {
+	color: var(--color-ink);
+	text-decoration: underline;
+	text-underline-offset: 3px;
 }
