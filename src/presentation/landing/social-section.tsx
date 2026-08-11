@@ -71,16 +71,21 @@ export function SocialSection() {
 function PlatformChip({ platform, active }: { platform: SocialPlatform; active: boolean }) {
 	const base =
 		"inline-flex h-9 items-center rounded-full border px-4 font-medium text-[13px] tabular-nums transition-colors duration-500";
+	/* The selected one wears the primary. This section is the darkest surface on
+	   the page, which is exactly where that colour is at its strongest, and a
+	   white-on-white indicator here was the one live control that had no idea
+	   what the product's colour was. The unselected ones stay a dim white: the
+	   brand marks the one that is playing, not the row. */
 	const tone = active
-		? "border-white/40 bg-white/10 text-white"
+		? "border-[var(--color-primary)]/45 bg-[var(--color-primary)]/12 text-[var(--color-primary)]"
 		: "border-white/12 bg-transparent text-white/40";
 	return (
 		<span className={`${base} ${tone}`}>
 			{active ? (
 				<span
 					aria-hidden
-					className="mr-2 inline-block size-1.5 rounded-full bg-white"
-					style={{ boxShadow: "0 0 8px oklch(1 0 0 / 0.7)" }}
+					className="mr-2 inline-block size-1.5 rounded-full bg-[var(--color-primary)]"
+					style={{ boxShadow: "0 0 8px var(--color-primary-glow)" }}
 				/>
 			) : null}
 			{PLATFORM_LABELS[platform]}
