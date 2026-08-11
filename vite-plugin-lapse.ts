@@ -29,6 +29,19 @@ const RESOLVED_GUARD_ID = `\0${GUARD_ID}`;
 const LAPSE_DIST = ".lapse/node_modules/@aiforui/lapse/dist";
 
 /**
+ * The panel's default slot is bottom-left, where it is pinned `position: fixed`
+ * at `z-index: 2147483647`: the top of the stacking order, by design, so that
+ * no app can hide the inspector. In this app that lands squarely on the export
+ * bar's first control, the PNG snapshot button, and swallows every click on it
+ * at every width the studio uses (the panel is 154px wide from the left edge,
+ * the button 67px). Nothing can out-stack a maximum z-index, and the product's
+ * own layout should not be bent around a dev tool, so the tool moves. The
+ * bottom edge is empty at its centre, and the panel keeps the edge it was
+ * designed to slide in from.
+ */
+const PANEL_SLOT = "bottom-center";
+
+/**
  * Single-key shortcuts must not fire while the user is typing, and Lapse binds
  * several (S scope, V video capture, R record, Space pause). Its own guard
  * checks the target's tag name and `isContentEditable`, which was a complete
@@ -159,7 +172,7 @@ export function lapse(): Plugin {
 				`import ${JSON.stringify(GUARD_ID)};`,
 				`import ${JSON.stringify(installEntry)};`,
 				`import { mountLapse } from ${JSON.stringify(panelEntry)};`,
-				"mountLapse();",
+				`mountLapse({ position: ${JSON.stringify(PANEL_SLOT)} });`,
 			].join("\n");
 		},
 
