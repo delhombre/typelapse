@@ -282,6 +282,15 @@
 	--field-h: 52px;
 	/* The field is fully round, so its arc is half its height. */
 	--field-r: calc(var(--field-h) / 2);
+	/* The block's own turn, which is not the field's. It was 26 — the field's
+	   radius, borrowed back when the line still had to leave the field's arc and
+	   continue up. The field gave up that corner two passes ago and the left edge
+	   became one straight run, so the borrowing has no reason left; what remained
+	   was three quarters of a 35px band spent turning, on a value that was never
+	   chosen in the first place (26 is only what 999px comes to on a 52px field).
+	   14 is chosen: it is --text-x, so the edge finishes turning on the exact
+	   vertical the first character starts on. */
+	--mode-r: var(--text-x);
 	/* One value for the whole silhouette, because it is one silhouette — and
 	   opaque, at the value a hairline reaches over paper. Two of these lines
 	   cross: the block's left border and its right one both pass through the row
@@ -319,7 +328,7 @@
 	   hairline hanging below the join, inside the field. */
 	border: 1px solid var(--edge);
 	border-bottom: 0;
-	border-radius: calc(var(--field-r) + 1px) calc(var(--field-r) + 1px) 0 0;
+	border-radius: calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) 0 0;
 }
 
 /* The join, one straight line the whole way. It used to stop at 26 and turn,
@@ -386,11 +395,11 @@
    every other cell uses clears it, and the block keeps one rhythm. */
 .proto-desk-modes button:first-child {
 	position: relative;
-	border-top-left-radius: var(--field-r);
+	border-top-left-radius: var(--mode-r);
 }
 
 .proto-desk-modes button:last-child {
-	border-top-right-radius: var(--field-r);
+	border-top-right-radius: var(--mode-r);
 }
 
 /* The selected pastille takes the field's own surface and no edge of its own:
