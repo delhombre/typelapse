@@ -28,9 +28,12 @@ export function ExportSection() {
 				</RevealItem>
 			</RevealGroup>
 
-			<Reveal className="mt-4">
+			{/* No reveal around the fan: it reveals itself, card by card. One wrapper
+			    here would fade all five in as a single 380px block, which is the
+			    opposite of the point — the shapes are the claim. */}
+			<div className="mt-4">
 				<FrameFan />
-			</Reveal>
+			</div>
 		</section>
 	);
 }
