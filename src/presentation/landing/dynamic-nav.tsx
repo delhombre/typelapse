@@ -73,7 +73,7 @@ export function DynamicNav() {
 					aria-label="Open studio"
 					className="flex h-full items-center outline-offset-4"
 				>
-					<span className="inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-white shadow-[0_6px_16px_-6px_oklch(0.56_0.19_268/0.6)]">
+					<span className="inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-[var(--color-on-primary)] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)]">
 						Open studio
 					</span>
 				</Link>

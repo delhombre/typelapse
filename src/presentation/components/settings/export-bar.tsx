@@ -170,7 +170,7 @@ export function ExportButton() {
 			disabled={isExporting}
 			whileTap={{ scale: 0.97 }}
 			transition={springs.snappy}
-			className="flex h-9 items-center gap-1.5 rounded-xl bg-accent px-4 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_4px_16px_-4px_var(--color-accent)] transition-[filter,box-shadow] hover:brightness-110 disabled:opacity-50"
+			className="flex h-9 items-center gap-1.5 rounded-xl bg-[var(--color-primary)] px-4 text-xs font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
 		>
 			{isExporting ? (
 				<>
