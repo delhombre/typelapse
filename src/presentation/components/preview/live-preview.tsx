@@ -7,7 +7,7 @@ import {
 } from "@/application/backgrounds/mesh-gradient";
 import { captionAt } from "@/application/captions/caption-timing";
 import { focusLineSet } from "@/application/focus/line-ranges";
-import { fitCardToCanvas } from "@/application/layout/canvas-fit";
+import { fitCardToCanvas, renderScaleFor } from "@/application/layout/canvas-fit";
 import { concentric } from "@/application/layout/concentric";
 import { fitScale } from "@/application/layout/fit-scale";
 import { LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
@@ -131,8 +131,10 @@ function contentBox(el: HTMLElement): { width: number; height: number } {
 }
 
 // Mirror the Remotion composition's canvas constants so the social preview places
-// the window at the same fraction of the aspect canvas the video renders.
-const SOCIAL_VIDEO_SCALE = 2.2;
+// the window at the same fraction of the aspect canvas the video renders. The
+// base scale is per-tier there (renderScaleFor), so it is here too: otherwise the
+// preview would frame a 4K export differently from the export itself.
+const SOCIAL_BASE_VIDEO_SCALE = 2.2;
 const SOCIAL_CANVAS_MARGIN = 0.05;
 
 /** Gentle phone-screen rounding for the social aspect box, proportional and capped. */
@@ -226,7 +228,7 @@ export function LivePreview() {
 			showLineNumbers,
 			lineNumberStart,
 			hasCaption: hasCaptionText,
-			scale: SOCIAL_VIDEO_SCALE,
+			scale: renderScaleFor(exportWidth, exportHeight, SOCIAL_BASE_VIDEO_SCALE),
 			canvasWidth: exportWidth,
 			canvasHeight: exportHeight,
 			canvasMargin: SOCIAL_CANVAS_MARGIN,
