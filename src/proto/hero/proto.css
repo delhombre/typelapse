@@ -200,73 +200,73 @@
 	color: var(--color-ash);
 }
 
-/* ── The strip and the field are one pill ──
-   The field is 52px tall and fully round, so its own end is a 26px circle
-   centred at (26, 26) of its box. A pastille laid at the very left cannot keep
-   an end cap of its own there: by x = 0 the field has already turned away, and
-   a 17px cap would be floating in the air beside it.
+/* ── One line, drawn once, from the field up into the strip ──
+   The field is 52px tall and fully round, so its end is a 26px circle centred
+   at (26, 26): the arc leaves the bottom edge, turns, and stands exactly
+   vertical at its leftmost point — (0, 26) of the field, the only place on the
+   whole silhouette where the tangent is upright.
 
-   So the strip stops being a row of pills placed *near* the field and becomes
-   the top of one taller pill — 35 + 52 − 1 = 86 tall, therefore radius 43 — of
-   which the field is the bottom. The first pastille is then simply whatever of
-   that pill is left above the field, and it needs no shape of its own at all:
-   the assembly's radius cuts its left end, and the field, drawn after the
-   strip, cuts its lower one. Its lower edge is the field's own edge — straight
-   along the run, turning down into the 26px arc at the left, where the pastille
-   narrows and dies on the curve at (1.1, 52.6).
+   That is where the strip picks the line up. It rises straight from there, on
+   the same x, and turns over the first pastille with a quarter of the field's
+   own circle instead of a half of it. Same radius, half the turn: the curve
+   carries on from the field rather than repeating it, and reads as the softer
+   end of one gesture. A pill up here would restate the field's ending a second
+   time, two 180° caps stacked, which is what made the strip look applied to the
+   field instead of grown from it.
 
-   The whole construction is two clips and no drawn curve. */
+   From there the others just follow: the pastilles are one glued block ruled by
+   hairlines, so the top edge runs on flat and only the two ends are drawn.
+
+   The strip's lower edge is the field's own, which the field draws itself — it
+   is straight along the run and turns down into the arc at the left, and the
+   corner it cuts out of the first pastille is the piece the whole thing is for.
+   Nothing here draws a curve: the field's arc does the cutting, by being
+   painted after the strip. */
 .proto-desk {
 	--mode-h: 35px;
 	--field-h: 52px;
+	/* The field is fully round, so its arc is half its height. */
+	--field-r: calc(var(--field-h) / 2);
 	/* The strip laps 1px over the field so the join carries no seam of its own. */
 	--seam: 1px;
-	--assembly-h: calc(var(--mode-h) + var(--field-h) - var(--seam));
 }
 
 .proto-desk-modes {
 	display: flex;
-	align-items: flex-start;
-	gap: 3px;
 	margin-top: 22px;
-	/* Only the band takes space; the rest of the pill is where the field goes. */
-	margin-bottom: calc(-1 * var(--field-h));
-	height: var(--assembly-h);
-	border-radius: 999px;
-	overflow: hidden;
+	margin-bottom: calc(-1 * var(--seam));
 }
 
-/* A pastille is a pill, closed on all four corners, laid on the field's edge —
-   not a tab notched into it. The drawing is explicit about this: its right end
-   is a full cap, curving back down onto the field's own line. Sliced flat at the
-   bottom, at this height, the radius clamps to 35 and the thing reads as a
-   gumdrop instead. */
+/* Glued, and ruled apart by a hairline rather than by a gap. */
 .proto-desk-modes button {
 	height: var(--mode-h);
 	padding: 6px 14px 7px;
-	border-radius: 999px;
 	font: inherit;
 	color: var(--color-ash);
 	background: color-mix(in oklch, var(--color-ink) 4%, transparent);
 	transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
-	/* The strip clips its own top edge, so the focus ring has to be drawn inside. */
-	outline-offset: -2px;
 }
 
-/* The first pastille gives up its left cap to the assembly's radius, and grows
-   a body that runs on down past the field's top edge — the only part of it the
-   field does not cover is the sliver between the two arcs, which is the shape
-   the whole thing is for. 43px is the run of the assembly's arc; nothing wider
-   would ever show. */
+.proto-desk-modes button + button {
+	border-left: 1px solid var(--color-hairline);
+}
+
+/* The two ends of the block, and nothing in between. */
 .proto-desk-modes button:first-child {
 	position: relative;
-	/* No cap and no bottom corner on this side: the arc is the one, the field's
-	   own edge is the other. */
-	border-radius: 0 999px 999px 0;
-	/* At the label's own top the arc still stands at x = 21, so 30 clears it. */
+	border-top-left-radius: var(--field-r);
+	/* The label clears the corner: at its own top the arc still stands at x = 21. */
 	padding-left: 30px;
 }
 
+.proto-desk-modes button:last-child {
+	border-top-right-radius: var(--field-r);
+}
+
+/* The straight left edge, continued down to the field's leftmost point, where
+   the arc takes the line back. The field covers all of this but the corner it
+   cannot reach, and the square stops at exactly that point — 26px down — so
+   nothing is left hanging below the turn. */
 .proto-desk-modes button:first-child::before {
 	content: "";
 	position: absolute;
@@ -275,28 +275,16 @@
 	z-index: -1;
 	left: 0;
 	top: calc(100% - var(--seam));
-	width: calc(var(--assembly-h) / 2);
-	height: var(--field-h);
+	width: var(--field-r);
+	height: var(--field-r);
 	background: inherit;
 }
 
-/* The selected pastille takes the field's own surface and a hairline on three
-   sides. Never the fourth: its lower edge is the field's edge, and the field
-   draws that itself — straight along the run and then turning down into the
-   arc. A closed ring would lay a straight line over that turn and flatten the
-   one thing the shape is for. On a pill the two side strokes are the caps, so
-   only the flat run at the bottom is left bare, which is exactly where the
-   field's own line lies. Drawn inside, because the strip's clip cuts an outer
-   stroke away. */
+/* The selected pastille takes the field's own surface and no edge of its own:
+   the hairlines beside it already separate it, and with nothing drawn along the
+   bottom it runs straight into the field it points at. */
 .proto-desk-modes button[data-active] {
 	background: var(--color-surface);
-	box-shadow: inset 1px 0 0 var(--color-hairline), inset -1px 0 0 var(--color-hairline), inset 0 1px
-		0 var(--color-hairline);
-}
-
-/* This one has no left cap to stroke — the arc is its end. */
-.proto-desk-modes button:first-child[data-active] {
-	box-shadow: inset -1px 0 0 var(--color-hairline), inset 0 1px 0 var(--color-hairline);
 }
 
 .proto-desk-modes button[data-active] {
