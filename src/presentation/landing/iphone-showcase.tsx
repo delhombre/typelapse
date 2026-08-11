@@ -122,6 +122,9 @@ const INSTANT_TRANSITION = { duration: 0 } as const;
 export interface CycleControls {
 	/** Move one platform, the way the hand sent it. */
 	step: (direction: 1 | -1) => void;
+	/** Go straight to a platform, the way the chip row asks for it. The row is a
+	    spatial map of the cycle, so a chip further along arrives from that side. */
+	select: (index: number) => void;
 	/** A pointer is on the screen: the timer must not move under it. */
 	hold: () => void;
 	/** Let go. The next automatic move is a whole hold away, never the remainder
@@ -162,6 +165,11 @@ export function usePlatformCycle(active = true): PlatformCycle {
 	const [index, setIndex] = useState(0);
 	const [direction, setDirection] = useState<1 | -1>(1);
 	const timer = useRef<number | null>(null);
+	/* `select` has to know where the cycle is standing to work out which side the
+	   next screen comes in from, and it must do that without making the controls
+	   object a new one on every turn of the ring. */
+	const indexRef = useRef(index);
+	indexRef.current = index;
 
 	const stop = useCallback(() => {
 		if (timer.current !== null) {
@@ -195,6 +203,23 @@ export function usePlatformCycle(active = true): PlatformCycle {
 			step: (d) => {
 				setDirection(d);
 				setIndex((i) => (i + d + SCREEN_CONFIGS.length) % SCREEN_CONFIGS.length);
+			},
+			select: (target) => {
+				if (!Number.isInteger(target) || target < 0 || target >= SCREEN_CONFIGS.length) {
+					return;
+				}
+				const from = indexRef.current;
+				if (from === target) {
+					return;
+				}
+				setDirection(target > from ? 1 : -1);
+				setIndex(target);
+				// A pick is the hand speaking, and the hand outranks the clock: the
+				// remainder of the hold it interrupted must not fire moments later and
+				// carry the feed off the platform that was just asked for.
+				if (!reduce && active) {
+					start();
+				}
 			},
 			hold: stop,
 			release: () => {
