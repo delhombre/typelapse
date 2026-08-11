@@ -109,20 +109,32 @@ const INSTANT_TRANSITION = { duration: 0 } as const;
  * Drive the cycle index on a timed loop. Reduced motion pins it to the first
  * config (a static feed) and never starts the interval. The active platform is
  * derived from the returned index, so the chips and the screen share one source.
+ *
+ * `active` is whether anyone can see it. The interval used to run from mount,
+ * which meant the ring had already turned several times before the section came
+ * up the page — a visitor's first sight of the phone was whatever platform the
+ * clock happened to be on, mid-swipe as often as not. Held until the section
+ * arrives, the first thing they see is the first screen, at rest. It is also
+ * simply work nobody was watching: a timer, five composited layers and a spring,
+ * for a section three scrolls away.
+ *
+ * Frozen rather than reset on the way out. Coming back to the feed you left is
+ * the honest behaviour; only the first arrival is composed, and it is composed
+ * because the index cannot have moved before then.
  */
-export function usePlatformCycle(): { index: number; platform: SocialPlatform } {
+export function usePlatformCycle(active = true): { index: number; platform: SocialPlatform } {
 	const reduce = useReducedMotion();
 	const [index, setIndex] = useState(0);
 
 	useEffect(() => {
-		if (reduce) {
+		if (reduce || !active) {
 			return;
 		}
 		const id = window.setInterval(() => {
 			setIndex((i) => (i + 1) % SCREEN_CONFIGS.length);
 		}, HOLD_MS);
 		return () => window.clearInterval(id);
-	}, [reduce]);
+	}, [reduce, active]);
 
 	return { index, platform: (SCREEN_CONFIGS[index] ?? SCREEN_CONFIGS[0]).platform };
 }
@@ -208,7 +220,15 @@ function ScreenSwitcher({ activeIndex }: { activeIndex: number }) {
 						style={{ willChange: "transform" }}
 						inert={index !== activeIndex}
 						initial={false}
-						animate={{ x: placement.x, scale: placement.scale }}
+						/* One `transform`, not `x` and `scale`. The shorthands are separate
+						   motion values that have to be composed into a transform string on
+						   the main thread every frame; written whole, the animation is a
+						   single property the browser can take off our hands. `placement.x`
+						   carries its own unit — it is a percentage of the screen's width,
+						   which is what makes the ring independent of the device size. */
+						animate={{
+							transform: `translateX(${placement.x}) scale(${placement.scale})`,
+						}}
 						transition={placement.animated ? SWIPE_TRANSITION : INSTANT_TRANSITION}
 					>
 						<SocialScreen config={config} />
@@ -219,13 +239,30 @@ function ScreenSwitcher({ activeIndex }: { activeIndex: number }) {
 	);
 }
 
+/* The float, written as transforms for the same reason the switch is: a
+   keyframed `y` is composed every frame, a keyframed `transform` is a property
+   the browser can animate on its own. Held at rest rather than paused when the
+   section is away — an infinite repeat that nobody can see is the clearest case
+   of work for no one. */
+const FLOAT_KEYFRAMES = {
+	transform: ["translateY(0px)", "translateY(-6px)", "translateY(0px)"],
+};
+const FLOAT_REST = { transform: "translateY(0px)" };
+const FLOAT_TRANSITION = {
+	duration: 5,
+	ease: "easeInOut",
+	repeat: Number.POSITIVE_INFINITY,
+} as const;
+
 interface IphoneShowcaseProps {
 	/** The currently-shown platform (from `usePlatformCycle`), which the screen keys on. */
 	platform: SocialPlatform;
+	/** Whether the section is on screen: the float only breathes for someone. */
+	active?: boolean;
 	className?: string;
 }
 
-export function IphoneShowcase({ platform, className = "" }: IphoneShowcaseProps) {
+export function IphoneShowcase({ platform, active = true, className = "" }: IphoneShowcaseProps) {
 	const reduce = useReducedMotion();
 	const activeIndex = Math.max(
 		0,
@@ -258,8 +295,8 @@ export function IphoneShowcase({ platform, className = "" }: IphoneShowcaseProps
 		<motion.div
 			className="w-full"
 			style={{ display: "flex", justifyContent: "center" }}
-			animate={{ y: [0, -6, 0] }}
-			transition={{ duration: 5, ease: "easeInOut", repeat: Number.POSITIVE_INFINITY }}
+			animate={active ? FLOAT_KEYFRAMES : FLOAT_REST}
+			transition={active ? FLOAT_TRANSITION : INSTANT_TRANSITION}
 		>
 			{device}
 		</motion.div>

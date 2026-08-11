@@ -1,5 +1,6 @@
 import { PLATFORM_LABELS, SOCIAL_PLATFORMS } from "@/application/social/safe-zones";
 import type { SocialPlatform } from "@/application/social/safe-zones";
+import { useInViewPlayback } from "@/presentation/hooks/use-in-view-playback";
 import { IphoneShowcase, usePlatformCycle } from "./iphone-showcase";
 import { Eyebrow, Reveal } from "./primitives";
 import { CONTAINER, SECTION_PY } from "./tokens";
@@ -12,7 +13,12 @@ import { CONTAINER, SECTION_PY } from "./tokens";
  * the chip for the feed currently on screen brightens, the rest dim.
  */
 export function SocialSection() {
-	const { platform } = usePlatformCycle();
+	/* One observer for both halves of the exhibit. The chips are an indicator of
+	   the cycle and the cycle drives the screen, so if the phone is not being
+	   watched neither of them has anything to say — and they must agree about
+	   when that is, or a chip would light for a feed that never swiped. */
+	const { ref: stageRef, inView } = useInViewPlayback<HTMLDivElement>();
+	const { platform } = usePlatformCycle(inView);
 
 	return (
 		<section className="lp-dark relative overflow-hidden">
@@ -44,7 +50,7 @@ export function SocialSection() {
 					</Reveal>
 
 					<Reveal delay={0.1} className="flex items-center justify-center">
-						<div className="relative flex w-full items-center justify-center">
+						<div ref={stageRef} className="relative flex w-full items-center justify-center">
 							{/* A second, tighter glow hugging the device for extra product-shot depth. */}
 							<div
 								aria-hidden
@@ -54,7 +60,7 @@ export function SocialSection() {
 										"radial-gradient(40% 38% at 50% 46%, oklch(1 0 0 / 0.06), transparent 72%)",
 								}}
 							/>
-							<IphoneShowcase platform={platform} className="relative z-10" />
+							<IphoneShowcase platform={platform} active={inView} className="relative z-10" />
 						</div>
 					</Reveal>
 				</div>
