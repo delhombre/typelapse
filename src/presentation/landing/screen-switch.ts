@@ -42,6 +42,14 @@ export interface ScreenPlacementParams {
 	gap: number;
 	/** How far a travelling screen lifts away, matching the released-flick feel. */
 	offscreenScale: number;
+	/**
+	 * Which way the cycle just moved. The placement has no memory, and the two
+	 * directions are mirror images rather than the same arrangement: a screen
+	 * leaves on the side the hand sent it, and the side it leaves from is the
+	 * side the next one waits on. Read forward unless told otherwise, which is
+	 * what the timer does.
+	 */
+	direction?: 1 | -1;
 }
 
 /** A ring is only wide enough to hold a waiting side from three screens up. */
@@ -53,6 +61,7 @@ export function screenPlacement({
 	count,
 	gap,
 	offscreenScale,
+	direction = 1,
 }: ScreenPlacementParams): ScreenPlacement {
 	const size = Math.max(1, count);
 	const active = ((activeIndex % size) + size) % size;
@@ -63,14 +72,23 @@ export function screenPlacement({
 	}
 
 	const offscreen = 100 + gap;
-	if (size >= MIN_RING && distance === size - 1) {
-		return { x: `${-offscreen}%`, scale: offscreenScale, animated: true };
+	/* Mirrored, not reversed. Travelling forward the screen just left is the one
+	   behind us on the ring and it goes out to the left; travelling backward it
+	   is the one ahead of us and it goes out to the right. The waiting side is
+	   always the other one. */
+	const forward = direction === 1;
+	const leaving = forward ? size - 1 : 1;
+	const leavingSide = forward ? -offscreen : offscreen;
+	const waitingSide = forward ? offscreen : -offscreen;
+
+	if (size >= MIN_RING && distance === leaving) {
+		return { x: `${leavingSide}%`, scale: offscreenScale, animated: true };
 	}
 
-	/* Waiting on the right. Below `MIN_RING` there is no waiting side to hide a
-	   reposition in, so the idle screen simply animates from the right. */
+	/* Waiting off the far side. Below `MIN_RING` there is no waiting side to hide
+	   a reposition in, so the idle screen simply animates in from there. */
 	return {
-		x: `${offscreen}%`,
+		x: `${waitingSide}%`,
 		scale: offscreenScale,
 		animated: size < MIN_RING,
 	};
