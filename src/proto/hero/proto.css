@@ -198,6 +198,21 @@
 	padding-inline: 24px;
 }
 
+/* Every line of text in this block starts here, and only here: the pastille
+   labels, what you type, the lead above and the examples and the meta below.
+   The instrument's own edge is the one thing that does not — it hangs 14 to the
+   left of all of it, which is what makes the column read as text with an object
+   set into it rather than as two things that happen to share a margin. */
+.proto-desk {
+	--text-x: 14px;
+}
+
+.proto-desk-lead,
+.proto-desk-examples,
+.proto-desk-meta {
+	padding-left: var(--text-x);
+}
+
 .proto-desk-lead {
 	max-width: 60ch;
 	font-size: 15px;
@@ -300,7 +315,7 @@
 /* Glued, and ruled apart by a hairline rather than by a gap. */
 .proto-desk-modes button {
 	height: var(--mode-h);
-	padding: 6px 14px 7px;
+	padding: 6px var(--text-x) 7px;
 	font: inherit;
 	color: var(--color-ash);
 	/* Mixed into the paper rather than laid over it at 4% alpha: a pastille has
@@ -372,7 +387,7 @@
 	display: flex;
 	align-items: center;
 	gap: 1ch;
-	padding: 0 6px 0 14px;
+	padding: 0 6px 0 var(--text-x);
 	height: var(--field-h);
 	border-radius: 999px;
 	/* Except here, where the block sits on it. This corner is the only place the
