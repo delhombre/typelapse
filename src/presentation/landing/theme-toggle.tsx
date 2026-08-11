@@ -30,7 +30,7 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
 			type="button"
 			onClick={onToggle}
 			aria-label={`Switch to ${next} theme`}
-			className={`fixed top-5 right-5 z-50 flex size-9 items-center justify-center rounded-full transition-colors duration-300 ease-[var(--ease-out)] ${
+			className={`hit-ext fixed top-5 right-5 z-50 flex size-9 items-center justify-center rounded-full transition-colors duration-300 ease-[var(--ease-out)] ${
 				onDark
 					? "text-paper/75 hover:bg-paper/10 hover:text-paper"
 					: "text-ink/70 hover:bg-ink/6 hover:text-ink"

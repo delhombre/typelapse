@@ -98,7 +98,7 @@ export function DynamicNav() {
 				<Link
 					to="/"
 					aria-label="Typelapse home"
-					className={`flex items-center gap-2 transition-colors duration-300 ease-[var(--ease-out)] ${onDark ? "text-ink" : "text-white"}`}
+					className={`hit-ext flex items-center gap-2 transition-colors duration-300 ease-[var(--ease-out)] ${onDark ? "text-ink" : "text-white"}`}
 				>
 					<Logomark size={17} />
 					<span className="font-semibold text-[14px] tracking-tight">Typelapse</span>

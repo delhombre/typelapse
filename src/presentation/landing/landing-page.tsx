@@ -84,7 +84,7 @@ function Footer() {
 				<div className="flex items-center gap-6 text-[13px]">
 					<Link
 						to="/app"
-						className="text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
+						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
 					>
 						Studio
 					</Link>
@@ -92,7 +92,7 @@ function Footer() {
 						href={GITHUB_URL}
 						target="_blank"
 						rel="noreferrer"
-						className="text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
+						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
 					>
 						GitHub
 					</a>
