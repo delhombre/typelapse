@@ -1,18 +1,23 @@
 import { Instrument } from "@/presentation/landing/instrument";
 import { Reveal, RevealGroup, RevealItem } from "@/presentation/landing/primitives";
 import { GITHUB_URL } from "@/presentation/landing/tokens";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-/* Three fusions of Console (diffshub: no headline, the tool's own field, real
-   examples) and Index (pierre.computer: a mono text document, a categorical
-   index, the block glyph).
+/* Desk, taken up to the dock's level.
+   The flat version worked but read as a form sitting above a beautifully made
+   control. The move is to stop treating them as two widgets: the field becomes
+   the same object as the island below it, so the page reads as two islands with
+   the frame held between them — input above, controls below.
 
-   The joint between them is the glyph. pierre.computer prints `█` after its
-   name as an ornament; in a tool that takes a paste, the same block is a real
-   terminal caret. So the ornament becomes the cursor, and the index stops being
-   a decorative list of facts and becomes the interface: what you can paste is
-   not described beside the field, it *is* the field's own modes.
+   Everything material is borrowed rather than invented. The fill, the ink and
+   the dim are the island's own `--dock-*` tokens, so the two can never drift
+   apart; the selection is the island's gliding plate on one `layoutId`; the
+   spring is the sampled ui.camera width spring with bounce left in it. Emil's
+   rules do the rest: entrances ease out under 300ms and never fade from zero,
+   the press scales to 0.97, the placeholder swap is masked with blur because
+   nothing else bridges two strings cleanly, and no transition is `all`.
 
    Throwaway. Delete src/proto and the route in main.tsx once one wins. */
 
@@ -22,240 +27,252 @@ const EXAMPLES = [
 	["github.com/honojs/hono/pull/3488", "2 files · +26 −9"],
 ] as const;
 
-const MODES = ["pull request", "diff", "snippet"] as const;
+const MODES = [
+	{ id: "pr", label: "pull request", hint: "https://github.com/owner/repo/pull/1247" },
+	{ id: "diff", label: "diff", hint: "@@ -1,6 +1,10 @@" },
+	{ id: "snippet", label: "snippet", hint: "const users = await db.users.all()" },
+] as const;
 
-/** The block caret. Blinks only when the field is empty, and never under
-    reduced motion — a cursor that blinks forever is the one animation a
-    developer sees ten thousand times. */
+/** ui.camera's width spring, sampled: bounce left in, a short settle. */
+const ISLAND_SPRING = { type: "spring", stiffness: 260, damping: 26, mass: 1 } as const;
+/** The selection plate glides on the island's own curve. */
+const PLATE_SPRING = { type: "spring", stiffness: 420, damping: 32, mass: 0.7 } as const;
+
+/** The entrance does not fade: sampled off ui.camera, it is a scale that
+    overshoots from 0.996 to 1.0068 and settles. */
+const rise = (reduce: boolean, delay: number) =>
+	reduce
+		? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.2, delay } }
+		: {
+				initial: { opacity: 0.99, scale: 0.996, y: 6 },
+				animate: { opacity: 1, scale: [0.996, 1.0068, 1] as number[], y: 0 },
+				transition: {
+					duration: 0.32,
+					ease: [0.23, 1, 0.32, 1] as [number, number, number, number],
+					delay,
+				},
+			};
+
 function Caret({ idle }: { idle: boolean }) {
 	return <span className="proto-caret" data-idle={idle ? "" : undefined} aria-hidden="true" />;
 }
 
-/* ═══════════ 1. Prompt ═══════════
-   The whole hero is one shell session, and the prompt line is the product's
-   input. No headline, no boxed field, no button: you are looking at a terminal
-   that happens to accept a pull request, and the examples below are its history.
-   The index rides underneath as one dim spec line, the way a man page ends. */
-
-export function Prompt() {
-	const [value, setValue] = useState("");
-
+function Examples({ tone }: { tone?: "dark" }) {
 	return (
-		<section className="proto-hero proto-prompt">
-			<div className="proto-prompt-col">
-				<RevealGroup immediate>
-					<RevealItem>
-						<p className="proto-prompt-name">
-							TYPELAPSE <span aria-hidden="true">█</span>
-						</p>
-					</RevealItem>
-					<RevealItem>
-						<p className="proto-prompt-about">
-							Renders a code change as a video. Paste a pull request; it morphs the diff token by
-							token and exports for the feed.
-						</p>
-					</RevealItem>
-					<RevealItem>
-						{/* The prompt line is the field: a `$`, the caret, and nothing else.
-						    A boxed input here would turn a session into a form. */}
-						<label className="proto-prompt-line">
-							<span className="proto-prompt-sigil" aria-hidden="true">
-								$
-							</span>
-							<span className="proto-prompt-input">
-								<input
-									type="text"
-									value={value}
-									onChange={(e) => setValue(e.target.value)}
-									placeholder="typelapse --from-pr "
-									aria-label="Paste a pull request URL"
-									spellCheck={false}
-								/>
-								<Caret idle={value.length === 0} />
-							</span>
-						</label>
-					</RevealItem>
-					<RevealItem>
-						<ul className="proto-prompt-history">
-							{EXAMPLES.map(([url, meta]) => (
-								<li key={url}>
-									<Link to="/app">{url}</Link>
-									<span>{meta}</span>
-								</li>
-							))}
-						</ul>
-					</RevealItem>
-					<RevealItem>
-						<p className="proto-prompt-spec">
-							IN snippet · diff · pull request &nbsp;&nbsp; OUT mp4 · webm · gif · png &nbsp;&nbsp;
-							MIT ·{" "}
-							<a href={GITHUB_URL} target="_blank" rel="noreferrer">
-								source
-							</a>
-						</p>
-					</RevealItem>
-				</RevealGroup>
-			</div>
-
-			<Reveal immediate delay={0.24} className="proto-prompt-stage mt-11">
-				<Instrument maxScale={1.3} />
-			</Reveal>
-		</section>
+		<ul className="proto-examples" data-tone={tone}>
+			{EXAMPLES.map(([url, meta]) => (
+				<li key={url}>
+					<Link to="/app">{url}</Link>
+					<span>{meta}</span>
+				</li>
+			))}
+		</ul>
 	);
 }
 
-/* ═══════════ 2. Desk ═══════════
-   Keeps Console's boxed field, but the Index's "Imports" category stops being a
-   list of facts beside it and becomes the field's own modes — three mono tabs
-   the field answers to. The index is no longer something you read about the
-   tool; it is how you drive it. The remaining categories collapse to one meta
-   line under the examples. */
+/* ═══════════ 1. Twin ═══════════
+   The field is an island. Same fill, same pill, same rules as the dock below:
+   every control transparent until hovered, the selection a gliding plate, and
+   exactly one filled shape — the action. The frame is then held between two
+   objects of the same family rather than floating under a form. */
 
-export function Desk() {
-	const [mode, setMode] = useState<(typeof MODES)[number]>("pull request");
+export function Twin() {
+	const reduce = useReducedMotion() ?? false;
+	const [mode, setMode] = useState<(typeof MODES)[number]["id"]>("pr");
 	const [value, setValue] = useState("");
+	const active = MODES.find((m) => m.id === mode) ?? MODES[0];
 
 	return (
-		<section className="proto-hero proto-desk">
-			<div className="proto-desk-col">
+		<section className="proto-hero proto-twin">
+			<div className="proto-twin-col">
 				<RevealGroup immediate>
 					<RevealItem>
-						<p className="proto-desk-lead">
+						<p className="proto-twin-lead">
 							Turn a code change into a video. Paste a pull request, a diff or a snippet — it morphs
 							token by token and renders for the feed.
 						</p>
 					</RevealItem>
-					<RevealItem>
-						<div className="proto-desk-modes" role="tablist" aria-label="What you are pasting">
-							{MODES.map((m) => (
-								<button
-									key={m}
-									type="button"
-									role="tab"
-									aria-selected={m === mode}
-									data-active={m === mode ? "" : undefined}
-									onClick={() => setMode(m)}
-								>
-									{m}
-								</button>
-							))}
-						</div>
-						<div className="proto-desk-field">
-							<input
-								type="text"
-								value={value}
-								onChange={(e) => setValue(e.target.value)}
-								placeholder={
-									mode === "pull request"
-										? "https://github.com/owner/repo/pull/1247"
-										: mode === "diff"
-											? "@@ -1,6 +1,10 @@"
-											: "const users = await db.users.all()"
-								}
-								aria-label={`Paste a ${mode}`}
-								spellCheck={false}
-							/>
-							<Caret idle={value.length === 0} />
-							<Link to="/app" className="proto-desk-go">
-								Render
-							</Link>
-						</div>
-					</RevealItem>
-					<RevealItem>
-						<ul className="proto-desk-examples">
-							{EXAMPLES.map(([url, meta]) => (
-								<li key={url}>
-									<Link to="/app">{url}</Link>
-									<span>{meta}</span>
-								</li>
-							))}
-						</ul>
-					</RevealItem>
-					<RevealItem>
-						<p className="proto-desk-meta">
-							Exports mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
-							<a href={GITHUB_URL} target="_blank" rel="noreferrer">
-								source
-							</a>
-						</p>
-					</RevealItem>
 				</RevealGroup>
+
+				<motion.div className="proto-twin-island" {...rise(reduce, 0.08)}>
+					{/* The modes: transparent until hovered, the active one wearing the
+					    island's plate rather than a border. */}
+					<div className="proto-twin-modes" role="tablist" aria-label="What you are pasting">
+						{MODES.map((m) => (
+							<button
+								key={m.id}
+								type="button"
+								role="tab"
+								aria-selected={m.id === mode}
+								className="proto-twin-mode"
+								onClick={() => setMode(m.id)}
+							>
+								{m.id === mode && (
+									<motion.span
+										layoutId="twin-plate"
+										className="proto-twin-plate"
+										transition={reduce ? { duration: 0 } : PLATE_SPRING}
+									/>
+								)}
+								<span>{m.label}</span>
+							</button>
+						))}
+					</div>
+
+					<span className="proto-twin-sep" aria-hidden="true" />
+
+					<label className="proto-twin-field">
+						<span className="sr-only">Paste a {active.label}</span>
+						<input
+							type="text"
+							value={value}
+							onChange={(e) => setValue(e.target.value)}
+							spellCheck={false}
+							aria-label={`Paste a ${active.label}`}
+						/>
+						{/* The placeholder is a layer, not an attribute: swapping strings on
+						    a mode change needs a blur to bridge them, which an attribute
+						    cannot animate. */}
+						{value.length === 0 && (
+							<AnimatePresence mode="wait" initial={false}>
+								<motion.span
+									key={active.id}
+									className="proto-twin-hint"
+									initial={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
+									animate={{ opacity: 1, filter: "blur(0px)" }}
+									exit={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
+									transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+									aria-hidden="true"
+								>
+									{active.hint}
+								</motion.span>
+							</AnimatePresence>
+						)}
+						<Caret idle={value.length === 0} />
+					</label>
+
+					<motion.div whileTap={reduce ? undefined : { scale: 0.97 }} transition={ISLAND_SPRING}>
+						<Link to="/app" className="proto-twin-go">
+							Render
+						</Link>
+					</motion.div>
+				</motion.div>
+
+				<motion.div {...rise(reduce, 0.16)}>
+					<Examples />
+					<p className="proto-twin-meta">
+						mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
+						<a href={GITHUB_URL} target="_blank" rel="noreferrer">
+							source
+						</a>
+					</p>
+				</motion.div>
 			</div>
 
-			<Reveal immediate delay={0.26} className="mt-10">
+			<Reveal immediate delay={0.26} className="mt-9">
 				<Instrument />
 			</Reveal>
 		</section>
 	);
 }
 
-/* ═══════════ 3. Sheet ═══════════
-   The most literal fusion: the hero is Index's spec document, and the first row
-   of that document is live. INPUT is not a fact about the tool, it is the field;
-   everything under it is the rest of the sheet. A visitor reads a spec and finds
-   that the top line accepts a paste. */
+/* ═══════════ 2. Bench ═══════════
+   The same craft rules on paper instead of on the dark: a raised white pill with
+   the layered shadow the card system already uses, the plate in ink, and the
+   action as the only filled shape. Kept as the counterweight — two dark islands
+   stacked around a frame may be one dark object too many, and this answers that
+   without giving up the material relationship. */
 
-const SHEET: [string, string][] = [
-	["OUTPUT", "mp4 · webm · gif · png — 16:9, 1:1, 9:16, 4:5, 3:4"],
-	["ENGINE", "one token-morph engine draws the preview and the export"],
-	["THEMES", "7 syntax themes · mesh, solid and image backdrops"],
-	["LICENSE", "MIT · runs on your machine · no account"],
-];
-
-export function Sheet() {
+export function Bench() {
+	const reduce = useReducedMotion() ?? false;
+	const [mode, setMode] = useState<(typeof MODES)[number]["id"]>("pr");
 	const [value, setValue] = useState("");
+	const active = MODES.find((m) => m.id === mode) ?? MODES[0];
 
 	return (
-		<section className="proto-hero proto-sheet">
-			<div className="proto-sheet-col">
+		<section className="proto-hero proto-bench">
+			<div className="proto-bench-col">
 				<RevealGroup immediate>
 					<RevealItem>
-						<p className="proto-sheet-name">
-							TYPELAPSE <span aria-hidden="true">█</span> <span>CODE VIDEO TOOL</span>
+						<p className="proto-bench-lead">
+							Turn a code change into a video. Paste a pull request, a diff or a snippet — it morphs
+							token by token and renders for the feed.
 						</p>
 					</RevealItem>
-					<RevealItem>
-						<dl className="proto-sheet-rows">
-							{/* Row one is the product, not a description of it. */}
-							<div className="proto-sheet-row" data-live="">
-								<dt>INPUT</dt>
-								<dd>
-									<span className="proto-sheet-field">
-										<input
-											type="text"
-											value={value}
-											onChange={(e) => setValue(e.target.value)}
-											placeholder="paste a pull request, a diff, or a snippet"
-											aria-label="Paste a pull request, a diff, or a snippet"
-											spellCheck={false}
-										/>
-										<Caret idle={value.length === 0} />
-									</span>
-								</dd>
-							</div>
-							{SHEET.map(([k, v]) => (
-								<div key={k} className="proto-sheet-row">
-									<dt>{k}</dt>
-									<dd>{v}</dd>
-								</div>
-							))}
-						</dl>
-					</RevealItem>
-					<RevealItem>
-						<ul className="proto-sheet-examples">
-							{EXAMPLES.map(([url, meta]) => (
-								<li key={url}>
-									<Link to="/app">{url}</Link>
-									<span>{meta}</span>
-								</li>
-							))}
-						</ul>
-					</RevealItem>
 				</RevealGroup>
+
+				<motion.div className="proto-bench-island" {...rise(reduce, 0.08)}>
+					<div className="proto-bench-modes" role="tablist" aria-label="What you are pasting">
+						{MODES.map((m) => (
+							<button
+								key={m.id}
+								type="button"
+								role="tab"
+								aria-selected={m.id === mode}
+								className="proto-bench-mode"
+								onClick={() => setMode(m.id)}
+							>
+								{m.id === mode && (
+									<motion.span
+										layoutId="bench-plate"
+										className="proto-bench-plate"
+										transition={reduce ? { duration: 0 } : PLATE_SPRING}
+									/>
+								)}
+								<span>{m.label}</span>
+							</button>
+						))}
+					</div>
+
+					<span className="proto-bench-sep" aria-hidden="true" />
+
+					<label className="proto-bench-field">
+						<span className="sr-only">Paste a {active.label}</span>
+						<input
+							type="text"
+							value={value}
+							onChange={(e) => setValue(e.target.value)}
+							spellCheck={false}
+							aria-label={`Paste a ${active.label}`}
+						/>
+						{value.length === 0 && (
+							<AnimatePresence mode="wait" initial={false}>
+								<motion.span
+									key={active.id}
+									className="proto-bench-hint"
+									initial={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
+									animate={{ opacity: 1, filter: "blur(0px)" }}
+									exit={reduce ? { opacity: 0 } : { opacity: 0, filter: "blur(3px)" }}
+									transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+									aria-hidden="true"
+								>
+									{active.hint}
+								</motion.span>
+							</AnimatePresence>
+						)}
+						<Caret idle={value.length === 0} />
+					</label>
+
+					<motion.div whileTap={reduce ? undefined : { scale: 0.97 }} transition={ISLAND_SPRING}>
+						<Link to="/app" className="proto-bench-go">
+							Render
+						</Link>
+					</motion.div>
+				</motion.div>
+
+				<motion.div {...rise(reduce, 0.16)}>
+					<Examples />
+					<p className="proto-bench-meta">
+						mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
+						<a href={GITHUB_URL} target="_blank" rel="noreferrer">
+							source
+						</a>
+					</p>
+				</motion.div>
 			</div>
 
-			<Reveal immediate delay={0.26} className="proto-sheet-stage mt-11">
-				<Instrument maxScale={1.25} />
+			<Reveal immediate delay={0.26} className="mt-9">
+				<Instrument />
 			</Reveal>
 		</section>
 	);
