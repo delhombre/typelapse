@@ -259,6 +259,27 @@
 	border-radius: calc(var(--field-r) + 1px) calc(var(--field-r) + 1px) 0 0;
 }
 
+/* The join carries one line from the turn to the far end of the field. Round
+   the turn the field's own ring is that line; from the top of the arc onward
+   the block's fill covers the ring, so the block lays the flat stretch itself,
+   on the same row, starting at 26 where the arc lets go.
+
+   Opaque, and that is the whole reason the first attempt read as three lines
+   rather than one: a hairline is 10% ink, so it takes the colour of whatever it
+   is laid over, and along this one the backdrop changes twice — the selected
+   pastille's white, then the others' grey, then paper past the block. Measured,
+   232 / 219 / 226. Mixed into the paper at that same 10% it is one value the
+   whole way and matches the ring it continues. */
+.proto-desk-modes::after {
+	content: "";
+	position: absolute;
+	left: var(--field-r);
+	right: 0;
+	bottom: 0;
+	height: 1px;
+	background: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
+}
+
 /* Glued, and ruled apart by a hairline rather than by a gap. */
 .proto-desk-modes button {
 	height: var(--mode-h);
@@ -318,8 +339,19 @@
 	height: var(--field-r);
 	border-left: 1px solid var(--color-hairline);
 	background: inherit;
+	/* Kept out from under its own border. A hairline is 10% ink, so it takes the
+	   colour of whatever it is laid on: over this pastille's fill it read 232 and
+	   over the paper 227, and the join between the block's border and this one is
+	   exactly where the two met — the line changed tone halfway down. The fill
+	   belongs to the far side of that border anyway, which is where the field's
+	   left edge begins. */
+	background-clip: padding-box;
+	/* Hollowed to 27 and not to 26, so the ring is left showing rather than
+	   covered: that arc is the join line here. The fill starts on its far side,
+	   and the two edges of the sliver — this one's border outside, the ring
+	   inside — converge on the leftmost point, where it comes to nothing. */
 	mask-image: radial-gradient(
-		circle var(--field-r) at calc(var(--field-r) + 1px) var(--field-r),
+		circle calc(var(--field-r) + 1px) at calc(var(--field-r) + 1px) var(--field-r),
 		transparent 99.5%,
 		#000 100%
 	);
@@ -364,17 +396,15 @@
 	box-shadow: 0 8px 24px -10px rgb(18 18 20 / 0.16);
 }
 
-/* The hairline, given up where the block is in contact rather than covered
-   there. Along the run the block's fill hides it well enough — a straight edge
-   against an opaque fill — but around the corner the two curves are 1px apart
-   and any cover is a sub-pixel one, which showed as a ghost arc. So the ring is
-   its own layer and the corner is masked out of it: one square, 27 on a side,
-   which is the arc from twelve o'clock round to nine — exactly the stretch the
-   block covers, and it stops precisely at the leftmost point, where the block's
-   own line arrives and the field's takes over again.
+/* The whole ring, all the way round, on its own layer. Along the flat run the
+   block's fill covers it and the block's own rule stands in its place; round the
+   turn it is left showing, and there it *is* the join line. Drawing that arc
+   any other way was the mistake: a 1px band out of a radial gradient renders a
+   shade differently from a box-shadow on a rounded box, and the eye reads the
+   difference as the line changing halfway along.
 
-   The ring is drawn inset on a box 1px larger rather than spread outside this
-   one, because a mask cannot reach past the border box to clip a spread. */
+   Inset on a box 1px larger rather than spread outside this one, so the 1px it
+   occupies is the same 1px the block's border and the block's rule occupy. */
 .proto-desk-field::before {
 	content: "";
 	position: absolute;
@@ -383,17 +413,6 @@
 	box-shadow: inset 0 0 0 1px var(--color-hairline);
 	pointer-events: none;
 	transition: box-shadow 170ms var(--ease-out);
-	mask-image: linear-gradient(
-			to right,
-			transparent calc(var(--field-r) + 1px),
-			#000 calc(var(--field-r) + 1px)
-		),
-		linear-gradient(
-			to bottom,
-			transparent calc(var(--field-r) + 1px),
-			#000 calc(var(--field-r) + 1px)
-		);
-	mask-composite: add;
 }
 
 .proto-desk-field:focus-within::before {
