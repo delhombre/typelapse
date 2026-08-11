@@ -2,12 +2,12 @@ import { useLandingTheme } from "@/presentation/landing/use-landing-theme";
 import { useCallback, useState } from "react";
 import { Picker } from "./picker";
 import "./proto.css";
-import { Desk, DeskLeadClaim, DeskLeadStanding } from "./variants";
+import { Desk, DeskRowsPair, DeskRowsTable } from "./variants";
 
 const VARIANTS = [
-	{ name: "A · the name is the subject", render: () => <Desk /> },
-	{ name: "B · the name and its claim", render: () => <DeskLeadClaim /> },
-	{ name: "C · the name standing alone", render: () => <DeskLeadStanding /> },
+	{ name: "A · one line", render: () => <Desk /> },
+	{ name: "B · two columns", render: () => <DeskRowsPair /> },
+	{ name: "C · the table", render: () => <DeskRowsTable /> },
 ];
 
 const initialIndex = () => {
