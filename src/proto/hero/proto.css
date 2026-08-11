@@ -292,6 +292,14 @@
 	   straight run, and that turn again. Only the right end of the field stays
 	   fully round, because only the right end is still an end. */
 	--mode-r: var(--text-x);
+	/* The field's right end, written out rather than left to 999px. A shorthand
+	   that large forces the spec's own scaling: the right edge asks for
+	   999 + 999 against 52 of height, a factor of 0.026 — and the factor is
+	   applied to *every* corner, which quietly crushed the 14 on the bottom left
+	   to 0.36 and left it square. Nothing reports that either: computed style
+	   hands back the radius asked for, not the one used. Only the pixels show
+	   it. */
+	--cap-r: calc(var(--field-h) / 2);
 	/* One value for the whole silhouette, because it is one silhouette — and
 	   opaque, at the value a hairline reaches over paper. Two of these lines
 	   cross: the block's left border and its right one both pass through the row
@@ -449,16 +457,14 @@
 	font-size: 14px;
 	padding: 0 6px 0 var(--text-x);
 	height: var(--field-h);
-	border-radius: 999px;
-	/* Except down the left, which is not the field's end any more — the block is
-	   there. The top corner is square, because the field's roundness fought the
-	   assembly at exactly that point: it turned away from the left edge just as
-	   the block was coming down it, and the join line had to turn with it. And
-	   the bottom corner takes the block's turn rather than a full cap, so the
-	   left side is one straight run between two turns of the same size. Only the
-	   right end stays fully round, because only the right end is still an end. */
-	border-top-left-radius: 0;
-	border-bottom-left-radius: var(--mode-r);
+	/* Down the left it is not the field's end any more — the block is there. The
+	   top corner is square, because the field's roundness fought the assembly at
+	   exactly that point: it turned away from the left edge just as the block was
+	   coming down it, and the join line had to turn with it. The bottom corner
+	   takes the block's turn rather than a cap, so the left side is one straight
+	   run between two turns of the same size. Only the right end stays fully
+	   round, because only the right end is still an end. */
+	border-radius: 0 var(--cap-r) var(--cap-r) var(--mode-r);
 	background: var(--color-surface);
 	box-shadow: 0 8px 24px -10px rgb(18 18 20 / 0.14);
 	transition: box-shadow 220ms var(--ease-out);
@@ -477,10 +483,9 @@
 	content: "";
 	position: absolute;
 	inset: -1px;
-	border-radius: 999px;
-	border-top-left-radius: 0;
-	/* Concentric with the corner it traces: one pixel further out. */
-	border-bottom-left-radius: calc(var(--mode-r) + 1px);
+	/* Concentric with the corners it traces, each a pixel further out — and
+	   written out for the same reason the field's are. */
+	border-radius: 0 calc(var(--cap-r) + 1px) calc(var(--cap-r) + 1px) calc(var(--mode-r) + 1px);
 	box-shadow: inset 0 0 0 1px var(--edge);
 	pointer-events: none;
 	transition: box-shadow 170ms var(--ease-out);
