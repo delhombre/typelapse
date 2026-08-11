@@ -1,5 +1,7 @@
+import { resolvePrUrl } from "@/application/import/pr-url";
 import { importCodeFromUrl } from "@/infrastructure/import/url-import";
 import { springs } from "@/presentation/motion";
+import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
@@ -15,6 +17,7 @@ export function UrlImportMenu() {
 	const setCode = useSnippetStore((s) => s.setCode);
 	const setLanguage = useSnippetStore((s) => s.setLanguage);
 	const setTitle = useSnippetStore((s) => s.setTitle);
+	const handOffToDiffImport = useDiffImportStore((s) => s.handOff);
 
 	useEffect(() => {
 		if (!open) {
@@ -36,6 +39,17 @@ export function UrlImportMenu() {
 	async function fetchCode() {
 		const trimmed = url.trim();
 		if (!trimmed || loading) {
+			return;
+		}
+		// A pull request is a walkthrough, not a file, so this control cannot open
+		// one. The diff dialog beside it can, and already offers the whole-change
+		// or by-commit choice a PR needs: the URL goes there rather than coming
+		// back as "Unsupported URL" from a control that plainly recognised it.
+		if (resolvePrUrl(trimmed)) {
+			handOffToDiffImport(trimmed);
+			setUrl("");
+			setError(null);
+			setOpen(false);
 			return;
 		}
 		setLoading(true);

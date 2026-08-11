@@ -6,6 +6,7 @@ import {
 	fetchPrWalkthrough,
 } from "@/infrastructure/import/pr-import";
 import { springs } from "@/presentation/motion";
+import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
@@ -39,6 +40,22 @@ export function DiffImportMenu() {
 
 	// The textarea doubles as a URL bar; the commit toggle only applies to PR URLs.
 	const prRef = resolvePrUrl(text.trim());
+
+	/**
+	 * A pull request URL pasted into the URL importer arrives here instead of
+	 * being refused: it opens the dialog with the URL already in place, so the
+	 * only thing left to choose is whole-change or by-commit.
+	 */
+	const pending = useDiffImportStore((s) => s.pending);
+	const takePending = useDiffImportStore((s) => s.take);
+	useEffect(() => {
+		if (pending === null) {
+			return;
+		}
+		setText(pending);
+		setOpen(true);
+		takePending();
+	}, [pending, takePending]);
 
 	useEffect(() => {
 		if (!open) {
