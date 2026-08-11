@@ -89,7 +89,7 @@ export function DynamicNav() {
 	return (
 		<header className="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center">
 			<motion.div
-				className="pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px] transition-colors duration-300"
+				className="pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px] transition-colors duration-300 ease-[var(--ease-out)]"
 				style={{ background: onDark ? ISLAND_BG_ON_DARK : ISLAND_BG, boxShadow: ISLAND_SHADOW }}
 				initial={false}
 				animate={{ y: isHidden ? HIDDEN_Y : 0, opacity: isHidden ? 0 : 1 }}
@@ -98,7 +98,7 @@ export function DynamicNav() {
 				<Link
 					to="/"
 					aria-label="Typelapse home"
-					className={`flex items-center gap-2 transition-colors duration-300 ${onDark ? "text-ink" : "text-white"}`}
+					className={`flex items-center gap-2 transition-colors duration-300 ease-[var(--ease-out)] ${onDark ? "text-ink" : "text-white"}`}
 				>
 					<Logomark size={17} />
 					<span className="font-semibold text-[14px] tracking-tight">Typelapse</span>
@@ -120,7 +120,7 @@ export function DynamicNav() {
 					    too: a shadow that cuts while the fill it belongs to fades is the
 					    same seam one step out. */}
 					<span
-						className={`inline-flex h-8 items-center whitespace-nowrap rounded-full px-3.5 font-medium text-[12.5px] transition-[background-color,color,box-shadow] duration-300 ${
+						className={`inline-flex h-8 items-center whitespace-nowrap rounded-full px-3.5 font-medium text-[12.5px] transition-[background-color,color,box-shadow] duration-300 ease-[var(--ease-out)] ${
 							onDark
 								? "bg-ink text-paper shadow-[0_6px_16px_-6px_rgb(28_27_25/0.45)] hover:bg-ink/86"
 								: "bg-[var(--color-cta)] text-[var(--color-on-primary)] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] hover:bg-[var(--color-primary-hover)]"

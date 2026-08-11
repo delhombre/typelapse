@@ -91,7 +91,7 @@ function PlatformChip({ platform, active }: { platform: SocialPlatform; active: 
 	   dot's offset and the label's step, and a class built by interpolation is
 	   a class Tailwind never sees to generate. */
 	const base =
-		"relative inline-flex h-9 items-center rounded-full border font-medium text-[13px] tabular-nums transition-colors duration-500";
+		"relative inline-flex h-9 items-center rounded-full border font-medium text-[13px] tabular-nums transition-colors duration-500 ease-[var(--ease-out)]";
 	/* The selected one wears the primary. This section is the darkest surface on
 	   the page, which is exactly where that colour is at its strongest, and a
 	   white-on-white indicator here was the one live control that had no idea

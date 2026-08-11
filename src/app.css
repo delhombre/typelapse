@@ -95,14 +95,27 @@ html[data-landing-theme="dark"] {
 	outline: none;
 }
 
-/* Reduced motion: keep opacity/color, drop movement (Apple's guidance). */
+/* Reduced motion: keep opacity/color, drop movement (Apple's guidance).
+
+   The rule is enforced on `transition-property`, not on the duration. Zeroing
+   every duration was the obvious way to write this and it said the opposite of
+   what it meant: a colour fade is not movement, and killing it makes a hover
+   answer with a jump cut — the setting asks for less motion, not for a harsher
+   interface. There is no way to subtract one property from a transition list,
+   so the list is replaced with the properties that are allowed to survive.
+   Anything the author was transitioning that is not named here — transform,
+   width, translate, filter, anything added later — simply falls out of the list
+   and lands instantly, keeping its own duration and curve for the properties
+   that remain. The default is safe on the side of stillness: a movement nobody
+   thought to name is a movement that does not happen. */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
 	*::after {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
+		transition-property: color, background-color, border-color, outline-color, text-decoration-color,
+			fill, stroke, opacity, box-shadow !important;
 		scroll-behavior: auto !important;
 	}
 	.bg-animate-playing {
