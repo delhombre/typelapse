@@ -231,10 +231,30 @@
 	--seam: 1px;
 }
 
+/* One outline, around the union of the two, and none across the join. The
+   field keeps its hairline everywhere it faces the paper and gives it up where
+   the block covers it: the block's own fill hides the ring along the run, the
+   piece that runs down the arc hides it there, and the block draws the missing
+   stretch itself — up its left edge, over the top, down its right — so the line
+   arrives at the field's ring rather than stopping short of it.
+
+   The border sits outside the fill, like the field's ring does, which is what
+   the negative inline margin buys: the block's fill still starts on the field's
+   left edge, and its hairline lands in the same 1px the field's occupies. The
+   radius outside is the radius inside plus that 1px, so the two stay
+   concentric. */
 .proto-desk-modes {
 	display: flex;
+	/* Above the field: the fill is what suppresses the ring under the block. */
+	position: relative;
+	z-index: 1;
+	width: fit-content;
 	margin-top: 22px;
+	margin-inline: -1px;
 	margin-bottom: calc(-1 * var(--seam));
+	border: 1px solid var(--color-hairline);
+	border-bottom: 0;
+	border-radius: calc(var(--field-r) + 1px) calc(var(--field-r) + 1px) 0 0;
 }
 
 /* Glued, and ruled apart by a hairline rather than by a gap. */
@@ -243,7 +263,12 @@
 	padding: 6px 14px 7px;
 	font: inherit;
 	color: var(--color-ash);
-	background: color-mix(in oklch, var(--color-ink) 4%, transparent);
+	/* Mixed into the paper rather than laid over it at 4% alpha: a pastille has
+	   to be opaque to do its half of the job. Translucent, it let the field's
+	   ring read straight through the join it was meant to hide, and the piece
+	   that runs over the field's white would have come out a paler grey than the
+	   rest of its own pastille. Over the paper the two are the same colour. */
+	background: color-mix(in oklch, var(--color-ink) 4%, var(--color-paper));
 	transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
 }
 
@@ -263,21 +288,26 @@
 	border-top-right-radius: var(--field-r);
 }
 
-/* The straight left edge, continued down to the field's leftmost point, where
-   the arc takes the line back. The field covers all of this but the corner it
-   cannot reach, and the square stops at exactly that point — 26px down — so
-   nothing is left hanging below the turn. */
+/* The straight left edge, carried down to the field's leftmost point, where the
+   arc takes the line back and the two hairlines meet. It runs over the field
+   rather than under it now, so it cuts its own hollow instead of being cut: the
+   mask takes out exactly the field's disc, which leaves the fill flush against
+   the arc. It ends 26px down, at the centre of that disc, which is where the
+   shape has already narrowed to nothing. */
 .proto-desk-modes button:first-child::before {
 	content: "";
 	position: absolute;
-	/* Behind the field: being positioned, it would otherwise paint over it and
-	   the field would stop cutting anything. */
-	z-index: -1;
-	left: 0;
+	left: -1px;
 	top: calc(100% - var(--seam));
-	width: var(--field-r);
+	width: calc(var(--field-r) + 1px);
 	height: var(--field-r);
+	border-left: 1px solid var(--color-hairline);
 	background: inherit;
+	mask-image: radial-gradient(
+		circle var(--field-r) at calc(var(--field-r) + 1px) var(--field-r),
+		transparent 99.5%,
+		#000 100%
+	);
 }
 
 /* The selected pastille takes the field's own surface and no edge of its own:
@@ -303,13 +333,7 @@
    it takes the lightest possible — a single hairline at the token weight, with
    the same soft lift underneath rather than a second, heavier shadow. */
 .proto-desk-field {
-	/* Above the strip, and it must be *said*: the first pastille is positioned,
-	   for its own pseudo-element, and would otherwise paint over the field and
-	   blank the hairline across its whole width — the field's edge would start
-	   in mid-air at the first rule instead of running the length of the strip
-	   and turning down into the arc. That line is the pastille's lower edge. */
 	position: relative;
-	z-index: 1;
 	display: flex;
 	align-items: center;
 	gap: 1ch;
@@ -317,13 +341,48 @@
 	height: var(--field-h);
 	border-radius: 999px;
 	background: var(--color-surface);
-	box-shadow: 0 0 0 1px var(--color-hairline), 0 8px 24px -10px rgb(18 18 20 / 0.14);
+	box-shadow: 0 8px 24px -10px rgb(18 18 20 / 0.14);
 	transition: box-shadow 170ms var(--ease-out);
 }
 
 .proto-desk-field:focus-within {
-	box-shadow: 0 0 0 1px color-mix(in oklch, var(--color-ink) 22%, transparent), 0 8px 24px -10px
-		rgb(18 18 20 / 0.16);
+	box-shadow: 0 8px 24px -10px rgb(18 18 20 / 0.16);
+}
+
+/* The hairline, given up where the block is in contact rather than covered
+   there. Along the run the block's fill hides it well enough — a straight edge
+   against an opaque fill — but around the corner the two curves are 1px apart
+   and any cover is a sub-pixel one, which showed as a ghost arc. So the ring is
+   its own layer and the corner is masked out of it: one square, 27 on a side,
+   which is the arc from twelve o'clock round to nine — exactly the stretch the
+   block covers, and it stops precisely at the leftmost point, where the block's
+   own line arrives and the field's takes over again.
+
+   The ring is drawn inset on a box 1px larger rather than spread outside this
+   one, because a mask cannot reach past the border box to clip a spread. */
+.proto-desk-field::before {
+	content: "";
+	position: absolute;
+	inset: -1px;
+	border-radius: 999px;
+	box-shadow: inset 0 0 0 1px var(--color-hairline);
+	pointer-events: none;
+	transition: box-shadow 170ms var(--ease-out);
+	mask-image: linear-gradient(
+			to right,
+			transparent calc(var(--field-r) + 1px),
+			#000 calc(var(--field-r) + 1px)
+		),
+		linear-gradient(
+			to bottom,
+			transparent calc(var(--field-r) + 1px),
+			#000 calc(var(--field-r) + 1px)
+		);
+	mask-composite: add;
+}
+
+.proto-desk-field:focus-within::before {
+	box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-ink) 22%, transparent);
 }
 
 .proto-desk-field input {
