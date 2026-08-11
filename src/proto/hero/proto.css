@@ -200,29 +200,46 @@
 	color: var(--color-ash);
 }
 
-/* The former "Imports" list, now the field's modes. Off the field rather than
-   notched into it, because the pill leaves nothing flat to notch into, and
-   aligned on where the field's own text begins. */
+/* The former "Imports" list, now the field's modes — fused to it, as before.
+   A pill only curves at its ends: on a 52px field the radius is 26, so the top
+   edge is flat everywhere between 26px and width−26px. The strip is inset past
+   that arc and lands on the flat run, which is what makes the fusion possible
+   at all. It overlaps by 1px so the field's own hairline passes behind it
+   rather than drawing a seam across the join. */
 .proto-desk-modes {
+	position: relative;
+	z-index: 1;
 	display: flex;
-	gap: 4px;
+	align-items: flex-end;
+	gap: 3px;
 	margin-top: 22px;
-	margin-bottom: 8px;
-	padding-left: 24px;
+	margin-bottom: -1px;
+	padding-left: 30px;
 }
 
+/* A pill sliced flat where it meets the field: fully round on top, square below,
+   so each tab still reads as a pill and still belongs to the object under it. */
 .proto-desk-modes button {
-	padding: 5px 13px;
-	border-radius: 999px;
+	padding: 6px 14px 7px;
+	border-radius: 999px 999px 0 0;
 	font: inherit;
 	color: var(--color-ash);
 	background: color-mix(in oklch, var(--color-ink) 4%, transparent);
 	transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
 }
 
+/* The selected tab takes the field's own surface and its hairline on three
+   sides only — no bottom edge — so the two become one silhouette instead of a
+   box resting on another box. */
 .proto-desk-modes button[data-active] {
-	color: var(--color-paper);
-	background: var(--color-ink);
+	background: var(--color-surface);
+	box-shadow: -1px 0 0 var(--color-hairline), 1px 0 0 var(--color-hairline), 0 -1px 0
+		var(--color-hairline);
+}
+
+.proto-desk-modes button[data-active] {
+	color: var(--color-ink);
+	font-weight: 600;
 }
 
 /* Fully round, like the dock below it.
@@ -239,7 +256,7 @@
 	display: flex;
 	align-items: center;
 	gap: 1ch;
-	padding: 0 6px 0 24px;
+	padding: 0 6px 0 30px;
 	height: 52px;
 	border-radius: 999px;
 	background: var(--color-surface);
