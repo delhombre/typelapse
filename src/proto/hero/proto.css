@@ -335,42 +335,26 @@
 	   it is covered by sitting next to the field rather than on top of it. Lap it
 	   and the block's own border overshoots by that much and leaves a stub of
 	   hairline hanging below the join, inside the field. */
+	/* All four sides, the bottom one being the join. It used to be three, with
+	   the join drawn as a bar of its own — which was fine while the block ended
+	   in a right angle and became wrong the moment it turned: a border that has
+	   to round off into a zero-width neighbour tapers away as it goes, so the
+	   line thinned out along the bottom-right curve and died before reaching the
+	   corner. As the border itself it turns at one weight, all the way round.
+
+	   Opaque, which is what keeps it one line rather than three: a hairline is
+	   10% ink and takes the colour of whatever it is laid over, and along this
+	   one the backdrop changes twice — the selected pastille's white, the others'
+	   grey, then paper past the block. Measured, 232 / 219 / 226. Mixed into the
+	   paper at that same 10% it is one value the whole way, and the same value
+	   the field's ring carries on with. */
 	border: 1px solid var(--edge);
-	border-bottom: 0;
 	/* Three turns and one square corner: the bottom left is the assembly's own
 	   edge running on down into the field, so it does not turn here. The bottom
 	   right does — it was the one corner of this object that met another edge at a
 	   right angle. Turned, it lands on the field's top edge horizontally, which is
 	   to say tangentially, and the silhouette runs on without a corner in it. */
 	border-radius: calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) 0;
-}
-
-/* The join, one straight line the whole way. It used to stop at 26 and turn,
-   riding the field's arc down to its leftmost point, because that was where the
-   two shapes were really in contact; but a rule that turns is a rule that reads
-   as two, and everything it bought — the sliver of pastille running down beside
-   the arc, its mask, its own hairline — was scaffolding for the turn. Straight
-   to the edge instead: the field gives up its top-left corner (see below), the
-   sliver has nowhere left to be, and the left of the whole assembly is a single
-   run from the block's turn at the top to the field's at the bottom.
-
-   Opaque, which is what stops it reading as three lines rather than one: a
-   hairline is 10% ink, so it takes the colour of whatever it is laid over, and
-   along this one the backdrop changes twice — the selected pastille's white,
-   the others' grey, then paper past the block. Measured, 232 / 219 / 226. Mixed
-   into the paper at that same 10% it is one value the whole way and matches the
-   field's own ring where it hands over. */
-.proto-desk-modes::after {
-	content: "";
-	position: absolute;
-	left: 0;
-	/* Stopping where the turn starts, since past that the block's fill has curved
-	   away from this row and the field's own ring is the line there. The two are
-	   the same value and the same row, so it reads as one. */
-	right: var(--mode-r);
-	bottom: 0;
-	height: 1px;
-	background: var(--edge);
 }
 
 /* Glued, and ruled apart by a hairline rather than by a gap. */
