@@ -2,7 +2,7 @@ import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gr
 import { Theme } from "@/domain/entities/theme";
 import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
-import { type ReactNode, useEffect, useMemo, useReducer } from "react";
+import { type ReactNode, memo, useEffect, useMemo, useReducer } from "react";
 import { highlightCacheKey, highlightOnce, readHighlight } from "./highlight-cache";
 
 const THEMES: Record<string, () => Theme> = {
@@ -64,8 +64,14 @@ interface StaticFrameProps {
  * animated-mesh backdrop (the same look the studio exports). With `bare` it
  * renders as a clean dark code card on the page instead, for shots where the
  * code, not the export look, is the subject.
+ *
+ * Memoised, and it matters where these are laid out in groups: the fan holds
+ * five and keeps which one is hovered in the parent's state, so every hover
+ * re-rendered all five and replaced five highlighted `<pre>` trees for a
+ * change that only moves one card. Every prop here is a primitive, so the
+ * shallow compare is the whole answer.
  */
-export function StaticFrame({
+export const StaticFrame = memo(function StaticFrame({
 	themeName,
 	presetId,
 	code,
@@ -171,7 +177,7 @@ export function StaticFrame({
 			)}
 		</div>
 	);
-}
+});
 
 function FrameShell({
 	theme,

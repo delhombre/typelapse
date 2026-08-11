@@ -98,37 +98,50 @@ export function FrameFan() {
 					const rotToward = card.rot - Math.sign(card.rot) * 2;
 					const baseZ = 30 - Math.abs(i - 2) * 10;
 					return (
-						<motion.div
+						/* Three jobs, three owners. The card's place in the fan is static, so
+						   it is a transform in the style: it never animates and does not need
+						   a motion value to hold it. Its place in the *stack* is an integer
+						   and has to change on the frame the hover does — inside the motion
+						   element it was a target like any other, so the spring interpolated
+						   it and the lifted card climbed through its neighbours over the
+						   length of the lift instead of coming to the front. Only the lift
+						   itself is animated. */
+						<div
 							key={card.ratio}
-							onHoverStart={() => setHovered(i)}
-							onHoverEnd={() => setHovered(null)}
 							className="absolute bottom-4 left-1/2"
 							style={{
 								zIndex: hovered === i ? 50 : baseZ,
 								width: card.width,
 								aspectRatio: card.aspect,
+								transform: `translateX(${card.x - card.width / 2}px)`,
 							}}
-							initial={false}
-							animate={{ x: card.x - card.width / 2, y: 0, rotate: card.rot }}
-							whileHover={reduce ? undefined : { y: -14, rotate: rotToward }}
-							transition={LIFT_SPRING}
 						>
-							<StaticFrame
-								themeName={card.themeName}
-								presetId={card.presetId}
-								title={card.title}
-								language={card.language}
-								code={card.code}
-								label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
-								meshTime={card.meshTime}
-								fontSize={11}
-								framePadding={16}
-								meshPadding={10}
-								fill
-								badge={card.ratio}
+							<motion.div
+								onHoverStart={() => setHovered(i)}
+								onHoverEnd={() => setHovered(null)}
 								className="h-full w-full"
-							/>
-						</motion.div>
+								initial={false}
+								animate={{ y: 0, rotate: card.rot }}
+								whileHover={reduce ? undefined : { y: -14, rotate: rotToward }}
+								transition={LIFT_SPRING}
+							>
+								<StaticFrame
+									themeName={card.themeName}
+									presetId={card.presetId}
+									title={card.title}
+									language={card.language}
+									code={card.code}
+									label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
+									meshTime={card.meshTime}
+									fontSize={11}
+									framePadding={16}
+									meshPadding={10}
+									fill
+									badge={card.ratio}
+									className="h-full w-full"
+								/>
+							</motion.div>
+						</div>
 					);
 				})}
 			</div>
