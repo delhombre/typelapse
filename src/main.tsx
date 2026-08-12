@@ -8,6 +8,7 @@ import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { LandingPage } from "@/presentation/landing/landing-page";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import { StudioShellProto } from "@/proto/shell/harness";
 import { MotionConfig } from "motion/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -57,6 +58,9 @@ createRoot(root).render(
 				<Routes>
 					<Route path="/" element={<LandingPage />} />
 					<Route path="/app" element={<Studio />} />
+					{/* PROTO: a picker for three studio shells, deliberately not linked
+					    from anywhere. Delete this and src/proto/shell once one wins. */}
+					<Route path="/proto/studio-shell" element={<StudioShellProto />} />
 				</Routes>
 			</BrowserRouter>
 		</MotionConfig>

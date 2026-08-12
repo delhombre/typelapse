@@ -1,0 +1,469 @@
+/* Proto-only styles for the three studio shells. Dies with src/proto/shell.
+
+   Two things live here and nothing else: a facsimile of the control island
+   already merged in PR #48 (the geometry is copied, not re-derived — 40px tall,
+   #151517, 999px radius, 30px controls at a 5px gap, one 0 8px 24px / 0.18
+   shadow, no dividers), and the surfaces each direction invents around it.
+   Prefixed `ps-` / `psi-` so nothing here can collide with the real `si-*`
+   rules when that branch lands. */
+
+.pshell {
+	--dock-bg: #151517;
+	--dock-ink: #f2f2f4;
+	--dock-dim: #9a9aa2;
+	--dock-hairline: rgb(255 255 255 / 0.09);
+	--ps-hairline: rgb(28 27 25 / 0.1);
+	/* The landing publishes `--color-cta` under `.landing-root` only, so the
+	   island's one filled shape rendered transparent-on-black in the studio. */
+	--color-cta: var(--color-primary);
+	font-family: var(--font-sans);
+}
+
+.dark .pshell {
+	--ps-hairline: rgb(245 243 239 / 0.12);
+}
+
+/* ─────────────────────────── The island (acquired, PR #48) ─────────────── */
+
+.pshell .psi-dock {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	align-items: center;
+	padding: 0 8px 14px;
+}
+
+.pshell .psi-island {
+	display: flex;
+	align-items: center;
+	max-width: 100%;
+	min-height: 40px;
+	padding: 0 6px;
+	border-radius: 20px;
+	background: var(--dock-bg);
+	color: var(--dock-ink);
+	box-shadow: 0 8px 24px rgb(18 18 20 / 0.18);
+	user-select: none;
+}
+
+/* One row of 30px controls in a 40px plate is a pill; the moment a panel opens
+   under the row the plate is taller than it is round, and 999px would bow its
+   sides. It keeps the control's own 10px radius plus the 6px of padding around
+   it — concentric, the same rule the landing's island states for its swatches. */
+.pshell .psi-island[data-single] {
+	border-radius: 999px;
+}
+
+.dark .pshell .psi-island {
+	box-shadow: 0 8px 24px rgb(0 0 0 / 0.4), inset 0 0 0 1px var(--dock-hairline);
+}
+
+.pshell .psi-column {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.pshell .psi-row {
+	--island-gap: 5px;
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: var(--island-gap);
+	min-height: 40px;
+	white-space: nowrap;
+}
+
+.pshell .psi-button {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--dock-dim);
+	font-family: inherit;
+	font-size: 11.5px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), transform 140ms
+		var(--ease-out);
+}
+
+.pshell .psi-button::after {
+	content: "";
+	position: absolute;
+	inset: -5px calc(var(--island-gap) / -2);
+}
+
+.pshell .psi-button[data-active] {
+	color: var(--dock-ink);
+	background: rgb(255 255 255 / 0.1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pshell .psi-button:hover {
+		color: var(--dock-ink);
+		background: rgb(255 255 255 / 0.07);
+	}
+}
+
+.pshell .psi-button:active {
+	transform: scale(0.96);
+}
+
+.pshell .psi-island :focus-visible {
+	outline: 2px solid var(--dock-ink);
+	outline-offset: 1px;
+}
+
+/* The selected option's plate: the only filled shape inside the island. */
+.pshell .psi-plate {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	border-radius: inherit;
+	background: var(--dock-ink);
+	pointer-events: none;
+}
+
+.pshell .psi-button[data-selected] {
+	color: var(--dock-bg);
+}
+
+/* The same plate, over a swatch rather than under a word. A solid ink plate
+   behind a colour is the landing's rejected version: it washes the colour out
+   and the control stops being a miniature of what it changes. This is the
+   landing's own `lp-island-ring` — a wash and an inset edge — and the label
+   under it keeps its colour, so `[data-selected]` is not set alongside it. */
+.pshell .psi-plate-soft {
+	background: rgb(255 255 255 / 0.16);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.26);
+}
+
+/* The label sits above the plate. It has to be a class rather than
+   `.psi-button > span`, which the plate is too: that rule gave the plate
+   `position: relative`, which cancelled its `inset: 0`, and every selected
+   chip painted its dark-on-plate text on the island's own black instead. */
+.pshell .psi-label {
+	position: relative;
+	z-index: 1;
+	display: inline-flex;
+	align-items: center;
+}
+
+.pshell .psi-track {
+	flex: none;
+	width: 150px;
+	height: 4px;
+	border-radius: 999px;
+	background: rgb(255 255 255 / 0.14);
+	overflow: hidden;
+}
+
+.pshell .psi-fill {
+	height: 100%;
+	border-radius: 999px;
+	background: var(--dock-ink);
+}
+
+.pshell .psi-dots {
+	display: flex;
+	align-items: center;
+}
+
+.pshell .psi-dot {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	cursor: pointer;
+}
+
+.pshell .psi-dot > span {
+	width: 6px;
+	height: 6px;
+	border-radius: 999px;
+	background: rgb(255 255 255 / 0.22);
+}
+
+.pshell .psi-dot[aria-current] > span {
+	background: var(--dock-ink);
+}
+
+.pshell .psi-count {
+	padding: 0 2px;
+	color: var(--dock-dim);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+/* A seam, not a divider: the island states it has none, so a cluster group is
+   set off by a wider gap and nothing else. */
+.pshell .psi-gap {
+	width: 7px;
+}
+
+.pshell .psi-cta {
+	display: inline-flex;
+	align-items: center;
+	height: 30px;
+	margin-left: 3px;
+	padding: 0 14px;
+	border: 0;
+	border-radius: 999px;
+	background: var(--color-cta);
+	color: var(--color-on-primary);
+	font-family: inherit;
+	font-size: 11px;
+	font-weight: 650;
+	letter-spacing: 0.01em;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+/* The helper pill: the landing's, verbatim in material — same fill, same pill
+   radius, 11px at 500 — sitting 10px above the plate so it reads as part of
+   the instrument rather than as a tooltip the browser drew. */
+.pshell .psi-helper {
+	margin-bottom: 10px;
+	display: inline-flex;
+	align-items: center;
+	height: 24px;
+	padding: 0 10px;
+	border-radius: 999px;
+	background: var(--dock-bg);
+	color: var(--dock-ink);
+	box-shadow: 0 6px 18px rgb(18 18 20 / 0.16);
+	font-size: 11px;
+	font-weight: 500;
+	white-space: nowrap;
+}
+
+/* The cluster's own strip, opened inside the plate under the root row. It is
+   inside the island, not beside it: that is the whole claim of direction A. */
+.pshell .psi-panel {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 40px;
+	margin: 0 -6px;
+	padding: 0 11px 4px;
+	white-space: nowrap;
+}
+
+.pshell .psi-panel-rule {
+	height: 1px;
+	margin: 0 -6px 4px;
+	background: rgb(255 255 255 / 0.08);
+}
+
+.pshell .psi-eyebrow {
+	padding-right: 4px;
+	color: var(--dock-dim);
+	font-size: 9.5px;
+	font-weight: 600;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+/* A swatch is a miniature of what it changes, at the island's own scale. */
+.pshell .psi-swatch {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: 18px;
+	height: 15px;
+	border-radius: 4px;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+}
+
+.pshell .psi-frame {
+	position: relative;
+	z-index: 1;
+	display: block;
+	border-radius: 3px;
+	background: rgb(255 255 255 / 0.16);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.24);
+}
+
+/* ─────────────────────────── The sheet (direction C) ──────────────────── */
+
+.pshell .ps-sheet {
+	width: min(640px, calc(100vw - 48px));
+	margin-bottom: 10px;
+	padding: 16px 18px 18px;
+	border-radius: 20px;
+	background: var(--dock-bg);
+	color: var(--dock-ink);
+	box-shadow: 0 18px 48px rgb(18 18 20 / 0.28);
+}
+
+.dark .pshell .ps-sheet {
+	box-shadow: 0 18px 48px rgb(0 0 0 / 0.5), inset 0 0 0 1px var(--dock-hairline);
+}
+
+.pshell .ps-sheet-tabs {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	margin-bottom: 14px;
+}
+
+.pshell .ps-sheet-group + .ps-sheet-group {
+	margin-top: 12px;
+}
+
+.pshell .ps-sheet-label,
+.pshell .ps-sheet-label-inline {
+	color: var(--dock-dim);
+	font-size: 9.5px;
+	font-weight: 600;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+.pshell .ps-sheet-label {
+	margin-bottom: 7px;
+}
+
+/* The same eyebrow set beside its controls rather than above them. A separate
+   class rather than a `mb-0` utility on the first: unlayered CSS outranks
+   Tailwind's layered utilities, so the utility would have lost silently. */
+.pshell .ps-sheet-label-inline {
+	padding-right: 3px;
+}
+
+/* ─────────────────────────── Paper surfaces ───────────────────────────── */
+
+/* The landing's eyebrow, at the landing's tracking, on the studio's paper. */
+.pshell .ps-eyebrow {
+	color: var(--color-neutral-500);
+	font-size: 10px;
+	font-weight: 600;
+	letter-spacing: 0.18em;
+	text-transform: uppercase;
+}
+
+/* The floating surfaces of direction C: paper, one hairline, one soft shadow,
+   and the 16px radius the landing's cards carry. */
+.pshell .ps-float {
+	border-radius: 16px;
+	background: color-mix(in oklch, var(--color-neutral-50) 88%, transparent);
+	-webkit-backdrop-filter: blur(18px) saturate(1.4);
+	backdrop-filter: blur(18px) saturate(1.4);
+	box-shadow: 0 0 0 1px var(--ps-hairline), 0 2px 6px rgb(0 0 0 / 0.04), 0 18px 40px -18px
+		rgb(0 0 0 / 0.22);
+}
+
+.dark .pshell .ps-float {
+	background: color-mix(in oklch, var(--color-neutral-900) 82%, transparent);
+	box-shadow: 0 0 0 1px var(--ps-hairline), 0 20px 44px -18px rgb(0 0 0 / 0.6);
+}
+
+/* ─────────────────────────── Code facsimile ───────────────────────────── */
+
+/* The editor is a static picture of itself: a shape study asks where the column
+   sits, not what Monaco does inside it. Same mono, same 1.6 leading, same
+   01-padded gutter. */
+.pshell .ps-code {
+	font-family: var(--font-mono);
+	font-size: 11.5px;
+	line-height: 1.65;
+	tab-size: 2;
+	/* A 348px column cannot hold a 54-character line, and a real editor scrolls.
+	   The mask says so: the line runs out of the pane instead of being guillotined
+	   on its border, which is what a hard clip reads as. */
+	-webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+	mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+
+.pshell .ps-code-line {
+	display: flex;
+	gap: 12px;
+}
+
+.pshell .ps-code-num {
+	flex: none;
+	width: 2ch;
+	color: color-mix(in oklch, var(--color-neutral-500) 60%, transparent);
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+	user-select: none;
+}
+
+.pshell .ps-code-text {
+	white-space: pre;
+	color: var(--color-neutral-700);
+}
+
+.dark .pshell .ps-code-text {
+	color: var(--color-neutral-300);
+}
+
+.pshell .tk-kw {
+	color: #a626a4;
+}
+.pshell .tk-fn {
+	color: #4078f2;
+}
+.pshell .tk-str {
+	color: #50a14f;
+}
+.pshell .tk-ty {
+	color: #c18401;
+}
+.pshell .tk-dim {
+	color: var(--color-neutral-400);
+}
+
+.dark .pshell .tk-kw {
+	color: #c678dd;
+}
+.dark .pshell .tk-fn {
+	color: #61afef;
+}
+.dark .pshell .tk-str {
+	color: #98c379;
+}
+.dark .pshell .tk-ty {
+	color: #e5c07b;
+}
+.dark .pshell .tk-dim {
+	color: var(--color-neutral-600);
+}
+
+/* ─────────────────────────── 390 mocks ────────────────────────────────── */
+
+.pshell .ps-mock {
+	width: 390px;
+	height: 780px;
+	flex: none;
+	overflow: hidden;
+	border-radius: 26px;
+	background: var(--color-neutral-50);
+	box-shadow: 0 0 0 1px var(--ps-hairline), 0 24px 60px -24px rgb(0 0 0 / 0.3);
+}
+
+.dark .pshell .ps-mock {
+	background: var(--color-neutral-950);
+}
+
+/* Inside a 390 mock the gauge is the row's shock absorber, exactly as the real
+   island states: at this width the dots and the counter are information and the
+   bar is an impression, so the bar is what gives up room first. */
+.pshell .ps-mock .psi-track {
+	width: 84px;
+}
