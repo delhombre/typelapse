@@ -1,4 +1,4 @@
-import { MESH_PRESETS } from "@/application/backgrounds/mesh-gradient";
+import type { MeshPreset } from "@/application/backgrounds/mesh-gradient";
 import { canvasFont, colorWithAlpha } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
 import { type FrameSceneInput, frameScene } from "@/application/frame-painter/scene";
@@ -44,6 +44,23 @@ const SCENE_INPUT: FrameSceneInput = {
 function token(overrides: Partial<RenderToken> = {}): RenderToken {
 	return { key: "k", content: "const", line: 0, col: 0, opacity: 1, ...overrides };
 }
+
+/**
+ * A preset the tests own outright. The catalogue's ordering and palettes are
+ * product decisions that move; these tests pin the painter's contract, so they
+ * must not reach into `MESH_PRESETS` for their expected colours.
+ */
+const FIXTURE_PRESET: MeshPreset = {
+	id: "fixture",
+	label: "Fixture",
+	base: "#101014",
+	accent: "#3366ff",
+	blobs: [
+		{ color: "#3366ff", x: 25, y: 25, ax: 12, ay: 10, cx: 1, cy: 1, phase: 0, radius: 55 },
+		{ color: "#cc2244", x: 70, y: 30, ax: 14, ay: 12, cx: 1, cy: 2, phase: 0.3, radius: 50 },
+		{ color: "#22aa88", x: 55, y: 75, ax: 16, ay: 10, cx: 2, cy: 1, phase: 0.6, radius: 45 },
+	],
+};
 
 describe("canvasFont", () => {
 	it("quotes family names so a multi-word family survives the shorthand", () => {
@@ -131,18 +148,30 @@ describe("paintFrame", () => {
 		return ctx;
 	}
 
+	/** Paint the same frame, but over the fixture preset the tests own. */
+	function paintFixtureMesh(time: number) {
+		const ctx = new RecordingContext();
+		const meshScene = {
+			...scene,
+			style: { ...scene.style, backdrop: { kind: "mesh" as const, preset: FIXTURE_PRESET } },
+		};
+		paintFrame(ctx, meshScene, {
+			tokens: [token()],
+			lineCount: 2,
+			lineNumberCount: 2,
+			timeSeconds: time,
+		});
+		return ctx;
+	}
+
 	it("lays the mesh down base-first, then the blobs bottom-up", () => {
-		const preset = MESH_PRESETS[0];
-		if (!preset) {
-			throw new Error("expected a preset");
-		}
-		const ctx = paint(0);
-		const baseIndex = ctx.commands.indexOf(`fillStyle=${preset.base}`);
+		const ctx = paintFixtureMesh(0);
+		const baseIndex = ctx.commands.indexOf(`fillStyle=${FIXTURE_PRESET.base}`);
 		expect(baseIndex).toBeGreaterThanOrEqual(0);
 
 		// CSS stacks radial-gradient layers top-first; a canvas paints in order, so
 		// the last blob in the array has to go down first for the stack to match.
-		const blobOrder = preset.blobs.map((blob) =>
+		const blobOrder = FIXTURE_PRESET.blobs.map((blob) =>
 			ctx.commands.findIndex((c) => c.includes(colorWithAlpha(blob.color, 1))),
 		);
 		expect(blobOrder.every((i) => i > baseIndex)).toBe(true);
@@ -150,12 +179,11 @@ describe("paintFrame", () => {
 	});
 
 	it("fades each blob to its own colour at zero alpha, never to grey", () => {
-		const preset = MESH_PRESETS[0];
-		const blob = preset?.blobs[0];
+		const [blob] = FIXTURE_PRESET.blobs;
 		if (!blob) {
 			throw new Error("expected a blob");
 		}
-		const ctx = paint(0);
+		const ctx = paintFixtureMesh(0);
 		const stop = ctx.commands.find((c) => c.includes(colorWithAlpha(blob.color, 1)));
 		expect(stop).toContain(colorWithAlpha(blob.color, 0));
 	});
