@@ -2,6 +2,7 @@ import "@/app.css";
 import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
 import { CodeEditor } from "@/presentation/components/editor/code-editor";
 import { StepBuilder } from "@/presentation/components/editor/step-builder";
+import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
 import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
 import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { LandingPage } from "@/presentation/landing/landing-page";
@@ -24,11 +25,16 @@ useSnippetStore.getState().rebuildPlan();
 
 function Studio() {
 	return (
-		<ResponsiveShell
-			editor={<CodeEditor />}
-			stepBuilder={<StepBuilder />}
-			preview={<LivePreview />}
-		/>
+		<>
+			{/* Loads whatever the landing hero was pasted, when the studio was opened
+			    from it. Renders nothing on a normal visit. */}
+			<ImportIntentBoot />
+			<ResponsiveShell
+				editor={<CodeEditor />}
+				stepBuilder={<StepBuilder />}
+				preview={<LivePreview />}
+			/>
+		</>
 	);
 }
 

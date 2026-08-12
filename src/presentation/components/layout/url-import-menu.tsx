@@ -1,22 +1,27 @@
-import { resolvePrUrl } from "@/application/import/pr-url";
-import { importCodeFromUrl } from "@/infrastructure/import/url-import";
+import { routeUrlPaste } from "@/application/import/route-url-paste";
+import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
-/** Popover that fetches code from a gist / GitHub URL and loads it into the studio. */
+/**
+ * Popover that turns a URL into something the studio is showing.
+ *
+ * It decides neither what the URL *is* nor who should open it. `classifySource`
+ * reads it, the same reader the landing hero and the diff dialog use, so the
+ * three cannot disagree about a link; `routeUrlPaste` says which control
+ * finishes it. What is left here is the popover.
+ */
 export function UrlImportMenu() {
 	const [open, setOpen] = useState(false);
 	const [url, setUrl] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	const setCode = useSnippetStore((s) => s.setCode);
-	const setLanguage = useSnippetStore((s) => s.setLanguage);
-	const setTitle = useSnippetStore((s) => s.setTitle);
+	const { loading, error, run, reset } = useSourceImport();
+	/** Said by this control rather than by an import: the paste is not a URL it can route. */
+	const [refusal, setRefusal] = useState<string | null>(null);
+	const message = refusal ?? error;
 	const handOffToDiffImport = useDiffImportStore((s) => s.handOff);
 
 	useEffect(() => {
@@ -41,31 +46,25 @@ export function UrlImportMenu() {
 		if (!trimmed || loading) {
 			return;
 		}
-		// A pull request is a walkthrough, not a file, so this control cannot open
-		// one. The diff dialog beside it can, and already offers the whole-change
-		// or by-commit choice a PR needs: the URL goes there rather than coming
-		// back as "Unsupported URL" from a control that plainly recognised it.
-		if (resolvePrUrl(trimmed)) {
-			handOffToDiffImport(trimmed);
-			setUrl("");
-			setError(null);
-			setOpen(false);
-			return;
-		}
-		setLoading(true);
-		setError(null);
-		try {
-			const imported = await importCodeFromUrl(trimmed);
-			// Language before code so the plan rebuild tokenizes with the right grammar.
-			setTitle(imported.title);
-			setLanguage(imported.language);
-			setCode(imported.code);
-			setUrl("");
-			setOpen(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Import failed");
-		} finally {
-			setLoading(false);
+		setRefusal(null);
+		reset();
+
+		switch (routeUrlPaste(trimmed)) {
+			// The diff dialog gets the box already filled, so the only thing left
+			// is the whole-change or by-commit choice it is there to offer.
+			case "hand-off":
+				handOffToDiffImport(trimmed);
+				setUrl("");
+				setOpen(false);
+				return;
+			case "open-here":
+				if (await run(trimmed)) {
+					setUrl("");
+					setOpen(false);
+				}
+				return;
+			default:
+				setRefusal("Unsupported URL: paste a gist, a GitHub file, a commit or a pull request link");
 		}
 	}
 
@@ -142,7 +141,7 @@ export function UrlImportMenu() {
 									{loading ? <Spinner /> : "Fetch"}
 								</motion.button>
 							</div>
-							{error && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{error}</p>}
+							{message && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{message}</p>}
 						</motion.div>
 					</>
 				)}
