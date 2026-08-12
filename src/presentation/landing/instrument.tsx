@@ -544,6 +544,13 @@ function Toolbar({
 	// animated. A ResizeObserver rather than a mount callback: the row's content
 	// changes without remounting, and measuring only on mount left the island
 	// clipping its own CTA.
+	//
+	// `offsetWidth`, not `scrollWidth`: the controls carry their pointer targets
+	// as absolutely positioned pseudo-elements that reach past the row on purpose,
+	// and `scrollWidth` counts that reach as content: the island grew by however
+	// far the last control's hit area stuck out, which left a dead strip of pill
+	// beyond it. The row holds its width in CSS (`flex: none`), so its border box
+	// is the honest number and is stable while the spring runs.
 	const [rowWidth, setRowWidth] = useState<number | null>(null);
 	const observerRef = useRef<ResizeObserver | null>(null);
 	const measureRow = useCallback((node: HTMLDivElement | null) => {
@@ -551,8 +558,9 @@ function Toolbar({
 		if (!node) {
 			return;
 		}
-		setRowWidth(node.scrollWidth);
-		const observer = new ResizeObserver(() => setRowWidth(node.scrollWidth));
+		const read = () => setRowWidth(node.offsetWidth);
+		read();
+		const observer = new ResizeObserver(read);
 		observer.observe(node);
 		observerRef.current = observer;
 	}, []);
