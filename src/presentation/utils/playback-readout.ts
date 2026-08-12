@@ -10,6 +10,17 @@
 /** Past this many steps the dot row is dropped and the counter carries the position. */
 export const MAX_DOTS = 8;
 
+/**
+ * The same budget where the row is the width of a phone.
+ *
+ * At 390 the island carries the settings, the social preview and the export as
+ * well as the transport, and eight dots is 192px of position it no longer has
+ * to spend. The counter states the same thing in a tenth of the room, so past
+ * four the row trades one for the other — the same trade it already makes at
+ * every width past eight.
+ */
+export const NARROW_MAX_DOTS = 4;
+
 export type TransportFace = "preparing" | "pause" | "play";
 
 /** The button's current face: the spinner outranks both, since neither can be pressed yet. */
@@ -69,8 +80,8 @@ export function stepCounter(currentStepIndex: number, totalSteps: number): strin
 }
 
 /** Below the cap the dots inform; above it they are a row of identical specks. */
-export function showsDots(totalSteps: number): boolean {
-	return totalSteps >= 2 && totalSteps <= MAX_DOTS;
+export function showsDots(totalSteps: number, budget: number = MAX_DOTS): boolean {
+	return totalSteps >= 2 && totalSteps <= budget;
 }
 
 /** A 6px dot carries no text, so its position is its whole accessible name. */

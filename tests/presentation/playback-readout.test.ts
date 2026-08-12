@@ -1,5 +1,6 @@
 import {
 	MAX_DOTS,
+	NARROW_MAX_DOTS,
 	playbackFill,
 	showsDots,
 	stepCounter,
@@ -76,6 +77,15 @@ describe("the counter and the dots", () => {
 		expect(showsDots(2)).toBe(true);
 		expect(showsDots(MAX_DOTS)).toBe(true);
 		expect(showsDots(MAX_DOTS + 1)).toBe(false);
+	});
+
+	it("keeps a tighter budget where the row is the width of a phone", () => {
+		// At 390 the row also carries the settings, the social preview and the
+		// export, so eight dots is 192px it no longer has. Past the narrow budget
+		// the counter says the same thing in a tenth of the room.
+		expect(showsDots(NARROW_MAX_DOTS, NARROW_MAX_DOTS)).toBe(true);
+		expect(showsDots(NARROW_MAX_DOTS + 1, NARROW_MAX_DOTS)).toBe(false);
+		expect(NARROW_MAX_DOTS).toBeLessThan(MAX_DOTS);
 	});
 
 	it("names each dot with its position, since a 6px dot has no other label", () => {
