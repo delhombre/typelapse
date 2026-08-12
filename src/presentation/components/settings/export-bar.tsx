@@ -1,20 +1,26 @@
-import type { RenderFormat } from "@/domain/entities/render-config";
+import {
+	ASPECT_LABELS,
+	RESOLUTION_TIERS,
+	type RenderFormat,
+	type ResolutionTier,
+	dimensionsFor,
+	presetFor,
+} from "@/domain/entities/render-config";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 
-/** Aspect-ratio presets for social-ready exports (wide, square, reels, portrait, tall). */
-const ASPECT_PRESETS = [
-	{ label: "16:9", width: 1920, height: 1080 },
-	{ label: "1:1", width: 1080, height: 1080 },
-	{ label: "9:16", width: 1080, height: 1920 },
-	{ label: "4:5", width: 1080, height: 1350 },
-	{ label: "3:4", width: 1080, height: 1440 },
-] as const;
-
 const PROGRESS_STYLES = ["reels", "bar", "none"] as const;
+
+/**
+ * What the shape and resolution chips fall back to when the stored dimensions
+ * match no preset — a plan-clamped export, or a hand-edited link. Neither chip
+ * row lights up in that case; these only decide what the *next* click composes
+ * against, so a stray size can still be corrected in one tap.
+ */
+const FALLBACK_PRESET = { aspect: ASPECT_LABELS[0], tier: RESOLUTION_TIERS[0] } as const;
 
 /** Full-width export bar at the bottom of the desktop app. */
 export function ExportBar() {
@@ -77,8 +83,10 @@ export function ExportOptions() {
 		setProgressStyle,
 	} = useExportStore();
 
-	const selectedAspect =
-		ASPECT_PRESETS.find((r) => r.width === width && r.height === height)?.label ?? "";
+	// Shape and resolution are two views of one stored pixel size: selecting
+	// either one recomposes the pair, so they can never contradict each other.
+	const selected = presetFor(width, height);
+	const current = selected ?? FALLBACK_PRESET;
 
 	return (
 		<>
@@ -95,17 +103,27 @@ export function ExportOptions() {
 
 			<Segmented
 				id="aspect"
-				items={ASPECT_PRESETS.map((r) => ({
-					key: r.label,
-					label: r.label,
-					title: `${r.width}×${r.height}`,
-				}))}
-				value={selectedAspect}
+				items={ASPECT_LABELS.map((aspect) => {
+					const dims = dimensionsFor(aspect, current.tier);
+					return { key: aspect, label: aspect, title: `${dims.width}×${dims.height}` };
+				})}
+				value={selected?.aspect ?? ""}
 				onSelect={(k) => {
-					const r = ASPECT_PRESETS.find((x) => x.label === k);
-					if (r) {
-						setResolution(r.width, r.height);
-					}
+					const dims = dimensionsFor(k as (typeof ASPECT_LABELS)[number], current.tier);
+					setResolution(dims.width, dims.height);
+				}}
+			/>
+
+			<Segmented
+				id="resolution"
+				items={RESOLUTION_TIERS.map((tier) => {
+					const dims = dimensionsFor(current.aspect, tier);
+					return { key: tier, label: tier, title: `${dims.width}×${dims.height}` };
+				})}
+				value={selected?.tier ?? ""}
+				onSelect={(k) => {
+					const dims = dimensionsFor(current.aspect, k as ResolutionTier);
+					setResolution(dims.width, dims.height);
 				}}
 			/>
 
