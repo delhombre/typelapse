@@ -114,6 +114,16 @@ interface SnippetState {
 	 */
 	importDiff: (diffText: string) => void;
 	/**
+	 * Replace the studio with a plain code paste: no steps, one static frame.
+	 *
+	 * Not the same as {@link setCode}, which keeps whatever steps are already
+	 * there — and since the plan animates the steps when there are any, pasting
+	 * code over a diff import would leave the paste invisible behind the old
+	 * walkthrough. An import replaces; an edit does not. Throws on blank code,
+	 * before any mutation, like its two siblings.
+	 */
+	importSnippet: (code: string, meta?: { title?: string; language?: string }) => void;
+	/**
 	 * Turn a PR's commits into one chaptered walkthrough: each commit is a chapter
 	 * (its own windowed staged sequence), played in order. Applies the SAME
 	 * MAX_DIFF_STEPS cap and caption wiring as {@link importDiff}. Throws when no
@@ -796,6 +806,29 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		const rebuilt = buildDiffSnippet(get().snippet, snapshots, {
 			title: path?.split("/").pop(),
 			language,
+		});
+
+		cancelRaf();
+		clearRecordTimer();
+		set({ snippet: rebuilt, ...PLAYBACK_RESET });
+
+		get().rebuildPlan();
+	},
+
+	importSnippet: (code: string, meta?: { title?: string; language?: string }) => {
+		// Thrown before any set(), so a blank paste leaves the studio intact.
+		if (code.trim() === "") {
+			throw new Error("Paste some code first.");
+		}
+		const current = get().snippet;
+		// Built from scratch rather than through rebuildSnippet, which carries the
+		// existing steps over: dropping them is the entire point of an import.
+		const rebuilt = Snippet.create({
+			title: meta?.title ?? current.title,
+			code,
+			language: meta?.language ?? current.language,
+			theme: current.theme,
+			renderConfig: current.renderConfig,
 		});
 
 		cancelRaf();

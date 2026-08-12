@@ -455,22 +455,71 @@ html[data-landing-theme="dark"] {
 /* Sized to its content so the caret can stand at the end of the text instead of
    at the end of the box. It still shrinks when the text outgrows the room, and
    the caret then sits where the text visibly ends, which is the same place. */
-.landing-root .lp-field input {
+.landing-root .lp-field textarea {
 	field-sizing: content;
 	flex: 0 1 auto;
 	min-width: 0;
 	padding: 0;
 	border: 0;
 	outline: none;
+	resize: none;
 	background: none;
 	font: inherit;
 	color: var(--color-ink);
+	/* Never wrapped: a pull-request URL too long for the room scrolls, the way it
+	   did while this was an input, rather than folding onto a second line and
+	   doubling the height of the field. A diff must not be re-wrapped either. */
+	white-space: pre;
+	overflow: auto;
+	/* The bars would otherwise appear inside a 40px field on the platforms that
+	   reserve room for them. The caret still carries the view along with it. */
+	scrollbar-width: none;
 	/* The block below stands in for it. */
 	caret-color: transparent;
 }
 
-.landing-root .lp-field input::placeholder {
+.landing-root .lp-field textarea::-webkit-scrollbar {
+	display: none;
+}
+
+.landing-root .lp-field textarea::placeholder {
 	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+}
+
+/* A pasted diff is many lines, and the field holds them rather than swallowing
+   them. It grows out of the single row it starts in and stops at ten or so,
+   which is enough to recognise your own change and not so much that the field
+   takes the page from everything under it. */
+.landing-root .lp-field[data-multiline] {
+	height: auto;
+	min-height: var(--field-h);
+	align-items: flex-end;
+	padding: 10px 6px 10px var(--text-x);
+}
+
+.landing-root .lp-field[data-multiline] textarea {
+	flex: 1 1 auto;
+	max-height: 220px;
+	line-height: 1.55;
+	/* The drawn caret has stood down by now — it has no end of the text to stand
+	   at once there are several lines — so the real one has to come back, or the
+	   field is one you cannot see yourself typing in. */
+	caret-color: var(--color-ink);
+	/* And with the height capped there is more diff than room, which a field
+	   with no bars at all gives no sign of. At this size there is room to say so. */
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in oklch, var(--color-ash) 40%, transparent) transparent;
+}
+
+.landing-root .lp-field[data-multiline] textarea::-webkit-scrollbar {
+	display: block;
+	width: 8px;
+	height: 8px;
+}
+
+.landing-root .lp-field[data-multiline] textarea::-webkit-scrollbar-thumb {
+	border-radius: 999px;
+	background: color-mix(in oklch, var(--color-ash) 40%, transparent);
 }
 
 /* The caret is the focus state: absent until the field has focus, and standing
@@ -524,6 +573,9 @@ html[data-landing-theme="dark"] {
    The field hugs its text, so the button is no longer pushed right by it. */
 .landing-root .lp-field-cta {
 	margin-left: auto;
+	flex: none;
+	cursor: pointer;
+	border: 0;
 	display: inline-flex;
 	align-items: center;
 	height: 40px;

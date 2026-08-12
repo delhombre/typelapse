@@ -1,42 +1,30 @@
-import { type PrRef, resolveCommitUrl, resolvePrUrl } from "@/application/import/pr-url";
-import {
-	type Walkthrough,
-	fetchCommitDiff,
-	fetchPrChapters,
-	fetchPrWalkthrough,
-} from "@/infrastructure/import/pr-import";
+import { resolvePrUrl } from "@/application/import/pr-url";
+import { type ImportPlayMode, useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
-/** How a PR URL is imported: one squashed change, or one chapter per commit. */
-type ImportMode = "whole" | "commit";
-
-const IMPORT_MODES: { key: ImportMode; label: string }[] = [
+const IMPORT_MODES: { key: ImportPlayMode; label: string }[] = [
 	{ key: "whole", label: "Whole change" },
 	{ key: "commit", label: "By commit" },
 ];
 
 /**
- * Popover that turns a pasted unified diff (or a GitHub PR / commit URL) into
- * an animated step walkthrough. A URL is fetched to its raw diff first; anything
- * else is treated as a raw diff paste. A PR URL also offers a "By commit" mode
- * that chapters the walkthrough one segment per commit.
+ * Popover that turns a paste into an animated walkthrough. What the paste *is*
+ * — a PR, a commit, a code URL, a raw diff — is decided by `useSourceImport`,
+ * the same reader the landing hero pastes into, so the two cannot drift. A PR
+ * URL also offers a "By commit" mode that chapters the walkthrough one segment
+ * per commit. That choice is why the URL importer hands its pull requests over
+ * here rather than refusing them: this is the control that can offer it.
  */
 export function DiffImportMenu() {
 	const [open, setOpen] = useState(false);
 	const [text, setText] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [mode, setMode] = useState<ImportMode>("whole");
-	const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+	const [mode, setMode] = useState<ImportPlayMode>("whole");
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-	const importDiff = useSnippetStore((s) => s.importDiff);
-	const importChapters = useSnippetStore((s) => s.importChapters);
-	const setTitle = useSnippetStore((s) => s.setTitle);
+	const { loading, error, progress, run, reset } = useSourceImport();
 
 	// The textarea doubles as a URL bar; the commit toggle only applies to PR URLs.
 	const prRef = resolvePrUrl(text.trim());
@@ -75,73 +63,15 @@ export function DiffImportMenu() {
 	}, [open]);
 
 	async function apply() {
-		const trimmed = text.trim();
-		if (trimmed === "" || loading) {
+		if (text.trim() === "" || loading) {
 			return;
 		}
-		// A PR link chapters by commit when asked; otherwise it fetches one squashed diff.
-		if (prRef) {
-			if (mode === "commit") {
-				await runChapters(prRef);
-			} else {
-				await runFetch(() => fetchPrWalkthrough(prRef));
-			}
-			return;
-		}
-		// Commit URLs and raw diffs ignore the toggle: they are single sequences.
-		const commitRef = resolveCommitUrl(trimmed);
-		if (commitRef) {
-			await runFetch(() => fetchCommitDiff(commitRef));
-			return;
-		}
-		applyRawDiff(trimmed);
-	}
-
-	async function runFetch(fetcher: () => Promise<Walkthrough>) {
-		setLoading(true);
-		setError(null);
-		try {
-			const { diffText, title } = await fetcher();
-			importDiff(diffText);
-			// The PR / commit title overrides the filename title importDiff inferred.
-			setTitle(title);
+		// The toggle only reaches a PR: every other kind is a single sequence and
+		// `run` ignores the mode for it.
+		const imported = await run(text, mode);
+		if (imported) {
 			setText("");
 			setOpen(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Could not fetch the change.");
-		} finally {
-			setLoading(false);
-		}
-	}
-
-	async function runChapters(ref: PrRef) {
-		setLoading(true);
-		setError(null);
-		setProgress(null);
-		try {
-			const { title, chapters } = await fetchPrChapters(ref, (done, total) =>
-				setProgress({ done, total }),
-			);
-			// importChapters sets the PR title itself, so no separate setTitle is needed.
-			importChapters(chapters, { title });
-			setText("");
-			setOpen(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Could not fetch the commits.");
-		} finally {
-			setLoading(false);
-			setProgress(null);
-		}
-	}
-
-	function applyRawDiff(trimmed: string) {
-		try {
-			importDiff(trimmed);
-			setText("");
-			setError(null);
-			setOpen(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Could not parse the diff.");
 		}
 	}
 
@@ -210,7 +140,7 @@ export function DiffImportMenu() {
 								onChange={(e) => {
 									setText(e.target.value);
 									if (error) {
-										setError(null);
+										reset();
 									}
 								}}
 								onKeyDown={onTextareaKeyDown}
@@ -266,7 +196,7 @@ export function DiffImportMenu() {
 function ModeToggle({
 	mode,
 	onSelect,
-}: { mode: ImportMode; onSelect: (mode: ImportMode) => void }) {
+}: { mode: ImportPlayMode; onSelect: (mode: ImportPlayMode) => void }) {
 	return (
 		<div className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800">
 			{IMPORT_MODES.map((item) => {
