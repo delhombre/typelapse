@@ -6,6 +6,9 @@ import {
 } from "@/application/diff";
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
+import { type ProjectContent, contentFingerprint } from "@/application/project/project-fingerprint";
+import type { ProjectPayload, ProjectStepPayload } from "@/application/project/project-payload";
+import { MAX_RENDER_DIMENSION, MIN_RENDER_DIMENSION } from "@/domain/entities/render-config";
 import { Snippet } from "@/domain/entities/snippet";
 import { Step, captionFromGeneratedLabel } from "@/domain/entities/step";
 import { Theme } from "@/domain/entities/theme";
@@ -19,7 +22,7 @@ import { resolveShikiLanguage } from "@/infrastructure/highlighting/shiki-regist
 import { type WindowChrome, isWindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { Highlighter } from "shiki";
 import { create } from "zustand";
-import { useExportStore } from "./export.store";
+import { EXPORT_DEFAULTS, useExportStore } from "./export.store";
 
 /** Where playback currently sits: holding on a step, or morphing between two. */
 export interface PlaybackState {
@@ -105,7 +108,24 @@ interface SnippetState {
 	pause: () => void;
 
 	// Import/Export
+	/**
+	 * The whole studio as a project payload: the single producer of the format.
+	 * JSON export stringifies it, share links encode it, and the template catalog
+	 * is authored in it, so the four paths can never drift apart.
+	 */
+	toProjectPayload: () => ProjectPayload;
 	exportToJson: () => string;
+	/**
+	 * Fingerprint of the project as it stood at the last load. Everything that
+	 * replaces the whole studio re-baselines it, so "edited" always means "edited
+	 * since the thing currently on screen arrived".
+	 */
+	baselineFingerprint: string;
+	/**
+	 * True when the studio holds work the user authored since the last load: what
+	 * a destructive action (loading a template) must confirm before discarding.
+	 */
+	hasUnsavedEdits: () => boolean;
 	importFromJson: (json: string) => void;
 	/**
 	 * Turn a pasted unified diff into an animated walkthrough: replace the snippet
@@ -166,26 +186,48 @@ function normalizeCardMargin(value: unknown): number {
 }
 
 /**
- * Apply the export-store-owned settings (tempo / typewriter / zoom / progress
- * style) carried by an imported snapshot or share link. Each is applied only when
- * present and valid, so an older file that omits them keeps the current values
- * (the defaults on a fresh load): back-compatible by construction.
+ * True for a plausible pixel dimension. Guards the aspect against hand-edited
+ * files and stale share links: a zero, a negative or an absurd size would
+ * otherwise reach the renderer.
+ *
+ * The bounds are the renderer's own (see {@link MAX_RENDER_DIMENSION}), not a
+ * second opinion about them: a size the studio accepts must survive the render
+ * route untouched, or the preview promises an aspect the export will not keep.
+ */
+function isDimension(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= MIN_RENDER_DIMENSION &&
+		value <= MAX_RENDER_DIMENSION
+	);
+}
+
+/**
+ * Apply the export-store-owned settings (aspect / tempo / typewriter / zoom /
+ * progress style) carried by an imported snapshot, share link or template.
+ *
+ * A project fully determines the render: a setting the file omits is reset to
+ * its default rather than inherited. Without that, opening the typewriter
+ * template and then any other one would leave the second typing itself, and no
+ * file would ever be reproducible from its own contents.
  */
 function applyExportSettings(obj: Record<string, unknown>): void {
 	const ex = useExportStore.getState();
-	const { transitionMs, typewriter, focusZoom, progressStyle } = obj;
-	if (transitionMs === 400 || transitionMs === 650 || transitionMs === 1000) {
-		ex.setTransitionMs(transitionMs);
+	const { transitionMs, typewriter, focusZoom, progressStyle, width, height } = obj;
+	// Both or neither: a half-specified aspect would silently distort the export.
+	if (isDimension(width) && isDimension(height)) {
+		ex.setResolution(width, height);
+	} else {
+		ex.setResolution(EXPORT_DEFAULTS.width, EXPORT_DEFAULTS.height);
 	}
-	if (typeof typewriter === "boolean") {
-		ex.setTypewriter(typewriter);
-	}
-	if (typeof focusZoom === "boolean") {
-		ex.setFocusZoom(focusZoom);
-	}
-	if (progressStyle === "reels" || progressStyle === "bar" || progressStyle === "none") {
-		ex.setProgressStyle(progressStyle);
-	}
+	const isTempo = transitionMs === 400 || transitionMs === 650 || transitionMs === 1000;
+	ex.setTransitionMs(isTempo ? transitionMs : EXPORT_DEFAULTS.transitionMs);
+	ex.setTypewriter(typewriter === true);
+	ex.setFocusZoom(focusZoom === true);
+	const isProgress =
+		progressStyle === "reels" || progressStyle === "bar" || progressStyle === "none";
+	ex.setProgressStyle(isProgress ? progressStyle : EXPORT_DEFAULTS.progressStyle);
 }
 
 export function setHighlighter(highlighter: HighlighterPort) {
@@ -301,6 +343,47 @@ function capSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
 	return last ? [...head, last] : head;
 }
 
+/**
+ * The authored half of the project: everything this store owns. Split out from
+ * the full payload because it is also what the unsaved-work warning compares,
+ * and because reading it must NOT touch the export store: the two stores import
+ * each other, so a module-load read of the export store would come back
+ * undefined.
+ */
+function contentOf(state: SnippetState): ProjectContent {
+	const { snippet } = state;
+	return {
+		title: snippet.title,
+		code: snippet.code,
+		language: snippet.language,
+		themeName: snippet.theme.name,
+		// The two theme fields the studio edits in place, leaving the name alone.
+		fontFamily: snippet.theme.fontFamily,
+		borderRadius: snippet.theme.borderRadius,
+		background: state.background,
+		windowChrome: state.windowChrome,
+		showLineNumbers: state.showLineNumbers,
+		lineNumberStart: state.lineNumberStart,
+		framePadding: state.framePadding,
+		cardMargin: state.cardMargin,
+		watermark: state.watermark,
+		steps: snippet.steps.map((step) => {
+			const focus = formatLineRanges(step.highlightRanges);
+			const serialized: ProjectStepPayload = {
+				code: step.code,
+				duration: step.duration,
+			};
+			if (focus) {
+				serialized.focus = focus;
+			}
+			if (step.annotation) {
+				serialized.caption = step.annotation;
+			}
+			return serialized;
+		}),
+	};
+}
+
 /** The playback fields reset whenever an import replaces the whole snippet. */
 const PLAYBACK_RESET = {
 	currentStepIndex: 0,
@@ -392,6 +475,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	playback: null,
 	isRecording: false,
 	background: "mesh:aurora",
+
+	// Seeded below, from the store's own producer, so the default studio starts
+	// out pristine without restating the defaults here.
+	baselineFingerprint: "",
+
+	hasUnsavedEdits: () => contentFingerprint(contentOf(get())) !== get().baselineFingerprint,
 
 	windowChrome: "macos",
 
@@ -634,58 +723,23 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		set({ isPlaying: false, isPreparing: false, playback: null });
 	},
 
-	exportToJson: () => {
-		const {
-			snippet,
-			background,
-			windowChrome,
-			showLineNumbers,
-			lineNumberStart,
-			framePadding,
-			cardMargin,
-			watermark,
-		} = get();
-		// The export store owns tempo / typewriter / zoom / progress style; pull
-		// them in so a single JSON file captures the ENTIRE studio state.
-		const { transitionMs, typewriter, focusZoom, progressStyle } = useExportStore.getState();
-		const data = {
-			title: snippet.title,
-			code: snippet.code,
-			language: snippet.language,
-			themeName: snippet.theme.name,
-			background,
-			windowChrome,
-			showLineNumbers,
-			lineNumberStart,
-			framePadding,
-			cardMargin,
-			watermark,
+	toProjectPayload: () => {
+		// The export store owns aspect / tempo / typewriter / zoom / progress style;
+		// pull them in so a single JSON file captures the ENTIRE studio state.
+		const { transitionMs, typewriter, focusZoom, progressStyle, width, height } =
+			useExportStore.getState();
+		return {
+			...contentOf(get()),
 			progressStyle,
 			typewriter,
 			focusZoom,
 			transitionMs,
-			steps: snippet.steps.map((step) => {
-				const focus = formatLineRanges(step.highlightRanges);
-				const serialized: {
-					code: string;
-					duration: number;
-					focus?: string;
-					caption?: string;
-				} = {
-					code: step.code,
-					duration: step.duration,
-				};
-				if (focus) {
-					serialized.focus = focus;
-				}
-				if (step.annotation) {
-					serialized.caption = step.annotation;
-				}
-				return serialized;
-			}),
+			width,
+			height,
 		};
-		return JSON.stringify(data, null, 2);
 	},
+
+	exportToJson: () => JSON.stringify(get().toProjectPayload(), null, 2),
 
 	importFromJson: (json: string) => {
 		let data: unknown;
@@ -796,9 +850,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			playbackProgress: 0,
 			isRecording: false,
 		});
-		// The export store owns tempo / typewriter / zoom / progress style: apply
-		// those from the same snapshot so a JSON file or share link restores them too.
+		// The export store owns aspect / tempo / typewriter / zoom / progress style:
+		// apply those from the same snapshot so a JSON file, share link or template
+		// restores them too. Runs BEFORE the baseline, so the settings the file
+		// brought are part of the pristine state, not an edit.
 		applyExportSettings(obj);
+		markBaseline();
 
 		get().rebuildPlan();
 	},
@@ -816,6 +873,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		cancelRaf();
 		clearRecordTimer();
 		set({ snippet: rebuilt, ...PLAYBACK_RESET });
+		markBaseline();
 
 		get().rebuildPlan();
 	},
@@ -859,7 +917,23 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		cancelRaf();
 		clearRecordTimer();
 		set({ snippet: rebuilt, ...PLAYBACK_RESET });
+		markBaseline();
 
 		get().rebuildPlan();
 	},
 }));
+
+/**
+ * Re-baseline: from here on, "edited" means different from what the studio holds
+ * right now. Called once at startup for the default snippet, and by every action
+ * that replaces the whole project (JSON import, share link, template, diff).
+ * Reads the state's own producer, so it can never disagree with what a save
+ * would write.
+ */
+function markBaseline(): void {
+	const content = contentOf(useSnippetStore.getState());
+	useSnippetStore.setState({ baselineFingerprint: contentFingerprint(content) });
+}
+
+// The default studio is pristine by definition: baseline it as soon as it exists.
+markBaseline();

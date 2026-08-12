@@ -17,7 +17,8 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { StepCaption } from "../../src/presentation/components/preview/step-caption";
-import { CenteredFrame } from "../../server/remotion/composition";
+import { BASE_VIDEO_SCALE, CenteredFrame } from "../../server/remotion/composition";
+import { renderScaleFor } from "../../src/application/layout/canvas-fit";
 
 /** One frame, one character: the narrowest window the fit math can produce. */
 const PLAN = {
@@ -51,6 +52,10 @@ function renderCard(caption: React.ReactNode) {
 			cardMargin={32}
 			canvasWidth={1080}
 			canvasHeight={1920}
+			// Derived exactly as the composition derives it, so the caption is
+			// measured at the scale a real render of this canvas would use rather
+			// than at an invented one.
+			videoScale={renderScaleFor(1080, 1920, BASE_VIDEO_SCALE)}
 			caption={caption}
 		>
 			<div data-testid="code" />
