@@ -11,6 +11,35 @@ import { type ChromeVariant, frameNaturalSize } from "./frame-metrics";
  * the guides then mark the real occluded regions instead of lying over the code.
  */
 
+/**
+ * The tier the card's natural size was tuned against. A 1080p canvas renders at
+ * the base scale exactly, so every export that existed before resolution tiers
+ * is unchanged to the pixel.
+ */
+export const REFERENCE_SHORT_EDGE = 1080;
+
+/**
+ * The upscale factor a canvas of this size should draw the card at.
+ *
+ * `fitScale` never enlarges, so a fixed scale would make a higher tier a bigger
+ * empty background rather than a sharper video: at 4K the card would occupy half
+ * the framing it does at 1080p. Growing the scale with the canvas's SHORT edge
+ * (the same edge the tier is named after) keeps the card at one constant
+ * fraction of the frame, so a tier buys pixels and never reframes the shot.
+ *
+ * Degenerate canvases fall back to the base scale: there is nothing to fit.
+ */
+export function renderScaleFor(
+	canvasWidth: number,
+	canvasHeight: number,
+	baseScale: number,
+): number {
+	if (canvasWidth <= 0 || canvasHeight <= 0) {
+		return baseScale;
+	}
+	return (baseScale * Math.min(canvasWidth, canvasHeight)) / REFERENCE_SHORT_EDGE;
+}
+
 /** Minimal structural shape of a laid-out plan needed to size the card. */
 export interface PlanExtent {
 	frames: { lineCount: number; tokens: { col: number; content: string }[] }[];
@@ -48,7 +77,7 @@ export interface CardCanvasFitInput {
 	showLineNumbers: boolean;
 	lineNumberStart: number;
 	hasCaption: boolean;
-	/** Upscale factor the target renders at (the composition's VIDEO_SCALE). */
+	/** Upscale factor the target renders at (see `renderScaleFor`). */
 	scale: number;
 	canvasWidth: number;
 	canvasHeight: number;

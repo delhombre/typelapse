@@ -1,12 +1,15 @@
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
 import { useCallback, useRef } from "react";
 
+import { monacoLanguage } from "@/presentation/components/editor/monaco-language";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 
 const LANGUAGES = [
 	{ value: "typescript", label: "TypeScript" },
+	{ value: "tsx", label: "TSX" },
 	{ value: "javascript", label: "JavaScript" },
+	{ value: "diff", label: "Diff" },
 	{ value: "python", label: "Python" },
 	{ value: "rust", label: "Rust" },
 	{ value: "go", label: "Go" },
@@ -51,6 +54,25 @@ export function CodeEditor() {
 
 	const handleMount = useCallback<OnMount>((editor, monaco) => {
 		monacoRef.current = monaco;
+
+		// A snippet is a fragment, not a project: it imports nothing, resolves
+		// nothing, and is often mid-refactor by design. Semantic diagnostics would
+		// underline almost every template in red for being exactly what it is.
+		// Syntax errors still show, because those are the author's mistakes.
+		for (const defaults of [
+			monaco.languages.typescript.typescriptDefaults,
+			monaco.languages.typescript.javascriptDefaults,
+		]) {
+			defaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false });
+			// Monaco has no separate TSX mode, so JSX has to be turned on here or a
+			// React snippet is underlined as a syntax error for containing markup.
+			defaults.setCompilerOptions({
+				...defaults.getCompilerOptions(),
+				jsx: monaco.languages.typescript.JsxEmit.React,
+				allowJs: true,
+				target: monaco.languages.typescript.ScriptTarget.ESNext,
+			});
+		}
 
 		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
 		// toggles it: same keybinding VS Code uses. Also surfaces in the command
@@ -157,7 +179,7 @@ export function CodeEditor() {
 			>
 				<Editor
 					value={snippet.code}
-					language={snippet.language}
+					language={monacoLanguage(snippet.language)}
 					theme={editorTheme}
 					onChange={handleChange}
 					onMount={handleMount}
@@ -201,7 +223,7 @@ export function CodeEditor() {
 					}}
 					loading={
 						<div className="flex h-full items-center justify-center">
-							<span className="font-mono text-[10px] text-neutral-400">Loading editor…</span>
+							<span className="font-mono text-[11px] text-neutral-400">Loading editor…</span>
 						</div>
 					}
 				/>

@@ -98,6 +98,21 @@ interface ExportState {
 	exportPng: () => Promise<void>;
 }
 
+/**
+ * The studio's render defaults. Also what a project that omits a setting gets:
+ * an imported file fully determines the render, so nothing leaks in from
+ * whatever was open before it.
+ */
+export const EXPORT_DEFAULTS = {
+	width: 1920,
+	height: 1080,
+	fps: 60,
+	progressStyle: "reels",
+	transitionMs: 650,
+	typewriter: false,
+	focusZoom: false,
+} as const satisfies Partial<ExportState>;
+
 const exporter = new BrowserDownloadAdapter();
 const cloudExporter = new CloudRenderAdapter();
 
@@ -132,15 +147,15 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	deviceSupported: null,
 
 	format: "mp4",
-	width: 1920,
-	height: 1080,
-	fps: 60,
+	width: EXPORT_DEFAULTS.width,
+	height: EXPORT_DEFAULTS.height,
+	fps: EXPORT_DEFAULTS.fps,
 	loop: false,
-	typewriter: false,
-	focusZoom: false,
+	typewriter: EXPORT_DEFAULTS.typewriter,
+	focusZoom: EXPORT_DEFAULTS.focusZoom,
 	sound: false,
-	progressStyle: "reels",
-	transitionMs: 650,
+	progressStyle: EXPORT_DEFAULTS.progressStyle,
+	transitionMs: EXPORT_DEFAULTS.transitionMs,
 
 	// Changing the format or the size changes what the browser is being asked to
 	// encode, so the previous answer stops being an answer.

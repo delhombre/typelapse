@@ -10,7 +10,7 @@
  * clipping), matching the measured-and-scaled browser preview.
  *
  * Sizes are returned in the same px space as the inputs: pass already-scaled
- * `fontSize` / `padding` (e.g. `theme.fontSize * VIDEO_SCALE`) and the matching
+ * `fontSize` / `padding` (e.g. `theme.fontSize * renderScaleFor(...)`) and the matching
  * `scale`, and the chrome bar and caption block scale with it.
  */
 

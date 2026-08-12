@@ -1,20 +1,28 @@
-import { importCodeFromUrl } from "@/infrastructure/import/url-import";
+import { routeUrlPaste } from "@/application/import/route-url-paste";
+import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
-/** Popover that fetches code from a gist / GitHub URL and loads it into the studio. */
+/**
+ * Popover that turns a URL into something the studio is showing.
+ *
+ * It decides neither what the URL *is* nor who should open it. `classifySource`
+ * reads it, the same reader the landing hero and the diff dialog use, so the
+ * three cannot disagree about a link; `routeUrlPaste` says which control
+ * finishes it. What is left here is the popover.
+ */
 export function UrlImportMenu() {
 	const [open, setOpen] = useState(false);
 	const [url, setUrl] = useState("");
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
-	const setCode = useSnippetStore((s) => s.setCode);
-	const setLanguage = useSnippetStore((s) => s.setLanguage);
-	const setTitle = useSnippetStore((s) => s.setTitle);
+	const { loading, error, run, reset } = useSourceImport();
+	/** Said by this control rather than by an import: the paste is not a URL it can route. */
+	const [refusal, setRefusal] = useState<string | null>(null);
+	const message = refusal ?? error;
+	const handOffToDiffImport = useDiffImportStore((s) => s.handOff);
 
 	useEffect(() => {
 		if (!open) {
@@ -38,20 +46,25 @@ export function UrlImportMenu() {
 		if (!trimmed || loading) {
 			return;
 		}
-		setLoading(true);
-		setError(null);
-		try {
-			const imported = await importCodeFromUrl(trimmed);
-			// Language before code so the plan rebuild tokenizes with the right grammar.
-			setTitle(imported.title);
-			setLanguage(imported.language);
-			setCode(imported.code);
-			setUrl("");
-			setOpen(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Import failed");
-		} finally {
-			setLoading(false);
+		setRefusal(null);
+		reset();
+
+		switch (routeUrlPaste(trimmed)) {
+			// The diff dialog gets the box already filled, so the only thing left
+			// is the whole-change or by-commit choice it is there to offer.
+			case "hand-off":
+				handOffToDiffImport(trimmed);
+				setUrl("");
+				setOpen(false);
+				return;
+			case "open-here":
+				if (await run(trimmed)) {
+					setUrl("");
+					setOpen(false);
+				}
+				return;
+			default:
+				setRefusal("Unsupported URL: paste a gist, a GitHub file, a commit or a pull request link");
 		}
 	}
 
@@ -67,9 +80,12 @@ export function UrlImportMenu() {
 			<motion.button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
+				aria-haspopup="dialog"
+				aria-expanded={open}
+				aria-label="Import from URL"
 				whileTap={{ scale: 0.96 }}
 				transition={springs.snappy}
-				className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
+				className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
 					open
 						? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
 						: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
@@ -95,6 +111,12 @@ export function UrlImportMenu() {
 							exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
 							transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
 							style={{ transformOrigin: "top right" }}
+							// biome-ignore lint/a11y/useSemanticElements: a native <dialog> cannot be
+							// anchored to its trigger the way this panel is, and loses its enter/exit
+							// animation with it. Non-modal by intent: the backdrop dismisses and
+							// nothing outside is inert, so no aria-modal is claimed.
+							role="dialog"
+							aria-label="Import from URL"
 							className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-neutral-200 bg-white p-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
 						>
 							<div className="flex items-center gap-1.5">
@@ -119,7 +141,7 @@ export function UrlImportMenu() {
 									{loading ? <Spinner /> : "Fetch"}
 								</motion.button>
 							</div>
-							{error && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{error}</p>}
+							{message && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{message}</p>}
 						</motion.div>
 					</>
 				)}

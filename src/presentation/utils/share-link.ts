@@ -1,43 +1,21 @@
 /**
- * Share-by-link: encode snippet state as compressed base64 in URL hash.
- * Format: #share=<base64url-encoded JSON>
+ * Share-by-link: encode a project payload as base64 in the URL hash.
+ * Format: #share=<base64-encoded JSON>
+ *
+ * The payload is the SAME shape JSON export writes and the template catalog is
+ * authored in (see `ProjectPayload`), so a link restores the entire studio
+ * through the one hydration path, `useSnippetStore.importFromJson`.
  */
 
-interface ShareData {
-	title: string;
-	code: string;
-	language: string;
-	themeName: string;
-	background: string;
-	/** Window chrome variant. Optional; defaults to macos when absent. */
-	windowChrome?: string;
-	/** Line-number gutter settings. Optional; default on / start 1. */
-	showLineNumbers?: boolean;
-	lineNumberStart?: number;
-	/** Code padding inside the window (px). Optional; default 24 when absent. */
-	framePadding?: number;
-	/** Mesh margin around the code window (px). Optional; default 32 when absent. */
-	cardMargin?: number;
-	/** Watermark text overlay. Optional; default none when absent. */
-	watermark?: string;
-	steps: { code: string; duration: number; focus?: string; caption?: string }[];
-	/** Progress indicator style. Optional; default "reels" when absent. */
-	progressStyle?: string;
-	/** Type the first step out character by character. Optional; default false. */
-	typewriter?: boolean;
-	/** Morph tempo in ms (400 | 650 | 1000). Optional; default 650 when absent. */
-	transitionMs?: number;
-	/** Cinematic push-in on focused lines. Optional; default false when absent. */
-	focusZoom?: boolean;
-}
+import type { ProjectPayload } from "@/application/project/project-payload";
 
-export function encodeShareLink(data: ShareData): string {
+export function encodeShareLink(data: ProjectPayload): string {
 	const json = JSON.stringify(data);
 	const base64 = btoa(unescape(encodeURIComponent(json)));
 	return `${window.location.origin}${window.location.pathname}#share=${base64}`;
 }
 
-export function decodeShareLink(): ShareData | null {
+export function decodeShareLink(): ProjectPayload | null {
 	const hash = window.location.hash;
 	if (!hash.startsWith("#share=")) {
 		return null;
@@ -46,7 +24,7 @@ export function decodeShareLink(): ShareData | null {
 	try {
 		const base64 = hash.slice("#share=".length);
 		const json = decodeURIComponent(escape(atob(base64)));
-		const data = JSON.parse(json) as ShareData;
+		const data = JSON.parse(json) as ProjectPayload;
 
 		if (typeof data.title !== "string" || typeof data.code !== "string") {
 			return null;
