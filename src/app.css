@@ -762,9 +762,21 @@ html[data-landing-theme="dark"] {
 }
 
 .landing-root .lp-island-row {
+	/* Published rather than inlined because the hit extents below are derived
+	   from it: a target is allowed to grow into the gap and no further, and a
+	   gap that changes without them changing is a row of controls stealing each
+	   other's presses again. */
+	--island-gap: 5px;
 	display: flex;
+	/* The row is a flex item of the island, so by default it shrank whenever the
+	   island was momentarily narrower than it, which is every frame of the width
+	   spring, and the controls visibly squeezed while it ran. Holding its size is
+	   what the island's `overflow: hidden` was written for: the row keeps its
+	   rhythm and the island clips it. It also makes the row measurable, which is
+	   what its own width is animated from. */
+	flex: none;
 	align-items: center;
-	gap: 5px;
+	gap: var(--island-gap);
 	white-space: nowrap;
 }
 
@@ -798,15 +810,59 @@ html[data-landing-theme="dark"] {
 		var(--ease-out);
 }
 
-/* 44px pointer target behind a 30px visual. */
+/* The pointer target: the control's box grown into the space that borders it,
+   and not one pixel past it.
+
+   A flat 44px square could not fit. The row's pitch is 35px, a 30px control
+   and a 5px gap, so a 44px target overhung its neighbour by 9px, and since a
+   later sibling paints over an earlier one, every target ended up sitting 4.5px
+   to the left of the control it belonged to: the right edge of a swatch you
+   could see answered to the swatch beside it, while 7px of empty gap to its
+   left answered to it. Sampled at 375px, `Theme aurora` drew 117.5→147.5 and
+   won 110→144.5.
+
+   Half the gap on each side is the widest extent that still tiles. The area is
+   the same 35px it always effectively was; what changes is that it is now
+   centred on the control, so a press lands where the finger is and no press
+   lands on nothing. This is the rule `.hit-ext` already states for the studio:
+   at a density this tight the control's own size is the target, and 30px
+   clears WCAG 2.5.8's 24px floor on its own.
+
+   Vertically it takes the island's whole inner box: 5px above and below a 30px
+   control in a 40px island. It never had more than that either, since the island
+   clips its own overflow, so the 44px was cut to 40 before it reached a
+   finger. */
 .landing-root .lp-island-button::after {
 	content: "";
 	position: absolute;
-	top: 50%;
-	left: 50%;
-	width: 44px;
-	height: 44px;
-	transform: translate(-50%, -50%);
+	inset: -5px calc(var(--island-gap) / -2);
+}
+
+/* The row's two ends also take the island's own 6px of padding, which borders
+   no other control and would otherwise be a strip that answers to nobody. */
+.landing-root .lp-island-row > .lp-island-button:first-child::after {
+	inset-inline-start: -6px;
+}
+
+.landing-root .lp-island-row > .lp-island-button:last-child::after {
+	inset-inline-end: -6px;
+}
+
+/* The CTA closes the root row, and it carries a 3px margin on top of the gap:
+   8px between it and the control before it, split evenly so there is no seam
+   for a press to fall through. Its own box is 94px wide, so sideways it is far
+   past the 44px floor already and only needs the island's edge padding; the
+   shared `.hit-ext` sizes from the centre out and cannot say that, so this
+   states the four edges outright. */
+.landing-root .lp-island-row > .lp-island-cta::after {
+	inset: -5px -6px -5px -4px;
+	width: auto;
+	height: auto;
+	transform: none;
+}
+
+.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
+	inset-inline-end: -4px;
 }
 
 .landing-root .lp-island-button[data-active] {
