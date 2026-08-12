@@ -9,11 +9,21 @@
 
 import { type VideoScript, videoScript } from "@/application/export/video-script";
 import {
+	type BackdropImage,
 	type FrameSceneInput,
 	type GrainTile,
 	frameScene,
 } from "@/application/frame-painter/scene";
 import type { ClientExportJob } from "./client-export-job";
+
+/**
+ * The decoded images a frame needs, which a job cannot carry: neither survives
+ * `structuredClone`, and each surface decodes them in its own scope anyway.
+ */
+export interface SceneAssets {
+	grain: GrainTile | null;
+	backdropImage: BackdropImage | null;
+}
 
 /**
  * The composition's own constants. They are mirrored rather than imported
@@ -26,7 +36,7 @@ export const CANVAS_MARGIN = 0.05;
 export function sceneInputFor(
 	job: ClientExportJob,
 	charWidthRatio: number,
-	grain: GrainTile | null,
+	assets: SceneAssets,
 ): FrameSceneInput {
 	return {
 		canvasWidth: job.width,
@@ -43,15 +53,16 @@ export function sceneInputFor(
 		charWidthRatio,
 		scale: VIDEO_SCALE,
 		canvasMargin: CANVAS_MARGIN,
-		grain,
+		grain: assets.grain,
+		backdropImage: assets.backdropImage,
 		focusZoom: job.focusZoom,
 		progress: job.progress,
 		watermark: job.watermark,
 	};
 }
 
-export function sceneFor(job: ClientExportJob, charWidthRatio: number, grain: GrainTile | null) {
-	return frameScene(sceneInputFor(job, charWidthRatio, grain));
+export function sceneFor(job: ClientExportJob, charWidthRatio: number, assets: SceneAssets) {
+	return frameScene(sceneInputFor(job, charWidthRatio, assets));
 }
 
 export function scriptFor(job: ClientExportJob): VideoScript {

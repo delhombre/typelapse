@@ -29,6 +29,7 @@ import {
 	WebMOutputFormat,
 	canEncodeVideo,
 } from "mediabunny";
+import { decodeBackdropImage } from "./backdrop-image";
 import type { ClientExportEvent, ClientExportJob } from "./client-export-job";
 import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
 import { encodeGif } from "./gif-encoder";
@@ -82,7 +83,10 @@ async function run(job: ClientExportJob): Promise<void> {
 	const fps = encoding.container === "gif" ? gifSafeFps(job.fps) : job.fps;
 
 	const charWidthRatio = await measureAdvance(ctx, job.theme.fontFamily, job.theme.fontSize);
-	const scene = sceneFor({ ...job, width, height }, charWidthRatio, await decodeGrain());
+	const scene = sceneFor({ ...job, width, height }, charWidthRatio, {
+		grain: await decodeGrain(),
+		backdropImage: await decodeBackdropImage(job.background),
+	});
 	const script = scriptFor({ ...job, fps });
 
 	const painter = (frame: number) => {

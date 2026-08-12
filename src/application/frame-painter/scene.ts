@@ -13,7 +13,7 @@
  * scale) and then draws in the same numbers the DOM would use.
  */
 
-import { type MeshPreset, parseMeshBackground } from "../backgrounds/mesh-gradient";
+import { type Backdrop, parseBackdrop } from "../backgrounds/backdrop";
 import { type PlanExtent, fitCardToCanvas, tallestFrame } from "../layout/canvas-fit";
 import { type ChromeVariant, LINE_HEIGHT_RATIO, chromeBarHeight } from "../layout/frame-metrics";
 import type { PaintImage } from "./paint-context";
@@ -25,6 +25,18 @@ export interface GrainTile {
 	size: number;
 	/** Opacity of the soft-light layer (the CSS `opacity`). */
 	opacity: number;
+}
+
+/**
+ * A decoded uploaded background, with the intrinsic size the cover fit needs.
+ *
+ * The size travels alongside the image rather than being read off it, so the
+ * painter stays a function of plain numbers and the port stays opaque.
+ */
+export interface BackdropImage {
+	image: PaintImage;
+	width: number;
+	height: number;
 }
 
 export interface SceneTheme {
@@ -63,8 +75,10 @@ export interface FrameSceneInput {
 	theme: SceneTheme;
 	title: string;
 	chrome: ChromeVariant;
-	/** Background string (`mesh:aurora`, a hex, `transparent`). */
+	/** Background string: a mesh id, a hex, a CSS gradient, `image:…`, `transparent`. */
 	background: string;
+	/** The uploaded background, already decoded; null unless one was picked. */
+	backdropImage?: BackdropImage | null;
 	/** Unscaled code padding. */
 	padding: number;
 	/** Unscaled mesh border around the window. */
@@ -101,9 +115,8 @@ export interface FrameScene {
 		theme: SceneTheme;
 		title: string;
 		chrome: ChromeVariant;
-		mesh: MeshPreset | undefined;
-		/** Flat fill used when the background is not a mesh. */
-		flat: string;
+		backdrop: Backdrop;
+		backdropImage: BackdropImage | null;
 		lineNumberStart: number;
 		grain: GrainTile | null;
 		focusZoom: boolean;
@@ -172,8 +185,8 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 			theme: input.theme,
 			title: input.title,
 			chrome: input.chrome,
-			mesh: parseMeshBackground(input.background),
-			flat: input.background,
+			backdrop: parseBackdrop(input.background),
+			backdropImage: input.backdropImage ?? null,
 			lineNumberStart: input.lineNumberStart,
 			grain: input.grain,
 			focusZoom: input.focusZoom ?? false,
