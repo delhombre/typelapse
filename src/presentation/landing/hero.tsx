@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { trigger } from "./haptics";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
 import { GITHUB_URL } from "./tokens";
@@ -65,7 +66,14 @@ export function Hero() {
 								className="lp-mode"
 								aria-selected={m === mode}
 								data-active={m === mode ? "" : undefined}
-								onClick={() => setMode(m)}
+								onClick={() => {
+									/* Only a change of mode ticks; re-tapping the one already
+									   selected did nothing, so it says nothing. */
+									if (m !== mode) {
+										trigger("selection");
+									}
+									setMode(m);
+								}}
 							>
 								{m}
 							</button>
