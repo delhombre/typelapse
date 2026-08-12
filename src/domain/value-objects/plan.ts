@@ -18,10 +18,24 @@ export type PlanTier = "local" | "free" | "pro" | "team";
 export const BRANDING_WATERMARK = "Made with Typelapse";
 
 export interface PlanCapabilities {
-	/** Largest export width in pixels. */
-	readonly maxWidth: number;
-	/** Largest export height in pixels. */
-	readonly maxHeight: number;
+	/**
+	 * Largest export dimension in pixels, on whichever axis is the longer one.
+	 *
+	 * Resolution is capped by SHAPE, not by axis. A tier names the short edge
+	 * (`dimensionsFor`: "1440p" vertical is 1440x2560), and the export bar offers
+	 * every aspect at every tier, so the same tier lands on width or on height
+	 * depending on the orientation the user picked. Capping `width` and `height`
+	 * separately would therefore sell a resolution and deliver another: Pro's 4K
+	 * is 3840x2160 wide, and the identical entitlement is 2160x3840 vertical.
+	 *
+	 * So a plan grants a rectangle, and the export is allowed if it fits that
+	 * rectangle in either orientation: long edge against `maxLongEdge`, short edge
+	 * against `maxShortEdge`. Free grants 1920x1080 (the whole 1080p row, portrait
+	 * included); Pro and Team grant 3840x2160 (every shipped preset).
+	 */
+	readonly maxLongEdge: number;
+	/** Largest export dimension on whichever axis is the shorter one. */
+	readonly maxShortEdge: number;
 	/** Highest frame rate the tier may export at. */
 	readonly maxFps: number;
 	/** Longest video the tier may export, in milliseconds. */
@@ -44,8 +58,8 @@ export interface PlanCapabilities {
  * nerfs itself. Caps are unbounded so every gate is a pass-through no-op.
  */
 const LOCAL: PlanCapabilities = {
-	maxWidth: Number.POSITIVE_INFINITY,
-	maxHeight: Number.POSITIVE_INFINITY,
+	maxLongEdge: Number.POSITIVE_INFINITY,
+	maxShortEdge: Number.POSITIVE_INFINITY,
 	maxFps: Number.POSITIVE_INFINITY,
 	maxDurationMs: Number.POSITIVE_INFINITY,
 	forcesBrandingWatermark: false,
@@ -56,8 +70,8 @@ const LOCAL: PlanCapabilities = {
 };
 
 const FREE: PlanCapabilities = {
-	maxWidth: 1920,
-	maxHeight: 1080,
+	maxLongEdge: 1920,
+	maxShortEdge: 1080,
 	maxFps: 60,
 	maxDurationMs: 60_000,
 	forcesBrandingWatermark: true,
@@ -68,8 +82,8 @@ const FREE: PlanCapabilities = {
 };
 
 const PRO: PlanCapabilities = {
-	maxWidth: 3840,
-	maxHeight: 2160,
+	maxLongEdge: 3840,
+	maxShortEdge: 2160,
 	maxFps: 60,
 	maxDurationMs: 600_000,
 	forcesBrandingWatermark: false,
@@ -169,15 +183,27 @@ export class Plan {
 		return this.capabilities.seats;
 	}
 
+	/**
+	 * How far the request must shrink to fit the plan's rectangle: 1 when it
+	 * already fits. Orientation-free — the request's long edge is measured against
+	 * the plan's long edge and its short edge against the short edge, so a preset
+	 * and its portrait twin (3840x2160 and 2160x3840) are the same entitlement.
+	 */
+	private resolutionScale(width: number, height: number): number {
+		const { maxLongEdge, maxShortEdge } = this.capabilities;
+		const longEdge = Math.max(width, height);
+		const shortEdge = Math.min(width, height);
+		return Math.min(1, maxLongEdge / longEdge, maxShortEdge / shortEdge);
+	}
+
 	/** Whether the requested resolution fits within the plan's limits. */
 	allowsResolution(width: number, height: number): boolean {
-		return width <= this.capabilities.maxWidth && height <= this.capabilities.maxHeight;
+		return this.resolutionScale(width, height) >= 1;
 	}
 
 	/** Fit the requested resolution within the plan, preserving aspect ratio. */
 	clampResolution(width: number, height: number): { width: number; height: number } {
-		const { maxWidth, maxHeight } = this.capabilities;
-		const scale = Math.min(1, maxWidth / width, maxHeight / height);
+		const scale = this.resolutionScale(width, height);
 		if (scale >= 1) {
 			return { width, height };
 		}
