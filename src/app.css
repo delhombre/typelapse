@@ -95,6 +95,17 @@ html[data-landing-theme="dark"] {
 	outline: none;
 }
 
+/* The phone's sheet is a focus *target*, not a control: Vaul moves focus into it
+   so a screen reader lands inside the panel, and Chrome treats that programmatic
+   move on a `tabindex="-1"` container as keyboard focus. So the studio opened at
+   phone width with a 2px accent ring drawn around the whole sheet, before the
+   visitor had touched anything — a keyboard affordance on the one surface with
+   no keyboard, marking something there is nothing to do to. Everything inside it
+   keeps its ring, which is where the ring means something. */
+[data-vaul-drawer]:focus-visible {
+	outline: none;
+}
+
 /* Reduced motion: keep opacity/color, drop movement (Apple's guidance).
 
    The rule is enforced on `transition-property`, not on the duration. Zeroing
@@ -474,7 +485,14 @@ html[data-landing-theme="dark"] {
 	/* The bars would otherwise appear inside a 40px field on the platforms that
 	   reserve room for them. The caret still carries the view along with it. */
 	scrollbar-width: none;
-	/* The block below stands in for it. */
+	/* The real caret, which is the only one that knows where the selection is.
+	   The block below stands in for it while the field is empty, and only then. */
+	caret-color: var(--color-ink);
+}
+
+/* Empty: there is one place the caret can be, the block says so exactly, and two
+   carets in the same place would be one too many. */
+.landing-root .lp-field[data-empty] textarea {
 	caret-color: transparent;
 }
 
@@ -501,11 +519,7 @@ html[data-landing-theme="dark"] {
 	flex: 1 1 auto;
 	max-height: 220px;
 	line-height: 1.55;
-	/* The drawn caret has stood down by now — it has no end of the text to stand
-	   at once there are several lines — so the real one has to come back, or the
-	   field is one you cannot see yourself typing in. */
-	caret-color: var(--color-ink);
-	/* And with the height capped there is more diff than room, which a field
+	/* With the height capped there is more diff than room, which a field
 	   with no bars at all gives no sign of. At this size there is room to say so. */
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in oklch, var(--color-ash) 40%, transparent) transparent;
@@ -522,12 +536,15 @@ html[data-landing-theme="dark"] {
 	background: color-mix(in oklch, var(--color-ash) 40%, transparent);
 }
 
-/* The caret is the focus state: absent until the field has focus, and standing
-   where the next character goes. Held by visibility and not opacity, because
-   the blink is a keyframe animation on opacity and an animation outranks a
-   declaration. Nothing between it and the text — a caret with a space in front
-   of it is not a caret — and no pointer events, since pressing the field is
-   what puts you in it. */
+/* The caret is the empty field's focus state: absent until the field has focus,
+   standing where the first character goes, and gone the moment there is one —
+   from there the real caret takes over, because it is the only one that knows
+   where the selection is. Held by visibility and not opacity, because the blink
+   is a keyframe animation on opacity and an animation outranks a declaration —
+   and because it must keep its room in the row either way, or the Render button
+   would step sideways on the first keystroke. Nothing between it and the text —
+   a caret with a space in front of it is not a caret — and no pointer events,
+   since pressing the field is what puts you in it. */
 .landing-root .lp-caret {
 	display: inline-block;
 	flex: none;
@@ -537,15 +554,13 @@ html[data-landing-theme="dark"] {
 	translate: 0 0.18em;
 	background: var(--color-ink);
 	pointer-events: none;
+	animation: lp-blink 1.06s steps(1, end) infinite;
 }
 
-.landing-root .lp-field:not(:focus-within) .lp-caret {
+.landing-root .lp-field:not(:focus-within) .lp-caret,
+.landing-root .lp-field:not([data-empty]) .lp-caret {
 	visibility: hidden;
 	animation: none;
-}
-
-.landing-root .lp-caret[data-idle] {
-	animation: lp-blink 1.06s steps(1, end) infinite;
 }
 
 @keyframes lp-blink {
@@ -607,14 +622,22 @@ html[data-landing-theme="dark"] {
    lines up across rows cannot be sized inside a row: the list owns the columns,
    each row borrows them by subgrid. Its right edge is the field's own, so the
    log is exactly as wide as the object it reports on. */
+/* Every row is 24px because every row is a target: each one carries a real pull
+   request into the studio, and at 20px of line and 2px of gap the link was a
+   20px-tall thing to hit — under WCAG 2.5.8's 24px floor, on the three rows
+   most likely to be tapped with a thumb. The height goes into the line rather
+   than into a gap so the rows tile: 24px of link against 24px of link, with no
+   gutter between them that answers to nobody and no extension reaching into a
+   neighbour's row to steal its taps. The log is four rows of 24 instead of four
+   of 22; it costs the hero 8px and reads the same. */
 .landing-root .lp-log {
 	display: grid;
 	grid-template-columns: 1fr auto auto auto;
-	gap: 2px 2ch;
+	gap: 0 2ch;
 	margin-top: 14px;
 	font-family: var(--font-mono);
 	font-size: 12px;
-	line-height: 20px;
+	line-height: 24px;
 }
 
 .landing-root .lp-log li {
@@ -1147,8 +1170,19 @@ html[data-landing-theme="dark"] {
    Use only where neighbours leave the room — at tighter densities size the
    button itself to WCAG's 24px floor instead, or the extensions steal each
    other's clicks. */
-.hit-ext {
-	position: relative;
+/* The one declaration a utility must be able to beat, so it is the one
+   declaration that sits in a layer. Unlayered CSS outranks every layer, and
+   Tailwind's utilities are layered: written plainly, this `relative` silently
+   won over `fixed` on the only control that asks for both, and the landing's
+   theme toggle — `hit-ext fixed top-5 right-5` — was laid out in flow and then
+   pushed 20px *left* of it, hanging half off the left edge of the page and
+   scrolling away with the hero. In `components` it loses to a positioning
+   utility and still gives every other user of the class the containing block
+   the extension below needs. */
+@layer components {
+	.hit-ext {
+		position: relative;
+	}
 }
 
 .hit-ext::after {

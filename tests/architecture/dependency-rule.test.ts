@@ -42,7 +42,16 @@ const withoutCommentsAndStrings = (source: string): string => {
 };
 
 const STATIC_IMPORT = /\bfrom\s*["']([^"']+)["']/g;
-const SIDE_EFFECT_IMPORT = /\bimport\s*["']([^"']+)["']/g;
+/**
+ * The space is required, not optional. `import"x"` is not syntax anyone writes
+ * and Biome would not leave it, whereas an optional space makes the word
+ * `import` at the *end of a string* open an import: `from "@/…/utils/import"`
+ * matches from the word to the closing quote, and the "specifier" it then
+ * captures is whatever text runs to the next quote in the file. Seven such
+ * strings exist in the presentation layer today; the guard only stays quiet
+ * because it scans the domain and the application, where none live yet.
+ */
+const SIDE_EFFECT_IMPORT = /\bimport\s+["']([^"']+)["']/g;
 const DYNAMIC_IMPORT = /\bimport\s*\(\s*["']([^"']+)["']/g;
 
 const importsOf = (file: string): string[] => {
