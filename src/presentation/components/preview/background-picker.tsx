@@ -121,14 +121,14 @@ function ColorSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	const colorValue = /^#[0-9a-fA-F]{6}$/.test(selected) ? selected : "#1e293b";
 
 	return (
-		<span className="relative flex items-center justify-center">
+		<span className="relative flex size-6 items-center justify-center">
 			<motion.button
 				type="button"
 				onClick={() => inputRef.current?.click()}
 				whileTap={{ scale: 0.96 }}
 				whileHover={{ scale: 1.15 }}
 				transition={springs.snappy}
-				className="relative flex items-center justify-center"
+				className="relative flex size-6 items-center justify-center"
 				title="Custom color"
 			>
 				{isSelected && (
@@ -185,14 +185,14 @@ function ImageSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	}
 
 	return (
-		<span className="relative flex items-center justify-center">
+		<span className="relative flex size-6 items-center justify-center">
 			<motion.button
 				type="button"
 				onClick={() => inputRef.current?.click()}
 				whileTap={{ scale: 0.96 }}
 				whileHover={{ scale: 1.15 }}
 				transition={springs.snappy}
-				className="relative flex items-center justify-center"
+				className="relative flex size-6 items-center justify-center"
 				title="Upload image"
 			>
 				{isSelected && (
@@ -263,7 +263,7 @@ function Swatch({
 			whileTap={{ scale: 0.96 }}
 			whileHover={{ scale: 1.15 }}
 			transition={springs.snappy}
-			className="relative flex items-center justify-center"
+			className="relative flex size-6 items-center justify-center"
 			title={title}
 		>
 			{isSelected && (

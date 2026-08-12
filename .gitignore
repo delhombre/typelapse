@@ -16,5 +16,8 @@ CLAUDE.md
 # Browser automation snapshots, never part of the project
 .playwright-mcp/
 
+# QA run output: reports, baselines and screenshots, regenerated on every run
+.gstack/
+
 # Local-only Lapse tooling: a licence-gated package that must not gate anyone else
 .lapse/

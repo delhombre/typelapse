@@ -1,4 +1,5 @@
 import type { LandingTheme } from "./use-landing-theme";
+import { useOverDark } from "./use-over-dark";
 
 interface ThemeToggleProps {
 	theme: LandingTheme;
@@ -9,16 +10,31 @@ interface ThemeToggleProps {
  * A quiet corner switch. It sits outside the nav pill on purpose: the nav is a
  * solid dark island in both themes, and a control that flips the page's whole
  * palette should not be hidden inside the one element that never changes.
+ *
+ * Being fixed, it passes over the page's dark sections, where an ink glyph is
+ * an invisible one — so it inverts with what is under it. `mix-blend-mode:
+ * difference` would do this on its own and with no observer at all, which is
+ * the appeal; but it inverts against *every* backdrop, and the one this passes
+ * over most is the primary's own mesh, where difference turns a white glyph
+ * blue. Ink reads 12:1 on that mesh already. Two states, not a filter.
  */
+/** The strip it floats in: 20 of top offset and 36 of button. */
+const TOGGLE_BAND = 56;
+
 export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
 	const next = theme === "light" ? "dark" : "light";
+	const onDark = useOverDark(TOGGLE_BAND);
 
 	return (
 		<button
 			type="button"
 			onClick={onToggle}
 			aria-label={`Switch to ${next} theme`}
-			className="fixed top-5 right-5 z-50 flex size-9 items-center justify-center rounded-full text-ink/70 transition-colors hover:bg-ink/6 hover:text-ink"
+			className={`hit-ext fixed top-5 right-5 z-50 flex size-9 items-center justify-center rounded-full transition-colors duration-300 ease-[var(--ease-out)] ${
+				onDark
+					? "text-paper/75 hover:bg-paper/10 hover:text-paper"
+					: "text-ink/70 hover:bg-ink/6 hover:text-ink"
+			}`}
 		>
 			<Icon theme={theme} />
 		</button>

@@ -6,6 +6,7 @@ import {
 	fetchPrWalkthrough,
 } from "@/infrastructure/import/pr-import";
 import { springs } from "@/presentation/motion";
+import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
@@ -39,6 +40,22 @@ export function DiffImportMenu() {
 
 	// The textarea doubles as a URL bar; the commit toggle only applies to PR URLs.
 	const prRef = resolvePrUrl(text.trim());
+
+	/**
+	 * A pull request URL pasted into the URL importer arrives here instead of
+	 * being refused: it opens the dialog with the URL already in place, so the
+	 * only thing left to choose is whole-change or by-commit.
+	 */
+	const pending = useDiffImportStore((s) => s.pending);
+	const takePending = useDiffImportStore((s) => s.take);
+	useEffect(() => {
+		if (pending === null) {
+			return;
+		}
+		setText(pending);
+		setOpen(true);
+		takePending();
+	}, [pending, takePending]);
 
 	useEffect(() => {
 		if (!open) {
@@ -148,9 +165,12 @@ export function DiffImportMenu() {
 			<motion.button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
+				aria-haspopup="dialog"
+				aria-expanded={open}
+				aria-label="Import a git diff"
 				whileTap={{ scale: 0.96 }}
 				transition={springs.snappy}
-				className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
+				className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
 					open
 						? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
 						: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
@@ -176,6 +196,12 @@ export function DiffImportMenu() {
 							exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
 							transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
 							style={{ transformOrigin: "top right" }}
+							// biome-ignore lint/a11y/useSemanticElements: a native <dialog> cannot be
+							// anchored to its trigger the way this panel is, and loses its enter/exit
+							// animation with it. Non-modal by intent: the backdrop dismisses and
+							// nothing outside is inert, so no aria-modal is claimed.
+							role="dialog"
+							aria-label="Import a git diff"
 							className="absolute right-0 top-full z-50 mt-2 w-96 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
 						>
 							<textarea
@@ -204,7 +230,7 @@ export function DiffImportMenu() {
 										className="overflow-hidden"
 									>
 										<div className="mt-2 flex items-center gap-2">
-											<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+											<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
 												play as
 											</span>
 											<ModeToggle mode={mode} onSelect={setMode} />
@@ -213,7 +239,7 @@ export function DiffImportMenu() {
 								)}
 							</AnimatePresence>
 							<div className="mt-2 flex items-center justify-between gap-2">
-								<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+								<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
 									{hint()}
 								</span>
 								<motion.button
@@ -255,7 +281,7 @@ function ModeToggle({
 						className={`relative rounded-md px-2 py-1 text-[11px] font-medium transition-colors duration-150 ${
 							isSelected
 								? "text-white dark:text-neutral-900"
-								: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300"
+								: "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300"
 						}`}
 					>
 						{isSelected && (

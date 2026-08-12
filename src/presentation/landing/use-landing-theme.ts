@@ -1,8 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 
 export type LandingTheme = "light" | "dark";
 
 const STORAGE_KEY = "typelapse.landing-theme";
+
+/**
+ * A theme flip remaps every colour token at once, so without help it is a hard
+ * cut: the whole page — paper, ink, hairlines, the mesh behind the cards —
+ * changes between two frames. The browser can cross-fade it for us if we tell
+ * it where the change begins and ends, which is all a view transition is.
+ *
+ * Two reasons to decline. Not every browser has the API, and someone who has
+ * asked for less motion has asked for this too — a full-page dissolve is the
+ * most motion the landing ever produces. Both fall back to the flip we have
+ * always done, unchanged.
+ */
+const canCrossFade = (): boolean => {
+	return (
+		typeof document.startViewTransition === "function" &&
+		!window.matchMedia("(prefers-reduced-motion: reduce)").matches
+	);
+};
 
 /**
  * The landing's theme, remembered across visits.
@@ -41,10 +60,24 @@ export function useLandingTheme(): [LandingTheme, () => void] {
 	}, [theme]);
 
 	const toggle = useCallback(() => {
-		setTheme((current) => {
-			const next = current === "light" ? "dark" : "light";
-			window.localStorage.setItem(STORAGE_KEY, next);
-			return next;
+		const flip = () => {
+			setTheme((current) => {
+				const next = current === "light" ? "dark" : "light";
+				window.localStorage.setItem(STORAGE_KEY, next);
+				return next;
+			});
+		};
+
+		if (!canCrossFade()) {
+			flip();
+			return;
+		}
+
+		// The snapshot is taken when the callback returns, so the flip has to have
+		// landed in the DOM by then: a state update React is still free to batch
+		// would be captured as the *old* frame twice, and nothing would fade.
+		document.startViewTransition(() => {
+			flushSync(flip);
 		});
 	}, []);
 
