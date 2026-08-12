@@ -622,14 +622,22 @@ html[data-landing-theme="dark"] {
    lines up across rows cannot be sized inside a row: the list owns the columns,
    each row borrows them by subgrid. Its right edge is the field's own, so the
    log is exactly as wide as the object it reports on. */
+/* Every row is 24px because every row is a target: each one carries a real pull
+   request into the studio, and at 20px of line and 2px of gap the link was a
+   20px-tall thing to hit — under WCAG 2.5.8's 24px floor, on the three rows
+   most likely to be tapped with a thumb. The height goes into the line rather
+   than into a gap so the rows tile: 24px of link against 24px of link, with no
+   gutter between them that answers to nobody and no extension reaching into a
+   neighbour's row to steal its taps. The log is four rows of 24 instead of four
+   of 22; it costs the hero 8px and reads the same. */
 .landing-root .lp-log {
 	display: grid;
 	grid-template-columns: 1fr auto auto auto;
-	gap: 2px 2ch;
+	gap: 0 2ch;
 	margin-top: 14px;
 	font-family: var(--font-mono);
 	font-size: 12px;
-	line-height: 20px;
+	line-height: 24px;
 }
 
 .landing-root .lp-log li {
