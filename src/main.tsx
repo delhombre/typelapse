@@ -4,7 +4,9 @@ import { CodeEditor } from "@/presentation/components/editor/code-editor";
 import { StepBuilder } from "@/presentation/components/editor/step-builder";
 import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
 import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
+import { StudioPersistence } from "@/presentation/components/layout/studio-persistence";
 import { LivePreview } from "@/presentation/components/preview/live-preview";
+import { NoticeHost } from "@/presentation/components/ui/notice-host";
 import { LandingPage } from "@/presentation/landing/landing-page";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
@@ -26,9 +28,16 @@ useSnippetStore.getState().rebuildPlan();
 function Studio() {
 	return (
 		<>
+			{/* Restores last session's draft, autosaves this one, guards unload.
+			    Reads the arrival hash at render, so it stays correct whatever order
+			    the boot effects fire in: a deep link or share link wins over the
+			    draft, because whoever opened one asked for what it carries. */}
+			<StudioPersistence />
 			{/* Loads whatever the landing hero was pasted, when the studio was opened
 			    from it. Renders nothing on a normal visit. */}
 			<ImportIntentBoot />
+			{/* The studio's one feedback surface: import errors, refused uploads. */}
+			<NoticeHost />
 			<ResponsiveShell
 				editor={<CodeEditor />}
 				stepBuilder={<StepBuilder />}

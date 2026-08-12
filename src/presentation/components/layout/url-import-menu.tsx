@@ -1,7 +1,9 @@
 import { routeUrlPaste } from "@/application/import/route-url-paste";
+import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
@@ -16,6 +18,8 @@ import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState }
 export function UrlImportMenu() {
 	const [open, setOpen] = useState(false);
 	const [url, setUrl] = useState("");
+	/** True while the fetch waits on a confirm, because opening it would discard edits. */
+	const [confirming, setConfirming] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 
 	const { loading, error, run, reset } = useSourceImport();
@@ -26,6 +30,8 @@ export function UrlImportMenu() {
 
 	useEffect(() => {
 		if (!open) {
+			// A closed popover forgets its pending question, not its URL.
+			setConfirming(false);
 			return;
 		}
 		function onKey(e: KeyboardEvent) {
@@ -41,6 +47,14 @@ export function UrlImportMenu() {
 		};
 	}, [open]);
 
+	async function performOpen(trimmed: string) {
+		setConfirming(false);
+		if (await run(trimmed)) {
+			setUrl("");
+			setOpen(false);
+		}
+	}
+
 	async function fetchCode() {
 		const trimmed = url.trim();
 		if (!trimmed || loading) {
@@ -51,17 +65,21 @@ export function UrlImportMenu() {
 
 		switch (routeUrlPaste(trimmed)) {
 			// The diff dialog gets the box already filled, so the only thing left
-			// is the whole-change or by-commit choice it is there to offer.
+			// is the whole-change or by-commit choice it is there to offer. Not
+			// destructive yet: that dialog asks its own confirm on Apply.
 			case "hand-off":
 				handOffToDiffImport(trimmed);
 				setUrl("");
 				setOpen(false);
 				return;
 			case "open-here":
-				if (await run(trimmed)) {
-					setUrl("");
-					setOpen(false);
+				// Opening replaces the whole studio: edited work is asked about
+				// first, before any fetch is spent on it.
+				if (useSnippetStore.getState().hasUnsavedEdits()) {
+					setConfirming(true);
+					return;
 				}
+				await performOpen(trimmed);
 				return;
 			default:
 				setRefusal("Unsupported URL: paste a gist, a GitHub file, a commit or a pull request link");
@@ -119,29 +137,40 @@ export function UrlImportMenu() {
 							aria-label="Import from URL"
 							className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-neutral-200 bg-white p-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
 						>
-							<div className="flex items-center gap-1.5">
-								<input
-									ref={inputRef}
-									type="text"
-									value={url}
-									onChange={(e) => setUrl(e.target.value)}
-									onKeyDown={onInputKeyDown}
-									placeholder="gist or github url"
-									spellCheck={false}
-									className="h-8 flex-1 rounded-lg border border-neutral-200/70 bg-white px-2.5 font-mono text-[11px] text-neutral-700 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+							{confirming ? (
+								<ConfirmDiscard
+									message="Replace what you have with the fetched file?"
+									confirmLabel="Fetch it"
+									onCancel={() => setConfirming(false)}
+									onConfirm={() => void performOpen(url.trim())}
 								/>
-								<motion.button
-									type="button"
-									onClick={() => void fetchCode()}
-									disabled={loading}
-									whileTap={{ scale: 0.96 }}
-									transition={springs.snappy}
-									className="flex h-8 items-center justify-center gap-1 rounded-lg bg-neutral-900 px-3 text-[11px] font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
-								>
-									{loading ? <Spinner /> : "Fetch"}
-								</motion.button>
-							</div>
-							{message && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{message}</p>}
+							) : (
+								<>
+									<div className="flex items-center gap-1.5">
+										<input
+											ref={inputRef}
+											type="text"
+											value={url}
+											onChange={(e) => setUrl(e.target.value)}
+											onKeyDown={onInputKeyDown}
+											placeholder="gist or github url"
+											spellCheck={false}
+											className="h-8 flex-1 rounded-lg border border-neutral-200/70 bg-white px-2.5 font-mono text-[11px] text-neutral-700 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+										/>
+										<motion.button
+											type="button"
+											onClick={() => void fetchCode()}
+											disabled={loading}
+											whileTap={{ scale: 0.96 }}
+											transition={springs.snappy}
+											className="flex h-8 items-center justify-center gap-1 rounded-lg bg-neutral-900 px-3 text-[11px] font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+										>
+											{loading ? <Spinner /> : "Fetch"}
+										</motion.button>
+									</div>
+									{message && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{message}</p>}
+								</>
+							)}
 						</motion.div>
 					</>
 				)}
