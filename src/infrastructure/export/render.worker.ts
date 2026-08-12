@@ -21,6 +21,7 @@ import { advanceDriftMessage } from "@/application/fonts/font-fidelity";
 import { canvasFont } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
 import type { GrainTile } from "@/application/frame-painter/scene";
+import { CHROME_FONT_STACK } from "@/application/layout/frame-metrics";
 import {
 	BufferTarget,
 	CanvasSource,
@@ -211,7 +212,9 @@ async function measureAdvance(
 	fontFamily: string,
 	fontSize: number,
 ): Promise<number> {
-	await loadExportFonts(scope.fonts, fontFamily);
+	// The chrome bar is set in the app's own mono whatever the code is set in, so
+	// it is a second family this scope has to have before it paints anything.
+	await loadExportFonts(scope.fonts, fontFamily, CHROME_FONT_STACK);
 	const size = fontSize * VIDEO_SCALE;
 	ctx.font = canvasFont(size, fontFamily);
 	return ctx.measureText("0").width / size;

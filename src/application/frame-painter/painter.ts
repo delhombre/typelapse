@@ -21,6 +21,13 @@ import {
 	radialGradientRadii,
 } from "../backgrounds/backdrop";
 import { meshBlobsAt } from "../backgrounds/mesh-gradient";
+import {
+	CHROME_FONT_STACK,
+	CHROME_STYLE,
+	CHROME_TEXT_LINE_HEIGHT,
+	chromePadY,
+	chromeRowHeight,
+} from "../layout/frame-metrics";
 import { gutterLabels } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
 import type { ZoomTransform } from "../magic-move/focus-zoom";
@@ -48,15 +55,8 @@ export interface FrameState {
 
 /** Below this the glyph is invisible; painting it costs a draw call for nothing. */
 const INVISIBLE = 0.001;
-/** The macOS bar's own metrics, in unscaled px, straight from `FrameChrome`. */
-const LIGHT_SIZE = 11;
-const LIGHT_GAP = 8;
-const LIGHT_PAD_X = 16;
-const LIGHT_PAD_Y = 12;
-const TITLE_SIZE = 11;
-/** Intrinsic line box of the bar's text: mirrors `CHROME_TEXT_LINE_HEIGHT`. */
-const CHROME_ROW = LIGHT_SIZE * 1.35;
-const TRAFFIC_LIGHTS = ["#ff5f57", "#febc2e", "#28c840"];
+/** What `text-overflow: ellipsis` puts on the end of a line it had to cut. */
+const ELLIPSIS = "…";
 /** `ReelsProgress`'s own metrics, in unscaled px, and where the card floats it. */
 const PROGRESS_HEIGHT = 4;
 const PROGRESS_GAP = 6;
@@ -299,48 +299,180 @@ function paintWindow(ctx: PaintContext, scene: FrameScene): void {
 }
 
 /**
- * The macOS bar: three traffic lights and the title, laid out as the flex row
- * they are in the DOM (padding, then one gap between each child), and closed by
- * the same hairline border.
+ * The window chrome, whichever of the three bars the user picked.
+ *
+ * Two of them used to come out of here as an empty strip with a hairline under
+ * it: the painter drew the macOS lights and returned. Each is now laid out as
+ * the centred flex row it is in the DOM — padding, then one gap between each
+ * child — from the same `CHROME_STYLE` table the component styles itself from.
+ *
+ * The type is the app's own mono rather than the theme's, because that is what
+ * `FrameChrome` sets it in whatever the code is set in.
  */
 function paintChrome(ctx: PaintContext, scene: FrameScene): void {
-	const { chrome, title, theme } = scene.style;
+	const { chrome, theme } = scene.style;
 	if (chrome === "none") {
 		return;
 	}
 	const unit = scene.unit;
-	const { x, y } = scene.window;
+	const { x, y, width } = scene.window;
 
-	// Hairline under the bar, at the bar's own bottom edge.
-	ctx.fillStyle = withHexAlpha(theme.foreground, "0f");
-	ctx.fillRect(x, y + scene.chromeHeight - unit, scene.window.width, unit);
-
-	if (chrome !== "macos") {
-		return;
+	if (chrome === "terminal") {
+		// The only bar with a fill of its own; it sits under the hairline, and a
+		// CSS background covers the border box, so it runs the bar's full height.
+		ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.terminal.barAlpha);
+		ctx.fillRect(x, y, width, scene.chromeHeight);
 	}
 
-	const size = LIGHT_SIZE * unit;
+	// Hairline under the bar, at the bar's own bottom edge.
+	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.borderAlpha);
+	ctx.fillRect(x, y + scene.chromeHeight - unit, width, unit);
+
 	// The flex row is centred on the content box, which sits inside the padding
-	// and above the 1px border.
-	const cy = y + LIGHT_PAD_Y * unit + (CHROME_ROW * unit) / 2;
-	let cx = x + LIGHT_PAD_X * unit;
-	for (const color of TRAFFIC_LIGHTS) {
+	// and above the border.
+	const cy = y + (chromePadY(chrome) + chromeRowHeight(chrome) / 2) * unit;
+	ctx.textAlign = "left";
+	ctx.textBaseline = "middle";
+	if (chrome === "macos") {
+		paintMacosChrome(ctx, scene, cy);
+	} else if (chrome === "browser") {
+		paintBrowserChrome(ctx, scene, cy);
+	} else {
+		paintTerminalChrome(ctx, scene, cy);
+	}
+	setTracking(ctx, "normal");
+}
+
+function paintMacosChrome(ctx: PaintContext, scene: FrameScene, cy: number): void {
+	const bar = CHROME_STYLE.macos;
+	const unit = scene.unit;
+	const { theme, title } = scene.style;
+	const size = bar.dot * unit;
+
+	let cx = scene.window.x + bar.padX * unit;
+	for (const color of bar.lights) {
 		ctx.beginPath();
 		ctx.arc(cx + size / 2, cy, size / 2, 0, Math.PI * 2);
 		ctx.fillStyle = color;
 		ctx.fill();
-		cx += size + LIGHT_GAP * unit;
+		cx += size + bar.gap * unit;
 	}
-
 	if (title === "") {
 		return;
 	}
 	// The title is the fourth flex child, plus its own left margin.
-	ctx.font = canvasFont(TITLE_SIZE * unit, theme.fontFamily);
+	setTracking(ctx, bar.titleTracking);
+	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
+	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
+	ctx.fillText(title, cx + bar.gap * unit, cy);
+}
+
+/**
+ * The browser bar: two nav chevrons, then an address pill centred in whatever
+ * room is left once the chevrons and the right-hand spacer have taken theirs.
+ *
+ * The pill is shrink-to-fit up to its `max-width`, and its text ellipsises
+ * inside it, so both have to be measured rather than assumed — which is why this
+ * is the one bar whose layout depends on the string it is given.
+ */
+function paintBrowserChrome(ctx: PaintContext, scene: FrameScene, cy: number): void {
+	const bar = CHROME_STYLE.browser;
+	const unit = scene.unit;
+	const { theme, title } = scene.style;
+	const left = scene.window.x + bar.padX * unit;
+	const contentWidth = scene.window.width - 2 * bar.padX * unit;
+
+	setTracking(ctx, "normal");
+	ctx.font = canvasFont(bar.chevronSize * unit, CHROME_FONT_STACK);
+	ctx.fillStyle = withHexAlpha(theme.foreground, bar.chevronAlpha);
+	let cx = left;
+	for (const chevron of bar.chevrons) {
+		ctx.fillText(chevron, cx, cy);
+		cx += ctx.measureText(chevron).width + bar.chevronGap * unit;
+	}
+	// The last chevron added a gap that is not there; take it back.
+	const chevronWidth = cx - bar.chevronGap * unit - left;
+
+	// The middle child is `flex: 1`, so it takes everything the other two leave.
+	const flexLeft = left + chevronWidth + bar.gap * unit;
+	const flexWidth = contentWidth - chevronWidth - bar.spacer * unit - 2 * bar.gap * unit;
+	if (flexWidth <= 0) {
+		return;
+	}
+
+	setTracking(ctx, bar.titleTracking);
+	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
+	const padX = bar.pillPadX * unit;
+	const maxPill = bar.pillMaxWidth * flexWidth;
+	const pillWidth = Math.min(ctx.measureText(title).width + 2 * padX, maxPill);
+	const pillHeight = (2 * bar.pillPadY + bar.titleSize * CHROME_TEXT_LINE_HEIGHT) * unit;
+	const pillX = flexLeft + (flexWidth - pillWidth) / 2;
+
+	ctx.beginPath();
+	ctx.roundRect(pillX, cy - pillHeight / 2, pillWidth, pillHeight, bar.pillRadius);
+	ctx.fillStyle = withHexAlpha(theme.foreground, bar.pillAlpha);
+	ctx.fill();
+
+	if (title === "") {
+		return;
+	}
+	// `text-overflow: ellipsis` on a centred line: the text is clipped to the
+	// pill's content box, so a long title loses its tail rather than the pill.
+	const label = truncate(ctx, title, pillWidth - 2 * padX);
+	ctx.textAlign = "center";
+	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
+	ctx.fillText(label, pillX + pillWidth / 2, cy);
 	ctx.textAlign = "left";
-	ctx.textBaseline = "middle";
-	ctx.fillStyle = withHexAlpha(theme.foreground, "59");
-	ctx.fillText(title, cx + LIGHT_GAP * unit, cy);
+}
+
+/** The terminal bar: a prompt glyph at a weight of its own, then the title. */
+function paintTerminalChrome(ctx: PaintContext, scene: FrameScene, cy: number): void {
+	const bar = CHROME_STYLE.terminal;
+	const unit = scene.unit;
+	const { theme, title } = scene.style;
+	const left = scene.window.x + bar.padX * unit;
+
+	setTracking(ctx, "normal");
+	ctx.font = canvasFont(bar.promptSize * unit, CHROME_FONT_STACK, undefined, bar.promptWeight);
+	ctx.fillStyle = withHexAlpha(theme.foreground, bar.promptAlpha);
+	ctx.fillText(bar.prompt, left, cy);
+	const promptWidth = ctx.measureText(bar.prompt).width;
+
+	if (title === "") {
+		return;
+	}
+	setTracking(ctx, bar.titleTracking);
+	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
+	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
+	ctx.fillText(title, left + promptWidth + bar.gap * unit, cy);
+}
+
+/**
+ * CSS tracking, where a context has it.
+ *
+ * Set before measuring as well as before drawing: the address pill is sized from
+ * the width of its own text, so a measurement taken at the wrong tracking would
+ * put the pill in the wrong place as well as the wrong size.
+ */
+function setTracking(ctx: PaintContext, tracking: string): void {
+	if (ctx.letterSpacing !== undefined) {
+		ctx.letterSpacing = tracking;
+	}
+}
+
+/** A string cut to fit a width, with the ellipsis CSS would have added. */
+function truncate(ctx: PaintContext, text: string, maxWidth: number): string {
+	if (maxWidth <= 0) {
+		return "";
+	}
+	if (ctx.measureText(text).width <= maxWidth) {
+		return text;
+	}
+	let cut = text;
+	while (cut.length > 0 && ctx.measureText(`${cut}${ELLIPSIS}`).width > maxWidth) {
+		cut = cut.slice(0, -1);
+	}
+	return cut === "" ? "" : `${cut}${ELLIPSIS}`;
 }
 
 /**

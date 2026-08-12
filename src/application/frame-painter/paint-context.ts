@@ -29,6 +29,14 @@ export interface PaintContext {
 	font: string;
 	textAlign: string;
 	textBaseline: string;
+	/**
+	 * CSS tracking, which the chrome bar's text carries and the code's does not.
+	 *
+	 * Optional because it is the one property here a context is allowed not to
+	 * have: Safari only grew it in 17.4, and a browser without it renders a title
+	 * a fraction of a pixel per character wider rather than not at all.
+	 */
+	letterSpacing?: string;
 
 	save(): void;
 	restore(): void;
