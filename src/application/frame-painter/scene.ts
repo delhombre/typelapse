@@ -35,6 +35,27 @@ export interface SceneTheme {
 	borderRadius: number;
 }
 
+/**
+ * Mirrors `ReelsProgress`'s own union. The component lives in the presentation
+ * layer, which this layer may not import, so the three names are restated here;
+ * they are the same three names, and a mismatch fails to type-check at the
+ * boundary where the two meet.
+ */
+export type SceneProgressStyle = "reels" | "bar" | "none";
+
+/** The progress indicator baked over the background, or null when it is off. */
+export interface SceneProgress {
+	style: SceneProgressStyle;
+	/** One reels segment per step. */
+	segments: number;
+}
+
+/** Text baked into a corner of the canvas, already resolved to its colour. */
+export interface SceneWatermark {
+	text: string;
+	color: string;
+}
+
 export interface FrameSceneInput {
 	canvasWidth: number;
 	canvasHeight: number;
@@ -57,6 +78,10 @@ export interface FrameSceneInput {
 	/** Safe-area margin kept on each side of the canvas (fraction). */
 	canvasMargin: number;
 	grain: GrainTile | null;
+	/** Apply each frame's push-in transform; off leaves the body untransformed. */
+	focusZoom?: boolean;
+	progress?: SceneProgress | null;
+	watermark?: SceneWatermark | null;
 }
 
 export interface FrameScene {
@@ -81,6 +106,9 @@ export interface FrameScene {
 		flat: string;
 		lineNumberStart: number;
 		grain: GrainTile | null;
+		focusZoom: boolean;
+		progress: SceneProgress | null;
+		watermark: SceneWatermark | null;
 	};
 }
 
@@ -148,6 +176,9 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 			flat: input.background,
 			lineNumberStart: input.lineNumberStart,
 			grain: input.grain,
+			focusZoom: input.focusZoom ?? false,
+			progress: input.progress ?? null,
+			watermark: input.watermark ?? null,
 		},
 	};
 }
