@@ -2,7 +2,8 @@ import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gr
 import { Theme } from "@/domain/entities/theme";
 import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, memo, useEffect, useMemo, useReducer } from "react";
+import { highlightCacheKey, highlightOnce, readHighlight } from "./highlight-cache";
 
 const THEMES: Record<string, () => Theme> = {
 	midnight: Theme.midnight,
@@ -52,6 +53,9 @@ interface StaticFrameProps {
 	/** Alt text: these are product shots, so screen readers get one concise label
 	    instead of the raw, tokenized Shiki markup. */
 	label?: string;
+	/** A small corner annotation (the aspect ratio on the export fan), drawn the
+	    way a proof sheet marks its prints. Mesh cards only. */
+	badge?: string;
 	className?: string;
 }
 
@@ -60,8 +64,14 @@ interface StaticFrameProps {
  * animated-mesh backdrop (the same look the studio exports). With `bare` it
  * renders as a clean dark code card on the page instead, for shots where the
  * code, not the export look, is the subject.
+ *
+ * Memoised, and it matters where these are laid out in groups: the fan holds
+ * five and keeps which one is hovered in the parent's state, so every hover
+ * re-rendered all five and replaced five highlighted `<pre>` trees for a
+ * change that only moves one card. Every prop here is a primitive, so the
+ * shallow compare is the whole answer.
  */
-export function StaticFrame({
+export const StaticFrame = memo(function StaticFrame({
 	themeName,
 	presetId,
 	code,
@@ -74,6 +84,7 @@ export function StaticFrame({
 	fill = false,
 	bare = false,
 	label,
+	badge,
 	className = "",
 }: StaticFrameProps) {
 	const theme = useMemo(() => (THEMES[themeName] ?? Theme.aurora)(), [themeName]);
@@ -81,22 +92,29 @@ export function StaticFrame({
 		() => MESH_PRESETS.find((p) => p.id === presetId) ?? MESH_PRESETS[0],
 		[presetId],
 	);
-	const [html, setHtml] = useState("");
+	/* The memo is the state: a frame that has been highlighted once anywhere on the
+	   page paints its code on the very first render, with no empty-then-swap. Only
+	   a miss goes async, and the resolved highlight re-renders this frame. */
+	const cacheKey = highlightCacheKey(themeName, language, code);
+	const [, onHighlighted] = useReducer((n: number) => n + 1, 0);
+	const html = readHighlight(cacheKey) ?? "";
 
 	useEffect(() => {
+		if (readHighlight(cacheKey) !== undefined) {
+			return;
+		}
 		let cancelled = false;
-		shikiAdapter
-			.highlight(code, language, themeName)
-			.then((h) => {
+		highlightOnce(cacheKey, () => shikiAdapter.highlight(code, language, themeName))
+			.then(() => {
 				if (!cancelled) {
-					setHtml(h);
+					onHighlighted();
 				}
 			})
 			.catch(() => undefined);
 		return () => {
 			cancelled = true;
 		};
-	}, [code, language, themeName]);
+	}, [cacheKey, code, language, themeName]);
 
 	const codeBlock = (
 		<div
@@ -142,9 +160,24 @@ export function StaticFrame({
 					{codeBlock}
 				</FrameShell>
 			</div>
+			{badge && (
+				<span
+					aria-hidden="true"
+					className="absolute right-2 bottom-2 z-20 font-mono text-[9px] tabular-nums"
+					style={{
+						padding: "2px 6px",
+						borderRadius: 999,
+						color: "rgba(255,255,255,0.85)",
+						background: "rgba(0,0,0,0.32)",
+						textShadow: "0 1px 2px rgba(0,0,0,0.4)",
+					}}
+				>
+					{badge}
+				</span>
+			)}
 		</div>
 	);
-}
+});
 
 function FrameShell({
 	theme,

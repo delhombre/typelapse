@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gradient";
-import { fitCardToCanvas } from "../../src/application/layout/canvas-fit";
+import { fitCardToCanvas, renderScaleFor } from "../../src/application/layout/canvas-fit";
 import { LINE_HEIGHT_RATIO } from "../../src/application/layout/frame-metrics";
 import {
 	type LaidOutFrame,
@@ -25,8 +25,13 @@ import { StepCaption } from "../../src/presentation/components/preview/step-capt
 import { getWatermarkColor } from "../../src/presentation/utils/watermark-color";
 import type { RenderInput, ThemeData } from "./types";
 
-/** Upscale factor from the 14px editor preview to crisp 1080p/4K text. */
-const VIDEO_SCALE = 2.2;
+/**
+ * Upscale factor from the 14px editor preview to crisp text at the reference
+ * 1080p tier. Higher tiers multiply it by their share of that short edge (see
+ * `renderScaleFor`), so 4K draws the same shot with twice the pixels rather
+ * than the same card marooned in a bigger background.
+ */
+export const BASE_VIDEO_SCALE = 2.2;
 /** Safe-area margin on each side of the canvas the card is fit into. */
 const CANVAS_MARGIN = 0.05;
 
@@ -101,6 +106,10 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	);
 	const active = segments.find((s) => frame >= s.startFrame && frame < s.endFrame) ?? segments[segments.length - 1];
 
+	// Everything drawn at "video size" scales with the canvas's short edge, so the
+	// framing is identical at every resolution tier and only the fidelity changes.
+	const videoScale = renderScaleFor(width, height, BASE_VIDEO_SCALE);
+
 	const isTransparent = background === "transparent";
 	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
@@ -132,13 +141,14 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				cardMargin={cardMargin}
 				canvasWidth={width}
 				canvasHeight={height}
+				videoScale={videoScale}
 				reels={
 					steps.length >= 2 ? (
 						<ReelsProgress
 							style={progressStyle}
 							segments={steps.length}
 							progress={frame / Math.max(1, durationInFrames)}
-							scale={VIDEO_SCALE}
+							scale={videoScale}
 						/>
 					) : null
 				}
@@ -148,30 +158,37 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 							text={caption.text}
 							opacity={caption.opacity}
 							color={wmColor}
-							scale={VIDEO_SCALE}
+							scale={videoScale}
 						/>
 					) : null
 				}
 			>
 				{/* Focus zoom: identical transform to the preview so the video matches. */}
-				<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * VIDEO_SCALE)}>
+				<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * videoScale)}>
 					<MagicMoveCanvas
 						tokens={view.tokens}
 						lineCount={view.lineCount}
 						lineNumberCount={view.lineNumberCount}
-						fontSize={theme.fontSize * VIDEO_SCALE}
+						fontSize={theme.fontSize * videoScale}
 						lineHeightRatio={LINE_HEIGHT_RATIO}
 						fontFamily={theme.fontFamily}
 						color={theme.foreground}
 						showLineNumbers={showLineNumbers}
 						lineNumberStart={lineNumberStart}
 						lineNumberColor={`${theme.foreground}30`}
-						padding={framePadding * VIDEO_SCALE}
+						padding={framePadding * videoScale}
 						cursor={cursor}
 					/>
 				</div>
 			</CenteredFrame>
-			{watermark && <WatermarkOverlay text={watermark} color={wmColor} fontFamily={theme.fontFamily} />}
+			{watermark && (
+				<WatermarkOverlay
+					text={watermark}
+					color={wmColor}
+					fontFamily={theme.fontFamily}
+					scale={videoScale}
+				/>
+			)}
 		</AbsoluteFill>
 	);
 }
@@ -276,7 +293,12 @@ function staticView(held: LaidOutFrame | undefined, focus?: Set<number>): FrameV
 }
 
 /** Themed card with window chrome, centered and sized to fit the widest line. */
-function CenteredFrame({
+/**
+ * The card: the window (plus its reels bar and caption) centred and uniformly
+ * scaled into the canvas. Exported for the layout tests, which assert the width
+ * contract between the three stacked children; nothing else imports it.
+ */
+export function CenteredFrame({
 	plan,
 	theme,
 	title,
@@ -287,6 +309,7 @@ function CenteredFrame({
 	cardMargin,
 	canvasWidth,
 	canvasHeight,
+	videoScale,
 	reels,
 	caption,
 	children,
@@ -301,11 +324,13 @@ function CenteredFrame({
 	cardMargin: number;
 	canvasWidth: number;
 	canvasHeight: number;
+	/** Upscale factor for this canvas, from `renderScaleFor`. */
+	videoScale: number;
 	reels?: React.ReactNode;
 	caption?: React.ReactNode;
 	children: React.ReactNode;
 }) {
-	const radius = theme.borderRadius * VIDEO_SCALE;
+	const radius = theme.borderRadius * videoScale;
 	const isDark = isColorDark(theme.background);
 
 	// Natural size of the card + caption unit and its fit into the canvas, from
@@ -323,7 +348,7 @@ function CenteredFrame({
 		showLineNumbers,
 		lineNumberStart,
 		hasCaption: caption != null,
-		scale: VIDEO_SCALE,
+		scale: videoScale,
 		canvasWidth,
 		canvasHeight,
 		canvasMargin: CANVAS_MARGIN,
@@ -333,7 +358,7 @@ function CenteredFrame({
 	// The card wraps the window (and caption) in a proportional mesh border: the
 	// same cardMargin the preview paints, as transparent padding the full-bleed
 	// background AbsoluteFill shows through.
-	const cardPadding = cardMargin * VIDEO_SCALE;
+	const cardPadding = cardMargin * videoScale;
 
 	const boxShadow = isDark
 		? "0 0 0 1px rgba(255,255,255,0.05), 0 24px 64px -16px rgba(0,0,0,0.55), 0 8px 24px -8px rgba(0,0,0,0.4)"
@@ -374,7 +399,7 @@ function CenteredFrame({
 						<div
 							style={{
 								position: "absolute",
-								top: -(10 * VIDEO_SCALE),
+								top: -(10 * videoScale),
 								left: 0,
 								width: natural.width,
 								zIndex: 20,
@@ -397,11 +422,18 @@ function CenteredFrame({
 							chrome={windowChrome}
 							title={title}
 							foreground={theme.foreground}
-							scale={VIDEO_SCALE}
+							scale={videoScale}
 						/>
 						{children}
 					</div>
-					{caption}
+					{/* The caption band takes the window's width, like the reels bar above
+					    it. The column centres its children, so an unconstrained caption
+					    would size to its own text: `StepCaption`'s ellipsis would never
+					    engage (nothing to overflow) and a caption longer than a short code
+					    line would widen the column past the size `fitCardToCanvas` measured,
+					    pushing the card off the canvas. Pinning it here makes the one-line
+					    cut structural, exactly as the preview's block-level column does. */}
+					{caption && <div style={{ width: natural.width }}>{caption}</div>}
 				</div>
 			</div>
 		</div>
@@ -443,9 +475,45 @@ function isColorDark(color: string): boolean {
 	return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
 }
 
-function WatermarkOverlay({ text, color, fontFamily }: { text: string; color: string; fontFamily: string }) {
+/**
+ * The watermark's geometry as authored against the reference tier (1080p), in
+ * pixels. Kept verbatim from the fixed values it used to hard-code, so a 1080p
+ * export is unchanged to the pixel: `REFERENCE_SHORT_EDGE` promises exactly that.
+ */
+const WATERMARK_AT_REFERENCE = { bottom: 48, right: 56, fontSize: 22 };
+
+/**
+ * The user's mark, bottom-right of the canvas.
+ *
+ * `scale` is the same `renderScaleFor` factor the card, the caption and the
+ * progress bar take: everything drawn at video size grows with the canvas's short
+ * edge, so a tier buys sharpness without reframing the shot. The watermark used
+ * to sit at fixed pixels and so shrank against everything around it — at 4K it
+ * read half the size, half as far from the corner. Dividing by the base scale
+ * turns it back into a plain tier multiplier: 1 at 1080p, 2 at 4K.
+ *
+ * Exported for the layout tests; the composition is its only real caller.
+ */
+export function WatermarkOverlay({
+	text,
+	color,
+	fontFamily,
+	scale,
+}: { text: string; color: string; fontFamily: string; scale: number }) {
+	const tier = scale / BASE_VIDEO_SCALE;
 	return (
-		<div style={{ position: "absolute", bottom: 48, right: 56, fontFamily, fontSize: 22, color }}>{text}</div>
+		<div
+			style={{
+				position: "absolute",
+				bottom: WATERMARK_AT_REFERENCE.bottom * tier,
+				right: WATERMARK_AT_REFERENCE.right * tier,
+				fontFamily,
+				fontSize: WATERMARK_AT_REFERENCE.fontSize * tier,
+				color,
+			}}
+		>
+			{text}
+		</div>
 	);
 }
 

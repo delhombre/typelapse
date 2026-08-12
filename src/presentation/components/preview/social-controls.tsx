@@ -72,7 +72,7 @@ export function SocialControls() {
 									<GuidesToggle active={showGuides} onClick={() => setShowGuides(!showGuides)} />
 								</>
 							) : (
-								<span className="px-1.5 text-[11px] text-neutral-400 dark:text-neutral-500">
+								<span className="px-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
 									Set a 9:16, 1:1 or 4:5 ratio
 								</span>
 							)}
@@ -127,7 +127,7 @@ function PlatformSegmented({
 						className={`relative rounded-full px-2 py-1 text-[11px] font-medium transition-colors duration-150 ${
 							isSelected
 								? "text-white dark:text-neutral-900"
-								: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300"
+								: "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300"
 						}`}
 					>
 						{isSelected && (

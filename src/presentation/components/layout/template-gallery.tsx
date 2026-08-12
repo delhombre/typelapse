@@ -90,6 +90,10 @@ export function TemplateGallery() {
 				transition={springs.snappy}
 				aria-haspopup="dialog"
 				aria-expanded={open}
+				// The label is on the button, not left to the icon's <title>: below
+				// `sm` the visible word is hidden and the name would otherwise depend
+				// on the viewport.
+				aria-label="Templates"
 				className={`flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors ${
 					open
 						? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
@@ -235,7 +239,9 @@ function TemplateCard({
 				<span className="text-[13px] font-semibold leading-snug text-neutral-900 dark:text-neutral-50">
 					{template.name}
 				</span>
-				<span className="mt-px shrink-0 font-mono text-[9.5px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+				{/* 11px is the studio's type floor, and resting text is neutral-500
+				    light / neutral-400 dark — the role, not a per-site choice. */}
+				<span className="mt-px shrink-0 font-mono text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
 					{template.language}
 				</span>
 			</div>
@@ -246,7 +252,7 @@ function TemplateCard({
 				{template.tags.map((tag) => (
 					<span
 						key={tag}
-						className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[9.5px] font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
+						className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
 					>
 						{tag}
 					</span>

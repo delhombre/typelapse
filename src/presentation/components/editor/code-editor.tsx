@@ -223,7 +223,7 @@ export function CodeEditor() {
 					}}
 					loading={
 						<div className="flex h-full items-center justify-center">
-							<span className="font-mono text-[10px] text-neutral-400">Loading editor…</span>
+							<span className="font-mono text-[11px] text-neutral-400">Loading editor…</span>
 						</div>
 					}
 				/>

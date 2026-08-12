@@ -10,7 +10,7 @@ import { type ProjectContent, contentFingerprint } from "@/application/project/p
 import type { ProjectPayload, ProjectStepPayload } from "@/application/project/project-payload";
 import { MAX_RENDER_DIMENSION, MIN_RENDER_DIMENSION } from "@/domain/entities/render-config";
 import { Snippet } from "@/domain/entities/snippet";
-import { Step } from "@/domain/entities/step";
+import { Step, captionFromGeneratedLabel } from "@/domain/entities/step";
 import { Theme } from "@/domain/entities/theme";
 import type { HighlighterPort } from "@/domain/ports/highlighter.port";
 import type { HighlightRange } from "@/domain/value-objects/highlight-range";
@@ -133,6 +133,16 @@ interface SnippetState {
 	 * Throws a user-facing Error on unusable input: the caller surfaces it.
 	 */
 	importDiff: (diffText: string) => void;
+	/**
+	 * Replace the studio with a plain code paste: no steps, one static frame.
+	 *
+	 * Not the same as {@link setCode}, which keeps whatever steps are already
+	 * there — and since the plan animates the steps when there are any, pasting
+	 * code over a diff import would leave the paste invisible behind the old
+	 * walkthrough. An import replaces; an edit does not. Throws on blank code,
+	 * before any mutation, like its two siblings.
+	 */
+	importSnippet: (code: string, meta?: { title?: string; language?: string }) => void;
 	/**
 	 * Turn a PR's commits into one chaptered walkthrough: each commit is a chapter
 	 * (its own windowed staged sequence), played in order. Applies the SAME
@@ -409,7 +419,9 @@ function buildDiffSnippet(
 		// The snapshot's label ("Before" / a hunk heading / "After" / a "k/N · subject"
 		// chapter head) narrates the step, so it lands as the caption and the
 		// walkthrough explains itself. An empty label leaves the caption unset.
-		const annotation = snapshot.label ? snapshot.label : undefined;
+		// The label is generated, never typed: a git section heading can be any
+		// length, so it is shortened here rather than allowed to fail the import.
+		const annotation = captionFromGeneratedLabel(snapshot.label);
 		rebuilt = rebuilt.addStep(
 			Step.create({ code: snapshot.code, duration: DIFF_STEP_DURATION, annotation }),
 		);
@@ -792,8 +804,11 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 				if (typeof s.focus === "string") {
 					highlightRanges = parseLineRanges(s.focus) ?? [];
 				}
+				// Defensive: a stored caption is data, not live input. A project saved
+				// under an older bound (or hand-edited JSON) must still open, so an
+				// over-long caption is shortened instead of failing the whole import.
 				const annotation =
-					typeof s.caption === "string" && s.caption.trim() ? s.caption : undefined;
+					typeof s.caption === "string" ? captionFromGeneratedLabel(s.caption) : undefined;
 				snippet = snippet.addStep(
 					Step.create({ code: s.code, duration, highlightRanges, annotation }),
 				);
@@ -859,6 +874,29 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		clearRecordTimer();
 		set({ snippet: rebuilt, ...PLAYBACK_RESET });
 		markBaseline();
+
+		get().rebuildPlan();
+	},
+
+	importSnippet: (code: string, meta?: { title?: string; language?: string }) => {
+		// Thrown before any set(), so a blank paste leaves the studio intact.
+		if (code.trim() === "") {
+			throw new Error("Paste some code first.");
+		}
+		const current = get().snippet;
+		// Built from scratch rather than through rebuildSnippet, which carries the
+		// existing steps over: dropping them is the entire point of an import.
+		const rebuilt = Snippet.create({
+			title: meta?.title ?? current.title,
+			code,
+			language: meta?.language ?? current.language,
+			theme: current.theme,
+			renderConfig: current.renderConfig,
+		});
+
+		cancelRaf();
+		clearRecordTimer();
+		set({ snippet: rebuilt, ...PLAYBACK_RESET });
 
 		get().rebuildPlan();
 	},
