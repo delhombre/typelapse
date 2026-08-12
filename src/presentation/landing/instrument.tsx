@@ -575,8 +575,37 @@ function Toolbar({
 			const opener = restoreTo.current;
 			restoreTo.current = null;
 			if (node && opener) {
-				node.querySelector<HTMLElement>(`[data-island-opener="${opener}"]`)?.focus();
+				node
+					.querySelector<HTMLElement>(`[data-island-opener="${opener}"]`)
+					?.focus({ preventScroll: true });
 			}
+		},
+		[measureRow],
+	);
+
+	/**
+	 * And the other half of the same problem. Opening a panel unmounts the button
+	 * that was pressed, so focus fell to the body and the keyboard was left
+	 * outside the toolbar it had just been driving: Tab resumed from the top of
+	 * the document, and the options the press had asked for were behind every
+	 * other control on the page.
+	 *
+	 * Focus lands on Back, for the same reason the return lands on the opener:
+	 * each direction hands focus to the control that undoes the move, and tabbing
+	 * on from Back walks the options in the order they are read.
+	 *
+	 * It rides the panel row's mount for the same reason the restore rides the
+	 * root row's: `mode="wait"` holds the incoming row until the outgoing one has
+	 * finished leaving, so the moment of the click is too early to focus anything.
+	 *
+	 * `preventScroll` because the island is on screen by definition: the press
+	 * that opened the panel came from it, so the only thing a scroll could do
+	 * here is move the page under a finger that did not ask for it.
+	 */
+	const mountPanelRow = useCallback(
+		(node: HTMLDivElement | null) => {
+			measureRow(node);
+			node?.querySelector<HTMLElement>("[data-island-back]")?.focus({ preventScroll: true });
 		},
 		[measureRow],
 	);
@@ -743,7 +772,7 @@ function Toolbar({
 					) : (
 						<motion.div
 							key={open}
-							ref={measureRow}
+							ref={mountPanelRow}
 							className="lp-island-row"
 							{...islandMotion(reduce)}
 							exit={islandExit(reduce)}
@@ -751,6 +780,7 @@ function Toolbar({
 							<button
 								type="button"
 								onClick={() => closeSubmenu(true)}
+								data-island-back=""
 								aria-label="Back to controls"
 								className="lp-island-button"
 							>
