@@ -154,7 +154,10 @@ export function StepBuilder() {
 						onDragOver={(e) => handleDragOver(e as unknown as React.DragEvent)}
 						onDrop={(e) => handleDrop(e as unknown as React.DragEvent, index)}
 						className={getItemClasses(index)}
-						style={{ cursor: "grab" }}
+						// The hand closes on the card it has picked up. A grab cursor that
+						// never becomes a grabbing one says the row can be dragged and then
+						// says nothing at all about the drag in progress.
+						style={{ cursor: draggedIndex === index ? "grabbing" : "grab" }}
 					>
 						{/* Row 1: handle · number + preview · duration · remove */}
 						<div className="flex w-full items-center gap-2">
@@ -213,14 +216,19 @@ export function StepBuilder() {
 								</span>
 							</div>
 
-							{/* Remove button */}
+							{/* Remove button. Its target is bounded to the room the card actually
+							    has rather than grown to the shared 44px square: that square reached
+							    3px past the row and covered the top edge of the caption field below
+							    it, so a press aimed at the caption deleted the step instead. The
+							    visible mark stays 24px — the floor this density is allowed — and the
+							    pseudo-element claims only the gaps that border it. */}
 							<button
 								type="button"
 								onClick={(e) => {
 									e.stopPropagation();
 									removeStep(step.id);
 								}}
-								className="hit-ext flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity hover:text-neutral-900 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 dark:text-neutral-700 dark:hover:text-neutral-100"
+								className="relative flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity before:absolute before:-inset-x-[10px] before:-inset-y-[3px] hover:text-neutral-900 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 dark:text-neutral-700 dark:hover:text-neutral-100"
 								title="Remove step"
 							>
 								<svg

@@ -1223,6 +1223,21 @@ html.dark:not([data-landing-theme]) {
    bg-neutral-* / text-neutral-* / border-neutral-* in 30+ studio files follows,
    in both light and dark, with no file touched.
    ───────────────────────────────────────────────────────────────────────── */
+/* Tailwind v4's preflight leaves `button` on the UA's `cursor: default`, and the
+   studio's hand-written controls all say `cursor: pointer`. In one 259px chip
+   that put four arrow-cursor buttons (Templates, the two importers) beside four
+   hand-cursor ones (JSON in, JSON out, Share, the scheme toggle) — the same row,
+   the same job, two different claims about whether it can be pressed. Stated
+   once, for the whole studio, and only while the control is live. */
+.studio-root button:not(:disabled),
+.studio-root [role="button"]:not([aria-disabled="true"]) {
+	cursor: pointer;
+}
+
+.studio-root button:disabled {
+	cursor: default;
+}
+
 .studio-root {
 	--color-neutral-50: #fafaf9;
 	--color-neutral-100: #f5f5f4;
@@ -1384,7 +1399,11 @@ html.dark:not([data-landing-theme]) {
 .studio-root .si-button::after {
 	content: "";
 	position: absolute;
-	inset: -5px calc(var(--island-gap) / -2);
+	/* The gap is published by `.si-row`, and two of these controls do not live in
+	   one: the export status bar carries a Cancel and a Dismiss. Without the
+	   fallback the `calc()` was invalid there, the whole `inset` was dropped, and
+	   both buttons ran with no extension at all. */
+	inset: -5px calc(var(--island-gap, 5px) / -2);
 }
 
 /* The row's two ends also take the island's own 6px of padding, which borders
@@ -2126,7 +2145,14 @@ html.dark:not([data-landing-theme]) {
 	background: transparent;
 	color: var(--color-neutral-500);
 	cursor: pointer;
-	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+	/* The press is in the list because a scale that is not transitioned is not a
+	   press: the same three properties the island's controls name. */
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), transform 140ms
+		var(--ease-out);
+}
+
+.sc-glyph-button:active {
+	transform: scale(0.96);
 }
 
 .dark .sc-glyph-button {
@@ -2162,6 +2188,22 @@ html.dark:not([data-landing-theme]) {
 	width: 30px;
 	height: 30px;
 	border-radius: 9px;
+}
+
+/* The chip runs its controls at a 32px pitch — 30px and a 2px gap — and the
+   shared extension is a 44px square, which is 12px more room than there is
+   between them. A later sibling's pseudo-element paints over an earlier one's,
+   so the right 4px of every icon here was firing the icon next door: the URL
+   importer opened the diff importer, the diff importer opened the file picker.
+   The extension takes half the gap and the 5px the chip already leaves above
+   and below, which is the rule the island states for its own dense rows. The
+   target is 32×40 and it belongs to one control. */
+.sc-utilities button.hit-ext::after,
+.sc-utilities .hit-ext::after {
+	width: auto;
+	height: auto;
+	transform: none;
+	inset: -5px -1px;
 }
 
 /* ─────────────────────────── The code card ─────────────────────────────── */

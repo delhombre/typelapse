@@ -82,12 +82,15 @@ export function SceneCodeCard({
 						))}
 					</select>
 					<span className="sc-card-spacer" />
+					{/* `hit-ext`: the glyph is 30px and the header is 44, and nothing else
+					    is within 44px of it, so the target can take the whole height the
+					    header already leaves rather than only the mark. */}
 					<button
 						type="button"
 						onClick={() => onFold(true)}
 						aria-label="Fold the code away"
 						title="Fold the code away"
-						className="sc-glyph-button"
+						className="hit-ext sc-glyph-button"
 					>
 						<ChevronGlyph direction="left" />
 					</button>
