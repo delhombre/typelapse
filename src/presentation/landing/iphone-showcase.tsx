@@ -466,15 +466,44 @@ export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneS
 		setOffset(state.base + ((event.clientX - state.startX) / state.width) * 100);
 	};
 
-	const onPointerFinish = (event: ReactPointerEvent<HTMLDivElement>) => {
+	/**
+	 * Everything the end of a drag owes regardless of how it ended: the hand
+	 * comes off, the ring goes back to rest, the clock is handed back. Returns
+	 * the drag that ended, so only the caller who can decide anything decides
+	 * it, or null when the event belongs to some other pointer.
+	 */
+	const endDrag = (event: ReactPointerEvent<HTMLDivElement>): DragState | null => {
 		const state = drag.current;
 		if (!state || state.pointerId !== event.pointerId) {
-			return;
+			return null;
 		}
 		drag.current = null;
 		setDragging(false);
 		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
+		setOffset(0);
+		controls.release();
+		return state;
+	};
+
+	/**
+	 * A cancel is the browser taking the gesture away mid-drag — `touch-action:
+	 * pan-y` handing the finger to the page's own scroll, a system edge gesture
+	 * winning, the window losing focus. Nobody let go of anything, so nothing is
+	 * decided: the ring springs back to where it started, the cycle keeps its
+	 * index, and the hand feels nothing. A buzz here would be the page claiming
+	 * credit for a swipe that never happened, on the one gesture the visitor did
+	 * not finish.
+	 */
+	const onPointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+		endDrag(event);
+	};
+
+	const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+		const state = endDrag(event);
+		if (!state) {
+			return;
 		}
 
 		const travelled = state.lastX - state.startX;
@@ -487,8 +516,6 @@ export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneS
 			   A bounce-back stays silent, and the timer never reaches this branch. */
 			trigger("light");
 		}
-		setOffset(0);
-		controls.release();
 	};
 
 	/* Reduced motion never cycles, so it mounts the one feed it will ever show. */
@@ -499,8 +526,8 @@ export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneS
 			style={{ touchAction: "pan-y", userSelect: "none" }}
 			onPointerDown={onPointerDown}
 			onPointerMove={onPointerMove}
-			onPointerUp={onPointerFinish}
-			onPointerCancel={onPointerFinish}
+			onPointerUp={onPointerUp}
+			onPointerCancel={onPointerCancel}
 			initial={false}
 			animate={{ transform: `translateX(${offset}%)` }}
 			transition={dragging ? INSTANT_TRANSITION : SWIPE_TRANSITION}
