@@ -14,6 +14,7 @@ import {
 	useState,
 } from "react";
 import { DeviceFrame } from "./device-frame";
+import { trigger } from "./haptics";
 import { screenPlacement } from "./screen-switch";
 import { StaticFrame } from "./static-frame";
 
@@ -482,6 +483,9 @@ export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneS
 		const carried = Math.abs(travelled) > state.width * COMMIT_FRACTION;
 		if (travelled !== 0 && (flicked || carried)) {
 			controls.step(travelled < 0 ? 1 : -1);
+			/* The swipe took: the same moment the ring commits, the hand feels it.
+			   A bounce-back stays silent, and the timer never reaches this branch. */
+			trigger("light");
 		}
 		setOffset(0);
 		controls.release();
