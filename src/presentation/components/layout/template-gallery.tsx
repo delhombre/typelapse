@@ -1,4 +1,5 @@
 import { TEMPLATE_CATALOG, type TemplateDefinition } from "@/application/templates/catalog";
+import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -170,12 +171,13 @@ export function TemplateGallery() {
 
 									<AnimatePresence mode="wait" initial={false}>
 										{pending ? (
-											<ConfirmReplace
+											<ConfirmDiscard
 												key="confirm"
-												template={pending}
-												reduce={reduce === true}
+												message={`Replace what you have with “${pending.name}”?`}
+												confirmLabel="Load template"
 												onCancel={() => setPending(null)}
 												onConfirm={() => load(pending)}
+												className="mt-5"
 											/>
 										) : (
 											<motion.div
@@ -261,59 +263,6 @@ function TemplateCard({
 				))}
 			</div>
 		</motion.button>
-	);
-}
-
-/** Asked only when there is something to lose, and it names what it would replace. */
-function ConfirmReplace({
-	template,
-	reduce,
-	onCancel,
-	onConfirm,
-}: {
-	template: TemplateDefinition;
-	reduce: boolean;
-	onCancel: () => void;
-	onConfirm: () => void;
-}) {
-	return (
-		<motion.div
-			data-template-confirm
-			initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
-			animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
-			exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
-			transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-			className="mt-5 rounded-xl border border-neutral-200/80 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950/40"
-		>
-			<p className="text-[13px] font-medium text-neutral-900 dark:text-neutral-50">
-				Replace what you have with “{template.name}”?
-			</p>
-			<p className="mt-1 text-[12px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-				Your snippet has changes that are not saved anywhere. Loading this template discards them.
-				Export or copy a share link first if you want to keep them.
-			</p>
-			<div className="mt-4 flex items-center justify-end gap-2">
-				<motion.button
-					type="button"
-					onClick={onCancel}
-					whileTap={{ scale: 0.97 }}
-					transition={springs.snappy}
-					className="h-8 rounded-xl px-3 text-[12px] font-medium text-neutral-600 transition-colors hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
-				>
-					Keep my snippet
-				</motion.button>
-				<motion.button
-					type="button"
-					onClick={onConfirm}
-					data-template-confirm-load
-					whileTap={{ scale: 0.97 }}
-					transition={springs.snappy}
-					className="h-8 rounded-xl bg-[var(--color-primary)] px-3 text-[12px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)]"
-				>
-					Load template
-				</motion.button>
-			</div>
-		</motion.div>
 	);
 }
 
