@@ -110,8 +110,9 @@ const LOOP_CODES = [...DEMO_FRAMES, DEMO_FRAMES[0] ?? ""];
 const HOLDS = [1300, 1500, 2200, 800];
 
 const MESH_PAD = 12;
-/** Restrained, Tuple-like corner radii: a crisp inner window with a mesh frame
-    that is exactly concentric with it (outer = inner + the mesh padding). */
+/** Restrained corner radii: a crisp inner window with a mesh frame that is
+    exactly concentric with it (outer = inner + the mesh padding). Nested radii
+    that are not concentric read as a mistake even when nobody can name why. */
 const WINDOW_RADIUS = 6;
 const WINDOW_WIDTH = 452;
 const WINDOW_FONT = 13;
@@ -469,8 +470,9 @@ function CodeWindow({
  * themselves; play cannot be previewed; aspect takes both, because at this size
  * a frame's silhouette alone cannot separate 1:1 from 4:5.
  *
- * A second rule sets interaction, reverse-engineered from ui.camera: a value
- * that fits on its button cycles in place, one that does not opens a panel.
+ * A second rule sets interaction, and each control's aria-label is where it
+ * shows: a value that fits on its button cycles in place, one that does not
+ * opens a panel.
  */
 function Toolbar({
 	reduce,
@@ -841,8 +843,9 @@ function Toolbar({
 	);
 }
 
-/** Sampled off ui.camera: 348 → 322.4 → 324 over ~480ms, so it undershoots and
-    settles back rather than easing in. */
+/** The width is not eased, it is sprung: 348 → 322.4 → 324 over ~480ms, so it
+    undershoots and settles back. A pill that eases to its new width reads as a
+    box being resized; one that overshoots reads as an object finding its size. */
 const ISLAND_SPRING = { type: "spring", stiffness: 260, damping: 26, mass: 1 } as const;
 
 /** restDelta matters: without it the spring writes sub-pixel values for seconds
