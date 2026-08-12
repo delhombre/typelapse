@@ -24,6 +24,14 @@ export function StepCaption({ text, opacity, color, scale = 1 }: StepCaptionProp
 				pointerEvents: "none",
 				// Reserve a line so the frame doesn't jump when a caption fades in/out.
 				minHeight: 20 * scale,
+				// Stay on that one line, whatever the text. `frameNaturalSize` budgets
+				// exactly one caption line before fitting the card into the canvas, so a
+				// caption that wrapped would render taller than the layout reserved and
+				// spill off the bottom (worst on the narrow 9:16 preset). The domain
+				// bounds the length; this makes the single line structural.
+				whiteSpace: "nowrap",
+				overflow: "hidden",
+				textOverflow: "ellipsis",
 			}}
 		>
 			<span

@@ -1,5 +1,5 @@
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
-import type { Step } from "@/domain/entities/step";
+import { MAX_ANNOTATION_LENGTH, type Step } from "@/domain/entities/step";
 import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { truncateMiddle } from "@/presentation/utils/truncate-middle";
@@ -346,7 +346,9 @@ function FocusInput({ step }: { step: Step }) {
 
 /**
  * Compact caption input on a step card: the line of prose shown beneath the
- * frame while this step holds. Commits on blur/Enter; any text is valid.
+ * frame while this step holds. Commits on blur/Enter. Capped at
+ * `MAX_ANNOTATION_LENGTH` so the caption stays the single line the layout
+ * reserves for it: the domain rejects anything longer.
  */
 function CaptionInput({ step }: { step: Step }) {
 	const updateStepAnnotation = useSnippetStore((s) => s.updateStepAnnotation);
@@ -368,6 +370,7 @@ function CaptionInput({ step }: { step: Step }) {
 				}
 			}}
 			onClick={(e) => e.stopPropagation()}
+			maxLength={MAX_ANNOTATION_LENGTH}
 			placeholder="caption…"
 			title="Caption shown beneath the frame during this step"
 			className="w-full rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
