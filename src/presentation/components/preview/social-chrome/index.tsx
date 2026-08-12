@@ -10,11 +10,11 @@ import { XChrome } from "./x-chrome";
  * High-fidelity, preview-only recreation of each platform's in-feed chrome, so
  * a creator can see their export the way it lands in a real feed.
  *
- * Licensing / trademark note: the brand wordmarks (TikTok, YouTube Shorts, X)
- * are drawn from `simple-icons`, which is released under CC0-1.0. The LinkedIn
- * mark is recreated here because LinkedIn asked to be removed from that set. All
- * of these marks and the recreated UI are used nominatively to identify each
- * platform for a creator preview aid ONLY: Typelapse is not affiliated with,
+ * Licensing / trademark note: the one brand wordmark still shown (YouTube
+ * Shorts) is drawn from `simple-icons`, which is released under CC0-1.0; the
+ * other feeds are identified by their recreated UI alone. All of it is used
+ * nominatively to identify each platform for a creator preview aid ONLY:
+ * Typelapse is not affiliated with,
  * sponsored by, or endorsed by any of these platforms. Nothing here is captured
  * by the PNG snapshot or baked into the exported video.
  */

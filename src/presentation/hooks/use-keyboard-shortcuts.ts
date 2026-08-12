@@ -1,47 +1,26 @@
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { allowsSingleKeyShortcut } from "@/presentation/utils/editable-target";
 import { useEffect } from "react";
-
-/**
- * Returns true if the active element is an input, textarea, contenteditable,
- * or inside a Monaco editor: meaning keyboard shortcuts should be suppressed.
- */
-function isEditableElementFocused(): boolean {
-	const el = document.activeElement;
-	if (!el) {
-		return false;
-	}
-
-	const tag = el.tagName.toLowerCase();
-	if (tag === "input" || tag === "textarea" || tag === "select") {
-		return true;
-	}
-
-	if (el instanceof HTMLElement && el.isContentEditable) {
-		return true;
-	}
-
-	// Monaco editor wraps its input in elements inside .monaco-editor
-	if (el.closest(".monaco-editor")) {
-		return true;
-	}
-
-	return false;
-}
 
 export function useKeyboardShortcuts(): void {
 	useEffect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
 			const store = useSnippetStore.getState();
 
-			// Ctrl+Enter / Cmd+Enter: capture step (works even when typing)
+			// Ctrl+Enter / Cmd+Enter: capture step. A chord is unambiguous, so this
+			// one deliberately works while typing — it is the whole point of it.
 			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				store.captureStep();
 				return;
 			}
 
-			// All remaining shortcuts are suppressed when an editable element is focused
-			if (isEditableElementFocused()) {
+			// Everything below is a bare key, which the editor has the stronger
+			// claim to whenever the keystroke came from a text surface. The guard
+			// reads the event's own path rather than document.activeElement, and
+			// asks whether the surface takes text rather than what it is called:
+			// Monaco types through an EditContext div that no tag-name check sees.
+			if (!allowsSingleKeyShortcut(e)) {
 				return;
 			}
 

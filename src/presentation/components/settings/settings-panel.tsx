@@ -93,7 +93,7 @@ function StripCell({
 }: { label: string; title?: string; children: React.ReactNode }) {
 	return (
 		<div className="flex items-center gap-2.5 px-3" title={title}>
-			<span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+			<span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
 				{label}
 			</span>
 			{children}
@@ -128,7 +128,7 @@ function ThemePicker() {
 						whileTap={{ scale: 0.96 }}
 						whileHover={{ scale: 1.15 }}
 						transition={springs.snappy}
-						className="relative flex items-center justify-center"
+						className="relative flex size-6 items-center justify-center"
 						title={t.label}
 					>
 						{isSelected && (
@@ -161,7 +161,7 @@ function SyncToggle() {
 			className={`flex size-6 shrink-0 items-center justify-center rounded-lg border transition-colors ${
 				syncEditorTheme
 					? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
-					: "border-neutral-200 text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-400"
+					: "border-neutral-200 text-neutral-500 hover:border-neutral-400 hover:text-neutral-600 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-400"
 			}`}
 			title={syncEditorTheme ? "Editor mirrors preview theme" : "Editor uses app theme"}
 		>
@@ -206,7 +206,7 @@ function RadiusPicker({ selected, onSelect }: { selected: number; onSelect: (v: 
 						className={`relative flex size-5 items-center justify-center transition-colors ${
 							isSelected
 								? "text-neutral-900 dark:text-neutral-100"
-								: "text-neutral-300 hover:text-neutral-600 dark:text-neutral-700 dark:hover:text-neutral-400"
+								: "text-neutral-500 hover:text-neutral-600 dark:text-neutral-700 dark:hover:text-neutral-400"
 						}`}
 						title={`${value}px`}
 					>
@@ -252,10 +252,10 @@ function PaddingPicker({
 						onClick={() => onSelect(value)}
 						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
-						className={`rounded-md px-2 py-1 text-[10px] font-medium tabular-nums transition-colors ${
+						className={`rounded-md px-2 py-1 text-[11px] font-medium tabular-nums transition-colors ${
 							isSelected
 								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+								: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
 						}`}
 					>
 						{value}
@@ -290,10 +290,10 @@ function ChromePicker() {
 						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
 						title={chrome.title}
-						className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+						className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
 							isSelected
 								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+								: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
 						}`}
 					>
 						{chrome.label}
@@ -321,7 +321,7 @@ function LineNumberPicker() {
 				className={`flex size-6 shrink-0 items-center justify-center rounded-lg border transition-colors ${
 					showLineNumbers
 						? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-200 dark:bg-neutral-200 dark:text-neutral-900"
-						: "border-neutral-200 text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-400"
+						: "border-neutral-200 text-neutral-500 hover:border-neutral-400 hover:text-neutral-600 dark:border-neutral-800 dark:text-neutral-600 dark:hover:text-neutral-400"
 				}`}
 				title={showLineNumbers ? "Line numbers on" : "Line numbers off"}
 			>
@@ -390,10 +390,10 @@ function TempoPicker() {
 						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
 						title={tempo.title}
-						className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
+						className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
 							isSelected
 								? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
-								: "text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+								: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
 						}`}
 					>
 						{tempo.label}
@@ -445,10 +445,10 @@ function FontPicker() {
 						}}
 						whileTap={{ scale: 0.95 }}
 						transition={springs.snappy}
-						className={`rounded-md border px-2 py-1 text-[10px] font-medium transition-colors ${
+						className={`rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${
 							isSelected
 								? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
-								: "border-neutral-200/70 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:border-neutral-800 dark:text-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
+								: "border-neutral-200/70 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-300"
 						}`}
 						title={f.label}
 					>

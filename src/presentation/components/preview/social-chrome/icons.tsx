@@ -7,9 +7,8 @@
  * each platform's real icon: solid heart/comment/bookmark for TikTok, outline
  * heart + paper-plane for Reels, thumbs for Shorts, repost + view-bars for X.
  *
- * Brand wordmarks (TikTok / Instagram / YouTube / X) come from `simple-icons`
- * (CC0); LinkedIn was pulled from that set for trademark reasons, so its mark is
- * recreated here. See ./index.tsx for the licensing note.
+ * The one brand wordmark still on screen (YouTube Shorts) comes from
+ * `simple-icons` (CC0). See ./index.tsx for the licensing note.
  */
 
 import type { SVGProps } from "react";
@@ -26,10 +25,19 @@ function Svg(props: SVGProps<SVGSVGElement>) {
 
 /* ─────────── solid glyphs (TikTok, likes) ─────────── */
 
+/* One heart, drawn once and used at two weights.
+   The outline version used to carry a right-shoulder control point at x=22.9
+   where its mirror sits at 18.9 — four units off on a 24 grid, and past the
+   heart's own right edge at 21, so the right lobe bulged outward and the glyph
+   read as lopsided. Every control point below is mirrored about x=12 by
+   construction, so the two lobes cannot drift apart again. */
+const HEART_PATH =
+	"M12 20.6C7.2 16.2 3.2 13.2 3.2 9.3 3.2 6.6 5.3 4.5 7.9 4.5 9.6 4.5 11.1 5.4 12 6.8 12.9 5.4 14.4 4.5 16.1 4.5 18.7 4.5 20.8 6.6 20.8 9.3 20.8 13.2 16.8 16.2 12 20.6Z";
+
 export function HeartSolid() {
 	return (
 		<Svg fill="currentColor">
-			<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+			<path d={HEART_PATH} />
 		</Svg>
 	);
 }
@@ -64,7 +72,7 @@ export function ForwardArrow() {
 export function HeartOutline({ stroke = 1.8 }: GlyphProps) {
 	return (
 		<Svg fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinejoin="round">
-			<path d="M12 20.7l-1.32-1.2C5.9 15.15 3 12.4 3 9.1 3 6.42 5.1 4.3 7.75 4.3c1.5 0 2.94.7 3.88 1.8l.37.44.37-.44a5.1 5.1 0 0 1 3.88-1.8C22.9 4.3 21 6.42 21 9.1c0 3.3-2.9 6.05-7.68 10.4L12 20.7z" />
+			<path d={HEART_PATH} />
 		</Svg>
 	);
 }
@@ -97,6 +105,29 @@ export function DotsVertical() {
 	);
 }
 
+/** Reels "more" is now horizontal, not vertical (measured 2026-08-10). */
+export function DotsHorizontal() {
+	return (
+		<Svg fill="currentColor">
+			<circle cx="5" cy="12" r="1.7" />
+			<circle cx="12" cy="12" r="1.7" />
+			<circle cx="19" cy="12" r="1.7" />
+		</Svg>
+	);
+}
+
+/** Reels top-right control: a sliders / tune glyph (replaced the camera). */
+export function Tune({ stroke = 1.8 }: GlyphProps) {
+	return (
+		<Svg fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round">
+			<path d="M4 8h9M17 8h3" />
+			<path d="M4 16h3M11 16h9" />
+			<circle cx="15" cy="8" r="2.1" fill="currentColor" stroke="none" />
+			<circle cx="9" cy="16" r="2.1" fill="currentColor" stroke="none" />
+		</Svg>
+	);
+}
+
 export function ThumbUp({ stroke = 1.7 }: GlyphProps) {
 	return (
 		<Svg fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinejoin="round">
@@ -115,7 +146,25 @@ export function ThumbDown({ stroke = 1.7 }: GlyphProps) {
 	);
 }
 
-/** X repost / LinkedIn repost: two chasing arrows. */
+/** X repost: the angular retweet loop (two bent arrows boxing each other). */
+export function RepostAngular({ stroke = 1.8 }: GlyphProps) {
+	return (
+		<Svg
+			fill="none"
+			stroke="currentColor"
+			strokeWidth={stroke}
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="m7.2 3.5-3 3 3 3" />
+			<path d="M4.2 6.5H16a3.2 3.2 0 0 1 3.2 3.2v2.1" />
+			<path d="m16.8 20.5 3-3-3-3" />
+			<path d="M19.8 17.5H8a3.2 3.2 0 0 1-3.2-3.2v-2.1" />
+		</Svg>
+	);
+}
+
+/** Instagram repost: two chasing arrows in a rounded loop. */
 export function Repost({ stroke = 1.8 }: GlyphProps) {
 	return (
 		<Svg
@@ -162,6 +211,15 @@ export function ShareUp({ stroke = 1.8 }: GlyphProps) {
 	);
 }
 
+/** X bookmark: an outline ribbon with the bottom notch. */
+export function BookmarkOutline({ stroke = 1.8 }: GlyphProps) {
+	return (
+		<Svg fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinejoin="round">
+			<path d="M6.5 3.8h11v16.4L12 16.55 6.5 20.2z" />
+		</Svg>
+	);
+}
+
 /** YouTube Shorts remix: an eighth note ringed by a reuse arrow. */
 export function Remix({ stroke = 1.7 }: GlyphProps) {
 	return (
@@ -177,6 +235,148 @@ export function Remix({ stroke = 1.7 }: GlyphProps) {
 			<circle cx="13.6" cy="14" r="2.3" fill="currentColor" stroke="none" />
 			<path d="M18 4.2a4.6 4.6 0 0 1 2.8 4.2" />
 			<path d="m17.4 6.6.6-2.4 2.4.6" />
+		</Svg>
+	);
+}
+
+/* ─────────── media controls (X immersive player, LinkedIn video tab) ─────────── */
+
+export function PlayTriangle() {
+	return (
+		<Svg fill="currentColor">
+			<path d="M8 5.14v13.72c0 .5.55.8.97.53l10.55-6.86a.63.63 0 0 0 0-1.06L8.97 4.61a.63.63 0 0 0-.97.53z" />
+		</Svg>
+	);
+}
+
+/** Speaker with sound waves, outline (X's media bar). */
+export function VolumeOutline({ stroke = 1.7 }: GlyphProps) {
+	return (
+		<Svg
+			fill="none"
+			stroke="currentColor"
+			strokeWidth={stroke}
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M3.6 9.4v5.2h3.3l5.1 4.3V5.1L6.9 9.4z" />
+			<path d="M15.3 9.3a4.2 4.2 0 0 1 0 5.4" />
+			<path d="M17.9 6.7a8 8 0 0 1 0 10.6" />
+		</Svg>
+	);
+}
+
+/** Speaker with sound waves, solid body (LinkedIn's rail). */
+export function VolumeSolid({ stroke = 1.7 }: GlyphProps) {
+	return (
+		<Svg fill="none" stroke="currentColor" strokeWidth={stroke} strokeLinecap="round">
+			<path
+				d="M3.6 9.4v5.2h3.3l5.1 4.3V5.1L6.9 9.4z"
+				fill="currentColor"
+				stroke="none"
+				strokeLinejoin="round"
+			/>
+			<path d="M15.3 9.3a4.2 4.2 0 0 1 0 5.4" />
+			<path d="M17.9 6.7a8 8 0 0 1 0 10.6" />
+		</Svg>
+	);
+}
+
+/** X fullscreen toggle: one diagonal, an arrowhead at each end. */
+export function ExpandDiagonal({ stroke = 1.8 }: GlyphProps) {
+	return (
+		<Svg
+			fill="none"
+			stroke="currentColor"
+			strokeWidth={stroke}
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M13.5 6H18v4.5" />
+			<path d="M18 6 6 18" />
+			<path d="M10.5 18H6v-4.5" />
+		</Svg>
+	);
+}
+
+/** X picture-in-picture: a screen with an arrow popping out of its corner. */
+export function PipEnter({ stroke = 1.8 }: GlyphProps) {
+	return (
+		<Svg
+			fill="none"
+			stroke="currentColor"
+			strokeWidth={stroke}
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M12 5.5h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-6" />
+			<path d="M10 4.5 4.5 10" />
+			<path d="M4.8 6v4h4" />
+		</Svg>
+	);
+}
+
+/* ─────────── LinkedIn video tab ─────────── */
+
+/** LinkedIn like: the solid thumbs-up the video rail shows. */
+export function ThumbUpSolid() {
+	return (
+		<Svg fill="currentColor">
+			<path d="M2 10.5h3.2V21H2zM7 10.2l3.7-7.4c1.1.05 1.9.95 1.9 2v3.3h5a1.6 1.6 0 0 1 1.58 1.9l-1.1 6.5A1.6 1.6 0 0 1 17.5 21H7z" />
+		</Svg>
+	);
+}
+
+/** LinkedIn comment: a solid bubble with two knocked-out text lines. */
+export function CommentLines() {
+	return (
+		<Svg fill="currentColor" fillRule="evenodd">
+			<path
+				fillRule="evenodd"
+				d="M12 3.2c-5.4 0-9.8 3.5-9.8 7.9 0 2.1 1.05 4.05 2.75 5.45V21l4.1-2.3c.94.2 1.93.3 2.95.3 5.4 0 9.8-3.5 9.8-7.9s-4.4-7.9-9.8-7.9zM7.6 8.9h8.8v1.7H7.6zm0 3.4h6.4V14H7.6z"
+			/>
+		</Svg>
+	);
+}
+
+/* Solid nav-bar glyphs for the opaque white bottom bar. */
+
+export function HouseSolid() {
+	return (
+		<Svg fill="currentColor">
+			<path d="M12 3.2 3.5 10v10h5.7v-5.6h5.6V20h5.7V10z" />
+		</Svg>
+	);
+}
+
+/** "My Network": a two-person pair. */
+export function PeoplePairSolid() {
+	return (
+		<Svg fill="currentColor">
+			<circle cx="8.6" cy="7.8" r="3" />
+			<path d="M2.8 18.8c.55-3.5 2.9-5.5 5.8-5.5s5.25 2 5.8 5.5z" />
+			<circle cx="17.2" cy="8.8" r="2.3" />
+			<path d="M15.4 13.6c2.4.1 4.35 1.8 4.8 5.2h-4.1a8.3 8.3 0 0 0-2.35-4.55c.5-.4 1.05-.62 1.65-.65z" />
+		</Svg>
+	);
+}
+
+export function BellSolid() {
+	return (
+		<Svg fill="currentColor">
+			<path d="M12 3a5.6 5.6 0 0 0-5.6 5.6v3.8l-1.85 3.2a.7.7 0 0 0 .6 1.05h13.7a.7.7 0 0 0 .6-1.05l-1.85-3.2V8.6A5.6 5.6 0 0 0 12 3z" />
+			<path d="M9.9 18.2a2.1 2.1 0 0 0 4.2 0z" />
+		</Svg>
+	);
+}
+
+export function BriefcaseSolid() {
+	return (
+		<Svg fill="currentColor" fillRule="evenodd">
+			<path
+				fillRule="evenodd"
+				d="M9.2 6.4V5.3a1.8 1.8 0 0 1 1.8-1.8h2a1.8 1.8 0 0 1 1.8 1.8v1.1h4.2A1.5 1.5 0 0 1 20.5 7.9v10.2a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5V7.9A1.5 1.5 0 0 1 5 6.4zm1.6 0h2.4v-1a.2.2 0 0 0-.2-.2h-2a.2.2 0 0 0-.2.2z"
+			/>
 		</Svg>
 	);
 }
@@ -262,25 +462,6 @@ export function BrandMark({ path, color }: { path: string; color: string }) {
 	return (
 		<Svg fill={color}>
 			<path d={path} />
-		</Svg>
-	);
-}
-
-/**
- * Recreated LinkedIn "in" mark (absent from simple-icons for trademark reasons).
- * The rounded tile paints in `currentColor` so callers pass LinkedIn blue; the
- * letterforms are knocked out in white.
- */
-export function LinkedInMark() {
-	return (
-		<Svg fill="currentColor">
-			<rect width="24" height="24" rx="5" />
-			<circle cx="6.6" cy="6.8" r="1.9" fill="#fff" />
-			<rect x="4.8" y="9.6" width="3.6" height="9.6" fill="#fff" />
-			<path
-				fill="#fff"
-				d="M10.4 9.6h3.45v1.35h.05c.5-.9 1.7-1.6 3.2-1.6 2.55 0 3.9 1.5 3.9 4.15v5.7h-3.6v-5.05c0-1.2-.45-2-1.6-2-1.05 0-1.65.7-1.9 1.4-.1.25-.1.6-.1.95v4.7h-3.4z"
-			/>
 		</Svg>
 	);
 }

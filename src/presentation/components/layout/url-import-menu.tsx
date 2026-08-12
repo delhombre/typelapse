@@ -1,5 +1,7 @@
+import { resolvePrUrl } from "@/application/import/pr-url";
 import { importCodeFromUrl } from "@/infrastructure/import/url-import";
 import { springs } from "@/presentation/motion";
+import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
@@ -15,6 +17,7 @@ export function UrlImportMenu() {
 	const setCode = useSnippetStore((s) => s.setCode);
 	const setLanguage = useSnippetStore((s) => s.setLanguage);
 	const setTitle = useSnippetStore((s) => s.setTitle);
+	const handOffToDiffImport = useDiffImportStore((s) => s.handOff);
 
 	useEffect(() => {
 		if (!open) {
@@ -36,6 +39,17 @@ export function UrlImportMenu() {
 	async function fetchCode() {
 		const trimmed = url.trim();
 		if (!trimmed || loading) {
+			return;
+		}
+		// A pull request is a walkthrough, not a file, so this control cannot open
+		// one. The diff dialog beside it can, and already offers the whole-change
+		// or by-commit choice a PR needs: the URL goes there rather than coming
+		// back as "Unsupported URL" from a control that plainly recognised it.
+		if (resolvePrUrl(trimmed)) {
+			handOffToDiffImport(trimmed);
+			setUrl("");
+			setError(null);
+			setOpen(false);
 			return;
 		}
 		setLoading(true);
@@ -67,9 +81,12 @@ export function UrlImportMenu() {
 			<motion.button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
+				aria-haspopup="dialog"
+				aria-expanded={open}
+				aria-label="Import from URL"
 				whileTap={{ scale: 0.96 }}
 				transition={springs.snappy}
-				className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
+				className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
 					open
 						? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
 						: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
@@ -95,6 +112,12 @@ export function UrlImportMenu() {
 							exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
 							transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
 							style={{ transformOrigin: "top right" }}
+							// biome-ignore lint/a11y/useSemanticElements: a native <dialog> cannot be
+							// anchored to its trigger the way this panel is, and loses its enter/exit
+							// animation with it. Non-modal by intent: the backdrop dismisses and
+							// nothing outside is inert, so no aria-modal is claimed.
+							role="dialog"
+							aria-label="Import from URL"
 							className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-neutral-200 bg-white p-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
 						>
 							<div className="flex items-center gap-1.5">

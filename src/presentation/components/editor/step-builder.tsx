@@ -110,7 +110,7 @@ export function StepBuilder() {
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center justify-between">
-				<span className="text-xs tabular-nums text-neutral-400 dark:text-neutral-500">
+				<span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
 					{steps.length} {steps.length === 1 ? "step" : "steps"}
 				</span>
 				<div className="flex items-center gap-2">
@@ -120,7 +120,7 @@ export function StepBuilder() {
 						onClick={() => captureStep()}
 						whileTap={{ scale: 0.97 }}
 						transition={springs.snappy}
-						className="flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+						className="flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
 					>
 						<PlusIcon />
 						Capture
@@ -129,7 +129,7 @@ export function StepBuilder() {
 			</div>
 
 			{steps.length === 0 && (
-				<p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
+				<p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
 					Edit the code above, then Capture to add a step.
 				</p>
 			)}
@@ -185,7 +185,7 @@ export function StepBuilder() {
 								onClick={() => setCurrentStepIndex(index)}
 								className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden"
 							>
-								<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[10px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+								<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[11px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
 									{index + 1}
 								</span>
 								<span className="truncate font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
@@ -208,7 +208,7 @@ export function StepBuilder() {
 									className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 									title="Duration (ms)"
 								/>
-								<span className="font-mono text-[10px] text-neutral-400 dark:text-neutral-600">
+								<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
 									ms
 								</span>
 							</div>
@@ -220,7 +220,7 @@ export function StepBuilder() {
 									e.stopPropagation();
 									removeStep(step.id);
 								}}
-								className="shrink-0 text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 dark:text-neutral-700"
+								className="hit-ext flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 dark:text-neutral-700"
 								title="Remove step"
 							>
 								<svg
@@ -265,7 +265,7 @@ function RecordButton() {
 
 	const className = isRecording
 		? "flex h-8 items-center gap-1.5 rounded-lg border border-red-400/60 bg-red-500/10 px-3 text-xs font-medium text-red-500 transition"
-		: "flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
+		: "flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
 
 	return (
 		<motion.button

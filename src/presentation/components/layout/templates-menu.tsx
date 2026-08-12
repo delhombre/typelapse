@@ -32,6 +32,9 @@ export function TemplatesMenu() {
 			<motion.button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
+				aria-haspopup="dialog"
+				aria-expanded={open}
+				aria-label="Templates"
 				whileTap={{ scale: 0.96 }}
 				transition={springs.snappy}
 				className={`flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors ${
@@ -62,6 +65,12 @@ export function TemplatesMenu() {
 							exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
 							transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
 							style={{ transformOrigin: "top left" }}
+							// biome-ignore lint/a11y/useSemanticElements: a native <dialog> cannot be
+							// anchored to its trigger the way this panel is, and loses its enter/exit
+							// animation with it. Non-modal by intent: the backdrop dismisses and
+							// nothing outside is inert, so no aria-modal is claimed.
+							role="dialog"
+							aria-label="Templates"
 							className="absolute left-0 top-full z-50 mt-2 w-60 rounded-xl border border-neutral-200 bg-white p-1.5 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
 						>
 							{TEMPLATES.map((template) => (
@@ -74,7 +83,7 @@ export function TemplatesMenu() {
 									<span className="text-[13px] font-medium text-neutral-800 dark:text-neutral-100">
 										{template.name}
 									</span>
-									<span className="font-mono text-[10px] uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
+									<span className="font-mono text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
 										{template.language}
 									</span>
 								</button>
