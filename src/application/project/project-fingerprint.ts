@@ -20,7 +20,22 @@ export type ProjectContent = Pick<
 	| "cardMargin"
 	| "watermark"
 	| "steps"
->;
+> & {
+	/**
+	 * The theme fields the studio lets you change WITHOUT changing the theme's
+	 * name. `setFont` and `setBorderRadius` rebuild the Theme in place, so
+	 * `themeName` stays "midnight" while every exported frame looks different.
+	 * Fingerprinting the name alone would call that "no edits" and let the
+	 * template gallery overwrite it unasked.
+	 *
+	 * They are not part of {@link ProjectPayload} because the file format does not
+	 * carry them yet: a saved project restores its theme from `themeName` alone.
+	 * That is precisely why the warning matters — this work cannot be recovered
+	 * from a file, so the user has to be asked before it is thrown away.
+	 */
+	fontFamily: string;
+	borderRadius: number;
+};
 
 /**
  * A comparable identity for authored content: two projects share a fingerprint
@@ -53,6 +68,8 @@ export function contentFingerprint(content: ProjectContent): string {
 		content.code,
 		content.language,
 		content.themeName,
+		content.fontFamily,
+		content.borderRadius,
 		content.background,
 		content.windowChrome ?? "",
 		content.showLineNumbers ?? true,
