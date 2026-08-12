@@ -147,7 +147,7 @@ export function DiffImportMenu() {
 								rows={10}
 								spellCheck={false}
 								placeholder={"paste a git diff, or a github pr url"}
-								className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+								className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 							/>
 							<AnimatePresence initial={false}>
 								{prRef && (
@@ -160,7 +160,7 @@ export function DiffImportMenu() {
 										className="overflow-hidden"
 									>
 										<div className="mt-2 flex items-center gap-2">
-											<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+											<span className="text-[11px] text-neutral-500 dark:text-neutral-400">
 												play as
 											</span>
 											<ModeToggle mode={mode} onSelect={setMode} />
@@ -178,7 +178,7 @@ export function DiffImportMenu() {
 									disabled={text.trim() === "" || loading}
 									whileTap={{ scale: 0.96 }}
 									transition={springs.snappy}
-									className="flex h-8 items-center justify-center rounded-lg bg-neutral-900 px-3 text-[11px] font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+									className="flex h-8 items-center justify-center rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
 								>
 									{loading ? <Spinner /> : "Apply"}
 								</motion.button>

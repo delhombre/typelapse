@@ -122,7 +122,7 @@ export function ExportStatus() {
 					exit={{ opacity: 0, y: -4 }}
 					transition={springs.snappy}
 					data-testid="export-status"
-					className="flex w-full items-center gap-3 rounded-lg bg-neutral-100/70 px-3 py-2 dark:bg-neutral-900/70"
+					className="flex w-full items-center gap-3 rounded-xl bg-neutral-100/70 px-3 py-2 dark:bg-neutral-900/70"
 				>
 					{/* The bar and the percentage are for eyes. A live region that
 					    re-announced a number every few frames would be unusable, so the
@@ -166,15 +166,21 @@ export function ExportStatus() {
 					role={outcome.kind === "failed" ? "alert" : "status"}
 					aria-live={outcome.kind === "failed" ? "assertive" : "polite"}
 					data-testid="export-status"
-					className={`flex w-full items-start gap-2 rounded-lg px-3 py-2 text-xs ${
+					className={`flex w-full items-start gap-2 rounded-xl px-3 py-2 text-xs ${
 						outcome.kind === "done"
-							? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+							? "bg-neutral-100 text-neutral-700 dark:bg-neutral-800/70 dark:text-neutral-200"
 							: "bg-red-500/10 text-red-700 dark:text-red-300"
 					}`}
 				>
-					<span aria-hidden="true" className="pt-px font-semibold">
-						{outcome.kind === "done" ? "✓" : "!"}
-					</span>
+					{outcome.kind === "done" ? (
+						<span aria-hidden="true" className="pt-0.5">
+							<CheckIcon />
+						</span>
+					) : (
+						<span aria-hidden="true" className="pt-px font-semibold">
+							!
+						</span>
+					)}
 					<span className="min-w-0 flex-1">
 						{outcome.kind === "done" ? (
 							<>
@@ -220,7 +226,7 @@ export function PngButton() {
 			disabled={isExporting}
 			whileTap={{ scale: 0.97 }}
 			transition={springs.snappy}
-			className="flex h-9 items-center gap-1.5 rounded-lg border border-neutral-200/70 px-3 text-xs font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+			className="flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200/70 px-3 text-xs font-medium text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 disabled:opacity-50 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
 		>
 			<CameraIcon />
 			PNG
@@ -449,7 +455,7 @@ function Chip({
 			whileTap={{ scale: 0.95 }}
 			transition={springs.snappy}
 			title={title}
-			className={`h-9 rounded-lg border px-3 text-[11px] font-medium capitalize transition-colors ${
+			className={`h-9 rounded-xl border px-3 text-[11px] font-medium capitalize transition-colors ${
 				active
 					? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
 					: "border-neutral-200/70 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 dark:border-neutral-800 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
@@ -457,6 +463,25 @@ function Chip({
 		>
 			{children}
 		</motion.button>
+	);
+}
+
+function CheckIcon() {
+	return (
+		<svg
+			width="10"
+			height="10"
+			viewBox="0 0 24 24"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="2.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+			role="img"
+		>
+			<title>Done</title>
+			<polyline points="20 6 9 17 4 12" />
+		</svg>
 	);
 }
 

@@ -33,7 +33,7 @@ export function SettingsStrip() {
 			</StripCell>
 
 			{/* Background */}
-			<StripCell label="BG">
+			<StripCell label="Background">
 				<BackgroundPicker selected={background} onSelect={setBackground} />
 			</StripCell>
 
@@ -48,7 +48,7 @@ export function SettingsStrip() {
 			</StripCell>
 
 			{/* Padding: code padding inside the window */}
-			<StripCell label="Pad" title="code padding inside the window">
+			<StripCell label="Padding" title="code padding inside the window">
 				<PaddingPicker selected={framePadding} onSelect={setFramePadding} />
 			</StripCell>
 
@@ -74,13 +74,13 @@ export function SettingsStrip() {
 			</StripCell>
 
 			{/* Watermark */}
-			<StripCell label="Mark">
+			<StripCell label="Watermark">
 				<input
 					type="text"
 					value={watermark}
 					onChange={(e) => setWatermark(e.target.value)}
 					placeholder="@username"
-					className="h-8 w-28 rounded-lg border border-neutral-200/70 bg-white px-2.5 text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+					className="h-8 w-28 rounded-xl border border-neutral-200/70 bg-white px-2.5 text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 				/>
 			</StripCell>
 		</div>
@@ -94,7 +94,7 @@ function StripCell({
 }: { label: string; title?: string; children: React.ReactNode }) {
 	return (
 		<div className="flex items-center gap-2.5 px-3" title={title}>
-			<span className="shrink-0 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+			<span className="shrink-0 text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
 				{label}
 			</span>
 			{children}
@@ -270,7 +270,7 @@ function PaddingPicker({
 const CHROME_PRESETS: { value: WindowChrome; label: string; title: string }[] = [
 	{ value: "macos", label: "macOS", title: "macOS traffic lights" },
 	{ value: "browser", label: "Web", title: "Browser address bar" },
-	{ value: "terminal", label: "Term", title: "Terminal prompt" },
+	{ value: "terminal", label: "Terminal", title: "Terminal prompt" },
 	{ value: "none", label: "None", title: "No window chrome" },
 ];
 
@@ -340,7 +340,7 @@ function LineNumberPicker() {
 						}
 					}}
 					title="First line number"
-					className="h-8 w-14 rounded-lg border border-neutral-200/70 bg-white px-2 text-[11px] text-neutral-600 tabular-nums outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
+					className="h-8 w-14 rounded-xl border border-neutral-200/70 bg-white px-2 text-[11px] text-neutral-600 tabular-nums outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 				/>
 			)}
 		</div>
@@ -371,7 +371,7 @@ function HashIcon() {
 const TEMPO_PRESETS = [
 	{ ms: 400, label: "Snappy", title: "Snappy: 400 ms morph" },
 	{ ms: 650, label: "Smooth", title: "Smooth: 650 ms morph" },
-	{ ms: 1000, label: "Cine", title: "Cinematic: 1000 ms morph" },
+	{ ms: 1000, label: "Cinematic", title: "Cinematic: 1000 ms morph" },
 ] as const;
 
 /** Morph tempo: how long each step-to-step transition takes (preview + export). */
