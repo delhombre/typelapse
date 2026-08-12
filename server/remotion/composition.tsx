@@ -31,7 +31,7 @@ import type { RenderInput, ThemeData } from "./types";
  * `renderScaleFor`), so 4K draws the same shot with twice the pixels rather
  * than the same card marooned in a bigger background.
  */
-const BASE_VIDEO_SCALE = 2.2;
+export const BASE_VIDEO_SCALE = 2.2;
 /** Safe-area margin on each side of the canvas the card is fit into. */
 const CANVAS_MARGIN = 0.05;
 
@@ -181,7 +181,14 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 					/>
 				</div>
 			</CenteredFrame>
-			{watermark && <WatermarkOverlay text={watermark} color={wmColor} fontFamily={theme.fontFamily} />}
+			{watermark && (
+				<WatermarkOverlay
+					text={watermark}
+					color={wmColor}
+					fontFamily={theme.fontFamily}
+					scale={videoScale}
+				/>
+			)}
 		</AbsoluteFill>
 	);
 }
@@ -456,9 +463,45 @@ function isColorDark(color: string): boolean {
 	return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
 }
 
-function WatermarkOverlay({ text, color, fontFamily }: { text: string; color: string; fontFamily: string }) {
+/**
+ * The watermark's geometry as authored against the reference tier (1080p), in
+ * pixels. Kept verbatim from the fixed values it used to hard-code, so a 1080p
+ * export is unchanged to the pixel: `REFERENCE_SHORT_EDGE` promises exactly that.
+ */
+const WATERMARK_AT_REFERENCE = { bottom: 48, right: 56, fontSize: 22 };
+
+/**
+ * The user's mark, bottom-right of the canvas.
+ *
+ * `scale` is the same `renderScaleFor` factor the card, the caption and the
+ * progress bar take: everything drawn at video size grows with the canvas's short
+ * edge, so a tier buys sharpness without reframing the shot. The watermark used
+ * to sit at fixed pixels and so shrank against everything around it — at 4K it
+ * read half the size, half as far from the corner. Dividing by the base scale
+ * turns it back into a plain tier multiplier: 1 at 1080p, 2 at 4K.
+ *
+ * Exported for the layout tests; the composition is its only real caller.
+ */
+export function WatermarkOverlay({
+	text,
+	color,
+	fontFamily,
+	scale,
+}: { text: string; color: string; fontFamily: string; scale: number }) {
+	const tier = scale / BASE_VIDEO_SCALE;
 	return (
-		<div style={{ position: "absolute", bottom: 48, right: 56, fontFamily, fontSize: 22, color }}>{text}</div>
+		<div
+			style={{
+				position: "absolute",
+				bottom: WATERMARK_AT_REFERENCE.bottom * tier,
+				right: WATERMARK_AT_REFERENCE.right * tier,
+				fontFamily,
+				fontSize: WATERMARK_AT_REFERENCE.fontSize * tier,
+				color,
+			}}
+		>
+			{text}
+		</div>
 	);
 }
 

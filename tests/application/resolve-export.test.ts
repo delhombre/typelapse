@@ -1,4 +1,5 @@
 import { resolveExport } from "@/application/export/resolve-export";
+import { ASPECT_LABELS, RESOLUTION_TIERS, dimensionsFor } from "@/domain/entities/render-config";
 import { BRANDING_WATERMARK, Plan } from "@/domain/value-objects/plan";
 import { describe, expect, it } from "vitest";
 
@@ -90,5 +91,64 @@ describe("resolveExport", () => {
 			expect(resolved.downgraded).toBe(false);
 			expect(resolved.target).toBe("local");
 		});
+	});
+});
+
+/**
+ * A resolution tier names the SHORT edge (see `dimensionsFor`): "1440p" vertical
+ * is 1440 wide by 2560 tall. The export bar advertises every aspect × tier
+ * combination with its exact pixel size and no plan gate, so whatever a paid plan
+ * claims to deliver, the hosted path has to deliver — in either orientation.
+ */
+describe("resolveExport across the advertised preset matrix", () => {
+	const request = (width: number, height: number) => ({
+		width,
+		height,
+		fps: 60,
+		format: "mp4" as const,
+		userWatermark: "",
+	});
+
+	for (const plan of [Plan.pro(), Plan.team(5)]) {
+		describe(`${plan.label}: every preset renders at the size the UI promises`, () => {
+			for (const aspect of ASPECT_LABELS) {
+				for (const tier of RESOLUTION_TIERS) {
+					it(`${aspect} ${tier}`, () => {
+						const { width, height } = dimensionsFor(aspect, tier);
+						const resolved = resolveExport(plan, request(width, height));
+
+						expect({ w: resolved.config.width, h: resolved.config.height }).toEqual({
+							w: width,
+							h: height,
+						});
+						expect(resolved.downgraded).toBe(false);
+					});
+				}
+			}
+		});
+	}
+
+	describe("free: the whole 1080p row survives, in any orientation", () => {
+		for (const aspect of ASPECT_LABELS) {
+			it(`${aspect} 1080p`, () => {
+				const { width, height } = dimensionsFor(aspect, "1080p");
+				const resolved = resolveExport(Plan.free(), request(width, height));
+
+				expect({ w: resolved.config.width, h: resolved.config.height }).toEqual({
+					w: width,
+					h: height,
+				});
+				expect(resolved.downgraded).toBe(false);
+			});
+		}
+	});
+
+	it("free: still refuses a tier above its own, vertical included", () => {
+		// 9:16 at 1440p is 1440x2560: its long edge outruns Free's 1920.
+		const { width, height } = dimensionsFor("9:16", "1440p");
+		const resolved = resolveExport(Plan.free(), request(width, height));
+
+		expect(resolved.downgraded).toBe(true);
+		expect(Math.max(resolved.config.width, resolved.config.height)).toBeLessThanOrEqual(1920);
 	});
 });
