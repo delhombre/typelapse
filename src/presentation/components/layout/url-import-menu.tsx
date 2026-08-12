@@ -1,4 +1,4 @@
-import { classifySource } from "@/application/import/classify-source";
+import { routeUrlPaste } from "@/application/import/route-url-paste";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
@@ -8,9 +8,10 @@ import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState }
 /**
  * Popover that turns a URL into something the studio is showing.
  *
- * It does not decide what the URL *is*: `classifySource` does, the same reader
- * the landing hero and the diff dialog use, so the three cannot disagree about
- * a link. What is left here is routing — which control finishes the job.
+ * It decides neither what the URL *is* nor who should open it. `classifySource`
+ * reads it, the same reader the landing hero and the diff dialog use, so the
+ * three cannot disagree about a link; `routeUrlPaste` says which control
+ * finishes it. What is left here is the popover.
  */
 export function UrlImportMenu() {
 	const [open, setOpen] = useState(false);
@@ -48,28 +49,20 @@ export function UrlImportMenu() {
 		setRefusal(null);
 		reset();
 
-		switch (classifySource(trimmed)) {
-			// A pull request is a walkthrough, not a file, and it is the one kind
-			// with a question still open: play the whole change, or a chapter per
-			// commit. The diff dialog beside this one is the control that asks it,
-			// so the URL goes there with the box already filled rather than coming
-			// back as "Unsupported URL" from a control that plainly recognised it.
-			case "pr":
+		switch (routeUrlPaste(trimmed)) {
+			// The diff dialog gets the box already filled, so the only thing left
+			// is the whole-change or by-commit choice it is there to offer.
+			case "hand-off":
 				handOffToDiffImport(trimmed);
 				setUrl("");
 				setOpen(false);
 				return;
-			// A commit and a file link have no such question, so this control
-			// finishes them itself — along the one import path, not a private copy.
-			case "commit":
-			case "code-url":
+			case "open-here":
 				if (await run(trimmed)) {
 					setUrl("");
 					setOpen(false);
 				}
 				return;
-			// A raw diff or a stray paste is not a link, and a single-line field
-			// would have flattened a diff into an unusable one anyway.
 			default:
 				setRefusal("Unsupported URL: paste a gist, a GitHub file, a commit or a pull request link");
 		}
