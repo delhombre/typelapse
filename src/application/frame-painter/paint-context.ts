@@ -17,7 +17,7 @@ export interface PaintPattern {
 	setTransform?: (...args: never[]) => void;
 }
 
-/** A decoded image the context can turn into a pattern (an `ImageBitmap`). */
+/** A decoded image the context can tile or draw (an `ImageBitmap`). */
 export type PaintImage = object;
 
 export type PaintStyle = string | PaintGradient | PaintPattern;
@@ -42,9 +42,19 @@ export interface PaintContext {
 	fill(): void;
 	clip(): void;
 	fillRect(x: number, y: number, w: number, h: number): void;
+	/**
+	 * Erase back to nothing.
+	 *
+	 * Not the same as filling with a transparent colour: `source-over` composites
+	 * that to a no-op, so a canvas that keeps its alpha would show the previous
+	 * frame straight through a background of `None`.
+	 */
+	clearRect(x: number, y: number, w: number, h: number): void;
 	fillText(text: string, x: number, y: number): void;
 	measureText(text: string): { width: number };
+	drawImage(image: PaintImage, dx: number, dy: number, dw: number, dh: number): void;
 
+	createLinearGradient(x0: number, y0: number, x1: number, y1: number): PaintGradient;
 	createRadialGradient(
 		x0: number,
 		y0: number,

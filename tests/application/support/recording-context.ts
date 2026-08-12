@@ -125,6 +125,14 @@ export class RecordingContext implements PaintContext {
 		this.commands.push(`fillRect(${round(x)},${round(y)},${round(w)},${round(h)})`);
 	}
 
+	clearRect(x: number, y: number, w: number, h: number): void {
+		this.commands.push(`clearRect(${round(x)},${round(y)},${round(w)},${round(h)})`);
+	}
+
+	drawImage(_image: unknown, dx: number, dy: number, dw: number, dh: number): void {
+		this.commands.push(`drawImage(${round(dx)},${round(dy)},${round(dw)},${round(dh)})`);
+	}
+
 	fillText(text: string, x: number, y: number): void {
 		this.commands.push(`fillText(${JSON.stringify(text)},${round(x)},${round(y)})`);
 	}
@@ -133,6 +141,19 @@ export class RecordingContext implements PaintContext {
 		// A perfect monospace of advance 0.6em, so tests can predict every position.
 		const size = Number.parseFloat(this.#font) || 10;
 		return { width: text.length * size * 0.6 };
+	}
+
+	createLinearGradient(x0: number, y0: number, x1: number, y1: number): PaintGradient {
+		const id = `linear(${round(x0)},${round(y0)},${round(x1)},${round(y1)})`;
+		this.commands.push(`createLinearGradient ${id}`);
+		const stops: string[] = [];
+		return {
+			id,
+			stops,
+			addColorStop(offset: number, color: string) {
+				stops.push(`${round(offset)}:${color}`);
+			},
+		} as PaintGradient & { id: string; stops: string[] };
 	}
 
 	createRadialGradient(

@@ -12,6 +12,14 @@
  * picture.
  */
 
+import {
+	type Backdrop,
+	type ColorStop,
+	type GradientShape,
+	coverRect,
+	linearGradientLine,
+	radialGradientRadii,
+} from "../backgrounds/backdrop";
 import { meshBlobsAt } from "../backgrounds/mesh-gradient";
 import { gutterLabels } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
@@ -98,41 +106,146 @@ export function paintFrame(ctx: PaintContext, scene: FrameScene, state: FrameSta
 }
 
 /**
- * The mesh, bottom-up. CSS stacks `radial-gradient` layers with the first one on
- * top; a canvas paints in the order it is told, so the array is walked backwards
- * over the base colour and the stack comes out the same way round.
+ * The backdrop, whichever of the five kinds the picker produced.
+ *
+ * Everything but the mesh used to end up as a raw string on `fillStyle`, which
+ * takes a *colour* and silently ignores a gradient or a `url(…)`: a preset or an
+ * uploaded photo exported as whatever the context happened to hold. Each kind is
+ * drawn out properly now, and the glow follows every one of them, exactly as the
+ * composition puts it behind every background that is not `None`.
  */
 function paintBackground(ctx: PaintContext, scene: FrameScene, timeSeconds: number): void {
 	const { width, height } = scene.canvas;
-	const { mesh, flat } = scene.style;
-	if (!mesh) {
-		ctx.fillStyle = flat === "transparent" ? "rgba(0, 0, 0, 0)" : flat;
+	const backdrop = scene.style.backdrop;
+	if (backdrop.kind === "transparent") {
+		// The frame before this one has to go, and filling with a transparent
+		// colour would not remove it: `source-over` composites that to nothing.
+		ctx.clearRect(0, 0, width, height);
+		return;
+	}
+	paintBackdrop(ctx, scene, backdrop, timeSeconds);
+	paintGlow(ctx, scene);
+}
+
+function paintBackdrop(
+	ctx: PaintContext,
+	scene: FrameScene,
+	backdrop: Backdrop,
+	timeSeconds: number,
+): void {
+	const { width, height } = scene.canvas;
+	if (backdrop.kind === "solid") {
+		ctx.fillStyle = backdrop.color;
 		ctx.fillRect(0, 0, width, height);
 		return;
 	}
+	if (backdrop.kind === "mesh") {
+		paintMesh(ctx, scene, timeSeconds);
+		return;
+	}
+	if (backdrop.kind === "linear") {
+		const line = linearGradientLine(backdrop.angleDeg, width, height);
+		const gradient = ctx.createLinearGradient(line.x0, line.y0, line.x1, line.y1);
+		for (const stop of backdrop.stops) {
+			gradient.addColorStop(stop.offset, stop.color);
+		}
+		ctx.fillStyle = gradient;
+		ctx.fillRect(0, 0, width, height);
+		return;
+	}
+	if (backdrop.kind === "radial") {
+		paintRadial(ctx, scene, backdrop.shape, backdrop.x, backdrop.y, backdrop.stops);
+		return;
+	}
+	paintBackdropImage(ctx, scene);
+}
 
-	ctx.fillStyle = mesh.base;
+/**
+ * The mesh, bottom-up. CSS stacks `radial-gradient` layers with the first one on
+ * top; a canvas paints in the order it is told, so the array is walked backwards
+ * over the base colour and the stack comes out the same way round.
+ *
+ * Each blob is a `radial-gradient(circle at x% y%, colour 0%, transparent R%)`,
+ * so it goes through the same radial painter every other radial background uses:
+ * one implementation of CSS's sizing rules, not two that can drift apart.
+ */
+function paintMesh(ctx: PaintContext, scene: FrameScene, timeSeconds: number): void {
+	const { width, height } = scene.canvas;
+	const preset = scene.style.backdrop.kind === "mesh" ? scene.style.backdrop.preset : null;
+	if (!preset) {
+		return;
+	}
+	ctx.fillStyle = preset.base;
 	ctx.fillRect(0, 0, width, height);
 
-	const blobs = meshBlobsAt(mesh, timeSeconds);
+	const blobs = meshBlobsAt(preset, timeSeconds);
 	for (let i = blobs.length - 1; i >= 0; i--) {
 		const blob = blobs[i];
 		if (!blob) {
 			continue;
 		}
-		const cx = (blob.x / 100) * width;
-		const cy = (blob.y / 100) * height;
-		// `radial-gradient(circle at x y, ...)` sizes to the farthest corner, so a
-		// stop at R% sits R% of the way to that corner.
-		const radius = (blob.radius / 100) * farthestCorner(cx, cy, width, height);
-		const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-		gradient.addColorStop(0, colorWithAlpha(blob.color, 1));
-		gradient.addColorStop(1, colorWithAlpha(blob.color, 0));
-		ctx.fillStyle = gradient;
-		ctx.fillRect(0, 0, width, height);
+		paintRadial(ctx, scene, "circle", blob.x, blob.y, [
+			{ offset: 0, color: colorWithAlpha(blob.color, 1) },
+			{ offset: blob.radius / 100, color: colorWithAlpha(blob.color, 0) },
+		]);
 	}
+}
 
-	paintGlow(ctx, scene);
+/**
+ * One radial gradient layer, sized the way CSS sizes a farthest-corner one.
+ *
+ * A canvas gradient is always a circle. CSS's default `ellipse` is that circle
+ * squashed on one axis, so the *space* is squashed about the gradient's centre
+ * and the covering rectangle is stretched back by the same factor — which is how
+ * a two-argument API draws a shape it has no argument for.
+ */
+function paintRadial(
+	ctx: PaintContext,
+	scene: FrameScene,
+	shape: GradientShape,
+	xPercent: number,
+	yPercent: number,
+	stops: ColorStop[],
+): void {
+	const { width, height } = scene.canvas;
+	const cx = (xPercent / 100) * width;
+	const cy = (yPercent / 100) * height;
+	const { rx, ry } = radialGradientRadii(shape, cx, cy, width, height);
+	const squash = rx === 0 ? 1 : ry / rx;
+
+	const round = squash === 1;
+	if (!round) {
+		ctx.save();
+		ctx.translate(0, cy);
+		ctx.scale(1, squash);
+		ctx.translate(0, -cy);
+	}
+	const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+	for (const stop of stops) {
+		gradient.addColorStop(stop.offset, stop.color);
+	}
+	ctx.fillStyle = gradient;
+	ctx.fillRect(0, round ? 0 : cy - cy / squash, width, round ? height : height / squash);
+	if (!round) {
+		ctx.restore();
+	}
+}
+
+/**
+ * The uploaded image, under the `center center / cover` the preview gives it.
+ *
+ * A missing image is a frame with no backdrop at all rather than a wrong one:
+ * the worker refuses to export when it cannot decode the upload, so nothing that
+ * reaches a user's disk ever gets here empty.
+ */
+function paintBackdropImage(ctx: PaintContext, scene: FrameScene): void {
+	const backdropImage = scene.style.backdropImage;
+	if (!backdropImage) {
+		return;
+	}
+	const { width, height } = scene.canvas;
+	const fit = coverRect(backdropImage.width, backdropImage.height, width, height);
+	ctx.drawImage(backdropImage.image, fit.x, fit.y, fit.width, fit.height);
 }
 
 /** The composition's soft centre glow: a wide, faint radial wash. */
@@ -152,9 +265,13 @@ function paintGlow(ctx: PaintContext, scene: FrameScene): void {
  * The film grain, tiled in soft-light over the background. It goes down before
  * the card, exactly like the composition's full-bleed `GrainOverlay`, so the
  * texture lives on the mesh and never over the code.
+ *
+ * A background of `None` gets none of it, for the same reason both DOM
+ * renderers gate it: grain over nothing is grain over whatever the video is
+ * eventually laid on.
  */
 function paintGrain(ctx: PaintContext, scene: FrameScene, grain: GrainTile | null): void {
-	if (!grain) {
+	if (!grain || scene.style.backdrop.kind === "transparent") {
 		return;
 	}
 	const pattern = ctx.createPattern(grain.image, "repeat");
@@ -430,13 +547,6 @@ function paintWatermark(ctx: PaintContext, scene: FrameScene): void {
 
 function clamp01(value: number): number {
 	return Math.min(1, Math.max(0, value));
-}
-
-/** Distance from a point to the farthest corner of the surface. */
-function farthestCorner(x: number, y: number, width: number, height: number): number {
-	const dx = Math.max(x, width - x);
-	const dy = Math.max(y, height - y);
-	return Math.sqrt(dx * dx + dy * dy);
 }
 
 /**

@@ -26,6 +26,7 @@ import type {
 	RenderVideoOptions,
 	RendererPort,
 } from "@/domain/ports/renderer.port";
+import { decodeBackdropImage } from "./backdrop-image";
 import {
 	type ClientExportEvent,
 	type ClientExportJob,
@@ -116,7 +117,10 @@ export class WebCodecsRendererAdapter implements RendererPort {
 		if (!ctx) {
 			throw new ClientExportUnsupportedError("This browser gave us no 2D context to paint into.");
 		}
-		const scene = sceneFor({ ...job, width, height }, job.documentCharWidthRatio, null);
+		const scene = sceneFor({ ...job, width, height }, job.documentCharWidthRatio, {
+			grain: null,
+			backdropImage: await decodeBackdropImage(job.background),
+		});
 		paintFrame(ctx, scene, scriptFor(job).frameAt(0));
 		return canvas.toDataURL("image/png");
 	}
