@@ -76,6 +76,29 @@ export function presetFor(
 	return null;
 }
 
+/**
+ * The largest and smallest pixel dimension a render may use, on either axis.
+ *
+ * ONE ceiling, shared by the studio and the render route, because they cannot
+ * afford to disagree. The route clamps width and height independently, so a size
+ * the studio accepted but the renderer will not is worse than a rejection: only
+ * the offending axis moves, and the export comes back in a shape the user never
+ * chose (4000x2250 previews as 16:9 and renders as 3840x2250). Whatever the
+ * studio lets through, the renderer has to honour untouched.
+ *
+ * It is DERIVED from the preset matrix rather than written down, so the ceiling
+ * cannot drift away from the tiers it exists to admit: it is the longest edge any
+ * shipped aspect produces at the finest tier (3840, which is 4K UHD's long edge).
+ * Add a wider aspect or a higher tier and the ceiling rises with it, instead of
+ * silently clamping the very preset that was just shipped.
+ */
+export const MAX_RENDER_DIMENSION = ASPECT_LABELS.flatMap((aspect) =>
+	RESOLUTION_TIERS.map((tier) => dimensionsFor(aspect, tier)),
+).reduce((widest, { width, height }) => Math.max(widest, width, height), 0);
+
+/** Keeps a zero, a negative or a one-pixel frame out of the encoder. */
+export const MIN_RENDER_DIMENSION = 16;
+
 export interface RenderConfigProps {
 	width: number;
 	height: number;
