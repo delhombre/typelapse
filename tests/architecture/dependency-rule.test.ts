@@ -26,10 +26,19 @@ const collectSourceFiles = (dir: string): string[] => {
 
 const BLOCK_COMMENT = /\/\*[\s\S]*?\*\//g;
 const LINE_COMMENT = /\/\/[^\n]*/g;
+/** Scans to the first UNESCAPED backtick, so `\`` and `\${` inside stay swallowed. */
+const TEMPLATE_LITERAL = /`(?:\\[\s\S]|[^\\`])*`/g;
 
-/** Prose is full of the word "from"; only real code should be scanned. */
-const withoutComments = (source: string): string => {
-	return source.replace(BLOCK_COMMENT, "").replace(LINE_COMMENT, "");
+/**
+ * Only real code should be scanned. Prose is full of the word "from", and the
+ * template catalog quotes whole source files - one of them a Vitest suite that
+ * imports from "vitest" - inside template literals. Neither is a dependency.
+ */
+const withoutCommentsAndStrings = (source: string): string => {
+	return source
+		.replace(BLOCK_COMMENT, "")
+		.replace(LINE_COMMENT, "")
+		.replace(TEMPLATE_LITERAL, "``");
 };
 
 const STATIC_IMPORT = /\bfrom\s*["']([^"']+)["']/g;
@@ -37,7 +46,7 @@ const SIDE_EFFECT_IMPORT = /\bimport\s*["']([^"']+)["']/g;
 const DYNAMIC_IMPORT = /\bimport\s*\(\s*["']([^"']+)["']/g;
 
 const importsOf = (file: string): string[] => {
-	const source = withoutComments(readFileSync(file, "utf8"));
+	const source = withoutCommentsAndStrings(readFileSync(file, "utf8"));
 	const specifiers: string[] = [];
 
 	for (const pattern of [STATIC_IMPORT, SIDE_EFFECT_IMPORT, DYNAMIC_IMPORT]) {

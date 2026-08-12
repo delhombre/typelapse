@@ -1,20 +1,26 @@
-import type { RenderFormat } from "@/domain/entities/render-config";
+import {
+	ASPECT_LABELS,
+	RESOLUTION_TIERS,
+	type RenderFormat,
+	type ResolutionTier,
+	dimensionsFor,
+	presetFor,
+} from "@/domain/entities/render-config";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type ReactNode, useEffect } from "react";
 
-/** Aspect-ratio presets for social-ready exports (wide, square, reels, portrait, tall). */
-const ASPECT_PRESETS = [
-	{ label: "16:9", width: 1920, height: 1080 },
-	{ label: "1:1", width: 1080, height: 1080 },
-	{ label: "9:16", width: 1080, height: 1920 },
-	{ label: "4:5", width: 1080, height: 1350 },
-	{ label: "3:4", width: 1080, height: 1440 },
-] as const;
-
 const PROGRESS_STYLES = ["reels", "bar", "none"] as const;
+
+/**
+ * What the shape and resolution chips fall back to when the stored dimensions
+ * match no preset — a plan-clamped export, or a hand-edited link. Neither chip
+ * row lights up in that case; these only decide what the *next* click composes
+ * against, so a stray size can still be corrected in one tap.
+ */
+const FALLBACK_PRESET = { aspect: ASPECT_LABELS[0], tier: RESOLUTION_TIERS[0] } as const;
 
 /** Full-width export bar at the bottom of the desktop app. */
 export function ExportBar() {
@@ -242,8 +248,10 @@ export function ExportOptions() {
 		setProgressStyle,
 	} = useExportStore();
 
-	const selectedAspect =
-		ASPECT_PRESETS.find((r) => r.width === width && r.height === height)?.label ?? "";
+	// Shape and resolution are two views of one stored pixel size: selecting
+	// either one recomposes the pair, so they can never contradict each other.
+	const selected = presetFor(width, height);
+	const current = selected ?? FALLBACK_PRESET;
 
 	return (
 		<>
@@ -260,17 +268,27 @@ export function ExportOptions() {
 
 			<Segmented
 				id="aspect"
-				items={ASPECT_PRESETS.map((r) => ({
-					key: r.label,
-					label: r.label,
-					title: `${r.width}×${r.height}`,
-				}))}
-				value={selectedAspect}
+				items={ASPECT_LABELS.map((aspect) => {
+					const dims = dimensionsFor(aspect, current.tier);
+					return { key: aspect, label: aspect, title: `${dims.width}×${dims.height}` };
+				})}
+				value={selected?.aspect ?? ""}
 				onSelect={(k) => {
-					const r = ASPECT_PRESETS.find((x) => x.label === k);
-					if (r) {
-						setResolution(r.width, r.height);
-					}
+					const dims = dimensionsFor(k as (typeof ASPECT_LABELS)[number], current.tier);
+					setResolution(dims.width, dims.height);
+				}}
+			/>
+
+			<Segmented
+				id="resolution"
+				items={RESOLUTION_TIERS.map((tier) => {
+					const dims = dimensionsFor(current.aspect, tier);
+					return { key: tier, label: tier, title: `${dims.width}×${dims.height}` };
+				})}
+				value={selected?.tier ?? ""}
+				onSelect={(k) => {
+					const dims = dimensionsFor(current.aspect, k as ResolutionTier);
+					setResolution(dims.width, dims.height);
 				}}
 			/>
 
@@ -336,7 +354,7 @@ export function ExportButton() {
 			disabled={isExporting}
 			whileTap={{ scale: 0.97 }}
 			transition={springs.snappy}
-			className="flex h-9 items-center gap-1.5 rounded-xl bg-accent px-4 text-xs font-semibold text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_4px_16px_-4px_var(--color-accent)] transition-[filter,box-shadow] hover:brightness-110 disabled:opacity-50"
+			className="flex h-9 items-center gap-1.5 rounded-xl bg-[var(--color-primary)] px-4 text-xs font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
 		>
 			{isExporting ? (
 				<>
@@ -395,7 +413,7 @@ function Segmented({
 						className={`relative rounded-md px-2 py-1 text-[11px] font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
 							isSelected
 								? "text-white dark:text-neutral-900"
-								: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300"
+								: "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300"
 						}`}
 					>
 						{isSelected && (

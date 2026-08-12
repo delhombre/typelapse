@@ -11,6 +11,7 @@ import {
 	Avatar,
 	EdgeScrim,
 	GlyphBox,
+	LiveSquare,
 	PlusBadge,
 	Rail,
 	RailButton,
@@ -18,8 +19,9 @@ import {
 	feedText,
 } from "./shared";
 
-/* Tunables: sizes are `em` on the overlay's cqmin root (1em ~ 2.7% of the short
-   side), so tweak these to re-scale the whole TikTok rail. */
+/* Sizes are `em` on the overlay's cqmin root (1em ~ 2.7% of the short side).
+   Corrected 2026-08-10 against the live app + App Store v46.3.0
+   (docs/decisions/2026-08-10-social-chrome-reference.md). */
 const RAIL_ICON = "2.85em";
 const AVATAR = "4.55em";
 const DISC = "3.1em";
@@ -29,12 +31,14 @@ const RAIL_BOTTOM = "12%";
 const RAIL_GAP = "1.05em";
 const TIKTOK_RED = "#FE2C55";
 
-/** TikTok immersive feed: For-You tabs, a bold right rail, caption + audio row. */
+/** TikTok immersive feed: LIVE + For-You tabs, a bold filled right rail, caption. */
 export function TikTokChrome({ zone }: { zone: SafeZone }) {
 	return (
 		<>
-			<EdgeScrim edge="top" size="18%" alpha={0.32} />
-			<EdgeScrim edge="bottom" size="42%" alpha={0.42} />
+			{/* Top is a near-flat band on the real app, not a tall ramp; the body
+			    darkens gradually toward the caption. */}
+			<EdgeScrim edge="top" size="9%" alpha={0.5} />
+			<EdgeScrim edge="bottom" size="52%" alpha={0.5} />
 			<TopBar />
 			<Rail right={RAIL_RIGHT} bottom={RAIL_BOTTOM} gap={RAIL_GAP}>
 				<Avatar size={AVATAR} badge={<PlusBadge color={TIKTOK_RED} size="1.5em" />} />
@@ -65,13 +69,14 @@ export function TikTokChrome({ zone }: { zone: SafeZone }) {
 					label="18.2K"
 					labelSize={COUNT}
 				/>
+				{/* Share now carries a count, not the word "Share". */}
 				<RailButton
 					icon={
 						<GlyphBox size={RAIL_ICON}>
 							<ForwardArrow />
 						</GlyphBox>
 					}
-					label="Share"
+					label="2281"
 					labelSize={COUNT}
 				/>
 				<SpinningDisc size={DISC} />
@@ -81,25 +86,37 @@ export function TikTokChrome({ zone }: { zone: SafeZone }) {
 	);
 }
 
+/* Real top bar: a LIVE entry left, and centre tabs separated by a thin divider —
+   no underline pill under the active tab. `Following` carries a red unread dot. */
 function TopBar() {
 	return (
 		<div
 			style={{ position: "absolute", top: "calc(var(--safe-top, 0px) + 3%)", left: 0, right: 0 }}
 		>
-			<div
-				style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "1.4em" }}
-			>
-				<span style={feedText({ size: "1.35em", weight: 600, dim: true })}>Following</span>
-				<div
-					style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.3em" }}
-				>
-					<span style={feedText({ size: "1.35em", weight: 700 })}>For You</span>
-					<div
-						style={{ width: "1.1em", height: "0.16em", borderRadius: "999px", background: "#fff" }}
-					/>
-				</div>
+			<div style={{ position: "absolute", top: "-0.15em", left: "4%" }}>
+				<LiveSquare size="2.15em" />
 			</div>
-			<div style={{ position: "absolute", top: 0, right: "4%" }}>
+			<div
+				style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.9em" }}
+			>
+				<span style={{ position: "relative", display: "inline-flex" }}>
+					<span style={feedText({ size: "1.35em", weight: 600, dim: true })}>Following</span>
+					<span
+						style={{
+							position: "absolute",
+							top: "-0.1em",
+							right: "-0.45em",
+							width: "0.4em",
+							height: "0.4em",
+							borderRadius: "999px",
+							background: TIKTOK_RED,
+						}}
+					/>
+				</span>
+				<span style={{ width: "0.09em", height: "1.2em", background: "rgba(255,255,255,0.45)" }} />
+				<span style={feedText({ size: "1.35em", weight: 700 })}>For You</span>
+			</div>
+			<div style={{ position: "absolute", top: "0.05em", right: "4%" }}>
 				<GlyphBox size="2em">
 					<Magnifier />
 				</GlyphBox>

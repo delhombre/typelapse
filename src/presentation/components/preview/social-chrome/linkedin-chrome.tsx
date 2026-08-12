@@ -1,138 +1,273 @@
 import type { SafeZone } from "@/application/social/safe-zones";
 import type { ReactNode } from "react";
-import { CommentOutline, HeartSolid, LinkedInMark, PaperPlane, Repost, ThumbUp } from "./icons";
-import { Avatar, GlyphBox, ReactionCoin } from "./shared";
+import {
+	BellSolid,
+	BriefcaseSolid,
+	CommentLines,
+	DotsHorizontal,
+	ForwardArrow,
+	HouseSolid,
+	PeoplePairSolid,
+	PlayTriangle,
+	ThumbUpSolid,
+	VolumeSolid,
+} from "./icons";
+import { Avatar, DIM_WHITE, EdgeScrim, GlyphBox, Pill, Rail, RailButton, feedText } from "./shared";
 
-/* LinkedIn is a light feed CARD, not an immersive video: white header + footer
-   panels frame the export canvas (the "media"), so text is dark, not shadowed. */
-const CARD_BG = "rgba(255,255,255,0.97)";
-const TEXT = "#1f2328";
-const SUBTLE = "#5f6b7a";
-const LINKEDIN_BLUE = "#0A66C2";
-const HAIRLINE = "1px solid rgba(0,0,0,0.1)";
+/* Redrawn 2026-08-10 as the full-screen Video-tab player, replacing the in-feed
+   card (docs/decisions/2026-08-10-social-chrome-reference.md; press renders —
+   the live app is login-walled). Read off the captures: the rail glyphs are
+   SOLID white (like `258` / comment `14` / share, volume set apart lower), not
+   the outline set the reference first guessed, and the bottom is an opaque
+   white nav where Video sits selected as a black play tile. */
+const NOTIF_RED = "#CD141A";
+const NAV_TEXT = "#5a5a5a";
+const NAV_ACTIVE = "#191919";
+/** The opaque nav (tabs + home indicator); everything else stacks above it. */
+const NAV_H = "4.7em";
+const RAIL_ICON = "2.45em";
+const COUNT = "1.1em";
 
-/** LinkedIn in-feed card: author header + reactions/actions footer over the video. */
+/** LinkedIn Video tab: solid white rail, author + caption, opaque bottom nav. */
 export function LinkedInChrome({ zone }: { zone: SafeZone }) {
 	return (
 		<>
-			<Header zone={zone} />
-			<Footer zone={zone} />
+			<EdgeScrim edge="top" size="12%" alpha={0.25} />
+			<EdgeScrim edge="bottom" size="34%" alpha={0.38} />
+			<TopBar />
+			<ActionRail />
+			<Caption zone={zone} />
+			<Scrubber />
+			<BottomNav />
 		</>
 	);
 }
 
-function Header({ zone }: { zone: SafeZone }) {
+/* The only top furniture the captures show is an overflow control. */
+function TopBar() {
 	return (
-		<div
-			style={{
-				position: "absolute",
-				top: "var(--safe-top, 0px)",
-				left: 0,
-				right: 0,
-				background: CARD_BG,
-				borderBottom: HAIRLINE,
-				padding: `${zone.top * 100 + 1.5}% ${zone.left * 100 + 2}% 3.5%`,
-				display: "flex",
-				alignItems: "flex-start",
-				gap: "0.8em",
-				fontFamily: "inherit",
-			}}
-		>
-			<Avatar size="3.4em" ringColor="transparent" ringWidth="0" />
-			<div style={{ display: "flex", flexDirection: "column", gap: "0.2em", flex: 1, minWidth: 0 }}>
-				<span style={{ fontSize: "1.3em", fontWeight: 700, color: TEXT, lineHeight: 1.2 }}>
-					Your Name <span style={{ color: SUBTLE, fontWeight: 400 }}>· 1st</span>
-				</span>
-				<span style={{ fontSize: "1.05em", color: SUBTLE, lineHeight: 1.25 }}>
-					Software Engineer, building in public
-				</span>
-				<span style={{ fontSize: "1em", color: SUBTLE, lineHeight: 1.2 }}>2h · Edited</span>
-			</div>
-			<div style={{ display: "flex", alignItems: "center", gap: "0.8em" }}>
-				<span
-					style={{ fontSize: "1.2em", fontWeight: 700, color: LINKEDIN_BLUE, whiteSpace: "nowrap" }}
-				>
-					+ Follow
-				</span>
-				<GlyphBox size="1.9em" color={LINKEDIN_BLUE} shadow={false}>
-					<LinkedInMark />
+		<div style={{ position: "absolute", top: "calc(var(--safe-top, 0px) + 3.2%)", right: "4%" }}>
+			<GlyphBox size="1.9em">
+				<DotsHorizontal />
+			</GlyphBox>
+		</div>
+	);
+}
+
+/* Like / comment / share, then volume set apart below — no repost and no send
+   here, those live only in the feed card. */
+function ActionRail() {
+	return (
+		<Rail right="3%" bottom={`calc(${NAV_H} + 9.5em)`} gap="1.35em">
+			<RailButton
+				icon={
+					<GlyphBox size={RAIL_ICON}>
+						<ThumbUpSolid />
+					</GlyphBox>
+				}
+				label="258"
+				labelSize={COUNT}
+			/>
+			<RailButton
+				icon={
+					<GlyphBox size={RAIL_ICON}>
+						<CommentLines />
+					</GlyphBox>
+				}
+				label="14"
+				labelSize={COUNT}
+			/>
+			<GlyphBox size={RAIL_ICON}>
+				<ForwardArrow />
+			</GlyphBox>
+			<div style={{ marginTop: "1.1em" }}>
+				<GlyphBox size="2.15em">
+					<VolumeSolid />
 				</GlyphBox>
 			</div>
-		</div>
+		</Rail>
 	);
 }
 
-function Footer({ zone }: { zone: SafeZone }) {
+function Caption({ zone }: { zone: SafeZone }) {
 	return (
 		<div
 			style={{
 				position: "absolute",
-				bottom: 0,
-				left: 0,
-				right: 0,
-				background: CARD_BG,
-				borderTop: HAIRLINE,
-				padding: `3.5% ${zone.left * 100 + 2}% 4%`,
+				left: `${zone.left * 100}%`,
+				right: "17%",
+				bottom: `calc(${NAV_H} + 1.7em)`,
 				display: "flex",
 				flexDirection: "column",
-				gap: "0.9em",
-				fontFamily: "inherit",
+				gap: "0.55em",
 			}}
 		>
-			<div style={{ display: "flex", alignItems: "center", gap: "0.5em" }}>
-				<div style={{ display: "flex", alignItems: "center" }}>
-					<ReactionCoin size="1.7em" background={LINKEDIN_BLUE}>
-						<FilledThumb />
-					</ReactionCoin>
-					<span style={{ marginLeft: "-0.45em" }}>
-						<ReactionCoin size="1.7em" background="#6DAE4F">
-							<FilledStar />
-						</ReactionCoin>
-					</span>
-					<span style={{ marginLeft: "-0.45em" }}>
-						<ReactionCoin size="1.7em" background="#DF704D">
-							<HeartSolid />
-						</ReactionCoin>
+			<div style={{ display: "flex", alignItems: "center", gap: "0.6em" }}>
+				<Avatar size="2.9em" ringColor="transparent" ringWidth="0" />
+				<div style={{ display: "flex", flexDirection: "column", gap: "0.25em", minWidth: 0 }}>
+					<div style={{ display: "flex", alignItems: "center", gap: "0.6em" }}>
+						<span style={feedText({ size: "1.25em", weight: 700 })}>Your Name</span>
+						<Pill
+							label="Follow"
+							size="1em"
+							border="0.09em solid rgba(255,255,255,0.85)"
+							radius="999px"
+						/>
+					</div>
+					<span
+						style={{
+							...feedText({ size: "1.05em", weight: 400, dim: true }),
+							overflow: "hidden",
+							textOverflow: "ellipsis",
+						}}
+					>
+						{"@yourhandle (12k+) Software Engineer // Building in public"}
 					</span>
 				</div>
-				<span style={{ fontSize: "1.05em", color: SUBTLE }}>128 · 14 comments</span>
 			</div>
-			<div style={{ height: 1, background: "rgba(0,0,0,0.08)" }} />
-			<div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-				<Action icon={<ThumbUp stroke={1.9} />} label="Like" />
-				<Action icon={<CommentOutline stroke={1.9} />} label="Comment" />
-				<Action icon={<Repost stroke={1.9} />} label="Repost" />
-				<Action icon={<PaperPlane stroke={1.9} />} label="Send" />
-			</div>
+			<span style={{ ...feedText({ size: "1.15em", weight: 400 }), whiteSpace: "normal" }}>
+				Building this in TypeScript. <span style={{ color: DIM_WHITE }}>…see more</span>
+			</span>
 		</div>
 	);
 }
 
-function Action({ icon, label }: { icon: ReactNode; label: string }) {
+/* A thin full-width progress line sitting directly on top of the nav — the
+   video does not run edge-to-edge past it. */
+function Scrubber() {
 	return (
-		<div style={{ display: "flex", alignItems: "center", gap: "0.4em", color: SUBTLE }}>
-			<GlyphBox size="1.7em" color={SUBTLE} shadow={false}>
+		<div
+			style={{
+				position: "absolute",
+				left: 0,
+				right: 0,
+				bottom: `calc(${NAV_H} + 0.55em)`,
+				height: "0.22em",
+				background: "rgba(255,255,255,0.3)",
+			}}
+		>
+			<div
+				style={{
+					position: "absolute",
+					top: 0,
+					bottom: 0,
+					left: 0,
+					width: "42%",
+					background: "#fff",
+				}}
+			/>
+		</div>
+	);
+}
+
+function BottomNav() {
+	return (
+		<div
+			style={{
+				position: "absolute",
+				left: 0,
+				right: 0,
+				bottom: 0,
+				height: NAV_H,
+				background: "#fff",
+				display: "flex",
+				flexDirection: "column",
+			}}
+		>
+			<div
+				style={{
+					flex: 1,
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-around",
+					padding: "0.3em 0.4em 0",
+				}}
+			>
+				<NavTab icon={<HouseSolid />} label="Home" />
+				<NavTab icon={<VideoTile />} label="Video" active />
+				<NavTab icon={<PeoplePairSolid />} label="My Network" />
+				<NavTab icon={<BellBadged />} label="Notifications" />
+				<NavTab icon={<BriefcaseSolid />} label="Jobs" />
+			</div>
+			<HomeIndicator />
+		</div>
+	);
+}
+
+function NavTab({ icon, label, active }: { icon: ReactNode; label: string; active?: boolean }) {
+	const color = active ? NAV_ACTIVE : NAV_TEXT;
+	return (
+		<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.28em" }}>
+			<GlyphBox size="1.55em" color={color} shadow={false}>
 				{icon}
 			</GlyphBox>
-			<span style={{ fontSize: "1.1em", fontWeight: 600, color: SUBTLE }}>{label}</span>
+			<span
+				style={{
+					fontSize: "0.8em",
+					fontWeight: active ? 600 : 500,
+					color,
+					lineHeight: 1,
+					whiteSpace: "nowrap",
+				}}
+			>
+				{label}
+			</span>
 		</div>
 	);
 }
 
-/* Small filled glyphs for the reaction coins (white on colored circles). */
-
-function FilledThumb() {
+/** The selected Video tab: a filled dark rounded square with a play glyph. */
+function VideoTile() {
 	return (
-		<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor" aria-hidden="true">
-			<path d="M2 10.5h3.2V21H2zM7 10.2l3.7-7.4c1.1.05 1.9.95 1.9 2v3.3h5a1.6 1.6 0 0 1 1.58 1.9l-1.1 6.5A1.6 1.6 0 0 1 17.5 21H7z" />
-		</svg>
+		<div
+			style={{
+				width: "100%",
+				height: "100%",
+				borderRadius: "0.3em",
+				background: NAV_ACTIVE,
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "center",
+				color: "#fff",
+			}}
+		>
+			<span style={{ width: "58%", height: "58%", display: "inline-flex" }}>
+				<PlayTriangle />
+			</span>
+		</div>
 	);
 }
 
-function FilledStar() {
+function BellBadged() {
 	return (
-		<svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor" aria-hidden="true">
-			<path d="m12 3 2.6 5.4 5.9.8-4.3 4.1 1.1 5.9L12 16.9 6.7 19.3l1.1-5.9L3.5 9.2l5.9-.8z" />
-		</svg>
+		<span style={{ position: "relative", display: "inline-flex", width: "100%", height: "100%" }}>
+			<BellSolid />
+			<span
+				style={{
+					position: "absolute",
+					top: "-0.35em",
+					right: "-0.85em",
+					background: NOTIF_RED,
+					color: "#fff",
+					borderRadius: "999px",
+					fontSize: "0.55em",
+					fontWeight: 700,
+					lineHeight: 1,
+					padding: "0.25em 0.4em",
+				}}
+			>
+				20+
+			</span>
+		</span>
+	);
+}
+
+function HomeIndicator() {
+	return (
+		<div style={{ display: "flex", justifyContent: "center", padding: "0.25em 0 0.45em" }}>
+			<div
+				style={{ width: "7.5em", height: "0.32em", borderRadius: "999px", background: "#111" }}
+			/>
+		</div>
 	);
 }

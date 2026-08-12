@@ -1,31 +1,32 @@
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	allowsSingleKeyShortcut,
+	isEditableEventTarget,
+} from "@/presentation/utils/editable-target";
 import { useEffect } from "react";
 
 /**
- * Returns true if the active element is an input, textarea, contenteditable,
- * or inside a Monaco editor: meaning keyboard shortcuts should be suppressed.
+ * True while a modal dialog is on screen.
+ *
+ * A modal owns every key it can see: driving the animation underneath an open
+ * gallery would be a surprise, and Escape has to reach the dialog that owns it
+ * rather than pausing playback behind it.
  */
-function isEditableElementFocused(): boolean {
-	const el = document.activeElement;
-	if (!el) {
-		return false;
-	}
+function isModalOpen(): boolean {
+	return document.querySelector("dialog[open]") !== null;
+}
 
-	const tag = el.tagName.toLowerCase();
-	if (tag === "input" || tag === "textarea" || tag === "select") {
-		return true;
-	}
-
-	if (el instanceof HTMLElement && el.isContentEditable) {
-		return true;
-	}
-
-	// Monaco editor wraps its input in elements inside .monaco-editor
-	if (el.closest(".monaco-editor")) {
-		return true;
-	}
-
-	return false;
+/**
+ * True when the studio's bare-key shortcuts must stand down: while a modal is
+ * open, and while the focused surface is taking text.
+ *
+ * This is the state-shaped question, for callers that have no keystroke in hand.
+ * The handler below asks the event-shaped one instead, because an event knows
+ * its own origin and `document.activeElement` only knows where focus landed.
+ * Both route through the same capability checks, so they cannot drift apart.
+ */
+export function areShortcutsSuppressed(): boolean {
+	return isModalOpen() || isEditableEventTarget({ target: document.activeElement });
 }
 
 export function useKeyboardShortcuts(): void {
@@ -33,15 +34,27 @@ export function useKeyboardShortcuts(): void {
 		function handleKeyDown(e: KeyboardEvent) {
 			const store = useSnippetStore.getState();
 
-			// Ctrl+Enter / Cmd+Enter: capture step (works even when typing)
+			// A modal owns every key while it is open, including the chord below
+			// that otherwise fires mid-typing: capturing a step from inside the
+			// gallery would commit work the user cannot see.
+			if (isModalOpen()) {
+				return;
+			}
+
+			// Ctrl+Enter / Cmd+Enter: capture step. A chord is unambiguous, so this
+			// one deliberately works while typing — it is the whole point of it.
 			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				store.captureStep();
 				return;
 			}
 
-			// All remaining shortcuts are suppressed when an editable element is focused
-			if (isEditableElementFocused()) {
+			// Everything below is a bare key, which the editor has the stronger
+			// claim to whenever the keystroke came from a text surface. The guard
+			// reads the event's own path rather than document.activeElement, and
+			// asks whether the surface takes text rather than what it is called:
+			// Monaco types through an EditContext div that no tag-name check sees.
+			if (!allowsSingleKeyShortcut(e)) {
 				return;
 			}
 

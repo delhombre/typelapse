@@ -25,7 +25,22 @@
 	--font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
 	--font-mono: "Ioskeley Mono", ui-monospace, SFMono-Regular, monospace;
 
-	/* One restrained accent: used only for focus + a hint of primary emphasis. */
+	/* The brand's primary: every filled action in the product wears it, on the
+	   landing and in the studio alike. Black on it, not white — at this
+	   lightness white reads 1.75:1 against it and ink reads 12:1, so the
+	   choice makes itself.
+
+	   The hover is the same colour a step lighter rather than a filter, because
+	   `brightness()` on a saturated yellow drifts the hue as it lifts. */
+	--color-primary: #f1be01;
+	--color-primary-hover: #f5c92a;
+	--color-on-primary: #1c1b19;
+	/* The primary's own glow, for the lift under a filled button. */
+	--color-primary-glow: rgb(241 190 1 / 0.45);
+
+	/* Focus stays blue, and deliberately: a focus ring has to be seen against
+	   whatever it sits on, and the primary measures 1.67:1 against paper — under
+	   half of the 3:1 a ring needs. The one place the brand colour cannot go. */
 	--color-accent: oklch(0.62 0.19 268);
 
 	/* Editorial paper palette: the landing's whole world. */
@@ -80,14 +95,27 @@ html[data-landing-theme="dark"] {
 	outline: none;
 }
 
-/* Reduced motion: keep opacity/color, drop movement (Apple's guidance). */
+/* Reduced motion: keep opacity/color, drop movement (Apple's guidance).
+
+   The rule is enforced on `transition-property`, not on the duration. Zeroing
+   every duration was the obvious way to write this and it said the opposite of
+   what it meant: a colour fade is not movement, and killing it makes a hover
+   answer with a jump cut — the setting asks for less motion, not for a harsher
+   interface. There is no way to subtract one property from a transition list,
+   so the list is replaced with the properties that are allowed to survive.
+   Anything the author was transitioning that is not named here — transform,
+   width, translate, filter, anything added later — simply falls out of the list
+   and lands instantly, keeping its own duration and curve for the properties
+   that remain. The default is safe on the side of stillness: a movement nobody
+   thought to name is a movement that does not happen. */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
 	*::after {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
-		transition-duration: 0.01ms !important;
+		transition-property: color, background-color, border-color, outline-color, text-decoration-color,
+			fill, stroke, opacity, box-shadow !important;
 		scroll-behavior: auto !important;
 	}
 	.bg-animate-playing {
@@ -162,10 +190,11 @@ html[data-landing-theme="dark"] {
 	/* Characterful landing display face (Tuple-style warmth). Scoped here so the
 	   /app studio keeps the neutral @theme sans and is never affected. */
 	--font-display: var(--font-sans);
-	/* Primary CTA fill: one lightness step deeper than the light `--color-accent`
-	   token so white button text clears WCAG AA (4.86:1). Landing-scoped, so the
-	   accent token itself (focus ring, eyebrow dot, pill) is untouched. */
-	--color-cta: oklch(0.56 0.19 268);
+	/* The landing's filled actions take the brand's primary, like everything
+	   else that fills. It was a landing-only blue, one step deeper than the
+	   accent so white text could clear AA on it; there is one primary now, and
+	   it carries its own text colour with it. */
+	--color-cta: var(--color-primary);
 	font-family: var(--font-sans);
 	font-optical-sizing: auto;
 	/* Only Regular and SemiBold of the mono are loaded: never fabricate one. */
@@ -271,6 +300,377 @@ html[data-landing-theme="dark"] {
 	font-variant-numeric: tabular-nums;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   The hero instrument: a block of modes sitting on the paste field, drawn as
+   one object rather than two. Everything below follows from three rules.
+
+   ONE SILHOUETTE. The block and the field share an outline and a left edge.
+   The edge is a turn, a straight run, and the same turn again; only the right
+   end of the field stays fully round, because only the right end is still an
+   end. Where the two are in contact there is no outline, there is the join —
+   the block's own bottom border, which the field's ring carries on with on the
+   far side of it.
+
+   ONE VALUE FOR THAT LINE. `--edge` is opaque, at the value a hairline reaches
+   over paper. A 10% hairline takes the colour of what it is laid over, and
+   along this line the backdrop changes three times; two of these lines also
+   cross, and translucent ones darken where they do.
+
+   ONE VERTICAL FOR THE TEXT. `--text-x` starts every line in the hero — the
+   labels, what you type, the lead above, the log and the meta below — and it is
+   the block's corner radius too, so the edge finishes turning on the vertical
+   the first character starts on. The object's own edge is the one thing that
+   does not sit on it: it hangs 14 to the left of all of it, which is what makes
+   the column read as text with an instrument set into it.
+   ───────────────────────────────────────────────────────────────────────── */
+.landing-root .lp-hero {
+	--text-x: 14px;
+	--mode-h: 35px;
+	--field-h: 52px;
+	--mode-r: var(--text-x);
+	/* Written out rather than left to `999px`: a shorthand that large forces the
+	   spec's own scaling, and the factor it produces is applied to every corner,
+	   which silently crushes the small one. Computed style reports the radius
+	   asked for, not the one used — only the pixels show it. */
+	--cap-r: calc(var(--field-h) / 2);
+	--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
+}
+
+.landing-root .lp-hero-lead,
+.landing-root .lp-log,
+.landing-root .lp-hero-meta {
+	padding-left: var(--text-x);
+}
+
+/* The only prose in the hero, and this direction has no headline, so it
+   carries the voice. The name takes the ink and the weight; the rest stays
+   ash, so there is one thing to land on and one to read after. */
+.landing-root .lp-hero-lead {
+	max-width: 52ch;
+	font-size: 17px;
+	line-height: 26px;
+	letter-spacing: -0.01em;
+	color: var(--color-ash);
+	text-wrap: pretty;
+}
+
+.landing-root .lp-hero-lead strong {
+	font-weight: 600;
+	color: var(--color-ink);
+}
+
+/* The block. Its border is all four sides and the bottom one is the join: a
+   border that has to round off into a zero-width neighbour tapers away as it
+   turns, so three sides and a separate bar cannot survive a rounded corner.
+   It sits 1px outside its own fill, like the field's ring does, which is what
+   the negative inline margin buys — the fill still starts on the field's left
+   edge and the two hairlines land in the same pixel. */
+.landing-root .lp-modes {
+	position: relative;
+	/* Above the field: the fill is what suppresses the ring under the block. */
+	z-index: 1;
+	display: flex;
+	width: fit-content;
+	margin-top: 22px;
+	margin-inline: -1px;
+	border: 1px solid var(--edge);
+	/* Two turns on top, two square corners under them. The bottom is not an
+	   outline, it is where the block sits, and a seating surface does not curve
+	   away at its ends. */
+	border-radius: calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) 0 0;
+}
+
+/* Glued, and ruled apart by a hairline rather than by a gap. Opaque, because a
+   pastille has to hide the field's ring where it covers it — translucent, the
+   ring read straight through the join it was meant to hide. */
+.landing-root .lp-mode {
+	height: var(--mode-h);
+	padding: 6px var(--text-x) 7px;
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--color-ash);
+	background: color-mix(in oklch, var(--color-ink) 4%, var(--color-paper));
+	transition: color 140ms var(--ease-out), background-color 140ms var(--ease-out);
+}
+
+.landing-root .lp-mode + .lp-mode {
+	border-left: 1px solid var(--color-hairline);
+}
+
+/* The selected one takes the field's surface and no edge of its own: the rules
+   beside it already separate it, and the field draws the one below. */
+.landing-root .lp-mode[data-active] {
+	color: var(--color-ink);
+	font-weight: 600;
+	background: var(--color-surface);
+}
+
+.landing-root .lp-mode:first-child {
+	border-top-left-radius: var(--mode-r);
+}
+
+.landing-root .lp-mode:last-child {
+	border-top-right-radius: var(--mode-r);
+}
+
+/* Turned fully inward. A pastille is butted against its neighbours, the block's
+   hairline is a pixel off its edge, and below it there is no gap but the field:
+   offset outwards the ring crossed all three, including the one edge nothing is
+   allowed to cross. */
+.landing-root .lp-mode:focus-visible {
+	outline: 2px solid var(--color-accent);
+	outline-offset: -2px;
+}
+
+/* The field. Mono is set here and not on the input alone, because the caret is
+   sized in `em` and has to be one character of the text it stands after. */
+.landing-root .lp-field {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 1ch;
+	height: var(--field-h);
+	padding: 0 6px 0 var(--text-x);
+	font-family: var(--font-mono);
+	font-size: 14px;
+	/* Square at the top left, where the block comes down it, and the block's own
+	   turn at the bottom left. Down that side this is not the field's end. */
+	border-radius: 0 var(--cap-r) var(--cap-r) var(--mode-r);
+	background: var(--color-surface);
+	box-shadow: 0 8px 24px -10px rgb(18 18 20 / 0.14);
+}
+
+/* The ring on its own layer, inset on a box a pixel larger rather than spread
+   outside this one, so the pixel it occupies is the pixel the block's border
+   and the join occupy. */
+.landing-root .lp-field::before {
+	content: "";
+	position: absolute;
+	inset: -1px;
+	border-radius: 0 calc(var(--cap-r) + 1px) calc(var(--cap-r) + 1px) calc(var(--mode-r) + 1px);
+	box-shadow: inset 0 0 0 1px var(--edge);
+	pointer-events: none;
+}
+
+/* Sized to its content so the caret can stand at the end of the text instead of
+   at the end of the box. It still shrinks when the text outgrows the room, and
+   the caret then sits where the text visibly ends, which is the same place. */
+.landing-root .lp-field textarea {
+	field-sizing: content;
+	flex: 0 1 auto;
+	min-width: 0;
+	padding: 0;
+	border: 0;
+	outline: none;
+	resize: none;
+	background: none;
+	font: inherit;
+	color: var(--color-ink);
+	/* Never wrapped: a pull-request URL too long for the room scrolls, the way it
+	   did while this was an input, rather than folding onto a second line and
+	   doubling the height of the field. A diff must not be re-wrapped either. */
+	white-space: pre;
+	overflow: auto;
+	/* The bars would otherwise appear inside a 40px field on the platforms that
+	   reserve room for them. The caret still carries the view along with it. */
+	scrollbar-width: none;
+	/* The block below stands in for it. */
+	caret-color: transparent;
+}
+
+.landing-root .lp-field textarea::-webkit-scrollbar {
+	display: none;
+}
+
+.landing-root .lp-field textarea::placeholder {
+	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+}
+
+/* A pasted diff is many lines, and the field holds them rather than swallowing
+   them. It grows out of the single row it starts in and stops at ten or so,
+   which is enough to recognise your own change and not so much that the field
+   takes the page from everything under it. */
+.landing-root .lp-field[data-multiline] {
+	height: auto;
+	min-height: var(--field-h);
+	align-items: flex-end;
+	padding: 10px 6px 10px var(--text-x);
+}
+
+.landing-root .lp-field[data-multiline] textarea {
+	flex: 1 1 auto;
+	max-height: 220px;
+	line-height: 1.55;
+	/* The drawn caret has stood down by now — it has no end of the text to stand
+	   at once there are several lines — so the real one has to come back, or the
+	   field is one you cannot see yourself typing in. */
+	caret-color: var(--color-ink);
+	/* And with the height capped there is more diff than room, which a field
+	   with no bars at all gives no sign of. At this size there is room to say so. */
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in oklch, var(--color-ash) 40%, transparent) transparent;
+}
+
+.landing-root .lp-field[data-multiline] textarea::-webkit-scrollbar {
+	display: block;
+	width: 8px;
+	height: 8px;
+}
+
+.landing-root .lp-field[data-multiline] textarea::-webkit-scrollbar-thumb {
+	border-radius: 999px;
+	background: color-mix(in oklch, var(--color-ash) 40%, transparent);
+}
+
+/* The caret is the focus state: absent until the field has focus, and standing
+   where the next character goes. Held by visibility and not opacity, because
+   the blink is a keyframe animation on opacity and an animation outranks a
+   declaration. Nothing between it and the text — a caret with a space in front
+   of it is not a caret — and no pointer events, since pressing the field is
+   what puts you in it. */
+.landing-root .lp-caret {
+	display: inline-block;
+	flex: none;
+	width: 0.62em;
+	height: 1.05em;
+	margin-left: -1ch;
+	translate: 0 0.18em;
+	background: var(--color-ink);
+	pointer-events: none;
+}
+
+.landing-root .lp-field:not(:focus-within) .lp-caret {
+	visibility: hidden;
+	animation: none;
+}
+
+.landing-root .lp-caret[data-idle] {
+	animation: lp-blink 1.06s steps(1, end) infinite;
+}
+
+@keyframes lp-blink {
+	0%,
+	50% {
+		opacity: 1;
+	}
+	50.01%,
+	100% {
+		opacity: 0;
+	}
+}
+
+/* Ink, not the primary, and this is the one place that is true. A filled button
+   has to be seen as a shape, not only read as a label: the primary measures
+   1.75:1 against the white it sits on here, under the 3:1 a non-text element
+   needs, so the button all but dissolved into its own field. Ink on that white
+   is 15:1.
+
+   The primary loses nothing by it — it is still on the dock, where the surface
+   is near-black and ink is the colour that would vanish, and it is the whole
+   backdrop below. The rule underneath both: the filled action takes whichever
+   of the two contrasts with what it is sitting on.
+
+   The field hugs its text, so the button is no longer pushed right by it. */
+.landing-root .lp-field-cta {
+	margin-left: auto;
+	flex: none;
+	cursor: pointer;
+	border: 0;
+	display: inline-flex;
+	align-items: center;
+	height: 40px;
+	padding: 0 18px;
+	border-radius: 999px;
+	background: var(--color-ink);
+	color: var(--color-paper);
+	font-family: var(--font-sans);
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+	transition: background-color 150ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+/* Behind the media query, or a tap on a phone leaves the button stuck in its
+   hover colour until something else is touched. */
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-field-cta:hover {
+		background: color-mix(in oklch, var(--color-ink) 86%, var(--color-paper));
+	}
+}
+
+.landing-root .lp-field-cta:active {
+	transform: scale(0.97);
+}
+
+/* The log. Every field it carries takes a column of its own and the numeric
+   ones are right-aligned, so they stack whatever their width. A column that
+   lines up across rows cannot be sized inside a row: the list owns the columns,
+   each row borrows them by subgrid. Its right edge is the field's own, so the
+   log is exactly as wide as the object it reports on. */
+.landing-root .lp-log {
+	display: grid;
+	grid-template-columns: 1fr auto auto auto;
+	gap: 2px 2ch;
+	margin-top: 14px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 20px;
+}
+
+.landing-root .lp-log li {
+	display: grid;
+	grid-column: 1 / -1;
+	grid-template-columns: subgrid;
+}
+
+/* The URL is the column that gives. A grid track of `1fr` still refuses to go
+   below its content's min-content width, and an unbroken URL has no break
+   opportunity in it, so the track held its full length and pushed the three
+   nowrap stat columns off the right edge — at 390px the counts were cut through
+   the middle of a glyph. The row's numbers are the part that has to survive
+   intact, so the URL takes the ellipsis instead: min-width: 0 lets the track
+   shrink, and the truncation lands where a reader loses the least. */
+.landing-root .lp-log a {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--color-ash);
+	text-decoration: none;
+}
+
+/* Gated, like every other hover here: on a touch screen the state has no way
+   to end, so the last link tapped keeps the underline it was never given. */
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-log a:hover {
+		color: var(--color-ink);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+}
+
+.landing-root .lp-log span {
+	text-align: right;
+	color: color-mix(in oklch, var(--color-ash) 70%, transparent);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.landing-root .lp-hero-meta {
+	margin-top: 20px;
+	padding-top: 14px;
+	border-top: 1px solid var(--color-hairline);
+	font-size: 13px;
+	line-height: 20px;
+	color: var(--color-ash);
+}
+
+.landing-root .lp-hero-meta a {
+	color: var(--color-ink);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
 /* The one dark, full-bleed section. Remapping the two text vars flips every
    `.lp-*` line and every Tailwind `text-ink` / `text-ash` inside it to light. */
 .landing-root .lp-dark {
@@ -285,48 +685,6 @@ html[data-landing-theme="dark"] {
    temperature. */
 .landing-root[data-theme="dark"] .lp-dark {
 	background: #1c1a18;
-}
-
-/* A phone "product shot": a hairline plus a neutral layered shadow, sized to read
-   on the dark section. No brand-tinted glow: the depth is all neutral, so the only
-   color on the section is the product mesh inside the phone. */
-.landing-root .lp-phone {
-	box-shadow: 0 0 0 1px oklch(1 0 0 / 0.08), 0 2px 8px -2px oklch(0 0 0 / 0.4), 0 30px 80px -24px
-		oklch(0 0 0 / 0.75);
-}
-
-/* Product shots come to life on hover: a subtle lift plus a deeper shadow, so the
-   frame reads as rising off the page (Tuple-like depth). Fine pointers only, and
-   the lift rides the `transform` property so it composes with Tailwind's native
-   `translate` / `rotate` on the tilted phones instead of clobbering them. */
-@media (hover: hover) and (pointer: fine) {
-	.landing-root .lp-lift {
-		transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
-	}
-	.landing-root .lp-lift:hover {
-		transform: translateY(-6px);
-	}
-	.landing-root .code-frame-glow.lp-lift:hover {
-		box-shadow:
-			0 0 0 1px oklch(0 0 0 / 0.08),
-			0 6px 16px -6px oklch(0 0 0 / 0.12),
-			0 20px 44px -12px oklch(0 0 0 / 0.2),
-			0 40px 80px -22px oklch(0 0 0 / 0.18);
-	}
-	.landing-root .lp-phone.lp-lift:hover {
-		box-shadow: 0 0 0 1px oklch(1 0 0 / 0.1), 0 6px 18px -4px oklch(0 0 0 / 0.5), 0 44px 100px -26px
-			oklch(0 0 0 / 0.85);
-	}
-}
-
-/* Reduced motion: keep the shadow response, drop the movement. */
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
-	.landing-root .lp-lift {
-		transition: box-shadow 0.35s var(--ease-out);
-	}
-	.landing-root .lp-lift:hover {
-		transform: none;
-	}
 }
 
 /* Subtle gradient drift during playback */
@@ -391,4 +749,439 @@ html[data-landing-theme="dark"] {
 	width: 44px;
 	height: 44px;
 	transform: translate(-50%, -50%);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   The instrument island. Decided in
+   docs/decisions/2026-08-09-instrument-island.md.
+
+   Measured off ui.camera's real element, not its wrapper: 40px tall, #151517,
+   999px radius, 5px gap, one 0 8px 24px / 0.18 shadow, and no dividers — even
+   spacing and a single fill are what make separate controls read as one
+   instrument.
+   ───────────────────────────────────────────────────────────────────────── */
+.landing-root {
+	--dock-bg: #151517;
+	--dock-ink: #f2f2f4;
+	--dock-dim: #9a9aa2;
+	--dock-hairline: rgb(255 255 255 / 0.1);
+}
+
+/* The stage the preview is fitted into.
+   Its height is the hero's shock absorber. Everything else in the first
+   viewport — the eyebrow, the headline, the lead, the two buttons, the dock and
+   its caption — costs a fixed ~460px, so the stage takes what is left and gives
+   height back on a short laptop instead of pushing the dock past the fold. The
+   frame inside scales to whatever it gets, so the ratios stay true at every
+   size, and the floor stops it collapsing to a stamp on a very short window. */
+.landing-root {
+	--hero-chrome: 460px;
+	/* The stage's ceiling. A variable because a hero that gives the instrument
+	   the whole viewport wants a bigger one than a hero that puts copy beside it,
+	   and that is a composition decision, not a component one. */
+	--stage-max: 400px;
+	/* Pill (24px) plus its gap (10px). The helper opens into this strip. */
+	--helper-lane: 34px;
+}
+
+.landing-root .lp-stage {
+	height: clamp(232px, calc(100svh - var(--hero-chrome)), var(--stage-max));
+	/* The frame is centred in what is left above the lane, so the strip the
+	   helper opens into is always empty whatever the ratio. The observer that
+	   scales the frame reads the content box, so it respects this for free. */
+	padding-bottom: var(--helper-lane);
+}
+
+/* On the dark theme the island cannot be "the dark thing"; it lifts instead. */
+.landing-root[data-theme="dark"] {
+	--dock-bg: #24232a;
+	--dock-hairline: rgb(255 255 255 / 0.12);
+}
+
+.landing-root .lp-island {
+	display: flex;
+	align-items: center;
+	height: 40px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--dock-bg);
+	color: var(--dock-ink);
+	box-shadow: 0 8px 24px rgb(18 18 20 / 0.18);
+	/* Clips the row while the island springs to its new width. */
+	overflow: hidden;
+	font-family: var(--font-sans);
+	user-select: none;
+}
+
+.landing-root .lp-island-row {
+	/* Published rather than inlined because the hit extents below are derived
+	   from it: a target is allowed to grow into the gap and no further, and a
+	   gap that changes without them changing is a row of controls stealing each
+	   other's presses again. */
+	--island-gap: 5px;
+	display: flex;
+	/* The row is a flex item of the island, so by default it shrank whenever the
+	   island was momentarily narrower than it, which is every frame of the width
+	   spring, and the controls visibly squeezed while it ran. Holding its size is
+	   what the island's `overflow: hidden` was written for: the row keeps its
+	   rhythm and the island clips it. It also makes the row measurable, which is
+	   what its own width is animated from. */
+	flex: none;
+	align-items: center;
+	gap: var(--island-gap);
+	white-space: nowrap;
+}
+
+/* Nothing in the island is filled: every control is transparent until hovered,
+   so the only filled shape in the zone is the CTA. Hierarchy by subtraction. */
+.landing-root .lp-island-button {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	min-width: 30px;
+	height: 30px;
+	padding: 0 8px;
+	border: 0;
+	/* Concentric with the previews it holds, not a circle around them: the
+	   swatch is a 4px rounded rect with 6px of button around it, and
+	   inner + padding = 10px. The pill radius is reserved for the CTA, which is
+	   then the only pill as well as the only filled shape. */
+	border-radius: 10px;
+	background: transparent;
+	color: var(--dock-dim);
+	font: inherit;
+	font-size: 11.5px;
+	font-weight: 500;
+	cursor: pointer;
+	/* Named properties only: `all` would drag layout into a hover. The press is
+	   in the list because a scale that is not transitioned is not a press: it
+	   snaps down and snaps back, and the finger feels nothing answer it. */
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), transform 140ms
+		var(--ease-out);
+}
+
+/* The pointer target: the control's box grown into the space that borders it,
+   and not one pixel past it.
+
+   A flat 44px square could not fit. The row's pitch is 35px, a 30px control
+   and a 5px gap, so a 44px target overhung its neighbour by 9px, and since a
+   later sibling paints over an earlier one, every target ended up sitting 4.5px
+   to the left of the control it belonged to: the right edge of a swatch you
+   could see answered to the swatch beside it, while 7px of empty gap to its
+   left answered to it. Sampled at 375px, `Theme aurora` drew 117.5→147.5 and
+   won 110→144.5.
+
+   Half the gap on each side is the widest extent that still tiles. The area is
+   the same 35px it always effectively was; what changes is that it is now
+   centred on the control, so a press lands where the finger is and no press
+   lands on nothing. This is the rule `.hit-ext` already states for the studio:
+   at a density this tight the control's own size is the target, and 30px
+   clears WCAG 2.5.8's 24px floor on its own.
+
+   Vertically it takes the island's whole inner box: 5px above and below a 30px
+   control in a 40px island. It never had more than that either, since the island
+   clips its own overflow, so the 44px was cut to 40 before it reached a
+   finger. */
+.landing-root .lp-island-button::after {
+	content: "";
+	position: absolute;
+	inset: -5px calc(var(--island-gap) / -2);
+}
+
+/* The row's two ends also take the island's own 6px of padding, which borders
+   no other control and would otherwise be a strip that answers to nobody. */
+.landing-root .lp-island-row > .lp-island-button:first-child::after {
+	inset-inline-start: -6px;
+}
+
+.landing-root .lp-island-row > .lp-island-button:last-child::after {
+	inset-inline-end: -6px;
+}
+
+/* The CTA closes the root row, and it carries a 3px margin on top of the gap:
+   8px between it and the control before it, split evenly so there is no seam
+   for a press to fall through. Its own box is 94px wide, so sideways it is far
+   past the 44px floor already and only needs the island's edge padding; the
+   shared `.hit-ext` sizes from the centre out and cannot say that, so this
+   states the four edges outright. */
+.landing-root .lp-island-row > .lp-island-cta::after {
+	inset: -5px -6px -5px -4px;
+	width: auto;
+	height: auto;
+	transform: none;
+}
+
+.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
+	inset-inline-end: -4px;
+}
+
+.landing-root .lp-island-button[data-active] {
+	color: var(--dock-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-island-button:hover {
+		color: var(--dock-ink);
+		background: rgb(255 255 255 / 0.07);
+	}
+}
+
+.landing-root .lp-island-button:active {
+	transform: scale(0.96);
+}
+
+/* The island leaves exactly 5px above and below a control, so the focus ring
+   gets 1px of offset and 2px of stroke: 3 of the 5, and it clears the island's
+   hidden overflow with room instead of touching it. It follows the control's
+   own 10px radius, so it is a rounded rect around a rounded rect. */
+.landing-root .lp-island-button:focus-visible,
+.landing-root .lp-island-cta:focus-visible {
+	outline: 2px solid var(--dock-ink);
+	outline-offset: 1px;
+}
+
+.landing-root .lp-island-button-tight {
+	min-width: 30px;
+	padding: 0;
+}
+
+/* Reserved width, and the reason the island used to slide sideways: the ratio
+   cycles between three and four characters, so the button changed width on
+   every click and the centred pill grew from both edges. */
+.landing-root .lp-island-num {
+	display: inline-block;
+	min-width: 4ch;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Previews: the control is a miniature of what it changes.
+   Positioned so the selection plate, which paints after them in the DOM, sits
+   behind the colour rather than washing it out. */
+.landing-root .lp-spec {
+	position: relative;
+	z-index: 1;
+	display: block;
+	width: 18px;
+	height: 15px;
+	border-radius: 4px;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+}
+
+.landing-root .lp-spec-theme {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 2px;
+	width: 20px;
+	height: 15px;
+	padding: 0 3px;
+	border-radius: 3px;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+}
+
+.landing-root .lp-spec-line {
+	height: 1.5px;
+	border-radius: 1px;
+}
+
+/* The aspect frame: a fixed square scaled per axis, so the morph is composited
+   rather than forcing layout on every frame. */
+.landing-root .lp-frame-box {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+}
+
+.landing-root .lp-frame {
+	display: block;
+	width: 14px;
+	height: 14px;
+	border-radius: 3px;
+	background: rgb(255 255 255 / 0.16);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.22);
+}
+
+/* One ring shared across options, so selection glides instead of blinking. */
+/* Selection is a plate, not a ring around the control.
+   The ring version drew 3.5px of ink outside a 30px button inside a 40px
+   island: 39px of indicator in a 40px track, so it read as a circle jammed
+   against both edges of the dock, and a circle around a rectangular swatch at
+   that. A plate lives inside the control, takes the control's own shape, and
+   cannot collide with anything. It glides between swatches on the same
+   layoutId, so the motion the ring had is kept. */
+.landing-root .lp-island-ring {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	border-radius: inherit;
+	background: rgb(255 255 255 / 0.16);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.26);
+	pointer-events: none;
+}
+
+/* The only filled shape in the zone. */
+.landing-root .lp-island-cta {
+	display: inline-flex;
+	align-items: center;
+	height: 30px;
+	margin-left: 3px;
+	padding: 0 14px;
+	border-radius: 999px;
+	background: var(--color-cta);
+	color: var(--color-on-primary);
+	font-size: 11px;
+	font-weight: 650;
+	letter-spacing: 0.01em;
+	white-space: nowrap;
+	/* The colour itself rather than a filter over it: `brightness()` on a
+	   saturated yellow lifts the green as much as the red and the hue drifts. */
+	transition: background-color 150ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-island-cta:hover {
+		background: var(--color-primary-hover);
+	}
+}
+
+.landing-root .lp-island-cta:active {
+	transform: scale(0.98);
+}
+
+/* The island's helper, measured off ui.camera's `.top-setting-helper`.
+   Same fill and same pill radius as the island itself, which is what makes it
+   read as part of the instrument rather than as a browser tooltip: 11px at
+   weight 500, 10px above the island and centred on the control. It sits outside
+   the island because the island clips its own overflow while resizing. */
+.landing-root .lp-island-dock {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+.landing-root .lp-island-caption {
+	margin-top: 12px;
+	color: var(--color-ash);
+	font-size: 13px;
+	line-height: 20px;
+	text-align: center;
+}
+
+.landing-root .lp-island-helper {
+	position: absolute;
+	/* Above the island, in the strip the stage keeps empty for it: its own height
+	   plus a 10px gap, measured up from the island's top edge rather than down
+	   from the dock's bottom, so the caption below cannot move it. */
+	top: calc(-1 * var(--helper-lane));
+	z-index: 20;
+	display: inline-flex;
+	align-items: center;
+	height: 24px;
+	padding: 0 10px;
+	border-radius: 999px;
+	background: var(--dock-bg);
+	color: var(--dock-ink);
+	box-shadow: 0 6px 18px rgb(18 18 20 / 0.16);
+	font-family: var(--font-sans);
+	font-size: 11px;
+	font-weight: 500;
+	white-space: nowrap;
+	/* The centring translate is applied by Motion, not here: it animates
+	   `transform`, so a CSS translateX on the same element would be overwritten
+	   the moment the entrance runs. */
+	pointer-events: none;
+}
+
+/* Coarse pointers have no hover, so the helper would either never show or stick
+   after a tap. The aria-label already carries the same information. */
+@media (hover: none) {
+	.landing-root .lp-island-helper {
+		display: none;
+	}
+}
+
+/* The magic-move section's frame. No window chrome and no title bar: the
+   Instrument above already carries the product's furniture, and repeating it
+   here would make the page look like two screenshots of the same app rather
+   than one object and one detail of it. */
+/* The code inside states its own width in `ch`, and the longest line of the demo
+   is 50 characters wide: about 460px at this size, in a column that is 342px at
+   390. Centred, the overflow split itself evenly and ate a character off BOTH
+   ends, and being wider than the viewport it dragged the whole document
+   sideways.
+
+   `safe center` is the whole fix for the first half: centred while it fits, and
+   the moment it does not, alignment falls back to the start so nothing is put
+   out of reach. Shrinking to fit was the alternative and it is not one: 50
+   characters inside 286px of content box is a 9px font, which is not a demo of
+   anything. It keeps its size and scrolls. */
+.landing-root .lp-morph-frame {
+	display: flex;
+	justify-content: safe center;
+	max-width: 100%;
+	overflow-x: auto;
+	padding: 30px 28px;
+	border-radius: 16px;
+	background: #1f2229;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 18px 44px -28px rgb(0 0 0 / 0.4);
+}
+
+/* A flex child shrinks by default, and a shrunk child does not overflow: the
+   frame stopped scrolling sideways and simply cut the code off instead, which
+   is the same clipping by another route. Holding its stated width is what turns
+   the cut into a scroll. */
+.landing-root .lp-morph-frame > * {
+	flex: none;
+}
+
+/* Extended hit area for compact studio controls: the visual stays small, the
+   target grows to at least 44px in both axes (the island's pattern, shared).
+   Use only where neighbours leave the room — at tighter densities size the
+   button itself to WCAG's 24px floor instead, or the extensions steal each
+   other's clicks. */
+.hit-ext {
+	position: relative;
+}
+
+.hit-ext::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: max(100%, 44px);
+	height: max(100%, 44px);
+	transform: translate(-50%, -50%);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   The studio's warmth.
+   The landing settled a warm palette (paper #faf9f6, ink #1c1b19) and the
+   studio was still on Tailwind's cold neutral ramp, so crossing from / to /app
+   dropped the temperature of the whole product. Tailwind v4 resolves its
+   utilities through CSS variables, which makes the fix one scoped block: under
+   the studio's root, the neutral ramp is remapped to the warm stone values —
+   Tailwind's own scale whose ends land on the landing's paper and ink. Every
+   bg-neutral-* / text-neutral-* / border-neutral-* in 30+ studio files follows,
+   in both light and dark, with no file touched.
+   ───────────────────────────────────────────────────────────────────────── */
+.studio-root {
+	--color-neutral-50: #fafaf9;
+	--color-neutral-100: #f5f5f4;
+	--color-neutral-200: #e7e5e4;
+	--color-neutral-300: #d6d3d1;
+	--color-neutral-400: #a8a29e;
+	--color-neutral-500: #78716c;
+	--color-neutral-600: #57534e;
+	--color-neutral-700: #44403c;
+	--color-neutral-800: #292524;
+	--color-neutral-900: #1c1917;
+	--color-neutral-950: #0c0a09;
 }

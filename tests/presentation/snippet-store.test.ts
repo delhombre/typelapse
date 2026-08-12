@@ -1,3 +1,4 @@
+import { MAX_ANNOTATION_LENGTH } from "@/domain/entities/step";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -170,6 +171,41 @@ describe("snippet store record mode", () => {
 });
 
 /**
+ * A caption is cosmetic, so no import may die on one. Restoring a project (JSON
+ * file or share link) authored under a looser bound must still load: the caption
+ * shortens, the project survives. Typing one is the opposite case, bounded live.
+ */
+describe("snippet store caption bounds on import", () => {
+	it("loads a project whose stored caption is longer than the bound", () => {
+		const long = "a".repeat(MAX_ANNOTATION_LENGTH + 40);
+		const json = JSON.stringify({
+			title: "legacy",
+			code: "const a = 1;",
+			language: "typescript",
+			themeName: "midnight",
+			steps: [{ code: "const a = 1;", duration: 1000, caption: long }],
+		});
+
+		expect(() => useSnippetStore.getState().importFromJson(json)).not.toThrow();
+
+		const { steps } = useSnippetStore.getState().snippet;
+		expect(steps).toHaveLength(1);
+		const caption = steps[0]?.annotation ?? "";
+		expect(caption.length).toBeLessThanOrEqual(MAX_ANNOTATION_LENGTH);
+		expect(caption.endsWith("…")).toBe(true);
+	});
+
+	it("still refuses an over-long caption typed into a step", () => {
+		useSnippetStore.getState().importFromJson(BASE);
+		const id = useSnippetStore.getState().snippet.steps[0]?.id ?? "";
+
+		expect(() =>
+			useSnippetStore.getState().updateStepAnnotation(id, "b".repeat(MAX_ANNOTATION_LENGTH + 1)),
+		).toThrow();
+	});
+});
+
+/**
  * importDiff: paste a unified diff, get an animated walkthrough. It replaces the
  * whole snippet (before-state code, inferred language, filename title, and a
  * step per hunk stage) and never mutates state when the paste is unusable.
@@ -272,6 +308,38 @@ describe("snippet store importDiff", () => {
 		expect(steps[39]?.annotation).toBe("After");
 		// A kept middle stage keeps its own "Change N" label (index unshifted).
 		expect(steps[38]?.annotation).toBe("Change 38");
+	});
+
+	it("survives a hunk heading longer than the caption bound", () => {
+		// git prints the enclosing section after the second `@@`, and real signatures
+		// blow past the caption bound easily. That heading is GENERATED, not typed, so
+		// it must never take the whole import down with it: the boundary shortens it.
+		const longHeading =
+			"export async function reconcileWorkspaceMembershipInvitations(organizationId: string, actorId: string)";
+		expect(longHeading.length).toBeGreaterThan(MAX_ANNOTATION_LENGTH);
+
+		const diff = [
+			"--- a/app.ts",
+			"+++ b/app.ts",
+			`@@ -1,2 +1,2 @@ ${longHeading}`,
+			" const a = 1;",
+			"-const b = 2;",
+			"+const b = 20;",
+			"@@ -10,2 +10,3 @@",
+			" const c = 3;",
+			"+const d = 4;",
+			" const e = 5;",
+		].join("\n");
+
+		expect(() => useSnippetStore.getState().importDiff(diff)).not.toThrow();
+
+		const { steps } = useSnippetStore.getState().snippet;
+		expect(steps).toHaveLength(3);
+		// The caption survives, shortened to the bound and ellipsised so the cut is legible.
+		const caption = steps[1]?.annotation ?? "";
+		expect(caption.length).toBeLessThanOrEqual(MAX_ANNOTATION_LENGTH);
+		expect(caption.endsWith("…")).toBe(true);
+		expect(longHeading.startsWith(caption.slice(0, -1))).toBe(true);
 	});
 
 	it("infers a non-default language and drops a new file's empty before frame", () => {

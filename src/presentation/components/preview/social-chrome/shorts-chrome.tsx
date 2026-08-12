@@ -1,5 +1,4 @@
 import type { SafeZone } from "@/application/social/safe-zones";
-import type { ReactNode } from "react";
 import { siYoutubeshorts } from "simple-icons";
 import {
 	BrandMark,
@@ -8,74 +7,77 @@ import {
 	ForwardArrow,
 	Magnifier,
 	MusicNote,
-	Remix,
-	ThumbDown,
 	ThumbUp,
 } from "./icons";
-import { Avatar, EdgeScrim, GlyphBox, ICON_SHADOW, Pill, Rail, feedText } from "./shared";
+import {
+	Avatar,
+	EdgeScrim,
+	GlyphBox,
+	ICON_SHADOW,
+	Pill,
+	Rail,
+	RailButton,
+	feedText,
+} from "./shared";
 
-const CHIP = "3.35em";
-const CHIP_ICON = "1.95em";
+/* Corrected 2026-08-10 against the live m.youtube.com/shorts DOM: three bare
+   actions (like/comment/share) + a sound thumbnail, no dislike or remix in the
+   rail, and a black Subscribe (YouTube dropped the red years ago). */
+const RAIL_ICON = "2.7em";
 const COUNT = "1.05em";
-const RAIL_RIGHT = "2.5%";
-const RAIL_BOTTOM = "11%";
-const RAIL_GAP = "0.85em";
-const DISC = "3.1em";
-const YOUTUBE_RED = "#FF0000";
+const RAIL_RIGHT = "3%";
+const RAIL_BOTTOM = "12%";
+const RAIL_GAP = "1.15em";
+const THUMB = "2.9em";
+/** Subscribe is a near-black pill now, not the old red. */
+const YT_SUBSCRIBE = "#0f0f0f";
 
-/** YouTube Shorts: Shorts mark + search/kebab, chipped rail, subscribe caption. */
+/** YouTube Shorts: wordmark + search/kebab, an outline rail, subscribe caption. */
 export function ShortsChrome({ zone }: { zone: SafeZone }) {
 	return (
 		<>
-			<EdgeScrim edge="top" size="15%" alpha={0.26} />
-			<EdgeScrim edge="bottom" size="38%" alpha={0.4} />
+			<EdgeScrim edge="top" size="14%" alpha={0.3} />
+			<EdgeScrim edge="bottom" size="40%" alpha={0.42} />
 			<TopBar zone={zone} />
 			<Rail right={RAIL_RIGHT} bottom={RAIL_BOTTOM} gap={RAIL_GAP}>
-				<ChipButton label="15K" icon={<ThumbUp />} />
-				<ChipButton label="Dislike" icon={<ThumbDown />} />
-				<ChipButton label="88" icon={<CommentOutline />} />
-				<ChipButton label="Share" icon={<ForwardArrow />} />
-				<ChipButton label="Remix" icon={<Remix />} />
-				<DiscChip />
+				<RailButton
+					icon={
+						<GlyphBox size={RAIL_ICON}>
+							<ThumbUp />
+						</GlyphBox>
+					}
+					label="50K"
+					labelSize={COUNT}
+				/>
+				<RailButton
+					icon={
+						<GlyphBox size={RAIL_ICON}>
+							<CommentOutline />
+						</GlyphBox>
+					}
+					label="296"
+					labelSize={COUNT}
+				/>
+				<GlyphBox size={RAIL_ICON}>
+					<ForwardArrow />
+				</GlyphBox>
+				<SoundThumb />
 			</Rail>
 			<Caption zone={zone} />
 		</>
 	);
 }
 
-function ChipButton({ icon, label }: { icon: ReactNode; label: string }) {
-	return (
-		<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "0.35em" }}>
-			<div
-				style={{
-					width: CHIP,
-					height: CHIP,
-					borderRadius: "999px",
-					background: "rgba(90,90,90,0.42)",
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					filter: ICON_SHADOW,
-				}}
-			>
-				<GlyphBox size={CHIP_ICON} shadow={false}>
-					{icon}
-				</GlyphBox>
-			</div>
-			<span style={feedText({ size: COUNT, weight: 600 })}>{label}</span>
-		</div>
-	);
-}
-
-function DiscChip() {
+/** The square sound thumbnail that sits at the foot of the rail. */
+function SoundThumb() {
 	return (
 		<div
 			style={{
-				width: CHIP,
-				height: CHIP,
-				borderRadius: "0.6em",
+				width: THUMB,
+				height: THUMB,
+				borderRadius: "0.45em",
 				overflow: "hidden",
-				border: "0.12em solid rgba(255,255,255,0.7)",
+				border: "0.1em solid rgba(255,255,255,0.7)",
 				display: "flex",
 				alignItems: "center",
 				justifyContent: "center",
@@ -83,7 +85,7 @@ function DiscChip() {
 				filter: ICON_SHADOW,
 			}}
 		>
-			<GlyphBox size={DISC} shadow={false}>
+			<GlyphBox size="1.5em" shadow={false}>
 				<MusicNote />
 			</GlyphBox>
 		</div>
@@ -137,7 +139,7 @@ function Caption({ zone }: { zone: SafeZone }) {
 			<div style={{ display: "flex", alignItems: "center", gap: "0.6em" }}>
 				<Avatar size="2.3em" ringWidth="0.1em" />
 				<span style={feedText({ size: "1.25em", weight: 700 })}>@yourchannel</span>
-				<Pill label="Subscribe" size="1.05em" background={YOUTUBE_RED} color="#fff" />
+				<Pill label="Subscribe" size="1.05em" background={YT_SUBSCRIBE} color="#fff" />
 			</div>
 			<span style={{ ...feedText({ size: "1.2em", weight: 500 }), whiteSpace: "normal" }}>
 				How I built this in TypeScript
