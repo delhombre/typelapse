@@ -110,7 +110,9 @@ const HOLD_MS = 3600;
       the entire reason the gesture feels physical rather than mechanical.
 
    Reconstructed from the gesture's observable behaviour rather than from a
-   published Apple curve: the values below are ours, the shape is theirs. */
+   published curve. What has to be right is the shape — leaves fast, decelerates
+   long, arrives without a bounce — and the values below are tuned until the
+   three properties above read as one movement instead of three. */
 const SWITCH_GAP = 6;
 const SWITCH_SCALE = 0.94;
 /* A released flick settles in well under half a second. Spring rather than a
@@ -553,7 +555,9 @@ export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneS
 		return device;
 	}
 
-	// A slow, gentle float so the device feels alive, Apple-product-page style.
+	// A slow, gentle float so the device reads as held in space rather than
+	// pasted onto the section. Slow enough that it is never the thing you look
+	// at: the screen is.
 	return (
 		<motion.div
 			className="w-full"

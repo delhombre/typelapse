@@ -184,7 +184,7 @@ const FAN = [
 ];
 
 /**
- * A held hand of code cards (the Interface Craft move). On desktop they overlap
+ * A held hand of code cards. On desktop they overlap
  * in a fan; hovering one springs it up and straightens it, quietly. On mobile the
  * fan collapses to a horizontal scroll-snap row with no rotation.
  */

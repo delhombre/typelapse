@@ -106,7 +106,7 @@ html[data-landing-theme="dark"] {
 	outline: none;
 }
 
-/* Reduced motion: keep opacity/color, drop movement (Apple's guidance).
+/* Reduced motion: keep opacity/color, drop movement.
 
    The rule is enforced on `transition-property`, not on the duration. Zeroing
    every duration was the obvious way to write this and it said the opposite of
