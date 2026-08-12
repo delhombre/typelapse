@@ -1,6 +1,22 @@
 const VALID_FORMATS = ["mp4", "gif", "webm"] as const;
 export type RenderFormat = (typeof VALID_FORMATS)[number];
 
+/**
+ * The largest and smallest pixel dimension a render may use, on either axis.
+ *
+ * ONE ceiling, shared by the studio and the render route, because they cannot
+ * afford to disagree. The route clamps width and height independently, so a size
+ * the studio accepted but the renderer will not is worse than a rejection: only
+ * the offending axis moves, and the export comes back in a shape the user never
+ * chose (4000x2250 previews as 16:9 and renders as 3840x2250). Whatever the
+ * studio lets through, the renderer has to honour untouched.
+ *
+ * 3840 is 4K UHD on the long edge — the top of the shipped resolution presets.
+ * The floor keeps a zero, a negative or a one-pixel frame out of the encoder.
+ */
+export const MAX_RENDER_DIMENSION = 3840;
+export const MIN_RENDER_DIMENSION = 16;
+
 export interface RenderConfigProps {
 	width: number;
 	height: number;

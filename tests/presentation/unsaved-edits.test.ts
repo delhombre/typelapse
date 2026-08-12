@@ -55,6 +55,30 @@ describe("hasUnsavedEdits", () => {
 			expect(useSnippetStore.getState().hasUnsavedEdits()).toBe(true);
 		});
 
+		/**
+		 * The theme is not just its name. `setFont` and `setBorderRadius` rebuild
+		 * the Theme around the SAME name, so a fingerprint that reads only
+		 * `themeName` sees nothing — and the gallery overwrites that work without
+		 * asking. These are real edits: they change how every exported frame looks.
+		 */
+		it("is true once the font is changed", () => {
+			useSnippetStore.getState().setFont("IBM Plex Mono, monospace");
+			expect(useSnippetStore.getState().hasUnsavedEdits()).toBe(true);
+		});
+
+		it("is true once the corner radius is changed", () => {
+			useSnippetStore.getState().setBorderRadius(24);
+			expect(useSnippetStore.getState().hasUnsavedEdits()).toBe(true);
+		});
+
+		it("is false again when the font is set back by hand", () => {
+			const original = useSnippetStore.getState().snippet.theme.fontFamily;
+			useSnippetStore.getState().setFont("IBM Plex Mono, monospace");
+			useSnippetStore.getState().setFont(original);
+
+			expect(useSnippetStore.getState().hasUnsavedEdits()).toBe(false);
+		});
+
 		it("is true once a step is captured", () => {
 			useSnippetStore.getState().setCode("const a = 3;");
 			useSnippetStore.getState().captureStep();

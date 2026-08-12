@@ -13,6 +13,10 @@ import {
 	renderTickTrack,
 } from "../../src/application/audio/tick-synth";
 import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradient";
+import {
+	MAX_RENDER_DIMENSION,
+	MIN_RENDER_DIMENSION,
+} from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
 import { resolveShikiLanguage, resolveShikiTheme } from "../../src/infrastructure/highlighting/shiki-registry";
 import { buildServerMagicMovePlan } from "../remotion/magic-move-plan";
@@ -96,8 +100,6 @@ const MIME_TYPES: Record<SafeFormat, string> = {
 	gif: "image/gif",
 };
 
-const MIN_DIMENSION = 16;
-const MAX_DIMENSION = 3840; // 4K on the long edge
 const FPS_CHOICES = [24, 30, 60] as const;
 const MIN_STEP_DURATION_MS = 100;
 const MAX_STEP_DURATION_MS = 30_000;
@@ -171,8 +173,8 @@ renderRoute.post(
 		}
 
 		// Clamp every untrusted numeric before it reaches renderMedia.
-		const width = clampNumber(body.width, MIN_DIMENSION, MAX_DIMENSION, 1920);
-		const height = clampNumber(body.height, MIN_DIMENSION, MAX_DIMENSION, 1080);
+		const width = clampNumber(body.width, MIN_RENDER_DIMENSION, MAX_RENDER_DIMENSION, 1920);
+		const height = clampNumber(body.height, MIN_RENDER_DIMENSION, MAX_RENDER_DIMENSION, 1080);
 		const fps = clampFps(body.fps);
 		const transitionMs = clampNumber(
 			body.transitionMs,

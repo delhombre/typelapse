@@ -8,6 +8,7 @@ import { formatLineRanges, parseLineRanges } from "@/application/focus/line-rang
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
 import { type ProjectContent, contentFingerprint } from "@/application/project/project-fingerprint";
 import type { ProjectPayload, ProjectStepPayload } from "@/application/project/project-payload";
+import { MAX_RENDER_DIMENSION, MIN_RENDER_DIMENSION } from "@/domain/entities/render-config";
 import { Snippet } from "@/domain/entities/snippet";
 import { Step } from "@/domain/entities/step";
 import { Theme } from "@/domain/entities/theme";
@@ -174,21 +175,21 @@ function normalizeCardMargin(value: unknown): number {
 	);
 }
 
-/** Render dimensions outside this range are nonsense; a file carrying them is ignored. */
-const MIN_DIMENSION = 16;
-const MAX_DIMENSION = 4096;
-
 /**
  * True for a plausible pixel dimension. Guards the aspect against hand-edited
  * files and stale share links: a zero, a negative or an absurd size would
  * otherwise reach the renderer.
+ *
+ * The bounds are the renderer's own (see {@link MAX_RENDER_DIMENSION}), not a
+ * second opinion about them: a size the studio accepts must survive the render
+ * route untouched, or the preview promises an aspect the export will not keep.
  */
 function isDimension(value: unknown): value is number {
 	return (
 		typeof value === "number" &&
 		Number.isInteger(value) &&
-		value >= MIN_DIMENSION &&
-		value <= MAX_DIMENSION
+		value >= MIN_RENDER_DIMENSION &&
+		value <= MAX_RENDER_DIMENSION
 	);
 }
 
@@ -346,6 +347,9 @@ function contentOf(state: SnippetState): ProjectContent {
 		code: snippet.code,
 		language: snippet.language,
 		themeName: snippet.theme.name,
+		// The two theme fields the studio edits in place, leaving the name alone.
+		fontFamily: snippet.theme.fontFamily,
+		borderRadius: snippet.theme.borderRadius,
 		background: state.background,
 		windowChrome: state.windowChrome,
 		showLineNumbers: state.showLineNumbers,
