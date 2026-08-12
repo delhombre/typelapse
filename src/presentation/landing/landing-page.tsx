@@ -1,14 +1,14 @@
-import { Link } from "react-router-dom";
 import { CapabilityLedger } from "./capability-ledger";
 import { DiffSection } from "./diff-section";
 import { ExportSection } from "./export-section";
 import { Hero } from "./hero";
 import { MagicMoveSection } from "./magic-move-section";
 import { Nav } from "./nav";
-import { InkButton, LogoLockup, Reveal } from "./primitives";
+import { InkButton, Reveal } from "./primitives";
+import { SiteFooter } from "./site-footer";
 import { SocialSection } from "./social-section";
 import { ThemeToggle } from "./theme-toggle";
-import { CONTAINER, GITHUB_URL, HAIRLINE, SECTION_PY } from "./tokens";
+import { CONTAINER, SECTION_PY } from "./tokens";
 import { useLandingTheme } from "./use-landing-theme";
 
 /**
@@ -50,7 +50,7 @@ export function LandingPage() {
 				<CapabilityLedger />
 				<Cta />
 			</main>
-			<Footer />
+			<SiteFooter />
 		</div>
 	);
 }
@@ -72,38 +72,5 @@ function Cta() {
 				<p className="lp-micro mt-5">No sign-up. Runs in your browser.</p>
 			</Reveal>
 		</section>
-	);
-}
-
-/* ──────────── Footer ──────────── */
-
-function Footer() {
-	return (
-		<footer className={`border-t ${HAIRLINE}`}>
-			<div
-				className={`${CONTAINER} flex flex-col gap-4 py-10 sm:flex-row sm:items-center sm:justify-between`}
-			>
-				<div className="flex items-center gap-3">
-					<LogoLockup markSize={17} textClassName="text-base" />
-					<span className="text-[13px] text-ash">Your code, in motion.</span>
-				</div>
-				<div className="flex items-center gap-6 text-[13px]">
-					<Link
-						to="/app"
-						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
-					>
-						Studio
-					</Link>
-					<a
-						href={GITHUB_URL}
-						target="_blank"
-						rel="noreferrer"
-						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
-					>
-						GitHub
-					</a>
-				</div>
-			</div>
-		</footer>
 	);
 }

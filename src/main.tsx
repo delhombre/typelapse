@@ -5,6 +5,7 @@ import { StepBuilder } from "@/presentation/components/editor/step-builder";
 import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
 import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
 import { LivePreview } from "@/presentation/components/preview/live-preview";
+import { ComparePage } from "@/presentation/landing/compare/compare-page";
 import { LandingPage } from "@/presentation/landing/landing-page";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
@@ -56,6 +57,7 @@ createRoot(root).render(
 			<BrowserRouter>
 				<Routes>
 					<Route path="/" element={<LandingPage />} />
+					<Route path="/compare" element={<ComparePage />} />
 					<Route path="/app" element={<Studio />} />
 				</Routes>
 			</BrowserRouter>
