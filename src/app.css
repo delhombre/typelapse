@@ -1285,6 +1285,25 @@ html.dark:not([data-landing-theme]) {
 	   in both places — every filled action in the product wears the primary — so
 	   it is mirrored here rather than redefined. */
 	--color-cta: var(--color-primary);
+	/* ── One radius family ──────────────────────────────────────────────────
+	   Two rules, and everything in the scene follows from them.
+
+	   A surface that nests in another's CORNER takes the parent's radius minus
+	   the gap between them, floored at zero, so both corners share one centre
+	   and the band between them is a constant width. That subtraction is written
+	   out at the point of use, as a `calc()`, rather than resolved to a number:
+	   the arithmetic is the rule, and a number is only its answer today.
+
+	   A control that does NOT sit in a corner takes the step for its own height.
+	   That is what makes the instrument and the chips read as one product: a
+	   30px button was 10px inside the island and 9px inside the utilities chip,
+	   and a 26px field was 8px in one place and 7px in another — differences too
+	   small to name and exactly large enough to feel. */
+	--r-surface: 16px;
+	--r-sheet: 20px;
+	--r-control: 10px;
+	--r-field: 8px;
+	--r-pill: 999px;
 	/* The scene's own paper: the hairline that draws every floating surface on
 	   it, and the width the code card and its slot both take. */
 	--sc-hairline: rgb(28 27 25 / 0.1);
@@ -1324,7 +1343,7 @@ html.dark:not([data-landing-theme]) {
 	height: 40px;
 	max-width: 100%;
 	padding: 0 6px;
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: var(--dock-bg);
 	color: var(--dock-ink);
 	box-shadow: 0 8px 24px rgb(18 18 20 / 0.18);
@@ -1370,9 +1389,9 @@ html.dark:not([data-landing-theme]) {
 	height: 30px;
 	padding: 0 8px;
 	border: 0;
-	/* Concentric, not a circle around a rectangle: 10px is the radius the
-	   landing's island settled on for a 30px control. */
-	border-radius: 10px;
+	/* Concentric, not a circle around a rectangle: the family's step for a 30px
+	   control, which the landing's island settled on first. */
+	border-radius: var(--r-control);
 	background: transparent;
 	color: var(--dock-dim);
 	font-family: inherit;
@@ -1654,7 +1673,7 @@ html.dark:not([data-landing-theme]) {
 .studio-root .si-sheet {
 	width: min(660px, 100%);
 	margin-bottom: 10px;
-	border-radius: 20px;
+	border-radius: var(--r-sheet);
 	background: var(--dock-bg);
 	color: var(--dock-ink);
 	box-shadow: 0 18px 48px rgb(18 18 20 / 0.28);
@@ -1786,7 +1805,7 @@ html.dark:not([data-landing-theme]) {
 	height: 26px;
 	padding: 0 8px;
 	border: 0;
-	border-radius: 8px;
+	border-radius: var(--r-field);
 	background: rgb(255 255 255 / 0.08);
 	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
 	color: var(--dock-ink);
@@ -2049,7 +2068,7 @@ html.dark:not([data-landing-theme]) {
 .sc-chip,
 .sc-card,
 .sc-tab {
-	border-radius: 16px;
+	border-radius: var(--r-surface);
 	background: color-mix(in oklch, var(--color-neutral-50) 88%, transparent);
 	-webkit-backdrop-filter: blur(18px) saturate(1.4);
 	backdrop-filter: blur(18px) saturate(1.4);
@@ -2085,7 +2104,9 @@ html.dark:not([data-landing-theme]) {
 	flex: none;
 	align-items: center;
 	justify-content: center;
-	border-radius: 8px;
+	/* The one surface here that really does sit in its parent's corner: the chip
+	   insets it by 7px, so the corner it wraps is 7px tighter than the chip's. */
+	border-radius: calc(var(--r-surface) - 7px);
 	background: var(--color-neutral-900);
 	color: #fff;
 	transition: opacity 150ms var(--ease-out);
@@ -2118,7 +2139,7 @@ html.dark:not([data-landing-theme]) {
 	flex: 1 1 auto;
 	padding: 0 4px;
 	border: 0;
-	border-radius: 7px;
+	border-radius: var(--r-field);
 	background: transparent;
 	color: inherit;
 	font-family: inherit;
@@ -2193,7 +2214,7 @@ html.dark:not([data-landing-theme]) {
 	align-items: center;
 	justify-content: center;
 	border: 0;
-	border-radius: 9px;
+	border-radius: var(--r-control);
 	background: transparent;
 	color: var(--color-neutral-500);
 	cursor: pointer;
@@ -2239,7 +2260,7 @@ html.dark:not([data-landing-theme]) {
 .sc-utilities button.hit-ext {
 	width: 30px;
 	height: 30px;
-	border-radius: 9px;
+	border-radius: var(--r-control);
 }
 
 /* The chip runs its controls at a 32px pitch — 30px and a 2px gap — and the
@@ -2315,7 +2336,7 @@ html.dark:not([data-landing-theme]) {
 	height: 26px;
 	padding: 0 4px;
 	border: 0;
-	border-radius: 8px;
+	border-radius: var(--r-field);
 	background: transparent;
 	color: var(--color-neutral-600);
 	font-family: inherit;
