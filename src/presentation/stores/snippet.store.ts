@@ -7,7 +7,7 @@ import {
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
 import { Snippet } from "@/domain/entities/snippet";
-import { Step } from "@/domain/entities/step";
+import { Step, captionFromGeneratedLabel } from "@/domain/entities/step";
 import { Theme } from "@/domain/entities/theme";
 import type { HighlighterPort } from "@/domain/ports/highlighter.port";
 import type { HighlightRange } from "@/domain/value-objects/highlight-range";
@@ -336,7 +336,9 @@ function buildDiffSnippet(
 		// The snapshot's label ("Before" / a hunk heading / "After" / a "k/N · subject"
 		// chapter head) narrates the step, so it lands as the caption and the
 		// walkthrough explains itself. An empty label leaves the caption unset.
-		const annotation = snapshot.label ? snapshot.label : undefined;
+		// The label is generated, never typed: a git section heading can be any
+		// length, so it is shortened here rather than allowed to fail the import.
+		const annotation = captionFromGeneratedLabel(snapshot.label);
 		rebuilt = rebuilt.addStep(
 			Step.create({ code: snapshot.code, duration: DIFF_STEP_DURATION, annotation }),
 		);
@@ -748,8 +750,11 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 				if (typeof s.focus === "string") {
 					highlightRanges = parseLineRanges(s.focus) ?? [];
 				}
+				// Defensive: a stored caption is data, not live input. A project saved
+				// under an older bound (or hand-edited JSON) must still open, so an
+				// over-long caption is shortened instead of failing the whole import.
 				const annotation =
-					typeof s.caption === "string" && s.caption.trim() ? s.caption : undefined;
+					typeof s.caption === "string" ? captionFromGeneratedLabel(s.caption) : undefined;
 				snippet = snippet.addStep(
 					Step.create({ code: s.code, duration, highlightRanges, annotation }),
 				);

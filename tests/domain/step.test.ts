@@ -1,6 +1,40 @@
-import { Step } from "@/domain/entities/step";
+import { MAX_ANNOTATION_LENGTH, Step, captionFromGeneratedLabel } from "@/domain/entities/step";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { describe, expect, it } from "vitest";
+
+describe("captionFromGeneratedLabel", () => {
+	it("passes a label that already fits straight through, trimmed", () => {
+		expect(captionFromGeneratedLabel("  Change 3  ")).toBe("Change 3");
+		expect(captionFromGeneratedLabel("a".repeat(MAX_ANNOTATION_LENGTH))).toHaveLength(
+			MAX_ANNOTATION_LENGTH,
+		);
+	});
+
+	it("treats an absent or blank label as no caption", () => {
+		expect(captionFromGeneratedLabel(undefined)).toBeUndefined();
+		expect(captionFromGeneratedLabel("   ")).toBeUndefined();
+	});
+
+	it("ellipsises an over-long label to exactly the bound", () => {
+		const caption = captionFromGeneratedLabel("x".repeat(MAX_ANNOTATION_LENGTH + 50));
+
+		expect(caption).toHaveLength(MAX_ANNOTATION_LENGTH);
+		expect(caption?.endsWith("…")).toBe(true);
+	});
+
+	it("produces a caption the factory accepts", () => {
+		const caption = captionFromGeneratedLabel("y".repeat(MAX_ANNOTATION_LENGTH * 3));
+
+		expect(() => Step.create({ code: "x", annotation: caption })).not.toThrow();
+	});
+
+	it("does not leave a dangling space before the ellipsis", () => {
+		// The cut can land mid-space; trimming keeps "word …" from reading as a typo.
+		const label = `${"z".repeat(MAX_ANNOTATION_LENGTH - 1)}   tail`;
+
+		expect(captionFromGeneratedLabel(label)).toBe(`${"z".repeat(MAX_ANNOTATION_LENGTH - 1)}…`);
+	});
+});
 
 describe("Step", () => {
 	it("creates a step with code and default duration", () => {
@@ -48,6 +82,23 @@ describe("Step", () => {
 		expect(() => Step.create({ code: "x", duration: 0 })).toThrow();
 		expect(() => Step.create({ code: "x", duration: -100 })).toThrow();
 	});
+
+	it("rejects an annotation longer than the single line the layout reserves", () => {
+		expect(() =>
+			Step.create({ code: "x", annotation: "a".repeat(MAX_ANNOTATION_LENGTH + 1) }),
+		).toThrow();
+		expect(() =>
+			Step.create({ code: "x", annotation: "a".repeat(MAX_ANNOTATION_LENGTH) }),
+		).not.toThrow();
+	});
+
+	it("trims surrounding whitespace off the annotation", () => {
+		expect(Step.create({ code: "x", annotation: "  spaced  " }).annotation).toBe("spaced");
+	});
+
+	it("treats a whitespace-only annotation as absent", () => {
+		expect(Step.create({ code: "x", annotation: "   " }).annotation).toBeUndefined();
+	});
 });
 
 describe("Step.with", () => {
@@ -86,6 +137,10 @@ describe("Step.with", () => {
 
 	it("keeps the annotation when the change does not mention it", () => {
 		expect(base.with({ highlightRanges: [] }).annotation).toBe("declare");
+	});
+
+	it("enforces the annotation bound on edits too", () => {
+		expect(() => base.with({ annotation: "a".repeat(MAX_ANNOTATION_LENGTH + 1) })).toThrow();
 	});
 
 	it("validates like create", () => {
