@@ -1,9 +1,11 @@
 import { exportCtaDetail, exportCtaLabel } from "@/application/export/export-label";
+import { FEED_ASPECTS, feedEntryFor } from "@/application/social/feed-aspects";
 import {
 	PLATFORM_LABELS,
 	type SocialPlatform,
 	platformsForAspect,
 } from "@/application/social/safe-zones";
+import { type AspectLabel, RESOLUTION_TIERS, presetFor } from "@/domain/entities/render-config";
 import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-size-container";
 import { trigger } from "@/presentation/haptics";
 import { useIsNarrow } from "@/presentation/hooks/use-media-query";
@@ -76,6 +78,7 @@ export function PreviewIsland({
 	const width = useExportStore((s) => s.width);
 	const height = useExportStore((s) => s.height);
 	const outcome = useExportStore((s) => s.outcome);
+	const setResolution = useExportStore((s) => s.setResolution);
 	const enabled = useSocialPreviewStore((s) => s.enabled);
 	const platform = useSocialPreviewStore((s) => s.platform);
 	const showGuides = useSocialPreviewStore((s) => s.showGuides);
@@ -224,10 +227,40 @@ export function PreviewIsland({
 		}
 	}, [panel, restoreOpenerFocus]);
 
+	/**
+	 * Set while a feed-aspect chip is being pressed, and read once by the row that
+	 * replaces it. A press that reshapes the project has already said where the
+	 * hand wants to be — inside the picker it just opened — so that row does not
+	 * hand focus back to the way out. Every other way in still lands on Back.
+	 */
+	const landOnFeed = useRef(false);
+	/**
+	 * The row this callback has already placed focus in.
+	 *
+	 * StrictMode attaches a ref, detaches it and attaches it again on the same
+	 * node, so without this the second pass ran against a flag the first had
+	 * already spent: the press landed in the picker and was pulled back to Back a
+	 * frame later. Keying on the element rather than on a counter also makes the
+	 * callback safe to call as often as React likes — one row, one placement.
+	 */
+	const placedIn = useRef<HTMLElement | null>(null);
+
 	const mountSocialRow = useCallback(
 		(node: HTMLDivElement | null) => {
 			measureRow(node);
-			node?.querySelector<HTMLElement>("[data-island-back]")?.focus({ preventScroll: true });
+			// The detach call arrives *before* the replacement row attaches, so it must
+			// not touch the flag: clearing it here spent it on the row that was leaving.
+			if (!node || placedIn.current === node) {
+				return;
+			}
+			placedIn.current = node;
+			const feed = landOnFeed.current
+				? node.querySelector<HTMLElement>("[data-island-feed][aria-pressed='true']")
+				: null;
+			landOnFeed.current = false;
+			(feed ?? node.querySelector<HTMLElement>("[data-island-back]"))?.focus({
+				preventScroll: true,
+			});
 		},
 		[measureRow],
 	);
@@ -302,6 +335,29 @@ export function PreviewIsland({
 		setEnabled(true);
 	};
 
+	/**
+	 * One press on a shape chip does the whole move: it reshapes the canvas and
+	 * enters the feed that shape belongs to.
+	 *
+	 * The size goes through `setResolution`, which is the same store action the
+	 * Frame cluster's shape chips call, composed from the same `dimensionsFor` at
+	 * the tier the project is already on — so a 4K 16:9 project becomes a 4K 9:16
+	 * one, and the Frame chip for the new shape lights up as though it had been
+	 * pressed there. The feed goes through `onSelectFeed`, which is the picker's
+	 * own path. Two producers would be two chances to disagree about what
+	 * "9:16 with Reels on" means.
+	 */
+	const onPickFeedAspect = (aspect: AspectLabel) => {
+		const tier = presetFor(width, height)?.tier ?? RESOLUTION_TIERS[0];
+		const entry = feedEntryFor(aspect, tier);
+		if (!entry) {
+			return;
+		}
+		landOnFeed.current = true;
+		setResolution(entry.width, entry.height);
+		onSelectFeed(entry.platform);
+	};
+
 	return (
 		<div className="si-dock" ref={dockRef}>
 			<AnimatePresence>
@@ -325,7 +381,16 @@ export function PreviewIsland({
 			>
 				<AnimatePresence mode="wait" initial={false}>
 					{panel === "social" ? (
-						<motion.div key="social" ref={mountSocialRow} className="si-row" {...rowMotion(reduce)}>
+						// The social row has two faces and they are one key apart, not two
+						// AnimatePresences deep: reshaping the canvas swaps the row on the
+						// same `mode="wait"` the panel itself swaps on, so a chip press
+						// reads as one row changing rather than as a row inside a row.
+						<motion.div
+							key={platforms.length === 0 ? "social-shape" : "social-feed"}
+							ref={mountSocialRow}
+							className="si-row"
+							{...rowMotion(reduce)}
+						>
 							<button
 								type="button"
 								onClick={() => closePanel(true)}
@@ -337,7 +402,7 @@ export function PreviewIsland({
 							</button>
 
 							{platforms.length === 0 ? (
-								<span className="si-hint">Set a 9:16, 1:1 or 4:5 ratio</span>
+								<FeedShapePicker onPick={onPickFeedAspect} />
 							) : (
 								<>
 									<FeedPicker
@@ -602,6 +667,43 @@ function ClusterSheet({
 }
 
 /**
+ * What the social row offers when the canvas is a shape no feed uses.
+ *
+ * It used to be a sentence — "Set a 9:16, 1:1 or 4:5 ratio" — and the sentence
+ * was two failures at once. It named an action it would not perform: the ratio
+ * lives in the Frame sheet, and the row neither took you there nor did it
+ * itself, so the one control on screen was a dead end that told you to go
+ * somewhere else. And it never said what Social *was*, so the instruction read
+ * as a riddle: a ratio, demanded, for a reason nobody had given.
+ *
+ * So the row says what it is and then does the work. The label is prose and
+ * takes the interface's sans; the chips are the machine's own notation for a
+ * shape and take the mono, the same way the step counter does. One press
+ * reshapes the canvas and enters that shape's feed together, because those were
+ * never two decisions.
+ */
+function FeedShapePicker({ onPick }: { onPick: (aspect: AspectLabel) => void }) {
+	return (
+		<>
+			<span className="si-hint">Preview in the feed</span>
+			<div className="si-seg">
+				{FEED_ASPECTS.map((aspect) => (
+					<button
+						key={aspect}
+						type="button"
+						onClick={() => onPick(aspect)}
+						aria-label={`Switch to ${aspect} and preview the feed`}
+						className="si-button si-seg-option"
+					>
+						<span className="si-seg-label si-ratio">{aspect}</span>
+					</button>
+				))}
+			</div>
+		</>
+	);
+}
+
+/**
  * Which feed the preview is wearing, "Off" included as its own option rather
  * than as a separate master switch. One control answers one question here, and
  * the question is which feed you are looking at; a switch plus a picker asked it
@@ -635,6 +737,7 @@ function FeedPicker({
 						key={option}
 						type="button"
 						aria-pressed={selected}
+						data-island-feed=""
 						aria-label={`Social feed: ${name}`}
 						onClick={() => onSelect(option)}
 						className="si-button si-seg-option"
@@ -656,11 +759,23 @@ function FeedPicker({
 }
 
 /**
- * The row's entrance and exit. Both are springs from the shared tokens: the
- * arrival overshoots its scale so the row reads as an object finding its place,
- * and the departure is only asked to stop being in the way, which is why it is
- * the snappier of the two.
+ * The row's entrance and exit.
+ *
+ * The arrival is a spring from the shared tokens, so the row reads as an object
+ * finding its place. The departure is not, and that is the whole point: it is
+ * only asked to stop being in the way.
+ *
+ * It used to run `springs.snappy` too, and the rows swap on `mode="wait"`, which
+ * holds the incoming row until the outgoing one's animation is *judged*
+ * finished rather than until it is invisible. Measured on the shape → feed swap:
+ * the outgoing row reached opacity 0 at 214ms and the incoming row did not mount
+ * until 514ms — three hundred milliseconds in which the island sat there as an
+ * empty pill, which reads as a hang and not as a transition. A spring settles on
+ * physics; a departure that is already invisible has nothing left to settle. So
+ * the exit is given a duration, and the swap closes in about 400ms end to end.
  */
+const ROW_EXIT = { duration: 0.12, ease: [0.23, 1, 0.32, 1] as const };
+
 function rowMotion(reduce: boolean) {
 	if (reduce) {
 		return {
@@ -672,7 +787,7 @@ function rowMotion(reduce: boolean) {
 	return {
 		initial: { opacity: 0.99, scale: 0.98 },
 		animate: { opacity: 1, scale: 1 },
-		exit: { opacity: 0, scale: 0.99 },
+		exit: { opacity: 0, scale: 0.99, transition: ROW_EXIT },
 		transition: springs.snappy,
 	};
 }
