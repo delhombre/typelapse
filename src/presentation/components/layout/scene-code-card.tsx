@@ -109,6 +109,16 @@ export function SceneCodeCard({
 				onClick={() => onFold(false)}
 				className="sc-tab"
 				animate={{ x: folded ? 0 : -14, opacity: folded ? 1 : 0, scale: folded ? 1 : 0.9 }}
+				// The press has to come from Motion and not from CSS: the fold already
+				// writes this element's transform inline, and an inline transform beats
+				// a stylesheet's, so a `:active { scale }` rule would simply never show.
+				//
+				// It carries its own spring, because the element's is the fold's. On
+				// `springs.default` the press reached 96% of its 0.04 of travel at 227ms,
+				// against 93ms for every CSS press in the scene: inside the 300ms UI
+				// budget and still 2.4× slower than the finger that caused it. `snappy`
+				// is the spring the rest of the product presses with.
+				whileTap={{ scale: 0.96, transition: springs.snappy }}
 				transition={springs.default}
 				style={{ transformOrigin: "left center" }}
 				aria-hidden={!folded}

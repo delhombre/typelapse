@@ -1615,7 +1615,15 @@ html.dark:not([data-landing-theme]) {
 	}
 
 	.studio-root .si-button:active:not(:disabled),
-	.studio-root .si-cta:active:not(:disabled) {
+	.studio-root .si-cta:active:not(:disabled),
+	.sc-glyph-button:active {
+		transform: none;
+	}
+
+	/* Without this the dot's 15% hover growth survived the setting and simply
+	   lost its 150ms ramp: a speck that jumps a pixel and a half the instant the
+	   pointer crosses it, eight times along a row. The colour still answers. */
+	.studio-root .si-dot:hover > span {
 		transform: none;
 	}
 }
@@ -1802,6 +1810,11 @@ html.dark:not([data-landing-theme]) {
 	font-size: 11px;
 	font-weight: 650;
 	letter-spacing: 0.01em;
+	/* The detail is a size that changes under the pointer: 1080p → 1440p → 4K.
+	   Proportional digits made the label 3px wider at 1440 than at 1080, and the
+	   island springs its whole width off this control, so a size change nudged
+	   every button in the row sideways. */
+	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 	cursor: pointer;
 	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 140ms
@@ -2333,9 +2346,50 @@ html.dark:not([data-landing-theme]) {
 	border-top: 1px solid var(--sc-hairline);
 }
 
+/* The card's steps area is the one scroller here. Contained, because the paper
+   behind it does not scroll at all: without it a flick that reaches the end of
+   the list hands the rest of the gesture to the document, and the document
+   answers with the rubber band of a page that has nowhere to go. */
 .sc-card-steps-body {
 	min-height: 0;
 	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+/* At 40 steps the list ran off the card's bottom edge mid-row, and macOS hides
+   its overlay scrollbar until you are already scrolling, so the only evidence
+   that 37 more steps existed was a step card sliced in half. A 20px fade at
+   whichever end still has content says it instead.
+
+   Driven by the scroller's own position, which is what makes it honest: with 3
+   steps there is no overflow, the scroll timeline is inactive, the animation
+   does not apply and no edge is faded. Where the timeline does not exist the
+   list keeps the hard edge it has now — a progressive enhancement, not a
+   requirement. */
+@supports (animation-timeline: scroll()) {
+	.sc-card-steps-body {
+		animation: sc-steps-edges linear both;
+		animation-timeline: scroll(self block);
+	}
+
+	@keyframes sc-steps-edges {
+		0% {
+			mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 20px), transparent 100%);
+		}
+		2%,
+		98% {
+			mask-image: linear-gradient(
+				to bottom,
+				transparent 0,
+				#000 20px,
+				#000 calc(100% - 20px),
+				transparent 100%
+			);
+		}
+		100% {
+			mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 100%);
+		}
+	}
 }
 
 /* Folded, the card is a tab: the one word that says what is behind it. */
@@ -2353,6 +2407,10 @@ html.dark:not([data-landing-theme]) {
 	border: 0;
 	color: var(--color-neutral-500);
 	cursor: pointer;
+	/* The one control in the scene whose hover used to snap. Colour only: the
+	   fold already owns this element's transform, and a CSS transition on it
+	   would fight the springs Motion is writing inline. */
+	transition: color 150ms var(--ease-out);
 }
 
 .dark .sc-tab {

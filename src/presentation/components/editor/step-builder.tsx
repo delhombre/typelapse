@@ -136,9 +136,12 @@ export function StepBuilder() {
 
 			{/* -m-1 p-1: a 4px "bleed" so the hover-lift and drop ring aren't clipped by
 			    the scroll container's overflow, at zero layout cost (cards stay aligned).
-			    Cap + scroll only on desktop; in the mobile sheet the list flows into the
-			    sheet's own scroll instead of nesting a second scroll region. */}
-			<div className="-m-1 flex flex-col gap-1 p-1 lg:max-h-48 lg:overflow-y-auto">
+			    No cap and no scroll of its own: the list used to carry a 192px max-height
+			    inside the card's own 228px scroller, which is two scroll regions stacked
+			    one inside the other — the wheel drove the inner one to its end and then
+			    stopped, 40px short of the last step, with the outer scrollbar still
+			    showing room. The card owns the scroll now, on both layouts. */}
+			<div className="-m-1 flex flex-col gap-1 p-1">
 				{steps.map((step, index) => (
 					<motion.div
 						key={step.id}
