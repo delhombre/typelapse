@@ -276,7 +276,12 @@ function staticView(held: LaidOutFrame | undefined, focus?: Set<number>): FrameV
 }
 
 /** Themed card with window chrome, centered and sized to fit the widest line. */
-function CenteredFrame({
+/**
+ * The card: the window (plus its reels bar and caption) centred and uniformly
+ * scaled into the canvas. Exported for the layout tests, which assert the width
+ * contract between the three stacked children; nothing else imports it.
+ */
+export function CenteredFrame({
 	plan,
 	theme,
 	title,
@@ -401,7 +406,14 @@ function CenteredFrame({
 						/>
 						{children}
 					</div>
-					{caption}
+					{/* The caption band takes the window's width, like the reels bar above
+					    it. The column centres its children, so an unconstrained caption
+					    would size to its own text: `StepCaption`'s ellipsis would never
+					    engage (nothing to overflow) and a caption longer than a short code
+					    line would widen the column past the size `fitCardToCanvas` measured,
+					    pushing the card off the canvas. Pinning it here makes the one-line
+					    cut structural, exactly as the preview's block-level column does. */}
+					{caption && <div style={{ width: natural.width }}>{caption}</div>}
 				</div>
 			</div>
 		</div>

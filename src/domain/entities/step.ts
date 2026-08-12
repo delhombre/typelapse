@@ -17,6 +17,37 @@ import type { HighlightRange } from "../value-objects/highlight-range";
  */
 export const MAX_ANNOTATION_LENGTH = 80;
 
+/**
+ * Coerce a *machine-generated* label into a caption {@link Step.create} accepts.
+ *
+ * The bound above is a rule for text a human types: the caption box caps the
+ * input, so the hard throw is a guard that can only fire on a programming error.
+ * Generated labels are a different animal. A diff import captions each step with
+ * git's section heading (the text after the second `@@`, usually the enclosing
+ * function signature) and a chaptered PR import with a commit subject; neither is
+ * ours to bound, and a restored project may carry a caption authored under an
+ * older, looser rule. Rejecting those at the factory would take an entire import
+ * down over a cosmetic line of prose, so the boundary shortens instead: the
+ * import lands, the caption is ellipsised, nothing else about the walkthrough
+ * changes. Blank in, `undefined` out (no caption is the same as an empty one).
+ *
+ * Call this at every seam where a label the user did not type reaches a `Step`.
+ */
+export function captionFromGeneratedLabel(label: string | undefined): string | undefined {
+	if (label === undefined) {
+		return undefined;
+	}
+	const trimmed = label.trim();
+	if (trimmed === "") {
+		return undefined;
+	}
+	if (trimmed.length <= MAX_ANNOTATION_LENGTH) {
+		return trimmed;
+	}
+	// -1 leaves room for the ellipsis, so the result is exactly at the bound.
+	return `${trimmed.slice(0, MAX_ANNOTATION_LENGTH - 1).trimEnd()}…`;
+}
+
 export interface StepProps {
 	code: string;
 	duration?: number;

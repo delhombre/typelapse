@@ -1,6 +1,40 @@
-import { MAX_ANNOTATION_LENGTH, Step } from "@/domain/entities/step";
+import { MAX_ANNOTATION_LENGTH, Step, captionFromGeneratedLabel } from "@/domain/entities/step";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { describe, expect, it } from "vitest";
+
+describe("captionFromGeneratedLabel", () => {
+	it("passes a label that already fits straight through, trimmed", () => {
+		expect(captionFromGeneratedLabel("  Change 3  ")).toBe("Change 3");
+		expect(captionFromGeneratedLabel("a".repeat(MAX_ANNOTATION_LENGTH))).toHaveLength(
+			MAX_ANNOTATION_LENGTH,
+		);
+	});
+
+	it("treats an absent or blank label as no caption", () => {
+		expect(captionFromGeneratedLabel(undefined)).toBeUndefined();
+		expect(captionFromGeneratedLabel("   ")).toBeUndefined();
+	});
+
+	it("ellipsises an over-long label to exactly the bound", () => {
+		const caption = captionFromGeneratedLabel("x".repeat(MAX_ANNOTATION_LENGTH + 50));
+
+		expect(caption).toHaveLength(MAX_ANNOTATION_LENGTH);
+		expect(caption?.endsWith("…")).toBe(true);
+	});
+
+	it("produces a caption the factory accepts", () => {
+		const caption = captionFromGeneratedLabel("y".repeat(MAX_ANNOTATION_LENGTH * 3));
+
+		expect(() => Step.create({ code: "x", annotation: caption })).not.toThrow();
+	});
+
+	it("does not leave a dangling space before the ellipsis", () => {
+		// The cut can land mid-space; trimming keeps "word …" from reading as a typo.
+		const label = `${"z".repeat(MAX_ANNOTATION_LENGTH - 1)}   tail`;
+
+		expect(captionFromGeneratedLabel(label)).toBe(`${"z".repeat(MAX_ANNOTATION_LENGTH - 1)}…`);
+	});
+});
 
 describe("Step", () => {
 	it("creates a step with code and default duration", () => {
