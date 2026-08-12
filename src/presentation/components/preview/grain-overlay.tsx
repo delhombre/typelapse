@@ -7,9 +7,11 @@ import {
 } from "../../../application/backgrounds/grain";
 
 /**
- * A subtle film-grain layer over a gradient background: the premium texture
- * used by tools like an external reference and a competing tool. Rendered identically in the browser
- * preview and in Remotion's headless Chrome so the exported video matches.
+ * A subtle film-grain layer over a gradient background. A large flat gradient
+ * bands and reads as plastic; grain breaks the bands up and is what separates a
+ * background that looks rendered from one that looks made. Rendered identically
+ * in the browser preview and in Remotion's headless Chrome so the exported
+ * video matches.
  */
 export function GrainOverlay({ opacity = GRAIN_OPACITY }: { opacity?: number }) {
 	return (

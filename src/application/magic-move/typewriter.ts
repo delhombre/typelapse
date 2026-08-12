@@ -1,8 +1,8 @@
 /**
  * Typewriter reveal: pure. Types a frame's code out character by character,
  * slicing the token being typed and reporting the cursor position. This is the
- * literal "Typelapse" promise (watch the code get written) and something
- * a competing tool doesn't do. Shared by the preview and the Remotion video.
+ * literal "Typelapse" promise: you watch the code get written rather than watch
+ * it appear. Shared by the preview and the Remotion video.
  */
 import {
 	type GridPosition,

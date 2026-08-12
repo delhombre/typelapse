@@ -129,7 +129,7 @@ export function RevealItem({ children, className }: { children: ReactNode; class
 }
 
 /* ──────────── Buttons ────────────
-   A confident accent-violet rounded rect (the Tuple signature), with a soft
+   A confident accent-violet rounded rect, with a soft
    accent-tinted shadow for depth. On hover it lifts a hair and its accent shadow
    deepens (physical, not bouncy); on press it scales down. The lift + press scale
    live on a `motion.span` wrapper (transform-only, ~160ms ease-out), so the inner

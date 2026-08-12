@@ -34,7 +34,7 @@ briefly: memorable beats comfortable.
 - **Split** (argument left, artefact right, everything above the fold). The best
   for conversion and the least distinctive. It also collapses to one column
   below 760px, where the artefact loses its role.
-- **Neutral cold palette** (chroma 0, near-black, copied from an external reference).
+- **Neutral cold palette** (chroma 0, near-black).
   Rejected: the project's warmth is what separates it from every grey developer
   tool, and the landing is light by default.
 - **A still snippet in the hero.** Rejected: a product that sells motion should

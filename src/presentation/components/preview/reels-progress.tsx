@@ -1,6 +1,7 @@
 /**
- * Progress indicator baked over the background, matching a competing tool's export
- * options. `reels` = one stories-style segment per step; `bar` = a single
+ * Progress indicator baked over the background rather than drawn by a player,
+ * so it survives the export into a feed that has no controls of its own.
+ * `reels` = one stories-style segment per step; `bar` = a single
  * continuous bar; `none` = hidden. Shared by preview and Remotion video.
  */
 export type ProgressStyle = "reels" | "bar" | "none";

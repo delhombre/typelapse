@@ -7,9 +7,10 @@ fourth combining two of them.
 
 **An island, not a toolbar.** One dark pill that holds the settings, showing all
 of them at once and growing only when a setting needs more room than its own
-button. Modelled on an external reference, measured off its real element rather than its
-wrapper: 40px tall, `#151517`, 999px radius, 5px gap, `0 8px 24px / 0.18`
-shadow, no dividers at all.
+button. Every number was measured off a real element rather than a wrapper — a
+wrapper's box carries padding the eye never sees, so measuring it produces a
+shape that is subtly too large everywhere: 40px tall, `#151517`, 999px radius,
+5px gap, `0 8px 24px / 0.18` shadow, no dividers at all.
 
 **One rule decides every control's treatment:**
 
@@ -22,8 +23,8 @@ shadow, no dividers at all.
 - **Aspect** takes both: a frame drawn at the true proportion *and* the number,
   because at 15px a silhouette alone cannot separate 1:1 from 4:5.
 
-**One rule decides interaction**, reverse-engineered from an external reference's own
-aria-labels: a setting whose value fits on its button and has few options
+**One rule decides interaction**, and each control's aria-label is where it has
+to show: a setting whose value fits on its button and has few options
 **cycles in place** (aspect), one that cannot be summarised as text **opens a
 panel** (backdrop, theme).
 
@@ -51,14 +52,15 @@ thing a visitor came to do.
 
 ## Motion, sampled rather than chosen
 
-Every timing came from sampling an external reference frame by frame:
+Every timing came from sampling real motion frame by frame rather than from
+picking round numbers off a spec:
 
 - **Row entrance does not fade.** First frame at opacity 0.99; the work is a
   scale that overshoots, 0.996 → 1.0068 → 1.
 - **Row exit is the dramatic half**: opacity to 0, blur to 4px, scale to 1.20,
   ~156ms.
-- **Island width** is a spring with bounce left in it (their 348 → 322.4 → 324
-  over ~480ms).
+- **Island width** is a spring with bounce left in it (348 → 322.4 → 324 over
+  ~480ms), so it undershoots and settles back rather than easing in.
 
 Three defects a Lapse take caught that review would not have:
 
@@ -157,6 +159,7 @@ and each opener says what it opens.
 
 ## Open
 
-The island holds four controls where an external reference holds eight, so it reads
-sparser than its model. Closing that gap is a product decision — exposing morph
-tempo, grain, window chrome or line numbers — not a styling one.
+The island holds four controls, which is sparse for the density its geometry was
+built for: the same pill carries eight comfortably. Closing that gap is a
+product decision — exposing morph tempo, grain, window chrome or line numbers —
+not a styling one.

@@ -192,14 +192,15 @@ html[data-landing-theme="dark"] {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Landing typography system (OpenAI x Apple): a refined SANS scale. Everything
+   Landing typography system: a refined SANS scale. Everything
    is scoped under `.landing-root` so the /app studio is never affected. The
    type classes read their color from `--color-ink` / `--color-ash`, so the one
    dark section (`.lp-dark`) only has to remap those two vars to invert cleanly.
    ───────────────────────────────────────────────────────────────────────── */
 .landing-root {
-	/* Characterful landing display face (Tuple-style warmth). Scoped here so the
-	   /app studio keeps the neutral @theme sans and is never affected. */
+	/* Characterful landing display face: warmth over a neutral grotesk, because
+	   a page seen once has to be memorable where a studio has to be quiet.
+	   Scoped here so the /app studio keeps the neutral @theme sans. */
 	--font-display: var(--font-sans);
 	/* The landing's filled actions take the brand's primary, like everything
 	   else that fills. It was a landing-only blue, one step deeper than the
@@ -778,7 +779,8 @@ html[data-landing-theme="dark"] {
    The instrument island. Decided in
    docs/decisions/2026-08-09-instrument-island.md.
 
-   Measured off an external reference's real element, not its wrapper: 40px tall, #151517,
+   Every number here was measured off a real element rather than its wrapper —
+   a wrapper's box includes padding the eye never sees: 40px tall, #151517,
    999px radius, 5px gap, one 0 8px 24px / 0.18 shadow, and no dividers — even
    spacing and a single fill are what make separate controls read as one
    instrument.
@@ -1078,7 +1080,7 @@ html[data-landing-theme="dark"] {
 	transform: scale(0.98);
 }
 
-/* The island's helper, measured off an external reference's `.top-setting-helper`.
+/* The island's helper.
    Same fill and same pill radius as the island itself, which is what makes it
    read as part of the instrument rather than as a browser tooltip: 11px at
    weight 500, 10px above the island and centred on the control. It sits outside
