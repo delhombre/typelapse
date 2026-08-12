@@ -1151,8 +1151,19 @@ html[data-landing-theme="dark"] {
    Use only where neighbours leave the room — at tighter densities size the
    button itself to WCAG's 24px floor instead, or the extensions steal each
    other's clicks. */
-.hit-ext {
-	position: relative;
+/* The one declaration a utility must be able to beat, so it is the one
+   declaration that sits in a layer. Unlayered CSS outranks every layer, and
+   Tailwind's utilities are layered: written plainly, this `relative` silently
+   won over `fixed` on the only control that asks for both, and the landing's
+   theme toggle — `hit-ext fixed top-5 right-5` — was laid out in flow and then
+   pushed 20px *left* of it, hanging half off the left edge of the page and
+   scrolling away with the hero. In `components` it loses to a positioning
+   utility and still gives every other user of the class the containing block
+   the extension below needs. */
+@layer components {
+	.hit-ext {
+		position: relative;
+	}
 }
 
 .hit-ext::after {
