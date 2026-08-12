@@ -113,6 +113,48 @@ rather than adding it under the dock is what makes it free — the hero pays
 nothing for it. Measured at all three ratios: 16px to 20px between the frame and
 the pill, 10px between the pill and the island, 0px off centre.
 
+## The target is the pitch, not a number we liked
+
+**A hit area may grow into the gap beside it and no further.** The controls
+carried a flat 44px target behind a 30px visual, and the row's pitch is 35px: a
+30px control and a 5px gap. So each target overhung its neighbour by 9px, and
+because a later sibling paints over an earlier one, every target ended up 4.5px
+to the left of the control it belonged to. Sampled with `elementFromPoint`
+across the theme row at 375, the aurora chip drew 117.5→147.5 and won
+110→144.5: its own right edge opened dracula.
+
+Half the gap on each side is the widest extent that still tiles, so that is what
+they take, plus the island's 6px of padding at the two ends. The area is the
+same 35px it always effectively was; it is centred on the control now. This is
+the rule `.hit-ext` already writes down for the studio's compact controls, and
+the island is the density it warns about: at this spacing the control's own size
+is the target, and 30px clears WCAG 2.5.8's 24px floor without help. Vertically
+there was never 44px to have: the island is 40px tall and clips its own
+overflow, so it was cut to 40 before it reached a finger.
+
+**The island measures `offsetWidth`.** A hit area that reaches past the row is
+content as far as `scrollWidth` is concerned, so the pill grew by however far
+the last control's target stuck out and left that much dead pill beyond it: 13px
+of right padding against 6px on the left. The row holds its width with
+`flex: none` rather than shrinking on every frame of the width spring, which is
+what the island's `overflow: hidden` was written for in the first place.
+
+## Focus goes both ways
+
+**Each direction hands focus to the control that undoes the move.** Closing a
+panel already returned focus to the button that opened it. Opening one did not:
+the press replaces the whole row, so the button that was pressed stopped
+existing and focus fell to the body, and Tab resumed from the top of the
+document with the options the press had just asked for sitting behind every
+other control on the page. Opening now lands on Back, closing still lands on the
+opener, and both ride the incoming row's mount, since `mode="wait"` holds it
+until the outgoing row has finished leaving and the moment of the press is too
+early to focus anything.
+
+No `aria-expanded`. The trigger that would report it is the one that stops
+existing, so it could only ever be stale; the row announces itself as a toolbar
+and each opener says what it opens.
+
 ## Open
 
 The island holds four controls where an external reference holds eight, so it reads
