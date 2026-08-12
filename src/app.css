@@ -95,6 +95,17 @@ html[data-landing-theme="dark"] {
 	outline: none;
 }
 
+/* The phone's sheet is a focus *target*, not a control: Vaul moves focus into it
+   so a screen reader lands inside the panel, and Chrome treats that programmatic
+   move on a `tabindex="-1"` container as keyboard focus. So the studio opened at
+   phone width with a 2px accent ring drawn around the whole sheet, before the
+   visitor had touched anything — a keyboard affordance on the one surface with
+   no keyboard, marking something there is nothing to do to. Everything inside it
+   keeps its ring, which is where the ring means something. */
+[data-vaul-drawer]:focus-visible {
+	outline: none;
+}
+
 /* Reduced motion: keep opacity/color, drop movement (Apple's guidance).
 
    The rule is enforced on `transition-property`, not on the duration. Zeroing
