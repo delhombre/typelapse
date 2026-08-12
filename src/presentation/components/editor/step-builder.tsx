@@ -208,7 +208,7 @@ export function StepBuilder() {
 										}
 									}}
 									onClick={(e) => e.stopPropagation()}
-									className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
+									className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 									title="Duration (ms)"
 								/>
 								<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
@@ -347,7 +347,7 @@ function FocusInput({ step }: { step: Step }) {
 			onClick={(e) => e.stopPropagation()}
 			placeholder="focus 2-4,7"
 			title="Spotlight these lines, dim the rest (e.g. 2-4, 7)"
-			className={`w-full rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-400 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 ${borderClasses}`}
+			className={`w-full truncate rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 transition placeholder:text-neutral-500 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 ${borderClasses}`}
 		/>
 	);
 }
@@ -381,7 +381,7 @@ function CaptionInput({ step }: { step: Step }) {
 			maxLength={MAX_ANNOTATION_LENGTH}
 			placeholder="caption…"
 			title="Caption shown beneath the frame during this step"
-			className="w-full rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+			className="w-full truncate rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-[11px] text-neutral-600 transition placeholder:text-neutral-500 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 dark:focus:border-neutral-700"
 		/>
 	);
 }
