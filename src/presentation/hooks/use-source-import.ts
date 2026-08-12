@@ -63,6 +63,10 @@ export function useSourceImport(): SourceImport {
 		if (busy.current) {
 			return false;
 		}
+		// Reading a paste and importing it are two different jobs, and only the
+		// reading may trim: a URL with a stray newline around it is still that URL.
+		// What gets imported is `source`, because a snippet's whitespace is part of
+		// the snippet.
 		const trimmed = source.trim();
 		const kind = classifySource(trimmed);
 		if (kind === "empty") {
@@ -123,7 +127,12 @@ export function useSourceImport(): SourceImport {
 				return true;
 			}
 
-			store.importSnippet(trimmed, { language: languageFromPath(store.snippet.title) });
+			// The raw paste, not the trimmed one: a leading blank line, a body
+			// indented because it was copied out of a method, and the trailing
+			// newline every well-formed file ends with are all content. Nothing
+			// downstream restores them — Snippet.create trims only to check for
+			// emptiness, and the editor is bound straight to the stored code.
+			store.importSnippet(source, { language: languageFromPath(store.snippet.title) });
 			return true;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not import that.");
