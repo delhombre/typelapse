@@ -254,7 +254,9 @@ describe("paintFrame", () => {
 	it("never clips the code area to nothing, however short the frame", () => {
 		const ctx = new RecordingContext();
 		paintFrame(ctx, scene, { tokens: [token()], lineCount: 0, lineNumberCount: 1, timeSeconds: 0 });
-		const clip = ctx.commands.find((c) => c.startsWith("rect("));
+		// Two rectangular clips are in force by now: the body box, then the code
+		// area inside it. The floor belongs to the inner one.
+		const clip = ctx.commands.filter((c) => c.startsWith("rect(")).at(-1);
 		expect(clip).toContain(`,${round(scene.code.lineHeight)})`);
 	});
 
