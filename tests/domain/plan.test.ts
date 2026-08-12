@@ -20,8 +20,8 @@ describe("Plan", () => {
 			expect(free.isFree).toBe(true);
 			expect(free.isPaid).toBe(false);
 			expect(free.seatLimit).toBe(1);
-			expect(free.capabilities.maxWidth).toBe(1920);
-			expect(free.capabilities.maxHeight).toBe(1080);
+			expect(free.capabilities.maxLongEdge).toBe(1920);
+			expect(free.capabilities.maxShortEdge).toBe(1080);
 			expect(free.capabilities.forcesBrandingWatermark).toBe(true);
 			expect(free.capabilities.allowsCloudExport).toBe(false);
 		});
@@ -32,8 +32,8 @@ describe("Plan", () => {
 			expect(pro.isPro).toBe(true);
 			expect(pro.isPaid).toBe(true);
 			expect(pro.seatLimit).toBe(1);
-			expect(pro.capabilities.maxWidth).toBe(3840);
-			expect(pro.capabilities.maxHeight).toBe(2160);
+			expect(pro.capabilities.maxLongEdge).toBe(3840);
+			expect(pro.capabilities.maxShortEdge).toBe(2160);
 			expect(pro.capabilities.forcesBrandingWatermark).toBe(false);
 			expect(pro.capabilities.allowsCloudExport).toBe(true);
 			expect(pro.capabilities.priorityQueue).toBe(true);
@@ -45,7 +45,7 @@ describe("Plan", () => {
 			expect(team.isPaid).toBe(true);
 			expect(team.seatLimit).toBe(5);
 			expect(team.capabilities.seats).toBe(5);
-			expect(team.capabilities.maxWidth).toBe(3840);
+			expect(team.capabilities.maxLongEdge).toBe(3840);
 			expect(team.capabilities.allowsCloudExport).toBe(true);
 		});
 
@@ -112,6 +112,57 @@ describe("Plan", () => {
 			expect(Plan.free().allowsResolution(3840, 2160)).toBe(false);
 			expect(Plan.pro().allowsResolution(3840, 2160)).toBe(true);
 			expect(Plan.local().allowsResolution(3840, 2160)).toBe(true);
+		});
+	});
+
+	/**
+	 * A plan grants a rectangle, not a pair of axis limits: rotating an allowed
+	 * export must never change the answer. Vertical is the common shape here
+	 * (Reels, Shorts, TikTok), so getting this backwards downgrades the formats
+	 * the product is built for.
+	 */
+	describe("resolution caps are orientation-free", () => {
+		const rotations: [number, number][] = [
+			[3840, 2160], // 16:9 4K
+			[2160, 3840], // 9:16 4K
+			[2560, 1440], // 16:9 1440p
+			[1440, 2560], // 9:16 1440p
+			[2160, 2880], // 3:4 4K
+		];
+
+		for (const [width, height] of rotations) {
+			it(`pro allows ${width}x${height} and leaves it untouched`, () => {
+				expect(Plan.pro().allowsResolution(width, height)).toBe(true);
+				expect(Plan.pro().clampResolution(width, height)).toEqual({ width, height });
+			});
+		}
+
+		it("free keeps a portrait 1080p export at full size", () => {
+			// 9:16 at 1080p is 1080x1920: the same entitlement as 1920x1080, rotated.
+			expect(Plan.free().allowsResolution(1080, 1920)).toBe(true);
+			expect(Plan.free().clampResolution(1080, 1920)).toEqual({ width: 1080, height: 1920 });
+		});
+
+		it("a plan answers identically for a size and its rotation", () => {
+			for (const plan of [Plan.free(), Plan.pro(), Plan.team(3), Plan.local()]) {
+				for (const [width, height] of rotations) {
+					expect(plan.allowsResolution(width, height)).toBe(plan.allowsResolution(height, width));
+					const upright = plan.clampResolution(width, height);
+					const rotated = plan.clampResolution(height, width);
+					expect({ w: upright.width, h: upright.height }).toEqual({
+						w: rotated.height,
+						h: rotated.width,
+					});
+				}
+			}
+		});
+
+		it("still refuses a size that outruns the rectangle in either orientation", () => {
+			// 5000 on the long edge beats Pro's 3840 whichever way round it is.
+			expect(Plan.pro().allowsResolution(5000, 2000)).toBe(false);
+			expect(Plan.pro().allowsResolution(2000, 5000)).toBe(false);
+			// 2400 on the SHORT edge beats Pro's 2160 even though 3000 fits the long.
+			expect(Plan.pro().allowsResolution(3000, 2400)).toBe(false);
 		});
 	});
 
