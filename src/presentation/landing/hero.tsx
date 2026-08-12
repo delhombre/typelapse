@@ -160,6 +160,14 @@ export function Hero() {
 					<div
 						className="lp-field"
 						data-multiline={multiline ? "" : undefined}
+						/* The drawn caret can only stand where the text ends, and once there
+						   is text that is not where you are: click into the middle of a
+						   pasted URL and the block stays at the end, pointing at the wrong
+						   character. It is a sibling of the field, so it cannot follow a
+						   selection. So it holds the empty state only — where it is exact,
+						   and where the real caret has nothing to show — and hands over the
+						   moment there is content. The drawing is in app.css. */
+						data-empty={value === "" ? "" : undefined}
 						onMouseDown={(e) => {
 							if (e.target === e.currentTarget) {
 								e.preventDefault();
@@ -182,15 +190,10 @@ export function Hero() {
 							autoCorrect="off"
 							autoCapitalize="off"
 						/>
-						{/* The drawn caret only stands in for the real one while the text is
-						    one line: past that it has no end of the text to stand at. */}
-						{!multiline && (
-							<span
-								className="lp-caret"
-								data-idle={value.length === 0 ? "" : undefined}
-								aria-hidden="true"
-							/>
-						)}
+						{/* Kept in the row while the field is one line, and hidden rather
+						    than unmounted when it stands down, so the Render button does not
+						    step sideways on the first keystroke. */}
+						{!multiline && <span className="lp-caret" aria-hidden="true" />}
 						<button type="button" className="lp-field-cta" onClick={submit}>
 							Render
 						</button>
