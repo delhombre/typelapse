@@ -4,6 +4,7 @@ import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config
 import type { Snippet } from "@/domain/entities/snippet";
 import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download.adapter";
 import { CloudRenderAdapter } from "@/infrastructure/export/cloud-render.adapter";
+import { gifDimensions } from "@/infrastructure/export/gif-quality";
 import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
@@ -233,6 +234,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					filename,
 					startedAt,
 					watermarkText: resolved.watermark,
+					sound,
 					set,
 					scenery: {
 						background,
@@ -451,6 +453,8 @@ interface DeviceRenderInput {
 	filename: string;
 	startedAt: number;
 	watermarkText: string | undefined;
+	/** Only so the panel can say the canvas renderer has no audio track yet. */
+	sound: boolean;
 	set: (partial: Partial<ExportState>) => void;
 	scenery: {
 		background: string;
@@ -552,7 +556,7 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 				bytes: blob.size,
 				target: "device",
 				elapsedMs: performance.now() - startedAt,
-				note: deviceNote(config),
+				note: deviceNote(snippet, config, input.sound),
 			},
 		});
 	} catch (error) {
@@ -575,10 +579,33 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 	}
 }
 
-/** Anything about the finished file the format quietly changed. */
-function deviceNote(config: RenderConfig): string | undefined {
-	if (config.format === "gif" && config.fps > 50) {
-		return `GIF caps at 50 fps; rendered at 50 instead of ${config.fps}.`;
+/**
+ * Anything the finished file is not, having been asked for.
+ *
+ * A file that is quietly not what was requested is worse than one that says so,
+ * and this path has three of those: GIF's two format concessions, and the two
+ * things the canvas renderer cannot bake yet. The server still can, and the
+ * panel says which.
+ */
+function deviceNote(snippet: Snippet, config: RenderConfig, sound: boolean): string | undefined {
+	const notes: string[] = [];
+
+	if (config.format === "gif") {
+		const gif = gifDimensions(config.width, config.height);
+		const concessions = [
+			config.fps > 50 ? `50 fps (GIF's ceiling, not ${config.fps})` : null,
+			gif.scaled ? `${gif.width}×${gif.height}` : null,
+		].filter(Boolean);
+		if (concessions.length > 0) {
+			notes.push(`GIF: ${concessions.join(", ")}`);
+		}
 	}
-	return undefined;
+	if (sound) {
+		notes.push("no audio track on this device yet — render on the server for sound");
+	}
+	if (snippet.steps.some((step) => step.annotation)) {
+		notes.push("captions are not baked on this device yet");
+	}
+
+	return notes.length > 0 ? `${notes.join(". ")}.` : undefined;
 }

@@ -32,6 +32,7 @@ import {
 import type { ClientExportEvent, ClientExportJob } from "./client-export-job";
 import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
 import { encodeGif } from "./gif-encoder";
+import { gifDimensions } from "./gif-quality";
 import { gifSafeFps } from "./gif-timing";
 import { encodingFor, evenDimensions } from "./video-encoding";
 
@@ -59,8 +60,14 @@ scope.onmessage = (event: MessageEvent<ClientExportJob>) => {
 
 async function run(job: ClientExportJob): Promise<void> {
 	const started = performance.now();
-	const { width, height } = evenDimensions(job.width, job.height);
-	const encoding = encodingFor(job.format, width, height, job.fps);
+	const encoding = encodingFor(job.format, job.width, job.height, job.fps);
+	// A GIF is a loop in a README, not a deliverable at 1080p: the long edge
+	// comes down before anything is painted, so the card fit-scales into the
+	// smaller canvas rather than being resampled after the fact.
+	const { width, height } =
+		encoding.container === "gif"
+			? gifDimensions(job.width, job.height)
+			: evenDimensions(job.width, job.height);
 
 	const canvas = new OffscreenCanvas(width, height);
 	// GIF quantisation reads pixels back, and a context that keeps an alpha

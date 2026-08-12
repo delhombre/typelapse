@@ -14,6 +14,7 @@
 
 import type { VideoScript } from "@/application/export/video-script";
 import { GIFEncoder, applyPalette, quantize } from "gifenc";
+import { orderedDither } from "./gif-quality";
 import { gifFrameDelays } from "./gif-timing";
 
 export interface GifEncodeInput {
@@ -46,8 +47,12 @@ export async function encodeGif(input: GifEncodeInput): Promise<GifEncodeResult>
 		paintMs += performance.now() - before;
 
 		const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-		const palette = quantize(data, PALETTE_SIZE);
-		encoder.writeFrame(applyPalette(data, palette), canvas.width, canvas.height, {
+		// Dither before quantising, not after: the point is to give the quantiser
+		// a spread it can straddle with two palette entries where it would
+		// otherwise have to pick one and band.
+		const dithered = orderedDither(data, canvas.width, canvas.height);
+		const palette = quantize(dithered, PALETTE_SIZE);
+		encoder.writeFrame(applyPalette(dithered, palette), canvas.width, canvas.height, {
 			palette,
 			// gifenc takes milliseconds and divides; the delays are already whole
 			// centisecondes, so multiplying back is lossless.
