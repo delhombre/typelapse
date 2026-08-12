@@ -7,7 +7,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
    real motor: `web-haptics` feature-detects and would no-op in jsdom, which
    would make "no buzz" pass for the wrong reason. */
 const { hapticSpy } = vi.hoisted(() => ({ hapticSpy: vi.fn() }));
-vi.mock("@/presentation/landing/haptics", () => ({ trigger: hapticSpy }));
+vi.mock("@/presentation/haptics", () => ({ trigger: hapticSpy }));
 
 const SCREEN_WIDTH = 320;
 
