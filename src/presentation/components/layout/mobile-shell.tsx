@@ -2,7 +2,13 @@ import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
 import { type ReactNode, useState } from "react";
 import { Drawer } from "vaul";
-import { ExportButton, ExportOptions, PngButton } from "../settings/export-bar";
+import {
+	ExportButton,
+	ExportOptions,
+	ExportStatus,
+	ExportTargetControl,
+	PngButton,
+} from "../settings/export-bar";
 import { SettingsStrip } from "../settings/settings-panel";
 import { TopNav } from "./top-nav";
 
@@ -62,6 +68,13 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 							{hasSteps && <ExportButton />}
 						</div>
 
+						{/* Outside the scroll area on purpose: at the peek snap the sheet
+						    below is clipped, and an export that finishes or fails while the
+						    sheet is collapsed still has to say so. */}
+						<div className="px-4 empty:hidden [&:has(*)]:pb-3">
+							<ExportStatus />
+						</div>
+
 						{/* Scrollable as soon as the sheet is expanded; clipped at the peek so only
 						    the toolbar shows. handleOnly keeps this scroll from fighting the drag. */}
 						<div
@@ -82,6 +95,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 									<SheetSection label="Export">
 										<div className="flex flex-wrap items-center gap-2 px-5">
 											<ExportOptions />
+											<ExportTargetControl />
 										</div>
 									</SheetSection>
 								)}
