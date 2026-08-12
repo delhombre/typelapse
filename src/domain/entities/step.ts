@@ -5,10 +5,17 @@ import type { HighlightRange } from "../value-objects/highlight-range";
  * height for the caption block (`CAPTION_BLOCK` in `frame-metrics`) before
  * fitting the card into the canvas, so a caption that wrapped to a second line
  * would render taller than the layout budgeted and push itself off the canvas,
- * worst on the narrow 9:16 preset. Bounding it here keeps the caption the "one
- * short line" the product asks for, and keeps the fit math honest.
+ * worst on the narrow 9:16 preset. `StepCaption` therefore paints one line and
+ * ellipsises the overflow.
+ *
+ * No character count can *guarantee* a fit: the caption band is as wide as the
+ * card, and the card is as wide as the widest line of code, so a step with short
+ * code has little room. This bound is the "one short line" the product asks for,
+ * chosen so an ordinary caption clears the common case (80 chars is roughly
+ * 465px at the preview's 13px Inter, against a 608px card) and long ones are
+ * refused at the factory instead of being silently cut on export.
  */
-export const MAX_ANNOTATION_LENGTH = 120;
+export const MAX_ANNOTATION_LENGTH = 80;
 
 export interface StepProps {
 	code: string;
