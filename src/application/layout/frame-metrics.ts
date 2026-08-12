@@ -25,32 +25,119 @@ export const CHAR_WIDTH_RATIO = 0.62;
 
 /** Intrinsic line box of chrome-bar text (no explicit line-height); slight
  *  over-estimate so the fit leaves a hair of margin rather than cropping. */
-const CHROME_TEXT_LINE_HEIGHT = 1.35;
+export const CHROME_TEXT_LINE_HEIGHT = 1.35;
 /** StepCaption footprint below the card: marginTop 14 + reserved minHeight 20. */
 const CAPTION_BLOCK = 14 + 20;
 
 /**
- * Height in px of the window-chrome bar for a variant at `scale`. Derived from
- * the padding + content of each bar in `FrameChrome` (a 1px border folded in).
+ * The chrome bar's font stack, which is *not* the theme's.
+ *
+ * `FrameChrome` sets its title and its glyphs in the app's own mono regardless
+ * of what the code is set in, so a canvas painting the same bar has to ask for
+ * the same stack — and the renderer has to load it alongside the theme's font.
+ */
+export const CHROME_FONT_STACK = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+/**
+ * Every number and tint the three chrome bars are built from, in unscaled px.
+ *
+ * One table, read by all three surfaces: `FrameChrome` styles itself from it,
+ * `chromeBarHeight` sizes the card from it, and the frame painter draws from it.
+ * The bars were previously three sets of literals in one file and a partial copy
+ * of one of them in another, which is how the canvas came to render `browser`
+ * and `terminal` as an empty bar with a hairline under it.
+ *
+ * Alphas are the two hex digits the components append to the theme foreground,
+ * so a tint can be checked against the CSS by eye rather than by arithmetic.
+ */
+export const CHROME_STYLE = {
+	/** The hairline every bar closes with. */
+	borderAlpha: "0f",
+	border: 1,
+	titleAlpha: "59",
+	macos: {
+		padX: 16,
+		padY: 12,
+		gap: 8,
+		dot: 11,
+		lights: ["#ff5f57", "#febc2e", "#28c840"],
+		titleSize: 11,
+		titleTracking: "-0.02em",
+	},
+	browser: {
+		padX: 14,
+		padY: 9,
+		gap: 10,
+		chevrons: ["‹", "›"],
+		chevronSize: 13,
+		chevronGap: 7,
+		chevronAlpha: "40",
+		/** The address pill may take this fraction of the space left between the
+		 *  chevrons and the right-hand spacer. */
+		pillMaxWidth: 0.72,
+		pillAlpha: "0d",
+		pillPadX: 12,
+		pillPadY: 4,
+		/** A radius no bar can reach, which is how CSS spells a pill. */
+		pillRadius: 999,
+		titleSize: 11,
+		titleTracking: "-0.01em",
+		/** Right spacer keeping the pill optically centred against the chevrons. */
+		spacer: 21,
+	},
+	terminal: {
+		padX: 16,
+		padY: 9,
+		gap: 8,
+		prompt: "❯",
+		promptSize: 12,
+		promptWeight: 600,
+		promptAlpha: "80",
+		titleSize: 11,
+		titleTracking: "-0.01em",
+		/** The terminal bar is the only one with a fill of its own. */
+		barAlpha: "08",
+	},
+} as const;
+
+/**
+ * Height of a bar's content row in unscaled px: the tallest of its children,
+ * which is what a centred flex row is as tall as.
+ */
+export function chromeRowHeight(chrome: ChromeVariant): number {
+	if (chrome === "none") {
+		return 0;
+	}
+	if (chrome === "browser") {
+		const { chevronSize, pillPadY, titleSize } = CHROME_STYLE.browser;
+		const pill = 2 * pillPadY + titleSize * CHROME_TEXT_LINE_HEIGHT;
+		return Math.max(chevronSize * CHROME_TEXT_LINE_HEIGHT, pill);
+	}
+	if (chrome === "terminal") {
+		const { promptSize, titleSize } = CHROME_STYLE.terminal;
+		return Math.max(promptSize, titleSize) * CHROME_TEXT_LINE_HEIGHT;
+	}
+	const { dot, titleSize } = CHROME_STYLE.macos;
+	return Math.max(dot, titleSize * CHROME_TEXT_LINE_HEIGHT);
+}
+
+/** Vertical padding of a bar in unscaled px. */
+export function chromePadY(chrome: ChromeVariant): number {
+	if (chrome === "none") {
+		return 0;
+	}
+	return CHROME_STYLE[chrome].padY;
+}
+
+/**
+ * Height in px of the window-chrome bar for a variant at `scale`: its padding,
+ * its content row and the hairline that closes it.
  */
 export function chromeBarHeight(chrome: ChromeVariant, scale: number): number {
 	if (chrome === "none") {
 		return 0;
 	}
-	if (chrome === "browser") {
-		// Padding 9, a pill address bar (padding 4 + 11px text), 1px border.
-		const pill = 2 * 4 + 11 * CHROME_TEXT_LINE_HEIGHT;
-		const row = Math.max(13 * CHROME_TEXT_LINE_HEIGHT, pill);
-		return (2 * 9 + row + 1) * scale;
-	}
-	if (chrome === "terminal") {
-		// Padding 9, prompt glyph (12px) vs title (11px), 1px border.
-		const row = Math.max(12 * CHROME_TEXT_LINE_HEIGHT, 11 * CHROME_TEXT_LINE_HEIGHT);
-		return (2 * 9 + row + 1) * scale;
-	}
-	// macOS: padding 12, traffic-light dots (11px) vs title (11px), 1px border.
-	const row = Math.max(11, 11 * CHROME_TEXT_LINE_HEIGHT);
-	return (2 * 12 + row + 1) * scale;
+	return (2 * chromePadY(chrome) + chromeRowHeight(chrome) + CHROME_STYLE.border) * scale;
 }
 
 export interface FrameNaturalSizeInput {

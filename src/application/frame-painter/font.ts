@@ -16,14 +16,26 @@ const BOLD = 2;
  * silently keeps its previous font: the single most likely way for a canvas to
  * drift from the DOM it is supposed to mirror.
  */
-export function canvasFont(fontSize: number, fontFamily: string, fontStyle?: number): string {
+/**
+ * @param fontStyle Shiki's bitmask, for code tokens.
+ * @param fontWeight An explicit weight, for the chrome bar's own type, which is
+ *   styled in CSS rather than by a highlighter and asks for a 600 no bitmask can
+ *   express. It wins over the bitmask's bold.
+ */
+export function canvasFont(
+	fontSize: number,
+	fontFamily: string,
+	fontStyle?: number,
+	fontWeight?: number,
+): string {
 	const families = fontFamily
 		.split(",")
 		.map((family) => quoteFamily(family.trim()))
 		.filter((family) => family !== "")
 		.join(", ");
 	const italic = fontStyle && fontStyle & ITALIC ? "italic " : "";
-	const weight = fontStyle && fontStyle & BOLD ? "700 " : "";
+	const bold = fontStyle && fontStyle & BOLD ? "700 " : "";
+	const weight = fontWeight ? `${fontWeight} ` : bold;
 	return `${italic}${weight}${fontSize}px ${families}`;
 }
 

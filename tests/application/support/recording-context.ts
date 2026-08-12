@@ -22,6 +22,7 @@ export class RecordingContext implements PaintContext {
 	#font = "10px sans-serif";
 	#textAlign = "start";
 	#textBaseline = "alphabetic";
+	#letterSpacing = "0px";
 
 	get fillStyle(): string | PaintGradient | PaintPattern {
 		return this.#fillStyle;
@@ -75,6 +76,15 @@ export class RecordingContext implements PaintContext {
 	set textBaseline(value: string) {
 		this.#textBaseline = value;
 		this.commands.push(`textBaseline=${value}`);
+	}
+
+	get letterSpacing(): string {
+		return this.#letterSpacing;
+	}
+
+	set letterSpacing(value: string) {
+		this.#letterSpacing = value;
+		this.commands.push(`letterSpacing=${value}`);
 	}
 
 	save(): void {
@@ -139,8 +149,12 @@ export class RecordingContext implements PaintContext {
 
 	measureText(text: string): { width: number } {
 		// A perfect monospace of advance 0.6em, so tests can predict every position.
-		const size = Number.parseFloat(this.#font) || 10;
-		return { width: text.length * size * 0.6 };
+		// The size is read out of the shorthand rather than off its front, because
+		// a weight or an `italic` gets there first (`600 26.4px "…"`).
+		const size = Number.parseFloat(/(\d*\.?\d+)px/.exec(this.#font)?.[1] ?? "") || 10;
+		const tracking = /^(-?[\d.]+)em$/.exec(this.#letterSpacing)?.[1];
+		const advance = size * (0.6 + Number(tracking ?? 0));
+		return { width: text.length * advance };
 	}
 
 	createLinearGradient(x0: number, y0: number, x1: number, y1: number): PaintGradient {
