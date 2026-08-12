@@ -556,7 +556,12 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 				bytes: blob.size,
 				target: "device",
 				elapsedMs: performance.now() - startedAt,
-				note: deviceNote(snippet, config, input.sound),
+				note: deviceNote(
+					snippet,
+					config,
+					input.sound,
+					renderer.lastMeasurements?.transparencyNote ?? null,
+				),
 			},
 		});
 	} catch (error) {
@@ -583,13 +588,25 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
  * Anything the finished file is not, having been asked for.
  *
  * A file that is quietly not what was requested is worse than one that says so,
- * and this path has three of those: GIF's two format concessions, and the two
- * things the canvas renderer cannot bake yet. The server still can, and the
- * panel says which.
+ * and this path has several: GIF's two format concessions, whatever became of a
+ * transparent background in this container, and the two things the canvas
+ * renderer cannot bake yet. The server still can, and the panel says which.
+ *
+ * The transparency line comes from the worker rather than being worked out
+ * here, because only the worker knows whether this browser's encoder agreed to
+ * carry an alpha channel.
  */
-function deviceNote(snippet: Snippet, config: RenderConfig, sound: boolean): string | undefined {
+function deviceNote(
+	snippet: Snippet,
+	config: RenderConfig,
+	sound: boolean,
+	transparency: string | null,
+): string | undefined {
 	const notes: string[] = [];
 
+	if (transparency) {
+		notes.push(transparency);
+	}
 	if (config.format === "gif") {
 		const gif = gifDimensions(config.width, config.height);
 		const concessions = [

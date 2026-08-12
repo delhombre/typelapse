@@ -13,6 +13,7 @@
  * into the port's vocabulary: progress, a blob, or one sentence about why not.
  */
 
+import { wantsTransparency } from "@/application/export/transparency";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { canvasFont } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
@@ -113,7 +114,9 @@ export class WebCodecsRendererAdapter implements RendererPort {
 		const canvas = document.createElement("canvas");
 		canvas.width = width;
 		canvas.height = height;
-		const ctx = canvas.getContext("2d", { alpha: false });
+		// A PNG can hold an alpha channel, so unlike the video path this one never
+		// has to flatten: a background of `None` comes back transparent.
+		const ctx = canvas.getContext("2d", { alpha: wantsTransparency(this.scenery.background) });
 		if (!ctx) {
 			throw new ClientExportUnsupportedError("This browser gave us no 2D context to paint into.");
 		}
