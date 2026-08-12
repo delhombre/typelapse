@@ -20,7 +20,7 @@ import {
 } from "@/application/magic-move/focus-zoom";
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
-import { PlaybackControls } from "@/presentation/components/controls/playback-controls";
+import { PreviewIsland } from "@/presentation/components/controls/preview-island";
 import { useResizeObserverNode } from "@/presentation/hooks/use-resize-observer";
 import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -47,7 +47,6 @@ import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
-import { SocialControls } from "./social-controls";
 import { SocialPreviewOverlay } from "./social-preview-overlay";
 import { StepCaption } from "./step-caption";
 
@@ -498,10 +497,7 @@ export function LivePreview() {
 				)}
 			</div>
 
-			<div className="flex shrink-0 flex-col items-center gap-2 pb-3">
-				<PlaybackControls />
-				<SocialControls />
-			</div>
+			<PreviewIsland />
 		</div>
 	);
 }

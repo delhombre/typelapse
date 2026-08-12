@@ -112,6 +112,34 @@ describe("the dependency rule", () => {
 		expect(violationsIn("application", allowed)).toEqual([]);
 	});
 
+	/**
+	 * The landing is a leaf: a marketing page that may read the studio's shared
+	 * presentation utilities, never the reverse. Anything both need — the haptics
+	 * trigger, the spring tokens — belongs in `presentation/`, not in the page
+	 * that happened to want it first. Without this rule the studio starts
+	 * importing from `landing/` and the marketing page becomes a library nobody
+	 * can change.
+	 */
+	it("keeps the landing out of the studio", () => {
+		const violations: string[] = [];
+
+		for (const file of collectSourceFiles(join(SRC, "presentation"))) {
+			const relativeFile = file.slice(SRC.length + 1);
+
+			if (relativeFile.startsWith("presentation/landing/")) {
+				continue;
+			}
+
+			for (const specifier of importsOf(file)) {
+				if (specifier.includes("presentation/landing/") || specifier.startsWith("./landing/")) {
+					violations.push(`${relativeFile} imports "${specifier}"`);
+				}
+			}
+		}
+
+		expect(violations).toEqual([]);
+	});
+
 	it("keeps node built-ins out of the domain and the application", () => {
 		const isNodeBuiltin = (specifier: string) => specifier.startsWith("node:");
 
