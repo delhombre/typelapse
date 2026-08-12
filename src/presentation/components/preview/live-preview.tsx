@@ -20,7 +20,6 @@ import {
 } from "@/application/magic-move/focus-zoom";
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
-import { PreviewIsland } from "@/presentation/components/controls/preview-island";
 import { useResizeObserverNode } from "@/presentation/hooks/use-resize-observer";
 import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -444,6 +443,11 @@ export function LivePreview() {
 		</motion.div>
 	);
 
+	// The frame and nothing else. The island used to be the last item of this
+	// column, which anchored it under the preview and kept it out of the top
+	// bar's way. There is no top bar any more and no column either: the shell
+	// places the instrument on the stage's own centre line, so the preview is
+	// free to be the picture and only the picture.
 	return (
 		<div className="flex h-full flex-col">
 			<div
@@ -496,8 +500,6 @@ export function LivePreview() {
 					</div>
 				)}
 			</div>
-
-			<PreviewIsland />
 		</div>
 	);
 }

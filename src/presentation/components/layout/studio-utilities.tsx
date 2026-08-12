@@ -1,5 +1,4 @@
 import { ConfirmDiscardOverlay } from "@/presentation/components/ui/confirm-discard";
-import { Logomark } from "@/presentation/components/ui/logomark";
 import { springs } from "@/presentation/motion";
 import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -8,13 +7,20 @@ import { copyToClipboard, decodeShareLink, encodeShareLink } from "@/presentatio
 import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { DiffImportMenu } from "./diff-import-menu";
 import { TemplateGallery } from "./template-gallery";
 import { UrlImportMenu } from "./url-import-menu";
 
-/** Top navigation bar: brand, templates, and the import/export/share/theme actions. */
-export function TopNav() {
+/**
+ * Everything that opens or leaves the project: templates, the two importers,
+ * JSON in and out, the share link, and the colour scheme.
+ *
+ * It used to be the right half of a 56px bar that ran the whole width of the
+ * window to hold seven 36px buttons. The scene has no bars, so it is a chip in
+ * the top right corner — the same controls, the same popovers, anchored to the
+ * corner they now live in.
+ */
+export function StudioUtilities() {
 	const { mode, toggle } = useThemeModeStore();
 	const exportToJson = useSnippetStore((s) => s.exportToJson);
 	const importFromJson = useSnippetStore((s) => s.importFromJson);
@@ -108,7 +114,7 @@ export function TopNav() {
 	);
 
 	return (
-		<nav className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between border-b border-neutral-200/70 bg-white/70 px-3 backdrop-blur-xl backdrop-saturate-150 sm:px-4 dark:border-neutral-800/70 dark:bg-neutral-950/70">
+		<div className="sc-chip sc-utilities">
 			<input
 				ref={fileInputRef}
 				type="file"
@@ -116,40 +122,27 @@ export function TopNav() {
 				onChange={handleFileChange}
 				className="hidden"
 			/>
-			<div className="flex items-center gap-2 sm:gap-4">
-				<Link
-					to="/"
-					className="flex items-center gap-2.5 rounded-lg transition-opacity hover:opacity-80"
-					title="Back to home"
-				>
-					<div className="flex size-7 items-center justify-center rounded-lg bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
-						<Logomark size={16} />
-					</div>
-					<span className="text-sm font-semibold tracking-tight">Typelapse</span>
-				</Link>
-				<TemplateGallery />
-			</div>
-			<div className="flex items-center gap-1">
-				<UrlImportMenu />
-				<DiffImportMenu />
-				<NavButton onClick={handleImport} title="Import JSON">
-					<UploadIcon />
-				</NavButton>
-				<NavButton onClick={handleExport} title="Export JSON">
-					<DownloadIcon />
-				</NavButton>
-				<NavButton
-					onClick={handleShare}
-					title={shareCopied ? "Copied!" : "Share link"}
-					active={shareCopied}
-				>
-					{shareCopied ? <CheckIcon /> : <ShareIcon />}
-				</NavButton>
-				<div className="mx-1.5 h-5 w-px bg-neutral-200 dark:bg-neutral-800" />
-				<NavButton onClick={toggle} title={mode === "dark" ? "Light mode" : "Dark mode"}>
-					{mode === "dark" ? <SunIcon /> : <MoonIcon />}
-				</NavButton>
-			</div>
+			<TemplateGallery />
+			<span className="sc-seam" />
+			<UrlImportMenu />
+			<DiffImportMenu />
+			<UtilityButton onClick={handleImport} title="Import JSON">
+				<UploadIcon />
+			</UtilityButton>
+			<UtilityButton onClick={handleExport} title="Export JSON">
+				<DownloadIcon />
+			</UtilityButton>
+			<UtilityButton
+				onClick={handleShare}
+				title={shareCopied ? "Copied!" : "Share link"}
+				active={shareCopied}
+			>
+				{shareCopied ? <CheckIcon /> : <ShareIcon />}
+			</UtilityButton>
+			<span className="sc-seam" />
+			<UtilityButton onClick={toggle} title={mode === "dark" ? "Light mode" : "Dark mode"}>
+				{mode === "dark" ? <SunIcon /> : <MoonIcon />}
+			</UtilityButton>
 			<ConfirmDiscardOverlay
 				open={pendingFile !== null}
 				message={`Replace what you have with “${pendingFile?.name ?? ""}”?`}
@@ -162,13 +155,13 @@ export function TopNav() {
 					setPendingFile(null);
 				}}
 			/>
-		</nav>
+		</div>
 	);
 }
 
 /* ──────────── Primitives ──────────── */
 
-function NavButton({
+function UtilityButton({
 	onClick,
 	title,
 	active,
@@ -185,12 +178,9 @@ function NavButton({
 			onClick={onClick}
 			whileTap={{ scale: 0.96 }}
 			transition={springs.snappy}
-			className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
-				active
-					? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-					: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-			}`}
+			className={`hit-ext sc-glyph-button ${active ? "sc-glyph-button-active" : ""}`}
 			title={title}
+			aria-label={title}
 		>
 			{children}
 		</motion.button>
@@ -208,9 +198,8 @@ function SunIcon() {
 			fill="none"
 			stroke="currentColor"
 			strokeWidth="1.5"
-			role="img"
+			aria-hidden="true"
 		>
-			<title>Light mode</title>
 			<circle cx="12" cy="12" r="4" />
 			<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
 		</svg>
@@ -226,9 +215,8 @@ function MoonIcon() {
 			fill="none"
 			stroke="currentColor"
 			strokeWidth="1.5"
-			role="img"
+			aria-hidden="true"
 		>
-			<title>Dark mode</title>
 			<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
 		</svg>
 	);
@@ -243,9 +231,8 @@ function DownloadIcon() {
 			fill="none"
 			stroke="currentColor"
 			strokeWidth="1.5"
-			role="img"
+			aria-hidden="true"
 		>
-			<title>Export</title>
 			<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
 		</svg>
 	);
@@ -260,9 +247,8 @@ function UploadIcon() {
 			fill="none"
 			stroke="currentColor"
 			strokeWidth="1.5"
-			role="img"
+			aria-hidden="true"
 		>
-			<title>Import</title>
 			<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
 		</svg>
 	);
@@ -277,9 +263,8 @@ function ShareIcon() {
 			fill="none"
 			stroke="currentColor"
 			strokeWidth="1.5"
-			role="img"
+			aria-hidden="true"
 		>
-			<title>Share</title>
 			<circle cx="18" cy="5" r="3" />
 			<circle cx="6" cy="12" r="3" />
 			<circle cx="18" cy="19" r="3" />
@@ -298,9 +283,8 @@ function CheckIcon() {
 			fill="none"
 			stroke="currentColor"
 			strokeWidth="2"
-			role="img"
+			aria-hidden="true"
 		>
-			<title>Copied</title>
 			<polyline points="20 6 9 17 4 12" />
 		</svg>
 	);

@@ -5,31 +5,6 @@ import { monacoLanguage } from "@/presentation/components/editor/monaco-language
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 
-const LANGUAGES = [
-	{ value: "typescript", label: "TypeScript" },
-	{ value: "tsx", label: "TSX" },
-	{ value: "javascript", label: "JavaScript" },
-	{ value: "diff", label: "Diff" },
-	{ value: "python", label: "Python" },
-	{ value: "rust", label: "Rust" },
-	{ value: "go", label: "Go" },
-	{ value: "html", label: "HTML" },
-	{ value: "css", label: "CSS" },
-	{ value: "json", label: "JSON" },
-	{ value: "java", label: "Java" },
-	{ value: "csharp", label: "C#" },
-	{ value: "cpp", label: "C++" },
-	{ value: "php", label: "PHP" },
-	{ value: "ruby", label: "Ruby" },
-	{ value: "swift", label: "Swift" },
-	{ value: "kotlin", label: "Kotlin" },
-	{ value: "sql", label: "SQL" },
-	{ value: "yaml", label: "YAML" },
-	{ value: "markdown", label: "Markdown" },
-	{ value: "shell", label: "Shell" },
-	{ value: "dockerfile", label: "Dockerfile" },
-];
-
 /**
  * The model's file name, by Monaco language. The TypeScript worker reads the
  * ScriptKind off the extension, and an extensionless in-memory model with
@@ -55,7 +30,7 @@ const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg
 };
 
 export function CodeEditor() {
-	const { snippet, setCode, setLanguage, setTitle, syncEditorTheme } = useSnippetStore();
+	const { snippet, setCode, syncEditorTheme } = useSnippetStore();
 	const isDark = useThemeModeStore((s) => s.mode === "dark");
 	const monacoRef = useRef<Monaco | null>(null);
 
@@ -170,31 +145,15 @@ export function CodeEditor() {
 		[setCode],
 	);
 
+	// The editor and nothing around it. The project's name is the chip in the
+	// scene's top-left corner and the language is the card's own header: a
+	// second field bound to the same string is a question about which one is
+	// real, and the answer was never interesting.
 	return (
-		<div className="flex h-full flex-col gap-3">
-			<div className="flex items-center gap-2">
-				<input
-					type="text"
-					value={snippet.title}
-					onChange={(e) => setTitle(e.target.value)}
-					placeholder="Untitled snippet"
-					className="h-9 flex-1 rounded-xl border border-neutral-200/70 bg-white px-3 text-sm text-neutral-900 outline-none transition focus:border-neutral-300 focus:ring-2 focus:ring-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-700 dark:focus:ring-white/5"
-				/>
-				<select
-					value={snippet.language}
-					onChange={(e) => setLanguage(e.target.value)}
-					className="h-9 rounded-xl border border-neutral-200/70 bg-white px-2.5 text-xs font-medium text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
-				>
-					{LANGUAGES.map((lang) => (
-						<option key={lang.value} value={lang.value}>
-							{lang.label}
-						</option>
-					))}
-				</select>
-			</div>
+		<div className="flex h-full flex-col">
 			<div
 				title="⌥Z: toggle word wrap"
-				className="min-h-[260px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800"
+				className="min-h-[220px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800"
 			>
 				<Editor
 					value={snippet.code}

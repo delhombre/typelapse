@@ -1,5 +1,5 @@
 import { DiffImportMenu } from "@/presentation/components/layout/diff-import-menu";
-import { TopNav } from "@/presentation/components/layout/top-nav";
+import { StudioUtilities } from "@/presentation/components/layout/studio-utilities";
 import { UrlImportMenu } from "@/presentation/components/layout/url-import-menu";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
@@ -181,11 +181,11 @@ describe("UrlImportMenu guard", () => {
 	});
 });
 
-describe("TopNav JSON import guard", () => {
+describe("StudioUtilities JSON import guard", () => {
 	function renderNav() {
 		return render(
 			<MemoryRouter>
-				<TopNav />
+				<StudioUtilities />
 			</MemoryRouter>,
 		);
 	}
