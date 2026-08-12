@@ -17,6 +17,7 @@
  */
 
 import { GRAIN_OPACITY, GRAIN_TILE_SIZE, GRAIN_TILE_URL } from "@/application/backgrounds/grain";
+import { advanceDriftMessage } from "@/application/fonts/font-fidelity";
 import { canvasFont } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
 import type { GrainTile } from "@/application/frame-painter/scene";
@@ -36,17 +37,7 @@ import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
 import { gifSafeFps } from "./gif-timing";
 import { encodingFor, evenDimensions } from "./video-encoding";
-
-/**
- * The fonts this app ships, by the family name a theme would call them. A
- * worker has no document and therefore no `@font-face` rules, so a self-hosted
- * family that the preview resolves happily is simply absent in here unless it
- * is loaded again. Anything not on this list is a system or generic family,
- * which the worker resolves the same way the document does.
- */
-const SHIPPED_FONTS: Record<string, string> = {
-	"Ioskeley Mono": "/fonts/IoskeleyMono-Regular.woff2",
-};
+import { loadExportFonts } from "./worker-fonts";
 
 /** Report progress this often. Every frame would cost more than it tells. */
 const PROGRESS_EVERY = 5;
@@ -83,6 +74,18 @@ async function run(job: ClientExportJob): Promise<void> {
 	const fps = encoding.container === "gif" ? gifSafeFps(job.fps) : job.fps;
 
 	const charWidthRatio = await measureAdvance(ctx, job.theme.fontFamily, job.theme.fontSize);
+	// The net under the font loading: two scopes that resolved the same family to
+	// different metrics would put the video out of line with the preview, and a
+	// video that is quietly off is worse than an export that says why it stopped.
+	const drift = advanceDriftMessage(
+		charWidthRatio,
+		job.documentCharWidthRatio,
+		job.theme.fontFamily,
+	);
+	if (drift) {
+		throw new Error(drift);
+	}
+
 	const scene = sceneFor({ ...job, width, height }, charWidthRatio, {
 		grain: await decodeGrain(),
 		backdropImage: await decodeBackdropImage(job.background),
@@ -199,41 +202,19 @@ async function probe(
  * Measured at the size the frames are painted at, because a hinted font's
  * advance is not perfectly linear in size, and the canvas that lays out the
  * grid has to be the one that answers.
+ *
+ * The load in front of it is what makes the number mean anything: without it
+ * this measured a fallback and reported it as the truth.
  */
 async function measureAdvance(
 	ctx: OffscreenCanvasRenderingContext2D,
 	fontFamily: string,
 	fontSize: number,
 ): Promise<number> {
-	await loadShippedFonts(fontFamily);
+	await loadExportFonts(scope.fonts, fontFamily);
 	const size = fontSize * VIDEO_SCALE;
 	ctx.font = canvasFont(size, fontFamily);
 	return ctx.measureText("0").width / size;
-}
-
-async function loadShippedFonts(fontFamily: string): Promise<void> {
-	const fonts = scope.fonts;
-	if (!fonts || typeof FontFace === "undefined") {
-		return;
-	}
-	for (const name of familyNames(fontFamily)) {
-		const url = SHIPPED_FONTS[name];
-		if (!url) {
-			continue;
-		}
-		try {
-			const face = await new FontFace(name, `url(${url})`).load();
-			fonts.add(face);
-		} catch {
-			// A font that will not load is a fallback, not a failed export: the
-			// measured advance below will simply describe whatever we got.
-		}
-	}
-}
-
-/** Split a CSS font stack into its family names, unquoted. */
-function familyNames(fontFamily: string): string[] {
-	return fontFamily.split(",").map((part) => part.trim().replace(/^["']|["']$/g, ""));
 }
 
 /** Decode the shared grain tile once, ready to be tiled by the painter. */
