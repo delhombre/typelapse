@@ -474,7 +474,14 @@ html[data-landing-theme="dark"] {
 	/* The bars would otherwise appear inside a 40px field on the platforms that
 	   reserve room for them. The caret still carries the view along with it. */
 	scrollbar-width: none;
-	/* The block below stands in for it. */
+	/* The real caret, which is the only one that knows where the selection is.
+	   The block below stands in for it while the field is empty, and only then. */
+	caret-color: var(--color-ink);
+}
+
+/* Empty: there is one place the caret can be, the block says so exactly, and two
+   carets in the same place would be one too many. */
+.landing-root .lp-field[data-empty] textarea {
 	caret-color: transparent;
 }
 
@@ -501,11 +508,7 @@ html[data-landing-theme="dark"] {
 	flex: 1 1 auto;
 	max-height: 220px;
 	line-height: 1.55;
-	/* The drawn caret has stood down by now — it has no end of the text to stand
-	   at once there are several lines — so the real one has to come back, or the
-	   field is one you cannot see yourself typing in. */
-	caret-color: var(--color-ink);
-	/* And with the height capped there is more diff than room, which a field
+	/* With the height capped there is more diff than room, which a field
 	   with no bars at all gives no sign of. At this size there is room to say so. */
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in oklch, var(--color-ash) 40%, transparent) transparent;
@@ -522,12 +525,15 @@ html[data-landing-theme="dark"] {
 	background: color-mix(in oklch, var(--color-ash) 40%, transparent);
 }
 
-/* The caret is the focus state: absent until the field has focus, and standing
-   where the next character goes. Held by visibility and not opacity, because
-   the blink is a keyframe animation on opacity and an animation outranks a
-   declaration. Nothing between it and the text — a caret with a space in front
-   of it is not a caret — and no pointer events, since pressing the field is
-   what puts you in it. */
+/* The caret is the empty field's focus state: absent until the field has focus,
+   standing where the first character goes, and gone the moment there is one —
+   from there the real caret takes over, because it is the only one that knows
+   where the selection is. Held by visibility and not opacity, because the blink
+   is a keyframe animation on opacity and an animation outranks a declaration —
+   and because it must keep its room in the row either way, or the Render button
+   would step sideways on the first keystroke. Nothing between it and the text —
+   a caret with a space in front of it is not a caret — and no pointer events,
+   since pressing the field is what puts you in it. */
 .landing-root .lp-caret {
 	display: inline-block;
 	flex: none;
@@ -537,15 +543,13 @@ html[data-landing-theme="dark"] {
 	translate: 0 0.18em;
 	background: var(--color-ink);
 	pointer-events: none;
+	animation: lp-blink 1.06s steps(1, end) infinite;
 }
 
-.landing-root .lp-field:not(:focus-within) .lp-caret {
+.landing-root .lp-field:not(:focus-within) .lp-caret,
+.landing-root .lp-field:not([data-empty]) .lp-caret {
 	visibility: hidden;
 	animation: none;
-}
-
-.landing-root .lp-caret[data-idle] {
-	animation: lp-blink 1.06s steps(1, end) infinite;
 }
 
 @keyframes lp-blink {
