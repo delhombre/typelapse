@@ -1,4 +1,4 @@
-import { Step } from "@/domain/entities/step";
+import { MAX_ANNOTATION_LENGTH, Step } from "@/domain/entities/step";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { describe, expect, it } from "vitest";
 
@@ -48,6 +48,23 @@ describe("Step", () => {
 		expect(() => Step.create({ code: "x", duration: 0 })).toThrow();
 		expect(() => Step.create({ code: "x", duration: -100 })).toThrow();
 	});
+
+	it("rejects an annotation longer than the single line the layout reserves", () => {
+		expect(() =>
+			Step.create({ code: "x", annotation: "a".repeat(MAX_ANNOTATION_LENGTH + 1) }),
+		).toThrow();
+		expect(() =>
+			Step.create({ code: "x", annotation: "a".repeat(MAX_ANNOTATION_LENGTH) }),
+		).not.toThrow();
+	});
+
+	it("trims surrounding whitespace off the annotation", () => {
+		expect(Step.create({ code: "x", annotation: "  spaced  " }).annotation).toBe("spaced");
+	});
+
+	it("treats a whitespace-only annotation as absent", () => {
+		expect(Step.create({ code: "x", annotation: "   " }).annotation).toBeUndefined();
+	});
 });
 
 describe("Step.with", () => {
@@ -86,6 +103,10 @@ describe("Step.with", () => {
 
 	it("keeps the annotation when the change does not mention it", () => {
 		expect(base.with({ highlightRanges: [] }).annotation).toBe("declare");
+	});
+
+	it("enforces the annotation bound on edits too", () => {
+		expect(() => base.with({ annotation: "a".repeat(MAX_ANNOTATION_LENGTH + 1) })).toThrow();
 	});
 
 	it("validates like create", () => {

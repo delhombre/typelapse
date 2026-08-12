@@ -1,5 +1,15 @@
 import type { HighlightRange } from "../value-objects/highlight-range";
 
+/**
+ * Longest caption a step may carry. The renderers reserve exactly one line of
+ * height for the caption block (`CAPTION_BLOCK` in `frame-metrics`) before
+ * fitting the card into the canvas, so a caption that wrapped to a second line
+ * would render taller than the layout budgeted and push itself off the canvas,
+ * worst on the narrow 9:16 preset. Bounding it here keeps the caption the "one
+ * short line" the product asks for, and keeps the fit math honest.
+ */
+export const MAX_ANNOTATION_LENGTH = 120;
+
 export interface StepProps {
 	code: string;
 	duration?: number;
@@ -46,6 +56,22 @@ export class Step {
 		}
 	}
 
+	/**
+	 * Trim a caption to what actually renders: surrounding whitespace never
+	 * reaches the screen, and a blank caption is the same thing as none at all
+	 * (both leave today's layout untouched). Rejects anything over the bound.
+	 */
+	private static normalizeAnnotation(annotation: string | undefined): string | undefined {
+		if (annotation === undefined) {
+			return undefined;
+		}
+		if (annotation.length > MAX_ANNOTATION_LENGTH) {
+			throw new Error(`Step annotation must be at most ${MAX_ANNOTATION_LENGTH} characters`);
+		}
+		const trimmed = annotation.trim();
+		return trimmed === "" ? undefined : trimmed;
+	}
+
 	static create(props: StepProps): Step {
 		const duration = props.duration ?? 1000;
 		Step.assertValid(props.code, duration);
@@ -54,7 +80,7 @@ export class Step {
 			code: props.code,
 			duration,
 			highlightRanges: props.highlightRanges ?? [],
-			annotation: props.annotation,
+			annotation: Step.normalizeAnnotation(props.annotation),
 		});
 	}
 
@@ -73,7 +99,8 @@ export class Step {
 			code,
 			duration,
 			highlightRanges: changes.highlightRanges ?? this.highlightRanges,
-			annotation: "annotation" in changes ? changes.annotation : this.annotation,
+			annotation:
+				"annotation" in changes ? Step.normalizeAnnotation(changes.annotation) : this.annotation,
 		});
 	}
 }
