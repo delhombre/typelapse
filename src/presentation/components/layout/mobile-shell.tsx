@@ -44,6 +44,20 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				{preview}
 			</main>
 
+			{/* The export status floats above the sheet rather than inside it. Inside,
+			    it would be cut off by whichever snap the sheet happens to be at — and
+			    the whole point of it is that a render that finishes while the sheet is
+			    collapsed still says so. It sits above the drawer for the same reason a
+			    toast does. */}
+			<div
+				className="pointer-events-none fixed inset-x-0 z-50 flex px-4"
+				style={{ bottom: `calc(${PEEK} + env(safe-area-inset-bottom) + 0.75rem)` }}
+			>
+				<div className="pointer-events-auto flex w-full [&>*]:shadow-[0_8px_32px_-8px_rgb(0_0_0/0.35)] [&>*]:backdrop-blur-xl">
+					<ExportStatus />
+				</div>
+			</div>
+
 			<Drawer.Root
 				open
 				modal={false}
@@ -66,13 +80,6 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 							</span>
 							<PngButton />
 							{hasSteps && <ExportButton />}
-						</div>
-
-						{/* Outside the scroll area on purpose: at the peek snap the sheet
-						    below is clipped, and an export that finishes or fails while the
-						    sheet is collapsed still has to say so. */}
-						<div className="px-4 empty:hidden [&:has(*)]:pb-3">
-							<ExportStatus />
 						</div>
 
 						{/* Scrollable as soon as the sheet is expanded; clipped at the peek so only
