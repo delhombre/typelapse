@@ -30,7 +30,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const isPeek = snap === PEEK;
 
 	return (
-		<div className="flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+		<div className="studio-root flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
 			<TopNav />
 
 			{/* Preview owns the space above the drawer peek. */}
@@ -106,7 +106,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 function SheetSection({ label, children }: { label: string; children: ReactNode }) {
 	return (
 		<section className="flex flex-col gap-3">
-			<span className="px-5 text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+			<span className="px-5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
 				{label}
 			</span>
 			{children}

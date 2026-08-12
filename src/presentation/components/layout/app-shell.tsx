@@ -14,7 +14,7 @@ interface AppShellProps {
 /** Desktop workspace: a fixed, non-scrolling two-column layout (renders at lg and up). */
 export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 	return (
-		<div className="flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+		<div className="studio-root flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
 			<TopNav />
 
 			{/* ── Body ── */}
@@ -70,7 +70,7 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 
 function SectionLabel({ children }: { children: ReactNode }) {
 	return (
-		<span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-neutral-500">
+		<span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
 			{children}
 		</span>
 	);

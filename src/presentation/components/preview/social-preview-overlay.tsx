@@ -87,12 +87,26 @@ function GuideBand({ region }: { region: OccludedRegion }) {
 	const { edge, fraction, label } = region;
 	const size = `${fraction * 100}%`;
 	const vertical = edge === "left" || edge === "right";
+	/**
+	 * The label names a boundary, so it sits against that boundary rather than in
+	 * the middle of the band. Centred, it landed exactly where the band's whole
+	 * point is that something else already is: on LinkedIn the word "reactions"
+	 * printed itself across the mock nav's "My Network", two labels in the same
+	 * pixels. Pushed to the hairline it reads against the content it is warning
+	 * about, which is also the edge it is measuring.
+	 */
+	const alignment = {
+		top: { alignItems: "flex-end", justifyContent: "center" },
+		bottom: { alignItems: "flex-start", justifyContent: "center" },
+		left: { alignItems: "center", justifyContent: "flex-end" },
+		right: { alignItems: "center", justifyContent: "flex-start" },
+	}[edge];
+
 	const style: CSSProperties = {
 		position: "absolute",
 		background: "rgba(0,0,0,0.28)",
 		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
+		...alignment,
 	};
 	if (edge === "top") {
 		Object.assign(style, { top: 0, left: 0, right: 0, height: size, borderBottom: HAIRLINE });

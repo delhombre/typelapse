@@ -151,7 +151,7 @@ function NavButton({
 			onClick={onClick}
 			whileTap={{ scale: 0.96 }}
 			transition={springs.snappy}
-			className={`flex size-9 items-center justify-center rounded-xl transition-colors ${
+			className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
 				active
 					? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
 					: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"

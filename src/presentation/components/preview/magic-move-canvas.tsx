@@ -114,8 +114,14 @@ export function MagicMoveCanvas({
 function tokenStyle(token: RenderToken, lineHeight: number): CSSProperties {
 	return {
 		position: "absolute",
-		left: `${token.col}ch`,
-		top: token.line * lineHeight,
+		// Transform, not left/top. Both are animated every frame for every token
+		// while a morph runs, and left/top are layout properties: a Lapse take of
+		// the hero reported the tokens animating `top` and the frame animating
+		// `height`, with dropped-frame clusters alongside. Transform is composited,
+		// so the same motion costs no layout work.
+		left: 0,
+		top: 0,
+		transform: `translate(${token.col}ch, ${token.line * lineHeight}px)`,
 		opacity: token.opacity,
 		color: token.color,
 		whiteSpace: "pre",
