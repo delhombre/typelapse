@@ -1,3 +1,4 @@
+import { FONT_PRESETS, googleFontCssUrl } from "@/application/fonts/code-fonts";
 import { Theme } from "@/domain/entities/theme";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
 import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
@@ -404,16 +405,14 @@ function TempoPicker() {
 	);
 }
 
-const FONT_PRESETS = [
-	{ label: "JetBrains", value: "JetBrains Mono, monospace", google: "JetBrains+Mono" },
-	{ label: "Fira", value: "Fira Code, monospace", google: "Fira+Code" },
-	{ label: "Source", value: "Source Code Pro, monospace", google: "Source+Code+Pro" },
-	{ label: "IBM", value: "IBM Plex Mono, monospace", google: "IBM+Plex+Mono" },
-	{ label: "Cascadia", value: "Cascadia Code, monospace", google: "Cascadia+Code" },
-] as const;
-
 const loadedFonts = new Set<string>();
 
+/**
+ * The picker's own copy of a font, as a `<link>`. The render worker fetches the
+ * very same stylesheet by URL, from the very same registry, because a font the
+ * panel can show and the renderer cannot is how an export ends up in a typeface
+ * nobody chose.
+ */
 function loadGoogleFont(googleName: string) {
 	if (loadedFonts.has(googleName)) {
 		return;
@@ -421,7 +420,7 @@ function loadGoogleFont(googleName: string) {
 	loadedFonts.add(googleName);
 	const link = document.createElement("link");
 	link.rel = "stylesheet";
-	link.href = `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;500;700&display=swap`;
+	link.href = googleFontCssUrl(googleName);
 	document.head.appendChild(link);
 }
 
@@ -440,8 +439,10 @@ function FontPicker() {
 						key={f.label}
 						type="button"
 						onClick={() => {
-							loadGoogleFont(f.google);
-							setFont(f.value);
+							if (f.google) {
+								loadGoogleFont(f.google);
+							}
+							setFont(f.stack);
 						}}
 						whileTap={{ scale: 0.95 }}
 						transition={springs.snappy}
