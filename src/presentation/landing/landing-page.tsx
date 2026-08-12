@@ -12,7 +12,7 @@ import { CONTAINER, GITHUB_URL, HAIRLINE, SECTION_PY } from "./tokens";
 import { useLandingTheme } from "./use-landing-theme";
 
 /**
- * Marketing landing at `/`. A refined, product-forward page (OpenAI x Apple):
+ * Marketing landing at `/`. A refined, product-forward page:
  * a translucent nav, the live Instrument as the hero, four spacious feature
  * blocks (one of them a dark, full-bleed social showcase), a quiet capability
  * ledger, and a confident close. Presentation only.

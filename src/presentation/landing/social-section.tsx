@@ -7,7 +7,7 @@ import { CONTAINER, SECTION_PY } from "./tokens";
 
 /**
  * Feature c: the social preview, given the one dark, full-bleed section so the
- * device pops. Copy on the left, a big, Apple-product-shot iPhone on the right
+ * device pops. Copy on the left, a large hero shot of the phone on the right
  * whose screen auto-cycles through real-looking TikTok / Reels / Shorts feeds of
  * our code. The platform chips below the copy double as a live cycle indicator:
  * the chip for the feed currently on screen brightens, the rest dim.
