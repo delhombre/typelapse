@@ -17,6 +17,7 @@
  */
 
 import { GRAIN_OPACITY, GRAIN_TILE_SIZE, GRAIN_TILE_URL } from "@/application/backgrounds/grain";
+import { transparencyPlan } from "@/application/export/transparency";
 import { advanceDriftMessage } from "@/application/fonts/font-fidelity";
 import { canvasFont } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
@@ -62,10 +63,18 @@ async function run(job: ClientExportJob): Promise<void> {
 			? gifDimensions(job.width, job.height)
 			: evenDimensions(job.width, job.height);
 
+	// A background of `None` needs a canvas that can actually hold nothing, and
+	// everything else is better off without one: on an opaque context a GIF's
+	// pixel read-back is a copy rather than a composite. What the file can carry
+	// decides, so the encoder is asked before the canvas is made.
+	const transparency = transparencyPlan({
+		format: job.format,
+		background: job.background,
+		encoderKeepsAlpha: await encoderKeepsAlpha(encoding, width, height, job.fps),
+	});
+
 	const canvas = new OffscreenCanvas(width, height);
-	// GIF quantisation reads pixels back, and a context that keeps an alpha
-	// channel makes every read a composite. Video never needs one either.
-	const ctx = canvas.getContext("2d", { alpha: false });
+	const ctx = canvas.getContext("2d", { alpha: transparency.keepAlpha });
 	if (!ctx) {
 		throw new Error("This browser gave the worker no 2D context to paint into.");
 	}
@@ -99,8 +108,23 @@ async function run(job: ClientExportJob): Promise<void> {
 
 	const result =
 		encoding.container === "gif"
-			? await encodeGif({ canvas, ctx, script, fps, paint: painter, report })
-			: await encodeVideo({ canvas, script, fps, encoding, paint: painter });
+			? await encodeGif({
+					canvas,
+					ctx,
+					script,
+					fps,
+					paint: painter,
+					report,
+					transparent: transparency.keepAlpha,
+				})
+			: await encodeVideo({
+					canvas,
+					script,
+					fps,
+					encoding,
+					paint: painter,
+					alpha: transparency.encodeAlpha,
+				});
 
 	post(
 		{
@@ -116,6 +140,8 @@ async function run(job: ClientExportJob): Promise<void> {
 				charWidthRatio,
 				charWidthDrift: Math.abs(charWidthRatio - job.documentCharWidthRatio),
 				codec: result.codec,
+				transparency: transparency.outcome,
+				transparencyNote: transparency.note,
 			},
 		},
 		[result.buffer],
@@ -128,13 +154,49 @@ interface EncodeInput {
 	fps: number;
 	encoding: ReturnType<typeof encodingFor>;
 	paint: (frame: number) => void;
+	/** Carry the canvas's alpha into the packets, where the codec can. */
+	alpha: boolean;
+}
+
+/**
+ * Whether this browser will encode alpha for the codec at hand.
+ *
+ * Asked rather than assumed: VP9 is specified to carry alpha as packet side
+ * data, and whether a given build actually does is a property of the machine.
+ */
+async function encoderKeepsAlpha(
+	encoding: ReturnType<typeof encodingFor>,
+	width: number,
+	height: number,
+	fps: number,
+): Promise<boolean> {
+	if (!encoding.codec || typeof VideoEncoder === "undefined") {
+		return false;
+	}
+	for (const codec of encoding.probeCodecs) {
+		try {
+			const support = await VideoEncoder.isConfigSupported({
+				codec,
+				width,
+				height,
+				framerate: fps,
+				alpha: "keep",
+			});
+			if (support.supported) {
+				return true;
+			}
+		} catch {
+			// A build that will not even consider the configuration is a no.
+		}
+	}
+	return false;
 }
 
 /** H.264 or VP9 through WebCodecs, muxed by mediabunny. */
 async function encodeVideo(
 	input: EncodeInput,
 ): Promise<{ buffer: ArrayBuffer; paintMs: number; codec: string }> {
-	const { canvas, script, fps, encoding, paint } = input;
+	const { canvas, script, fps, encoding, paint, alpha } = input;
 	if (!encoding.codec) {
 		throw new Error(`No client-side encoder for ${encoding.container}.`);
 	}
@@ -144,7 +206,13 @@ async function encodeVideo(
 		format: encoding.container === "webm" ? new WebMOutputFormat() : new Mp4OutputFormat(),
 		target: new BufferTarget(),
 	});
-	const source = new CanvasSource(canvas, { codec: encoding.codec, bitrate: QUALITY_HIGH });
+	const source = new CanvasSource(canvas, {
+		codec: encoding.codec,
+		bitrate: QUALITY_HIGH,
+		// Discard by default: an opaque canvas has nothing to carry, and asking
+		// for alpha the format cannot hold costs bytes for a channel of ones.
+		alpha: alpha ? "keep" : "discard",
+	});
 	output.addVideoTrack(source, { frameRate: fps });
 	await output.start();
 

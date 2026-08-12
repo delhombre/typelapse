@@ -65,6 +65,10 @@ export interface ClientExportMeasurements {
 	/** How far that is from the document's: the WYSIWYG canary. */
 	charWidthDrift: number;
 	codec: string;
+	/** What became of a background of `None` in this container. */
+	transparency: "opaque" | "carried" | "flattened";
+	/** What the finished file is not, having been asked for; null when it is. */
+	transparencyNote: string | null;
 }
 
 export type ClientExportEvent =
