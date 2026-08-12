@@ -2,8 +2,8 @@ import type { RenderFormat } from "@/domain/entities/render-config";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
-import { motion } from "motion/react";
-import { type ReactNode, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { type ReactNode, useEffect } from "react";
 
 /** Aspect-ratio presets for social-ready exports (wide, square, reels, portrait, tall). */
 const ASPECT_PRESETS = [
@@ -19,7 +19,6 @@ const PROGRESS_STYLES = ["reels", "bar", "none"] as const;
 /** Full-width export bar at the bottom of the desktop app. */
 export function ExportBar() {
 	const hasSteps = useSnippetStore((s) => s.snippet.steps.length >= 2);
-	const error = useExportStore((s) => s.error);
 
 	return (
 		<div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5">
@@ -29,96 +28,178 @@ export function ExportBar() {
 			{hasSteps && (
 				<>
 					<ExportOptions />
-					{import.meta.env.DEV && <ClientExportSpikeButton />}
+					<ExportTargetControl />
 					<ExportButton />
 				</>
 			)}
-			{error && <span className="text-xs text-red-500">{error}</span>}
+			<ExportStatus />
 		</div>
 	);
 }
 
 /**
- * SPIKE, dev builds only — export the first morph to MP4 without touching the
- * server. Deliberately unstyled like a real control: it is an experiment, and
- * it should never be mistaken for the shipped export.
+ * Where the render happens.
+ *
+ * This device is the default and reads as one: it is faster, nothing is
+ * uploaded, and there is no server to be running. The server option stays
+ * because some browsers still have no WebCodecs — and because "we render it for
+ * you" should be a choice a user makes, not one made quietly for them.
  */
-function ClientExportSpikeButton() {
-	const [state, setState] = useState<"idle" | "working" | "done" | "failed">("idle");
-	const [note, setNote] = useState("");
+export function ExportTargetControl() {
+	const target = useExportStore((s) => s.target);
+	const setTarget = useExportStore((s) => s.setTarget);
+	const deviceSupported = useExportStore((s) => s.deviceSupported);
+	const probeDevice = useExportStore((s) => s.probeDevice);
 
-	async function run() {
-		setState("working");
-		setNote("");
-		try {
-			const { downloadSpikeMp4 } = await import("@/infrastructure/export/webcodecs-renderer.spike");
-			const {
-				snippet,
-				plan,
-				background,
-				windowChrome,
-				showLineNumbers,
-				lineNumberStart,
-				framePadding,
-				cardMargin,
-			} = useSnippetStore.getState();
-			if (!plan) {
-				throw new Error("No plan built yet.");
-			}
-			const measurements = await downloadSpikeMp4({
-				plan,
-				theme: {
-					background: snippet.theme.background,
-					foreground: snippet.theme.foreground,
-					fontFamily: snippet.theme.fontFamily,
-					fontSize: snippet.theme.fontSize,
-					borderRadius: snippet.theme.borderRadius,
-				},
-				title: snippet.title,
-				background,
-				chrome: windowChrome,
-				padding: framePadding,
-				cardMargin,
-				showLineNumbers,
-				lineNumberStart,
-			});
-			// The numbers are the whole point of a spike, so they go where a human
-			// running it will see them.
-			console.info("[spike] client-side MP4", measurements);
-			setNote(
-				`${Math.round(measurements.bytes / 1024)} KB · ${Math.round(measurements.totalMs)} ms`,
-			);
-			setState("done");
-		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error);
-			console.error("[spike] client-side MP4 failed", error);
-			setNote(message);
-			setState("failed");
+	useEffect(() => {
+		if (deviceSupported === null) {
+			void probeDevice();
 		}
-	}
+	}, [deviceSupported, probeDevice]);
 
 	return (
-		<div className="flex items-center gap-2">
-			<button
-				type="button"
-				data-testid="client-export-spike"
-				onClick={run}
-				disabled={state === "working"}
-				title="SPIKE: render 3s of 720p H.264 in this tab, no server"
-				className="h-9 rounded-lg border border-dashed border-amber-500/60 px-3 text-[11px] font-medium text-amber-600 transition hover:bg-amber-500/10 disabled:opacity-50 dark:text-amber-400"
-			>
-				{state === "working" ? "spike…" : "spike: mp4 in-tab"}
-			</button>
-			{note && (
-				<span
-					data-testid="client-export-spike-note"
-					className={`text-[10px] ${state === "failed" ? "text-red-500" : "text-neutral-400"}`}
-				>
-					{note}
-				</span>
-			)}
-		</div>
+		<Segmented
+			id="target"
+			label="Render location"
+			items={[
+				{
+					key: "device",
+					label: "This device",
+					title:
+						deviceSupported === false
+							? "This browser has no encoder for the selected format and size."
+							: "Renders in this tab. Nothing is uploaded, and no server has to be running.",
+					disabled: deviceSupported === false,
+				},
+				{
+					key: "server",
+					label: "Server",
+					title: "Renders with Remotion on the Typelapse API server, which has to be running.",
+				},
+			]}
+			value={target}
+			onSelect={(k) => setTarget(k as "device" | "server")}
+		/>
 	);
+}
+
+/**
+ * What the export is doing, and what it did.
+ *
+ * The old bar had no success state at all: a finished render simply stopped
+ * spinning, and the only evidence was the browser's download shelf — which on a
+ * phone is not on screen. So this outlives the render, says which machine made
+ * the file and how big it turned out, and waits to be dismissed. Failures do
+ * the same in the assertive register, because a failure nobody reads is a
+ * failure that gets retried identically.
+ */
+/** What a screen reader is told once per phase, instead of once per frame. */
+const PHASE_LABELS: Record<"preparing" | "rendering" | "downloading", string> = {
+	preparing: "Preparing the export.",
+	rendering: "Rendering.",
+	downloading: "Writing the file.",
+};
+
+export function ExportStatus() {
+	const progress = useExportStore((s) => s.progress);
+	const outcome = useExportStore((s) => s.outcome);
+	const dismissOutcome = useExportStore((s) => s.dismissOutcome);
+	const cancelExport = useExportStore((s) => s.cancelExport);
+
+	return (
+		<AnimatePresence mode="wait">
+			{progress && (
+				<motion.output
+					key="progress"
+					initial={{ opacity: 0, y: 4 }}
+					animate={{ opacity: 1, y: 0 }}
+					exit={{ opacity: 0, y: -4 }}
+					transition={springs.snappy}
+					data-testid="export-status"
+					className="flex w-full items-center gap-3 rounded-lg bg-neutral-100/70 px-3 py-2 dark:bg-neutral-900/70"
+				>
+					{/* The bar and the percentage are for eyes. A live region that
+					    re-announced a number every few frames would be unusable, so the
+					    screen reader is told the phase once and left alone. */}
+					<span className="sr-only">{PHASE_LABELS[progress.phase]}</span>
+					<div
+						aria-hidden="true"
+						className="h-1 min-w-16 flex-1 overflow-hidden rounded-full bg-neutral-300/60 dark:bg-neutral-700/60"
+					>
+						<motion.div
+							className="h-full rounded-full bg-accent"
+							// An indeterminate phase gets a third of a bar rather than a fake
+							// number: the server streams nothing back and cannot be quoted.
+							animate={{ width: `${(progress.ratio ?? 0.33) * 100}%` }}
+							transition={springs.default}
+						/>
+					</div>
+					<span
+						aria-hidden="true"
+						className="shrink-0 text-xs tabular-nums text-neutral-600 dark:text-neutral-300"
+					>
+						{progress.message}
+					</span>
+					<button
+						type="button"
+						onClick={cancelExport}
+						className="shrink-0 rounded-md px-2 py-1 text-[11px] font-medium text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+					>
+						Cancel
+					</button>
+				</motion.output>
+			)}
+
+			{!progress && outcome && (
+				<motion.div
+					key={outcome.kind}
+					initial={{ opacity: 0, y: 4 }}
+					animate={{ opacity: 1, y: 0 }}
+					exit={{ opacity: 0, y: -4 }}
+					transition={springs.snappy}
+					role={outcome.kind === "failed" ? "alert" : "status"}
+					aria-live={outcome.kind === "failed" ? "assertive" : "polite"}
+					data-testid="export-status"
+					className={`flex w-full items-start gap-2 rounded-lg px-3 py-2 text-xs ${
+						outcome.kind === "done"
+							? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+							: "bg-red-500/10 text-red-700 dark:text-red-300"
+					}`}
+				>
+					<span aria-hidden="true" className="pt-px font-semibold">
+						{outcome.kind === "done" ? "✓" : "!"}
+					</span>
+					<span className="min-w-0 flex-1">
+						{outcome.kind === "done" ? (
+							<>
+								Saved <span className="font-medium">{outcome.filename}</span> ·{" "}
+								{formatBytes(outcome.bytes)} · {(outcome.elapsedMs / 1000).toFixed(1)}s{" "}
+								{outcome.target === "device" ? "on this device" : "on the server"}
+								{outcome.note ? ` · ${outcome.note}` : ""}
+							</>
+						) : (
+							outcome.message
+						)}
+					</span>
+					<button
+						type="button"
+						onClick={dismissOutcome}
+						aria-label="Dismiss export status"
+						className="-my-1 -mr-1 shrink-0 rounded-md px-2 py-1 text-current/70 transition hover:bg-black/5 hover:text-current dark:hover:bg-white/10"
+					>
+						×
+					</button>
+				</motion.div>
+			)}
+		</AnimatePresence>
+	);
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes < 1024 * 1024) {
+		return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+	}
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /** PNG snapshot action: available regardless of step count. */
@@ -245,6 +326,7 @@ export function ExportOptions() {
 export function ExportButton() {
 	const isExporting = useExportStore((s) => s.isExporting);
 	const progress = useExportStore((s) => s.progress);
+	const target = useExportStore((s) => s.target);
 	const exportVideo = useExportStore((s) => s.exportVideo);
 
 	return (
@@ -259,12 +341,14 @@ export function ExportButton() {
 			{isExporting ? (
 				<>
 					<span className="inline-block size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-					{progress?.message ?? "Exporting…"}
+					<span className="tabular-nums">
+						{progress?.ratio == null ? "Exporting…" : `${Math.round(progress.ratio * 100)}%`}
+					</span>
 				</>
 			) : (
 				<>
 					<VideoIcon />
-					Export
+					{target === "device" ? "Export here" : "Export"}
 				</>
 			)}
 		</motion.button>
@@ -275,6 +359,7 @@ interface SegmentedItem {
 	key: string;
 	label: string;
 	title?: string;
+	disabled?: boolean;
 }
 
 function Segmented({
@@ -282,14 +367,19 @@ function Segmented({
 	items,
 	value,
 	onSelect,
+	label,
 }: {
 	id: string;
 	items: SegmentedItem[];
 	value: string;
 	onSelect: (key: string) => void;
+	label?: string;
 }) {
 	return (
-		<div className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800">
+		<div
+			aria-label={label}
+			className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800"
+		>
 			{items.map((item) => {
 				const isSelected = item.key === value;
 				return (
@@ -297,10 +387,12 @@ function Segmented({
 						key={item.key}
 						type="button"
 						onClick={() => onSelect(item.key)}
+						disabled={item.disabled}
+						aria-pressed={isSelected}
 						whileTap={{ scale: 0.96 }}
 						transition={springs.snappy}
 						title={item.title}
-						className={`relative rounded-md px-2 py-1 text-[11px] font-medium transition-colors duration-150 ${
+						className={`relative rounded-md px-2 py-1 text-[11px] font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 ${
 							isSelected
 								? "text-white dark:text-neutral-900"
 								: "text-neutral-400 hover:text-neutral-700 dark:text-neutral-500 dark:hover:text-neutral-300"

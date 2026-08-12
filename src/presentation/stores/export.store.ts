@@ -1,9 +1,12 @@
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
-import type { RenderFormat } from "@/domain/entities/render-config";
+import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
+import type { Snippet } from "@/domain/entities/snippet";
 import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download.adapter";
 import { CloudRenderAdapter } from "@/infrastructure/export/cloud-render.adapter";
+import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
+import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { create } from "zustand";
 // Type-only: the render request contract lives with the other render DTOs. This
 // import is erased at build time, so no server code enters the client bundle.
@@ -15,7 +18,40 @@ import { useSocialPreviewStore } from "./social-preview.store";
 export interface ExportProgress {
 	phase: "preparing" | "rendering" | "downloading";
 	message: string;
+	/**
+	 * 0..1 when the renderer can say, null when it cannot. The hosted render
+	 * streams nothing back, so it genuinely cannot; showing it a fake bar would
+	 * be worse than showing it none.
+	 */
+	ratio: number | null;
 }
+
+/**
+ * Where the video is made.
+ *
+ * `device` is the default wherever the browser can encode: nothing is uploaded,
+ * nothing is queued, and there is no server to pay for. `server` is the honest
+ * fallback for browsers without WebCodecs, and stays selectable so a user who
+ * wants it can have it.
+ */
+export type ExportTarget = "device" | "server";
+
+/**
+ * How the last export ended. A render that finishes with no visible trace is a
+ * render the user has to go hunting for in a download shelf, so this outlives
+ * the render and stays on screen until it is dismissed or replaced.
+ */
+export type ExportOutcome =
+	| {
+			kind: "done";
+			filename: string;
+			bytes: number;
+			target: ExportTarget;
+			elapsedMs: number;
+			/** Anything the render wants said out loud, e.g. a GIF's capped rate. */
+			note?: string;
+	  }
+	| { kind: "failed"; message: string };
 
 /** Morph tempo: how long each step-to-step transition takes, in milliseconds. */
 export type TempoMs = 400 | 650 | 1000;
@@ -23,7 +59,10 @@ export type TempoMs = 400 | 650 | 1000;
 interface ExportState {
 	isExporting: boolean;
 	progress: ExportProgress | null;
-	error: string | null;
+	outcome: ExportOutcome | null;
+	target: ExportTarget;
+	/** null until the browser has been asked; false means WebCodecs said no. */
+	deviceSupported: boolean | null;
 
 	format: RenderFormat;
 	width: number;
@@ -45,8 +84,14 @@ interface ExportState {
 	setSound: (sound: boolean) => void;
 	setProgressStyle: (style: ProgressStyle) => void;
 	setTransitionMs: (ms: TempoMs) => void;
+	setTarget: (target: ExportTarget) => void;
+	/** Ask the browser whether it can encode the current format and size. */
+	probeDevice: () => Promise<void>;
+	dismissOutcome: () => void;
+	/** Stop a render in flight. Only the on-device path can honour this. */
+	cancelExport: () => void;
 
-	/** Export via Remotion backend */
+	/** Render the video, on this device or on the server. */
 	exportVideo: () => Promise<void>;
 	/** Export current frame as PNG screenshot */
 	exportPng: () => Promise<void>;
@@ -72,10 +117,18 @@ function isCloudExportEnabled(): boolean {
 	}
 }
 
+/**
+ * The in-flight render's abort handle. It lives outside the store because it is
+ * not state anyone renders — only `cancelExport` ever touches it.
+ */
+let inFlight: AbortController | null = null;
+
 export const useExportStore = create<ExportState>((set, get) => ({
 	isExporting: false,
 	progress: null,
-	error: null,
+	outcome: null,
+	target: "device",
+	deviceSupported: null,
 
 	format: "mp4",
 	width: 1920,
@@ -88,15 +141,44 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	progressStyle: "reels",
 	transitionMs: 650,
 
-	setFormat: (format) => set({ format }),
-	setResolution: (width, height) => set({ width, height }),
-	setFps: (fps) => set({ fps }),
+	// Changing the format or the size changes what the browser is being asked to
+	// encode, so the previous answer stops being an answer.
+	setFormat: (format) => {
+		set({ format, deviceSupported: null });
+		void get().probeDevice();
+	},
+	setResolution: (width, height) => {
+		set({ width, height, deviceSupported: null });
+		void get().probeDevice();
+	},
+	setFps: (fps) => {
+		set({ fps, deviceSupported: null });
+		void get().probeDevice();
+	},
 	setLoop: (loop) => set({ loop }),
 	setTypewriter: (typewriter) => set({ typewriter }),
 	setFocusZoom: (focusZoom) => set({ focusZoom }),
 	setSound: (sound) => set({ sound }),
 	setProgressStyle: (progressStyle) => set({ progressStyle }),
 	setTransitionMs: (transitionMs) => set({ transitionMs }),
+	setTarget: (target) => set({ target }),
+	dismissOutcome: () => set({ outcome: null }),
+
+	cancelExport: () => {
+		inFlight?.abort();
+	},
+
+	probeDevice: async () => {
+		const { format, width, height, fps } = get();
+		try {
+			const { isClientExportSupported } = await import(
+				"@/infrastructure/export/webcodecs-renderer.adapter"
+			);
+			set({ deviceSupported: await isClientExportSupported(format, width, height, fps) });
+		} catch {
+			set({ deviceSupported: false });
+		}
+	},
 
 	exportVideo: async () => {
 		const snippetState = useSnippetStore.getState();
@@ -112,7 +194,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		} = snippetState;
 
 		if (snippet.steps.length < 2) {
-			set({ error: "At least 2 steps required for export" });
+			set({ outcome: { kind: "failed", message: "At least 2 steps are required for export." } });
 			return;
 		}
 
@@ -135,10 +217,48 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		// pass-through no-op: nothing is clamped and the user's watermark is kept.
 		const resolved = resolveExport(plan, { width, height, fps, format, userWatermark: watermark });
 
+		const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
+		const startedAt = performance.now();
+
+		// The on-device path is the default wherever the browser can encode: it is
+		// faster, it is private, and it costs nobody a headless Chrome. The probe
+		// runs here rather than trusting a cached answer, because format and size
+		// can have changed since the last one.
+		if (get().target === "device") {
+			await get().probeDevice();
+			if (get().deviceSupported) {
+				await renderOnDevice({
+					snippet,
+					config: resolved.config,
+					filename,
+					startedAt,
+					watermarkText: resolved.watermark,
+					set,
+					scenery: {
+						background,
+						chrome: windowChrome,
+						padding: framePadding,
+						cardMargin,
+						showLineNumbers,
+						lineNumberStart,
+						transitionMs,
+						loop,
+						typewriter,
+						focusZoom,
+						progressStyle,
+					},
+				});
+				return;
+			}
+			// The browser said no. Fall through to the server, and say why rather
+			// than silently rendering somewhere the user did not choose.
+			set({ target: "server" });
+		}
+
 		set({
 			isExporting: true,
-			progress: { phase: "preparing", message: "Sending to server..." },
-			error: null,
+			progress: { phase: "preparing", message: "Sending to server…", ratio: null },
+			outcome: null,
 		});
 
 		try {
@@ -156,7 +276,9 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			// off, and Plan.local never targets the cloud, so this branch stays
 			// dormant in the local app.
 			if (resolved.target === "cloud" && isCloudExportEnabled()) {
-				set({ progress: { phase: "rendering", message: "Rendering on our servers..." } });
+				set({
+					progress: { phase: "rendering", message: "Rendering on our servers…", ratio: null },
+				});
 				const job = await cloudExporter.submitRender({
 					title: snippet.title,
 					language: snippet.language,
@@ -170,7 +292,10 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				set({
 					isExporting: false,
 					progress: null,
-					error: job.message ?? "Hosted rendering is rolling out soon, your job was queued.",
+					outcome: {
+						kind: "failed",
+						message: job.message ?? "Hosted rendering is rolling out soon, your job was queued.",
+					},
 				});
 				return;
 			}
@@ -207,7 +332,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				watermark: resolved.watermark,
 			};
 
-			set({ progress: { phase: "rendering", message: "Rendering video..." } });
+			set({ progress: { phase: "rendering", message: "Rendering on the server…", ratio: null } });
 
 			const response = await fetch(`${API_BASE}/render`, {
 				method: "POST",
@@ -222,18 +347,30 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				throw new Error(message);
 			}
 
-			set({ progress: { phase: "downloading", message: "Downloading..." } });
+			set({ progress: { phase: "downloading", message: "Downloading…", ratio: null } });
 
 			const blob = await response.blob();
-			const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 			await exporter.export(blob, filename, resolved.config.format);
 
-			set({ isExporting: false, progress: null });
+			set({
+				isExporting: false,
+				progress: null,
+				outcome: {
+					kind: "done",
+					filename: `${filename}.${resolved.config.format}`,
+					bytes: blob.size,
+					target: "server",
+					elapsedMs: performance.now() - startedAt,
+				},
+			});
 		} catch (err) {
 			set({
 				isExporting: false,
 				progress: null,
-				error: err instanceof Error ? err.message : "Export failed",
+				outcome: {
+					kind: "failed",
+					message: err instanceof Error ? err.message : "The export failed.",
+				},
 			});
 		}
 	},
@@ -241,14 +378,15 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	exportPng: async () => {
 		const el = document.querySelector("[data-export-target]") as HTMLElement | null;
 		if (!el) {
-			set({ error: "No preview element found" });
+			set({ outcome: { kind: "failed", message: "No preview element found." } });
 			return;
 		}
+		const startedAt = performance.now();
 
 		set({
 			isExporting: true,
-			progress: { phase: "preparing", message: "Capturing..." },
-			error: null,
+			progress: { phase: "preparing", message: "Capturing…", ratio: null },
+			outcome: null,
 		});
 
 		// Social-preview mode makes the card margin transparent (the mesh moves to
@@ -279,12 +417,25 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			const filename = snippetState.snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 			await exporter.export(blob, filename, "png" as RenderFormat);
 
-			set({ isExporting: false, progress: null });
+			set({
+				isExporting: false,
+				progress: null,
+				outcome: {
+					kind: "done",
+					filename: `${filename}.png`,
+					bytes: blob.size,
+					target: "device",
+					elapsedMs: performance.now() - startedAt,
+				},
+			});
 		} catch (err) {
 			set({
 				isExporting: false,
 				progress: null,
-				error: err instanceof Error ? err.message : "PNG export failed",
+				outcome: {
+					kind: "failed",
+					message: err instanceof Error ? err.message : "The PNG export failed.",
+				},
 			});
 		} finally {
 			if (restoreSocial) {
@@ -293,3 +444,141 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		}
 	},
 }));
+
+interface DeviceRenderInput {
+	snippet: Snippet;
+	config: RenderConfig;
+	filename: string;
+	startedAt: number;
+	watermarkText: string | undefined;
+	set: (partial: Partial<ExportState>) => void;
+	scenery: {
+		background: string;
+		chrome: WindowChrome;
+		padding: number;
+		cardMargin: number;
+		showLineNumbers: boolean;
+		lineNumberStart: number;
+		transitionMs: number;
+		loop: boolean;
+		typewriter: boolean;
+		focusZoom: boolean;
+		progressStyle: ProgressStyle;
+	};
+}
+
+/**
+ * Render in this tab, through the `RendererPort` implementation that never
+ * leaves the machine.
+ *
+ * The adapter is constructed per export rather than kept around: it is
+ * configured with the *look*, and the look is exactly what the user has been
+ * changing while deciding to press the button.
+ */
+async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
+	const { snippet, config, filename, startedAt, set, scenery } = input;
+	const { plan } = useSnippetStore.getState();
+	if (!plan) {
+		set({
+			outcome: {
+				kind: "failed",
+				message: "The animation is still building; try again in a moment.",
+			},
+		});
+		return;
+	}
+
+	const controller = new AbortController();
+	inFlight = controller;
+	set({
+		isExporting: true,
+		outcome: null,
+		progress: { phase: "preparing", message: "Preparing…", ratio: 0 },
+	});
+
+	try {
+		const { WebCodecsRendererAdapter } = await import(
+			"@/infrastructure/export/webcodecs-renderer.adapter"
+		);
+		const renderer = new WebCodecsRendererAdapter({
+			plan,
+			background: scenery.background,
+			chrome: scenery.chrome,
+			padding: scenery.padding,
+			cardMargin: scenery.cardMargin,
+			showLineNumbers: scenery.showLineNumbers,
+			lineNumberStart: scenery.lineNumberStart,
+			transitionMs: scenery.transitionMs,
+			loop: scenery.loop,
+			typewriter: scenery.typewriter,
+			focusZoom: scenery.focusZoom,
+			// The composition only bakes a bar when there is more than one step to
+			// divide it into; matching that keeps the two exports the same video.
+			progress:
+				snippet.steps.length >= 2
+					? { style: scenery.progressStyle, segments: snippet.steps.length }
+					: null,
+			watermark: input.watermarkText
+				? {
+						text: input.watermarkText,
+						color: getWatermarkColor(scenery.background, snippet.theme.foreground),
+					}
+				: null,
+		});
+
+		const blob = await renderer.renderVideo(snippet, config, {
+			signal: controller.signal,
+			onProgress: (progress) => {
+				set({
+					progress: {
+						phase: progress.phase === "finalizing" ? "downloading" : "rendering",
+						message:
+							progress.phase === "finalizing"
+								? "Writing the file…"
+								: `Rendering on this device · ${Math.round(progress.ratio * 100)}%`,
+						ratio: progress.ratio,
+					},
+				});
+			},
+		});
+
+		await exporter.export(blob, filename, config.format);
+		set({
+			isExporting: false,
+			progress: null,
+			outcome: {
+				kind: "done",
+				filename: `${filename}.${config.format}`,
+				bytes: blob.size,
+				target: "device",
+				elapsedMs: performance.now() - startedAt,
+				note: deviceNote(config),
+			},
+		});
+	} catch (error) {
+		if (error instanceof DOMException && error.name === "AbortError") {
+			set({ isExporting: false, progress: null, outcome: null });
+			return;
+		}
+		set({
+			isExporting: false,
+			progress: null,
+			outcome: {
+				kind: "failed",
+				message: `${
+					error instanceof Error ? error.message : "The render failed on this device."
+				} You can switch to the server render instead.`,
+			},
+		});
+	} finally {
+		inFlight = null;
+	}
+}
+
+/** Anything about the finished file the format quietly changed. */
+function deviceNote(config: RenderConfig): string | undefined {
+	if (config.format === "gif" && config.fps > 50) {
+		return `GIF caps at 50 fps; rendered at 50 instead of ${config.fps}.`;
+	}
+	return undefined;
+}
