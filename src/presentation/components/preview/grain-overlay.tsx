@@ -1,12 +1,17 @@
+// Relative, like every other component the Remotion composition pulls in: that
+// bundle resolves no path alias.
+import {
+	GRAIN_OPACITY,
+	GRAIN_TILE_SIZE,
+	GRAIN_TILE_URL,
+} from "../../../application/backgrounds/grain";
+
 /**
  * A subtle film-grain layer over a gradient background: the premium texture
  * used by tools like ray.so and snipcast. Rendered identically in the browser
  * preview and in Remotion's headless Chrome so the exported video matches.
  */
-const NOISE =
-	'url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNjAiIGhlaWdodD0iMTYwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44IiBudW1PY3RhdmVzPSIzIiBzdGl0Y2hUaWxlcz0ic3RpdGNoIi8+PC9maWx0ZXI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsdGVyPSJ1cmwoI24pIi8+PC9zdmc+")';
-
-export function GrainOverlay({ opacity = 0.28 }: { opacity?: number }) {
+export function GrainOverlay({ opacity = GRAIN_OPACITY }: { opacity?: number }) {
 	return (
 		<div
 			aria-hidden="true"
@@ -17,8 +22,8 @@ export function GrainOverlay({ opacity = 0.28 }: { opacity?: number }) {
 				// past a rounded card's corners.
 				borderRadius: "inherit",
 				pointerEvents: "none",
-				backgroundImage: NOISE,
-				backgroundSize: "160px 160px",
+				backgroundImage: `url("${GRAIN_TILE_URL}")`,
+				backgroundSize: `${GRAIN_TILE_SIZE}px ${GRAIN_TILE_SIZE}px`,
 				opacity,
 				mixBlendMode: "soft-light",
 			}}

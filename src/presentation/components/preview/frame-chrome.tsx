@@ -7,6 +7,11 @@
  * `scale` so the 2.2× video reads identically to the 1× preview.
  */
 
+// Relative, not aliased: the Remotion composition imports this component and is
+// type-checked by `server/tsconfig.json`, which has no `@/` path mapping. Every
+// other component the video shares does the same.
+import { CHROME_FONT_STACK, CHROME_STYLE } from "../../../application/layout/frame-metrics";
+
 export type WindowChrome = "macos" | "browser" | "terminal" | "none";
 
 export const WINDOW_CHROMES: readonly WindowChrome[] = ["macos", "browser", "terminal", "none"];
@@ -16,8 +21,13 @@ export function isWindowChrome(value: unknown): value is WindowChrome {
 	return typeof value === "string" && (WINDOW_CHROMES as readonly string[]).includes(value);
 }
 
-/** Mono stack for chrome titles: matches the app's `--font-mono`. */
-const MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+/**
+ * Every number below comes from `CHROME_STYLE`, which `chromeBarHeight` and the
+ * frame painter read too. Three surfaces draw this bar; one of them used to draw
+ * it from a partial copy of these literals and rendered two of the three
+ * variants as an empty strip.
+ */
+const MONO = CHROME_FONT_STACK;
 
 interface FrameChromeProps {
 	chrome: WindowChrome;
@@ -49,27 +59,28 @@ interface BarProps {
 
 /** The original macOS traffic-light chrome, ported verbatim as scaled inline styles. */
 function MacosChrome({ title, foreground, scale }: BarProps) {
+	const bar = CHROME_STYLE.macos;
 	return (
 		<div
 			style={{
 				display: "flex",
 				alignItems: "center",
-				gap: 8 * scale,
-				padding: `${12 * scale}px ${16 * scale}px`,
-				borderBottom: `1px solid ${foreground}0f`,
+				gap: bar.gap * scale,
+				padding: `${bar.padY * scale}px ${bar.padX * scale}px`,
+				borderBottom: `${CHROME_STYLE.border}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
 			}}
 		>
-			<Dot size={11 * scale} color="#ff5f57" />
-			<Dot size={11 * scale} color="#febc2e" />
-			<Dot size={11 * scale} color="#28c840" />
+			{bar.lights.map((color) => (
+				<Dot key={color} size={bar.dot * scale} color={color} />
+			))}
 			{title && (
 				<span
 					style={{
-						marginLeft: 8 * scale,
+						marginLeft: bar.gap * scale,
 						fontFamily: MONO,
-						fontSize: 11 * scale,
-						letterSpacing: "-0.02em",
-						color: `${foreground}59`,
+						fontSize: bar.titleSize * scale,
+						letterSpacing: bar.titleTracking,
+						color: `${foreground}${CHROME_STYLE.titleAlpha}`,
 					}}
 				>
 					{title}
@@ -81,14 +92,15 @@ function MacosChrome({ title, foreground, scale }: BarProps) {
 
 /** A slim browser tab bar: nav chevrons on the left, a centered pill address bar. */
 function BrowserChrome({ title, foreground, scale }: BarProps) {
+	const bar = CHROME_STYLE.browser;
 	return (
 		<div
 			style={{
 				display: "flex",
 				alignItems: "center",
-				gap: 10 * scale,
-				padding: `${9 * scale}px ${14 * scale}px`,
-				borderBottom: `1px solid ${foreground}0f`,
+				gap: bar.gap * scale,
+				padding: `${bar.padY * scale}px ${bar.padX * scale}px`,
+				borderBottom: `${CHROME_STYLE.border}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
 			}}
 		>
 			<div
@@ -96,22 +108,23 @@ function BrowserChrome({ title, foreground, scale }: BarProps) {
 				style={{
 					display: "flex",
 					alignItems: "center",
-					gap: 7 * scale,
+					gap: bar.chevronGap * scale,
 					fontFamily: MONO,
-					fontSize: 13 * scale,
-					color: `${foreground}40`,
+					fontSize: bar.chevronSize * scale,
+					color: `${foreground}${bar.chevronAlpha}`,
 				}}
 			>
-				<span>‹</span>
-				<span>›</span>
+				{bar.chevrons.map((chevron) => (
+					<span key={chevron}>{chevron}</span>
+				))}
 			</div>
 			<div style={{ flex: 1, display: "flex", justifyContent: "center", minWidth: 0 }}>
 				<div
 					style={{
-						maxWidth: "72%",
-						background: `${foreground}0d`,
-						borderRadius: 999,
-						padding: `${4 * scale}px ${12 * scale}px`,
+						maxWidth: `${bar.pillMaxWidth * 100}%`,
+						background: `${foreground}${bar.pillAlpha}`,
+						borderRadius: bar.pillRadius,
+						padding: `${bar.pillPadY * scale}px ${bar.pillPadX * scale}px`,
 						overflow: "hidden",
 					}}
 				>
@@ -119,9 +132,9 @@ function BrowserChrome({ title, foreground, scale }: BarProps) {
 						style={{
 							display: "block",
 							fontFamily: MONO,
-							fontSize: 11 * scale,
-							letterSpacing: "-0.01em",
-							color: `${foreground}59`,
+							fontSize: bar.titleSize * scale,
+							letterSpacing: bar.titleTracking,
+							color: `${foreground}${CHROME_STYLE.titleAlpha}`,
 							textAlign: "center",
 							overflow: "hidden",
 							textOverflow: "ellipsis",
@@ -133,41 +146,42 @@ function BrowserChrome({ title, foreground, scale }: BarProps) {
 				</div>
 			</div>
 			{/* Right spacer keeps the address bar optically centered against the chevrons. */}
-			<div aria-hidden="true" style={{ width: 21 * scale, flexShrink: 0 }} />
+			<div aria-hidden="true" style={{ width: bar.spacer * scale, flexShrink: 0 }} />
 		</div>
 	);
 }
 
 /** A thin terminal bar: a prompt glyph, then the title in mono. */
 function TerminalChrome({ title, foreground, scale }: BarProps) {
+	const bar = CHROME_STYLE.terminal;
 	return (
 		<div
 			style={{
 				display: "flex",
 				alignItems: "center",
-				gap: 8 * scale,
-				padding: `${9 * scale}px ${16 * scale}px`,
-				background: `${foreground}08`,
-				borderBottom: `1px solid ${foreground}0f`,
+				gap: bar.gap * scale,
+				padding: `${bar.padY * scale}px ${bar.padX * scale}px`,
+				background: `${foreground}${bar.barAlpha}`,
+				borderBottom: `${CHROME_STYLE.border}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
 			}}
 		>
 			<span
 				style={{
 					fontFamily: MONO,
-					fontSize: 12 * scale,
-					fontWeight: 600,
-					color: `${foreground}80`,
+					fontSize: bar.promptSize * scale,
+					fontWeight: bar.promptWeight,
+					color: `${foreground}${bar.promptAlpha}`,
 				}}
 			>
-				❯
+				{bar.prompt}
 			</span>
 			{title && (
 				<span
 					style={{
 						fontFamily: MONO,
-						fontSize: 11 * scale,
-						letterSpacing: "-0.01em",
-						color: `${foreground}59`,
+						fontSize: bar.titleSize * scale,
+						letterSpacing: bar.titleTracking,
+						color: `${foreground}${CHROME_STYLE.titleAlpha}`,
 					}}
 				>
 					{title}
