@@ -2,7 +2,13 @@ import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
 import { type ReactNode, useState } from "react";
 import { Drawer } from "vaul";
-import { ExportButton, ExportOptions, PngButton } from "../settings/export-bar";
+import {
+	ExportButton,
+	ExportOptions,
+	ExportStatus,
+	ExportTargetControl,
+	PngButton,
+} from "../settings/export-bar";
 import { SettingsStrip } from "../settings/settings-panel";
 import { TopNav } from "./top-nav";
 
@@ -37,6 +43,20 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			<main className="relative min-h-0 flex-1 overflow-hidden" style={{ paddingBottom: PEEK }}>
 				{preview}
 			</main>
+
+			{/* The export status floats above the sheet rather than inside it. Inside,
+			    it would be cut off by whichever snap the sheet happens to be at — and
+			    the whole point of it is that a render that finishes while the sheet is
+			    collapsed still says so. It sits above the drawer for the same reason a
+			    toast does. */}
+			<div
+				className="pointer-events-none fixed inset-x-0 z-50 flex px-4"
+				style={{ bottom: `calc(${PEEK} + env(safe-area-inset-bottom) + 0.75rem)` }}
+			>
+				<div className="pointer-events-auto flex w-full [&>*]:shadow-[0_8px_32px_-8px_rgb(0_0_0/0.35)] [&>*]:backdrop-blur-xl">
+					<ExportStatus />
+				</div>
+			</div>
 
 			<Drawer.Root
 				open
@@ -82,6 +102,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 									<SheetSection label="Export">
 										<div className="flex flex-wrap items-center gap-2 px-5">
 											<ExportOptions />
+											<ExportTargetControl />
 										</div>
 									</SheetSection>
 								)}

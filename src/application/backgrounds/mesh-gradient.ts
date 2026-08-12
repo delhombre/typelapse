@@ -194,13 +194,36 @@ export function isSafeBackground(background: string): boolean {
 	return false;
 }
 
+/** A blob resolved to its drifted position at one instant, in % of the surface. */
+export interface MeshBlobAt {
+	color: string;
+	x: number;
+	y: number;
+	radius: number;
+}
+
+/**
+ * Where each blob sits at time `t` seconds, in % of the painted surface. This is
+ * the drift math itself; `meshGradientCss` is only a CSS formatting of it. A
+ * canvas renderer cannot parse a `background` string, so it reads the positions
+ * from here and both surfaces stay driven by one source.
+ *
+ * Layers are returned in the CSS stacking order: index 0 paints on top.
+ */
+export function meshBlobsAt(preset: MeshPreset, t: number): MeshBlobAt[] {
+	const phase = (t / MESH_LOOP_PERIOD) % 1;
+	return preset.blobs.map((blob) => ({
+		color: blob.color,
+		x: blob.x + blob.ax * Math.sin(TAU * (blob.cx * phase + blob.phase)),
+		y: blob.y + blob.ay * Math.cos(TAU * (blob.cy * phase + blob.phase)),
+		radius: blob.radius,
+	}));
+}
+
 /** CSS `background` string for a preset at time `t` seconds (loops every MESH_LOOP_PERIOD). */
 export function meshGradientCss(preset: MeshPreset, t: number): string {
-	const phase = (t / MESH_LOOP_PERIOD) % 1;
-	const layers = preset.blobs.map((blob) => {
-		const x = blob.x + blob.ax * Math.sin(TAU * (blob.cx * phase + blob.phase));
-		const y = blob.y + blob.ay * Math.cos(TAU * (blob.cy * phase + blob.phase));
-		return `radial-gradient(circle at ${x.toFixed(2)}% ${y.toFixed(2)}%, ${blob.color} 0%, transparent ${blob.radius}%)`;
+	const layers = meshBlobsAt(preset, t).map((blob) => {
+		return `radial-gradient(circle at ${blob.x.toFixed(2)}% ${blob.y.toFixed(2)}%, ${blob.color} 0%, transparent ${blob.radius}%)`;
 	});
 	return `${layers.join(", ")}, ${preset.base}`;
 }

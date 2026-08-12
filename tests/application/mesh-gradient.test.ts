@@ -1,16 +1,33 @@
 import {
 	MESH_LOOP_PERIOD,
-	MESH_PRESETS,
+	type MeshPreset,
 	isImageBackground,
 	isMeshBackground,
 	isSafeBackground,
 	isSolidBackground,
+	meshBlobsAt,
 	meshGradientCss,
 	parseImageBackground,
 	parseMeshBackground,
 	resolveBackgroundCss,
 } from "@/application/backgrounds/mesh-gradient";
 import { describe, expect, it } from "vitest";
+
+/**
+ * A preset the tests own outright, so the maths is pinned against known values
+ * rather than whatever the catalogue happens to put first.
+ */
+const FIXTURE_PRESET: MeshPreset = {
+	id: "fixture",
+	label: "Fixture",
+	base: "#101014",
+	accent: "#3366ff",
+	blobs: [
+		{ color: "#3366ff", x: 25, y: 25, ax: 12, ay: 10, cx: 1, cy: 1, phase: 0, radius: 55 },
+		{ color: "#cc2244", x: 70, y: 30, ax: 14, ay: 12, cx: 1, cy: 2, phase: 0.3, radius: 50 },
+		{ color: "#22aa88", x: 55, y: 75, ax: 16, ay: 10, cx: 2, cy: 1, phase: 0.6, radius: 45 },
+	],
+};
 
 describe("mesh background parsing", () => {
 	it("recognizes mesh backgrounds by their id", () => {
@@ -29,12 +46,9 @@ describe("mesh background parsing", () => {
 });
 
 describe("meshGradientCss", () => {
-	const preset = MESH_PRESETS[0];
+	const preset = FIXTURE_PRESET;
 
 	it("emits one radial-gradient layer per blob plus the base", () => {
-		if (!preset) {
-			throw new Error("expected a preset");
-		}
 		const css = meshGradientCss(preset, 0);
 		const layers = css.match(/radial-gradient/g) ?? [];
 		expect(layers).toHaveLength(preset.blobs.length);
@@ -42,17 +56,47 @@ describe("meshGradientCss", () => {
 	});
 
 	it("loops seamlessly: t=0 and t=period produce the same CSS", () => {
-		if (!preset) {
-			throw new Error("expected a preset");
-		}
 		expect(meshGradientCss(preset, 0)).toBe(meshGradientCss(preset, MESH_LOOP_PERIOD));
 	});
 
 	it("moves the gradient over time", () => {
-		if (!preset) {
-			throw new Error("expected a preset");
-		}
 		expect(meshGradientCss(preset, 0)).not.toBe(meshGradientCss(preset, MESH_LOOP_PERIOD / 4));
+	});
+});
+
+describe("meshBlobsAt", () => {
+	const preset = FIXTURE_PRESET;
+
+	it("places every blob at its base position when the drift is at rest", () => {
+		const blobs = meshBlobsAt(preset, 0);
+		expect(blobs).toHaveLength(preset.blobs.length);
+		for (const [i, blob] of blobs.entries()) {
+			const source = preset.blobs[i];
+			if (!source) {
+				throw new Error("expected a source blob");
+			}
+			// At t=0 the drift is sin(phase) / cos(phase) around the base position.
+			const TAU = Math.PI * 2;
+			expect(blob.x).toBeCloseTo(source.x + source.ax * Math.sin(TAU * source.phase), 10);
+			expect(blob.y).toBeCloseTo(source.y + source.ay * Math.cos(TAU * source.phase), 10);
+			expect(blob.color).toBe(source.color);
+			expect(blob.radius).toBe(source.radius);
+		}
+	});
+
+	it("loops seamlessly: t=0 and t=period land on the same positions", () => {
+		expect(meshBlobsAt(preset, MESH_LOOP_PERIOD)).toEqual(meshBlobsAt(preset, 0));
+	});
+
+	it("drifts the blobs over time", () => {
+		expect(meshBlobsAt(preset, MESH_LOOP_PERIOD / 4)).not.toEqual(meshBlobsAt(preset, 0));
+	});
+
+	it("is the single source of the positions the CSS renders", () => {
+		const css = meshGradientCss(preset, 3.7);
+		for (const blob of meshBlobsAt(preset, 3.7)) {
+			expect(css).toContain(`circle at ${blob.x.toFixed(2)}% ${blob.y.toFixed(2)}%`);
+		}
 	});
 });
 
