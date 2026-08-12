@@ -29,17 +29,37 @@ const RESOLVED_GUARD_ID = `\0${GUARD_ID}`;
 const LAPSE_DIST = ".lapse/node_modules/@aiforui/lapse/dist";
 
 /**
- * The panel's default slot is bottom-left, where it is pinned `position: fixed`
- * at `z-index: 2147483647`: the top of the stacking order, by design, so that
- * no app can hide the inspector. In this app that lands squarely on the export
- * bar's first control, the PNG snapshot button, and swallows every click on it
- * at every width the studio uses (the panel is 154px wide from the left edge,
- * the button 67px). Nothing can out-stack a maximum z-index, and the product's
- * own layout should not be bent around a dev tool, so the tool moves. The
- * bottom edge is empty at its centre, and the panel keeps the edge it was
- * designed to slide in from.
+ * The panel is pinned `position: fixed` at `z-index: 2147483647` — the top of
+ * the stacking order, by design, so no app can hide the inspector. Nothing can
+ * out-stack a maximum z-index, so wherever it sits it swallows every click
+ * underneath it, and the product's layout must not be bent around a dev tool.
+ * Which means the only question is which slot is emptiest, and the answer is
+ * not on the bottom edge at all. Both slots this has already occupied were:
+ *
+ * - `bottom-left` sat on the export bar's PNG button (154px of panel from the
+ *   left edge, 67px of button) at every width the studio uses.
+ * - `bottom-center` sat on the landing's instrument dock — measured at 1280×800,
+ *   four of its controls at once: backdrop, theme, aspect ratio and "Open
+ *   studio".
+ *
+ * The bottom edge cannot be shared. The studio's belongs to the export bar
+ * whole: the format, aspect, resolution, target and Export controls only mount
+ * once there are two steps, so an empty studio looks free and a working one is
+ * not, and a running render puts a `w-full` status row across all of it.
+ *
+ * So: the top edge, at its centre — the two collisions above are both bottom
+ * furniture, and this is the one slot that meets no control of the studio's at
+ * all. Its own cost is the landing's nav island, which passes under it while
+ * you scroll back up; the island is hidden for the whole hero, which is the
+ * part whose motion is actually inspected, and both the field's Render button
+ * and the example rows are the same door into the studio, so covering its CTA
+ * strands nobody. The studio's import toast lands here too for its few seconds.
+ *
+ * At 390 no slot is free of either surface — the studio's nav fills the top
+ * edge and its drawer the bottom — and the panel is draggable, which is what
+ * that width is left to.
  */
-const PANEL_SLOT = "bottom-center";
+const PANEL_SLOT = "top-center";
 
 /**
  * Single-key shortcuts must not fire while the user is typing, and Lapse binds
