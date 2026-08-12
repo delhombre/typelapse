@@ -130,8 +130,10 @@ export function TemplateGallery() {
 									ref={panelRef}
 									tabIndex={-1}
 									data-template-gallery
-									// Materialize, don't just fade: blur + scale settle together so the
-									// surface reads as a real material arriving (Apple, §12).
+									// Materialize, don't just fade: blur, scale and offset settle together
+									// so the surface reads as a material arriving from somewhere. Opacity
+									// alone reads as a rectangle being switched on, because nothing about
+									// it says the panel was ever anywhere else.
 									initial={
 										reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8, filter: "blur(4px)" }
 									}
