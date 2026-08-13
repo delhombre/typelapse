@@ -64,7 +64,18 @@ export interface ClientExportMeasurements {
 	charWidthRatio: number;
 	/** How far that is from the document's: the WYSIWYG canary. */
 	charWidthDrift: number;
+	/** The codec string the encoder was actually configured with. */
 	codec: string;
+	/**
+	 * What that rung is called out loud — "AV1 4:4:4", "VP9", "H.264".
+	 *
+	 * WebM's codec is a ladder, and a ladder that falls back silently is a ladder
+	 * that lies: a file the user believes is AV1 and is really VP8 is a different
+	 * file. Null only where nothing was encoded (GIF).
+	 */
+	codecLabel: string | null;
+	/** What the file's chroma planes actually are, which is where text lives or dies. */
+	chroma: "4:4:4" | "4:2:0" | null;
 	/** What became of a background of `None` in this container. */
 	transparency: "opaque" | "carried" | "flattened";
 	/** What the finished file is not, having been asked for; null when it is. */

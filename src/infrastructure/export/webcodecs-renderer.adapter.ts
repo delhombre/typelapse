@@ -35,6 +35,7 @@ import {
 	ClientExportUnsupportedError,
 } from "./client-export-job";
 import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
+import { firstEncodableRung } from "./codec-probe";
 import { encodingFor, evenDimensions } from "./video-encoding";
 
 /**
@@ -78,21 +79,9 @@ export async function isClientExportSupported(
 	if (encoding.container === "gif") {
 		return true;
 	}
-	if (typeof VideoEncoder === "undefined") {
-		return false;
-	}
-	for (const codec of encoding.probeCodecs) {
-		const support = await VideoEncoder.isConfigSupported({
-			codec,
-			width: w,
-			height: h,
-			framerate: fps,
-		});
-		if (support.supported) {
-			return true;
-		}
-	}
-	return false;
+	// The same seam the worker uses, so the panel cannot offer a path the render
+	// will then refuse: one ladder, one probe, one answer.
+	return (await firstEncodableRung(encoding.ladder, { width: w, height: h, fps })) !== null;
 }
 
 export class WebCodecsRendererAdapter implements RendererPort {
