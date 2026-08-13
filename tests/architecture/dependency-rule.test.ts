@@ -120,6 +120,25 @@ describe("the dependency rule", () => {
 	 * importing from `landing/` and the marketing page becomes a library nobody
 	 * can change.
 	 */
+	/**
+	 * Does this import reach into the landing, wherever it is written from?
+	 *
+	 * The substring check alone read the specifier as text, and `./landing/` only
+	 * matches a sibling: from `presentation/components/layout/` the same file is
+	 * `../../landing/hero`, which contains neither `presentation/landing/` nor
+	 * `./landing/` and sailed straight through the guard the boundary depends on.
+	 * A relative specifier is resolved against the file that wrote it first, so
+	 * the rule is applied to the path it actually names rather than to its
+	 * spelling.
+	 */
+	function importsLanding(file: string, specifier: string): boolean {
+		if (specifier.startsWith(".")) {
+			const target = resolve(join(file, ".."), specifier);
+			return target.startsWith(join(SRC, "presentation", "landing"));
+		}
+		return specifier.includes("presentation/landing/");
+	}
+
 	it("keeps the landing out of the studio", () => {
 		const violations: string[] = [];
 
@@ -131,7 +150,7 @@ describe("the dependency rule", () => {
 			}
 
 			for (const specifier of importsOf(file)) {
-				if (specifier.includes("presentation/landing/") || specifier.startsWith("./landing/")) {
+				if (importsLanding(file, specifier)) {
 					violations.push(`${relativeFile} imports "${specifier}"`);
 				}
 			}

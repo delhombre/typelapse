@@ -53,3 +53,35 @@ export function feedEntryFor(aspect: AspectLabel, tier: ResolutionTier): FeedEnt
 	}
 	return { width: dims.width, height: dims.height, platform };
 }
+
+/**
+ * The correction the social preview needs after the canvas has changed shape.
+ *
+ * `null` means leave it alone. This is a decision and not an effect, so it can
+ * be stated once and checked without a browser: the island applies whatever it
+ * returns.
+ *
+ * The case that matters is the third one. When no feed uses the current shape
+ * the preview cannot be wearing one, but `enabled` used to stay set — a switch
+ * with no visible position and no way to reach it, since the row shows shape
+ * chips in that state and offers no Off. Return to a supported shape and the
+ * overlay came back on its own, a mode the visitor had left being restored by a
+ * control they never touched.
+ */
+export function socialCorrection(args: {
+	enabled: boolean;
+	platform: SocialPlatform;
+	platforms: readonly SocialPlatform[];
+}): { disable: true } | { platform: SocialPlatform } | null {
+	if (!args.enabled) {
+		return null;
+	}
+	if (args.platforms.length === 0) {
+		return { disable: true };
+	}
+	const first = args.platforms[0];
+	if (first && !args.platforms.includes(args.platform)) {
+		return { platform: first };
+	}
+	return null;
+}

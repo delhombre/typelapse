@@ -1,5 +1,5 @@
 import { exportCtaDetail, exportCtaLabel } from "@/application/export/export-label";
-import { FEED_ASPECTS, feedEntryFor } from "@/application/social/feed-aspects";
+import { FEED_ASPECTS, feedEntryFor, socialCorrection } from "@/application/social/feed-aspects";
 import {
 	PLATFORM_LABELS,
 	type SocialPlatform,
@@ -101,14 +101,16 @@ export function PreviewIsland({
 	// highlights (and the overlay shows) a platform that uses this aspect. Runs
 	// on enable and whenever the aspect changes underneath an open panel.
 	useEffect(() => {
-		if (!enabled || platforms.length === 0) {
+		const correction = socialCorrection({ enabled, platform, platforms });
+		if (correction === null) {
 			return;
 		}
-		const first = platforms[0];
-		if (first && !platforms.includes(platform)) {
-			setPlatform(first);
+		if ("disable" in correction) {
+			setEnabled(false);
+			return;
 		}
-	}, [enabled, platforms, platform, setPlatform]);
+		setPlatform(correction.platform);
+	}, [enabled, platforms, platform, setPlatform, setEnabled]);
 
 	// The stage steps back behind a raised sheet rather than being covered by it.
 	useEffect(() => {
@@ -359,7 +361,7 @@ export function PreviewIsland({
 	};
 
 	return (
-		<div className="si-dock" ref={dockRef}>
+		<div className="si-dock" id="studio-island" ref={dockRef}>
 			<AnimatePresence>
 				{cluster !== null && (
 					<ClusterSheet

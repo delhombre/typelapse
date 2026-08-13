@@ -2053,6 +2053,35 @@ html.dark:not([data-landing-theme]) {
 	height: 100%;
 }
 
+/* The way out of the editor, for a keyboard.
+   Off-screen rather than `display: none`, because a hidden link is not a
+   focusable one and this exists precisely to be focused. It comes back to the
+   card's own top-left corner when it does, over everything, so it is read where
+   the eye already is. */
+.sc-skip {
+	position: absolute;
+	z-index: 40;
+	top: 8px;
+	left: 8px;
+	padding: 8px 12px;
+	border-radius: var(--r-field);
+	background: var(--dock-bg);
+	color: var(--dock-ink);
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+	opacity: 0;
+	pointer-events: none;
+	transform: translateY(-6px);
+	transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+
+.sc-skip:focus-visible {
+	opacity: 1;
+	pointer-events: auto;
+	transform: none;
+}
+
 /* ─────────────────────────── The corner chips ──────────────────────────── */
 
 .sc-corner {

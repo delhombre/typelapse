@@ -25,11 +25,16 @@ export function StudioPersistence() {
 	const autosaveRef = useRef<DraftAutosave | null>(null);
 
 	useEffect(() => {
+		// Read BEFORE the restore, so it is the state the studio actually booted
+		// with: the autosave refuses to write this back, and a link that promised
+		// content and then failed to deliver any can no longer flush an empty
+		// studio over the draft it skipped for.
+		const pristine = JSON.stringify(useSnippetStore.getState().toProjectPayload());
 		if (!restoredRef.current) {
 			restoredRef.current = true;
 			restoreDraftOnBoot(arrivalHash);
 		}
-		const autosave = startDraftAutosave();
+		const autosave = startDraftAutosave(pristine);
 		autosaveRef.current = autosave;
 		return () => {
 			// Leaving the studio (say, back to the landing) is not a crash: write

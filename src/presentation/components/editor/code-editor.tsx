@@ -1,5 +1,5 @@
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { monacoLanguage } from "@/presentation/components/editor/monaco-language";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -33,6 +33,7 @@ export function CodeEditor() {
 	const { snippet, setCode, syncEditorTheme } = useSnippetStore();
 	const isDark = useThemeModeStore((s) => s.mode === "dark");
 	const monacoRef = useRef<Monaco | null>(null);
+	const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
 	const editorTheme = syncEditorTheme
 		? `typelapse-preview-${snippet.theme.name}`
@@ -42,6 +43,7 @@ export function CodeEditor() {
 
 	const handleMount = useCallback<OnMount>((editor, monaco) => {
 		monacoRef.current = monaco;
+		editorRef.current = editor;
 
 		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
 		// toggles it: same keybinding VS Code uses. Also surfaces in the command
@@ -136,6 +138,40 @@ export function CodeEditor() {
 		}
 	}, []);
 
+	/** One producer for the model's identity: the prop and the sync read the same. */
+	const editorLanguage = monacoLanguage(snippet.language);
+	const editorPath = MONACO_PATHS[editorLanguage] ?? "snippet.txt";
+
+	/**
+	 * Put the store's code back into the model the language switch just handed us.
+	 *
+	 * `@monaco-editor/react` keeps one model per `path`, and the language picker
+	 * changes the path. Switching away and back does not create a fresh buffer —
+	 * it restores the cached one, with whatever it held when it was last on
+	 * screen. The `value` prop is applied by an effect that depends on `value`,
+	 * and `value` did not change on the render that swapped the path, so nothing
+	 * pushed the current code into the restored model: TypeScript → edit → Python
+	 * → back showed the code as it stood before the edit, while the store, the
+	 * preview and the export all held the edit. Two sources of truth for the same
+	 * buffer, and the visible one was the wrong one.
+	 *
+	 * Keyed on the path rather than on the code, because this is only ever about
+	 * the moment a model is swapped in; `onChange` owns every keystroke after it.
+	 * `setValue` is skipped when the two already agree, so an ordinary language
+	 * change costs nothing and never disturbs the cursor.
+	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the code is read, not depended on — reacting to it here would fight `onChange` on every keystroke.
+	useEffect(() => {
+		const model = editorRef.current?.getModel();
+		if (!model) {
+			return;
+		}
+		const current = useSnippetStore.getState().snippet.code;
+		if (model.getValue() !== current) {
+			model.setValue(current);
+		}
+	}, [editorPath]);
+
 	const handleChange = useCallback(
 		(value: string | undefined) => {
 			if (value !== undefined) {
@@ -151,14 +187,33 @@ export function CodeEditor() {
 	// real, and the answer was never interesting.
 	return (
 		<div className="flex h-full flex-col">
+			{/* Monaco keeps Tab for indentation, which is correct — Tab in a code
+			    editor indents code — and it means the keyboard cannot walk out of it
+			    the ordinary way. Everything downstream in the DOM is the island: the
+			    transport, the four clusters, the export. So there is a door, and it
+			    is the first thing Tab reaches on the way in rather than something to
+			    be discovered after being trapped. It is invisible until focused, so
+			    it costs the pointer nothing. Monaco's own escape (⌃⇧M, or ⌥⇧M on
+			    some layouts) is named on the region below for anyone already inside. */}
+			<a href="#studio-island" className="sc-skip">
+				Skip to playback controls
+			</a>
+			{/* Read in document order, just before the editor: `aria-description` is
+			    still a draft attribute, and a paragraph here says the same thing to
+			    every reader that exists today. */}
+			<p className="sr-only">
+				Code editor. Tab indents rather than moving focus. Press Control Shift M to make Tab move
+				focus out, or use the “Skip to playback controls” link before this editor.
+			</p>
 			<div
+				id="studio-editor"
 				title="⌥Z: toggle word wrap"
 				className="min-h-[220px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800"
 			>
 				<Editor
 					value={snippet.code}
-					language={monacoLanguage(snippet.language)}
-					path={MONACO_PATHS[monacoLanguage(snippet.language)] ?? "snippet.txt"}
+					language={editorLanguage}
+					path={editorPath}
 					theme={editorTheme}
 					onChange={handleChange}
 					beforeMount={handleBeforeMount}

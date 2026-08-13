@@ -1,4 +1,4 @@
-import { FEED_ASPECTS, feedEntryFor } from "@/application/social/feed-aspects";
+import { FEED_ASPECTS, feedEntryFor, socialCorrection } from "@/application/social/feed-aspects";
 import { platformsForAspect } from "@/application/social/safe-zones";
 import { ASPECT_LABELS, RESOLUTION_TIERS, dimensionsFor } from "@/domain/entities/render-config";
 import { describe, expect, it } from "vitest";
@@ -74,6 +74,45 @@ describe("what one press on a feed-aspect chip has to do", () => {
 			expect(dimensionsFor(aspect, "1440p")).toEqual({
 				width: entry?.width,
 				height: entry?.height,
+			});
+		}
+	});
+});
+
+describe("what the social preview owes the shape it is drawn on", () => {
+	it("leaves a preview that is off alone, whatever the shape", () => {
+		expect(socialCorrection({ enabled: false, platform: "reels", platforms: [] })).toBeNull();
+		expect(
+			socialCorrection({ enabled: false, platform: "reels", platforms: ["linkedin"] }),
+		).toBeNull();
+	});
+
+	it("turns the preview off when no feed uses the shape", () => {
+		// Otherwise `enabled` lingers with no control able to reach it, and the
+		// overlay returns by itself the moment a supported shape is chosen again.
+		expect(socialCorrection({ enabled: true, platform: "reels", platforms: [] })).toEqual({
+			disable: true,
+		});
+	});
+
+	it("moves to a feed the shape does use rather than turning off", () => {
+		expect(socialCorrection({ enabled: true, platform: "reels", platforms: ["linkedin"] })).toEqual(
+			{ platform: "linkedin" },
+		);
+	});
+
+	it("says nothing when the current feed still fits", () => {
+		expect(
+			socialCorrection({ enabled: true, platform: "tiktok", platforms: ["reels", "tiktok"] }),
+		).toBeNull();
+	});
+
+	it("never leaves a shape enabled with a feed that shape cannot carry", () => {
+		for (const aspect of ["16:9", "3:4"] as const) {
+			const dims = dimensionsFor(aspect, "1080p");
+			const platforms = platformsForAspect(dims.width, dims.height);
+			expect(socialCorrection({ enabled: true, platform: "reels", platforms })).toEqual({
+				disable: true,
 			});
 		}
 	});
