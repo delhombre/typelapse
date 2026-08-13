@@ -1,5 +1,7 @@
+import { ConfirmDiscardOverlay } from "@/presentation/components/ui/confirm-discard";
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { springs } from "@/presentation/motion";
+import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { copyToClipboard, decodeShareLink, encodeShareLink } from "@/presentation/utils/share-link";
@@ -19,6 +21,8 @@ export function TopNav() {
 	const snippetTitle = useSnippetStore((s) => s.snippet.title);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [shareCopied, setShareCopied] = useState(false);
+	/** A read file waiting on a confirm, because opening it would discard edits. */
+	const [pendingFile, setPendingFile] = useState<{ name: string; json: string } | null>(null);
 
 	// Load from share link on mount
 	useEffect(() => {
@@ -62,6 +66,21 @@ export function TopNav() {
 		fileInputRef.current?.click();
 	}, []);
 
+	/** Open the file's JSON; a refusal is said out loud, not logged. */
+	const applyJson = useCallback(
+		(json: string, name: string) => {
+			try {
+				importFromJson(json);
+			} catch (err) {
+				notify(err instanceof Error ? err.message : "That file could not be read.", {
+					tone: "error",
+					detail: name,
+				});
+			}
+		},
+		[importFromJson],
+	);
+
 	const handleFileChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
 			const file = e.target.files?.[0];
@@ -71,18 +90,21 @@ export function TopNav() {
 			const reader = new FileReader();
 			reader.onload = (ev) => {
 				const text = ev.target?.result;
-				if (typeof text === "string") {
-					try {
-						importFromJson(text);
-					} catch (err) {
-						console.error("Import failed:", err);
-					}
+				if (typeof text !== "string") {
+					return;
 				}
+				// Opening replaces the whole studio: edited work is asked about first,
+				// through the same confirm the template gallery walks.
+				if (useSnippetStore.getState().hasUnsavedEdits()) {
+					setPendingFile({ name: file.name, json: text });
+					return;
+				}
+				applyJson(text, file.name);
 			};
 			reader.readAsText(file);
 			e.target.value = "";
 		},
-		[importFromJson],
+		[applyJson],
 	);
 
 	return (
@@ -128,6 +150,18 @@ export function TopNav() {
 					{mode === "dark" ? <SunIcon /> : <MoonIcon />}
 				</NavButton>
 			</div>
+			<ConfirmDiscardOverlay
+				open={pendingFile !== null}
+				message={`Replace what you have with “${pendingFile?.name ?? ""}”?`}
+				confirmLabel="Open the file"
+				onCancel={() => setPendingFile(null)}
+				onConfirm={() => {
+					if (pendingFile) {
+						applyJson(pendingFile.json, pendingFile.name);
+					}
+					setPendingFile(null);
+				}}
+			/>
 		</nav>
 	);
 }
