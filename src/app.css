@@ -869,11 +869,20 @@ html[data-landing-theme="dark"] {
 	height: 30px;
 	padding: 0 8px;
 	border: 0;
-	/* Concentric with the previews it holds, not a circle around them: the
-	   swatch is a 4px rounded rect with 6px of button around it, and
-	   inner + padding = 10px. The pill radius is reserved for the CTA, which is
-	   then the only pill as well as the only filled shape. */
-	border-radius: 10px;
+	/* Concentric with the PARENT, which is the capsule these sit in, not with the
+	   previews they hold. The old value read the nesting the other way — a 4px
+	   swatch with 6px of button around it makes 10 — and that is a sound rule for
+	   a control on a flat surface and the wrong one inside a 999px pill. At either
+	   end of the row the gap between a 10px plate and the dock's own cap opened up
+	   around the bend, so the hover wash read as a rectangle rattling inside a
+	   capsule rather than as something seated in it.
+	   The pill radius is no longer "reserved" for the CTA, but the claim it was
+	   protecting still holds and is the one that mattered: the CTA remains the
+	   only FILLED shape in the zone. A transparent wash that follows the curve it
+	   sits in does not compete with it. The selection plate is
+	   `border-radius: inherit`, so it follows the control here without a rule of
+	   its own. */
+	border-radius: 999px;
 	background: transparent;
 	color: var(--dock-dim);
 	font: inherit;
@@ -967,9 +976,17 @@ html[data-landing-theme="dark"] {
 	outline-offset: 1px;
 }
 
+/* The buttons that hold a preview rather than a word, and the one place the
+   downward reading of concentric still wins. A swatch is a 4px rounded rect with
+   6px of button around it, so its plate is 10px — and a round plate here would be
+   a circle drawn around a rectangle, which is the exact shape this island already
+   threw out when the selection ring became a plate. These never sit against a
+   cap either: the panel row opens with Back, and its own padding keeps the last
+   swatch clear of the curve. Rounding is for the controls that meet the caps. */
 .landing-root .lp-island-button-tight {
 	min-width: 30px;
 	padding: 0;
+	border-radius: 10px;
 }
 
 /* Reserved width, and the reason the island used to slide sideways: the ratio
