@@ -27,3 +27,13 @@ export function useMediaQuery(query: string): boolean {
 export function useIsDesktop(): boolean {
 	return useMediaQuery("(min-width: 1024px)");
 }
+
+/**
+ * Tailwind's `sm` floor: the width at which the island stops being able to
+ * afford words beside its glyphs. The stylesheet already answers this query in
+ * several places; the island also has to answer it in JavaScript, because how
+ * many step dots fit is a question about a count, and CSS cannot count.
+ */
+export function useIsNarrow(): boolean {
+	return useMediaQuery("(max-width: 639px)");
+}

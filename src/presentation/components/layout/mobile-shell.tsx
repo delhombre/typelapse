@@ -1,16 +1,10 @@
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { ExportStatus } from "@/presentation/components/controls/export-status";
+import { PreviewIsland } from "@/presentation/components/controls/preview-island";
 import { motion } from "motion/react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Drawer } from "vaul";
-import {
-	ExportButton,
-	ExportOptions,
-	ExportStatus,
-	ExportTargetControl,
-	PngButton,
-} from "../settings/export-bar";
-import { SettingsStrip } from "../settings/settings-panel";
-import { TopNav } from "./top-nav";
+import { ProjectChip } from "./project-chip";
+import { StudioUtilities } from "./studio-utilities";
 
 interface MobileShellProps {
 	editor: ReactNode;
@@ -18,43 +12,57 @@ interface MobileShellProps {
 	preview: ReactNode;
 }
 
-// Bottom-sheet stops: a peek toolbar, a mid "style + export" stage, and the full editor.
-const PEEK = "128px";
-const MID = 0.62;
-const FULL = 0.96;
+// Bottom-sheet stops: a peek handle, a mid "steps" stage, and the full editor.
+const PEEK = "56px";
+const MID = 0.55;
+const FULL = 0.94;
 const SNAP_POINTS: (number | string)[] = [PEEK, MID, FULL];
 
 /**
- * Mobile / tablet workspace (below lg). The live preview owns the screen and a
- * non-modal Vaul drawer holds the controls, so the preview keeps updating,
- * WYSIWYG, while you drag the sheet up to style, edit steps, or write code.
+ * The scene, folded to one column.
+ *
+ * It is the same scene and not a second design: the chips are the same chips,
+ * the instrument is the same instrument, and every setting is in the same four
+ * clusters it is in on a desktop — the island drops its labels below 640 and
+ * raises its sheets over the phone exactly as it raises them over the page. The
+ * one thing that cannot float here is the code card, which has nowhere to be:
+ * it becomes the bottom sheet, which is the shape a phone already has for it.
+ *
+ * The island sits above that sheet rather than inside it, so the transport and
+ * the settings stay reachable at every snap, and the sheet only has to hold the
+ * work surface.
  */
 export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) {
 	const [snap, setSnap] = useState<number | string | null>(PEEK);
-	const title = useSnippetStore((s) => s.snippet.title);
-	const hasSteps = useSnippetStore((s) => s.snippet.steps.length >= 2);
+	const [sheetRaised, setSheetRaised] = useState(false);
 	const isPeek = snap === PEEK;
+	const rootRef = useKeptAudible();
 
 	return (
-		<div className="studio-root flex h-dvh w-full flex-col overflow-hidden bg-neutral-50 font-sans text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-			<TopNav />
-
-			{/* Preview owns the space above the drawer peek. */}
-			<main className="relative min-h-0 flex-1 overflow-hidden" style={{ paddingBottom: PEEK }}>
-				{preview}
-			</main>
-
-			{/* The export status floats above the sheet rather than inside it. Inside,
-			    it would be cut off by whichever snap the sheet happens to be at — and
-			    the whole point of it is that a render that finishes while the sheet is
-			    collapsed still says so. It sits above the drawer for the same reason a
-			    toast does. */}
+		<div className="studio-root sc-root sc-root-mobile" ref={rootRef}>
+			{/* A phone has no room to step the stage back into, so a raised cluster
+			    takes its room from the slot instead: the frame gets out of the way
+			    rather than being covered by what it is being adjusted against. */}
 			<div
-				className="pointer-events-none fixed inset-x-0 z-50 flex px-4"
-				style={{ bottom: `calc(${PEEK} + env(safe-area-inset-bottom) + 0.75rem)` }}
+				className="sc-stage-slot"
+				style={{ paddingBottom: `calc(${PEEK} + ${sheetRaised ? 460 : 116}px)` }}
 			>
-				<div className="pointer-events-auto flex w-full [&>*]:shadow-[0_8px_32px_-8px_rgb(0_0_0/0.35)] [&>*]:backdrop-blur-xl">
+				<div className="sc-stage">{preview}</div>
+			</div>
+
+			{/* One row rather than two corners: at 390 the corners meet in the middle,
+			    so they are laid out as what they have become — a row whose left half
+			    gives up its width first. */}
+			<div className="sc-corner-row">
+				<ProjectChip />
+				<StudioUtilities />
+			</div>
+
+			{/* The instrument floats above the sheet, on the sheet's own peek line. */}
+			<div className="sc-dock-slot" style={{ bottom: PEEK }}>
+				<div className="sc-dock">
 					<ExportStatus />
+					<PreviewIsland onSheetRaisedChange={setSheetRaised} />
 				</div>
 			</div>
 
@@ -69,51 +77,28 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				setActiveSnapPoint={setSnap}
 			>
 				<Drawer.Portal>
-					<Drawer.Content className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[97%] flex-col rounded-t-[22px] border-t border-neutral-200/80 bg-white/85 shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] backdrop-blur-2xl backdrop-saturate-150 dark:border-neutral-800/80 dark:bg-neutral-950/85">
+					<Drawer.Content className="sc-sheet">
 						<Drawer.Handle className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 dark:!bg-neutral-700" />
-						<Drawer.Title className="sr-only">Editor controls</Drawer.Title>
+						<Drawer.Title className="sr-only">Code and steps</Drawer.Title>
 
-						{/* Peek header, always visible: snippet + the primary actions. */}
-						<div className="flex items-center gap-2 px-4 pt-1 pb-3">
-							<span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-neutral-800 dark:text-neutral-100">
-								{title.trim() || "Untitled"}
-							</span>
-							<PngButton />
-							{hasSteps && <ExportButton />}
-						</div>
-
-						{/* Scrollable as soon as the sheet is expanded; clipped at the peek so only
-						    the toolbar shows. handleOnly keeps this scroll from fighting the drag. */}
 						<div
 							className={`min-h-0 flex-1 ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
 						>
 							<motion.div
-								className="flex flex-col gap-6 pt-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+								className="flex flex-col gap-6 px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 								transition={{ duration: 0.2 }}
 							>
-								{/* Style first: its changes are live in the preview above at the mid snap. */}
-								<SheetSection label="Style">
-									<SettingsStrip />
-								</SheetSection>
+								<section className="flex flex-col gap-3">
+									<span className="sc-eyebrow">Steps</span>
+									{stepBuilder}
+								</section>
 
-								{hasSteps && (
-									<SheetSection label="Export">
-										<div className="flex flex-wrap items-center gap-2 px-5">
-											<ExportOptions />
-											<ExportTargetControl />
-										</div>
-									</SheetSection>
-								)}
-
-								<SheetSection label="Steps">
-									<div className="px-5">{stepBuilder}</div>
-								</SheetSection>
-
-								<SheetSection label="Code">
-									<div className="h-[320px] px-5">{editor}</div>
-								</SheetSection>
+								<section className="flex min-h-0 flex-col gap-3">
+									<span className="sc-eyebrow">Code</span>
+									<div className="h-[320px]">{editor}</div>
+								</section>
 							</motion.div>
 						</div>
 					</Drawer.Content>
@@ -123,14 +108,38 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	);
 }
 
-/** A labelled block inside the sheet. The label sits at the shared px-5 gutter. */
-function SheetSection({ label, children }: { label: string; children: ReactNode }) {
-	return (
-		<section className="flex flex-col gap-3">
-			<span className="px-5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-				{label}
-			</span>
-			{children}
-		</section>
-	);
+/**
+ * Keeps the scene audible while the sheet is open.
+ *
+ * The drawer is declared non-modal and permanently open, because the preview
+ * behind it has to keep updating while you work — but it marks everything
+ * outside itself `aria-hidden` all the same. That was survivable while the only
+ * thing outside was a preview and a top bar. It is not now: the island outside
+ * the sheet holds the transport and all four clusters, and a screen reader was
+ * being told none of it exists.
+ *
+ * So the attribute comes back off, and an observer takes it off again each time
+ * it returns. Nothing is being misreported: there is no modal on this screen,
+ * and everything on it really is reachable.
+ */
+function useKeptAudible() {
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const node = ref.current;
+		if (!node) {
+			return;
+		}
+		const reveal = () => {
+			if (node.getAttribute("aria-hidden") === "true") {
+				node.removeAttribute("aria-hidden");
+			}
+		};
+		reveal();
+		const observer = new MutationObserver(reveal);
+		observer.observe(node, { attributes: true, attributeFilter: ["aria-hidden"] });
+		return () => observer.disconnect();
+	}, []);
+
+	return ref;
 }

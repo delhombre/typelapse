@@ -112,6 +112,53 @@ describe("the dependency rule", () => {
 		expect(violationsIn("application", allowed)).toEqual([]);
 	});
 
+	/**
+	 * The landing is a leaf: a marketing page that may read the studio's shared
+	 * presentation utilities, never the reverse. Anything both need — the haptics
+	 * trigger, the spring tokens — belongs in `presentation/`, not in the page
+	 * that happened to want it first. Without this rule the studio starts
+	 * importing from `landing/` and the marketing page becomes a library nobody
+	 * can change.
+	 */
+	/**
+	 * Does this import reach into the landing, wherever it is written from?
+	 *
+	 * The substring check alone read the specifier as text, and `./landing/` only
+	 * matches a sibling: from `presentation/components/layout/` the same file is
+	 * `../../landing/hero`, which contains neither `presentation/landing/` nor
+	 * `./landing/` and sailed straight through the guard the boundary depends on.
+	 * A relative specifier is resolved against the file that wrote it first, so
+	 * the rule is applied to the path it actually names rather than to its
+	 * spelling.
+	 */
+	function importsLanding(file: string, specifier: string): boolean {
+		if (specifier.startsWith(".")) {
+			const target = resolve(join(file, ".."), specifier);
+			return target.startsWith(join(SRC, "presentation", "landing"));
+		}
+		return specifier.includes("presentation/landing/");
+	}
+
+	it("keeps the landing out of the studio", () => {
+		const violations: string[] = [];
+
+		for (const file of collectSourceFiles(join(SRC, "presentation"))) {
+			const relativeFile = file.slice(SRC.length + 1);
+
+			if (relativeFile.startsWith("presentation/landing/")) {
+				continue;
+			}
+
+			for (const specifier of importsOf(file)) {
+				if (importsLanding(file, specifier)) {
+					violations.push(`${relativeFile} imports "${specifier}"`);
+				}
+			}
+		}
+
+		expect(violations).toEqual([]);
+	});
+
 	it("keeps node built-ins out of the domain and the application", () => {
 		const isNodeBuiltin = (specifier: string) => specifier.startsWith("node:");
 

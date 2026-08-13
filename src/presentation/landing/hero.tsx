@@ -1,8 +1,8 @@
 import { classifySource } from "@/application/import/classify-source";
+import { trigger } from "@/presentation/haptics";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { trigger } from "./haptics";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
 import { GITHUB_URL } from "./tokens";

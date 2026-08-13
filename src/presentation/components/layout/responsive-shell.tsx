@@ -2,8 +2,8 @@ import { useKeyboardShortcuts } from "@/presentation/hooks/use-keyboard-shortcut
 import { useIsDesktop } from "@/presentation/hooks/use-media-query";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { type ReactNode, useEffect } from "react";
-import { AppShell } from "./app-shell";
 import { MobileShell } from "./mobile-shell";
+import { SceneShell } from "./scene-shell";
 
 interface ResponsiveShellProps {
 	editor: ReactNode;
@@ -12,9 +12,9 @@ interface ResponsiveShellProps {
 }
 
 /**
- * Chooses the workspace layout at the lg breakpoint: the fixed two-column split
- * on desktop, the full-screen preview + Vaul bottom sheet on mobile/tablet.
- * State lives in the shared stores, so it carries across a layout switch.
+ * Chooses the workspace layout at the lg breakpoint: the scene on desktop, the
+ * same scene folded to one column — with the code card as a Vaul bottom sheet —
+ * below it. State lives in the shared stores, so it carries across a switch.
  */
 export function ResponsiveShell(props: ResponsiveShellProps) {
 	useKeyboardShortcuts();
@@ -28,5 +28,5 @@ export function ResponsiveShell(props: ResponsiveShellProps) {
 		};
 	}, []);
 
-	return isDesktop ? <AppShell {...props} /> : <MobileShell {...props} />;
+	return isDesktop ? <SceneShell {...props} /> : <MobileShell {...props} />;
 }

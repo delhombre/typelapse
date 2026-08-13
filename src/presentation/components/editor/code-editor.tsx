@@ -1,34 +1,22 @@
 import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { monacoLanguage } from "@/presentation/components/editor/monaco-language";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 
-const LANGUAGES = [
-	{ value: "typescript", label: "TypeScript" },
-	{ value: "tsx", label: "TSX" },
-	{ value: "javascript", label: "JavaScript" },
-	{ value: "diff", label: "Diff" },
-	{ value: "python", label: "Python" },
-	{ value: "rust", label: "Rust" },
-	{ value: "go", label: "Go" },
-	{ value: "html", label: "HTML" },
-	{ value: "css", label: "CSS" },
-	{ value: "json", label: "JSON" },
-	{ value: "java", label: "Java" },
-	{ value: "csharp", label: "C#" },
-	{ value: "cpp", label: "C++" },
-	{ value: "php", label: "PHP" },
-	{ value: "ruby", label: "Ruby" },
-	{ value: "swift", label: "Swift" },
-	{ value: "kotlin", label: "Kotlin" },
-	{ value: "sql", label: "SQL" },
-	{ value: "yaml", label: "YAML" },
-	{ value: "markdown", label: "Markdown" },
-	{ value: "shell", label: "Shell" },
-	{ value: "dockerfile", label: "Dockerfile" },
-];
+/**
+ * The model's file name, by Monaco language. The TypeScript worker reads the
+ * ScriptKind off the extension, and an extensionless in-memory model with
+ * `allowJs` on is classified as a *JavaScript* file — at which point every type
+ * annotation in a TypeScript snippet earns a red squiggle (ts 8010). `.tsx`
+ * keeps annotations and JSX both legal; `.jsx` keeps the same honesty for
+ * JavaScript, where an annotation genuinely is a mistake.
+ */
+const MONACO_PATHS: Record<string, string> = {
+	typescript: "snippet.tsx",
+	javascript: "snippet.jsx",
+};
 
 // Monaco theme that mirrors the preview snippet theme
 const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg: string }> = {
@@ -42,9 +30,10 @@ const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg
 };
 
 export function CodeEditor() {
-	const { snippet, setCode, setLanguage, setTitle, syncEditorTheme } = useSnippetStore();
+	const { snippet, setCode, syncEditorTheme } = useSnippetStore();
 	const isDark = useThemeModeStore((s) => s.mode === "dark");
 	const monacoRef = useRef<Monaco | null>(null);
+	const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
 
 	const editorTheme = syncEditorTheme
 		? `typelapse-preview-${snippet.theme.name}`
@@ -54,7 +43,27 @@ export function CodeEditor() {
 
 	const handleMount = useCallback<OnMount>((editor, monaco) => {
 		monacoRef.current = monaco;
+		editorRef.current = editor;
 
+		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
+		// toggles it: same keybinding VS Code uses. Also surfaces in the command
+		// palette (F1 → "Toggle word wrap") for discoverability.
+		editor.addAction({
+			id: "toggle-word-wrap",
+			label: "Toggle word wrap",
+			keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
+			run: (ed) => {
+				const wrapped = ed.getOption(monaco.editor.EditorOption.wordWrap) !== "off";
+				ed.updateOptions({ wordWrap: wrapped ? "off" : "on" });
+			},
+		});
+	}, []);
+
+	// Before the editor exists, not on mount: the wrapper applies the `theme`
+	// prop the moment it creates the editor, and a theme defined only afterwards
+	// silently falls back to the stock light `vs` — which is how a dark studio
+	// used to open on a white editor.
+	const handleBeforeMount = useCallback((monaco: Monaco) => {
 		// A snippet is a fragment, not a project: it imports nothing, resolves
 		// nothing, and is often mid-refactor by design. Semantic diagnostics would
 		// underline almost every template in red for being exactly what it is.
@@ -73,19 +82,6 @@ export function CodeEditor() {
 				target: monaco.languages.typescript.ScriptTarget.ESNext,
 			});
 		}
-
-		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
-		// toggles it: same keybinding VS Code uses. Also surfaces in the command
-		// palette (F1 → "Toggle word wrap") for discoverability.
-		editor.addAction({
-			id: "toggle-word-wrap",
-			label: "Toggle word wrap",
-			keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
-			run: (ed) => {
-				const wrapped = ed.getOption(monaco.editor.EditorOption.wordWrap) !== "off";
-				ed.updateOptions({ wordWrap: wrapped ? "off" : "on" });
-			},
-		});
 
 		// App-level themes (follow light/dark mode)
 		monaco.editor.defineTheme("typelapse-dark", {
@@ -142,6 +138,40 @@ export function CodeEditor() {
 		}
 	}, []);
 
+	/** One producer for the model's identity: the prop and the sync read the same. */
+	const editorLanguage = monacoLanguage(snippet.language);
+	const editorPath = MONACO_PATHS[editorLanguage] ?? "snippet.txt";
+
+	/**
+	 * Put the store's code back into the model the language switch just handed us.
+	 *
+	 * `@monaco-editor/react` keeps one model per `path`, and the language picker
+	 * changes the path. Switching away and back does not create a fresh buffer —
+	 * it restores the cached one, with whatever it held when it was last on
+	 * screen. The `value` prop is applied by an effect that depends on `value`,
+	 * and `value` did not change on the render that swapped the path, so nothing
+	 * pushed the current code into the restored model: TypeScript → edit → Python
+	 * → back showed the code as it stood before the edit, while the store, the
+	 * preview and the export all held the edit. Two sources of truth for the same
+	 * buffer, and the visible one was the wrong one.
+	 *
+	 * Keyed on the path rather than on the code, because this is only ever about
+	 * the moment a model is swapped in; `onChange` owns every keystroke after it.
+	 * `setValue` is skipped when the two already agree, so an ordinary language
+	 * change costs nothing and never disturbs the cursor.
+	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the code is read, not depended on — reacting to it here would fight `onChange` on every keystroke.
+	useEffect(() => {
+		const model = editorRef.current?.getModel();
+		if (!model) {
+			return;
+		}
+		const current = useSnippetStore.getState().snippet.code;
+		if (model.getValue() !== current) {
+			model.setValue(current);
+		}
+	}, [editorPath]);
+
 	const handleChange = useCallback(
 		(value: string | undefined) => {
 			if (value !== undefined) {
@@ -151,37 +181,42 @@ export function CodeEditor() {
 		[setCode],
 	);
 
+	// The editor and nothing around it. The project's name is the chip in the
+	// scene's top-left corner and the language is the card's own header: a
+	// second field bound to the same string is a question about which one is
+	// real, and the answer was never interesting.
 	return (
-		<div className="flex h-full flex-col gap-3">
-			<div className="flex items-center gap-2">
-				<input
-					type="text"
-					value={snippet.title}
-					onChange={(e) => setTitle(e.target.value)}
-					placeholder="Untitled snippet"
-					className="h-9 flex-1 rounded-xl border border-neutral-200/70 bg-white px-3 text-sm text-neutral-900 outline-none transition focus:border-neutral-300 focus:ring-2 focus:ring-neutral-900/5 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-100 dark:focus:border-neutral-700 dark:focus:ring-white/5"
-				/>
-				<select
-					value={snippet.language}
-					onChange={(e) => setLanguage(e.target.value)}
-					className="h-9 rounded-xl border border-neutral-200/70 bg-white px-2.5 text-xs font-medium text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
-				>
-					{LANGUAGES.map((lang) => (
-						<option key={lang.value} value={lang.value}>
-							{lang.label}
-						</option>
-					))}
-				</select>
-			</div>
+		<div className="flex h-full flex-col">
+			{/* Monaco keeps Tab for indentation, which is correct — Tab in a code
+			    editor indents code — and it means the keyboard cannot walk out of it
+			    the ordinary way. Everything downstream in the DOM is the island: the
+			    transport, the four clusters, the export. So there is a door, and it
+			    is the first thing Tab reaches on the way in rather than something to
+			    be discovered after being trapped. It is invisible until focused, so
+			    it costs the pointer nothing. Monaco's own escape (⌃⇧M, or ⌥⇧M on
+			    some layouts) is named on the region below for anyone already inside. */}
+			<a href="#studio-island" className="sc-skip">
+				Skip to playback controls
+			</a>
+			{/* Read in document order, just before the editor: `aria-description` is
+			    still a draft attribute, and a paragraph here says the same thing to
+			    every reader that exists today. */}
+			<p className="sr-only">
+				Code editor. Tab indents rather than moving focus. Press Control Shift M to make Tab move
+				focus out, or use the “Skip to playback controls” link before this editor.
+			</p>
 			<div
+				id="studio-editor"
 				title="⌥Z: toggle word wrap"
-				className="min-h-[260px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800"
+				className="min-h-[220px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800"
 			>
 				<Editor
 					value={snippet.code}
-					language={monacoLanguage(snippet.language)}
+					language={editorLanguage}
+					path={editorPath}
 					theme={editorTheme}
 					onChange={handleChange}
+					beforeMount={handleBeforeMount}
 					onMount={handleMount}
 					options={{
 						fixedOverflowWidgets: true,
