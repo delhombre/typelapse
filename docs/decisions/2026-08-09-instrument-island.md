@@ -75,10 +75,31 @@ Three defects a Lapse take caught that review would not have:
 
 ## Shape, and why the selection stopped being a ring
 
-**Controls are 10px rounded rects, not pills.** The radius is concentric with
-the previews they hold: a 4px swatch with 6px of button around it gives
-4 + 6 = 10. The pill is left to the CTA, which makes it the only pill as well as
-the only filled shape.
+**Controls read concentric with the parent they sit in, and that parent is a
+capsule.** Amended: this section originally said every control was a 10px
+rounded rect and the pill was reserved for the CTA. The radius was derived
+downward — a 4px swatch with 6px of button around it gives 4 + 6 = 10 — which is
+a sound rule for a control on a flat surface and the wrong one inside a 999px
+pill. At either end of the row the gap between a 10px plate and the dock's own
+cap opened up around the bend, so the hover wash read as a rectangle rattling
+inside a capsule rather than as something seated in it.
+
+So the rule has two halves:
+
+- **Controls that meet the caps take the pill.** The selection plate is
+  `border-radius: inherit`, so it follows them without a rule of its own.
+- **Controls that hold a preview keep the 10px**, and the original derivation
+  keeps its argument there. A round plate around a swatch is a circle drawn
+  around a rectangle, which is the exact shape this island threw out when the
+  selection ring became a plate (below). Those never meet a cap anyway: the
+  panel row opens with Back, and its own padding keeps the last swatch clear of
+  the curve.
+
+**The pill is no longer reserved for the CTA, and the claim that reservation
+protected still holds.** It was only ever standing in for the real invariant:
+the CTA is the only FILLED shape in the zone. A transparent wash that follows
+the curve it sits in does not compete with a solid one. The studio's island
+carries the same amendment.
 
 **Selection is a plate inside the control, not a ring around it.** A 40px island
 holding 30px controls leaves 5px above and below, and the ring spent 5.5 of it —
