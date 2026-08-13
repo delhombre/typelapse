@@ -1,4 +1,8 @@
-import { exportCtaDetail, exportCtaLabel } from "@/application/export/export-label";
+import {
+	exportCodecNote,
+	exportCtaDetail,
+	exportCtaLabel,
+} from "@/application/export/export-label";
 import { describe, expect, it } from "vitest";
 
 describe("the export CTA's label", () => {
@@ -39,5 +43,23 @@ describe("the export CTA's label", () => {
 	it("says the same thing without the verb, for the half a narrow row drops", () => {
 		expect(exportCtaDetail({ format: "mp4", width: 1920, height: 1080 })).toBe("MP4 · 1080p");
 		expect(exportCtaDetail({ format: "gif", width: 1234, height: 567 })).toBe("GIF");
+	});
+});
+
+describe("exportCodecNote", () => {
+	it("names the rung WebM actually landed on, so a fallback is visible", () => {
+		expect(exportCodecNote("webm", "AV1 4:4:4")).toBe("WebM · AV1 4:4:4");
+		expect(exportCodecNote("webm", "VP9")).toBe("WebM · VP9");
+		expect(exportCodecNote("webm", "VP8")).toBe("WebM · VP8");
+	});
+
+	it("says nothing about MP4, whose codec was never in question", () => {
+		// MP4 is H.264 by contract — universal playback is the entire job — so the
+		// word would take up room in the note and tell nobody anything.
+		expect(exportCodecNote("mp4", "H.264")).toBeNull();
+	});
+
+	it("says nothing about a GIF, which no codec touched", () => {
+		expect(exportCodecNote("gif", null)).toBeNull();
 	});
 });

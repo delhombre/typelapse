@@ -1,3 +1,4 @@
+import { exportCodecNote } from "@/application/export/export-label";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
@@ -577,6 +578,7 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 					config,
 					input.sound,
 					renderer.lastMeasurements?.transparencyNote ?? null,
+					renderer.lastMeasurements?.codecLabel ?? null,
 				),
 			},
 		});
@@ -610,16 +612,24 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
  *
  * The transparency line comes from the worker rather than being worked out
  * here, because only the worker knows whether this browser's encoder agreed to
- * carry an alpha channel.
+ * carry an alpha channel. The codec line comes from there for the same reason:
+ * WebM is chosen off a ladder at run time, and which rung it landed on is a
+ * property of the machine that rendered it.
  */
 function deviceNote(
 	snippet: Snippet,
 	config: RenderConfig,
 	sound: boolean,
 	transparency: string | null,
+	codecLabel: string | null,
 ): string | undefined {
 	const notes: string[] = [];
 
+	// What the file *is* leads; the rest of the note is what it is not.
+	const codec = exportCodecNote(config.format, codecLabel);
+	if (codec) {
+		notes.push(codec);
+	}
 	if (transparency) {
 		notes.push(transparency);
 	}
