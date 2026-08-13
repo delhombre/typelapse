@@ -34,7 +34,7 @@ import {
 	type ClientExportMeasurements,
 	ClientExportUnsupportedError,
 } from "./client-export-job";
-import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
+import { BASE_VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
 import { firstEncodableRung } from "./codec-probe";
 import { encodingFor, evenDimensions } from "./video-encoding";
 
@@ -240,7 +240,7 @@ export class WebCodecsRendererAdapter implements RendererPort {
  * video is off the preview, and we would rather know that than not.
  */
 async function measureDocumentAdvance(fontFamily: string, fontSize: number): Promise<number> {
-	const size = fontSize * VIDEO_SCALE;
+	const size = fontSize * BASE_VIDEO_SCALE;
 	const font = canvasFont(size, fontFamily);
 	try {
 		await document.fonts.load(font, "0");

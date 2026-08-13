@@ -26,7 +26,7 @@ import { CHROME_FONT_STACK } from "@/application/layout/frame-metrics";
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, WebMOutputFormat } from "mediabunny";
 import { decodeBackdropImage } from "./backdrop-image";
 import type { ClientExportEvent, ClientExportJob } from "./client-export-job";
-import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
+import { BASE_VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
 import { firstEncodableRung, qualityOf } from "./codec-probe";
 import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
@@ -251,7 +251,10 @@ async function measureAdvance(
 	// The chrome bar is set in the app's own mono whatever the code is set in, so
 	// it is a second family this scope has to have before it paints anything.
 	await loadExportFonts(scope.fonts, fontFamily, CHROME_FONT_STACK);
-	const size = fontSize * VIDEO_SCALE;
+	// The base rather than the tier's scale, deliberately: what comes back is an
+	// advance *divided by* the size, so the number is scale-free and the two
+	// scopes have to measure at the same size to be comparable at all.
+	const size = fontSize * BASE_VIDEO_SCALE;
 	ctx.font = canvasFont(size, fontFamily);
 	return ctx.measureText("0").width / size;
 }
