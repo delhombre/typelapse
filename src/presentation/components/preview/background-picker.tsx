@@ -6,6 +6,7 @@ import {
 	resolveBackgroundCss,
 } from "@/application/backgrounds/mesh-gradient";
 import { springs } from "@/presentation/motion";
+import { notify } from "@/presentation/stores/notice.store";
 import { motion } from "motion/react";
 import { type ChangeEvent, useRef } from "react";
 
@@ -156,7 +157,7 @@ function ColorSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	);
 }
 
-/** Soft cap on uploaded images: larger files are quietly refused. */
+/** Soft cap on uploaded images: larger files are refused, and the refusal is said. */
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /** Uploaded image: proxies a hidden file input, reads to a data URL. */
@@ -171,7 +172,10 @@ function ImageSwatch({ selected, onSelect }: BackgroundPickerProps) {
 			return;
 		}
 		if (file.size > MAX_IMAGE_BYTES) {
-			console.warn(`Image is ${(file.size / 1024 / 1024).toFixed(1)} MB, max is 4 MB. Ignored.`);
+			notify("That image is too large to use as a background. The limit is 4 MB.", {
+				tone: "error",
+				detail: `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`,
+			});
 			return;
 		}
 		const reader = new FileReader();
