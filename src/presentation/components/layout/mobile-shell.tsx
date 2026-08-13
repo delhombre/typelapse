@@ -127,7 +127,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 function SheetSection({ label, children }: { label: string; children: ReactNode }) {
 	return (
 		<section className="flex flex-col gap-3">
-			<span className="px-5 text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+			<span className="px-5 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
 				{label}
 			</span>
 			{children}

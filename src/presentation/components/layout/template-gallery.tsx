@@ -163,7 +163,7 @@ export function TemplateGallery() {
 											type="button"
 											onClick={close}
 											aria-label="Close"
-											className="-mr-1 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+											className="-mr-1 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
 										>
 											<CloseIcon />
 										</button>
