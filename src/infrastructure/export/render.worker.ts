@@ -28,7 +28,7 @@ import {
 	CanvasSource,
 	Mp4OutputFormat,
 	Output,
-	QUALITY_HIGH,
+	Quality,
 	WebMOutputFormat,
 	canEncodeVideo,
 } from "mediabunny";
@@ -38,7 +38,7 @@ import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
 import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
 import { gifSafeFps } from "./gif-timing";
-import { encodingFor, evenDimensions } from "./video-encoding";
+import { encodingFor, encodingQuality, evenDimensions } from "./video-encoding";
 import { loadExportFonts } from "./worker-fonts";
 
 /** Report progress this often. Every frame would cost more than it tells. */
@@ -200,15 +200,30 @@ async function encodeVideo(
 	if (!encoding.codec) {
 		throw new Error(`No client-side encoder for ${encoding.container}.`);
 	}
-	const codec = await probe(encoding, canvas.width, canvas.height, fps);
+	await probe(encoding, canvas.width, canvas.height, fps);
+	const quality = encodingQuality(encoding.codec, canvas.width, canvas.height, fps);
 
 	const output = new Output({
 		format: encoding.container === "webm" ? new WebMOutputFormat() : new Mp4OutputFormat(),
 		target: new BufferTarget(),
 	});
+	// What the encoder is actually handed, reported rather than assumed: the
+	// probe above only establishes that *something* will encode, and mediabunny
+	// builds its own codec string from the codec name, so the profile and level
+	// in the file are its decision and not the probe's.
+	let encoded: string | null = null;
 	const source = new CanvasSource(canvas, {
 		codec: encoding.codec,
-		bitrate: QUALITY_HIGH,
+		// A quantizer where the browser honours one (VP9), a budget where it does
+		// not (AVC). Passing both lets mediabunny offer constant quality first and
+		// fall back to the budget on a build that refuses it.
+		bitrate:
+			quality.quantizer === null
+				? new Quality({ bitrate: quality.bitrate })
+				: new Quality({ quantizer: quality.quantizer, bitrate: quality.bitrate }),
+		onEncoderConfig: (config) => {
+			encoded = config.codec;
+		},
 		// Discard by default: an opaque canvas has nothing to carry, and asking
 		// for alpha the format cannot hold costs bytes for a channel of ones.
 		alpha: alpha ? "keep" : "discard",
@@ -233,7 +248,7 @@ async function encodeVideo(
 	if (!buffer) {
 		throw new Error("The muxer finalized without producing a buffer.");
 	}
-	return { buffer, paintMs, codec };
+	return { buffer, paintMs, codec: encoded ?? encoding.codec };
 }
 
 /**
