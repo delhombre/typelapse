@@ -3,6 +3,7 @@ import type { SocialPlatform } from "@/application/social/safe-zones";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
 import { SocialChrome } from "@/presentation/components/preview/social-chrome";
 import { SANS } from "@/presentation/components/preview/social-chrome/shared";
+import { trigger } from "@/presentation/haptics";
 import { motion, useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
@@ -14,7 +15,6 @@ import {
 	useState,
 } from "react";
 import { DeviceFrame } from "./device-frame";
-import { trigger } from "./haptics";
 import { screenPlacement } from "./screen-switch";
 import { StaticFrame } from "./static-frame";
 
