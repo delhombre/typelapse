@@ -120,7 +120,7 @@ export function StepBuilder() {
 						onClick={() => captureStep()}
 						whileTap={{ scale: 0.97 }}
 						transition={springs.snappy}
-						className="flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+						className="flex h-8 items-center gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
 					>
 						<PlusIcon />
 						Capture
@@ -136,9 +136,12 @@ export function StepBuilder() {
 
 			{/* -m-1 p-1: a 4px "bleed" so the hover-lift and drop ring aren't clipped by
 			    the scroll container's overflow, at zero layout cost (cards stay aligned).
-			    Cap + scroll only on desktop; in the mobile sheet the list flows into the
-			    sheet's own scroll instead of nesting a second scroll region. */}
-			<div className="-m-1 flex flex-col gap-1 p-1 lg:max-h-48 lg:overflow-y-auto">
+			    No cap and no scroll of its own: the list used to carry a 192px max-height
+			    inside the card's own 228px scroller, which is two scroll regions stacked
+			    one inside the other — the wheel drove the inner one to its end and then
+			    stopped, 40px short of the last step, with the outer scrollbar still
+			    showing room. The card owns the scroll now, on both layouts. */}
+			<div className="-m-1 flex flex-col gap-1 p-1">
 				{steps.map((step, index) => (
 					<motion.div
 						key={step.id}
@@ -154,7 +157,10 @@ export function StepBuilder() {
 						onDragOver={(e) => handleDragOver(e as unknown as React.DragEvent)}
 						onDrop={(e) => handleDrop(e as unknown as React.DragEvent, index)}
 						className={getItemClasses(index)}
-						style={{ cursor: "grab" }}
+						// The hand closes on the card it has picked up. A grab cursor that
+						// never becomes a grabbing one says the row can be dragged and then
+						// says nothing at all about the drag in progress.
+						style={{ cursor: draggedIndex === index ? "grabbing" : "grab" }}
 					>
 						{/* Row 1: handle · number + preview · duration · remove */}
 						<div className="flex w-full items-center gap-2">
@@ -205,7 +211,7 @@ export function StepBuilder() {
 										}
 									}}
 									onClick={(e) => e.stopPropagation()}
-									className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 outline-none transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
+									className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 									title="Duration (ms)"
 								/>
 								<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
@@ -213,14 +219,19 @@ export function StepBuilder() {
 								</span>
 							</div>
 
-							{/* Remove button */}
+							{/* Remove button. Its target is bounded to the room the card actually
+							    has rather than grown to the shared 44px square: that square reached
+							    3px past the row and covered the top edge of the caption field below
+							    it, so a press aimed at the caption deleted the step instead. The
+							    visible mark stays 24px — the floor this density is allowed — and the
+							    pseudo-element claims only the gaps that border it. */}
 							<button
 								type="button"
 								onClick={(e) => {
 									e.stopPropagation();
 									removeStep(step.id);
 								}}
-								className="hit-ext flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity hover:text-red-400 group-hover:opacity-100 dark:text-neutral-700"
+								className="relative flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity before:absolute before:-inset-x-[10px] before:-inset-y-[3px] hover:text-neutral-900 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 dark:text-neutral-700 dark:hover:text-neutral-100"
 								title="Remove step"
 							>
 								<svg
@@ -264,8 +275,8 @@ function RecordButton() {
 	const pulsing = isRecording && !reduceMotion;
 
 	const className = isRecording
-		? "flex h-8 items-center gap-1.5 rounded-lg border border-red-400/60 bg-red-500/10 px-3 text-xs font-medium text-red-500 transition"
-		: "flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
+		? "flex h-8 items-center gap-1.5 rounded-xl border border-red-400/60 bg-red-500/10 px-3 text-xs font-medium text-red-500 transition"
+		: "flex h-8 items-center gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
 
 	return (
 		<motion.button
@@ -339,7 +350,7 @@ function FocusInput({ step }: { step: Step }) {
 			onClick={(e) => e.stopPropagation()}
 			placeholder="focus 2-4,7"
 			title="Spotlight these lines, dim the rest (e.g. 2-4, 7)"
-			className={`w-full rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-300 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 ${borderClasses}`}
+			className={`w-full truncate rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 transition placeholder:text-neutral-500 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 ${borderClasses}`}
 		/>
 	);
 }
@@ -373,7 +384,7 @@ function CaptionInput({ step }: { step: Step }) {
 			maxLength={MAX_ANNOTATION_LENGTH}
 			placeholder="caption…"
 			title="Caption shown beneath the frame during this step"
-			className="w-full rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+			className="w-full truncate rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-[11px] text-neutral-600 transition placeholder:text-neutral-500 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 dark:focus:border-neutral-700"
 		/>
 	);
 }

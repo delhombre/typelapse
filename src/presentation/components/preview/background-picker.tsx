@@ -5,8 +5,8 @@ import {
 	isSolidBackground,
 	resolveBackgroundCss,
 } from "@/application/backgrounds/mesh-gradient";
-import { springs } from "@/presentation/motion";
-import { motion } from "motion/react";
+import { IslandSwatch } from "@/presentation/components/controls/island-primitives";
+import { notify } from "@/presentation/stores/notice.store";
 import { type ChangeEvent, useRef } from "react";
 
 export interface BackgroundPreset {
@@ -74,40 +74,50 @@ function meshSwatch(preset: MeshPreset): string {
 	return `radial-gradient(circle at 25% 25%, ${a?.color ?? preset.accent}, transparent 60%), radial-gradient(circle at 75% 70%, ${c?.color ?? b?.color ?? preset.accent}, transparent 60%), ${preset.base}`;
 }
 
+/**
+ * Every backdrop the frame can sit on: the animated meshes first, then the
+ * static gradients, then the two that open something — a colour well and a file.
+ *
+ * It draws in the island's material now rather than on the page's, because the
+ * only place it appears is the Look cluster. Selection is a wash and an inset
+ * edge, never a solid plate: a plate behind a colour washes the colour out, and
+ * a swatch that cannot show its own colour has stopped being a miniature of
+ * what it changes.
+ */
 export function BackgroundPicker({ selected, onSelect }: BackgroundPickerProps) {
 	return (
-		<div className="flex items-center gap-1.5">
+		<>
 			{MESH_PRESETS.map((preset) => {
 				const value = `mesh:${preset.id}`;
 				return (
-					<Swatch
+					<IslandSwatch
 						key={value}
-						title={`${preset.label} (animated)`}
-						preview={meshSwatch(preset)}
-						animated
-						isSelected={selected === value}
+						background={meshSwatch(preset)}
+						label={`${preset.label} (animated)`}
+						round
+						selected={selected === value}
 						onSelect={() => onSelect(value)}
 					/>
 				);
 			})}
 
-			<div className="mx-0.5 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+			<span className="si-gap" />
 
 			{BACKGROUND_PRESETS.map((preset) => (
-				<Swatch
+				<IslandSwatch
 					key={preset.name}
-					title={preset.name}
-					preview={preset.preview}
-					isSelected={selected === preset.value}
+					background={preset.preview}
+					label={preset.name}
+					selected={selected === preset.value}
 					onSelect={() => onSelect(preset.value)}
 				/>
 			))}
 
-			<div className="mx-0.5 h-4 w-px bg-neutral-200 dark:bg-neutral-800" />
+			<span className="si-gap" />
 
 			<ColorSwatch selected={selected} onSelect={onSelect} />
 			<ImageSwatch selected={selected} onSelect={onSelect} />
-		</div>
+		</>
 	);
 }
 
@@ -121,28 +131,13 @@ function ColorSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	const colorValue = /^#[0-9a-fA-F]{6}$/.test(selected) ? selected : "#1e293b";
 
 	return (
-		<span className="relative flex size-6 items-center justify-center">
-			<motion.button
-				type="button"
-				onClick={() => inputRef.current?.click()}
-				whileTap={{ scale: 0.96 }}
-				whileHover={{ scale: 1.15 }}
-				transition={springs.snappy}
-				className="relative flex size-6 items-center justify-center"
-				title="Custom color"
-			>
-				{isSelected && (
-					<motion.div
-						layoutId="bg-ring"
-						className="absolute size-5 rounded-lg ring-2 ring-neutral-900 dark:ring-neutral-100"
-						transition={springs.snappy}
-					/>
-				)}
-				<div
-					className="size-4 rounded-md border border-black/10 dark:border-white/10"
-					style={{ background: isSelected ? selected : RAINBOW }}
-				/>
-			</motion.button>
+		<span className="si-swatch-well">
+			<IslandSwatch
+				background={isSelected ? selected : RAINBOW}
+				label="Custom colour"
+				selected={isSelected}
+				onSelect={() => inputRef.current?.click()}
+			/>
 			<input
 				ref={inputRef}
 				type="color"
@@ -156,7 +151,7 @@ function ColorSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	);
 }
 
-/** Soft cap on uploaded images: larger files are quietly refused. */
+/** Soft cap on uploaded images: larger files are refused, and the refusal is said. */
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /** Uploaded image: proxies a hidden file input, reads to a data URL. */
@@ -171,7 +166,10 @@ function ImageSwatch({ selected, onSelect }: BackgroundPickerProps) {
 			return;
 		}
 		if (file.size > MAX_IMAGE_BYTES) {
-			console.warn(`Image is ${(file.size / 1024 / 1024).toFixed(1)} MB, max is 4 MB. Ignored.`);
+			notify("That image is too large to use as a background. The limit is 4 MB.", {
+				tone: "error",
+				detail: `${file.name} · ${(file.size / 1024 / 1024).toFixed(1)} MB`,
+			});
 			return;
 		}
 		const reader = new FileReader();
@@ -185,30 +183,15 @@ function ImageSwatch({ selected, onSelect }: BackgroundPickerProps) {
 	}
 
 	return (
-		<span className="relative flex size-6 items-center justify-center">
-			<motion.button
-				type="button"
-				onClick={() => inputRef.current?.click()}
-				whileTap={{ scale: 0.96 }}
-				whileHover={{ scale: 1.15 }}
-				transition={springs.snappy}
-				className="relative flex size-6 items-center justify-center"
-				title="Upload image"
+		<span className="si-swatch-well">
+			<IslandSwatch
+				background={isSelected ? resolveBackgroundCss(selected, 0) : "rgb(255 255 255 / 0.1)"}
+				label="Upload image"
+				selected={isSelected}
+				onSelect={() => inputRef.current?.click()}
 			>
-				{isSelected && (
-					<motion.div
-						layoutId="bg-ring"
-						className="absolute size-5 rounded-lg ring-2 ring-neutral-900 dark:ring-neutral-100"
-						transition={springs.snappy}
-					/>
-				)}
-				<div
-					className="flex size-4 items-center justify-center overflow-hidden rounded-md border border-black/10 bg-neutral-100 text-neutral-500 dark:border-white/10 dark:bg-neutral-800 dark:text-neutral-400"
-					style={isSelected ? { background: resolveBackgroundCss(selected, 0) } : undefined}
-				>
-					{!isSelected && <ImageGlyph />}
-				</div>
-			</motion.button>
+				{!isSelected && <ImageGlyph />}
+			</IslandSwatch>
 			<input
 				ref={inputRef}
 				type="file"
@@ -233,50 +216,11 @@ function ImageGlyph() {
 			strokeWidth="2"
 			strokeLinecap="round"
 			strokeLinejoin="round"
-			role="img"
+			aria-hidden="true"
 		>
-			<title>Upload image</title>
 			<rect x="3" y="3" width="18" height="18" rx="2" />
 			<circle cx="9" cy="9" r="1.5" />
 			<path d="M21 15l-5-5L5 21" />
 		</svg>
-	);
-}
-
-function Swatch({
-	title,
-	preview,
-	isSelected,
-	onSelect,
-	animated = false,
-}: {
-	title: string;
-	preview: string;
-	isSelected: boolean;
-	onSelect: () => void;
-	animated?: boolean;
-}) {
-	return (
-		<motion.button
-			type="button"
-			onClick={onSelect}
-			whileTap={{ scale: 0.96 }}
-			whileHover={{ scale: 1.15 }}
-			transition={springs.snappy}
-			className="relative flex size-6 items-center justify-center"
-			title={title}
-		>
-			{isSelected && (
-				<motion.div
-					layoutId="bg-ring"
-					className={`absolute size-5 ring-2 ring-neutral-900 dark:ring-neutral-100 ${animated ? "rounded-full" : "rounded-lg"}`}
-					transition={springs.snappy}
-				/>
-			)}
-			<div
-				className={`size-4 border border-black/10 dark:border-white/10 ${animated ? "rounded-full" : "rounded-md"}`}
-				style={{ background: preview }}
-			/>
-		</motion.button>
 	);
 }

@@ -20,7 +20,6 @@ import {
 } from "@/application/magic-move/focus-zoom";
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
-import { PlaybackControls } from "@/presentation/components/controls/playback-controls";
 import { useResizeObserverNode } from "@/presentation/hooks/use-resize-observer";
 import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -47,7 +46,6 @@ import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
-import { SocialControls } from "./social-controls";
 import { SocialPreviewOverlay } from "./social-preview-overlay";
 import { StepCaption } from "./step-caption";
 
@@ -134,6 +132,34 @@ function contentBox(el: HTMLElement): { width: number; height: number } {
 // the window at the same fraction of the aspect canvas the video renders. The
 // base scale is per-tier there (renderScaleFor), so it is here too: otherwise the
 // preview would frame a 4K export differently from the export itself.
+/**
+ * The tightest the stage card's outer corner is allowed to get, and the widest.
+ *
+ * The corner is concentric with the code window — `window radius + the mesh
+ * margin`, so both corners share one centre — right up to this ceiling, and then
+ * it stops. Uncapped, the default project (a 12px window inside a 32px margin)
+ * asked for 44px, and a 44px corner on a 670px card is a bubble: it disagrees
+ * with the crisp window it wraps, and it disagrees with every other surface on
+ * the page. It also grew every time the margin did, so the one control that was
+ * supposed to add breathing room quietly reshaped the object as well.
+ *
+ * 20px is the scene's own sheet radius (`--r-sheet` in app.css), which makes the
+ * two largest objects on screen — the stage card and the island's raised sheet —
+ * share a corner. It also sits beside the landing's product shot, whose mesh
+ * frame is 18px.
+ *
+ * THIS IS STAGE CHROME, NOT ARTWORK, and that is the whole reason a cap is
+ * allowed here at all. Neither exporter draws a card corner: the canvas painter
+ * fills the backdrop across the whole frame (`frame-painter/painter.ts`, plain
+ * `fillRect`) and Remotion does the same with an `AbsoluteFill`, and
+ * `FrameScene.card` carries no radius field to round. The rounded card is how
+ * the studio presents the video on paper, not something the video contains — so
+ * capping it changes no exported pixel. Do not "restore" the uncapped
+ * concentric value in the name of WYSIWYG: there is nothing on the other side
+ * to be true to.
+ */
+const STAGE_CARD_MAX_RADIUS = 20;
+
 const SOCIAL_BASE_VIDEO_SCALE = 2.2;
 const SOCIAL_CANVAS_MARGIN = 0.05;
 
@@ -352,8 +378,16 @@ export function LivePreview() {
 				};
 
 	const isTransparent = background === "transparent";
-	// Outer corner radius of the card (concentric law).
-	const cardRadius = isTransparent ? 0 : concentric(snippet.theme.borderRadius, cardMargin);
+	// A ceiling on the growth, never a licence to invert: at the widest margin and
+	// the roundest window the cap would have made the card's corner tighter than
+	// the corner it wraps, which is the one thing `concentric` already refuses to
+	// do. So the cap is floored by the window's own radius.
+	const cardRadius = isTransparent
+		? 0
+		: Math.min(
+				concentric(snippet.theme.borderRadius, cardMargin),
+				Math.max(STAGE_CARD_MAX_RADIUS, snippet.theme.borderRadius),
+			);
 
 	// In social mode the window's mesh margin goes transparent so the aspect box's
 	// canvas shows through as one continuous mesh; everywhere else the card paints
@@ -445,6 +479,11 @@ export function LivePreview() {
 		</motion.div>
 	);
 
+	// The frame and nothing else. The island used to be the last item of this
+	// column, which anchored it under the preview and kept it out of the top
+	// bar's way. There is no top bar any more and no column either: the shell
+	// places the instrument on the stage's own centre line, so the preview is
+	// free to be the picture and only the picture.
 	return (
 		<div className="flex h-full flex-col">
 			<div
@@ -496,11 +535,6 @@ export function LivePreview() {
 						{cardElement}
 					</div>
 				)}
-			</div>
-
-			<div className="flex shrink-0 flex-col items-center gap-2 pb-3">
-				<PlaybackControls />
-				<SocialControls />
 			</div>
 		</div>
 	);
@@ -642,7 +676,7 @@ function EmptyState({ building = false }: { building?: boolean }) {
 				<polyline points="16 18 22 12 16 6" />
 				<polyline points="8 6 2 12 8 18" />
 			</svg>
-			<span className="font-mono text-xs">
+			<span className="text-xs">
 				{building ? "Preparing preview…" : "Write code to see the preview"}
 			</span>
 		</div>

@@ -1,7 +1,9 @@
 import { resolvePrUrl } from "@/application/import/pr-url";
+import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { type ImportPlayMode, useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
 
@@ -22,6 +24,8 @@ export function DiffImportMenu() {
 	const [open, setOpen] = useState(false);
 	const [text, setText] = useState("");
 	const [mode, setMode] = useState<ImportPlayMode>("whole");
+	/** True while the paste waits on a confirm, because applying it would discard edits. */
+	const [confirming, setConfirming] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 
 	const { loading, error, progress, run, reset } = useSourceImport();
@@ -47,6 +51,8 @@ export function DiffImportMenu() {
 
 	useEffect(() => {
 		if (!open) {
+			// A closed popover forgets its pending question, not its paste.
+			setConfirming(false);
 			return;
 		}
 		function onKey(e: KeyboardEvent) {
@@ -62,10 +68,7 @@ export function DiffImportMenu() {
 		};
 	}, [open]);
 
-	async function apply() {
-		if (text.trim() === "" || loading) {
-			return;
-		}
+	async function performImport() {
 		// The toggle only reaches a PR: every other kind is a single sequence and
 		// `run` ignores the mode for it.
 		const imported = await run(text, mode);
@@ -73,13 +76,28 @@ export function DiffImportMenu() {
 			setText("");
 			setOpen(false);
 		}
+		// On failure the form comes back with the error under it.
+		setConfirming(false);
+	}
+
+	function apply() {
+		if (text.trim() === "" || loading) {
+			return;
+		}
+		// Applying replaces the whole studio: work the user authored since the
+		// last load is asked about first, like the template gallery always did.
+		if (useSnippetStore.getState().hasUnsavedEdits()) {
+			setConfirming(true);
+			return;
+		}
+		void performImport();
 	}
 
 	function onTextareaKeyDown(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
 		// ⌘/Ctrl+Enter applies without reaching for the mouse.
 		if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
 			e.preventDefault();
-			void apply();
+			apply();
 		}
 	}
 
@@ -134,56 +152,67 @@ export function DiffImportMenu() {
 							aria-label="Import a git diff"
 							className="absolute right-0 top-full z-50 mt-2 w-96 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
 						>
-							<textarea
-								ref={textareaRef}
-								value={text}
-								onChange={(e) => {
-									setText(e.target.value);
-									if (error) {
-										reset();
-									}
-								}}
-								onKeyDown={onTextareaKeyDown}
-								rows={10}
-								spellCheck={false}
-								placeholder={"paste a git diff, or a github pr url"}
-								className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
-							/>
-							<AnimatePresence initial={false}>
-								{prRef && (
-									// A PR link can play as one change or chapter by commit; quiet secondary row.
-									<motion.div
-										initial={{ opacity: 0, height: 0 }}
-										animate={{ opacity: 1, height: "auto" }}
-										exit={{ opacity: 0, height: 0 }}
-										transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-										className="overflow-hidden"
-									>
-										<div className="mt-2 flex items-center gap-2">
-											<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-												play as
-											</span>
-											<ModeToggle mode={mode} onSelect={setMode} />
-										</div>
-									</motion.div>
-								)}
-							</AnimatePresence>
-							<div className="mt-2 flex items-center justify-between gap-2">
-								<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-									{hint()}
-								</span>
-								<motion.button
-									type="button"
-									onClick={() => void apply()}
-									disabled={text.trim() === "" || loading}
-									whileTap={{ scale: 0.96 }}
-									transition={springs.snappy}
-									className="flex h-8 items-center justify-center rounded-lg bg-neutral-900 px-3 text-[11px] font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
-								>
-									{loading ? <Spinner /> : "Apply"}
-								</motion.button>
-							</div>
-							{error && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{error}</p>}
+							{confirming ? (
+								<ConfirmDiscard
+									message={`Replace what you have with this ${prRef ? "pull request" : "diff"}?`}
+									confirmLabel="Import the diff"
+									onCancel={() => setConfirming(false)}
+									onConfirm={() => void performImport()}
+								/>
+							) : (
+								<>
+									<textarea
+										ref={textareaRef}
+										value={text}
+										onChange={(e) => {
+											setText(e.target.value);
+											if (error) {
+												reset();
+											}
+										}}
+										onKeyDown={onTextareaKeyDown}
+										rows={10}
+										spellCheck={false}
+										placeholder={"paste a git diff, or a github pr url"}
+										className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+									/>
+									<AnimatePresence initial={false}>
+										{prRef && (
+											// A PR link can play as one change or chapter by commit; quiet secondary row.
+											<motion.div
+												initial={{ opacity: 0, height: 0 }}
+												animate={{ opacity: 1, height: "auto" }}
+												exit={{ opacity: 0, height: 0 }}
+												transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+												className="overflow-hidden"
+											>
+												<div className="mt-2 flex items-center gap-2">
+													<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+														play as
+													</span>
+													<ModeToggle mode={mode} onSelect={setMode} />
+												</div>
+											</motion.div>
+										)}
+									</AnimatePresence>
+									<div className="mt-2 flex items-center justify-between gap-2">
+										<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+											{hint()}
+										</span>
+										<motion.button
+											type="button"
+											onClick={apply}
+											disabled={text.trim() === "" || loading}
+											whileTap={{ scale: 0.96 }}
+											transition={springs.snappy}
+											className="flex h-8 items-center justify-center rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+										>
+											{loading ? <Spinner /> : "Apply"}
+										</motion.button>
+									</div>
+									{error && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{error}</p>}
+								</>
+							)}
 						</motion.div>
 					</>
 				)}
