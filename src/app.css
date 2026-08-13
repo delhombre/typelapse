@@ -1298,7 +1298,16 @@ html.dark:not([data-landing-theme]) {
 	   That is what makes the instrument and the chips read as one product: a
 	   30px button was 10px inside the island and 9px inside the utilities chip,
 	   and a 26px field was 8px in one place and 7px in another — differences too
-	   small to name and exactly large enough to feel. */
+	   small to name and exactly large enough to feel.
+
+	   ONE EXCEPTION, and it is the first rule rather than a break from it: inside
+	   a fully round parent, concentric means round. A 10px plate at the end of a
+	   999px pill cannot follow the cap it sits in — the gap between the two edges
+	   opens up around the curve and the plate reads as a rectangle rattling
+	   inside a capsule. So controls in the island's row and in the export status
+	   bar take `--r-pill`, and their hover wash and selection plate follow them
+	   there. Controls in the sheet keep their height's step, because the sheet is
+	   a 20px surface and 10px is what nests in that. */
 	--r-surface: 16px;
 	--r-sheet: 20px;
 	--r-control: 10px;
@@ -1404,6 +1413,16 @@ html.dark:not([data-landing-theme]) {
 		var(--ease-out);
 }
 
+/* Concentric inside a capsule is a capsule. The plate a control shows — its
+   hover wash, its selection fill — is `border-radius: inherit`, so rounding the
+   control rounds the mark with it, and a control at either end of the row now
+   nests into the dock's own cap at a constant gap instead of cutting a corner
+   across it. The sheet is a 20px surface and its controls keep the 10px step. */
+.studio-root .si-row .si-button,
+.studio-root .si-status .si-button {
+	border-radius: var(--r-pill);
+}
+
 .studio-root .si-button:disabled {
 	cursor: default;
 	opacity: 0.7;
@@ -1451,6 +1470,24 @@ html.dark:not([data-landing-theme]) {
 	.studio-root .si-button:hover:not(:disabled) {
 		color: var(--dock-ink);
 		background: rgb(255 255 255 / 0.07);
+	}
+
+	/* A plated control owns its own ink, and hover may not take it.
+	   `.si-button[data-selected]` sets the dark ink that reads on the white plate
+	   and carries three classes; the hover above carries four, so it won the
+	   cascade on the pseudo-classes alone and painted near-white text onto a
+	   near-white plate. Every selected segment in the product was affected — the
+	   open sheet tab, every chip in all four clusters, the chosen feed — and each
+	   one blanked its own label the moment the pointer rested on it.
+	   Hover moves the FILL one step and never the word: on something already
+	   filled there is one step left, and it is white. */
+	.studio-root .si-button[data-selected]:hover:not(:disabled) {
+		color: var(--dock-bg);
+		background: transparent;
+	}
+
+	.studio-root .si-button[data-selected]:hover:not(:disabled) .si-plate {
+		background: #fff;
 	}
 }
 
