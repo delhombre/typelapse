@@ -474,7 +474,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	playbackProgress: 0,
 	playback: null,
 	isRecording: false,
-	background: "mesh:aurora",
+	background: "mesh:solar",
 
 	// Seeded below, from the store's own producer, so the default studio starts
 	// out pristine without restating the defaults here.

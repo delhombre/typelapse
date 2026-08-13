@@ -128,7 +128,7 @@ export function UrlImportMenu() {
 									onKeyDown={onInputKeyDown}
 									placeholder="gist or github url"
 									spellCheck={false}
-									className="h-8 flex-1 rounded-lg border border-neutral-200/70 bg-white px-2.5 font-mono text-[11px] text-neutral-700 outline-none transition placeholder:text-neutral-300 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+									className="h-8 flex-1 rounded-xl border border-neutral-200/70 bg-white px-2.5 font-mono text-[11px] text-neutral-700 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 								/>
 								<motion.button
 									type="button"
@@ -136,7 +136,7 @@ export function UrlImportMenu() {
 									disabled={loading}
 									whileTap={{ scale: 0.96 }}
 									transition={springs.snappy}
-									className="flex h-8 items-center justify-center gap-1 rounded-lg bg-neutral-900 px-3 text-[11px] font-medium text-white transition-colors hover:bg-neutral-700 disabled:opacity-60 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
+									className="flex h-8 items-center justify-center gap-1 rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
 								>
 									{loading ? <Spinner /> : "Fetch"}
 								</motion.button>
