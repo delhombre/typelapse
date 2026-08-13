@@ -9,10 +9,10 @@ A timelapse for your code: morph snippets into MP4, WebM and GIF, token by token
 One engine drives both the browser preview and the Remotion render, so the exported video matches the preview frame for frame (WYSIWYG).
 
 <p align="center">
-	<img src="docs/demo.gif" width="720" alt="Typelapse rendering its own demo: a snippet morphs token by token, with a spotlight, captions and a typewriter intro" />
+	<img src="docs/demo.gif" width="720" height="540" alt="Typelapse rendering its own demo: a snippet morphs token by token, with a spotlight, captions and a typewriter intro" />
 </p>
 
-<p align="center"><sub>This demo was rendered by Typelapse itself: <code>POST /api/render</code>, straight from the repo.</sub></p>
+<p align="center"><sub>Rendered by Typelapse itself, from a project committed next to it: <code>pnpm demo:render</code> replays <a href="docs/demo.project.json"><code>docs/demo.project.json</code></a> through <code>POST /api/render</code>.</sub></p>
 
 
 ## Quickstart

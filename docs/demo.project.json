@@ -1,0 +1,40 @@
+{
+	"title": "typelapse.ts",
+	"code": "function timelapse(code: string) {\n  return code;\n}",
+	"language": "typescript",
+	"themeName": "midnight",
+	"fontFamily": "JetBrains Mono, monospace",
+	"borderRadius": 12,
+	"background": "mesh:solar",
+	"windowChrome": "macos",
+	"showLineNumbers": true,
+	"lineNumberStart": 1,
+	"framePadding": 24,
+	"cardMargin": 32,
+	"watermark": "",
+	"steps": [
+		{
+			"code": "function timelapse(code: string) {\n  return code;\n}",
+			"duration": 1500,
+			"caption": "Paste a snippet"
+		},
+		{
+			"code": "function timelapse(code: string) {\n  const steps = capture(code);\n  return steps;\n}",
+			"duration": 1200,
+			"focus": "2",
+			"caption": "Capture a few steps"
+		},
+		{
+			"code": "function timelapse(code: string) {\n  const steps = capture(code);\n  const video = morph(steps);\n  return render(video, \"demo.mp4\");\n}",
+			"duration": 1700,
+			"focus": "3-4",
+			"caption": "Export the morph"
+		}
+	],
+	"progressStyle": "reels",
+	"typewriter": true,
+	"focusZoom": false,
+	"transitionMs": 650,
+	"width": 720,
+	"height": 540
+}
