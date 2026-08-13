@@ -638,7 +638,7 @@ function EmptyState({ building = false }: { building?: boolean }) {
 				<polyline points="16 18 22 12 16 6" />
 				<polyline points="8 6 2 12 8 18" />
 			</svg>
-			<span className="font-mono text-xs">
+			<span className="text-xs">
 				{building ? "Preparing preview…" : "Write code to see the preview"}
 			</span>
 		</div>

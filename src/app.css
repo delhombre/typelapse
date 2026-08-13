@@ -77,6 +77,21 @@ html[data-landing-theme="dark"] {
 	color-scheme: dark;
 }
 
+/* The studio's equivalent. Its mark is the absence of the landing's attribute
+   plus the `.dark` class the theme store toggles. Without `color-scheme` the
+   native select popup and the scrollbars render light on a dark studio, and
+   the overscroll area falls through to a white document. The values are the
+   studio ramp's own ends, so / and /app agree at both temperatures. */
+html:not([data-landing-theme]) {
+	background: #fafaf9;
+	color-scheme: light;
+}
+
+html.dark:not([data-landing-theme]) {
+	background: #121110;
+	color-scheme: dark;
+}
+
 * {
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in oklch, currentColor 18%, transparent) transparent;
@@ -1219,7 +1234,9 @@ html[data-landing-theme="dark"] {
 	--color-neutral-700: #44403c;
 	--color-neutral-800: #292524;
 	--color-neutral-900: #1c1917;
-	--color-neutral-950: #0c0a09;
+	/* Not stone-950: the ramp's darkest step lands on the landing's dark paper,
+	   so crossing / → /app in dark does not drop the floor a step colder. */
+	--color-neutral-950: #121110;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

@@ -70,7 +70,7 @@ export function AppShell({ editor, stepBuilder, preview }: AppShellProps) {
 
 function SectionLabel({ children }: { children: ReactNode }) {
 	return (
-		<span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+		<span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
 			{children}
 		</span>
 	);

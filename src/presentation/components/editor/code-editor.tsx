@@ -30,6 +30,19 @@ const LANGUAGES = [
 	{ value: "dockerfile", label: "Dockerfile" },
 ];
 
+/**
+ * The model's file name, by Monaco language. The TypeScript worker reads the
+ * ScriptKind off the extension, and an extensionless in-memory model with
+ * `allowJs` on is classified as a *JavaScript* file — at which point every type
+ * annotation in a TypeScript snippet earns a red squiggle (ts 8010). `.tsx`
+ * keeps annotations and JSX both legal; `.jsx` keeps the same honesty for
+ * JavaScript, where an annotation genuinely is a mistake.
+ */
+const MONACO_PATHS: Record<string, string> = {
+	typescript: "snippet.tsx",
+	javascript: "snippet.jsx",
+};
+
 // Monaco theme that mirrors the preview snippet theme
 const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg: string }> = {
 	midnight: { base: "vs-dark", bg: "#0d1117", fg: "#e6edf3" },
@@ -55,6 +68,25 @@ export function CodeEditor() {
 	const handleMount = useCallback<OnMount>((editor, monaco) => {
 		monacoRef.current = monaco;
 
+		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
+		// toggles it: same keybinding VS Code uses. Also surfaces in the command
+		// palette (F1 → "Toggle word wrap") for discoverability.
+		editor.addAction({
+			id: "toggle-word-wrap",
+			label: "Toggle word wrap",
+			keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
+			run: (ed) => {
+				const wrapped = ed.getOption(monaco.editor.EditorOption.wordWrap) !== "off";
+				ed.updateOptions({ wordWrap: wrapped ? "off" : "on" });
+			},
+		});
+	}, []);
+
+	// Before the editor exists, not on mount: the wrapper applies the `theme`
+	// prop the moment it creates the editor, and a theme defined only afterwards
+	// silently falls back to the stock light `vs` — which is how a dark studio
+	// used to open on a white editor.
+	const handleBeforeMount = useCallback((monaco: Monaco) => {
 		// A snippet is a fragment, not a project: it imports nothing, resolves
 		// nothing, and is often mid-refactor by design. Semantic diagnostics would
 		// underline almost every template in red for being exactly what it is.
@@ -73,19 +105,6 @@ export function CodeEditor() {
 				target: monaco.languages.typescript.ScriptTarget.ESNext,
 			});
 		}
-
-		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
-		// toggles it: same keybinding VS Code uses. Also surfaces in the command
-		// palette (F1 → "Toggle word wrap") for discoverability.
-		editor.addAction({
-			id: "toggle-word-wrap",
-			label: "Toggle word wrap",
-			keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
-			run: (ed) => {
-				const wrapped = ed.getOption(monaco.editor.EditorOption.wordWrap) !== "off";
-				ed.updateOptions({ wordWrap: wrapped ? "off" : "on" });
-			},
-		});
 
 		// App-level themes (follow light/dark mode)
 		monaco.editor.defineTheme("typelapse-dark", {
@@ -180,8 +199,10 @@ export function CodeEditor() {
 				<Editor
 					value={snippet.code}
 					language={monacoLanguage(snippet.language)}
+					path={MONACO_PATHS[monacoLanguage(snippet.language)] ?? "snippet.txt"}
 					theme={editorTheme}
 					onChange={handleChange}
+					beforeMount={handleBeforeMount}
 					onMount={handleMount}
 					options={{
 						fixedOverflowWidgets: true,
