@@ -53,7 +53,7 @@ export function ConfirmDiscard({
 					onClick={onCancel}
 					whileTap={{ scale: 0.97 }}
 					transition={springs.snappy}
-					className="h-8 rounded-lg px-3 text-[12px] font-medium text-neutral-600 transition-colors hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
+					className="h-8 rounded-xl px-3 text-[12px] font-medium text-neutral-600 transition-colors hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
 				>
 					Keep my snippet
 				</motion.button>
@@ -63,7 +63,7 @@ export function ConfirmDiscard({
 					data-confirm-discard-confirm
 					whileTap={{ scale: 0.97 }}
 					transition={springs.snappy}
-					className="h-8 rounded-lg bg-neutral-900 px-3 text-[12px] font-medium text-white transition-colors hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+					className="h-8 rounded-xl bg-[var(--color-primary)] px-3 text-[12px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)]"
 				>
 					{confirmLabel}
 				</motion.button>
