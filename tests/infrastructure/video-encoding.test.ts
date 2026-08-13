@@ -1,6 +1,7 @@
 import {
 	avcCodecStrings,
 	encodingFor,
+	encodingQuality,
 	evenDimensions,
 	h264Level,
 } from "@/infrastructure/export/video-encoding";
@@ -68,5 +69,62 @@ describe("encodingFor", () => {
 		const choice = encodingFor("gif", 800, 600, 30);
 		expect(choice).toMatchObject({ container: "gif", codec: null, mime: "image/gif" });
 		expect(choice.probeCodecs).toEqual([]);
+	});
+});
+
+describe("encodingQuality", () => {
+	const mbps = (bits: number) => bits / 1_000_000;
+
+	it("asks for far more than a talking-head default at 1080p, because code is edges", () => {
+		// mediabunny's own QUALITY_HIGH lands 1080p on ~6.1 Mbps, which is a
+		// bitrate for faces. Thin coloured glyphs on a dark, moving gradient are
+		// the worst case for a block transform, and they are the whole picture.
+		const { bitrate } = encodingQuality("avc", 1920, 1080, 60);
+		expect(mbps(bitrate)).toBeGreaterThan(12);
+		expect(mbps(bitrate)).toBeLessThan(20);
+	});
+
+	it("charges for frame rate, which the library's formula ignores entirely", () => {
+		const thirty = encodingQuality("avc", 1920, 1080, 30).bitrate;
+		const sixty = encodingQuality("avc", 1920, 1080, 60).bitrate;
+		// Twice the frames are not twice the bytes — consecutive frames of a code
+		// animation are nearly identical — but they are not free either.
+		expect(sixty).toBeGreaterThan(thirty);
+		expect(sixty).toBeLessThan(thirty * 2);
+	});
+
+	it("climbs with pixels, sublinearly: a bigger frame codes cheaper per pixel", () => {
+		const hd = encodingQuality("avc", 1920, 1080, 60).bitrate;
+		const uhd = encodingQuality("avc", 3840, 2160, 60).bitrate;
+		expect(uhd).toBeGreaterThan(hd * 2);
+		expect(uhd).toBeLessThan(hd * 4);
+	});
+
+	it("puts 4K in the tens of megabits, where text at 4K actually resolves", () => {
+		expect(mbps(encodingQuality("avc", 3840, 2160, 60).bitrate)).toBeGreaterThan(40);
+	});
+
+	it("spends less on VP9, which carries the same picture in fewer bits", () => {
+		const avc = encodingQuality("avc", 1920, 1080, 60).bitrate;
+		const vp9 = encodingQuality("vp9", 1920, 1080, 60).bitrate;
+		expect(vp9).toBeLessThan(avc);
+	});
+
+	it("gives VP9 a quantizer, because that is the knob Chrome actually honours", () => {
+		// Measured: VideoEncoder refuses `bitrateMode: "quantizer"` for AVC and
+		// accepts it for VP9, so VP9 can be asked for a constant quality instead
+		// of a budget. 28 is the measured ceiling, not an inherited default —
+		// 22 bought +0.03 dB on the text for +27% bytes.
+		expect(encodingQuality("vp9", 1920, 1080, 60).quantizer).toBe(28);
+	});
+
+	it("gives AVC no quantizer, so the bitrate is the one thing that governs", () => {
+		expect(encodingQuality("avc", 1920, 1080, 60).quantizer).toBeNull();
+	});
+
+	it("returns whole bits per second: the encoder config takes an integer", () => {
+		for (const fps of [24, 30, 60]) {
+			expect(Number.isInteger(encodingQuality("avc", 1280, 720, fps).bitrate)).toBe(true);
+		}
 	});
 });

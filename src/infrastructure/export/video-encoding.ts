@@ -98,6 +98,97 @@ export function encodingFor(
 }
 
 /**
+ * What to spend on a frame of *code*.
+ *
+ * mediabunny's quality levels are a curve fitted to ordinary video, and they
+ * land 1080p on about 6 Mbps whatever the frame rate. That is a bitrate for
+ * faces. Our picture is the opposite of a face: thin, saturated glyphs with
+ * hard edges, held still and then moved all at once, over a mesh gradient that
+ * never stops flowing — high-frequency detail everywhere, and no flat region
+ * for a block transform to buy its bits back from. Measured against the
+ * painter's own output, the default lost 4.6 dB to compression on a 1080p60
+ * export, and lost it *on the glyph edges*, which is the only place anybody
+ * looks. So the ladder is ours, and it is deliberately generous.
+ *
+ * Two terms the library's formula does not have:
+ *
+ * - **Frame rate.** Twice the frames genuinely cost more, and the default
+ *   charges nothing for them, so a 60 fps export was quietly getting half the
+ *   bits per frame of a 30 fps one.
+ * - **Content.** The reference below is what 1080p30 of code wants, not what
+ *   1080p30 of anything wants.
+ *
+ * Both exponents are below one because neither term is linear: a bigger frame
+ * codes cheaper per pixel, and consecutive frames of a code animation are
+ * nearly identical.
+ */
+export interface EncodingQuality {
+	/** Target bitrate, in bits per second. */
+	bitrate: number;
+	/**
+	 * Constant-quality index, where the codec has one and the browser honours
+	 * it; null when the bitrate is the only thing that governs.
+	 */
+	quantizer: number | null;
+}
+
+/** Bits per second for 1080p30 of code. The anchor the rest of the ladder hangs off. */
+const REFERENCE_BITRATE = 10_000_000;
+const REFERENCE_PIXELS = 1920 * 1080;
+const REFERENCE_FPS = 30;
+
+/** A bigger frame codes cheaper per pixel. */
+const PIXEL_EXPONENT = 0.9;
+/** Consecutive frames of a code animation are nearly identical. */
+const FPS_EXPONENT = 0.6;
+
+/** How many bits each codec needs for the same picture, relative to H.264. */
+const CODEC_EFFICIENCY: Record<ClientCodec, number> = {
+	avc: 1,
+	vp9: 0.7,
+};
+
+/**
+ * VP9's quantizer, on its 0–63 scale, stated rather than inherited.
+ *
+ * `VideoEncoder.isConfigSupported` refuses `bitrateMode: "quantizer"` for AVC
+ * and accepts it for VP9, so WebM is the one format here that can be asked for
+ * a constant quality instead of a budget — which is what a video of long still
+ * holds and short violent morphs actually wants.
+ *
+ * 28 is where mediabunny's own "high" lands, and it is kept because it was
+ * *measured* rather than because it was the default: 22 was tried and bought
+ * +0.03 dB on the text for +27% bytes. Chrome's VP9 encoder is already at its
+ * practical ceiling for this content, so a finer quantiser only buys file size.
+ * The number is written down so the next person does not have to run the
+ * experiment again to find out that it was chosen.
+ */
+const VP9_QUANTIZER = 28;
+
+export function encodingQuality(
+	codec: ClientCodec,
+	width: number,
+	height: number,
+	fps: number,
+): EncodingQuality {
+	const pixelFactor = (width * height) / REFERENCE_PIXELS;
+	const fpsFactor = fps / REFERENCE_FPS;
+	const bitrate =
+		REFERENCE_BITRATE *
+		pixelFactor ** PIXEL_EXPONENT *
+		fpsFactor ** FPS_EXPONENT *
+		CODEC_EFFICIENCY[codec];
+	return {
+		// Whole kilobits: the number goes straight into a `VideoEncoderConfig`,
+		// which wants an integer, and the extra precision means nothing.
+		bitrate: Math.round(bitrate / 1000) * 1000,
+		// AVC gets none on purpose. Chrome will not honour a quantizer for it, and
+		// offering one that silently falls back would make the ladder a fiction.
+		quantizer: codec === "vp9" ? VP9_QUANTIZER : null,
+	};
+}
+
+/**
  * An even canvas on both axes.
  *
  * 4:2:0 chroma is subsampled by two, so an odd dimension has half a chroma
