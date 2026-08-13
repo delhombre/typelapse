@@ -5,6 +5,7 @@ import type { Snippet } from "@/domain/entities/snippet";
 import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download.adapter";
 import { CloudRenderAdapter } from "@/infrastructure/export/cloud-render.adapter";
 import { gifDimensions } from "@/infrastructure/export/gif-quality";
+import { gifSafeFps } from "@/infrastructure/export/gif-timing";
 import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
@@ -624,8 +625,11 @@ function deviceNote(
 	}
 	if (config.format === "gif") {
 		const gif = gifDimensions(config.width, config.height);
+		const fps = gifSafeFps(config.fps);
 		const concessions = [
-			config.fps > 50 ? `50 fps (GIF's ceiling, not ${config.fps})` : null,
+			// The rate is asked of the same function the worker uses, so the note
+			// cannot drift from what the file actually gets.
+			fps < config.fps ? `${fps} fps (not ${config.fps}, so the pixels win)` : null,
 			gif.scaled ? `${gif.width}×${gif.height}` : null,
 		].filter(Boolean);
 		if (concessions.length > 0) {

@@ -10,9 +10,23 @@
  * to frame instead of rounded away, or a ten-second GIF finishes at nine.
  */
 
-/** The fastest GIF the format can actually deliver, at or below the ask. */
+/**
+ * The fastest GIF worth delivering, at or below the ask.
+ *
+ * The format's own ceiling is 50 — two centiseconds a frame — but that is the
+ * limit, not the target. LZW cannot compress the dither, so every frame costs
+ * nearly a whole frame's worth of bytes, and a GIF that runs at 50 spends its
+ * entire budget on motion nobody perceives while the code inside it stays too
+ * small to read. Measured on one 5.8 s export: 640 px at 50 fps is 14.98 MB,
+ * 960 px at 20 fps is 11.98 MB — 2.25x the pixels, and a fifth off the file.
+ *
+ * So the cap is a budget decision rather than a format one. Code is read, not
+ * watched: 20 carries the morph well enough and leaves the bytes for pixels.
+ */
+export const GIF_MAX_FPS = 20;
+
 export function gifSafeFps(fps: number): number {
-	return Math.max(1, Math.min(Math.floor(fps) || 1, 50));
+	return Math.max(1, Math.min(Math.floor(fps) || 1, GIF_MAX_FPS));
 }
 
 /**

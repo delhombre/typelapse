@@ -16,8 +16,17 @@
  * Both are told to the user rather than done quietly.
  */
 
-/** The long edge a GIF is brought down to. */
-export const GIF_MAX_EDGE = 640;
+/**
+ * The long edge a GIF is brought down to.
+ *
+ * 640 was chosen when a GIF cost a whole centisecond a frame at 50 fps, and at
+ * 640 the code in it is not readable — which for a format whose entire job is
+ * showing code is the wrong thing to have economised on. The frame rate cap
+ * (`GIF_MAX_FPS`) pays for this: measured on one 5.8 s export, 640 px at 50 fps
+ * was 14.98 MB and 960 px at 20 fps is 11.98 MB. The bigger picture is also the
+ * smaller file, so the only reason to stay at 640 was one that no longer holds.
+ */
+export const GIF_MAX_EDGE = 960;
 
 /** How far a threshold may push a channel, in 0..255. */
 const DITHER_AMPLITUDE = 16;
