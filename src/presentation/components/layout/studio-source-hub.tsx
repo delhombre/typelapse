@@ -5,7 +5,8 @@ import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type ChangeEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { Add, BranchDown, ChevronRight, FileText, Link as LinkGlyph } from "reicon-react";
+import { useNavigate } from "react-router-dom";
+import { Add, BranchDown, ChevronRight, FileText, Image, Link as LinkGlyph } from "reicon-react";
 import { DiffImportMenu } from "./diff-import-menu";
 import { UrlImportMenu } from "./url-import-menu";
 
@@ -25,6 +26,7 @@ export function StudioSourceHub() {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const reduce = useReducedMotion() === true;
+	const navigate = useNavigate();
 	const importFromJson = useSnippetStore((state) => state.importFromJson);
 
 	const close = useCallback(() => setView(null), []);
@@ -145,6 +147,15 @@ export function StudioSourceHub() {
 							<strong>Add source</strong>
 							<span>Choose what Typelapse should animate.</span>
 						</header>
+						<SourceChoice
+							label="Compose a story"
+							detail="Text, code, images, video and sound"
+							icon={<Image size={14} aria-hidden="true" />}
+							onClick={() => {
+								close();
+								navigate("/app/story");
+							}}
+						/>
 						<SourceChoice
 							label="Paste a link"
 							detail="Gist, GitHub file or commit"

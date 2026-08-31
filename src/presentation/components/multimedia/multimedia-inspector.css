@@ -1,0 +1,152 @@
+.mm-control-section {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.mm-control-section > legend {
+	width: 100%;
+	margin: 0 0 8px;
+	padding: 0;
+	color: var(--mm-muted);
+	font-size: 9.5px;
+	font-weight: 590;
+}
+
+.mm-placement-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.mm-compact-number {
+	display: grid;
+	height: 36px;
+	grid-template-columns: 18px minmax(0, 1fr) 14px;
+	align-items: center;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 10px;
+	background: rgb(28 27 25 / 0.035);
+	color: var(--mm-muted);
+	font-size: 9px;
+}
+
+.dark .mm-compact-number {
+	background: rgb(255 255 255 / 0.055);
+}
+
+.mm-compact-number:focus-within {
+	border-color: color-mix(in srgb, var(--mm-primary) 55%, var(--mm-hairline));
+	background: color-mix(in srgb, var(--mm-primary) 5%, transparent);
+}
+
+.mm-compact-number > span:first-child {
+	text-align: right;
+	font-weight: 660;
+}
+
+.mm-compact-number input {
+	min-width: 0;
+	height: 34px;
+	padding: 0 4px;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--mm-ink);
+	font: 560 10.5px / 1 var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-order-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 4px;
+	padding: 3px;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 11px;
+	background: rgb(28 27 25 / 0.035);
+}
+
+.dark .mm-order-grid {
+	background: rgb(255 255 255 / 0.055);
+}
+
+.mm-order-grid button {
+	display: flex;
+	min-width: 0;
+	height: 38px;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 2px;
+	padding: 0 2px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--mm-muted);
+	font-size: 7.5px;
+	font-weight: 590;
+}
+
+.mm-order-grid button:not(:disabled):hover {
+	background: var(--mm-surface);
+	color: var(--mm-ink);
+}
+
+.mm-order-grid button:not(:disabled):active {
+	transform: scale(0.96);
+}
+
+.mm-order-grid button:disabled {
+	opacity: 0.3;
+}
+
+.mm-media-number-grid,
+.mm-clip-timing-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 7px;
+}
+
+.mm-media-number-grid {
+	margin-top: 7px;
+}
+
+.mm-mini-field {
+	min-width: 0;
+}
+
+.mm-mini-field > span {
+	display: block;
+	margin-bottom: 5px;
+	color: var(--mm-muted);
+	font-size: 8.5px;
+	font-weight: 570;
+}
+
+.mm-mini-field input,
+.mm-mini-field select {
+	width: 100%;
+	height: 36px;
+	padding: 0 9px;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 10px;
+	outline: 0;
+	background: rgb(28 27 25 / 0.035);
+	color: var(--mm-ink);
+	font: 560 10.5px / 1 var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+.dark .mm-mini-field input,
+.dark .mm-mini-field select {
+	background: rgb(255 255 255 / 0.055);
+}
+
+.mm-mini-field input:focus-visible,
+.mm-mini-field select:focus-visible,
+.mm-order-grid button:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--mm-primary) 60%, transparent);
+	outline-offset: 1px;
+}

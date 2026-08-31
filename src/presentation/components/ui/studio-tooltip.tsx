@@ -26,7 +26,7 @@ export function StudioTooltip({
 }: {
 	content: ReactNode;
 	children: ReactElement;
-	side?: "top" | "bottom";
+	side?: "top" | "right" | "bottom" | "left";
 	className?: string;
 }) {
 	const hasSharedProvider = useContext(StudioTooltipProviderContext);

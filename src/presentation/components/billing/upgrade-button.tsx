@@ -13,13 +13,13 @@ import { motion } from "motion/react";
  * wire.
  */
 export function UpgradeButton() {
-	const { plan, isUpgrading, upgrade, downgrade } = usePlanStore();
+	const { plan, isUpgrading, upgrade, manageBilling } = usePlanStore();
 
 	if (plan.isPro) {
 		return (
 			<motion.button
 				type="button"
-				onClick={downgrade}
+				onClick={() => void manageBilling()}
 				whileTap={{ scale: 0.95 }}
 				transition={springs.snappy}
 				title="Pro: hosted export, no watermark, 4K/60fps. Click to reset (dev)."
@@ -34,7 +34,7 @@ export function UpgradeButton() {
 	return (
 		<motion.button
 			type="button"
-			onClick={upgrade}
+			onClick={() => void upgrade()}
 			disabled={isUpgrading}
 			whileTap={{ scale: 0.97 }}
 			transition={springs.snappy}

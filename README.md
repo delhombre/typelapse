@@ -1,85 +1,135 @@
 <p align="center">
-	<img src="public/favicon.svg" width="72" />
+	<img src="public/favicon.svg" width="72" alt="Typelapse" />
 </p>
 
 # Typelapse
 
-A timelapse for your code: morph snippets into MP4, WebM and GIF, token by token.
+A scene-first multimedia motion studio for text, code, images, video and audio.
+Use every medium on its own or compose them into launch videos, walkthroughs,
+social clips and code stories. Diffs and pull requests are structured inputs,
+not the product boundary.
 
-One engine drives both the browser preview and the Remotion render, so the exported video matches the preview frame for frame (WYSIWYG).
+Typelapse has two honest deployment profiles:
 
-<p align="center">
-	<img src="docs/demo.gif" width="720" alt="Typelapse rendering its own demo: a snippet morphs token by token, with a spotlight, captions and a typewriter intro" />
-</p>
+- **On-device:** no account, browser persistence and local video rendering.
+- **Hosted:** private projects and media, Better Auth sessions, Stripe billing
+  and queued background rendering.
 
-<p align="center"><sub>This demo was rendered by Typelapse itself: <code>POST /api/render</code>, straight from the repo.</sub></p>
-
-
-## Quickstart
+## Try the on-device studio
 
 ```bash
 pnpm install
-pnpm dev         # studio at http://localhost:5173
-pnpm dev:server  # render API on port 3001
-pnpm test        # run the test suite
+pnpm dev          # UI at http://localhost:5173
+pnpm dev:server   # local render API at http://localhost:3001
 ```
 
-<details open>
-<summary>Features</summary>
+Open `/app`. The default profile keeps the project and imported media on this
+device. Exporting a `.typelapse.json` file preserves the editable document, but
+does not pretend to embed original media bytes.
 
-- Token-level magic move: shared tokens glide, removed tokens fade out, added tokens fade in (not a crossfade).
-- Diff walkthroughs: paste a unified diff or a GitHub PR URL; hunks become windowed, captioned steps (lockfiles filtered).
-- Spotlight: focus lines per step; the rest dims, crossfading through morphs. Optional cinematic zoom onto the focus.
-- Captions: per-step annotations rendered under the frame, cross-dissolving between steps.
-- Record mode: type in the editor; a step is captured at every pause.
-- Typewriter intro, seamless loop, morph tempo (snappy / smooth / cinematic) and synthesized typing sounds.
-- Animated mesh-gradient, solid or uploaded-image backdrops: same clock in preview and render.
-- Window chromes: macOS, browser, terminal or none.
-- Aspect presets: 16:9, 1:1, 9:16, 4:5 and 3:4 for Reels, Shorts and TikTok.
-- Progress styles, line-number start and toggle, 7 themes, 5 monospace fonts.
-- Import from a gist or GitHub URL; share links, JSON import/export and PNG snapshot.
+## What is implemented
 
-</details>
+- One ordered scene timeline with text, code, image and video layers.
+- Global audio cues with trim, timing, gain and fades.
+- Layer placement, crop, focal point, radius, playback rate, mute and z-order.
+- Scene duration, transitions, reorder, scrub, undo and redo.
+- Shared scene compiler for the DOM preview and Remotion renderer.
+- Real local MP4/WebM rendering from the current multimedia document.
+- IndexedDB autosave and an editable V2 project document.
+- Optional diff, PR, commit and code-file imports.
+- Hosted owner-scoped project CRUD with optimistic revisions.
+- Private R2 media upload/finalization with MIME, size and SHA-256 verification.
+- Better Auth email/password sessions.
+- Stripe monthly/annual Checkout, Customer Portal and signed webhook projection.
+- Postgres-backed render and object-deletion workers with leased retries.
 
-<details>
-<summary>How the WYSIWYG invariant works</summary>
+## Hosted profile
 
-The magic-move engine is pure and dependency-free. It lays every token out on a
-monospace grid measured in `ch` columns and line rows, so the layout never touches
-the DOM. Diffing two frames yields one plan: shared tokens glide, removed tokens
-fade out, added tokens fade in.
+The hosted profile is a real backend, not a simulated paid mode. It fails closed
+until every required adapter is configured.
 
-The browser preview drives that plan from `requestAnimationFrame`; the Remotion
-render drives the same plan from a frame number. Same inputs, same plan, same
-pixels, so the exported video matches the preview frame for frame.
+1. Copy `.env.example` to `.env` and select `TYPELAPSE_DEPLOYMENT_MODE=hosted`.
+2. Configure PostgreSQL (local, Neon or another managed provider), Better Auth,
+   a private R2 bucket and Stripe test or live credentials.
+3. Apply the versioned schema:
 
-</details>
+   ```bash
+   pnpm db:migrate
+   ```
 
-## Make it yours
+4. Verify that the API can mount every commercial capability without printing
+   secrets:
 
-- Paste a GitHub pull-request URL to turn a whole change into a captioned walkthrough.
-- Arm record mode, then type in the editor; every pause captures a step.
-- Toggle synthesized typing sounds before you export, and they are baked into the video.
+   ```bash
+   pnpm hosted:check
+   ```
+
+5. Run the API and workers as separate processes:
+
+   ```bash
+   pnpm dev:server
+   pnpm worker:render
+   pnpm worker:object-deletion
+   ```
+
+`GET /health` is the runtime source of truth for `auth`, `projectSync`,
+`privateAssets`, `billing` and `hostedRendering`. Anonymous synchronous Remotion
+compute is never mounted in hosted mode.
+
+### Browser configuration
+
+Build the frontend with:
+
+```dotenv
+VITE_TYPELAPSE_DEPLOYMENT_MODE=hosted
+VITE_TYPELAPSE_AUTH_ENABLED=true
+# Omit for same-origin /api/auth, or set the absolute API origin.
+VITE_BETTER_AUTH_URL=https://api.example.com
+```
+
+The public pricing UI reads amounts from `/api/billing/catalog`. The server
+resolves configured Stripe Price IDs; the browser never submits a Price ID and
+signed webhooks remain the only source of paid entitlement.
+
+## Business model encoded in the product
+
+- **On-device:** the complete local editor, accountless and not artificially
+  limited by a hosted plan.
+- **Hosted Free:** private continuity and limited hosted service; no cloud video
+  render entitlement.
+- **Creator:** one seat, private cloud projects/assets and hosted 4K rendering,
+  sold monthly or annually through Stripe.
+- **Studio:** deliberately not sold until shared workspaces, roles and seat
+  reconciliation exist.
+
+Exact prices live in Stripe. The landing page shows no invented amount when the
+hosted catalog is absent.
 
 ## Architecture
 
-Hexagonal (ports and adapters), with every dependency pointing inward to a pure core.
+The codebase follows a hexagonal boundary:
 
-```mermaid
-graph TB
-  preview["presentation<br/>React studio, rAF preview"]
-  server["server<br/>Hono API, Remotion render"]
-  engine["application<br/>magic-move engine (pure)"]
-  domain["domain<br/>entities, value objects, ports"]
-  infra["infrastructure<br/>Shiki adapters"]
-
-  preview -->|drives| engine
-  server -->|drives| engine
-  infra --> engine
-  engine --> domain
+```text
+src/domain          immutable entities, value objects and ports
+src/application     authoring, compilation, sync and render use cases
+src/infrastructure  browser, Shiki, Stripe and HTTP adapters
+src/presentation    React studio and landing page
+server              Hono composition root, Postgres/R2 adapters and workers
 ```
 
-<sub>The preview and the render drive the same pure engine, so what you preview is what you export.</sub>
+The canonical model is `Project → Scene → Block → Asset`, plus global
+`AudioCue → Asset` references. Runtime URLs and signed storage access never enter
+the serialized document.
+
+## Quality gates
+
+```bash
+pnpm test
+pnpm check-types
+pnpm typecheck:server
+pnpm lint
+pnpm build
+```
 
 ## License
 

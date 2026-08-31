@@ -4,7 +4,7 @@
  * shadows jsdom's implementation before a test starts. Keep the browser-like
  * contract deterministic without writing test state to disk.
  */
-if (window.localStorage === undefined) {
+if (typeof window !== "undefined" && window.localStorage === undefined) {
 	const buckets = new WeakMap<object, Map<string, string>>();
 	const storage = Object.create(Storage.prototype) as Storage;
 	buckets.set(storage, new Map());

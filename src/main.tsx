@@ -11,6 +11,12 @@ const StudioRoute = lazy(() =>
 	})),
 );
 
+const MultimediaRoute = lazy(() =>
+	import("@/presentation/studio/multimedia-route").then(({ MultimediaRoute: RouteComponent }) => ({
+		default: RouteComponent,
+	})),
+);
+
 const root = document.getElementById("root");
 if (!root) {
 	throw new Error("Root element not found");
@@ -34,6 +40,14 @@ createRoot(root).render(
 						element={
 							<Suspense fallback={<div className="min-h-dvh bg-paper" aria-busy="true" />}>
 								<StudioRoute />
+							</Suspense>
+						}
+					/>
+					<Route
+						path="/app/story"
+						element={
+							<Suspense fallback={<div className="min-h-dvh bg-paper" aria-busy="true" />}>
+								<MultimediaRoute />
 							</Suspense>
 						}
 					/>
