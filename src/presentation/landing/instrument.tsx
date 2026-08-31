@@ -1,4 +1,5 @@
 import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gradient";
+import { FRAME_SECONDARY_ALPHA_HEX } from "@/application/layout/frame-metrics";
 import {
 	type RenderToken,
 	easeInOutCubic,
@@ -29,6 +30,7 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import { BackGlyph, PauseGlyph, PlayGlyph } from "./island-icons";
+import { useLandingIntro } from "./primitives";
 
 /* The instrument runs the real product parts: the same three-step `api/users.ts`
    demo, tokenized by Shiki, keyed + morphed by the shared magic-move engine, and
@@ -173,10 +175,11 @@ export function Instrument({
 	onPresetChange?: (id: string) => void;
 } = {}) {
 	const reduce = useReducedMotion();
+	const playIntro = useLandingIntro();
 	const [themeName, setThemeName] = useState("aurora");
 	const [presetId, setPresetId] = useState("solar");
 	const [aspect, setAspect] = useState<AspectId>("16:9");
-	const [playing, setPlaying] = useState(!reduce);
+	const [playing, setPlaying] = useState(() => Boolean(!reduce && playIntro));
 	const [view, setView] = useState<DemoView | null>(null);
 	const [plan, setPlan] = useState<{
 		plan: MagicMovePlan;
@@ -194,6 +197,7 @@ export function Instrument({
 	const presetRef = useRef(preset);
 	presetRef.current = preset;
 	const elapsedRef = useRef(0);
+	const endedRef = useRef(!playIntro || Boolean(reduce));
 	const meshTRef = useRef(MESH_IDLE_T);
 	const initedRef = useRef(false);
 	const meshRef = useRef<HTMLDivElement>(null);
@@ -270,10 +274,18 @@ export function Instrument({
 				if (cancelled) {
 					return;
 				}
-				const built = buildMagicMovePlan(h, LOOP_CODES, "typescript", theme.name, false);
+				const built = buildMagicMovePlan(
+					h,
+					LOOP_CODES,
+					"typescript",
+					theme.name,
+					theme.background,
+					false,
+				);
 				const timeline = buildTimeline(HOLDS);
-				// Reduced motion mounts on the finished frame, not mid-loop.
-				if (reduce && !initedRef.current) {
+				// Returning in the same session and reduced motion both mount on the
+				// finished frame. The hero introduction only performs once.
+				if ((reduce || !playIntro) && !initedRef.current) {
 					const hold = timeline.segments.find(
 						(s) => s.type === "hold" && s.index === DEMO_FRAMES.length - 1,
 					);
@@ -288,7 +300,7 @@ export function Instrument({
 		return () => {
 			cancelled = true;
 		};
-	}, [theme.name, reduce]);
+	}, [theme.name, theme.background, reduce, playIntro]);
 
 	/** Paused by the visitor, or suspended because the stage is off screen. The
 	    two are deliberately one state here and two states outside: whoever paused
@@ -311,13 +323,25 @@ export function Instrument({
 		let cancelled = false;
 		let last = performance.now();
 		const lastSig = { current: "" };
+		const finalHold = timeline.segments.find(
+			(segment) => segment.type === "hold" && segment.index === DEMO_FRAMES.length - 1,
+		);
+		const stopAt = finalHold?.endMs ?? timeline.totalMs;
 		const tick = (now: number) => {
 			if (cancelled) {
 				return;
 			}
 			const dt = now - last;
 			last = now;
-			elapsedRef.current = (elapsedRef.current + dt) % timeline.totalMs;
+			const nextElapsed = elapsedRef.current + dt;
+			if (nextElapsed >= stopAt) {
+				elapsedRef.current = Math.max(0, stopAt - 1);
+				setView(resolveView(built, locate(timeline, elapsedRef.current)));
+				endedRef.current = true;
+				setPlaying(false);
+				return;
+			}
+			elapsedRef.current = nextElapsed;
 			const pos = locate(timeline, elapsedRef.current);
 			const sig = `${pos.phase}:${pos.index}:${pos.phase === "transition" ? Math.round(pos.t * 60) : 0}`;
 			if (sig !== lastSig.current) {
@@ -341,6 +365,18 @@ export function Instrument({
 			cancelAnimationFrame(raf);
 		};
 	}, [plan, suspended]);
+
+	const togglePlayback = () => {
+		if (playing) {
+			setPlaying(false);
+			return;
+		}
+		if (endedRef.current) {
+			elapsedRef.current = 0;
+			endedRef.current = false;
+		}
+		setPlaying(true);
+	};
 
 	// Recolour a suspended mesh when the background swatch changes (the rAF loop
 	// owns the mesh while it runs). Painted at the frozen `meshTRef`, so the
@@ -389,7 +425,7 @@ export function Instrument({
 									lineHeightRatio={LINE_HEIGHT_RATIO}
 									fontFamily={theme.fontFamily}
 									color={theme.foreground}
-									lineNumberColor={`${theme.foreground}26`}
+									lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
 									padding={FRAME_PADDING}
 								/>
 							) : (
@@ -403,7 +439,7 @@ export function Instrument({
 			<Toolbar
 				reduce={reduce ?? false}
 				playing={playing}
-				onPlayToggle={() => setPlaying((p) => !p)}
+				onPlayToggle={togglePlayback}
 				presetId={presetId}
 				onPresetChange={(id) => {
 					setPresetId(id);

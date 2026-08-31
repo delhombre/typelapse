@@ -90,46 +90,10 @@ export function restoreDraftOnBoot(hash: string): boolean {
 	}
 	try {
 		useSnippetStore.getState().importFromJson(draft);
-		rehydrateThemeFields(draft);
 		return true;
 	} catch {
 		clearDraft();
 		return false;
-	}
-}
-
-/**
- * Put back the two theme fields the shared import path cannot carry.
- *
- * `toProjectPayload` saves `fontFamily` and `borderRadius`, but `importFromJson`
- * rebuilds the theme from `themeName` alone — it looks the name up in the
- * factory table and takes whatever that factory returns. For a FILE that is a
- * deliberate decision and it stays: an authored JSON names a theme and gets that
- * theme. For a draft it is data loss, because the draft is not a document the
- * visitor chose to open, it is the session they were already in — and then the
- * autosave writes the reset values back over the ones they picked, so a font and
- * a radius chosen once were gone for good on the next reload.
- *
- * Applied after the import rather than inside it, so the file format's own
- * behaviour is left exactly as it is.
- */
-function rehydrateThemeFields(draft: string): void {
-	let parsed: unknown;
-	try {
-		parsed = JSON.parse(draft);
-	} catch {
-		return;
-	}
-	if (typeof parsed !== "object" || parsed === null) {
-		return;
-	}
-	const record = parsed as Record<string, unknown>;
-	const store = useSnippetStore.getState();
-	if (typeof record.fontFamily === "string" && record.fontFamily.length > 0) {
-		store.setFont(record.fontFamily);
-	}
-	if (typeof record.borderRadius === "number" && Number.isFinite(record.borderRadius)) {
-		store.setBorderRadius(record.borderRadius);
 	}
 }
 
@@ -144,7 +108,10 @@ export interface DraftAutosave {
  * settle. The write is skipped when the payload has not actually changed, so
  * playback ticks and other non-project state churn never touch localStorage.
  */
-export function startDraftAutosave(pristine?: string): DraftAutosave {
+export function startDraftAutosave(
+	pristine?: string,
+	onSave?: (json: string) => void,
+): DraftAutosave {
 	let timer: ReturnType<typeof setTimeout> | null = null;
 	/** When the change now waiting was first noticed, for the ceiling above. */
 	let pendingSince: number | null = null;
@@ -174,6 +141,7 @@ export function startDraftAutosave(pristine?: string): DraftAutosave {
 		if (json !== lastWritten) {
 			writeDraft(json);
 			lastWritten = json;
+			onSave?.(json);
 		}
 	};
 

@@ -39,6 +39,13 @@ const CAPTION_BLOCK = 14 + 20;
 export const CHROME_FONT_STACK = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /**
+ * Secondary text remains quieter than code while passing 4.5:1 after it is
+ * composited onto every built-in theme. Hex alpha keeps DOM, Remotion and the
+ * canvas painter on the exact same tint.
+ */
+export const FRAME_SECONDARY_ALPHA_HEX = "cc";
+
+/**
  * Every number and tint the three chrome bars are built from, in unscaled px.
  *
  * One table, read by all three surfaces: `FrameChrome` styles itself from it,
@@ -54,7 +61,7 @@ export const CHROME_STYLE = {
 	/** The hairline every bar closes with. */
 	borderAlpha: "0f",
 	border: 1,
-	titleAlpha: "59",
+	titleAlpha: FRAME_SECONDARY_ALPHA_HEX,
 	macos: {
 		padX: 16,
 		padY: 12,

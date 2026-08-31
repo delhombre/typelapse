@@ -1,6 +1,12 @@
+import type { ProjectPayload } from "@/application/project/project-payload";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
+	ensureActiveLocalProject,
+	saveActiveLocalProject,
+} from "@/presentation/utils/local-project-storage";
+import {
 	type DraftAutosave,
+	hasArrivalPayload,
 	restoreDraftOnBoot,
 	startDraftAutosave,
 } from "@/presentation/utils/studio-draft";
@@ -34,7 +40,17 @@ export function StudioPersistence() {
 			restoredRef.current = true;
 			restoreDraftOnBoot(arrivalHash);
 		}
-		const autosave = startDraftAutosave(pristine);
+		const current = useSnippetStore.getState().toProjectPayload();
+		ensureActiveLocalProject(current);
+		// A plain visit may have restored a newer single-draft snapshot. Sync it
+		// into the active project immediately. A content-bearing link gets to load
+		// first; its first real state change will be caught by the autosave below.
+		if (!hasArrivalPayload(arrivalHash)) {
+			saveActiveLocalProject(current);
+		}
+		const autosave = startDraftAutosave(pristine, (json) => {
+			saveActiveLocalProject(JSON.parse(json) as ProjectPayload);
+		});
 		autosaveRef.current = autosave;
 		return () => {
 			// Leaving the studio (say, back to the landing) is not a crash: write

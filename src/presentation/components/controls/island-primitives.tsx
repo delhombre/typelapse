@@ -1,3 +1,4 @@
+import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
 import { motion, useReducedMotion } from "motion/react";
@@ -48,13 +49,12 @@ export function IslandSegmented<T extends string | number>({
 			<span className="si-seg">
 				{options.map((option) => {
 					const selected = option.value === value;
-					return (
+					const button = (
 						<button
 							key={option.value}
 							type="button"
 							aria-pressed={selected}
 							disabled={option.disabled}
-							title={option.title}
 							onClick={() => {
 								trigger("selection");
 								onSelect(option.value);
@@ -72,6 +72,14 @@ export function IslandSegmented<T extends string | number>({
 							<span className="si-seg-label">{option.label}</span>
 						</button>
 					);
+					if (option.title) {
+						return (
+							<StudioTooltip key={option.value} content={option.title}>
+								{button}
+							</StudioTooltip>
+						);
+					}
+					return button;
 				})}
 			</span>
 		</span>
@@ -96,12 +104,11 @@ export function IslandToggle({
 	onToggle: () => void;
 	children?: ReactNode;
 }) {
-	return (
+	const button = (
 		<button
 			type="button"
 			aria-pressed={pressed}
 			aria-label={label}
-			title={title}
 			onClick={() => {
 				trigger("selection");
 				onToggle();
@@ -112,6 +119,10 @@ export function IslandToggle({
 			<span className="si-seg-label">{label}</span>
 		</button>
 	);
+	if (title) {
+		return <StudioTooltip content={title}>{button}</StudioTooltip>;
+	}
+	return button;
 }
 
 /**
@@ -135,27 +146,28 @@ export function IslandSwatch({
 	children?: ReactNode;
 }) {
 	return (
-		<button
-			type="button"
-			aria-pressed={selected}
-			aria-label={label}
-			title={label}
-			onClick={() => {
-				trigger("selection");
-				onSelect();
-			}}
-			className="si-button si-swatch-button"
-		>
-			{selected && <span className="si-plate si-plate-soft" />}
-			<span
-				className="si-swatch"
-				data-round={round ? "" : undefined}
-				style={{ background }}
-				aria-hidden="true"
+		<StudioTooltip content={label}>
+			<button
+				type="button"
+				aria-pressed={selected}
+				aria-label={label}
+				onClick={() => {
+					trigger("selection");
+					onSelect();
+				}}
+				className="si-button si-swatch-button"
 			>
-				{children}
-			</span>
-		</button>
+				{selected && <span className="si-plate si-plate-soft" />}
+				<span
+					className="si-swatch"
+					data-round={round ? "" : undefined}
+					style={{ background }}
+					aria-hidden="true"
+				>
+					{children}
+				</span>
+			</button>
+		</StudioTooltip>
 	);
 }
 
@@ -209,7 +221,6 @@ export function IslandInput({
 			value={value}
 			min={min}
 			aria-label={label}
-			title={label}
 			placeholder={placeholder}
 			onChange={(event) => onChange(event.target.value)}
 			className="si-input"

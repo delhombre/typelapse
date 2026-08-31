@@ -10,6 +10,8 @@
  * FORMED file looks like, not a promise about the bytes on disk.
  */
 
+import type { CubicBezier } from "@/application/magic-move/easing";
+
 /** Window chrome drawn around the code frame. */
 export type ProjectWindowChrome = "macos" | "browser" | "terminal" | "none";
 
@@ -37,6 +39,9 @@ export interface ProjectPayload {
 	language: string;
 	/** One of the built-in theme names (`midnight`, `dracula`, `nord`, …). */
 	themeName: string;
+	/** Optional for backwards compatibility; current saves always include both. */
+	fontFamily?: string;
+	borderRadius?: number;
 	/** Backdrop: a mesh preset (`mesh:aurora`), a CSS gradient, or a plain colour. */
 	background: string;
 	steps: ProjectStepPayload[];
@@ -56,6 +61,8 @@ export interface ProjectPayload {
 	/** Cinematic push-in on the focused lines. */
 	focusZoom?: boolean;
 	transitionMs?: ProjectTempoMs;
+	/** Global motion curve applied to every code morph. */
+	transitionEasing?: CubicBezier;
 	/** Export width in px. Applied only together with {@link ProjectPayload.height}. */
 	width?: number;
 	/** Export height in px. Applied only together with {@link ProjectPayload.width}. */

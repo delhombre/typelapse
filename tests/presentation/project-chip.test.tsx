@@ -1,0 +1,75 @@
+import type { ProjectPayload } from "@/application/project/project-payload";
+import { ProjectChip } from "@/presentation/components/layout/project-chip";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	activateLocalProject,
+	createLocalProject,
+	ensureActiveLocalProject,
+	readLocalProjects,
+} from "@/presentation/utils/local-project-storage";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+function payload(title: string): ProjectPayload {
+	return {
+		title,
+		code: `const project = "${title}";`,
+		language: "typescript",
+		themeName: "midnight",
+		background: "mesh:solar",
+		steps: [],
+	};
+}
+
+function open(payloadToOpen: ProjectPayload) {
+	useSnippetStore.getState().importFromJson(JSON.stringify(payloadToOpen));
+	return render(
+		<MemoryRouter>
+			<ProjectChip />
+		</MemoryRouter>,
+	);
+}
+
+beforeEach(() => window.localStorage.clear());
+afterEach(cleanup);
+
+describe("ProjectChip local-first menu", () => {
+	it("shows the current local project and the on-device promise", () => {
+		ensureActiveLocalProject(payload("Alpha"), { id: "alpha", now: 10 });
+		open(payload("Alpha"));
+
+		fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
+		expect(screen.getByText("Local projects")).toBeTruthy();
+		expect(screen.getByText("Saved on this device")).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: /Open Alpha/ })).toBeTruthy();
+	});
+
+	it("switches projects through the same validated import path", () => {
+		ensureActiveLocalProject(payload("Alpha"), { id: "alpha", now: 10 });
+		createLocalProject(payload("Beta"), { id: "beta", now: 20 });
+		activateLocalProject("alpha");
+		open(payload("Alpha"));
+
+		fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: /Open Beta/ }));
+
+		expect(useSnippetStore.getState().snippet.title).toBe("Beta");
+		expect(useSnippetStore.getState().snippet.code).toContain('"Beta"');
+		expect(readLocalProjects().activeId).toBe("beta");
+	});
+
+	it("creates a clean second project without losing the first one", () => {
+		ensureActiveLocalProject(payload("Alpha"), { id: "alpha", now: 10 });
+		open(payload("Alpha"));
+
+		fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "New project" }));
+
+		expect(useSnippetStore.getState().snippet.title).toBe("Untitled");
+		expect(readLocalProjects().projects).toHaveLength(2);
+		expect(readLocalProjects().projects.some((project) => project.project.title === "Alpha")).toBe(
+			true,
+		);
+	});
+});

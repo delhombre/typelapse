@@ -1,6 +1,7 @@
 import type { Highlighter } from "shiki";
 import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
 import type { KeyedTokensInfo } from "shiki-magic-move/types";
+import { ensureReadableTokenColor } from "../../src/application/accessibility/token-contrast";
 import {
 	type MagicMovePlan,
 	type RawToken,
@@ -9,12 +10,12 @@ import {
 } from "../../src/application/magic-move/engine";
 import { layoutTypingTokens } from "../../src/application/magic-move/typewriter";
 
-function toRawTokens(info: KeyedTokensInfo): RawToken[] {
+function toRawTokens(info: KeyedTokensInfo, background: string): RawToken[] {
 	return info.tokens.map((token) => ({
 		key: token.key,
 		content: token.content,
 		offset: token.offset,
-		color: token.color,
+		color: token.color ? ensureReadableTokenColor(token.color, background) : token.color,
 		fontStyle: token.fontStyle,
 	}));
 }
@@ -31,6 +32,7 @@ export function buildServerMagicMovePlan(
 	codes: string[],
 	lang: string,
 	shikiTheme: string,
+	themeBackground: string,
 	loop = false,
 ): MagicMovePlan {
 	const options = { lang, theme: shikiTheme } as Parameters<typeof highlighter.codeToTokens>[1];
@@ -40,13 +42,13 @@ export function buildServerMagicMovePlan(
 	const morph = (fromCode: string, toCode: string): MagicMovePlan["transitions"][number] => {
 		const { from, to } = syncTokenKeys(tokenize(fromCode), tokenize(toCode), diffOptions);
 		return {
-			from: layoutFrame(fromCode, toRawTokens(from)),
-			to: layoutFrame(toCode, toRawTokens(to)),
+			from: layoutFrame(fromCode, toRawTokens(from, themeBackground)),
+			to: layoutFrame(toCode, toRawTokens(to, themeBackground)),
 		};
 	};
 
 	const frames: MagicMovePlan["frames"] = codes.map((code) => ({
-		tokens: layoutFrame(code, toRawTokens(tokenize(code))),
+		tokens: layoutFrame(code, toRawTokens(tokenize(code), themeBackground)),
 		lineCount: frameLineCount(code),
 	}));
 
@@ -60,7 +62,7 @@ export function buildServerMagicMovePlan(
 		loop && codes.length >= 2 ? morph(codes[last] ?? "", codes[0] ?? "") : undefined;
 
 	const firstCode = codes[0] ?? "";
-	const typing = layoutTypingTokens(firstCode, toRawTokens(tokenize(firstCode)));
+	const typing = layoutTypingTokens(firstCode, toRawTokens(tokenize(firstCode), themeBackground));
 
 	return { frames, transitions, loopTransition, typing };
 }

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { FRAME_SECONDARY_ALPHA_HEX } from "../../../application/layout/frame-metrics";
 import { gutterLabels } from "../../../application/line-numbers/gutter";
 import type { RenderToken } from "../../../application/magic-move/engine";
 
@@ -71,7 +72,7 @@ export function MagicMoveCanvas({
 							flexShrink: 0,
 							textAlign: "right",
 							userSelect: "none",
-							color: lineNumberColor ?? `${color}33`,
+							color: lineNumberColor ?? `${color}${FRAME_SECONDARY_ALPHA_HEX}`,
 							paddingRight: fontSize,
 							minWidth: `${gutterDigits + 1}ch`,
 						}}

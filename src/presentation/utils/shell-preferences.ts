@@ -7,9 +7,8 @@
  * something a link should hand to whoever opens it. So the choice travels in a
  * key of its own, beside the draft rather than inside it.
  *
- * The default is open, in both directions: a stash that cannot be read is a
- * stash nobody wrote, and a studio that opens with its editor hidden on a guess
- * is a studio that lost its editor.
+ * The default is Preview: the video is the object being made and the editor is
+ * one intentional action away. A remembered choice still wins on return.
  */
 
 export const SHELL_STORAGE_KEY = "typelapse:shell";
@@ -18,7 +17,7 @@ export interface ShellPreferences {
 	codeFolded: boolean;
 }
 
-export const DEFAULT_SHELL_PREFERENCES: ShellPreferences = { codeFolded: false };
+export const DEFAULT_SHELL_PREFERENCES: ShellPreferences = { codeFolded: true };
 
 export function parseShellPreferences(raw: string | null): ShellPreferences {
 	if (raw === null) {

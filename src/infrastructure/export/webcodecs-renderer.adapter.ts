@@ -19,6 +19,7 @@ import { canvasFont } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
 import type { SceneProgress, SceneWatermark } from "@/application/frame-painter/scene";
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
+import type { CubicBezier } from "@/application/magic-move/easing";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
 import type { Snippet } from "@/domain/entities/snippet";
@@ -50,6 +51,7 @@ export interface ClientScenery {
 	showLineNumbers: boolean;
 	lineNumberStart: number;
 	transitionMs: number;
+	transitionEasing: CubicBezier;
 	loop: boolean;
 	typewriter: boolean;
 	focusZoom: boolean;
@@ -213,6 +215,7 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			fps: config.fps,
 			format: config.format,
 			transitionMs: scenery.transitionMs,
+			transitionEasing: scenery.transitionEasing,
 			loop: scenery.loop,
 			typewriter: scenery.typewriter,
 			focusZoom: scenery.focusZoom,

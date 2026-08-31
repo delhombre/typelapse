@@ -36,6 +36,16 @@ describe("notice store", () => {
 		expect(notice?.detail).toBe("broken.json");
 	});
 
+	it("carries one explicit recovery action", () => {
+		const recover = vi.fn();
+		notify("Scene deleted.", { action: { label: "Undo", onSelect: recover } });
+
+		const action = useNoticeStore.getState().notices[0]?.action;
+		expect(action?.label).toBe("Undo");
+		action?.onSelect();
+		expect(recover).toHaveBeenCalledTimes(1);
+	});
+
 	it("dismisses itself after the default dwell", () => {
 		notify("Ephemeral.");
 		vi.advanceTimersByTime(4999);

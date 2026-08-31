@@ -10,8 +10,9 @@ import { focusLineSet } from "@/application/focus/line-ranges";
 import { fitCardToCanvas, renderScaleFor } from "@/application/layout/canvas-fit";
 import { concentric } from "@/application/layout/concentric";
 import { fitScale } from "@/application/layout/fit-scale";
-import { LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
-import { easeInOutCubic, renderStatic, renderTransition } from "@/application/magic-move/engine";
+import { FRAME_SECONDARY_ALPHA_HEX, LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
+import { type CubicBezier, cubicBezierAt } from "@/application/magic-move/easing";
+import { renderStatic, renderTransition } from "@/application/magic-move/engine";
 import {
 	NO_ZOOM,
 	type ZoomTransform,
@@ -20,8 +21,10 @@ import {
 } from "@/application/magic-move/focus-zoom";
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
 import type { Theme } from "@/domain/entities/theme";
+import { useStudioVideoMode } from "@/presentation/contexts/studio-video-mode";
 import { useResizeObserverNode } from "@/presentation/hooks/use-resize-observer";
 import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
+import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -169,6 +172,7 @@ function socialCanvasRadius(width: number, height: number): number {
 }
 
 export function LivePreview() {
+	const videoMode = useStudioVideoMode();
 	const {
 		snippet,
 		plan,
@@ -189,6 +193,7 @@ export function LivePreview() {
 	const progressStyle = useExportStore((s) => s.progressStyle);
 	const typewriter = useExportStore((s) => s.typewriter);
 	const focusZoom = useExportStore((s) => s.focusZoom);
+	const transitionEasing = useExportStore((s) => s.transitionEasing);
 	// Social-preview view state (ephemeral): drives a faithful aspect-canvas
 	// preview painted OUTSIDE the export target, so it never reaches the PNG
 	// capture or the render payload.
@@ -229,6 +234,7 @@ export function LivePreview() {
 		exportWidth,
 		exportHeight,
 	);
+	const aspectCanvasEnabled = videoMode || activeSocialPlatform !== null;
 
 	// Social mode swaps the fit-to-viewport code window for a faithful miniature of
 	// the EXPORT ASPECT CANVAS: an aspect box fit into the viewport, filled with the
@@ -238,8 +244,8 @@ export function LivePreview() {
 	const availWidth = containerEntry?.contentRect.width;
 	const availHeight = containerEntry?.contentRect.height;
 	const hasCaptionText = snippet.steps.some((s) => (s.annotation ?? "") !== "");
-	const socialCanvas = useMemo(() => {
-		if (!activeSocialPlatform || !plan || plan.frames.length === 0 || !cardNatural) {
+	const aspectCanvas = useMemo(() => {
+		if (!aspectCanvasEnabled || !plan || plan.frames.length === 0 || !cardNatural) {
 			return null;
 		}
 		if (!availWidth || !availHeight || availWidth <= 0 || availHeight <= 0) {
@@ -270,7 +276,7 @@ export function LivePreview() {
 		);
 		return { boxWidth, boxHeight, cardScale, radius: socialCanvasRadius(boxWidth, boxHeight) };
 	}, [
-		activeSocialPlatform,
+		aspectCanvasEnabled,
 		plan,
 		cardNatural,
 		availWidth,
@@ -285,13 +291,13 @@ export function LivePreview() {
 		exportWidth,
 		exportHeight,
 	]);
-	const socialActive = socialCanvas !== null;
+	const aspectCanvasActive = aspectCanvas !== null;
 
 	// In social mode the window's mesh margin goes transparent and the mesh moves to
 	// the aspect box, so the window sits opaque over one continuous canvas (seamless
 	// margins), exactly like the export's full-bleed background AbsoluteFill.
-	useDynamicBackground(previewRef, socialActive ? "transparent" : background);
-	useDynamicBackground(boxRef, socialActive ? background : "transparent");
+	useDynamicBackground(previewRef, aspectCanvasActive ? "transparent" : background);
+	useDynamicBackground(boxRef, aspectCanvasActive ? background : "transparent");
 	// Play the synthesized tick track during preview playback (same rendered WAV the
 	// export bakes in), so the preview sounds identical to the video.
 	useTickAudio();
@@ -341,7 +347,7 @@ export function LivePreview() {
 	]);
 
 	const segments = snippet.steps.length;
-	const reelsProgress = isPlaying
+	const reelsProgress = playback
 		? playbackProgress
 		: (Math.min(currentStepIndex, Math.max(segments - 1, 0)) + 1) / Math.max(segments, 1);
 
@@ -359,23 +365,22 @@ export function LivePreview() {
 	const view = resolveView(
 		plan,
 		playback,
-		isPlaying,
 		currentStepIndex,
 		typewriter,
 		firstCode,
 		focusSets,
+		transitionEasing,
 	);
 
 	// Per-step captions overlaid beneath the frame; timing is shared with the video.
 	const annotations = snippet.steps.map((s) => s.annotation ?? "");
 	const hasCaptions = annotations.some((a) => a !== "");
-	const caption =
-		isPlaying && playback
-			? captionAt({ phase: playback.phase, index: playback.index, t: playback.t }, annotations)
-			: {
-					text: annotations[currentStepIndex] ?? "",
-					opacity: annotations[currentStepIndex] ? 1 : 0,
-				};
+	const caption = playback
+		? captionAt({ phase: playback.phase, index: playback.index, t: playback.t }, annotations)
+		: {
+				text: annotations[currentStepIndex] ?? "",
+				opacity: annotations[currentStepIndex] ? 1 : 0,
+			};
 
 	const isTransparent = background === "transparent";
 	// A ceiling on the growth, never a licence to invert: at the widest margin and
@@ -392,12 +397,12 @@ export function LivePreview() {
 	// In social mode the window's mesh margin goes transparent so the aspect box's
 	// canvas shows through as one continuous mesh; everywhere else the card paints
 	// its own background exactly as before, so Social off stays byte-identical.
-	const cardPaintsMesh = isMesh && !socialActive;
-	const cardPaintsImage = isImage && !socialActive;
+	const cardPaintsMesh = isMesh && !aspectCanvasActive;
+	const cardPaintsImage = isImage && !aspectCanvasActive;
 	const cardBackgroundAnimate =
 		cardPaintsMesh || cardPaintsImage
 			? undefined
-			: { background: isTransparent || socialActive ? "transparent" : background };
+			: { background: isTransparent || aspectCanvasActive ? "transparent" : background };
 
 	// The single code card: one source of truth for playback AND the PNG capture,
 	// reparented between the plain fit-to-viewport wrapper and the social aspect box.
@@ -405,7 +410,7 @@ export function LivePreview() {
 		<motion.div
 			ref={attachCard}
 			data-export-target
-			className={`relative w-[42rem] ${isPlaying && !isTransparent && !socialActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
+			className={`relative w-[42rem] ${isPlaying && !isTransparent && !aspectCanvasActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
 			animate={cardBackgroundAnimate}
 			transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
 			style={{
@@ -417,7 +422,7 @@ export function LivePreview() {
 				// Mesh + image are painted imperatively by useDynamicBackground; this is
 				// the pre-paint fallback so there is no flash. In social mode the mesh
 				// lives on the box, so the card's own margin stays clear.
-				background: socialActive ? undefined : staticBackground(background, isMesh, isImage),
+				background: aspectCanvasActive ? undefined : staticBackground(background, isMesh, isImage),
 			}}
 		>
 			{!isTransparent && <GrainOverlay />}
@@ -450,7 +455,7 @@ export function LivePreview() {
 							color={snippet.theme.foreground}
 							showLineNumbers={showLineNumbers}
 							lineNumberStart={lineNumberStart}
-							lineNumberColor={`${snippet.theme.foreground}26`}
+							lineNumberColor={`${snippet.theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
 							padding={framePadding}
 							cursor={view.cursor}
 						/>
@@ -490,7 +495,7 @@ export function LivePreview() {
 				ref={setContainerNode}
 				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
 			>
-				{socialCanvas && activeSocialPlatform ? (
+				{aspectCanvas ? (
 					// Faithful aspect-canvas preview: the export's mesh box with the code
 					// window centered at the video's true fraction, and the chrome + guides
 					// over the FULL canvas. The overlay is a SIBLING of [data-export-target]
@@ -498,11 +503,12 @@ export function LivePreview() {
 					// see it.
 					<motion.div
 						ref={boxRef}
+						layout
 						className="relative shrink-0 overflow-hidden"
 						style={{
-							width: socialCanvas.boxWidth,
-							height: socialCanvas.boxHeight,
-							borderRadius: socialCanvas.radius,
+							width: aspectCanvas.boxWidth,
+							height: aspectCanvas.boxHeight,
+							borderRadius: aspectCanvas.radius,
 							background: staticBackground(background, isMesh, isImage),
 						}}
 						animate={
@@ -510,22 +516,27 @@ export function LivePreview() {
 								? undefined
 								: { background: isTransparent ? "transparent" : background }
 						}
-						transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+						transition={{
+							layout: springs.default,
+							background: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
+						}}
 					>
 						<div
 							className="absolute top-1/2 left-1/2"
 							style={{
-								transform: `translate(-50%, -50%) scale(${socialCanvas.cardScale})`,
+								transform: `translate(-50%, -50%) scale(${aspectCanvas.cardScale})`,
 								transformOrigin: "center center",
 							}}
 						>
 							{cardElement}
 						</div>
-						<SocialPreviewOverlay
-							platform={activeSocialPlatform}
-							showGuides={socialShowGuides}
-							radius={socialCanvas.radius}
-						/>
+						{activeSocialPlatform && (
+							<SocialPreviewOverlay
+								platform={activeSocialPlatform}
+								showGuides={socialShowGuides}
+								radius={aspectCanvas.radius}
+							/>
+						)}
 					</motion.div>
 				) : (
 					<div
@@ -596,13 +607,13 @@ function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): 
 function resolveView(
 	plan: NonNullable<ReturnType<typeof useSnippetStore.getState>["plan"]>,
 	playback: PlaybackState | null,
-	isPlaying: boolean,
 	currentStepIndex: number,
 	typewriter: boolean,
 	firstCode: string,
 	focusSets: (Set<number> | undefined)[],
+	transitionEasing: CubicBezier,
 ): FrameView {
-	if (isPlaying && playback) {
+	if (playback) {
 		if (typewriter && playback.phase === "hold" && playback.index === 0 && plan.typing) {
 			const reveal = typedCharCount(firstCode.length, playback.t);
 			const { tokens, cursor } = renderTyping(firstCode, plan.typing, reveal);
@@ -620,7 +631,8 @@ function resolveView(
 			const fromFrame = plan.frames[playback.index];
 			const toFrame = plan.frames[playback.index + 1];
 			if (transition && fromFrame && toFrame) {
-				const eased = easeInOutCubic(playback.t);
+				const moveEase = (progress: number) => cubicBezierAt(transitionEasing, progress);
+				const eased = moveEase(playback.t);
 				const fromZoom = zoomForFocus(focusSets[playback.index], fromFrame.lineCount);
 				const toZoom = zoomForFocus(focusSets[playback.index + 1], toFrame.lineCount);
 				return {
@@ -628,13 +640,13 @@ function resolveView(
 						transition.from,
 						transition.to,
 						playback.t,
-						{},
+						{ moveEase },
 						focusSets[playback.index],
 						focusSets[playback.index + 1],
 					),
 					lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 					lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
-					zoom: interpolateZoom(fromZoom, toZoom, playback.t, easeInOutCubic),
+					zoom: interpolateZoom(fromZoom, toZoom, playback.t, moveEase),
 				};
 			}
 		}

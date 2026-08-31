@@ -1,5 +1,7 @@
+import { TRANSITION_MS } from "@/application/magic-move/timeline";
 import { Theme } from "@/domain/entities/theme";
 import { LoopingFrames } from "@/presentation/components/preview/looping-frames";
+import { useEffect, useState } from "react";
 import { FeatureSection } from "./feature-section";
 
 /* The signature feature, performed rather than described.
@@ -26,7 +28,9 @@ const STEPS = [
 }`,
 ];
 /* Slower than the hero's: this one is read, not glanced at. */
-const HOLDS = [1900, 2100, 2600, 1000];
+const HOLDS = [900, 1050, 1800];
+const PLAYBACK_MS =
+	HOLDS.reduce((total, hold) => total + hold, 0) + (STEPS.length - 1) * TRANSITION_MS;
 
 /** Feature a: the signature magic-move, shown running. */
 export function MagicMoveSection() {
@@ -42,16 +46,53 @@ export function MagicMoveSection() {
 }
 
 function LiveMorph() {
+	const [playing, setPlaying] = useState(false);
+
+	useEffect(() => {
+		if (!playing) {
+			return;
+		}
+		const timeout = window.setTimeout(() => setPlaying(false), PLAYBACK_MS - 24);
+		return () => window.clearTimeout(timeout);
+	}, [playing]);
+
+	const replay = () => {
+		setPlaying(false);
+		window.requestAnimationFrame(() => setPlaying(true));
+	};
+
 	return (
-		<div className="lp-morph-frame">
-			<LoopingFrames
-				frames={STEPS}
-				holds={HOLDS}
-				theme={Theme.oneDark()}
-				fontSize={15}
-				lineNumbers
-				ariaLabel="A code snippet morphing token by token as two lines are added"
-			/>
+		<div className="lp-morph-demo">
+			<div className="lp-morph-frame">
+				<LoopingFrames
+					frames={STEPS}
+					holds={HOLDS}
+					theme={Theme.oneDark()}
+					fontSize={15}
+					lineNumbers
+					loop={false}
+					playing={playing}
+					ariaLabel="A code snippet morphing token by token as two lines are added"
+				/>
+			</div>
+			<button type="button" className="lp-demo-replay" onClick={replay}>
+				<ReplayIcon />
+				<span>{playing ? "Replay" : "Play motion"}</span>
+			</button>
 		</div>
+	);
+}
+
+function ReplayIcon() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+			<path
+				d="M13.2 5.4A5.5 5.5 0 1 1 8 2.5c1.45 0 2.76.56 3.74 1.48M13.2 2.4v3.2H10"
+				stroke="currentColor"
+				strokeWidth="1.45"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
 	);
 }

@@ -92,9 +92,30 @@ html.dark:not([data-landing-theme]) {
 	color-scheme: dark;
 }
 
-* {
+/* The document keeps its platform-native scrollbar. Only compact, contained
+   work surfaces get the quieter 8px treatment; changing every scrollbar made
+   the marketing page itself feel like an embedded panel. */
+:where(.sc-card-steps-body, .studio-root .si-sheet, .landing-root .lp-morph-frame) {
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in oklch, currentColor 18%, transparent) transparent;
+}
+
+:where(
+		.sc-card-steps-body,
+		.studio-root .si-sheet,
+		.landing-root .lp-morph-frame
+	)::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+:where(
+		.sc-card-steps-body,
+		.studio-root .si-sheet,
+		.landing-root .lp-morph-frame
+	)::-webkit-scrollbar-thumb {
+	border-radius: 4px;
+	background: color-mix(in oklch, currentColor 18%, transparent);
 }
 
 ::selection {
@@ -118,6 +139,14 @@ html.dark:not([data-landing-theme]) {
    no keyboard, marking something there is nothing to do to. Everything inside it
    keeps its ring, which is where the ring means something. */
 [data-vaul-drawer]:focus-visible {
+	outline: none;
+}
+
+/* Native <dialog> sends programmatic focus to the gallery panel so its first
+   Tab lands inside the modal. The panel itself is not actionable, therefore a
+   focus ring around the whole surface is misleading; every control inside it
+   keeps the global keyboard ring. */
+[data-template-gallery]:focus-visible {
 	outline: none;
 }
 
@@ -444,7 +473,8 @@ html.dark:not([data-landing-theme]) {
    hairline is a pixel off its edge, and below it there is no gap but the field:
    offset outwards the ring crossed all three, including the one edge nothing is
    allowed to cross. */
-.landing-root .lp-mode:focus-visible {
+.landing-root .lp-mode:focus-visible,
+.landing-root .lp-mode:has(input:focus-visible) {
 	outline: 2px solid var(--color-accent);
 	outline-offset: -2px;
 }
@@ -1165,6 +1195,353 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* PR → timeline. One crop of the actual workflow rather than a diagram made of
+   nested cards: the preview and its timeline belong to the same object. */
+.landing-root .lp-import-shot {
+	width: min(100%, 540px);
+	overflow: hidden;
+	border: 1px solid var(--color-hairline);
+	border-radius: 24px;
+	background: var(--color-surface);
+	box-shadow: 0 28px 64px -46px rgb(28 27 25 / 0.46), inset 0 1px 0 rgb(255 255 255 / 0.55);
+	user-select: none;
+}
+
+.landing-root[data-theme="dark"] .lp-import-shot {
+	box-shadow: 0 28px 68px -42px rgb(0 0 0 / 0.76), inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.landing-root .lp-import-preview {
+	position: relative;
+	min-height: 318px;
+	overflow: hidden;
+	padding: 18px;
+	background: radial-gradient(circle at 22% 18%, rgb(255 221 82 / 0.96) 0, transparent 34%),
+		radial-gradient(circle at 76% 73%, rgb(244 75 50 / 0.92) 0, transparent 40%),
+		linear-gradient(138deg, #57460d 0%, #d48613 46%, #3a1715 100%);
+}
+
+.landing-root .lp-import-preview::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: linear-gradient(180deg, rgb(12 11 14 / 0.03), rgb(12 11 14 / 0.24));
+}
+
+.landing-root .lp-import-source-island {
+	position: relative;
+	z-index: 3;
+	display: flex;
+	width: fit-content;
+	max-width: 100%;
+	height: 40px;
+	align-items: center;
+	gap: 8px;
+	padding: 0 6px 0 7px;
+	border: 1px solid rgb(255 255 255 / 0.42);
+	border-radius: 999px;
+	background: rgb(250 249 246 / 0.92);
+	box-shadow: 0 10px 28px -15px rgb(31 18 5 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.8);
+	color: #1c1b19;
+	backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.landing-root .lp-import-git-mark {
+	display: grid;
+	width: 28px;
+	height: 28px;
+	flex: none;
+	place-items: center;
+	border-radius: 999px;
+	background: rgb(28 27 25 / 0.07);
+}
+
+.landing-root .lp-import-source-copy {
+	display: grid;
+	min-width: 68px;
+	line-height: 1.05;
+}
+
+.landing-root .lp-import-source-copy strong {
+	font-size: 11px;
+	font-weight: 650;
+	letter-spacing: -0.015em;
+}
+
+.landing-root .lp-import-source-copy small {
+	margin-top: 3px;
+	font-family: var(--font-mono);
+	font-size: 8px;
+	color: #77736d;
+}
+
+.landing-root .lp-import-origin {
+	display: inline-flex;
+	height: 28px;
+	align-items: center;
+	gap: 5px;
+	border-radius: 999px;
+	padding: 0 9px;
+	background: #1c1b19;
+	font-size: 9px;
+	font-weight: 590;
+	white-space: nowrap;
+	color: #f7f5f1;
+}
+
+.landing-root .lp-import-origin svg {
+	color: #f5c400;
+}
+
+.landing-root .lp-import-frame-wrap {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	justify-content: center;
+	margin-top: 18px;
+}
+
+.landing-root .lp-import-render {
+	width: 78%;
+	height: 176px;
+}
+
+.landing-root .lp-import-ready {
+	position: absolute;
+	z-index: 3;
+	right: 16px;
+	bottom: 14px;
+	display: grid;
+	grid-template-columns: 28px auto;
+	grid-template-rows: auto auto;
+	column-gap: 8px;
+	align-items: center;
+	border: 1px solid rgb(255 255 255 / 0.09);
+	border-radius: 13px;
+	padding: 8px 11px 8px 8px;
+	background: rgb(20 19 19 / 0.9);
+	box-shadow: 0 12px 30px -15px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.06);
+	backdrop-filter: blur(14px);
+}
+
+.landing-root .lp-import-ready > span {
+	display: grid;
+	width: 28px;
+	height: 28px;
+	grid-row: 1 / 3;
+	place-items: center;
+	border-radius: 9px;
+	background: rgb(245 196 0 / 0.14);
+	color: #f5c400;
+}
+
+.landing-root .lp-import-ready strong {
+	font-size: 10px;
+	font-weight: 620;
+	color: #fff;
+}
+
+.landing-root .lp-import-ready small {
+	margin-top: 2px;
+	font-size: 7.5px;
+	color: rgb(255 255 255 / 0.56);
+}
+
+.landing-root .lp-import-timeline {
+	position: relative;
+	padding: 0 11px;
+	border-top: 1px solid var(--color-hairline);
+	background: var(--color-surface);
+}
+
+.landing-root .lp-import-transport {
+	display: grid;
+	height: 40px;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: center;
+	font-family: var(--font-mono);
+	font-size: 8px;
+	font-variant-numeric: tabular-nums;
+	color: var(--color-ash);
+}
+
+.landing-root .lp-import-transport > div {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	color: var(--color-ink);
+}
+
+.landing-root .lp-import-transport > span:last-child {
+	justify-self: end;
+}
+
+.landing-root .lp-import-play {
+	display: grid;
+	width: 25px;
+	height: 25px;
+	place-items: center;
+	border-radius: 999px;
+	background: #1c1b19;
+	color: #fff;
+}
+
+.landing-root[data-theme="dark"] .lp-import-play {
+	background: #f7f5f1;
+	color: #1c1b19;
+}
+
+.landing-root .lp-import-track {
+	position: relative;
+	display: grid;
+	grid-template-columns: 0.95fr 1.18fr 1.35fr 62px;
+	gap: 5px;
+}
+
+.landing-root .lp-import-scene,
+.landing-root .lp-import-add-scene {
+	position: relative;
+	min-width: 0;
+	height: 88px;
+	overflow: hidden;
+	border: 1px solid var(--color-hairline);
+	border-radius: 9px;
+	background: color-mix(in oklch, var(--color-ink) 2.5%, var(--color-surface));
+}
+
+.landing-root .lp-import-scene[data-selected] {
+	border-color: var(--color-primary);
+	box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.landing-root .lp-import-thumb {
+	height: 65px;
+	margin: 4px;
+	overflow: hidden;
+	border-radius: 5px;
+	background: linear-gradient(145deg, #a18411, #d86b1c 56%, #2b1514);
+}
+
+.landing-root .lp-import-thumb[data-tone="ember"] {
+	background: linear-gradient(145deg, #771d3e, #ee5526 52%, #35121b);
+}
+
+.landing-root .lp-import-thumb[data-tone="aurora"] {
+	background: linear-gradient(145deg, #3d228a, #9f2a7c 54%, #20123c);
+}
+
+.landing-root .lp-import-thumb-window {
+	position: relative;
+	top: 50%;
+	left: 50%;
+	width: 78%;
+	height: 38px;
+	transform: translate(-50%, -50%);
+	overflow: hidden;
+	border-radius: 4px;
+	background: #111318;
+	box-shadow: 0 5px 12px rgb(0 0 0 / 0.28);
+}
+
+.landing-root .lp-import-thumb-dots {
+	position: absolute;
+	top: 5px;
+	left: 6px;
+	width: 3px;
+	height: 3px;
+	border-radius: 50%;
+	background: #ff5f57;
+	box-shadow: 5px 0 #febc2e, 10px 0 #28c840;
+}
+
+.landing-root .lp-import-thumb-window code {
+	position: absolute;
+	top: 18px;
+	left: 7px;
+	max-width: calc(100% - 12px);
+	overflow: hidden;
+	font-family: var(--font-mono);
+	font-size: 4.7px;
+	line-height: 1;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: #d9a7ec;
+}
+
+.landing-root .lp-import-scene-number,
+.landing-root .lp-import-scene-duration {
+	position: absolute;
+	bottom: 4px;
+	font-family: var(--font-mono);
+	font-size: 7px;
+	font-variant-numeric: tabular-nums;
+	color: var(--color-ash);
+}
+
+.landing-root .lp-import-scene-number {
+	left: 6px;
+}
+
+.landing-root .lp-import-scene-duration {
+	right: 6px;
+}
+
+.landing-root .lp-import-add-scene {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	border-style: dashed;
+	font-size: 7.5px;
+	font-weight: 560;
+	color: var(--color-ash);
+}
+
+.landing-root .lp-import-track-playhead {
+	position: absolute;
+	z-index: 5;
+	top: -2px;
+	bottom: -4px;
+	left: 36%;
+	width: 1px;
+	background: #ff5f57;
+	pointer-events: none;
+}
+
+.landing-root .lp-import-track-playhead::before {
+	content: "";
+	position: absolute;
+	top: -3px;
+	left: -2px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: #ff5f57;
+}
+
+.landing-root .lp-import-ruler {
+	display: flex;
+	height: 17px;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin: 7px -11px 0;
+	padding: 0 12px;
+	border-top: 1px solid var(--color-hairline);
+}
+
+.landing-root .lp-import-ruler span {
+	width: 1px;
+	height: 4px;
+	background: var(--color-hairline);
+}
+
+.landing-root .lp-import-ruler span[data-major] {
+	height: 8px;
+	background: color-mix(in oklch, var(--color-ash) 45%, transparent);
+}
+
 /* The magic-move section's frame. No window chrome and no title bar: the
    Instrument above already carries the product's furniture, and repeating it
    here would make the page look like two screenshots of the same app rather
@@ -1197,6 +1574,111 @@ html.dark:not([data-landing-theme]) {
    the cut into a scroll. */
 .landing-root .lp-morph-frame > * {
 	flex: none;
+}
+
+.landing-root .lp-morph-demo {
+	display: flex;
+	max-width: 100%;
+	flex-direction: column;
+	align-items: flex-end;
+}
+
+.landing-root .lp-demo-replay {
+	display: inline-flex;
+	height: 36px;
+	align-items: center;
+	gap: 7px;
+	margin-top: 11px;
+	padding: 0 13px;
+	border: 1px solid var(--color-hairline);
+	border-radius: 999px;
+	background: var(--color-surface);
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--color-ink);
+	transition: background-color 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-demo-replay:hover {
+		background: color-mix(in oklch, var(--color-ink) 5%, var(--color-surface));
+	}
+}
+
+.landing-root .lp-demo-replay:active {
+	transform: scale(0.97);
+}
+
+@media (max-width: 520px) {
+	.landing-root .lp-import-shot {
+		border-radius: 20px;
+	}
+
+	.landing-root .lp-import-preview {
+		min-height: 274px;
+		padding: 12px;
+	}
+
+	.landing-root .lp-import-source-island {
+		height: 38px;
+		gap: 6px;
+	}
+
+	.landing-root .lp-import-origin {
+		padding: 0 8px;
+		font-size: 8px;
+	}
+
+	.landing-root .lp-import-frame-wrap {
+		margin-top: 13px;
+	}
+
+	.landing-root .lp-import-render {
+		width: 88%;
+		height: 148px;
+	}
+
+	.landing-root .lp-import-ready {
+		right: 10px;
+		bottom: 10px;
+		padding: 7px 9px 7px 7px;
+	}
+
+	.landing-root .lp-import-ready small {
+		display: none;
+	}
+
+	.landing-root .lp-import-ready > span {
+		grid-row: auto;
+	}
+
+	.landing-root .lp-import-track {
+		grid-template-columns: 0.9fr 1.1fr 1.2fr 50px;
+		gap: 4px;
+	}
+
+	.landing-root .lp-import-scene,
+	.landing-root .lp-import-add-scene {
+		height: 74px;
+	}
+
+	.landing-root .lp-import-thumb {
+		height: 53px;
+		margin: 3px;
+	}
+
+	.landing-root .lp-import-thumb-window {
+		height: 31px;
+	}
+
+	.landing-root .lp-import-thumb-window code {
+		top: 16px;
+		font-size: 3.8px;
+	}
+
+	.landing-root .lp-import-add-scene span {
+		display: none;
+	}
 }
 
 /* Extended hit area for compact studio controls: the visual stays small, the
@@ -2064,6 +2546,28 @@ html.dark:not([data-landing-theme]) {
 	padding: 68px 8px 0;
 }
 
+.sc-root-mobile {
+	--camera-focus: #1d1d20;
+	--camera-ink: #1d1d20;
+	--camera-line: rgb(29 29 32 / 0.06);
+	--camera-muted: #74717a;
+	--camera-pill: #f1f2f4;
+	--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024);
+}
+
+.dark .sc-root-mobile {
+	--camera-focus: #f5f5f7;
+	--camera-ink: #f5f5f7;
+	--camera-line: rgb(255 255 255 / 0.08);
+	--camera-muted: #a09da6;
+	--camera-pill: #242428;
+}
+
+.sc-root .reicon {
+	display: block;
+	flex: none;
+}
+
 .sc-stage-arrival,
 .sc-stage {
 	width: 100%;
@@ -2129,7 +2633,13 @@ html.dark:not([data-landing-theme]) {
 	gap: 8px;
 }
 
+.sc-corner-row > .sc-project-root {
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
 .sc-corner-row .sc-project {
+	width: 100%;
 	max-width: none;
 	min-width: 0;
 	flex: 1 1 auto;
@@ -2139,10 +2649,147 @@ html.dark:not([data-landing-theme]) {
 	flex: none;
 }
 
+/* On a phone the three public destinations become one compact island. The
+   controls retain separate accessible names while their repeated text drops;
+   the parent carries the one material and the 4px concentric inset. */
+.sc-chip.sc-mobile-resources {
+	flex: none;
+	gap: 1px;
+	padding-inline: 3px;
+	/* A filtered ancestor becomes the containing block of fixed descendants.
+	   Source uses a viewport-width mobile menu, so this small island stays
+	   opaque instead of trapping that menu inside its own 98px pill. */
+	background: #fff;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
+.dark .sc-chip.sc-mobile-resources {
+	background: #1b1c20;
+}
+
+.sc-mobile-resources .sc-source-root {
+	display: flex;
+}
+
+.sc-mobile-resources .sc-island-trigger {
+	width: 30px;
+	height: 30px;
+	gap: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var(--r-control);
+	background: transparent;
+	box-shadow: none;
+	color: var(--color-neutral-500);
+}
+
+.dark .sc-mobile-resources .sc-island-trigger {
+	background: transparent;
+	box-shadow: none;
+	color: var(--color-neutral-400);
+}
+
+.sc-mobile-resources .sc-island-trigger > span {
+	display: none;
+}
+
+.sc-mobile-resources .sc-island-trigger[aria-expanded="true"] {
+	background: rgb(28 27 25 / 0.06);
+}
+
+.dark .sc-mobile-resources .sc-island-trigger[aria-expanded="true"] {
+	background: rgb(255 255 255 / 0.08);
+}
+
+/* A top-row source form should use the phone's safe page margins, not inherit
+   the 278px desktop popover that would fall off either side of its tiny icon. */
+.sc-root-mobile .sc-source-menu,
+.sc-root-mobile .sc-source-form-popover,
+.sc-root-mobile .sc-source-form-popover[aria-label="Import a git diff"] {
+	position: fixed;
+	top: 58px;
+	right: 10px;
+	left: 10px;
+	width: auto;
+	margin: 0;
+	z-index: 80;
+}
+
+.sc-root-mobile .sc-project-menu {
+	width: min(310px, calc(100vw - 20px));
+}
+
+.sc-utilities {
+	position: relative;
+}
+
+.sc-utilities-compact {
+	padding-inline: 3px;
+}
+
+.sc-utility-overflow-menu {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	z-index: 80;
+	display: grid;
+	width: 210px;
+	overflow: hidden;
+	padding: 5px;
+	border: 1px solid #e5e5e8;
+	border-radius: 18px;
+	background: rgb(255 255 255 / 0.98);
+	box-shadow: 0 14px 42px rgb(20 20 24 / 0.1);
+	color: #1d1d20;
+	-webkit-backdrop-filter: blur(18px) saturate(1.05);
+	backdrop-filter: blur(18px) saturate(1.05);
+}
+
+.dark .sc-utility-overflow-menu {
+	border-color: rgb(255 255 255 / 0.09);
+	background: rgb(29 29 32 / 0.97);
+	box-shadow: 0 18px 48px rgb(0 0 0 / 0.35);
+	color: #f5f5f7;
+}
+
+.sc-utility-overflow-menu button {
+	display: flex;
+	height: 42px;
+	align-items: center;
+	gap: 10px;
+	padding: 0 11px;
+	border: 0;
+	border-radius: 12px;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	font-size: 11.5px;
+	font-weight: 590;
+	text-align: left;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-utility-overflow-menu button:hover {
+		background: var(--camera-pill);
+	}
+}
+
+.sc-utility-overflow-menu button:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: -2px;
+}
+
 /* The count is what the row drops first: the step list is one drag away and
    says the same thing at greater length. */
 @media (max-width: 639px) {
 	.sc-steps {
+		display: none;
+	}
+}
+
+@media (max-width: 359px) {
+	.sc-corner-row .sc-title {
 		display: none;
 	}
 }
@@ -2453,7 +3100,7 @@ html.dark:not([data-landing-theme]) {
 
 .sc-card-steps {
 	display: flex;
-	max-height: 46%;
+	max-height: none;
 	flex: none;
 	flex-direction: column;
 	gap: 10px;
@@ -2461,14 +3108,11 @@ html.dark:not([data-landing-theme]) {
 	border-top: 1px solid var(--sc-hairline);
 }
 
-/* The card's steps area is the one scroller here. Contained, because the paper
-   behind it does not scroll at all: without it a flick that reaches the end of
-   the list hands the rest of the gesture to the document, and the document
-   answers with the rubber band of a page that has nowhere to go. */
+/* Desktop owns ordering in the film timeline. This area is therefore a compact
+   selected-scene inspector, not a second scrollable list competing with it. */
 .sc-card-steps-body {
 	min-height: 0;
-	overflow-y: auto;
-	overscroll-behavior: contain;
+	overflow: visible;
 }
 
 /* At 40 steps the list ran off the card's bottom edge mid-row, and macOS hides

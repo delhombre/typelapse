@@ -15,12 +15,12 @@
  * first hold — is the preview's behaviour, reproduced rather than approximated.
  */
 
+import { type CubicBezier, DEFAULT_TRANSITION_EASING, cubicBezierAt } from "../magic-move/easing";
 import {
 	type GridPosition,
 	type LaidOutFrame,
 	type MagicMovePlan,
 	type RenderToken,
-	easeInOutCubic,
 	renderStatic,
 	renderTransition,
 } from "../magic-move/engine";
@@ -38,6 +38,8 @@ export interface VideoScriptInput {
 	durations: readonly number[];
 	/** Morph tempo between two steps, in milliseconds. */
 	transitionMs: number;
+	/** Positional morph curve; old jobs keep the previous symmetric default. */
+	transitionEasing?: CubicBezier;
 	fps: number;
 	/** Append a last→first morph so a looping player never hard-cuts. */
 	loop: boolean;
@@ -208,9 +210,9 @@ function morphFrame(
 	}
 
 	const t = spanProgress(active, frame);
-	// The body height eases on easeInOutCubic while the tokens move on the
-	// engine's own curve: the preview's asymmetry, kept.
-	const eased = easeInOutCubic(t);
+	const easing = input.transitionEasing ?? DEFAULT_TRANSITION_EASING;
+	const moveEase = (progress: number) => cubicBezierAt(easing, progress);
+	const eased = moveEase(t);
 	const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount);
 	const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount);
 	return {
@@ -218,14 +220,14 @@ function morphFrame(
 			transition.from,
 			transition.to,
 			t,
-			{},
+			{ moveEase },
 			focusSets[active.index],
 			focusSets[toIndex],
 		),
 		lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 		lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
 		cursor: null,
-		zoom: interpolateZoom(fromZoom, toZoom, t, easeInOutCubic),
+		zoom: interpolateZoom(fromZoom, toZoom, t, moveEase),
 	};
 }
 

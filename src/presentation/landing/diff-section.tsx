@@ -1,34 +1,22 @@
-import { Theme } from "@/domain/entities/theme";
-import { LoopingFrames } from "@/presentation/components/preview/looping-frames";
 import { FeatureSection } from "./feature-section";
+import { StaticFrame } from "./static-frame";
 
-/* The transformation, performed.
-   This section used to render a frozen hunk by hand: coloured rows, a plus and a
-   minus, and nothing ever happening. But the feature *is* the change from one to
-   the other, and the page has the engine that performs it. So the hunk is now
-   the first frame and the file it produces is the second, morphed by the same
-   engine as everything else: the markers drop away and the surviving lines glide
-   into their new places, which is exactly what the product does to a pull
-   request. Tokenized as `diff`, so the additions and deletions keep the colours
-   a reviewer recognises. */
-const HUNK = `@@ api/users.ts — PR #1247
- export async function GET(req: Request) {
-   const users = await db.users.all()
--  return Response.json(users)
-+  const active = users.filter((u) => u.active)
-+  return Response.json(active)
- }`;
+const FINAL_CODE = `export async function GET(req: Request) {
+  const users = await db.users.all()
+  const active = users.filter((u) => u.active)
+  return Response.json(active)
+}`;
 
-const RESULT = `@@ api/users.ts — PR #1247
- export async function GET(req: Request) {
-   const users = await db.users.all()
-   const active = users.filter((u) => u.active)
-   return Response.json(active)
- }`;
+const SCENES = [
+	{ label: "01", duration: "1.4s", tone: "solar", code: "return users" },
+	{ label: "02", duration: "2.2s", tone: "ember", code: "const active = users.filter(…)" },
+	{ label: "03", duration: "2.6s", tone: "aurora", code: "return Response.json(active)" },
+] as const;
 
-/* Long enough to read the diff before it resolves, and to sit on the result
-   before it returns. */
-const HOLDS = [2600, 2600, 1100];
+const RULER_TICKS = Array.from({ length: 25 }, (_, position) => ({
+	id: `ruler-${position}`,
+	major: position % 4 === 0,
+}));
 
 /** Feature b: import a diff or a whole PR, windowed into steps. */
 export function DiffSection() {
@@ -36,24 +24,170 @@ export function DiffSection() {
 		<FeatureSection
 			eyebrow="Step 01 · Paste"
 			title="It starts with a diff."
-			line="Drop in a unified diff or a GitHub pull request URL. Typelapse reads the changed lines and windows them into steps. Everything below follows this one change, PR #1247 on api/users.ts, from paste to post."
+			line="Paste a unified diff or a GitHub pull request. Typelapse reads the change, finds its meaningful beats and turns them into editable scenes — ready on the timeline before you touch a control."
 			align="right"
-			visual={<DiffMorph />}
+			visual={<ImportProductShot />}
 		/>
 	);
 }
 
-function DiffMorph() {
+/** A compact crop of the real workflow. Source context, exportable preview and
+ * scene timeline share a single frame instead of reading as three mock cards. */
+function ImportProductShot() {
 	return (
-		<div className="lp-morph-frame">
-			<LoopingFrames
-				frames={[HUNK, RESULT]}
-				holds={HOLDS}
-				theme={Theme.midnight()}
-				language="diff"
-				fontSize={14}
-				ariaLabel="A pull request diff resolving into the file it produces, line by line"
-			/>
+		<div
+			className="lp-import-shot"
+			role="img"
+			aria-label="Pull request 1247 becoming three editable scenes in the Typelapse timeline"
+		>
+			<div className="lp-import-preview">
+				<div className="lp-import-source-island">
+					<span className="lp-import-git-mark" aria-hidden="true">
+						<BranchIcon />
+					</span>
+					<span className="lp-import-source-copy">
+						<strong>PR #1247</strong>
+						<small>api/users.ts</small>
+					</span>
+					<span className="lp-import-origin">
+						<CheckIcon />
+						Imported from GitHub
+					</span>
+				</div>
+
+				<div className="lp-import-frame-wrap" aria-hidden="true">
+					<StaticFrame
+						themeName="aurora"
+						code={FINAL_CODE}
+						title="api/users.ts"
+						framePadding={15}
+						fontSize={9.5}
+						fill
+						bare
+						className="lp-import-render"
+					/>
+				</div>
+
+				<div className="lp-import-ready">
+					<span aria-hidden="true">
+						<SparkIcon />
+					</span>
+					<strong>3 scenes ready</strong>
+					<small>Focus, captions and timing stay editable</small>
+				</div>
+			</div>
+
+			<div className="lp-import-timeline">
+				<div className="lp-import-transport" aria-hidden="true">
+					<span>00:00.0</span>
+					<div>
+						<SkipBackIcon />
+						<span className="lp-import-play">
+							<PlayIcon />
+						</span>
+						<SkipForwardIcon />
+					</div>
+					<span>6.2s</span>
+				</div>
+
+				<div className="lp-import-track" aria-hidden="true">
+					<span className="lp-import-track-playhead" />
+					{SCENES.map((scene, index) => (
+						<div
+							key={scene.label}
+							className="lp-import-scene"
+							data-selected={index === 1 ? "" : undefined}
+						>
+							<div className="lp-import-thumb" data-tone={scene.tone}>
+								<div className="lp-import-thumb-window">
+									<span className="lp-import-thumb-dots" />
+									<code>{scene.code}</code>
+								</div>
+							</div>
+							<span className="lp-import-scene-number">{scene.label}</span>
+							<span className="lp-import-scene-duration">{scene.duration}</span>
+						</div>
+					))}
+					<div className="lp-import-add-scene">
+						<PlusIcon />
+						<span>Add scene</span>
+					</div>
+				</div>
+
+				<div className="lp-import-ruler" aria-hidden="true">
+					{RULER_TICKS.map((tick) => (
+						<span key={tick.id} data-major={tick.major ? "" : undefined} />
+					))}
+				</div>
+			</div>
 		</div>
+	);
+}
+
+function BranchIcon() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+			<circle cx="4" cy="3" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+			<circle cx="12" cy="5" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+			<circle cx="4" cy="13" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+			<path d="M4 4.5v7M5.5 8h2.2A4.3 4.3 0 0 0 12 6.5" stroke="currentColor" strokeWidth="1.3" />
+		</svg>
+	);
+}
+
+function CheckIcon() {
+	return (
+		<svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+			<path
+				d="m3 8.2 3.1 3.1L13 4.7"
+				stroke="currentColor"
+				strokeWidth="1.7"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+			/>
+		</svg>
+	);
+}
+
+function SparkIcon() {
+	return (
+		<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+			<path
+				d="M8 1.8c.5 3.2 2.1 4.8 5.2 5.2-3.1.5-4.7 2.1-5.2 5.2C7.5 9.1 5.9 7.5 2.8 7 5.9 6.6 7.5 5 8 1.8Z"
+				fill="currentColor"
+			/>
+		</svg>
+	);
+}
+
+function PlayIcon() {
+	return (
+		<svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+			<path d="m3.7 2.2 5.3 3.8-5.3 3.8V2.2Z" fill="currentColor" />
+		</svg>
+	);
+}
+
+function SkipBackIcon() {
+	return (
+		<svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+			<path d="M3 2.4v7.2M9.3 2.6 4.8 6l4.5 3.4V2.6Z" fill="currentColor" />
+		</svg>
+	);
+}
+
+function SkipForwardIcon() {
+	return (
+		<svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+			<path d="M9 2.4v7.2M2.7 2.6 7.2 6 2.7 9.4V2.6Z" fill="currentColor" />
+		</svg>
+	);
+}
+
+function PlusIcon() {
+	return (
+		<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+			<path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+		</svg>
 	);
 }

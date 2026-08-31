@@ -1,6 +1,6 @@
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { type Variants, motion, useReducedMotion } from "motion/react";
-import type { ReactNode } from "react";
+import { type ReactNode, createContext, useContext, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
 	LP_EASE,
@@ -13,8 +13,33 @@ import {
 	REVEAL_RISE,
 	REVEAL_SCALE,
 	REVEAL_STAGGER,
-	REVEAL_VIEWPORT,
 } from "./tokens";
+
+const INTRO_SESSION_KEY = "typelapse.landing-intro-seen";
+const LandingIntroContext = createContext(false);
+
+/** One entrance per browsing session. The decision is shared by every hero
+ * primitive so the copy and product instrument arrive as one composition. */
+export function LandingIntroProvider({ children }: { children: ReactNode }) {
+	const [animate] = useState(() => {
+		if (typeof window === "undefined") {
+			return false;
+		}
+		return window.sessionStorage.getItem(INTRO_SESSION_KEY) !== "1";
+	});
+
+	useEffect(() => {
+		if (animate) {
+			window.sessionStorage.setItem(INTRO_SESSION_KEY, "1");
+		}
+	}, [animate]);
+
+	return <LandingIntroContext.Provider value={animate}>{children}</LandingIntroContext.Provider>;
+}
+
+export function useLandingIntro(): boolean {
+	return useContext(LandingIntroContext);
+}
 
 /* ──────────── Scroll reveal ────────────
    The block materializes as it scrolls in: opacity, a small rise, a whisper of
@@ -31,6 +56,10 @@ interface RevealProps {
 
 export function Reveal({ children, className, delay = 0, immediate = false }: RevealProps) {
 	const reduce = useReducedMotion();
+	const animateIntro = useLandingIntro();
+	if (!immediate || !animateIntro) {
+		return <div className={className}>{children}</div>;
+	}
 	const hidden = reduce
 		? { opacity: 0 }
 		: { opacity: 0, y: REVEAL_RISE, scale: REVEAL_SCALE, filter: REVEAL_BLUR };
@@ -41,22 +70,8 @@ export function Reveal({ children, className, delay = 0, immediate = false }: Re
 		delay,
 	};
 
-	if (immediate) {
-		return (
-			<motion.div className={className} initial={hidden} animate={shown} transition={transition}>
-				{children}
-			</motion.div>
-		);
-	}
-
 	return (
-		<motion.div
-			className={className}
-			initial={hidden}
-			whileInView={shown}
-			viewport={REVEAL_VIEWPORT}
-			transition={transition}
-		>
+		<motion.div className={className} initial={hidden} animate={shown} transition={transition}>
 			{children}
 		</motion.div>
 	);
@@ -78,27 +93,18 @@ export function RevealGroup({
 	immediate = false,
 	delayChildren = 0,
 }: RevealGroupProps) {
+	const animateIntro = useLandingIntro();
 	const parent: Variants = {
 		hidden: {},
 		shown: { transition: { staggerChildren: REVEAL_STAGGER, delayChildren } },
 	};
 
-	if (immediate) {
-		return (
-			<motion.div className={className} initial="hidden" animate="shown" variants={parent}>
-				{children}
-			</motion.div>
-		);
+	if (!immediate || !animateIntro) {
+		return <div className={className}>{children}</div>;
 	}
 
 	return (
-		<motion.div
-			className={className}
-			initial="hidden"
-			whileInView="shown"
-			viewport={REVEAL_VIEWPORT}
-			variants={parent}
-		>
+		<motion.div className={className} initial="hidden" animate="shown" variants={parent}>
 			{children}
 		</motion.div>
 	);

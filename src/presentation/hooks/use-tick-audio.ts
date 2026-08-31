@@ -20,6 +20,18 @@ function getAudioContextCtor(): AudioContextCtor | undefined {
 	);
 }
 
+/** Keep a resumed preview track aligned with the exact frame held by the scrubber. */
+export function previewAudioOffsetSeconds(
+	playbackProgress: number,
+	totalMs: number,
+	decodeMs: number,
+	bufferDurationSeconds: number,
+): number {
+	const progress = Math.min(Math.max(playbackProgress, 0), 1);
+	const requested = (progress * Math.max(totalMs, 0) + Math.max(decodeMs, 0)) / 1000;
+	return Math.min(Math.max(requested, 0), Math.max(bufferDurationSeconds, 0));
+}
+
 /**
  * Preview parity for synthesized typing sounds. When the Sound toggle is on and
  * playback starts, this renders the SAME tick track the export bakes in (same
@@ -55,6 +67,7 @@ export function useTickAudio(): void {
 			transitionMs,
 		});
 		const totalMs = buildTimeline(holds, transitionMs).totalMs;
+		const startProgress = useSnippetStore.getState().playbackProgress;
 		const dataUrl = encodeWavBase64(renderTickTrack(events, totalMs), 44100);
 
 		const ctx = new Ctor();
@@ -73,8 +86,14 @@ export function useTickAudio(): void {
 				source = ctx.createBufferSource();
 				source.buffer = audioBuffer;
 				source.connect(ctx.destination);
-				// Skip the time spent decoding so the audio tracks the visual playback.
-				const offset = Math.min((performance.now() - startedAt) / 1000, audioBuffer.duration);
+				// Start at the held timeline frame, then skip decode time so sound and
+				// motion resume together instead of replaying ticks from the beginning.
+				const offset = previewAudioOffsetSeconds(
+					startProgress,
+					totalMs,
+					performance.now() - startedAt,
+					audioBuffer.duration,
+				);
 				source.start(0, Math.max(0, offset));
 			})
 			.catch(() => undefined);

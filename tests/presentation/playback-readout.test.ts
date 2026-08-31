@@ -89,7 +89,7 @@ describe("the counter and the dots", () => {
 	});
 
 	it("names each dot with its position, since a 6px dot has no other label", () => {
-		expect(stepDotLabel(0, 5)).toBe("Step 1 of 5");
-		expect(stepDotLabel(4, 5)).toBe("Step 5 of 5");
+		expect(stepDotLabel(0, 5)).toBe("Scene 1 of 5");
+		expect(stepDotLabel(4, 5)).toBe("Scene 5 of 5");
 	});
 });

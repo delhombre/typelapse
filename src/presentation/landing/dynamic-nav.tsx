@@ -90,6 +90,8 @@ export function DynamicNav() {
 		<header className="pointer-events-none fixed inset-x-0 top-3 z-50 flex justify-center">
 			<motion.div
 				className="pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px] transition-colors duration-300 ease-[var(--ease-out)]"
+				aria-hidden={isHidden}
+				inert={isHidden}
 				style={{ background: onDark ? ISLAND_BG_ON_DARK : ISLAND_BG, boxShadow: ISLAND_SHADOW }}
 				initial={false}
 				animate={{ y: isHidden ? HIDDEN_Y : 0, opacity: isHidden ? 0 : 1 }}

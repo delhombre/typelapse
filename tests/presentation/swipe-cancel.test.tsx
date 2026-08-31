@@ -59,7 +59,7 @@ const cycleWith = (step: ReturnType<typeof vi.fn>): PlatformCycle => ({
 	index: 0,
 	platform: "reels",
 	direction: 1,
-	controls: { step, select: vi.fn(), hold: vi.fn(), release: vi.fn() },
+	controls: { step, select: vi.fn() },
 });
 
 /** jsdom has no PointerEvent; React only reads the properties, not the class. */

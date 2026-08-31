@@ -27,6 +27,7 @@ const DEFAULT_INPUT: RenderInput = {
 	framePadding: 24,
 	cardMargin: 32,
 	transitionMs: 650,
+	transitionEasing: [0.42, 0, 0.58, 1],
 	loop: false,
 	typewriter: false,
 	focusZoom: false,

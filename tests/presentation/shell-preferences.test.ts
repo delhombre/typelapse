@@ -12,8 +12,8 @@ describe("what the shell remembers between visits", () => {
 		window.localStorage.clear();
 	});
 
-	it("opens the code card by default, because folding is a choice and not a state", () => {
-		expect(DEFAULT_SHELL_PREFERENCES.codeFolded).toBe(false);
+	it("opens on the stage by default and keeps editing one explicit mode away", () => {
+		expect(DEFAULT_SHELL_PREFERENCES.codeFolded).toBe(true);
 		expect(parseShellPreferences(null)).toEqual(DEFAULT_SHELL_PREFERENCES);
 	});
 

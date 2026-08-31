@@ -18,6 +18,10 @@ import {
 	MIN_RENDER_DIMENSION,
 } from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
+import {
+	DEFAULT_TRANSITION_EASING,
+	isCubicBezier,
+} from "../../src/application/magic-move/easing";
 import { resolveShikiLanguage, resolveShikiTheme } from "../../src/infrastructure/highlighting/shiki-registry";
 import { buildServerMagicMovePlan } from "../remotion/magic-move-plan";
 import type { RenderInput, RenderRequestBody, StepData } from "../remotion/types";
@@ -182,6 +186,9 @@ renderRoute.post(
 			MAX_TRANSITION_MS,
 			TRANSITION_MS,
 		);
+		const transitionEasing = isCubicBezier(body.transitionEasing)
+			? body.transitionEasing
+			: DEFAULT_TRANSITION_EASING;
 		const cardMargin = clampNumber(
 			body.cardMargin,
 			MIN_CARD_MARGIN,
@@ -218,6 +225,7 @@ renderRoute.post(
 				clampedSteps.map((s) => s.code),
 				lang,
 				shikiTheme,
+				theme.background,
 				loop,
 			);
 
@@ -264,6 +272,7 @@ renderRoute.post(
 				cardMargin,
 				plan,
 				transitionMs,
+				transitionEasing,
 				loop,
 				typewriter,
 				focusZoom,

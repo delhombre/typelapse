@@ -5,7 +5,6 @@ import { type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } f
 import { Link, useNavigate } from "react-router-dom";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
-import { GITHUB_URL } from "./tokens";
 
 /**
  * Hero.
@@ -129,32 +128,30 @@ export function Hero() {
 		<section className="lp-hero flex min-h-[100svh] flex-col justify-center py-8">
 			<RevealGroup immediate className="mx-auto w-full max-w-[680px] px-6">
 				<RevealItem>
-					<p className="lp-hero-lead">
+					<h1 className="lp-hero-lead">
 						<strong>Typelapse.</strong> Turn a code change into a video. Paste a pull request, a
 						diff or a snippet. It morphs token by token and renders for the feed.
-					</p>
+					</h1>
 				</RevealItem>
 				<RevealItem>
-					<div className="lp-modes" role="tablist" aria-label="What you are pasting">
+					<div className="lp-modes" role="radiogroup" aria-label="What you are pasting">
 						{MODES.map((m) => (
-							<button
-								key={m}
-								type="button"
-								role="tab"
-								className="lp-mode"
-								aria-selected={m === mode}
-								data-active={m === mode ? "" : undefined}
-								onClick={() => {
-									/* Only a change of mode ticks; re-tapping the one already
-									   selected did nothing, so it says nothing. */
-									if (m !== mode) {
+							<label key={m} className="lp-mode" data-active={m === mode ? "" : undefined}>
+								<input
+									type="radio"
+									name="landing-source-kind"
+									value={m}
+									checked={m === mode}
+									className="sr-only"
+									onChange={() => {
+										/* Only a change of mode ticks; re-tapping the one already
+							   selected did nothing, so it says nothing. */
 										trigger("selection");
-									}
-									setMode(m);
-								}}
-							>
-								{m}
-							</button>
+										setMode(m);
+									}}
+								/>
+								<span>{m}</span>
+							</label>
 						))}
 					</div>
 					<div
@@ -195,7 +192,7 @@ export function Hero() {
 						    step sideways on the first keystroke. */}
 						{!multiline && <span className="lp-caret" aria-hidden="true" />}
 						<button type="button" className="lp-field-cta" onClick={submit}>
-							Render
+							{value.trim() === "" ? "Open studio" : "Import & animate"}
 						</button>
 					</div>
 				</RevealItem>
@@ -208,10 +205,8 @@ export function Hero() {
 				</RevealItem>
 				<RevealItem>
 					<p className="lp-hero-meta">
-						Exports mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
-						<a href={GITHUB_URL} target="_blank" rel="noreferrer">
-							source
-						</a>
+						Local by default &nbsp;·&nbsp; Preview matches export &nbsp;·&nbsp; MP4, WebM, GIF and
+						PNG
 					</p>
 				</RevealItem>
 			</RevealGroup>

@@ -86,7 +86,7 @@ export function showsDots(totalSteps: number, budget: number = MAX_DOTS): boolea
 
 /** A 6px dot carries no text, so its position is its whole accessible name. */
 export function stepDotLabel(index: number, totalSteps: number): string {
-	return `Step ${index + 1} of ${totalSteps}`;
+	return `Scene ${index + 1} of ${totalSteps}`;
 }
 
 function clamp01(value: number): number {

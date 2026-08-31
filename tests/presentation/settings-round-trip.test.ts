@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it } from "vitest";
  * encode/decode. Both paths carry the same complete set, split across the snippet
  * store (title, code, language, theme, background, chrome, gutter, framePadding,
  * cardMargin, watermark) and the export store (aspect, progressStyle, typewriter,
- * focusZoom, transitionMs), plus per-step {code, duration, focus, caption}.
+ * focusZoom, transitionMs, transitionEasing), plus per-step {code, duration, focus, caption}.
  */
 
 /**
@@ -24,6 +24,8 @@ const FULL: ProjectPayload = {
 	code: "const z = 42;",
 	language: "python",
 	themeName: "nord",
+	fontFamily: "Fira Code, monospace",
+	borderRadius: 24,
 	background: "#123456",
 	windowChrome: "terminal",
 	showLineNumbers: false,
@@ -35,6 +37,7 @@ const FULL: ProjectPayload = {
 	typewriter: true,
 	focusZoom: true,
 	transitionMs: 1000,
+	transitionEasing: [0.25, 0.1, 0.25, 1],
 	width: 1080,
 	height: 1920,
 	steps: [
@@ -56,6 +59,7 @@ function resetStores() {
 	);
 	const ex = useExportStore.getState();
 	ex.setTransitionMs(650);
+	ex.setTransitionEasing([0.42, 0, 0.58, 1]);
 	ex.setFocusZoom(false);
 	ex.setTypewriter(false);
 	ex.setProgressStyle("reels");
@@ -73,6 +77,8 @@ describe("JSON export/import round-trips every studio setting", () => {
 		expect(s.snippet.code).toBe("const z = 42;");
 		expect(s.snippet.language).toBe("python");
 		expect(s.snippet.theme.name).toBe("nord");
+		expect(s.snippet.theme.fontFamily).toBe("Fira Code, monospace");
+		expect(s.snippet.theme.borderRadius).toBe(24);
 		expect(s.background).toBe("#123456");
 		expect(s.windowChrome).toBe("terminal");
 		expect(s.showLineNumbers).toBe(false);
@@ -86,6 +92,7 @@ describe("JSON export/import round-trips every studio setting", () => {
 		expect(ex.typewriter).toBe(true);
 		expect(ex.focusZoom).toBe(true);
 		expect(ex.transitionMs).toBe(1000);
+		expect(ex.transitionEasing).toEqual([0.25, 0.1, 0.25, 1]);
 		expect(ex.width).toBe(1080);
 		expect(ex.height).toBe(1920);
 	});
@@ -173,6 +180,8 @@ describe("JSON export/import round-trips every studio setting", () => {
 			code: "const z = 42;",
 			language: "python",
 			themeName: "nord",
+			fontFamily: "Fira Code, monospace",
+			borderRadius: 24,
 			background: "#123456",
 			windowChrome: "terminal",
 			showLineNumbers: false,
@@ -236,6 +245,7 @@ describe("JSON export/import round-trips every studio setting", () => {
 		expect(ex.focusZoom).toBe(false);
 		expect(ex.progressStyle).toBe("reels");
 		expect(ex.transitionMs).toBe(650);
+		expect(ex.transitionEasing).toEqual([0.42, 0, 0.58, 1]);
 		expect(ex.width).toBe(1920);
 		expect(ex.height).toBe(1080);
 	});
