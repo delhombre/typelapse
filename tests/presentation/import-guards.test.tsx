@@ -1,5 +1,5 @@
 import { DiffImportMenu } from "@/presentation/components/layout/diff-import-menu";
-import { StudioUtilities } from "@/presentation/components/layout/studio-utilities";
+import { StudioSourceHub } from "@/presentation/components/layout/studio-source-hub";
 import { UrlImportMenu } from "@/presentation/components/layout/url-import-menu";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
@@ -181,13 +181,17 @@ describe("UrlImportMenu guard", () => {
 	});
 });
 
-describe("StudioUtilities JSON import guard", () => {
+describe("StudioSourceHub import guard", () => {
 	function renderNav() {
 		return render(
 			<MemoryRouter>
-				<StudioUtilities />
+				<StudioSourceHub />
 			</MemoryRouter>,
 		);
+	}
+
+	function openSourceMenu(): void {
+		fireEvent.click(screen.getByRole("button", { name: "Add source" }));
 	}
 
 	function chooseFile(container: HTMLElement, file: File): void {
@@ -205,11 +209,29 @@ describe("StudioUtilities JSON import guard", () => {
 		steps: [],
 	});
 
+	it("switches between the two import popovers in one press", async () => {
+		makePristine();
+		renderNav();
+
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Import from URL" }));
+		expect(screen.getByRole("dialog", { name: "Import from URL" })).toBeTruthy();
+
+		fireEvent.click(screen.getByRole("button", { name: "Add source" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "Import a git diff" }));
+		expect(screen.getByRole("dialog", { name: "Import a git diff" })).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.queryByRole("dialog", { name: "Import from URL" })).toBeNull();
+		});
+	});
+
 	it("asks before an opened file replaces edited work", async () => {
 		makeDirty();
 		const codeBefore = useSnippetStore.getState().snippet.code;
 		const { container } = renderNav();
 
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(container, new File([OPENED_PROJECT], "opened.json", { type: "application/json" }));
 
 		expect(await screen.findByText(/Replace what you have/)).toBeTruthy();
@@ -225,6 +247,8 @@ describe("StudioUtilities JSON import guard", () => {
 		makeDirty();
 		const { container } = renderNav();
 
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(container, new File([OPENED_PROJECT], "opened.json", { type: "application/json" }));
 		const question = await screen.findByText(/Replace what you have/);
 
@@ -243,6 +267,8 @@ describe("StudioUtilities JSON import guard", () => {
 		makePristine();
 		const { container } = renderNav();
 
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(
 			container,
 			new File([OPENED_PROJECT.replace("opened.ts", "direct.ts")], "direct.json", {
@@ -260,6 +286,8 @@ describe("StudioUtilities JSON import guard", () => {
 		makePristine();
 		const { container } = renderNav();
 
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(container, new File(["{broken"], "broken.json", { type: "application/json" }));
 
 		await waitFor(() => {

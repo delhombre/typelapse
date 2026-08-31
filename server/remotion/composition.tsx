@@ -2,13 +2,16 @@ import React, { useEffect, useState } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gradient";
 import { fitCardToCanvas, renderScaleFor } from "../../src/application/layout/canvas-fit";
-import { LINE_HEIGHT_RATIO } from "../../src/application/layout/frame-metrics";
+import {
+	FRAME_SECONDARY_ALPHA_HEX,
+	LINE_HEIGHT_RATIO,
+} from "../../src/application/layout/frame-metrics";
 import {
 	type LaidOutFrame,
-	easeInOutCubic,
 	renderStatic,
 	renderTransition,
 } from "../../src/application/magic-move/engine";
+import { cubicBezierAt } from "../../src/application/magic-move/easing";
 import {
 	NO_ZOOM,
 	type ZoomTransform,
@@ -95,7 +98,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 
 	const frame = useCurrentFrame();
 	const { fps, width, height, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, loop, typewriter, focusZoom, progressStyle, watermark, audioDataUrl } =
+	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, transitionEasing, loop, typewriter, focusZoom, progressStyle, watermark, audioDataUrl } =
 		input;
 
 	const segments = buildSegments(
@@ -114,7 +117,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
 	const typingView = resolveTypingView(input, active, frame, focusSets[0]);
-	const view = typingView ?? resolveView(plan, active, frame, focusSets);
+	const view = typingView ?? resolveView(plan, active, frame, focusSets, transitionEasing);
 	const cursor = typingView?.cursor ?? null;
 	const wmColor = getWatermarkColor(background, theme.foreground);
 	const backgroundCss = isTransparent ? "transparent" : resolveBackgroundCss(background, frame / fps);
@@ -175,7 +178,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 						color={theme.foreground}
 						showLineNumbers={showLineNumbers}
 						lineNumberStart={lineNumberStart}
-						lineNumberColor={`${theme.foreground}30`}
+						lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
 						padding={framePadding * videoScale}
 						cursor={cursor}
 					/>
@@ -244,6 +247,7 @@ function resolveView(
 	active: Segment | undefined,
 	frame: number,
 	focusSets: (Set<number> | undefined)[],
+	transitionEasing: RenderInput["transitionEasing"],
 ): FrameView {
 	if (!active) {
 		return { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
@@ -258,7 +262,8 @@ function resolveView(
 		if (transition && fromFrame && toFrame) {
 			const span = active.endFrame - active.startFrame;
 			const t = span > 0 ? (frame - active.startFrame) / span : 1;
-			const eased = easeInOutCubic(Math.min(Math.max(t, 0), 1));
+			const moveEase = (progress: number) => cubicBezierAt(transitionEasing, progress);
+			const eased = moveEase(Math.min(Math.max(t, 0), 1));
 			const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount);
 			const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount);
 			return {
@@ -266,13 +271,13 @@ function resolveView(
 					transition.from,
 					transition.to,
 					t,
-					{},
+					{ moveEase },
 					focusSets[active.index],
 					focusSets[toIndex],
 				),
 				lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 				lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
-				zoom: interpolateZoom(fromZoom, toZoom, t, easeInOutCubic),
+				zoom: interpolateZoom(fromZoom, toZoom, t, moveEase),
 			};
 		}
 	}

@@ -10,6 +10,7 @@
 
 import type { SceneProgress, SceneTheme, SceneWatermark } from "@/application/frame-painter/scene";
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
+import type { CubicBezier } from "@/application/magic-move/easing";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
 import type { RenderFormat } from "@/domain/entities/render-config";
 
@@ -27,6 +28,7 @@ export interface ClientExportJob {
 	fps: number;
 	format: RenderFormat;
 	transitionMs: number;
+	transitionEasing: CubicBezier;
 	loop: boolean;
 	typewriter: boolean;
 	focusZoom: boolean;

@@ -7,16 +7,23 @@ import { SceneShell } from "./scene-shell";
 
 interface ResponsiveShellProps {
 	editor: ReactNode;
+	sceneInspector: ReactNode;
 	stepBuilder: ReactNode;
 	preview: ReactNode;
 }
 
 /**
- * Chooses the workspace layout at the lg breakpoint: the scene on desktop, the
- * same scene folded to one column — with the code card as a Vaul bottom sheet —
- * below it. State lives in the shared stores, so it carries across a switch.
+ * Chooses the workspace layout at the first width where editor, video and
+ * inspector can all remain useful. Below that content breakpoint, the same
+ * scene folds to one column with the code card as a Vaul bottom sheet. State
+ * lives in the shared stores, so it carries across a switch.
  */
-export function ResponsiveShell(props: ResponsiveShellProps) {
+export function ResponsiveShell({
+	editor,
+	sceneInspector,
+	stepBuilder,
+	preview,
+}: ResponsiveShellProps) {
 	useKeyboardShortcuts();
 	const isDesktop = useIsDesktop();
 
@@ -28,5 +35,9 @@ export function ResponsiveShell(props: ResponsiveShellProps) {
 		};
 	}, []);
 
-	return isDesktop ? <SceneShell {...props} /> : <MobileShell {...props} />;
+	return isDesktop ? (
+		<SceneShell editor={editor} sceneInspector={sceneInspector} preview={preview} />
+	) : (
+		<MobileShell editor={editor} stepBuilder={stepBuilder} preview={preview} />
+	);
 }

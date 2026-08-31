@@ -1,3 +1,4 @@
+import { DESKTOP_SCENE_MIN_WIDTH } from "@/application/layout/scene-stage";
 import { useSyncExternalStore } from "react";
 
 /**
@@ -23,9 +24,9 @@ export function useMediaQuery(query: string): boolean {
 	return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
-/** Tailwind's `lg` breakpoint: the switch between the mobile sheet and the desktop split. */
+/** The scene switches when its three surfaces fit, not at a device-named breakpoint. */
 export function useIsDesktop(): boolean {
-	return useMediaQuery("(min-width: 1024px)");
+	return useMediaQuery(`(min-width: ${DESKTOP_SCENE_MIN_WIDTH}px)`);
 }
 
 /**

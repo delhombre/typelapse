@@ -5,7 +5,15 @@ import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { AnimatePresence, motion } from "motion/react";
-import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from "react";
+import {
+	type KeyboardEvent as ReactKeyboardEvent,
+	type RefObject,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
+import { BranchDown, ChevronLeft } from "reicon-react";
 
 const IMPORT_MODES: { key: ImportPlayMode; label: string }[] = [
 	{ key: "whole", label: "Whole change" },
@@ -20,13 +28,36 @@ const IMPORT_MODES: { key: ImportPlayMode; label: string }[] = [
  * per commit. That choice is why the URL importer hands its pull requests over
  * here rather than refusing them: this is the control that can offer it.
  */
-export function DiffImportMenu() {
-	const [open, setOpen] = useState(false);
+export function DiffImportMenu({
+	open: controlledOpen,
+	onOpenChange,
+	embedded = false,
+	boundaryRef,
+	onBack,
+}: {
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	embedded?: boolean;
+	boundaryRef?: RefObject<HTMLElement | null>;
+	onBack?: () => void;
+} = {}) {
+	const [localOpen, setLocalOpen] = useState(false);
+	const open = controlledOpen ?? localOpen;
+	const changeOpen = useCallback(
+		(next: boolean) => {
+			if (controlledOpen === undefined) {
+				setLocalOpen(next);
+			}
+			onOpenChange?.(next);
+		},
+		[controlledOpen, onOpenChange],
+	);
 	const [text, setText] = useState("");
 	const [mode, setMode] = useState<ImportPlayMode>("whole");
 	/** True while the paste waits on a confirm, because applying it would discard edits. */
 	const [confirming, setConfirming] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const rootRef = useRef<HTMLDivElement>(null);
 
 	const { loading, error, progress, run, reset } = useSourceImport();
 
@@ -45,9 +76,9 @@ export function DiffImportMenu() {
 			return;
 		}
 		setText(pending);
-		setOpen(true);
+		changeOpen(true);
 		takePending();
-	}, [pending, takePending]);
+	}, [changeOpen, pending, takePending]);
 
 	useEffect(() => {
 		if (!open) {
@@ -57,16 +88,24 @@ export function DiffImportMenu() {
 		}
 		function onKey(e: KeyboardEvent) {
 			if (e.key === "Escape") {
-				setOpen(false);
+				changeOpen(false);
+			}
+		}
+		function onPointerDown(e: PointerEvent) {
+			const root = boundaryRef?.current ?? rootRef.current;
+			if (root && !e.composedPath().includes(root)) {
+				changeOpen(false);
 			}
 		}
 		document.addEventListener("keydown", onKey);
+		document.addEventListener("pointerdown", onPointerDown);
 		const focusId = requestAnimationFrame(() => textareaRef.current?.focus());
 		return () => {
 			document.removeEventListener("keydown", onKey);
+			document.removeEventListener("pointerdown", onPointerDown);
 			cancelAnimationFrame(focusId);
 		};
-	}, [open]);
+	}, [boundaryRef, changeOpen, open]);
 
 	async function performImport() {
 		// The toggle only reaches a PR: every other kind is a single sequence and
@@ -74,7 +113,7 @@ export function DiffImportMenu() {
 		const imported = await run(text, mode);
 		if (imported) {
 			setText("");
-			setOpen(false);
+			changeOpen(false);
 		}
 		// On failure the form comes back with the error under it.
 		setConfirming(false);
@@ -109,112 +148,116 @@ export function DiffImportMenu() {
 	}
 
 	return (
-		<div className="relative">
-			<motion.button
-				type="button"
-				onClick={() => setOpen((v) => !v)}
-				aria-haspopup="dialog"
-				aria-expanded={open}
-				aria-label="Import a git diff"
-				whileTap={{ scale: 0.96 }}
-				transition={springs.snappy}
-				className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
-					open
-						? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-						: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-				}`}
-				title="Import a git diff"
-			>
-				<DiffIcon />
-			</motion.button>
+		<div className={embedded ? "contents" : "relative"} ref={rootRef}>
+			{!embedded && (
+				<motion.button
+					type="button"
+					onClick={() => changeOpen(!open)}
+					aria-haspopup="dialog"
+					aria-expanded={open}
+					aria-label="Import a git diff"
+					whileTap={{ scale: 0.96 }}
+					transition={springs.snappy}
+					className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
+						open
+							? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
+							: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
+					}`}
+					title="Import a git diff"
+				>
+					<BranchDown size={13} strokeWidth={1.6} aria-hidden="true" />
+				</motion.button>
+			)}
 
 			<AnimatePresence>
 				{open && (
-					<>
-						{/* Backdrop: a click anywhere outside closes the popover. */}
-						<button
-							type="button"
-							aria-label="Close diff import"
-							className="fixed inset-0 z-40 cursor-default"
-							onClick={() => setOpen(false)}
-						/>
-						<motion.div
-							initial={{ opacity: 0, scale: 0.96, y: -4, filter: "blur(4px)" }}
-							animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-							exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
-							transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-							style={{ transformOrigin: "top right" }}
-							// biome-ignore lint/a11y/useSemanticElements: a native <dialog> cannot be
-							// anchored to its trigger the way this panel is, and loses its enter/exit
-							// animation with it. Non-modal by intent: the backdrop dismisses and
-							// nothing outside is inert, so no aria-modal is claimed.
-							role="dialog"
-							aria-label="Import a git diff"
-							className="absolute right-0 top-full z-50 mt-2 w-96 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
-						>
-							{confirming ? (
-								<ConfirmDiscard
-									message={`Replace what you have with this ${prRef ? "pull request" : "diff"}?`}
-									confirmLabel="Import the diff"
-									onCancel={() => setConfirming(false)}
-									onConfirm={() => void performImport()}
+					<motion.div
+						initial={{ opacity: 0, scale: 0.96, y: -4, filter: "blur(4px)" }}
+						animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+						exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
+						transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+						style={{ transformOrigin: "top right" }}
+						// biome-ignore lint/a11y/useSemanticElements: a native <dialog> cannot be
+						// anchored to its trigger the way this panel is, and loses its enter/exit
+						// animation with it. Non-modal by intent: the backdrop dismisses and
+						// nothing outside is inert, so no aria-modal is claimed.
+						role="dialog"
+						aria-label="Import a git diff"
+						className={`absolute right-0 top-full z-50 mt-2 w-96 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900 ${embedded ? "sc-source-form-popover" : ""}`}
+					>
+						{embedded && (
+							<div className="sc-source-view-head">
+								<button type="button" onClick={onBack} aria-label="Back to source choices">
+									<ChevronLeft size={13} strokeWidth={1.7} aria-hidden="true" />
+								</button>
+								<div>
+									<strong>Import a change</strong>
+									<span>Git diff or GitHub pull request</span>
+								</div>
+							</div>
+						)}
+						{confirming ? (
+							<ConfirmDiscard
+								message={`Replace what you have with this ${prRef ? "pull request" : "diff"}?`}
+								confirmLabel="Import the diff"
+								onCancel={() => setConfirming(false)}
+								onConfirm={() => void performImport()}
+							/>
+						) : (
+							<>
+								<textarea
+									ref={textareaRef}
+									value={text}
+									onChange={(e) => {
+										setText(e.target.value);
+										if (error) {
+											reset();
+										}
+									}}
+									onKeyDown={onTextareaKeyDown}
+									rows={10}
+									spellCheck={false}
+									placeholder={"paste a git diff, or a github pr url"}
+									className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 								/>
-							) : (
-								<>
-									<textarea
-										ref={textareaRef}
-										value={text}
-										onChange={(e) => {
-											setText(e.target.value);
-											if (error) {
-												reset();
-											}
-										}}
-										onKeyDown={onTextareaKeyDown}
-										rows={10}
-										spellCheck={false}
-										placeholder={"paste a git diff, or a github pr url"}
-										className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] leading-relaxed text-neutral-700 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
-									/>
-									<AnimatePresence initial={false}>
-										{prRef && (
-											// A PR link can play as one change or chapter by commit; quiet secondary row.
-											<motion.div
-												initial={{ opacity: 0, height: 0 }}
-												animate={{ opacity: 1, height: "auto" }}
-												exit={{ opacity: 0, height: 0 }}
-												transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-												className="overflow-hidden"
-											>
-												<div className="mt-2 flex items-center gap-2">
-													<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-														play as
-													</span>
-													<ModeToggle mode={mode} onSelect={setMode} />
-												</div>
-											</motion.div>
-										)}
-									</AnimatePresence>
-									<div className="mt-2 flex items-center justify-between gap-2">
-										<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-											{hint()}
-										</span>
-										<motion.button
-											type="button"
-											onClick={apply}
-											disabled={text.trim() === "" || loading}
-											whileTap={{ scale: 0.96 }}
-											transition={springs.snappy}
-											className="flex h-8 items-center justify-center rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+								<AnimatePresence initial={false}>
+									{prRef && (
+										// A PR link can play as one change or chapter by commit; quiet secondary row.
+										<motion.div
+											initial={{ opacity: 0, height: 0 }}
+											animate={{ opacity: 1, height: "auto" }}
+											exit={{ opacity: 0, height: 0 }}
+											transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+											className="overflow-hidden"
 										>
-											{loading ? <Spinner /> : "Apply"}
-										</motion.button>
-									</div>
-									{error && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{error}</p>}
-								</>
-							)}
-						</motion.div>
-					</>
+											<div className="mt-2 flex items-center gap-2">
+												<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+													play as
+												</span>
+												<ModeToggle mode={mode} onSelect={setMode} />
+											</div>
+										</motion.div>
+									)}
+								</AnimatePresence>
+								<div className="mt-2 flex items-center justify-between gap-2">
+									<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
+										{hint()}
+									</span>
+									<motion.button
+										type="button"
+										onClick={apply}
+										disabled={text.trim() === "" || loading}
+										whileTap={{ scale: 0.96 }}
+										transition={springs.snappy}
+										className="flex h-8 items-center justify-center rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+									>
+										{loading ? <Spinner /> : "Apply"}
+									</motion.button>
+								</div>
+								{error && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{error}</p>}
+							</>
+						)}
+					</motion.div>
 				)}
 			</AnimatePresence>
 		</div>
@@ -255,28 +298,6 @@ function ModeToggle({
 				);
 			})}
 		</div>
-	);
-}
-
-function DiffIcon() {
-	return (
-		<svg
-			width="13"
-			height="13"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="1.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			role="img"
-		>
-			<title>Import a git diff</title>
-			<line x1="6" y1="3" x2="6" y2="15" />
-			<circle cx="18" cy="6" r="3" />
-			<circle cx="6" cy="18" r="3" />
-			<path d="M18 9a9 9 0 0 1-9 9" />
-		</svg>
 	);
 }
 

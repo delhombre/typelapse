@@ -90,6 +90,33 @@ describe("Snippet", () => {
 		expect(updated.steps[0]?.id).toBe(step2.id);
 	});
 
+	it("inserts an existing step at an exact position", () => {
+		const step1 = Step.create({ code: "line 1" });
+		const step2 = Step.create({ code: "line 2" });
+		const inserted = Step.create({ code: "inserted" });
+
+		const snippet = Snippet.create({
+			title: "Test",
+			code: "x",
+			language: "ts",
+		})
+			.addStep(step1)
+			.addStep(step2);
+
+		const updated = snippet.insertStep(inserted, 1);
+
+		expect(updated.steps.map((step) => step.id)).toEqual([step1.id, inserted.id, step2.id]);
+		expect(snippet.steps.map((step) => step.id)).toEqual([step1.id, step2.id]);
+	});
+
+	it("rejects a step insertion outside the timeline", () => {
+		const snippet = Snippet.create({ title: "Test", code: "x", language: "ts" });
+		const step = Step.create({ code: "inserted" });
+
+		expect(() => snippet.insertStep(step, -1)).toThrow();
+		expect(() => snippet.insertStep(step, 1)).toThrow();
+	});
+
 	it("reorders steps", () => {
 		const step1 = Step.create({ code: "a" });
 		const step2 = Step.create({ code: "b" });

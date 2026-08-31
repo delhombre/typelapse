@@ -1,10 +1,14 @@
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { MAX_ANNOTATION_LENGTH, type Step } from "@/domain/entities/step";
+import { SceneDeletionUndo } from "@/presentation/components/ui/scene-deletion-undo";
+import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
+import { feedback } from "@/presentation/haptics";
+import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
 import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { truncateMiddle } from "@/presentation/utils/truncate-middle";
-import { motion, useReducedMotion } from "motion/react";
-import { useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
 
 function getStepPreview(code: string): string {
 	const firstLine = code.split("\n")[0] ?? "";
@@ -15,17 +19,32 @@ export function StepBuilder() {
 	const {
 		snippet,
 		captureStep,
-		removeStep,
 		updateStepDuration,
 		reorderSteps,
 		currentStepIndex,
 		setCurrentStepIndex,
 	} = useSnippetStore();
 	const steps = snippet.steps;
+	const { pendingDeletion, deleteScene, undoDeletion } = useSceneDeletion();
 
 	const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 	const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
 	const dragCounterRef = useRef(0);
+	const listRef = useRef<HTMLDivElement>(null);
+	const selectedStepId = steps[currentStepIndex]?.id;
+
+	// Selection can arrive from the film timeline, well outside this scroller.
+	// Reveal that card once; do not bind the two scroll positions continuously,
+	// because a visitor must still be free to browse another part of the list.
+	useEffect(() => {
+		if (!selectedStepId) {
+			return;
+		}
+		listRef.current?.querySelector<HTMLElement>("[data-step-selected]")?.scrollIntoView({
+			block: "nearest",
+			inline: "nearest",
+		});
+	}, [selectedStepId]);
 
 	function handleDragStart(e: React.DragEvent, index: number) {
 		setDraggedIndex(index);
@@ -76,6 +95,9 @@ export function StepBuilder() {
 		}
 		ids.splice(targetIndex, 0, movedId);
 		reorderSteps(ids);
+		if (selectedStepId) {
+			setCurrentStepIndex(Math.max(0, ids.indexOf(selectedStepId)));
+		}
 		setDraggedIndex(null);
 	}
 
@@ -111,26 +133,31 @@ export function StepBuilder() {
 		<div className="flex flex-col gap-3">
 			<div className="flex items-center justify-between">
 				<span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
-					{steps.length} {steps.length === 1 ? "step" : "steps"}
+					{steps.length} {steps.length === 1 ? "scene" : "scenes"}
 				</span>
 				<div className="flex items-center gap-2">
 					<RecordButton />
-					<motion.button
-						type="button"
-						onClick={() => captureStep()}
-						whileTap={{ scale: 0.97 }}
-						transition={springs.snappy}
-						className="flex h-8 items-center gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
-					>
-						<PlusIcon />
-						Capture
-					</motion.button>
+					<CaptureButton onCapture={captureStep} />
 				</div>
 			</div>
 
+			<AnimatePresence initial={false}>
+				{pendingDeletion && (
+					<SceneDeletionUndo
+						compact
+						sceneNumber={pendingDeletion.sceneNumber}
+						onUndo={() => {
+							if (undoDeletion()) {
+								feedback("commit");
+							}
+						}}
+					/>
+				)}
+			</AnimatePresence>
+
 			{steps.length === 0 && (
 				<p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-					Edit the code above, then Capture to add a step.
+					Edit the code above, then Capture to add your first scene.
 				</p>
 			)}
 
@@ -141,7 +168,7 @@ export function StepBuilder() {
 			    one inside the other — the wheel drove the inner one to its end and then
 			    stopped, 40px short of the last step, with the outer scrollbar still
 			    showing room. The card owns the scroll now, on both layouts. */}
-			<div className="-m-1 flex flex-col gap-1 p-1">
+			<div ref={listRef} className="-m-1 flex flex-col gap-1 p-1">
 				{steps.map((step, index) => (
 					<motion.div
 						key={step.id}
@@ -157,6 +184,7 @@ export function StepBuilder() {
 						onDragOver={(e) => handleDragOver(e as unknown as React.DragEvent)}
 						onDrop={(e) => handleDrop(e as unknown as React.DragEvent, index)}
 						className={getItemClasses(index)}
+						data-step-selected={index === currentStepIndex ? "" : undefined}
 						// The hand closes on the card it has picked up. A grab cursor that
 						// never becomes a grabbing one says the row can be dragged and then
 						// says nothing at all about the drag in progress.
@@ -165,25 +193,24 @@ export function StepBuilder() {
 						{/* Row 1: handle · number + preview · duration · remove */}
 						<div className="flex w-full items-center gap-2">
 							{/* Drag handle */}
-							<span
-								className="shrink-0 text-neutral-300 dark:text-neutral-600"
-								title="Drag to reorder"
-							>
-								<svg
-									width="8"
-									height="12"
-									viewBox="0 0 10 14"
-									fill="currentColor"
-									aria-hidden="true"
-								>
-									<circle cx="2.5" cy="2" r="1.2" />
-									<circle cx="7.5" cy="2" r="1.2" />
-									<circle cx="2.5" cy="7" r="1.2" />
-									<circle cx="7.5" cy="7" r="1.2" />
-									<circle cx="2.5" cy="12" r="1.2" />
-									<circle cx="7.5" cy="12" r="1.2" />
-								</svg>
-							</span>
+							<StudioTooltip content="Drag to reorder">
+								<span className="shrink-0 text-neutral-300 dark:text-neutral-600">
+									<svg
+										width="8"
+										height="12"
+										viewBox="0 0 10 14"
+										fill="currentColor"
+										aria-hidden="true"
+									>
+										<circle cx="2.5" cy="2" r="1.2" />
+										<circle cx="7.5" cy="2" r="1.2" />
+										<circle cx="2.5" cy="7" r="1.2" />
+										<circle cx="7.5" cy="7" r="1.2" />
+										<circle cx="2.5" cy="12" r="1.2" />
+										<circle cx="7.5" cy="12" r="1.2" />
+									</svg>
+								</span>
+							</StudioTooltip>
 
 							{/* Step number + preview */}
 							<button
@@ -201,21 +228,26 @@ export function StepBuilder() {
 
 							{/* Duration input */}
 							<div className="flex shrink-0 items-center gap-1">
-								<input
-									type="number"
-									value={step.duration}
-									onChange={(e) => {
-										const val = Number.parseInt(e.target.value, 10);
-										if (val > 0) {
-											updateStepDuration(step.id, val);
-										}
-									}}
-									onClick={(e) => e.stopPropagation()}
-									className="w-14 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 transition focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
-									title="Duration (ms)"
-								/>
+								<StudioTooltip content="Duration in seconds">
+									<input
+										type="number"
+										min={0.4}
+										max={10}
+										step={0.1}
+										value={step.duration / 1000}
+										aria-label={`Scene ${index + 1} duration in seconds`}
+										onChange={(e) => {
+											const seconds = Number.parseFloat(e.target.value);
+											if (Number.isFinite(seconds) && seconds >= 0.4 && seconds <= 10) {
+												updateStepDuration(step.id, Math.round(seconds * 1000));
+											}
+										}}
+										onClick={(e) => e.stopPropagation()}
+										className="w-12 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 transition-[border-color,background-color] duration-150 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
+									/>
+								</StudioTooltip>
 								<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-									ms
+									s
 								</span>
 							</div>
 
@@ -225,40 +257,121 @@ export function StepBuilder() {
 							    it, so a press aimed at the caption deleted the step instead. The
 							    visible mark stays 24px — the floor this density is allowed — and the
 							    pseudo-element claims only the gaps that border it. */}
-							<button
-								type="button"
-								onClick={(e) => {
-									e.stopPropagation();
-									removeStep(step.id);
-								}}
-								className="relative flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity before:absolute before:-inset-x-[10px] before:-inset-y-[3px] hover:text-neutral-900 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 dark:text-neutral-700 dark:hover:text-neutral-100"
-								title="Remove step"
-							>
-								<svg
-									width="12"
-									height="12"
-									viewBox="0 0 24 24"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth="2"
-									role="img"
+							<StudioTooltip content={`Delete scene ${index + 1}`}>
+								<button
+									type="button"
+									onClick={(e) => {
+										e.stopPropagation();
+										deleteScene(step, index);
+										feedback("commit");
+									}}
+									className="relative flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity before:absolute before:-inset-x-[10px] before:-inset-y-[3px] hover:text-neutral-900 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 dark:text-neutral-700 dark:hover:text-neutral-100"
+									aria-label={`Delete scene ${index + 1}`}
 								>
-									<title>Remove</title>
-									<line x1="18" y1="6" x2="6" y2="18" />
-									<line x1="6" y1="6" x2="18" y2="18" />
-								</svg>
-							</button>
+									<svg
+										width="12"
+										height="12"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										strokeWidth="2"
+										role="img"
+									>
+										<title>Remove</title>
+										<line x1="18" y1="6" x2="6" y2="18" />
+										<line x1="6" y1="6" x2="18" y2="18" />
+									</svg>
+								</button>
+							</StudioTooltip>
 						</div>
 
 						{/* Row 2: spotlight lines + caption */}
 						<div className="grid grid-cols-2 gap-1.5">
-							<FocusInput step={step} />
-							<CaptionInput step={step} />
+							<FocusInput step={step} index={index} />
+							<CaptionInput step={step} index={index} />
 						</div>
 					</motion.div>
 				))}
 			</div>
 		</div>
+	);
+}
+
+/**
+ * Desktop's code-side inspector. Scene order, duration, duplication and deletion
+ * belong to the timeline directly below the stage; repeating them here created
+ * two competing editors for the same thing. This surface only keeps metadata
+ * that is naturally authored beside code: focus lines and the spoken caption.
+ *
+ * Mobile still uses {@link StepBuilder}: it has no film timeline, so removing
+ * the list there would remove the only way to navigate and order scenes.
+ */
+export function SceneInspector() {
+	const steps = useSnippetStore((state) => state.snippet.steps);
+	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
+	const captureStep = useSnippetStore((state) => state.captureStep);
+	const step = steps[currentStepIndex];
+
+	return (
+		<div className="flex flex-col gap-3">
+			<div className="grid gap-1.5">
+				<div className="flex items-center justify-between gap-3">
+					<p className="text-xs font-semibold tracking-[-0.01em] text-neutral-800 dark:text-neutral-100">
+						{step ? `Scene ${currentStepIndex + 1} of ${steps.length}` : "No scene yet"}
+					</p>
+					<div className="flex shrink-0 items-center gap-2">
+						<RecordButton />
+						<CaptureButton onCapture={captureStep} />
+					</div>
+				</div>
+				<p className="text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
+					{step
+						? "Focus and caption for the selected scene."
+						: "Capture a scene to animate this code."}
+				</p>
+			</div>
+
+			{step && (
+				<motion.div
+					key={step.id}
+					className="grid grid-cols-2 gap-2 rounded-[14px] border border-neutral-200/70 bg-neutral-50/65 p-2.5 dark:border-neutral-800 dark:bg-neutral-900/40"
+					initial={{ opacity: 0, y: 3 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={springs.snappy}
+				>
+					<label htmlFor={`scene-${step.id}-focus`} className="grid min-w-0 gap-1.5">
+						<span className="text-[10px] font-semibold tracking-[0.08em] text-neutral-500 uppercase dark:text-neutral-400">
+							Focus lines
+						</span>
+						<FocusInput id={`scene-${step.id}-focus`} step={step} index={currentStepIndex} />
+					</label>
+					<label htmlFor={`scene-${step.id}-caption`} className="grid min-w-0 gap-1.5">
+						<span className="text-[10px] font-semibold tracking-[0.08em] text-neutral-500 uppercase dark:text-neutral-400">
+							Caption
+						</span>
+						<CaptionInput id={`scene-${step.id}-caption`} step={step} index={currentStepIndex} />
+					</label>
+				</motion.div>
+			)}
+		</div>
+	);
+}
+
+function CaptureButton({ onCapture }: { onCapture: () => void }) {
+	return (
+		<motion.button
+			type="button"
+			onClick={() => {
+				onCapture();
+				feedback("commit");
+			}}
+			whileTap={{ scale: 0.96 }}
+			transition={springs.snappy}
+			className="flex h-8 items-center gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition-[border-color,background-color,color] duration-150 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+		>
+			<PlusIcon />
+			Capture
+		</motion.button>
 	);
 }
 
@@ -279,28 +392,29 @@ function RecordButton() {
 		: "flex h-8 items-center gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
 
 	return (
-		<motion.button
-			type="button"
-			onClick={() => (isRecording ? stopRecording() : startRecording())}
-			whileTap={{ scale: 0.97 }}
-			transition={springs.snappy}
-			aria-pressed={isRecording}
-			title="Type in the editor; a step is captured at each pause."
-			className={className}
-		>
-			<motion.span
-				aria-hidden="true"
-				className="inline-block size-2 shrink-0 rounded-full"
-				style={{ background: isRecording ? "#ef4444" : "currentColor" }}
-				animate={pulsing ? { opacity: [1, 0.3, 1] } : { opacity: 1 }}
-				transition={
-					pulsing
-						? { duration: 1.2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }
-						: { duration: 0 }
-				}
-			/>
-			{isRecording ? "Recording…" : "Record"}
-		</motion.button>
+		<StudioTooltip content="Auto-capture after each pause">
+			<motion.button
+				type="button"
+				onClick={() => (isRecording ? stopRecording() : startRecording())}
+				whileTap={{ scale: 0.97 }}
+				transition={springs.snappy}
+				aria-pressed={isRecording}
+				className={className}
+			>
+				<motion.span
+					aria-hidden="true"
+					className="inline-block size-2 shrink-0 rounded-full"
+					style={{ background: isRecording ? "#ef4444" : "currentColor" }}
+					animate={pulsing ? { opacity: [1, 0.3, 1] } : { opacity: 1 }}
+					transition={
+						pulsing
+							? { duration: 1.2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }
+							: { duration: 0 }
+					}
+				/>
+				{isRecording ? "Recording…" : "Record"}
+			</motion.button>
+		</StudioTooltip>
 	);
 }
 
@@ -309,7 +423,7 @@ function RecordButton() {
  * blur/Enter via `parseLineRanges`; an unparseable value tints the border red and
  * is not committed (quiet, no toast). Applied at render time, so edits are instant.
  */
-function FocusInput({ step }: { step: Step }) {
+function FocusInput({ step, index, id }: { step: Step; index: number; id?: string }) {
 	const updateStepFocus = useSnippetStore((s) => s.updateStepFocus);
 	const [text, setText] = useState(() => formatLineRanges(step.highlightRanges));
 	const [invalid, setInvalid] = useState(false);
@@ -332,26 +446,29 @@ function FocusInput({ step }: { step: Step }) {
 		: "border-neutral-200/70 focus:border-neutral-300 dark:border-neutral-800 dark:focus:border-neutral-700";
 
 	return (
-		<input
-			type="text"
-			value={text}
-			onChange={(e) => {
-				setText(e.target.value);
-				if (invalid) {
-					setInvalid(false);
-				}
-			}}
-			onBlur={commit}
-			onKeyDown={(e) => {
-				if (e.key === "Enter") {
-					e.currentTarget.blur();
-				}
-			}}
-			onClick={(e) => e.stopPropagation()}
-			placeholder="focus 2-4,7"
-			title="Spotlight these lines, dim the rest (e.g. 2-4, 7)"
-			className={`w-full truncate rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 transition placeholder:text-neutral-500 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 ${borderClasses}`}
-		/>
+		<StudioTooltip content="Spotlight lines · e.g. 2–4, 7">
+			<input
+				id={id}
+				type="text"
+				value={text}
+				aria-label={`Scene ${index + 1} focus lines`}
+				onChange={(e) => {
+					setText(e.target.value);
+					if (invalid) {
+						setInvalid(false);
+					}
+				}}
+				onBlur={commit}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						e.currentTarget.blur();
+					}
+				}}
+				onClick={(e) => e.stopPropagation()}
+				placeholder="focus 2-4,7"
+				className={`w-full truncate rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 transition placeholder:text-neutral-500 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 ${borderClasses}`}
+			/>
+		</StudioTooltip>
 	);
 }
 
@@ -361,31 +478,34 @@ function FocusInput({ step }: { step: Step }) {
  * `MAX_ANNOTATION_LENGTH` so the caption stays the single line the layout
  * reserves for it: the domain rejects anything longer.
  */
-function CaptionInput({ step }: { step: Step }) {
+function CaptionInput({ step, index, id }: { step: Step; index: number; id?: string }) {
 	const updateStepAnnotation = useSnippetStore((s) => s.updateStepAnnotation);
 	const [text, setText] = useState(() => step.annotation ?? "");
 
 	return (
-		<input
-			type="text"
-			value={text}
-			onChange={(e) => setText(e.target.value)}
-			onBlur={() => {
-				// Mirror the store's trim so the field matches what actually renders.
-				setText(text.trim());
-				updateStepAnnotation(step.id, text);
-			}}
-			onKeyDown={(e) => {
-				if (e.key === "Enter") {
-					e.currentTarget.blur();
-				}
-			}}
-			onClick={(e) => e.stopPropagation()}
-			maxLength={MAX_ANNOTATION_LENGTH}
-			placeholder="caption…"
-			title="Caption shown beneath the frame during this step"
-			className="w-full truncate rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-[11px] text-neutral-600 transition placeholder:text-neutral-500 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 dark:focus:border-neutral-700"
-		/>
+		<StudioTooltip content="Caption beneath this scene">
+			<input
+				id={id}
+				type="text"
+				value={text}
+				aria-label={`Scene ${index + 1} caption`}
+				onChange={(e) => setText(e.target.value)}
+				onBlur={() => {
+					// Mirror the store's trim so the field matches what actually renders.
+					setText(text.trim());
+					updateStepAnnotation(step.id, text);
+				}}
+				onKeyDown={(e) => {
+					if (e.key === "Enter") {
+						e.currentTarget.blur();
+					}
+				}}
+				onClick={(e) => e.stopPropagation()}
+				maxLength={MAX_ANNOTATION_LENGTH}
+				placeholder="caption…"
+				className="w-full truncate rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-[11px] text-neutral-600 transition placeholder:text-neutral-500 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 dark:focus:border-neutral-700"
+			/>
+		</StudioTooltip>
 	);
 }
 
@@ -399,9 +519,8 @@ function PlusIcon() {
 			stroke="currentColor"
 			strokeWidth="2.2"
 			strokeLinecap="round"
-			role="img"
+			aria-hidden="true"
 		>
-			<title>Add</title>
 			<line x1="12" y1="5" x2="12" y2="19" />
 			<line x1="5" y1="12" x2="19" y2="12" />
 		</svg>

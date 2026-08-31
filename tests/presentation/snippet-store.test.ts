@@ -1,5 +1,6 @@
 import { MAX_ANNOTATION_LENGTH } from "@/domain/entities/step";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
+import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -60,6 +61,74 @@ describe("snippet store step edits", () => {
 		const after = useSnippetStore.getState().snippet.steps;
 		expect(after.map((s) => s.id)).toEqual(ids);
 		expect(after[1]?.annotation).toBeUndefined();
+	});
+
+	it("duplicates a scene beside its source and selects the copy", () => {
+		const store = useSnippetStore.getState();
+		const source = store.snippet.steps[0];
+		if (!source) {
+			throw new Error("The base project must contain a first scene");
+		}
+
+		store.duplicateStep(source.id);
+
+		const after = useSnippetStore.getState();
+		const copy = after.snippet.steps[1];
+		expect(after.snippet.steps).toHaveLength(3);
+		expect(copy?.id).not.toBe(source.id);
+		expect(copy).toMatchObject({
+			code: source.code,
+			duration: source.duration,
+			annotation: source.annotation,
+		});
+		expect(after.currentStepIndex).toBe(1);
+	});
+
+	it("restores a removed scene at its original position", () => {
+		const store = useSnippetStore.getState();
+		const removed = store.snippet.steps[0];
+		if (!removed) {
+			throw new Error("The base project must contain a first scene");
+		}
+
+		store.removeStep(removed.id);
+		useSnippetStore.getState().restoreStep(removed, 0);
+
+		const after = useSnippetStore.getState();
+		expect(after.snippet.steps[0]?.id).toBe(removed.id);
+		expect(after.currentStepIndex).toBe(0);
+	});
+
+	it("keeps an exact paused playback frame while scrubbing through a morph", () => {
+		useExportStore.getState().setTransitionMs(650);
+
+		useSnippetStore.getState().seekPlayback(0.5);
+
+		const after = useSnippetStore.getState();
+		expect(after.isPlaying).toBe(false);
+		expect(after.playbackProgress).toBeCloseTo(0.5);
+		expect(after.playback).toMatchObject({ phase: "transition", index: 0, t: 0.5 });
+		expect(after.currentStepIndex).toBe(1);
+	});
+
+	it("retains the paused frame until an explicit scene selection clears it", () => {
+		useSnippetStore.getState().seekPlayback(0.5);
+		const paused = useSnippetStore.getState().playback;
+
+		useSnippetStore.getState().pause();
+		expect(useSnippetStore.getState().playback).toEqual(paused);
+
+		useSnippetStore.getState().setCurrentStepIndex(0);
+		expect(useSnippetStore.getState().playback).toBeNull();
+	});
+
+	it("leaves an exact scrub frame when code editing resumes", () => {
+		useSnippetStore.getState().seekPlayback(0.5);
+		expect(useSnippetStore.getState().playback).not.toBeNull();
+
+		useSnippetStore.getState().setCode("const a = 3;");
+
+		expect(useSnippetStore.getState().playback).toBeNull();
 	});
 });
 

@@ -96,9 +96,17 @@ describe("videoScript frames", () => {
 		// Halfway through the 20-frame transition that starts at frame 30.
 		const frame = script.frameAt(40);
 
-		// easeInOutCubic(0.5) = 0.5, so 2 + (4 - 2) * 0.5 = 3.
+		// The symmetric default curve crosses its midpoint at 0.5.
 		expect(frame.lineCount).toBeCloseTo(3, 6);
 		expect(frame.lineNumberCount).toBe(4);
+	});
+
+	it("applies the chosen Bézier to exported morph geometry", () => {
+		const linear = videoScript({ ...BASE, transitionEasing: [0, 0, 1, 1] }).frameAt(35);
+		const smooth = videoScript({ ...BASE, transitionEasing: [0.22, 1, 0.36, 1] }).frameAt(35);
+
+		expect(linear.lineCount).toBeCloseTo(2.5, 4);
+		expect(smooth.lineCount).toBeGreaterThan(linear.lineCount + 0.5);
 	});
 
 	it("clamps past the end to the last frame rather than falling off the timeline", () => {

@@ -1,7 +1,9 @@
+import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "reicon-react";
 
 const LANGUAGES = [
 	{ value: "typescript", label: "TypeScript" },
@@ -47,12 +49,12 @@ export function SceneCodeCard({
 	folded,
 	onFold,
 	editor,
-	stepBuilder,
+	sceneInspector,
 }: {
 	folded: boolean;
 	onFold: (folded: boolean) => void;
 	editor: ReactNode;
-	stepBuilder: ReactNode;
+	sceneInspector: ReactNode;
 }) {
 	const language = useSnippetStore((s) => s.snippet.language);
 	const setLanguage = useSnippetStore((s) => s.setLanguage);
@@ -85,68 +87,60 @@ export function SceneCodeCard({
 					{/* `hit-ext`: the glyph is 30px and the header is 44, and nothing else
 					    is within 44px of it, so the target can take the whole height the
 					    header already leaves rather than only the mark. */}
-					<button
-						type="button"
-						onClick={() => onFold(true)}
-						aria-label="Fold the code away"
-						title="Fold the code away"
-						className="hit-ext sc-glyph-button"
-					>
-						<ChevronGlyph direction="left" />
-					</button>
+					<StudioTooltip content="Fold code" side="bottom">
+						<button
+							type="button"
+							onClick={() => onFold(true)}
+							aria-label="Fold the code away"
+							className="hit-ext sc-glyph-button"
+						>
+							<ChevronGlyph direction="left" />
+						</button>
+					</StudioTooltip>
 				</header>
 
 				<div className="sc-card-editor">{editor}</div>
 
 				<div className="sc-card-steps">
-					<span className="sc-eyebrow">Steps</span>
-					<div className="sc-card-steps-body">{stepBuilder}</div>
+					<span className="sc-eyebrow">Scene</span>
+					<div className="sc-card-steps-body">{sceneInspector}</div>
 				</div>
 			</motion.div>
 
-			<motion.button
-				type="button"
-				onClick={() => onFold(false)}
-				className="sc-tab"
-				animate={{ x: folded ? 0 : -14, opacity: folded ? 1 : 0, scale: folded ? 1 : 0.9 }}
-				// The press has to come from Motion and not from CSS: the fold already
-				// writes this element's transform inline, and an inline transform beats
-				// a stylesheet's, so a `:active { scale }` rule would simply never show.
-				//
-				// It carries its own spring, because the element's is the fold's. On
-				// `springs.default` the press reached 96% of its 0.04 of travel at 227ms,
-				// against 93ms for every CSS press in the scene: inside the 300ms UI
-				// budget and still 2.4× slower than the finger that caused it. `snappy`
-				// is the spring the rest of the product presses with.
-				whileTap={{ scale: 0.96, transition: springs.snappy }}
-				transition={springs.default}
-				style={{ transformOrigin: "left center" }}
-				aria-hidden={!folded}
-				inert={!folded}
-				aria-label="Bring the code back"
-				title="Bring the code back"
-			>
-				<ChevronGlyph direction="right" />
-				<span className="sc-tab-label">CODE</span>
-			</motion.button>
+			<StudioTooltip content="Show code">
+				<motion.button
+					type="button"
+					onClick={() => onFold(false)}
+					className="sc-tab"
+					animate={{ x: folded ? 0 : -14, opacity: folded ? 1 : 0, scale: folded ? 1 : 0.9 }}
+					// The press has to come from Motion and not from CSS: the fold already
+					// writes this element's transform inline, and an inline transform beats
+					// a stylesheet's, so a `:active { scale }` rule would simply never show.
+					//
+					// It carries its own spring, because the element's is the fold's. On
+					// `springs.default` the press reached 96% of its 0.04 of travel at 227ms,
+					// against 93ms for every CSS press in the scene: inside the 300ms UI
+					// budget and still 2.4× slower than the finger that caused it. `snappy`
+					// is the spring the rest of the product presses with.
+					whileTap={{ scale: 0.96, transition: springs.snappy }}
+					transition={springs.default}
+					style={{ transformOrigin: "left center" }}
+					aria-hidden={!folded}
+					inert={!folded}
+					aria-label="Bring the code back"
+				>
+					<ChevronGlyph direction="right" />
+					<span className="sc-tab-label">CODE</span>
+				</motion.button>
+			</StudioTooltip>
 		</>
 	);
 }
 
 function ChevronGlyph({ direction }: { direction: "left" | "right" }) {
-	return (
-		<svg
-			width="13"
-			height="13"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			aria-hidden="true"
-		>
-			<path d={direction === "left" ? "M15 18l-6-6 6-6" : "M9 18l6-6-6-6"} />
-		</svg>
+	return direction === "left" ? (
+		<ChevronLeft size={13} strokeWidth={2} aria-hidden="true" />
+	) : (
+		<ChevronRight size={13} strokeWidth={2} aria-hidden="true" />
 	);
 }

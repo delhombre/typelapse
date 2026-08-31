@@ -70,6 +70,7 @@ export function scriptFor(job: ClientExportJob): VideoScript {
 		plan: job.plan,
 		durations: job.durations,
 		transitionMs: job.transitionMs,
+		transitionEasing: job.transitionEasing,
 		fps: job.fps,
 		loop: job.loop,
 		typewriter: job.typewriter,

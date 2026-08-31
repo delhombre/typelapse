@@ -17,7 +17,7 @@ describe("usePlatformCycle select", () => {
 	});
 
 	it("moves the cycle to the chosen index", () => {
-		const { result } = renderHook(() => usePlatformCycle(true));
+		const { result } = renderHook(() => usePlatformCycle());
 
 		act(() => result.current.controls.select(3));
 
@@ -27,7 +27,7 @@ describe("usePlatformCycle select", () => {
 
 	/** The row reads left to right, so a chip further along arrives from that side. */
 	it("takes its direction from where the chip sits in the row", () => {
-		const { result } = renderHook(() => usePlatformCycle(true));
+		const { result } = renderHook(() => usePlatformCycle());
 
 		act(() => result.current.controls.select(2));
 		expect(result.current.direction).toBe(1);
@@ -37,7 +37,7 @@ describe("usePlatformCycle select", () => {
 	});
 
 	it("ignores a pick that is already on screen, leaving the direction alone", () => {
-		const { result } = renderHook(() => usePlatformCycle(true));
+		const { result } = renderHook(() => usePlatformCycle());
 
 		act(() => result.current.controls.select(2));
 		const settled = result.current.direction;
@@ -49,7 +49,7 @@ describe("usePlatformCycle select", () => {
 	});
 
 	it("ignores an index outside the cycle", () => {
-		const { result } = renderHook(() => usePlatformCycle(true));
+		const { result } = renderHook(() => usePlatformCycle());
 
 		act(() => result.current.controls.select(CYCLE_PLATFORMS.length));
 		act(() => result.current.controls.select(-1));
@@ -57,31 +57,22 @@ describe("usePlatformCycle select", () => {
 		expect(result.current.index).toBe(0);
 	});
 
-	/**
-	 * The hand outranks the clock, the same rule a swipe already gets: a hold
-	 * that has nearly run must not fire moments after a deliberate pick and move
-	 * the feed off the platform the visitor just asked for.
-	 */
-	it("restarts the hold, so the clock never lands on top of a pick", () => {
-		const { result } = renderHook(() => usePlatformCycle(true));
+	/** Marketing motion maps to the visitor's input: the showcase is a picker,
+	 * not an auto-advancing carousel competing with the rest of the page. */
+	it("never advances until the visitor picks or swipes", () => {
+		const { result } = renderHook(() => usePlatformCycle());
 
-		// Let the automatic hold run most of the way down.
 		act(() => {
-			vi.advanceTimersByTime(3400);
+			vi.advanceTimersByTime(30_000);
 		});
+		expect(result.current.index).toBe(0);
+
 		act(() => result.current.controls.select(4));
 		expect(result.current.index).toBe(4);
 
-		// The remainder of the interrupted hold must not fire.
 		act(() => {
-			vi.advanceTimersByTime(400);
+			vi.advanceTimersByTime(30_000);
 		});
 		expect(result.current.index).toBe(4);
-
-		// A whole fresh hold does.
-		act(() => {
-			vi.advanceTimersByTime(3600);
-		});
-		expect(result.current.index).toBe(0);
 	});
 });

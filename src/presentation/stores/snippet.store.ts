@@ -5,6 +5,7 @@ import {
 	diffToSnapshots,
 } from "@/application/diff";
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import { DEFAULT_TRANSITION_EASING, isCubicBezier } from "@/application/magic-move/easing";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
 import { type ProjectContent, contentFingerprint } from "@/application/project/project-fingerprint";
 import type { ProjectPayload, ProjectStepPayload } from "@/application/project/project-payload";
@@ -87,7 +88,9 @@ interface SnippetState {
 
 	// Step management
 	captureStep: (duration?: number) => void;
+	duplicateStep: (stepId: string) => void;
 	removeStep: (stepId: string) => void;
+	restoreStep: (step: Step, index: number) => void;
 	updateStepDuration: (stepId: string, duration: number) => void;
 	/** Set the spotlight lines for a step. Applied at render time: no re-tokenize. */
 	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => void;
@@ -104,6 +107,8 @@ interface SnippetState {
 
 	// Playback
 	setCurrentStepIndex: (index: number) => void;
+	/** Hold an exact WYSIWYG frame while the timeline scrubber is being moved. */
+	seekPlayback: (progress: number) => void;
 	play: () => void;
 	pause: () => void;
 
@@ -214,7 +219,8 @@ function isDimension(value: unknown): value is number {
  */
 function applyExportSettings(obj: Record<string, unknown>): void {
 	const ex = useExportStore.getState();
-	const { transitionMs, typewriter, focusZoom, progressStyle, width, height } = obj;
+	const { transitionMs, transitionEasing, typewriter, focusZoom, progressStyle, width, height } =
+		obj;
 	// Both or neither: a half-specified aspect would silently distort the export.
 	if (isDimension(width) && isDimension(height)) {
 		ex.setResolution(width, height);
@@ -223,6 +229,9 @@ function applyExportSettings(obj: Record<string, unknown>): void {
 	}
 	const isTempo = transitionMs === 400 || transitionMs === 650 || transitionMs === 1000;
 	ex.setTransitionMs(isTempo ? transitionMs : EXPORT_DEFAULTS.transitionMs);
+	ex.setTransitionEasing(
+		isCubicBezier(transitionEasing) ? transitionEasing : DEFAULT_TRANSITION_EASING,
+	);
 	ex.setTypewriter(typewriter === true);
 	ex.setFocusZoom(focusZoom === true);
 	const isProgress =
@@ -529,7 +538,13 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	setCode: (code: string) => {
-		set({ snippet: rebuildSnippet(get().snippet, { code }) });
+		cancelRaf();
+		set({
+			snippet: rebuildSnippet(get().snippet, { code }),
+			isPlaying: false,
+			isPreparing: false,
+			playback: null,
+		});
 		get().rebuildPlan();
 		// While recording, each keystroke re-arms the debounce; a pause captures a step.
 		if (get().isRecording) {
@@ -582,6 +597,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			effectiveCodes(snippet),
 			snippet.language,
 			snippet.theme.name,
+			snippet.theme.background,
 		);
 		const maxIndex = Math.max(0, plan.frames.length - 1);
 		set({
@@ -598,11 +614,38 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		get().rebuildPlan();
 	},
 
+	duplicateStep: (stepId: string) => {
+		const { snippet } = get();
+		const index = snippet.steps.findIndex((step) => step.id === stepId);
+		const source = snippet.steps[index];
+		if (!source) {
+			return;
+		}
+		const copy = Step.create({
+			code: source.code,
+			duration: source.duration,
+			highlightRanges: [...source.highlightRanges],
+			annotation: source.annotation,
+		});
+		set({ snippet: snippet.insertStep(copy, index + 1), currentStepIndex: index + 1 });
+		get().rebuildPlan();
+	},
+
 	removeStep: (stepId: string) => {
 		const { snippet, currentStepIndex } = get();
 		const updated = snippet.removeStep(stepId);
 		const newIndex = Math.min(currentStepIndex, Math.max(0, updated.steps.length - 1));
 		set({ snippet: updated, currentStepIndex: newIndex });
+		get().rebuildPlan();
+	},
+
+	restoreStep: (step: Step, index: number) => {
+		const { snippet } = get();
+		if (snippet.steps.some((candidate) => candidate.id === step.id)) {
+			return;
+		}
+		const safeIndex = Math.min(Math.max(index, 0), snippet.steps.length);
+		set({ snippet: snippet.insertStep(step, safeIndex), currentStepIndex: safeIndex });
 		get().rebuildPlan();
 	},
 
@@ -660,7 +703,32 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	setCurrentStepIndex: (index: number) => {
-		set({ currentStepIndex: index });
+		set({ currentStepIndex: index, playback: null });
+	},
+
+	seekPlayback: (progress: number) => {
+		cancelRaf();
+		const { snippet } = get();
+		if (snippet.steps.length === 0) {
+			set({ isPlaying: false, isPreparing: false, playback: null, playbackProgress: 0 });
+			return;
+		}
+		const transitionMs = useExportStore.getState().transitionMs;
+		const timeline = buildTimeline(
+			snippet.steps.map((step) => step.duration),
+			transitionMs,
+		);
+		const safeProgress = Math.min(Math.max(progress, 0), 1);
+		const position = locate(timeline, safeProgress * timeline.totalMs);
+		const activeIndex =
+			position.phase === "transition" && position.t >= 0.5 ? position.index + 1 : position.index;
+		set({
+			isPlaying: false,
+			isPreparing: false,
+			playback: { phase: position.phase, index: position.index, t: position.t },
+			playbackProgress: position.progress,
+			currentStepIndex: Math.min(activeIndex, snippet.steps.length - 1),
+		});
 	},
 
 	play: async () => {
@@ -684,15 +752,34 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			snippet.steps.map((s) => s.duration),
 			transitionMs,
 		);
+		const state = get();
+		const selectedHold = timeline.segments.find(
+			(segment) => segment.type === "hold" && segment.index === state.currentStepIndex,
+		);
+		const resumesExactFrame = state.playback !== null && state.playbackProgress < 1;
+		const startElapsedMs = resumesExactFrame
+			? Math.min(Math.max(state.playbackProgress, 0), 1) * timeline.totalMs
+			: (selectedHold?.startMs ?? 0);
 		const start = performance.now();
+		const startPosition = locate(timeline, startElapsedMs);
 
-		set({ isPreparing: false, isPlaying: true, currentStepIndex: 0, playbackProgress: 0 });
+		set({
+			isPreparing: false,
+			isPlaying: true,
+			currentStepIndex: startPosition.index,
+			playback: {
+				phase: startPosition.phase,
+				index: startPosition.index,
+				t: startPosition.t,
+			},
+			playbackProgress: startPosition.progress,
+		});
 
 		const tick = () => {
 			if (!get().isPlaying) {
 				return;
 			}
-			const elapsed = performance.now() - start;
+			const elapsed = startElapsedMs + performance.now() - start;
 			const pos = locate(timeline, elapsed);
 			const activeIndex = pos.phase === "transition" && pos.t >= 0.5 ? pos.index + 1 : pos.index;
 
@@ -703,9 +790,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			});
 
 			if (elapsed >= timeline.totalMs) {
+				const finalPosition = locate(timeline, timeline.totalMs);
 				set({
 					isPlaying: false,
-					playback: null,
+					playback: {
+						phase: finalPosition.phase,
+						index: finalPosition.index,
+						t: finalPosition.t,
+					},
 					currentStepIndex: snippet.steps.length - 1,
 					playbackProgress: 1,
 				});
@@ -720,13 +812,13 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 	pause: () => {
 		cancelRaf();
-		set({ isPlaying: false, isPreparing: false, playback: null });
+		set({ isPlaying: false, isPreparing: false });
 	},
 
 	toProjectPayload: () => {
 		// The export store owns aspect / tempo / typewriter / zoom / progress style;
 		// pull them in so a single JSON file captures the ENTIRE studio state.
-		const { transitionMs, typewriter, focusZoom, progressStyle, width, height } =
+		const { transitionMs, transitionEasing, typewriter, focusZoom, progressStyle, width, height } =
 			useExportStore.getState();
 		return {
 			...contentOf(get()),
@@ -734,6 +826,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			typewriter,
 			focusZoom,
 			transitionMs,
+			transitionEasing,
 			width,
 			height,
 		};
@@ -782,11 +875,33 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			throw new Error(`Unknown theme '${obj.themeName}'`);
 		}
 
+		const factoryTheme = themeFactory();
+		const fontFamily =
+			typeof obj.fontFamily === "string" && obj.fontFamily.trim().length > 0
+				? obj.fontFamily
+				: factoryTheme.fontFamily;
+		const borderRadius =
+			typeof obj.borderRadius === "number" &&
+			Number.isFinite(obj.borderRadius) &&
+			obj.borderRadius >= 0 &&
+			obj.borderRadius <= 64
+				? obj.borderRadius
+				: factoryTheme.borderRadius;
+		const restoredTheme = Theme.create({
+			name: factoryTheme.name,
+			background: factoryTheme.background,
+			foreground: factoryTheme.foreground,
+			fontFamily,
+			fontSize: factoryTheme.fontSize,
+			padding: factoryTheme.padding,
+			borderRadius,
+		});
+
 		let snippet = Snippet.create({
 			title: obj.title,
 			code: obj.code,
 			language: obj.language,
-			theme: themeFactory(),
+			theme: restoredTheme,
 		});
 
 		if (Array.isArray(obj.steps)) {

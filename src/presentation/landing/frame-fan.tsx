@@ -1,13 +1,6 @@
-import { type Variants, motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { StaticFrame } from "./static-frame";
-import {
-	LP_EASE,
-	REVEAL_DURATION,
-	REVEAL_DURATION_REDUCED,
-	REVEAL_EASE,
-	REVEAL_VIEWPORT,
-} from "./tokens";
 
 /** Picking a card up and putting it down are not the same gesture, so they do
     not share a curve. Reaching in is deliberate and carries one soft breath of
@@ -32,48 +25,6 @@ const LIFT_STRAIGHTEN = 0.25;
     a fan that is never at rest, and the gesture stops meaning anything. */
 const NUDGE_X = 7;
 const NUDGE_ROT = 1.5;
-
-/** The hand deals itself in. It used to arrive as one 380px block, which is
-    what a single reveal around five cards buys you: the shapes are the claim
-    here, and they landed as a rectangle. Dealt one at a time they read as five
-    cards. Slower than the page's own stagger — these are objects, not lines of
-    a list, and 50ms is about the interval at which a hand stops looking
-    shuffled. No blur, though the page's reveals carry one: five layered blurs
-    in a single block is paint the rest of the page only ever pays for one
-    element at a time. */
-const DEAL_STAGGER = 0.05;
-const DEAL_RISE = 14;
-const DEAL_SCALE = 0.985;
-
-const DEAL_PARENT: Variants = {
-	hidden: {},
-	shown: { transition: { staggerChildren: DEAL_STAGGER } },
-};
-
-/** Reduced motion keeps the deal but drops the movement, exactly as the page's
-    own reveal items do: the cards still arrive one after another, they just
-    arrive by appearing. */
-const dealVariants = (reduce: boolean): Variants => {
-	if (reduce) {
-		return {
-			hidden: { opacity: 0 },
-			shown: {
-				opacity: 1,
-				transition: { duration: REVEAL_DURATION_REDUCED, ease: LP_EASE },
-			},
-		};
-	}
-
-	return {
-		hidden: { opacity: 0, y: DEAL_RISE, scale: DEAL_SCALE },
-		shown: {
-			opacity: 1,
-			y: 0,
-			scale: 1,
-			transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE },
-		},
-	};
-};
 
 /** The stack is asymmetric because the lift is: a card takes the front the
     instant it starts rising, and a card that is coming back down still has to
@@ -217,18 +168,10 @@ export function FrameFan() {
 		});
 	};
 
-	const deal = dealVariants(Boolean(reduce));
-
 	return (
 		<section className="mx-auto w-full max-w-5xl px-6 py-6">
 			{/* Desktop: the fan. */}
-			<motion.div
-				className="relative hidden h-[380px] md:block"
-				initial="hidden"
-				whileInView="shown"
-				viewport={REVEAL_VIEWPORT}
-				variants={DEAL_PARENT}
-			>
+			<div className="relative hidden h-[380px] md:block">
 				{FAN.map((card, i) => {
 					const baseZ = 30 - Math.abs(i - 2) * 10;
 					/* Only the cards touching the hovered one move aside, and they move
@@ -267,7 +210,7 @@ export function FrameFan() {
 							    deal and the lift are different gestures on different clocks,
 							    and one element cannot hold two sets of transforms without one
 							    of them overwriting the other the moment they overlap. */}
-							<motion.div className="h-full w-full" variants={deal}>
+							<div className="h-full w-full">
 								<motion.div
 									onHoverStart={() => setHovered(i)}
 									onHoverEnd={() => {
@@ -311,28 +254,21 @@ export function FrameFan() {
 										className="h-full w-full"
 									/>
 								</motion.div>
-							</motion.div>
+							</div>
 						</div>
 					);
 				})}
-			</motion.div>
+			</div>
 
 			{/* Mobile: a plain scroll-snap row, no rotation. It deals itself in too —
 			    the reveal that used to wrap the whole component is gone, and the row
 			    is as much a set of cards as the fan is. */}
-			<motion.div
-				className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-				initial="hidden"
-				whileInView="shown"
-				viewport={REVEAL_VIEWPORT}
-				variants={DEAL_PARENT}
-			>
+			<div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 				{FAN.map((card) => (
-					<motion.div
+					<div
 						key={card.ratio}
 						className="shrink-0 snap-center self-center"
 						style={{ width: card.width, aspectRatio: card.aspect }}
-						variants={deal}
 					>
 						<StaticFrame
 							themeName={card.themeName}
@@ -349,9 +285,9 @@ export function FrameFan() {
 							badge={card.ratio}
 							className="h-full w-full"
 						/>
-					</motion.div>
+					</div>
 				))}
-			</motion.div>
+			</div>
 		</section>
 	);
 }

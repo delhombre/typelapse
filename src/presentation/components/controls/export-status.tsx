@@ -1,6 +1,7 @@
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Check } from "reicon-react";
 
 /**
  * What the export is doing, and what it did.
@@ -120,19 +121,5 @@ function formatBytes(bytes: number): string {
 }
 
 function CheckIcon() {
-	return (
-		<svg
-			width="11"
-			height="11"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.5"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			aria-hidden="true"
-		>
-			<polyline points="20 6 9 17 4 12" />
-		</svg>
-	);
+	return <Check size={11} strokeWidth={2.5} aria-hidden="true" />;
 }

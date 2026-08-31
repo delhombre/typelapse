@@ -25,6 +25,7 @@ import {
 	CHROME_FONT_STACK,
 	CHROME_STYLE,
 	CHROME_TEXT_LINE_HEIGHT,
+	FRAME_SECONDARY_ALPHA_HEX,
 	chromePadY,
 	chromeRowHeight,
 } from "../layout/frame-metrics";
@@ -547,7 +548,7 @@ function paintGutter(ctx: PaintContext, scene: FrameScene, lineNumberCount: numb
 	ctx.font = canvasFont(code.fontSize, style.theme.fontFamily);
 	ctx.textAlign = "right";
 	ctx.textBaseline = "middle";
-	ctx.fillStyle = withHexAlpha(style.theme.foreground, "26");
+	ctx.fillStyle = withHexAlpha(style.theme.foreground, FRAME_SECONDARY_ALPHA_HEX);
 	const rows = Math.max(1, Math.round(lineNumberCount));
 	for (const [row, label] of gutterLabels(style.lineNumberStart, rows).entries()) {
 		ctx.fillText(label, gutter.textRight, code.y + (row + 0.5) * code.lineHeight);

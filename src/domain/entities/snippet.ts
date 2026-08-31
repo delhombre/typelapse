@@ -62,6 +62,18 @@ export class Snippet {
 		});
 	}
 
+	insertStep(step: Step, index: number): Snippet {
+		if (!Number.isInteger(index) || index < 0 || index > this.steps.length) {
+			throw new Error("Step insertion index must sit inside the timeline");
+		}
+		const steps = [...this.steps];
+		steps.splice(index, 0, step);
+		return new Snippet({
+			...this,
+			steps,
+		});
+	}
+
 	removeStep(stepId: string): Snippet {
 		return new Snippet({
 			...this,

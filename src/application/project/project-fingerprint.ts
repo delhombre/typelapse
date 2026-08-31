@@ -28,10 +28,10 @@ export type ProjectContent = Pick<
 	 * Fingerprinting the name alone would call that "no edits" and let the
 	 * template gallery overwrite it unasked.
 	 *
-	 * They are not part of {@link ProjectPayload} because the file format does not
-	 * carry them yet: a saved project restores its theme from `themeName` alone.
-	 * That is precisely why the warning matters — this work cannot be recovered
-	 * from a file, so the user has to be asked before it is thrown away.
+	 * They are required in authored state even though the file format keeps them
+	 * optional for backwards compatibility. Current files carry both, so local
+	 * projects, JSON and share links reproduce the frame instead of merely naming
+	 * its original theme.
 	 */
 	fontFamily: string;
 	borderRadius: number;

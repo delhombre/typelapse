@@ -3,8 +3,11 @@ import { PreviewIsland } from "@/presentation/components/controls/preview-island
 import { motion } from "motion/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Drawer } from "vaul";
+import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
+import { StudioSourceHub } from "./studio-source-hub";
 import { StudioUtilities } from "./studio-utilities";
+import { TemplateGallery } from "./template-gallery";
 
 interface MobileShellProps {
 	editor: ReactNode;
@@ -12,7 +15,7 @@ interface MobileShellProps {
 	preview: ReactNode;
 }
 
-// Bottom-sheet stops: a peek handle, a mid "steps" stage, and the full editor.
+// Bottom-sheet stops: a peek handle, a mid "scenes" stage, and the full editor.
 const PEEK = "56px";
 const MID = 0.55;
 const FULL = 0.94;
@@ -39,7 +42,8 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const rootRef = useKeptAudible();
 
 	return (
-		<div className="studio-root sc-root sc-root-mobile" ref={rootRef}>
+		<main className="studio-root sc-root sc-root-mobile" ref={rootRef}>
+			<h1 className="sr-only">Typelapse studio</h1>
 			{/* A phone has no room to step the stage back into, so a raised cluster
 			    takes its room from the slot instead: the frame gets out of the way
 			    rather than being covered by what it is being adjusted against. */}
@@ -55,7 +59,12 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			    gives up its width first. */}
 			<div className="sc-corner-row">
 				<ProjectChip />
-				<StudioUtilities />
+				<section className="sc-chip sc-mobile-resources" aria-label="Studio resources">
+					<StudioSourceHub />
+					<CaptureLibrary />
+					<TemplateGallery />
+				</section>
+				<StudioUtilities compact />
 			</div>
 
 			{/* The instrument floats above the sheet, on the sheet's own peek line. */}
@@ -79,7 +88,10 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				<Drawer.Portal>
 					<Drawer.Content className="sc-sheet">
 						<Drawer.Handle className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 dark:!bg-neutral-700" />
-						<Drawer.Title className="sr-only">Code and steps</Drawer.Title>
+						<Drawer.Title className="sr-only">Code and scenes</Drawer.Title>
+						<Drawer.Description className="sr-only">
+							Edit code and arrange animation scenes.
+						</Drawer.Description>
 
 						<div
 							className={`min-h-0 flex-1 ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
@@ -91,7 +103,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 								transition={{ duration: 0.2 }}
 							>
 								<section className="flex flex-col gap-3">
-									<span className="sc-eyebrow">Steps</span>
+									<span className="sc-eyebrow">Scenes</span>
 									{stepBuilder}
 								</section>
 
@@ -104,7 +116,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 					</Drawer.Content>
 				</Drawer.Portal>
 			</Drawer.Root>
-		</div>
+		</main>
 	);
 }
 

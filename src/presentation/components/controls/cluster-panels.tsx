@@ -10,10 +10,12 @@ import {
 	presetFor,
 } from "@/domain/entities/render-config";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
+import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect } from "react";
+import { Camera } from "reicon-react";
 import {
 	CHROME_PRESETS,
 	PADDING_PRESETS,
@@ -216,21 +218,22 @@ function AspectOption({
 	const box = ratio >= 1 ? { width: 17, height: 17 / ratio } : { width: 15 * ratio, height: 15 };
 
 	return (
-		<button
-			type="button"
-			aria-pressed={selected}
-			aria-label={`Aspect ratio ${aspect}`}
-			title={title}
-			onClick={() => {
-				trigger("selection");
-				onSelect();
-			}}
-			className="si-button si-seg-option"
-			{...(selected ? { "data-selected": "" } : {})}
-		>
-			{selected && <span className="si-plate si-plate-soft" />}
-			<span className="si-frame" style={box} aria-hidden="true" />
-		</button>
+		<StudioTooltip content={title}>
+			<button
+				type="button"
+				aria-pressed={selected}
+				aria-label={`Aspect ratio ${aspect}`}
+				onClick={() => {
+					trigger("selection");
+					onSelect();
+				}}
+				className="si-button si-seg-option"
+				{...(selected ? { "data-selected": "" } : {})}
+			>
+				{selected && <span className="si-plate si-plate-soft" />}
+				<span className="si-frame" style={box} aria-hidden="true" />
+			</button>
+		</StudioTooltip>
 	);
 }
 
@@ -337,7 +340,7 @@ function MotionCluster() {
 				<IslandToggle
 					pressed={typewriter}
 					label="Type"
-					title="Type the first step out character by character"
+					title="Type the first scene out character by character"
 					onToggle={() => setTypewriter(!typewriter)}
 				/>
 				<IslandToggle
@@ -355,7 +358,7 @@ function MotionCluster() {
 				<IslandToggle
 					pressed={loop}
 					label="Loop"
-					title="The last step morphs back to the first"
+					title="The last scene morphs back to the first"
 					onToggle={() => setLoop(!loop)}
 				/>
 			</ClusterGroup>
@@ -474,7 +477,7 @@ function ExportCluster() {
 						void exportVideo();
 					}}
 					disabled={isExporting || !hasSteps}
-					title={hasSteps ? undefined : "A video needs at least two steps."}
+					title={hasSteps ? undefined : "A video needs at least two scenes."}
 					className="si-cta si-cluster-cta"
 				>
 					{isExporting ? "Rendering…" : `Render · ${current.aspect}`}
@@ -493,19 +496,5 @@ export function useExportCtaLabel(): string {
 }
 
 function CameraGlyph() {
-	return (
-		<svg
-			width="11"
-			height="11"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			aria-hidden="true"
-		>
-			<rect x="3" y="3" width="18" height="18" rx="3" />
-			<circle cx="8.5" cy="8.5" r="1.5" />
-			<path d="M21 15l-5-5L5 21" />
-		</svg>
-	);
+	return <Camera size={11} strokeWidth={2} aria-hidden="true" />;
 }

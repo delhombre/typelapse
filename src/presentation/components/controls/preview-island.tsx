@@ -5,8 +5,14 @@ import {
 	type SocialPlatform,
 	platformsForAspect,
 } from "@/application/social/safe-zones";
-import { type AspectLabel, RESOLUTION_TIERS, presetFor } from "@/domain/entities/render-config";
+import {
+	ASPECT_LABELS,
+	type AspectLabel,
+	RESOLUTION_TIERS,
+	presetFor,
+} from "@/domain/entities/render-config";
 import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-size-container";
+import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
 import { useIsNarrow } from "@/presentation/hooks/use-media-query";
 import { springs } from "@/presentation/motion";
@@ -28,13 +34,29 @@ import {
 } from "@/presentation/utils/playback-readout";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+	AspectRatioSquare,
+	ChevronLeft,
+	ColorSwatch,
+	Crop,
+	Frame,
+	Mobile,
+	Pause,
+	Play,
+	Repeat,
+	Sliders,
+	VolumeHigh,
+	WavePulse,
+	X,
+} from "reicon-react";
 import { CLUSTERS, type ClusterId, ClusterPanel } from "./cluster-panels";
+import { StudioAspectMode, StudioClusterMode } from "./studio-cluster-mode";
 
-/** The island's own horizontal padding, which the measured row does not include. */
-const ISLAND_PADDING = 12;
+/** The island's 3px side insets plus its two 1px material edges. */
+const ISLAND_PADDING = 8;
 
 /** What can be open at once, which is one thing. */
-type Panel = ClusterId | "social" | null;
+type Panel = ClusterId | "social" | "aspect" | null;
 
 /**
  * The studio's control island: one dark plate under the preview holding the
@@ -61,15 +83,19 @@ type Panel = ClusterId | "social" | null;
  */
 export function PreviewIsland({
 	onSheetRaisedChange,
+	variant = "preview",
 }: {
-	/** Told when a cluster sheet stands in front of the stage, so it can step back. */
+	/** Told when a settings surface is visible, so the stage can make room for it. */
 	onSheetRaisedChange?: (raised: boolean) => void;
+	/** The timeline owns transport in the desktop scene-table layout. */
+	variant?: "preview" | "timeline";
 }) {
 	const snippet = useSnippetStore((s) => s.snippet);
 	const isPlaying = useSnippetStore((s) => s.isPlaying);
 	const isPreparing = useSnippetStore((s) => s.isPreparing);
 	const currentStepIndex = useSnippetStore((s) => s.currentStepIndex);
 	const playbackProgress = useSnippetStore((s) => s.playbackProgress);
+	const playback = useSnippetStore((s) => s.playback);
 	const play = useSnippetStore((s) => s.play);
 	const pause = useSnippetStore((s) => s.pause);
 	const setCurrentStepIndex = useSnippetStore((s) => s.setCurrentStepIndex);
@@ -79,6 +105,10 @@ export function PreviewIsland({
 	const height = useExportStore((s) => s.height);
 	const outcome = useExportStore((s) => s.outcome);
 	const setResolution = useExportStore((s) => s.setResolution);
+	const loop = useExportStore((s) => s.loop);
+	const setLoop = useExportStore((s) => s.setLoop);
+	const sound = useExportStore((s) => s.sound);
+	const setSound = useExportStore((s) => s.setSound);
 	const enabled = useSocialPreviewStore((s) => s.enabled);
 	const platform = useSocialPreviewStore((s) => s.platform);
 	const showGuides = useSocialPreviewStore((s) => s.showGuides);
@@ -89,13 +119,17 @@ export function PreviewIsland({
 	const reduce = useReducedMotion() === true;
 	const narrow = useIsNarrow();
 	const [panel, setPanel] = useState<Panel>(null);
-	const cluster = panel === null || panel === "social" ? null : panel;
+	const cluster = panel === null || panel === "social" || panel === "aspect" ? null : panel;
 	/** Which door the phone's single settings button opens: the last one used. */
 	const [lastCluster, setLastCluster] = useState<ClusterId>("frame");
 
 	const platforms = useMemo(() => platformsForAspect(width, height), [width, height]);
 	const totalSteps = snippet.steps.length;
-	const hasTransport = totalSteps >= 2;
+	const hasTransport = variant === "preview" && totalSteps >= 2;
+	const currentPreset = presetFor(width, height) ?? {
+		aspect: ASPECT_LABELS[0],
+		tier: RESOLUTION_TIERS[0],
+	};
 
 	// Keep the stored platform valid for the current aspect, so the picker
 	// highlights (and the overlay shows) a platform that uses this aspect. Runs
@@ -112,10 +146,11 @@ export function PreviewIsland({
 		setPlatform(correction.platform);
 	}, [enabled, platforms, platform, setPlatform, setEnabled]);
 
-	// The stage steps back behind a raised sheet rather than being covered by it.
+	// Only the compact preview raises a sheet. On the scene-table rail, settings
+	// replace the row in place, so the picture remains still while it is judged.
 	useEffect(() => {
-		onSheetRaisedChange?.(cluster !== null);
-	}, [cluster, onSheetRaisedChange]);
+		onSheetRaisedChange?.(variant !== "timeline" && cluster !== null);
+	}, [cluster, onSheetRaisedChange, variant]);
 
 	/**
 	 * A finished render is a thing the machine did, at a moment nobody chose: it
@@ -140,19 +175,24 @@ export function PreviewIsland({
 	 * about where the hand wants to be, and pulling focus back would undo it.
 	 */
 	const restoreTo = useRef<Panel>(null);
+	const focusModeOnMount = useRef(false);
 	const dockRef = useRef<HTMLDivElement>(null);
 	const rootRowRef = useRef<HTMLDivElement | null>(null);
 	const panelRef = useRef<Panel>(null);
 	panelRef.current = panel;
 
-	const openPanel = useCallback((next: Exclude<Panel, null>) => {
-		trigger("selection");
-		restoreTo.current = null;
-		if (next !== "social") {
-			setLastCluster(next);
-		}
-		setPanel(next);
-	}, []);
+	const openPanel = useCallback(
+		(next: Exclude<Panel, null>, focusOnMount = false) => {
+			trigger("selection");
+			restoreTo.current = null;
+			focusModeOnMount.current = variant === "timeline" && focusOnMount;
+			if (next !== "social" && next !== "aspect") {
+				setLastCluster(next);
+			}
+			setPanel(next);
+		},
+		[variant],
+	);
 
 	const closePanel = useCallback((restore: boolean) => {
 		const current = panelRef.current;
@@ -165,12 +205,12 @@ export function PreviewIsland({
 	}, []);
 
 	const togglePanel = useCallback(
-		(next: Exclude<Panel, null>) => {
+		(next: Exclude<Panel, null>, focusOnMount = false) => {
 			if (panelRef.current === next) {
 				closePanel(true);
 				return;
 			}
-			openPanel(next);
+			openPanel(next, focusOnMount);
 		},
 		[closePanel, openPanel],
 	);
@@ -267,6 +307,22 @@ export function PreviewIsland({
 		[measureRow],
 	);
 
+	/** Focus enters an in-rail settings mode on its one reliable way back out. */
+	const mountModeRow = useCallback(
+		(node: HTMLDivElement | null) => {
+			measureRow(node);
+			if (!node || placedIn.current === node) {
+				return;
+			}
+			placedIn.current = node;
+			if (focusModeOnMount.current) {
+				focusModeOnMount.current = false;
+				node.querySelector<HTMLElement>("[data-island-back]")?.focus({ preventScroll: true });
+			}
+		},
+		[measureRow],
+	);
+
 	/**
 	 * A panel is a mode, and a mode needs both of its exits: Escape for the
 	 * keyboard, a press anywhere else for the pointer. pointerdown rather than
@@ -289,7 +345,9 @@ export function PreviewIsland({
 		};
 		const onPointerDown = (event: PointerEvent) => {
 			const dock = dockRef.current;
-			if (dock && !event.composedPath().includes(dock)) {
+			const path = event.composedPath();
+			const insideDock = dock !== null && path.includes(dock);
+			if (!insideDock) {
 				closePanel(false);
 			}
 		};
@@ -303,7 +361,9 @@ export function PreviewIsland({
 
 	const face = transportFace(isPreparing, isPlaying);
 	const label = transportLabel(face);
-	const fill = playbackFill({ isPlaying, playbackProgress, currentStepIndex, totalSteps });
+	const fill = playback
+		? Math.min(Math.max(playbackProgress, 0), 1)
+		: playbackFill({ isPlaying, playbackProgress, currentStepIndex, totalSteps });
 	const dots = showsDots(totalSteps, narrow ? NARROW_MAX_DOTS : MAX_DOTS);
 	const selection: SocialPlatform | "off" =
 		resolveSocialPlatform(enabled, platform, width, height) ?? "off";
@@ -360,23 +420,32 @@ export function PreviewIsland({
 		onSelectFeed(entry.platform);
 	};
 
+	const sheetLayer = (
+		<AnimatePresence>
+			{variant !== "timeline" && cluster !== null && (
+				<ClusterSheet
+					cluster={cluster}
+					reduce={reduce}
+					docked={false}
+					onSelect={(next) => openPanel(next)}
+					onClose={() => closePanel(true)}
+				/>
+			)}
+		</AnimatePresence>
+	);
+
 	return (
-		<div className="si-dock" id="studio-island" ref={dockRef}>
-			<AnimatePresence>
-				{cluster !== null && (
-					<ClusterSheet
-						cluster={cluster}
-						reduce={reduce}
-						onSelect={(next) => openPanel(next)}
-						onClose={() => closePanel(true)}
-					/>
-				)}
-			</AnimatePresence>
+		<div
+			className={`si-dock ${variant === "timeline" ? "si-dock-timeline" : ""}`}
+			id="studio-island"
+			ref={dockRef}
+		>
+			{sheetLayer}
 
 			<motion.div
 				className="si-island"
 				role="toolbar"
-				aria-label="Preview controls"
+				aria-label={variant === "timeline" ? "Studio controls" : "Preview controls"}
 				initial={false}
 				animate={rowWidth === null ? undefined : { width: rowWidth + ISLAND_PADDING }}
 				transition={reduce ? { duration: 0 } : springs.default}
@@ -397,7 +466,9 @@ export function PreviewIsland({
 								type="button"
 								onClick={() => closePanel(true)}
 								data-island-back=""
-								aria-label="Back to playback controls"
+								aria-label={
+									variant === "timeline" ? "Back to studio controls" : "Back to playback controls"
+								}
 								className="si-button"
 							>
 								<BackGlyph />
@@ -432,7 +503,32 @@ export function PreviewIsland({
 								</>
 							)}
 						</motion.div>
-					) : (
+					) : null}
+
+					{variant === "timeline" && cluster !== null ? (
+						<motion.div
+							key={`cluster-${cluster}`}
+							ref={mountModeRow}
+							className="si-row si-mode-row"
+							{...rowMotion(reduce)}
+						>
+							<StudioClusterMode cluster={cluster} onClose={() => closePanel(true)} />
+						</motion.div>
+					) : null}
+
+					{variant === "timeline" && panel === "aspect" ? (
+						<motion.div
+							key="aspect"
+							ref={mountModeRow}
+							className="si-row si-mode-row"
+							{...rowMotion(reduce)}
+						>
+							<StudioAspectMode onClose={() => closePanel(true)} />
+						</motion.div>
+					) : null}
+
+					{panel !== "social" &&
+					!(variant === "timeline" && (cluster !== null || panel === "aspect")) ? (
 						<motion.div
 							key="root"
 							ref={mountRootRow}
@@ -500,7 +596,7 @@ export function PreviewIsland({
 							{narrow ? (
 								<button
 									type="button"
-									onClick={() => togglePanel(cluster ?? lastCluster)}
+									onClick={(event) => togglePanel(cluster ?? lastCluster, event.detail === 0)}
 									data-island-opener={cluster ?? lastCluster}
 									aria-expanded={cluster !== null}
 									aria-label="Settings"
@@ -514,7 +610,7 @@ export function PreviewIsland({
 									<button
 										key={entry.id}
 										type="button"
-										onClick={() => togglePanel(entry.id)}
+										onClick={(event) => togglePanel(entry.id, event.detail === 0)}
 										data-island-opener={entry.id}
 										aria-expanded={cluster === entry.id}
 										aria-label={`${entry.label} settings`}
@@ -529,7 +625,7 @@ export function PreviewIsland({
 
 							<button
 								type="button"
-								onClick={() => togglePanel("social")}
+								onClick={(event) => togglePanel("social", event.detail === 0)}
 								data-island-opener="social"
 								aria-label={`Social preview: ${enabled ? "on" : "off"}. Open social preview controls`}
 								className="si-button"
@@ -539,11 +635,54 @@ export function PreviewIsland({
 								<span className="si-label">Social</span>
 							</button>
 
+							{variant === "timeline" && (
+								<>
+									<button
+										type="button"
+										onClick={() => {
+											trigger("selection");
+											setLoop(!loop);
+										}}
+										aria-pressed={loop}
+										aria-label={`Loop playback: ${loop ? "on" : "off"}`}
+										className="si-button si-toggle si-rail-direct"
+									>
+										<LoopGlyph />
+										<span className="si-label">Loop</span>
+									</button>
+									<button
+										type="button"
+										onClick={() => {
+											trigger("selection");
+											setSound(!sound);
+										}}
+										aria-pressed={sound}
+										aria-label={`Preview sound: ${sound ? "on" : "off"}`}
+										className="si-button si-toggle si-rail-direct"
+									>
+										<SoundGlyph />
+										<span className="si-label">Sound</span>
+									</button>
+									<button
+										type="button"
+										onClick={(event) => togglePanel("aspect", event.detail === 0)}
+										data-island-opener="aspect"
+										aria-expanded={panel === "aspect"}
+										aria-label={`Aspect ratio ${currentPreset.aspect}. Choose a format`}
+										className="si-button si-rail-aspect"
+										{...(panel === "aspect" ? { "data-active": "" } : {})}
+									>
+										<AspectGlyph />
+										<span className="si-ratio">{currentPreset.aspect}</span>
+									</button>
+								</>
+							)}
+
 							{/* The one filled shape in the zone. It hands its fill to the sheet
 							    while the export cluster is open, so there is still only one. */}
 							<button
 								type="button"
-								onClick={() => togglePanel("export")}
+								onClick={(event) => togglePanel("export", event.detail === 0)}
 								data-island-opener="export"
 								aria-expanded={cluster === "export"}
 								aria-label={exportCtaLabel({ format, width, height })}
@@ -556,7 +695,7 @@ export function PreviewIsland({
 								</span>
 							</button>
 						</motion.div>
-					)}
+					) : null}
 				</AnimatePresence>
 			</motion.div>
 		</div>
@@ -576,11 +715,13 @@ export function PreviewIsland({
 function ClusterSheet({
 	cluster,
 	reduce,
+	docked,
 	onSelect,
 	onClose,
 }: {
 	cluster: ClusterId;
 	reduce: boolean;
+	docked: boolean;
 	onSelect: (cluster: ClusterId) => void;
 	onClose: () => void;
 }) {
@@ -600,6 +741,7 @@ function ClusterSheet({
 	return (
 		<motion.fieldset
 			className="si-sheet"
+			data-cluster={cluster}
 			aria-label={`${label} settings`}
 			initial={reduce ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.97 }}
 			animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -614,7 +756,7 @@ function ClusterSheet({
 					: { opacity: 0, y: 12, scale: 0.98, pointerEvents: "none" }
 			}
 			transition={reduce ? { duration: 0 } : springs.default}
-			style={{ transformOrigin: "bottom center" }}
+			style={{ transformOrigin: docked ? "bottom right" : "bottom center" }}
 		>
 			<div className="si-sheet-tabs" ref={tabsRef}>
 				{CLUSTERS.map((entry) => {
@@ -641,9 +783,11 @@ function ClusterSheet({
 					);
 				})}
 				<span className="si-sheet-spacer" />
-				<button type="button" onClick={onClose} aria-label="Close settings" className="si-button">
-					<CloseGlyph />
-				</button>
+				<StudioTooltip content="Close settings">
+					<button type="button" onClick={onClose} aria-label="Close settings" className="si-button">
+						<CloseGlyph />
+					</button>
+				</StudioTooltip>
 			</div>
 
 			{/* `popLayout` and not `wait`, which is what the row below swaps on. The
@@ -812,21 +956,18 @@ function ClusterGlyph({ cluster }: { cluster: ClusterId }): ReactNode {
 }
 
 function PlayGlyph() {
-	// A centred triangle reads left-heavy; 1px right puts it optically centred.
 	return (
-		<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-			<path d="M4 2v12l10-6z" style={{ transform: "translateX(1px)" }} />
-		</svg>
+		<Play
+			size={13}
+			weight="Filled"
+			aria-hidden="true"
+			style={{ transform: "translateX(0.75px)" }}
+		/>
 	);
 }
 
 function PauseGlyph() {
-	return (
-		<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-			<rect x="3" y="2" width="3.5" height="12" rx="0.75" />
-			<rect x="9.5" y="2" width="3.5" height="12" rx="0.75" />
-		</svg>
-	);
+	return <Pause size={13} weight="Filled" aria-hidden="true" />;
 }
 
 function SpinnerGlyph() {
@@ -846,131 +987,45 @@ function SpinnerGlyph() {
 }
 
 function FrameGlyph() {
-	return (
-		<svg
-			width="11"
-			height="11"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			aria-hidden="true"
-		>
-			<rect x="2.5" y="5" width="19" height="14" rx="2.5" />
-		</svg>
-	);
+	return <Frame size={11} strokeWidth={2} aria-hidden="true" />;
 }
 
 function LookGlyph() {
-	return (
-		<svg width="11" height="11" viewBox="0 0 24 24" aria-hidden="true">
-			<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2" />
-			<path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" />
-		</svg>
-	);
+	return <ColorSwatch size={11} strokeWidth={2} aria-hidden="true" />;
 }
 
 function MotionGlyph() {
-	return (
-		<svg
-			width="11"
-			height="11"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			aria-hidden="true"
-		>
-			<path d="M3 12h3l3-7 4 14 3-7h5" />
-		</svg>
-	);
+	return <WavePulse size={11} strokeWidth={2} aria-hidden="true" />;
 }
 
 function SettingsGlyph() {
-	return (
-		<svg
-			width="12"
-			height="12"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			aria-hidden="true"
-		>
-			<path d="M4 7h5M13 7h7M4 17h9M17 17h3" />
-			<circle cx="11" cy="7" r="2" />
-			<circle cx="15" cy="17" r="2" />
-		</svg>
-	);
+	return <Sliders size={12} strokeWidth={2} aria-hidden="true" />;
 }
 
 function FeedGlyph() {
-	return (
-		<svg
-			width="11"
-			height="11"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			aria-hidden="true"
-		>
-			<rect x="6" y="2.5" width="12" height="19" rx="2.5" />
-			<line x1="10" y1="18.5" x2="14" y2="18.5" strokeLinecap="round" />
-		</svg>
-	);
+	return <Mobile size={11} strokeWidth={2} aria-hidden="true" />;
+}
+
+function LoopGlyph() {
+	return <Repeat size={12} strokeWidth={2} aria-hidden="true" />;
+}
+
+function SoundGlyph() {
+	return <VolumeHigh size={12} strokeWidth={2} aria-hidden="true" />;
+}
+
+function AspectGlyph() {
+	return <AspectRatioSquare size={12} strokeWidth={2} aria-hidden="true" />;
 }
 
 function GuidesGlyph() {
-	return (
-		<svg
-			width="11"
-			height="11"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeDasharray="3 3"
-			aria-hidden="true"
-		>
-			<rect x="3" y="3" width="18" height="18" rx="3" />
-		</svg>
-	);
+	return <Crop size={11} strokeWidth={2} aria-hidden="true" />;
 }
 
 function BackGlyph() {
-	return (
-		<svg
-			width="13"
-			height="13"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			aria-hidden="true"
-		>
-			<path d="M14.5 5.5 8 12l6.5 6.5" />
-		</svg>
-	);
+	return <ChevronLeft size={13} strokeWidth={2.2} aria-hidden="true" />;
 }
 
 function CloseGlyph() {
-	return (
-		<svg
-			width="12"
-			height="12"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2.2"
-			strokeLinecap="round"
-			aria-hidden="true"
-		>
-			<path d="M6 6l12 12M18 6L6 18" />
-		</svg>
-	);
+	return <X size={12} strokeWidth={2.2} aria-hidden="true" />;
 }

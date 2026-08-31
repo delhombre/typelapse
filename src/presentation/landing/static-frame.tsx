@@ -2,8 +2,12 @@ import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gr
 import { Theme } from "@/domain/entities/theme";
 import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
+import {
+	highlightCacheKey,
+	highlightOnce,
+	readHighlight,
+} from "@/presentation/utils/highlight-cache";
 import { type ReactNode, memo, useEffect, useMemo, useReducer } from "react";
-import { highlightCacheKey, highlightOnce, readHighlight } from "./highlight-cache";
 
 const THEMES: Record<string, () => Theme> = {
 	midnight: Theme.midnight,

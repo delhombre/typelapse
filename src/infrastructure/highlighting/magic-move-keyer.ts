@@ -1,3 +1,4 @@
+import { ensureReadableTokenColor } from "@/application/accessibility/token-contrast";
 import {
 	type MagicMovePlan,
 	type RawToken,
@@ -12,12 +13,12 @@ import { resolveShikiLanguage, resolveShikiTheme } from "./shiki-registry";
 
 export type { MagicMovePlan } from "@/application/magic-move/engine";
 
-function toRawTokens(info: KeyedTokensInfo): RawToken[] {
+function toRawTokens(info: KeyedTokensInfo, background: string): RawToken[] {
 	return info.tokens.map((token) => ({
 		key: token.key,
 		content: token.content,
 		offset: token.offset,
-		color: token.color,
+		color: token.color ? ensureReadableTokenColor(token.color, background) : token.color,
 		fontStyle: token.fontStyle,
 	}));
 }
@@ -34,6 +35,7 @@ export function buildMagicMovePlan(
 	codes: string[],
 	language: string,
 	themeName: string,
+	themeBackground: string,
 	loop = false,
 ): MagicMovePlan {
 	// `resolveShikiLanguage` yields a loaded bundled id or the special `text` lang.
@@ -48,13 +50,13 @@ export function buildMagicMovePlan(
 	const morph = (fromCode: string, toCode: string): MagicMovePlan["transitions"][number] => {
 		const { from, to } = syncTokenKeys(tokenize(fromCode), tokenize(toCode), diffOptions);
 		return {
-			from: layoutFrame(fromCode, toRawTokens(from)),
-			to: layoutFrame(toCode, toRawTokens(to)),
+			from: layoutFrame(fromCode, toRawTokens(from, themeBackground)),
+			to: layoutFrame(toCode, toRawTokens(to, themeBackground)),
 		};
 	};
 
 	const frames: MagicMovePlan["frames"] = codes.map((code) => ({
-		tokens: layoutFrame(code, toRawTokens(tokenize(code))),
+		tokens: layoutFrame(code, toRawTokens(tokenize(code), themeBackground)),
 		lineCount: frameLineCount(code),
 	}));
 
@@ -68,7 +70,7 @@ export function buildMagicMovePlan(
 		loop && codes.length >= 2 ? morph(codes[last] ?? "", codes[0] ?? "") : undefined;
 
 	const firstCode = codes[0] ?? "";
-	const typing = layoutTypingTokens(firstCode, toRawTokens(tokenize(firstCode)));
+	const typing = layoutTypingTokens(firstCode, toRawTokens(tokenize(firstCode), themeBackground));
 
 	return { frames, transitions, loopTransition, typing };
 }

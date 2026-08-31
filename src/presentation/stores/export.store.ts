@@ -1,13 +1,18 @@
+import type { CaptureRecord } from "@/application/captures/capture-record";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
+import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
 import type { Snippet } from "@/domain/entities/snippet";
+import { browserCaptureLibrary } from "@/infrastructure/captures/browser-capture-library";
 import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download.adapter";
 import { CloudRenderAdapter } from "@/infrastructure/export/cloud-render.adapter";
 import { gifDimensions } from "@/infrastructure/export/gif-quality";
 import { gifSafeFps } from "@/infrastructure/export/gif-timing";
 import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
+import { feedback } from "@/presentation/haptics";
+import { readLocalProjects } from "@/presentation/utils/local-project-storage";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { create } from "zustand";
 // Type-only: the render request contract lives with the other render DTOs. This
@@ -76,6 +81,7 @@ interface ExportState {
 	sound: boolean;
 	progressStyle: ProgressStyle;
 	transitionMs: TempoMs;
+	transitionEasing: CubicBezier;
 
 	setFormat: (format: RenderFormat) => void;
 	setResolution: (width: number, height: number) => void;
@@ -86,6 +92,7 @@ interface ExportState {
 	setSound: (sound: boolean) => void;
 	setProgressStyle: (style: ProgressStyle) => void;
 	setTransitionMs: (ms: TempoMs) => void;
+	setTransitionEasing: (easing: CubicBezier) => void;
 	setTarget: (target: ExportTarget) => void;
 	/** Ask the browser whether it can encode the current format and size. */
 	probeDevice: () => Promise<void>;
@@ -110,6 +117,7 @@ export const EXPORT_DEFAULTS = {
 	fps: 60,
 	progressStyle: "reels",
 	transitionMs: 650,
+	transitionEasing: DEFAULT_TRANSITION_EASING,
 	typewriter: false,
 	focusZoom: false,
 } as const satisfies Partial<ExportState>;
@@ -157,6 +165,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	sound: false,
 	progressStyle: EXPORT_DEFAULTS.progressStyle,
 	transitionMs: EXPORT_DEFAULTS.transitionMs,
+	transitionEasing: EXPORT_DEFAULTS.transitionEasing,
 
 	// Changing the format or the size changes what the browser is being asked to
 	// encode, so the previous answer stops being an answer.
@@ -178,6 +187,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	setSound: (sound) => set({ sound }),
 	setProgressStyle: (progressStyle) => set({ progressStyle }),
 	setTransitionMs: (transitionMs) => set({ transitionMs }),
+	setTransitionEasing: (transitionEasing) => set({ transitionEasing: [...transitionEasing] }),
 	setTarget: (target) => set({ target }),
 	dismissOutcome: () => set({ outcome: null }),
 
@@ -211,7 +221,8 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		} = snippetState;
 
 		if (snippet.steps.length < 2) {
-			set({ outcome: { kind: "failed", message: "At least 2 steps are required for export." } });
+			set({ outcome: { kind: "failed", message: "At least 2 scenes are required for export." } });
+			feedback("error");
 			return;
 		}
 
@@ -226,6 +237,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			sound,
 			progressStyle,
 			transitionMs,
+			transitionEasing,
 		} = get();
 
 		const { plan } = usePlanStore.getState();
@@ -260,6 +272,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 						showLineNumbers,
 						lineNumberStart,
 						transitionMs,
+						transitionEasing,
 						loop,
 						typewriter,
 						focusZoom,
@@ -347,6 +360,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				sound,
 				progressStyle,
 				transitionMs,
+				transitionEasing,
 				watermark: resolved.watermark,
 			};
 
@@ -369,6 +383,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 
 			const blob = await response.blob();
 			await exporter.export(blob, filename, resolved.config.format);
+			await rememberCapture(blob, `${filename}.${resolved.config.format}`, resolved.config.format);
 
 			set({
 				isExporting: false,
@@ -381,6 +396,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					elapsedMs: performance.now() - startedAt,
 				},
 			});
+			feedback("success");
 		} catch (err) {
 			set({
 				isExporting: false,
@@ -390,6 +406,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					message: err instanceof Error ? err.message : "The export failed.",
 				},
 			});
+			feedback("error");
 		}
 	},
 
@@ -397,6 +414,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		const el = document.querySelector("[data-export-target]") as HTMLElement | null;
 		if (!el) {
 			set({ outcome: { kind: "failed", message: "No preview element found." } });
+			feedback("error");
 			return;
 		}
 		const startedAt = performance.now();
@@ -434,6 +452,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			const snippetState = useSnippetStore.getState();
 			const filename = snippetState.snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 			await exporter.export(blob, filename, "png" as RenderFormat);
+			await rememberCapture(blob, `${filename}.png`, "png");
 
 			set({
 				isExporting: false,
@@ -446,6 +465,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					elapsedMs: performance.now() - startedAt,
 				},
 			});
+			feedback("success");
 		} catch (err) {
 			set({
 				isExporting: false,
@@ -455,6 +475,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					message: err instanceof Error ? err.message : "The PNG export failed.",
 				},
 			});
+			feedback("error");
 		} finally {
 			if (restoreSocial) {
 				social.setEnabled(true);
@@ -480,6 +501,7 @@ interface DeviceRenderInput {
 		showLineNumbers: boolean;
 		lineNumberStart: number;
 		transitionMs: number;
+		transitionEasing: CubicBezier;
 		loop: boolean;
 		typewriter: boolean;
 		focusZoom: boolean;
@@ -529,6 +551,7 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 			showLineNumbers: scenery.showLineNumbers,
 			lineNumberStart: scenery.lineNumberStart,
 			transitionMs: scenery.transitionMs,
+			transitionEasing: scenery.transitionEasing,
 			loop: scenery.loop,
 			typewriter: scenery.typewriter,
 			focusZoom: scenery.focusZoom,
@@ -563,6 +586,7 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 		});
 
 		await exporter.export(blob, filename, config.format);
+		await rememberCapture(blob, `${filename}.${config.format}`, config.format);
 		set({
 			isExporting: false,
 			progress: null,
@@ -580,6 +604,7 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 				),
 			},
 		});
+		feedback("success");
 	} catch (error) {
 		if (error instanceof DOMException && error.name === "AbortError") {
 			set({ isExporting: false, progress: null, outcome: null });
@@ -595,9 +620,51 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 				} You can switch to the server render instead.`,
 			},
 		});
+		feedback("error");
 	} finally {
 		inFlight = null;
 	}
+}
+
+function captureMime(format: RenderFormat | "png", blob: Blob): string {
+	if (blob.type) {
+		return blob.type;
+	}
+	const byFormat: Record<RenderFormat | "png", string> = {
+		mp4: "video/mp4",
+		webm: "video/webm",
+		gif: "image/gif",
+		png: "image/png",
+	};
+	return byFormat[format];
+}
+
+function captureId(): string {
+	try {
+		return crypto.randomUUID();
+	} catch {
+		return `capture-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	}
+}
+
+/** Keep a recoverable local history without making a successful download depend on it. */
+async function rememberCapture(
+	blob: Blob,
+	filename: string,
+	format: RenderFormat | "png",
+): Promise<void> {
+	const project = readLocalProjects();
+	const record: CaptureRecord = {
+		id: captureId(),
+		createdAt: Date.now(),
+		projectId: project.activeId,
+		projectTitle: useSnippetStore.getState().snippet.title,
+		filename,
+		mimeType: captureMime(format, blob),
+		bytes: blob.size,
+		blob,
+	};
+	await browserCaptureLibrary.add(record);
 }
 
 /**
