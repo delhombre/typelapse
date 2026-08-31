@@ -1,6 +1,13 @@
+import { addTextLayer } from "@/application/project/multimedia-authoring";
+import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { TEMPLATE_CATALOG } from "@/application/templates/catalog";
 import { SceneInspector, StepBuilder } from "@/presentation/components/editor/step-builder";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	readStudioCompositionSnapshot,
+	useStudioCompositionSelectionStore,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -29,6 +36,10 @@ describe("StepBuilder selection follow", () => {
 		}
 		useSnippetStore.getState().importFromJson(JSON.stringify(project));
 		useSnippetStore.getState().setCurrentStepIndex(project.steps.length - 1);
+		useStudioCompositionStore
+			.getState()
+			.loadDocument(createStudioCompositionDocument(readStudioCompositionSnapshot()));
+		useStudioCompositionSelectionStore.getState().selectAudioCue(null);
 	});
 
 	afterEach(() => cleanup());
@@ -85,5 +96,24 @@ describe("SceneInspector", () => {
 
 		expect(screen.getByText("Scene 1 of 3")).toBeTruthy();
 		expect(screen.getByRole("textbox", { name: "Scene 1 caption" })).toBeTruthy();
+	});
+
+	it("gives the scene inspector to layer navigation while a multimedia layer is selected", () => {
+		const composition = useStudioCompositionStore.getState();
+		const sceneId = composition.selectedSceneId;
+		if (!sceneId) {
+			throw new Error("The Studio composition must select a scene");
+		}
+		composition.transact((project) =>
+			addTextLayer(project, sceneId, { id: "selected-title", text: "A visual story" }),
+		);
+		composition.selectBlock(sceneId, "selected-title");
+
+		render(<SceneInspector />);
+
+		expect(screen.getByText("Layer controls for this scene.")).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Text" }).getAttribute("aria-pressed")).toBe("true");
+		expect(screen.queryByRole("textbox", { name: /focus lines/i })).toBeNull();
+		expect(screen.queryByRole("textbox", { name: /caption/i })).toBeNull();
 	});
 });

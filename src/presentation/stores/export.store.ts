@@ -2,6 +2,7 @@ import type { CaptureRecord } from "@/application/captures/capture-record";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
 import type { Snippet } from "@/domain/entities/snippet";
 import { browserCaptureLibrary } from "@/infrastructure/captures/browser-capture-library";
@@ -220,12 +221,6 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			watermark,
 		} = snippetState;
 
-		if (snippet.steps.length < 2) {
-			set({ outcome: { kind: "failed", message: "At least 2 scenes are required for export." } });
-			feedback("error");
-			return;
-		}
-
 		const {
 			format,
 			width,
@@ -248,6 +243,24 @@ export const useExportStore = create<ExportState>((set, get) => ({
 
 		const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 		const startedAt = performance.now();
+		const studioComposition = await import("./studio-composition.store");
+		if (studioComposition.hasAuthoredMultimedia()) {
+			await renderStudioMultimedia({
+				document: studioComposition.useStudioCompositionStore.getState().toDocument(),
+				config: resolved.config,
+				filename,
+				startedAt,
+				target: get().target,
+				set,
+			});
+			return;
+		}
+
+		if (snippet.steps.length < 2) {
+			set({ outcome: { kind: "failed", message: "At least 2 scenes are required for export." } });
+			feedback("error");
+			return;
+		}
 
 		// The on-device path is the default wherever the browser can encode: it is
 		// faster, it is private, and it costs nobody a headless Chrome. The probe
@@ -488,6 +501,112 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		}
 	},
 }));
+
+interface StudioMultimediaRenderInput {
+	document: ProjectDocumentV2;
+	config: RenderConfig;
+	filename: string;
+	startedAt: number;
+	target: ExportTarget;
+	set: (partial: Partial<ExportState>) => void;
+}
+
+/**
+ * Multimedia uses the canonical V2 composition and the account-free local
+ * Remotion route. The accepted code-only WebCodecs path above remains wholly
+ * unchanged, so adding a photo never forks the Studio shell or its controls.
+ */
+async function renderStudioMultimedia(input: StudioMultimediaRenderInput): Promise<void> {
+	if (input.config.format === "gif") {
+		input.set({
+			outcome: {
+				kind: "failed",
+				message: "Multimedia projects currently export as MP4 or WebM. Choose one to continue.",
+			},
+		});
+		feedback("error");
+		return;
+	}
+
+	const controller = new AbortController();
+	inFlight = controller;
+	input.set({
+		isExporting: true,
+		outcome: null,
+		progress: { phase: "preparing", message: "Preparing local media…", ratio: null },
+	});
+
+	try {
+		const [{ LocalMultimediaRenderHttpAdapter }, { studioLocalLibrary }] = await Promise.all([
+			import("@/infrastructure/export/local-multimedia-render-http.adapter"),
+			import("@/presentation/studio-media-runtime"),
+		]);
+		const document = {
+			...input.document,
+			project: {
+				...input.document.project,
+				canvas: {
+					...input.document.project.canvas,
+					width: input.config.width,
+					height: input.config.height,
+				},
+			},
+		};
+		const includeAudio =
+			document.project.audioCues.length > 0 ||
+			document.project.scenes.some((scene) =>
+				scene.blocks.some((block) => block.kind === "video" && !block.muted),
+			);
+		input.set({
+			progress: { phase: "rendering", message: "Rendering media locally…", ratio: null },
+		});
+		const blob = await new LocalMultimediaRenderHttpAdapter(studioLocalLibrary).render({
+			document,
+			options: {
+				format: input.config.format,
+				width: input.config.width,
+				height: input.config.height,
+				fps: input.config.fps === 60 ? 60 : 30,
+				includeAudio,
+			},
+			signal: controller.signal,
+		});
+		input.set({
+			progress: { phase: "downloading", message: "Writing the file…", ratio: null },
+		});
+		await exporter.export(blob, input.filename, input.config.format);
+		await rememberCapture(blob, `${input.filename}.${input.config.format}`, input.config.format);
+		input.set({
+			isExporting: false,
+			progress: null,
+			outcome: {
+				kind: "done",
+				filename: `${input.filename}.${input.config.format}`,
+				bytes: blob.size,
+				target: input.target,
+				elapsedMs: performance.now() - input.startedAt,
+				note: "Rendered from the same layered composition as the preview.",
+			},
+		});
+		feedback("success");
+	} catch (error) {
+		if (error instanceof DOMException && error.name === "AbortError") {
+			input.set({ isExporting: false, progress: null, outcome: null });
+			return;
+		}
+		input.set({
+			isExporting: false,
+			progress: null,
+			outcome: {
+				kind: "failed",
+				message: error instanceof Error ? error.message : "The multimedia export failed.",
+			},
+		});
+		feedback("error");
+	} finally {
+		inFlight = null;
+	}
+}
 
 interface DeviceRenderInput {
 	snippet: Snippet;

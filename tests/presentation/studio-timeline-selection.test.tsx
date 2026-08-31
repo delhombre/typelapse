@@ -1,8 +1,14 @@
+import { addTextLayer } from "@/application/project/multimedia-authoring";
+import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { TEMPLATE_CATALOG } from "@/application/templates/catalog";
 import { StudioTimeline } from "@/presentation/components/timeline/studio-timeline";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	readStudioCompositionSnapshot,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,6 +40,9 @@ describe("StudioTimeline selection follow", () => {
 		}
 		useSnippetStore.getState().importFromJson(JSON.stringify(project));
 		useSnippetStore.getState().setCurrentStepIndex(project.steps.length - 1);
+		useStudioCompositionStore
+			.getState()
+			.loadDocument(createStudioCompositionDocument(readStudioCompositionSnapshot()));
 	});
 
 	afterEach(() => cleanup());
@@ -53,6 +62,23 @@ describe("StudioTimeline selection follow", () => {
 		expect(screen.getByRole("spinbutton", { name: "Scene 3 duration in seconds" })).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Duplicate scene 3" })).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Delete scene 3" })).toBeTruthy();
+	});
+
+	it("adds a quiet capability mark only to scenes with authored layers", () => {
+		const firstSceneId = useSnippetStore.getState().snippet.steps[0]?.id;
+		if (!firstSceneId) {
+			throw new Error("The template must contain a scene");
+		}
+		useStudioCompositionStore
+			.getState()
+			.transact((project) =>
+				addTextLayer(project, firstSceneId, { id: "timeline-title", text: "Title" }),
+			);
+
+		const { container } = render(<StudioTimeline />);
+
+		expect(container.querySelectorAll(".studio-timeline-layer-marks")).toHaveLength(1);
+		expect(screen.getByRole("button", { name: /Scene 1,.*with text/ })).toBeTruthy();
 	});
 
 	it("edits the shared morph curve with the measured ui.camera presets", async () => {

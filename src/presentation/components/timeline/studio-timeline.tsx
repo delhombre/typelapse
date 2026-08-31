@@ -1,4 +1,8 @@
 import {
+	type StudioSceneLayerKind,
+	studioSceneLayerKinds,
+} from "@/application/project/studio-composition";
+import {
 	bubbleEdgeAtProgress,
 	buildStudioTimeline,
 	indexAtProgress,
@@ -15,6 +19,7 @@ import { feedback, feedbackPulse } from "@/presentation/haptics";
 import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
 import { type TempoMs, useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { useStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
 import { isEditableEventTarget } from "@/presentation/utils/editable-target";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
@@ -27,7 +32,22 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Add, Bezier2, Copy, Next, Pause, Play, Previous, Trash, WavePulse, X } from "reicon-react";
+import {
+	Add,
+	Bezier2,
+	Copy,
+	Image as ImageGlyph,
+	Music,
+	Next,
+	Pause,
+	Play,
+	Previous,
+	TextInputFocus,
+	Trash,
+	Video,
+	WavePulse,
+	X,
+} from "reicon-react";
 
 const PIXELS_PER_SECOND = 100;
 type LayoutMotionMode = "settle" | "instant" | "direct";
@@ -41,6 +61,7 @@ const TEMPO_OPTIONS = [
 
 export function StudioTimeline() {
 	const steps = useSnippetStore((state) => state.snippet.steps);
+	const compositionProject = useStudioCompositionStore((state) => state.value.project);
 	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
 	const setCurrentStepIndex = useSnippetStore((state) => state.setCurrentStepIndex);
 	const captureStep = useSnippetStore((state) => state.captureStep);
@@ -71,6 +92,11 @@ export function StudioTimeline() {
 	const motionConfig = useMemo(
 		() => timelineMotion(reduceMotion, layoutMotionMode === "settle"),
 		[layoutMotionMode, reduceMotion],
+	);
+	const layerKindsByScene = useMemo(
+		() =>
+			new Map(steps.map((step) => [step.id, studioSceneLayerKinds(compositionProject, step.id)])),
+		[compositionProject, steps],
 	);
 
 	const model = useMemo(
@@ -532,6 +558,7 @@ export function StudioTimeline() {
 									key={step.id}
 									step={step}
 									index={clip.index}
+									layerKinds={layerKindsByScene.get(step.id) ?? []}
 									selected={clip.index === currentStepIndex}
 									dragged={draggedStepId === step.id}
 									dropTarget={isDropTarget}
@@ -707,6 +734,7 @@ function TransitionContext({
 function TimelineClip({
 	step,
 	index,
+	layerKinds,
 	selected,
 	dragged,
 	dropTarget,
@@ -727,6 +755,7 @@ function TimelineClip({
 }: {
 	step: Step;
 	index: number;
+	layerKinds: readonly StudioSceneLayerKind[];
 	selected: boolean;
 	dragged: boolean;
 	dropTarget: boolean;
@@ -774,12 +803,24 @@ function TimelineClip({
 					type="button"
 					onClick={onSelect}
 					aria-current={selected ? "step" : undefined}
-					aria-label={`Scene ${index + 1}, ${formatDuration(step.duration)}`}
+					aria-label={`Scene ${index + 1}, ${formatDuration(step.duration)}${layerKinds.length > 0 ? `, with ${layerKinds.join(", ")}` : ""}`}
 					aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight"
 					className="studio-timeline-clip-face"
 				>
 					<span className="studio-timeline-clip-number">{index + 1}</span>
 					<CodeFilmFrame code={step.code} />
+					{layerKinds.length > 0 ? (
+						<span className="studio-timeline-layer-marks" aria-hidden="true">
+							{layerKinds.map((kind) => (
+								<span key={kind} data-kind={kind}>
+									{kind === "text" ? <TextInputFocus size={9} /> : null}
+									{kind === "image" ? <ImageGlyph size={9} /> : null}
+									{kind === "video" ? <Video size={9} /> : null}
+									{kind === "audio" ? <Music size={9} /> : null}
+								</span>
+							))}
+						</span>
+					) : null}
 					<span className="studio-timeline-clip-duration">{formatDuration(step.duration)}</span>
 				</button>
 			</div>

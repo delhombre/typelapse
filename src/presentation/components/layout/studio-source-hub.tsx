@@ -1,12 +1,30 @@
+import { addMediaAsset, addTextLayer } from "@/application/project/multimedia-authoring";
 import { ConfirmDiscardOverlay } from "@/presentation/components/ui/confirm-discard";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
 import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	useStudioCompositionSelectionStore,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
+import {
+	studioLocalLibrary,
+	studioMediaImporter,
+	studioMediaRegistry,
+} from "@/presentation/studio-media-runtime";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type ChangeEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Add, BranchDown, ChevronRight, FileText, Image, Link as LinkGlyph } from "reicon-react";
+import {
+	Add,
+	BranchDown,
+	ChevronRight,
+	FileText,
+	Image,
+	Link as LinkGlyph,
+	Music,
+	TextInputFocus,
+} from "reicon-react";
 import { DiffImportMenu } from "./diff-import-menu";
 import { UrlImportMenu } from "./url-import-menu";
 
@@ -23,11 +41,15 @@ type SourceView = "menu" | "url" | "diff" | null;
 export function StudioSourceHub() {
 	const [view, setView] = useState<SourceView>(null);
 	const [pendingFile, setPendingFile] = useState<{ name: string; json: string } | null>(null);
+	const [mediaAccept, setMediaAccept] = useState("image/*,video/*");
+	const [sourceStatus, setSourceStatus] = useState<string | null>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const mediaInputRef = useRef<HTMLInputElement>(null);
 	const reduce = useReducedMotion() === true;
-	const navigate = useNavigate();
 	const importFromJson = useSnippetStore((state) => state.importFromJson);
+	const composition = useStudioCompositionStore();
+	const selectAudioCue = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
 
 	const close = useCallback(() => setView(null), []);
 
@@ -95,6 +117,93 @@ export function StudioSourceHub() {
 		[applyJson],
 	);
 
+	const addText = useCallback(() => {
+		const sceneId = composition.selectedSceneId ?? composition.value.project.scenes[0]?.id;
+		if (!sceneId) {
+			return;
+		}
+		const blockId = crypto.randomUUID();
+		composition.transact((project) =>
+			addTextLayer(project, sceneId, {
+				id: blockId,
+				text: "Add your text",
+				placement: { x: 0.08, y: 0.72, width: 0.84, height: 0.2 },
+			}),
+		);
+		composition.selectBlock(sceneId, blockId);
+		selectAudioCue(null);
+		setSourceStatus(null);
+		close();
+		feedback("commit");
+	}, [close, composition, selectAudioCue]);
+
+	const openMediaPicker = useCallback((accept: string) => {
+		setMediaAccept(accept);
+		setSourceStatus(null);
+		requestAnimationFrame(() => mediaInputRef.current?.click());
+	}, []);
+
+	const handleMediaChange = useCallback(
+		async (event: ChangeEvent<HTMLInputElement>) => {
+			const file = event.target.files?.[0];
+			event.target.value = "";
+			if (!file) {
+				return;
+			}
+			const sceneId = composition.selectedSceneId ?? composition.value.project.scenes[0]?.id;
+			if (!sceneId) {
+				return;
+			}
+			setSourceStatus(`Reading ${file.name}…`);
+			let pendingAssetId: string | null = null;
+			try {
+				const result = await studioMediaImporter.importFile(file);
+				pendingAssetId = result.asset.id;
+				await studioLocalLibrary.saveAsset({
+					projectId: composition.value.project.id,
+					assetId: result.asset.id,
+					mimeType: result.asset.metadata.mimeType,
+					byteSize: result.asset.metadata.byteSize,
+					opaqueHandle: file,
+				});
+				const blockId = crypto.randomUUID();
+				const cueId = crypto.randomUUID();
+				let startMs = 0;
+				for (const scene of composition.value.project.scenes) {
+					if (scene.id === sceneId) {
+						break;
+					}
+					startMs += scene.durationMs + (scene.transitionOut?.durationMs ?? 0);
+				}
+				composition.transact((project) =>
+					addMediaAsset(project, sceneId, result.asset, {
+						blockId,
+						cueId,
+						startMs,
+					}),
+				);
+				pendingAssetId = null;
+				if (result.asset.kind === "audio") {
+					composition.selectBlock(sceneId, null);
+					selectAudioCue(cueId);
+				} else {
+					composition.selectBlock(sceneId, blockId);
+					selectAudioCue(null);
+				}
+				setSourceStatus(null);
+				close();
+				feedback("commit");
+			} catch (error) {
+				if (pendingAssetId) {
+					studioMediaRegistry.revoke(pendingAssetId);
+				}
+				feedback("error");
+				setSourceStatus(error instanceof Error ? error.message : "This media could not be added.");
+			}
+		},
+		[close, composition, selectAudioCue],
+	);
+
 	const setUrlOpen = useCallback((open: boolean) => {
 		setView((current) => (open ? "url" : current === "url" ? null : current));
 	}, []);
@@ -110,6 +219,13 @@ export function StudioSourceHub() {
 				type="file"
 				accept=".json"
 				onChange={handleFileChange}
+				className="hidden"
+			/>
+			<input
+				ref={mediaInputRef}
+				type="file"
+				accept={mediaAccept}
+				onChange={handleMediaChange}
 				className="hidden"
 			/>
 			<motion.button
@@ -145,17 +261,29 @@ export function StudioSourceHub() {
 					>
 						<header>
 							<strong>Add source</strong>
-							<span>Choose what Typelapse should animate.</span>
+							<span aria-live="polite">
+								{sourceStatus ?? "Choose what Typelapse should animate."}
+							</span>
 						</header>
 						<SourceChoice
-							label="Compose a story"
-							detail="Text, code, images, video and sound"
-							icon={<Image size={14} aria-hidden="true" />}
-							onClick={() => {
-								close();
-								navigate("/app/story");
-							}}
+							label="Add text"
+							detail="A title, label or callout on this scene"
+							icon={<TextInputFocus size={14} aria-hidden="true" />}
+							onClick={addText}
 						/>
+						<SourceChoice
+							label="Add photo or video"
+							detail="Place media behind or above the code"
+							icon={<Image size={14} aria-hidden="true" />}
+							onClick={() => openMediaPicker("image/*,video/*")}
+						/>
+						<SourceChoice
+							label="Add audio"
+							detail="Music, voice-over or a sound cue"
+							icon={<Music size={14} aria-hidden="true" />}
+							onClick={() => openMediaPicker("audio/*")}
+						/>
+						<hr className="sc-source-divider" />
 						<SourceChoice
 							label="Paste a link"
 							detail="Gist, GitHub file or commit"

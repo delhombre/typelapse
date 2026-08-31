@@ -178,4 +178,19 @@ describe("the multimedia project editor store", () => {
 			future: [],
 		});
 	});
+
+	it("synchronizes the Studio scene spine without adding or corrupting authored history", () => {
+		const store = createProjectStore(textDocument());
+		store.getState().transact((project) => project.addBlock("scene-1", subtitle()));
+
+		store.getState().synchronize((project) => project.rename("Synced from Studio"));
+
+		expect(store.getState().toDocument().project.title).toBe("Synced from Studio");
+		expect(store.getState()).toMatchObject({ canUndo: true, canRedo: false });
+
+		store.getState().undo();
+
+		expect(store.getState().toDocument().project.title).toBe("Synced from Studio");
+		expect(store.getState().toDocument().project.scenes[0]?.blocks).toHaveLength(1);
+	});
 });

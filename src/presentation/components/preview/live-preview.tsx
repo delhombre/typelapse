@@ -20,6 +20,8 @@ import {
 	zoomForFocus,
 } from "@/application/magic-move/focus-zoom";
 import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
+import { studioCompositionTimeMs } from "@/application/project/studio-composition";
+import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import type { Theme } from "@/domain/entities/theme";
 import { useStudioVideoMode } from "@/presentation/contexts/studio-video-mode";
 import { useResizeObserverNode } from "@/presentation/hooks/use-resize-observer";
@@ -32,6 +34,10 @@ import {
 	resolveSocialPlatform,
 	useSocialPreviewStore,
 } from "@/presentation/stores/social-preview.store";
+import {
+	useStudioCompositionSelectionStore,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { motion } from "motion/react";
 import {
@@ -51,6 +57,7 @@ import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
 import { SocialPreviewOverlay } from "./social-preview-overlay";
 import { StepCaption } from "./step-caption";
+import { StudioCompositionAudio, StudioCompositionLayers } from "./studio-composition-layers";
 
 /** Pre-paint background for the node: mesh base color, image cover CSS, or none. */
 function staticBackground(
@@ -194,6 +201,33 @@ export function LivePreview() {
 	const typewriter = useExportStore((s) => s.typewriter);
 	const focusZoom = useExportStore((s) => s.focusZoom);
 	const transitionEasing = useExportStore((s) => s.transitionEasing);
+	const transitionMs = useExportStore((s) => s.transitionMs);
+	const exportFps = useExportStore((s) => s.fps);
+	const composition = useStudioCompositionStore();
+	const selectAuthoredAudio = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
+	const compositionDocument = useMemo(() => composition.toDocument(), [composition]);
+	const hasCompositionLayers = compositionDocument.project.scenes.some((scene) =>
+		scene.blocks.some((block) => block.kind !== "code"),
+	);
+	const hasCompositionAudio = compositionDocument.project.audioCues.length > 0;
+	const hasComposition = hasCompositionLayers || hasCompositionAudio;
+	const compositionTimeline = useMemo(
+		() => compileSceneTimeline({ document: compositionDocument, fps: exportFps }),
+		[compositionDocument, exportFps],
+	);
+	const compositionTimeMs = studioCompositionTimeMs(
+		compositionDocument.project.scenes,
+		transitionMs,
+		currentStepIndex,
+		playback,
+	);
+	const compositionFrame = compositionTimeline.frameAt(
+		Math.round((compositionTimeMs / 1_000) * exportFps),
+	);
+	const primaryCodeOpacity =
+		compositionDocument.project.scenes[currentStepIndex]?.blocks.find(
+			(block) => block.kind === "code" && block.continuityKey === "primary-code",
+		)?.opacity ?? 1;
 	// Social-preview view state (ephemeral): drives a faithful aspect-canvas
 	// preview painted OUTSIDE the export target, so it never reaches the PNG
 	// capture or the render payload.
@@ -234,7 +268,7 @@ export function LivePreview() {
 		exportWidth,
 		exportHeight,
 	);
-	const aspectCanvasEnabled = videoMode || activeSocialPlatform !== null;
+	const aspectCanvasEnabled = videoMode || activeSocialPlatform !== null || hasComposition;
 
 	// Social mode swaps the fit-to-viewport code window for a faithful miniature of
 	// the EXPORT ASPECT CANVAS: an aspect box fit into the viewport, filled with the
@@ -424,6 +458,16 @@ export function LivePreview() {
 				// lives on the box, so the card's own margin stays clear.
 				background: aspectCanvasActive ? undefined : staticBackground(background, isMesh, isImage),
 			}}
+			onClick={() => {
+				if (!hasComposition) {
+					return;
+				}
+				const sceneId = compositionDocument.project.scenes[currentStepIndex]?.id;
+				if (sceneId) {
+					composition.selectBlock(sceneId, null);
+					selectAuthoredAudio(null);
+				}
+			}}
 		>
 			{!isTransparent && <GrainOverlay />}
 
@@ -491,6 +535,9 @@ export function LivePreview() {
 	// free to be the picture and only the picture.
 	return (
 		<div className="flex h-full flex-col">
+			{hasCompositionAudio ? (
+				<StudioCompositionAudio frame={compositionFrame} playing={isPlaying} />
+			) : null}
 			<div
 				ref={setContainerNode}
 				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
@@ -521,15 +568,72 @@ export function LivePreview() {
 							background: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
 						}}
 					>
+						{hasCompositionLayers ? (
+							<div
+								className="sc-composition-surface-host"
+								data-slot="under-code"
+								style={{
+									width: compositionDocument.project.canvas.width,
+									height: compositionDocument.project.canvas.height,
+									transform: `scale(${aspectCanvas.boxWidth / compositionDocument.project.canvas.width})`,
+								}}
+							>
+								<StudioCompositionLayers
+									document={compositionDocument}
+									frame={compositionFrame}
+									slot="under-code"
+									playing={isPlaying}
+									selectedBlockId={composition.selectedBlockId}
+									onSelectLayer={(sceneId, blockId) => {
+										composition.selectBlock(sceneId, blockId);
+										selectAuthoredAudio(null);
+										const index = snippet.steps.findIndex((step) => step.id === sceneId);
+										if (index >= 0) {
+											useSnippetStore.getState().setCurrentStepIndex(index);
+										}
+									}}
+								/>
+							</div>
+						) : null}
 						<div
 							className="absolute top-1/2 left-1/2"
 							style={{
+								zIndex: 1,
+								opacity: primaryCodeOpacity,
+								pointerEvents: primaryCodeOpacity === 0 ? "none" : undefined,
 								transform: `translate(-50%, -50%) scale(${aspectCanvas.cardScale})`,
 								transformOrigin: "center center",
 							}}
 						>
 							{cardElement}
 						</div>
+						{hasCompositionLayers ? (
+							<div
+								className="sc-composition-surface-host"
+								data-slot="over-code"
+								style={{
+									width: compositionDocument.project.canvas.width,
+									height: compositionDocument.project.canvas.height,
+									transform: `scale(${aspectCanvas.boxWidth / compositionDocument.project.canvas.width})`,
+								}}
+							>
+								<StudioCompositionLayers
+									document={compositionDocument}
+									frame={compositionFrame}
+									slot="over-code"
+									playing={isPlaying}
+									selectedBlockId={composition.selectedBlockId}
+									onSelectLayer={(sceneId, blockId) => {
+										composition.selectBlock(sceneId, blockId);
+										selectAuthoredAudio(null);
+										const index = snippet.steps.findIndex((step) => step.id === sceneId);
+										if (index >= 0) {
+											useSnippetStore.getState().setCurrentStepIndex(index);
+										}
+									}}
+								/>
+							</div>
+						) : null}
 						{activeSocialPlatform && (
 							<SocialPreviewOverlay
 								platform={activeSocialPlatform}

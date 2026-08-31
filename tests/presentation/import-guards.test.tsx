@@ -5,6 +5,7 @@ import { BackgroundPicker } from "@/presentation/components/preview/background-p
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { useStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -214,15 +215,27 @@ describe("StudioSourceHub import guard", () => {
 		steps: [],
 	});
 
-	it("opens the scene-first studio without replacing the code studio", async () => {
+	it("adds a text layer inside the code studio instead of navigating to another shell", async () => {
 		makePristine();
 		renderNav();
+		const composition = useStudioCompositionStore.getState();
+		const sceneId = composition.selectedSceneId;
+		if (!sceneId) {
+			throw new Error("The Studio composition must select a scene");
+		}
+		const before = composition.value.project.scenes.find((scene) => scene.id === sceneId)?.blocks
+			.length;
 
 		openSourceMenu();
-		fireEvent.click(screen.getByRole("menuitem", { name: "Compose a story" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "Add text" }));
 
 		await waitFor(() => {
-			expect(screen.getByLabelText("Current route").textContent).toBe("/app/story");
+			expect(screen.getByLabelText("Current route").textContent).toBe("/");
+			expect(
+				useStudioCompositionStore
+					.getState()
+					.value.project.scenes.find((scene) => scene.id === sceneId)?.blocks.length,
+			).toBe((before ?? 0) + 1);
 		});
 	});
 

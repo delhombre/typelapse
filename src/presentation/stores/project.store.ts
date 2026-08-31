@@ -21,6 +21,13 @@ export interface ProjectStoreState extends EditorSnapshot {
 	selectBlock(sceneId: string, blockId: string | null): void;
 	loadDocument(document: ProjectDocumentV2): void;
 	transact(edit: (project: Project) => Project): void;
+	/**
+	 * Reconcile state owned by the surrounding Studio (code scenes, order and
+	 * timing) without turning every keystroke into a multimedia undo entry.
+	 * Existing history is reconciled too, so undoing a layer edit never resurrects
+	 * stale code or a deleted Studio scene.
+	 */
+	synchronize(edit: (project: Project) => Project): void;
 	undo(): void;
 	redo(): void;
 	toDocument(): ProjectDocumentV2;
@@ -126,6 +133,26 @@ export function createProjectStore(initialDocument: ProjectDocumentV2) {
 				future: [],
 				canUndo: past.length > 0,
 				canRedo: false,
+			});
+		},
+		synchronize: (edit) => {
+			const current = get();
+			const reconcile = (entry: EditorSnapshot): EditorSnapshot => {
+				const project = edit(entry.value.project);
+				const selection = normalizeSelection(project, entry);
+				return {
+					value:
+						project === entry.value.project
+							? entry.value
+							: Object.freeze({ ...entry.value, project }),
+					...selection,
+				};
+			};
+			const next = reconcile(current);
+			set({
+				...next,
+				past: current.past.map(reconcile),
+				future: current.future.map(reconcile),
 			});
 		},
 		undo: () => {

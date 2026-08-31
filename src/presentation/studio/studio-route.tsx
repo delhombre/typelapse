@@ -1,9 +1,10 @@
 import "@/presentation/studio-camera.css";
 import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
-import { CodeEditor } from "@/presentation/components/editor/code-editor";
 import { SceneInspector, StepBuilder } from "@/presentation/components/editor/step-builder";
+import { StudioEditor } from "@/presentation/components/editor/studio-editor";
 import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
 import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
+import { StudioCompositionBridge } from "@/presentation/components/layout/studio-composition-bridge";
 import { StudioPersistence } from "@/presentation/components/layout/studio-persistence";
 import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { NoticeHost } from "@/presentation/components/ui/notice-host";
@@ -24,10 +25,11 @@ export function StudioRoute() {
 	return (
 		<StudioTooltipProvider>
 			<StudioPersistence />
+			<StudioCompositionBridge />
 			<ImportIntentBoot />
 			<NoticeHost />
 			<ResponsiveShell
-				editor={<CodeEditor />}
+				editor={<StudioEditor />}
 				sceneInspector={<SceneInspector />}
 				stepBuilder={<StepBuilder />}
 				preview={<LivePreview />}
