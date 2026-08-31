@@ -37,6 +37,9 @@ export interface ProjectPayload {
 	language: string;
 	/** One of the built-in theme names (`midnight`, `dracula`, `nord`, …). */
 	themeName: string;
+	/** Optional theme overrides written by newer V1 producers. */
+	fontFamily?: string;
+	borderRadius?: number;
 	/** Backdrop: a mesh preset (`mesh:aurora`), a CSS gradient, or a plain colour. */
 	background: string;
 	steps: ProjectStepPayload[];

@@ -5,6 +5,7 @@ import { ExportSection } from "./export-section";
 import { Hero } from "./hero";
 import { MagicMoveSection } from "./magic-move-section";
 import { Nav } from "./nav";
+import { PricingSection } from "./pricing-section";
 import { InkButton, LogoLockup, Reveal } from "./primitives";
 import { SocialSection } from "./social-section";
 import { ThemeToggle } from "./theme-toggle";
@@ -37,7 +38,7 @@ export function LandingPage() {
 				    all for anyone arriving by screen reader or landmark list. The name
 				    the page is missing is said here instead of drawn: the design keeps
 				    its opening, the document gets its one h1. */}
-				<h1 className="sr-only">Typelapse: turn a code change into a video</h1>
+				<h1 className="sr-only">Make anything move.</h1>
 				<Hero />
 				{/* The order follows the visitor's own workflow — bring a change in,
 				    watch it become motion, check where it lands, ship it — and each
@@ -48,6 +49,7 @@ export function LandingPage() {
 				<SocialSection />
 				<ExportSection />
 				<CapabilityLedger />
+				<PricingSection />
 				<Cta />
 			</main>
 			<Footer />
@@ -85,7 +87,7 @@ function Footer() {
 			>
 				<div className="flex items-center gap-3">
 					<LogoLockup markSize={17} textClassName="text-base" />
-					<span className="text-[13px] text-ash">Your code, in motion.</span>
+					<span className="text-[13px] text-ash">Every medium, in motion.</span>
 				</div>
 				<div className="flex items-center gap-6 text-[13px]">
 					<Link

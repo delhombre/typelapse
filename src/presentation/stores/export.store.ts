@@ -32,9 +32,9 @@ export interface ExportProgress {
  * Where the video is made.
  *
  * `device` is the default wherever the browser can encode: nothing is uploaded,
- * nothing is queued, and there is no server to pay for. `server` is the honest
- * fallback for browsers without WebCodecs, and stays selectable so a user who
- * wants it can have it.
+ * nothing is queued, and there is no server to pay for. `server` is an explicit
+ * alternative for browsers without WebCodecs: selecting it is the consent to
+ * upload a project for remote rendering.
  */
 export type ExportTarget = "device" | "server";
 
@@ -268,9 +268,14 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				});
 				return;
 			}
-			// The browser said no. Fall through to the server, and say why rather
-			// than silently rendering somewhere the user did not choose.
-			set({ target: "server" });
+			set({
+				outcome: {
+					kind: "failed",
+					message:
+						"This browser cannot encode the selected video on this device. Nothing was uploaded. Choose server rendering explicitly to continue.",
+				},
+			});
+			return;
 		}
 
 		set({

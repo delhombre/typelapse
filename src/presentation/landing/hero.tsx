@@ -130,8 +130,8 @@ export function Hero() {
 			<RevealGroup immediate className="mx-auto w-full max-w-[680px] px-6">
 				<RevealItem>
 					<p className="lp-hero-lead">
-						<strong>Typelapse.</strong> Turn a code change into a video. Paste a pull request, a
-						diff or a snippet. It morphs token by token and renders for the feed.
+						<strong>Typelapse.</strong> Make anything move. Text, code, images, video and sound —
+						alone or together, shaped scene by scene and rendered for any screen.
 					</p>
 				</RevealItem>
 				<RevealItem>
@@ -208,7 +208,7 @@ export function Hero() {
 				</RevealItem>
 				<RevealItem>
 					<p className="lp-hero-meta">
-						Exports mp4 · webm · gif · png &nbsp;·&nbsp; MIT, runs on your machine &nbsp;·&nbsp;{" "}
+						Start blank or import a code change &nbsp;·&nbsp; Local-first &nbsp;·&nbsp;{" "}
 						<a href={GITHUB_URL} target="_blank" rel="noreferrer">
 							source
 						</a>

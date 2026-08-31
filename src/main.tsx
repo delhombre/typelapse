@@ -5,6 +5,7 @@ import { StepBuilder } from "@/presentation/components/editor/step-builder";
 import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
 import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
 import { StudioPersistence } from "@/presentation/components/layout/studio-persistence";
+import { MultimediaStudio } from "@/presentation/components/multimedia/multimedia-studio";
 import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { NoticeHost } from "@/presentation/components/ui/notice-host";
 import { LandingPage } from "@/presentation/landing/landing-page";
@@ -25,7 +26,7 @@ document.documentElement.classList.toggle("dark", initialMode === "dark");
 // Build the initial magic-move plan (retried once the highlighter is ready).
 useSnippetStore.getState().rebuildPlan();
 
-function Studio() {
+function LegacyCodeStudio() {
 	return (
 		<>
 			{/* Restores last session's draft, autosaves this one, guards unload.
@@ -65,7 +66,8 @@ createRoot(root).render(
 			<BrowserRouter>
 				<Routes>
 					<Route path="/" element={<LandingPage />} />
-					<Route path="/app" element={<Studio />} />
+					<Route path="/app" element={<MultimediaStudio />} />
+					<Route path="/app/code" element={<LegacyCodeStudio />} />
 				</Routes>
 			</BrowserRouter>
 		</MotionConfig>

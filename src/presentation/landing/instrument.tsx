@@ -389,7 +389,7 @@ export function Instrument({
 									lineHeightRatio={LINE_HEIGHT_RATIO}
 									fontFamily={theme.fontFamily}
 									color={theme.foreground}
-									lineNumberColor={`${theme.foreground}26`}
+									lineNumberColor={`${theme.foreground}a6`}
 									padding={FRAME_PADDING}
 								/>
 							) : (
@@ -450,7 +450,7 @@ function CodeWindow({
 				<div className="size-2.5 rounded-full bg-[#28c840]" />
 				<span
 					className="ml-2 font-mono text-[10px] tracking-tight"
-					style={{ color: `${theme.foreground}59` }}
+					style={{ color: `${theme.foreground}a6` }}
 				>
 					{title}
 				</span>

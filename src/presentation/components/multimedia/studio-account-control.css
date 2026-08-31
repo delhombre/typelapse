@@ -1,0 +1,303 @@
+.mm-account {
+	position: relative;
+}
+
+.mm-account-trigger {
+	display: flex;
+	height: 34px;
+	min-width: 34px;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 0 9px;
+	border: 0;
+	border-radius: 11px;
+	background: transparent;
+	color: var(--mm-muted);
+	font-size: 10.5px;
+	font-weight: 620;
+	transition: background-color 130ms, color 130ms, transform 120ms;
+}
+
+.mm-account-trigger:disabled {
+	opacity: 0.55;
+}
+
+.mm-account-avatar {
+	display: grid;
+	width: 24px;
+	height: 24px;
+	place-items: center;
+	border-radius: 8px;
+	background: var(--mm-deep);
+	color: var(--mm-deep-ink);
+	font-size: 9px;
+	font-weight: 760;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.mm-account-trigger:hover:not(:disabled) {
+		background: rgb(28 27 25 / 0.055);
+		color: var(--mm-ink);
+	}
+
+	.dark .mm-account-trigger:hover:not(:disabled) {
+		background: rgb(255 255 255 / 0.075);
+	}
+}
+
+.mm-account-trigger:active:not(:disabled) {
+	transform: scale(0.965);
+}
+
+.mm-account-popover {
+	position: absolute;
+	top: calc(100% + 10px);
+	right: -4px;
+	z-index: 80;
+	width: min(330px, calc(100vw - 24px));
+	margin: 0;
+	padding: 18px;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 20px;
+	background: color-mix(in srgb, var(--mm-surface) 96%, transparent);
+	box-shadow: var(--mm-shadow-lifted);
+	-webkit-backdrop-filter: blur(24px) saturate(1.45);
+	backdrop-filter: blur(24px) saturate(1.45);
+	transform-origin: top right;
+}
+
+.mm-account-close {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	display: grid;
+	width: 32px;
+	height: 32px;
+	place-items: center;
+	padding: 0;
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--mm-muted);
+}
+
+.mm-account-symbol {
+	display: grid;
+	width: 40px;
+	height: 40px;
+	margin-bottom: 16px;
+	place-items: center;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 14px;
+}
+
+.mm-account-symbol-local {
+	background: rgb(28 27 25 / 0.05);
+}
+
+.mm-account-symbol-cloud {
+	background: color-mix(in srgb, var(--mm-primary) 18%, transparent);
+	color: color-mix(in srgb, var(--mm-primary) 72%, var(--mm-ink));
+}
+
+.mm-account-copy h2,
+.mm-account-form h2 {
+	margin: 4px 36px 7px 0;
+	font-size: 17px;
+	font-weight: 690;
+	letter-spacing: -0.025em;
+}
+
+.mm-account-copy > p:not(.mm-eyebrow),
+.mm-account-form > p:not(.mm-eyebrow, .mm-account-error) {
+	margin: 0 0 16px;
+	color: var(--mm-muted);
+	font-size: 12px;
+	line-height: 1.55;
+}
+
+.mm-account-copy > a,
+.mm-account-actions a,
+.mm-account-actions button {
+	display: inline-flex;
+	height: 36px;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 0 12px;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 12px;
+	background: rgb(28 27 25 / 0.04);
+	color: var(--mm-ink);
+	font-size: 11px;
+	font-weight: 640;
+	text-decoration: none;
+}
+
+.dark .mm-account-copy > a,
+.dark .mm-account-actions a,
+.dark .mm-account-actions button {
+	background: rgb(255 255 255 / 0.055);
+}
+
+.mm-account-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.mm-account-plan-card {
+	display: grid;
+	gap: 10px;
+	margin: 2px 0 16px;
+	padding: 12px;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 15px;
+	background: color-mix(in srgb, var(--mm-surface) 80%, var(--mm-primary) 4%);
+}
+
+.mm-account-plan-card > div:first-child,
+.mm-account-plan-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.mm-account-plan-card span {
+	color: var(--mm-muted);
+	font-size: 9.5px;
+	line-height: 1.25;
+}
+
+.mm-account-plan-card strong {
+	display: block;
+	margin-top: 2px;
+	font-size: 12px;
+	font-weight: 710;
+}
+
+.mm-account-plan-card > button:not(.mm-account-primary) {
+	height: 32px;
+	padding: 0 10px;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 10px;
+	background: var(--mm-surface);
+	color: var(--mm-ink);
+	font-size: 10px;
+	font-weight: 660;
+}
+
+.mm-account-cadence {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 3px;
+	padding: 3px;
+	border-radius: 12px;
+	background: rgb(28 27 25 / 0.055);
+}
+
+.dark .mm-account-cadence {
+	background: rgb(255 255 255 / 0.06);
+}
+
+.mm-account-cadence button {
+	height: 34px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: var(--mm-muted);
+	font-size: 9.5px;
+	font-weight: 630;
+	transition: color 130ms, background-color 130ms, box-shadow 130ms, transform 120ms;
+}
+
+.mm-account-cadence button[aria-pressed="true"] {
+	background: var(--mm-surface);
+	box-shadow: 0 1px 3px rgb(28 27 25 / 0.12);
+	color: var(--mm-ink);
+}
+
+.mm-account-cadence button:active {
+	transform: scale(0.975);
+}
+
+.mm-account-plan-card [role="alert"] {
+	margin: 0;
+	color: #c93f3f;
+	font-size: 10px;
+	line-height: 1.4;
+}
+
+.mm-account-form {
+	display: grid;
+	gap: 10px;
+}
+
+.mm-account-form label {
+	display: grid;
+	gap: 6px;
+	color: var(--mm-muted);
+	font-size: 10px;
+	font-weight: 620;
+}
+
+.mm-account-form input {
+	height: 40px;
+	padding: 0 11px;
+	border: 1px solid var(--mm-hairline);
+	border-radius: 12px;
+	outline: none;
+	background: rgb(28 27 25 / 0.035);
+	color: var(--mm-ink);
+	font-size: 12px;
+	transition: border-color 140ms, box-shadow 140ms, background-color 140ms;
+}
+
+.dark .mm-account-form input {
+	background: rgb(255 255 255 / 0.055);
+}
+
+.mm-account-form input:focus-visible {
+	border-color: color-mix(in srgb, var(--mm-primary) 75%, var(--mm-ink));
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--mm-primary) 18%, transparent);
+}
+
+.mm-account-primary,
+.mm-account-switch {
+	height: 40px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 660;
+}
+
+.mm-account-primary {
+	margin-top: 2px;
+	border: 0;
+	background: var(--mm-deep);
+	color: var(--mm-deep-ink);
+}
+
+.mm-account-switch {
+	border: 0;
+	background: transparent;
+	color: var(--mm-muted);
+}
+
+.mm-account-error {
+	margin: 0;
+	padding: 9px 10px;
+	border-radius: 10px;
+	background: rgb(201 63 63 / 0.1);
+	color: #c93f3f;
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-account-trigger,
+	.mm-account-form input {
+		transition-duration: 0.01ms;
+	}
+}

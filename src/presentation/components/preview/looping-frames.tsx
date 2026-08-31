@@ -210,7 +210,7 @@ export function LoopingFrames({
 				lineHeightRatio={lineHeightRatio}
 				fontFamily={theme.fontFamily}
 				color={theme.foreground}
-				lineNumberColor={`${theme.foreground}26`}
+				lineNumberColor={`${theme.foreground}a6`}
 				padding={padding}
 			/>
 		</div>

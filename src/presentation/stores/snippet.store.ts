@@ -6,6 +6,8 @@ import {
 } from "@/application/diff";
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
+import { projectV2ToV1 } from "@/application/project/migrate-v1-project";
+import { parseProjectDocument } from "@/application/project/project-document";
 import { type ProjectContent, contentFingerprint } from "@/application/project/project-fingerprint";
 import type { ProjectPayload, ProjectStepPayload } from "@/application/project/project-payload";
 import { MAX_RENDER_DIMENSION, MIN_RENDER_DIMENSION } from "@/domain/entities/render-config";
@@ -19,7 +21,7 @@ import {
 	buildMagicMovePlan,
 } from "@/infrastructure/highlighting/magic-move-keyer";
 import { resolveShikiLanguage } from "@/infrastructure/highlighting/shiki-registry";
-import { type WindowChrome, isWindowChrome } from "@/presentation/components/preview/frame-chrome";
+import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { Highlighter } from "shiki";
 import { create } from "zustand";
 import { EXPORT_DEFAULTS, useExportStore } from "./export.store";
@@ -165,25 +167,8 @@ const DIFF_STEP_DURATION = 1200;
 /** Upper bound on diff-generated steps so a pathological diff can't explode playback. */
 const MAX_DIFF_STEPS = 40;
 
-/** Selectable mesh margins (px) around the code window; the UI offers exactly these. */
-const CARD_MARGINS = [16, 24, 32, 48, 64] as const;
-
 /** Default mesh margin, and the fallback for absent or invalid serialized input. */
 const DEFAULT_CARD_MARGIN = 32;
-
-/**
- * Snap an untrusted margin to the nearest valid preset. Defensive against
- * hand-edited JSON and share links: a non-numeric value falls back to the
- * default, an out-of-set value clamps to the closest allowed margin.
- */
-function normalizeCardMargin(value: unknown): number {
-	if (typeof value !== "number" || !Number.isFinite(value)) {
-		return DEFAULT_CARD_MARGIN;
-	}
-	return CARD_MARGINS.reduce((best, margin) =>
-		Math.abs(margin - value) < Math.abs(best - value) ? margin : best,
-	);
-}
 
 /**
  * True for a plausible pixel dimension. Guards the aspect against hand-edited
@@ -212,7 +197,7 @@ function isDimension(value: unknown): value is number {
  * template and then any other one would leave the second typing itself, and no
  * file would ever be reproducible from its own contents.
  */
-function applyExportSettings(obj: Record<string, unknown>): void {
+function applyExportSettings(obj: ProjectPayload): void {
 	const ex = useExportStore.getState();
 	const { transitionMs, typewriter, focusZoom, progressStyle, width, height } = obj;
 	// Both or neither: a half-specified aspect would silently distort the export.
@@ -749,24 +734,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			throw new Error("Invalid JSON format");
 		}
 
-		if (typeof data !== "object" || data === null) {
-			throw new Error("JSON must be an object");
-		}
-
-		const obj = data as Record<string, unknown>;
-
-		if (typeof obj.title !== "string" || !obj.title.trim()) {
-			throw new Error("Missing or invalid 'title'");
-		}
-		if (typeof obj.code !== "string" || !obj.code.trim()) {
-			throw new Error("Missing or invalid 'code'");
-		}
-		if (typeof obj.language !== "string" || !obj.language.trim()) {
-			throw new Error("Missing or invalid 'language'");
-		}
-		if (typeof obj.themeName !== "string") {
-			throw new Error("Missing or invalid 'themeName'");
-		}
+		const parsed = parseProjectDocument(data);
+		const obj = parsed.schemaVersion === 1 ? parsed.document : projectV2ToV1(parsed.document);
 
 		const themeFactories: Record<string, () => Theme> = {
 			midnight: Theme.midnight,
@@ -789,49 +758,26 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			theme: themeFactory(),
 		});
 
-		if (Array.isArray(obj.steps)) {
-			for (const rawStep of obj.steps) {
-				if (typeof rawStep !== "object" || rawStep === null) {
-					throw new Error("Each step must be an object");
-				}
-				const s = rawStep as Record<string, unknown>;
-				if (typeof s.code !== "string" || !s.code.trim()) {
-					throw new Error("Each step must have a non-empty 'code'");
-				}
-				const duration = typeof s.duration === "number" ? s.duration : undefined;
-				// Defensive: unknown/invalid focus strings degrade to "no focus".
-				let highlightRanges: HighlightRange[] = [];
-				if (typeof s.focus === "string") {
-					highlightRanges = parseLineRanges(s.focus) ?? [];
-				}
-				// Defensive: a stored caption is data, not live input. A project saved
-				// under an older bound (or hand-edited JSON) must still open, so an
-				// over-long caption is shortened instead of failing the whole import.
-				const annotation =
-					typeof s.caption === "string" ? captionFromGeneratedLabel(s.caption) : undefined;
-				snippet = snippet.addStep(
-					Step.create({ code: s.code, duration, highlightRanges, annotation }),
-				);
-			}
+		for (const step of obj.steps) {
+			// Invalid focus strings remain cosmetic and degrade to no focus.
+			const highlightRanges = step.focus ? (parseLineRanges(step.focus) ?? []) : [];
+			snippet = snippet.addStep(
+				Step.create({
+					code: step.code,
+					duration: step.duration,
+					highlightRanges,
+					annotation: step.caption,
+				}),
+			);
 		}
 
-		const background = typeof obj.background === "string" ? obj.background : get().background;
-		// Defensive: unknown/missing chrome degrades to the default macOS chrome.
-		const windowChrome = isWindowChrome(obj.windowChrome) ? obj.windowChrome : "macos";
-		// Defensive: line-number settings default to on / start at 1 when absent.
-		const showLineNumbers = typeof obj.showLineNumbers === "boolean" ? obj.showLineNumbers : true;
-		const lineNumberStart =
-			typeof obj.lineNumberStart === "number" && obj.lineNumberStart >= 1
-				? Math.floor(obj.lineNumberStart)
-				: 1;
-		// Defensive: absent or out-of-set margins snap to a valid preset (default 32).
-		const cardMargin = normalizeCardMargin(obj.cardMargin);
-		// Defensive: absent/invalid framePadding and watermark fall back to defaults.
-		const framePadding =
-			typeof obj.framePadding === "number" && Number.isFinite(obj.framePadding)
-				? obj.framePadding
-				: 24;
-		const watermark = typeof obj.watermark === "string" ? obj.watermark : "";
+		const background = obj.background;
+		const windowChrome = obj.windowChrome ?? "macos";
+		const showLineNumbers = obj.showLineNumbers ?? true;
+		const lineNumberStart = obj.lineNumberStart ?? 1;
+		const cardMargin = obj.cardMargin ?? DEFAULT_CARD_MARGIN;
+		const framePadding = obj.framePadding ?? 24;
+		const watermark = obj.watermark ?? "";
 
 		cancelRaf();
 		clearRecordTimer();

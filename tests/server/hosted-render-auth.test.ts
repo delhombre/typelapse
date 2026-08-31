@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { createCloudRoute, cloudRoute } from "../../server/routes/cloud";
+import type { HostedRenderJobService } from "../../src/application/render/hosted-render-job";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
 import type { SubscriptionPort } from "../../src/domain/ports/subscription.port";
 import { Plan } from "../../src/domain/value-objects/plan";
@@ -11,7 +12,17 @@ const renderRequest = (headers: Record<string, string>) => {
 	return new Request("http://localhost/api/cloud/render", {
 		method: "POST",
 		headers: { "content-type": "application/json", ...headers },
-		body: JSON.stringify({ steps: [{ code: "a" }, { code: "b" }] }),
+	body: JSON.stringify({
+		projectId: "project-1",
+		revision: 4,
+		renderOptions: {
+			format: "mp4",
+			width: 1920,
+			height: 1080,
+			fps: 60,
+			includeAudio: true,
+		},
+	}),
 	});
 };
 
@@ -23,6 +34,31 @@ const signedInAs = (accountId: string): AuthPort => ({
 });
 
 const on = (plan: Plan): SubscriptionPort => ({ planFor: async () => plan });
+
+const renderJobs: HostedRenderJobService = {
+	submit: async () => ({
+		outcome: "accepted",
+		job: {
+			id: "job_1",
+			projectId: "project-1",
+			revision: 4,
+			status: "queued",
+			createdAt: new Date(),
+			completedAt: null,
+		},
+	}),
+	status: async (_ownerId, jobId) =>
+		jobId === "job_1"
+			? {
+					id: jobId,
+					projectId: "project-1",
+					revision: 4,
+					status: "queued",
+					createdAt: new Date(),
+					completedAt: null,
+				}
+			: null,
+};
 
 describe("hosted render authentication", () => {
 	it("refuses a request that claims a plan but carries no session", async () => {
@@ -74,6 +110,7 @@ describe("hosted render entitlement", () => {
 		const route = createCloudRoute({
 			auth: signedInAs("acc_1"),
 			subscriptions: on(Plan.pro()),
+			renderJobs,
 		});
 
 		const response = await hostedApp(route).request(
@@ -87,13 +124,14 @@ describe("hosted render entitlement", () => {
 		const route = createCloudRoute({
 			auth: signedInAs("acc_1"),
 			subscriptions: on(Plan.pro()),
+			renderJobs,
 		});
 
 		const response = await hostedApp(route).request(
 			new Request("http://localhost/api/cloud/render", {
 				method: "POST",
 				headers: { "content-type": "application/json", cookie: "session=valid" },
-				body: JSON.stringify({ steps: [{ code: "only one" }] }),
+				body: JSON.stringify({ projectId: "project-1", revision: 4 }),
 			}),
 		);
 
@@ -110,6 +148,7 @@ describe("hosted render entitlement", () => {
 				},
 			},
 			subscriptions: on(Plan.pro()),
+			renderJobs,
 		});
 
 		const response = await hostedApp(route).request(

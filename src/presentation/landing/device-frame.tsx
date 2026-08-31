@@ -67,6 +67,7 @@ export function DeviceFrame({ children, ariaLabel, className = "", style }: Devi
 			{/* The screen well: live content, clipped to the screen window. */}
 			<div
 				aria-hidden
+				inert
 				className="absolute overflow-hidden"
 				style={{
 					left: SCREEN.left,

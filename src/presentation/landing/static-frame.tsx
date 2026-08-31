@@ -212,7 +212,7 @@ function FrameShell({
 				<div className="size-2.5 rounded-full bg-[#28c840]" />
 				<span
 					className="ml-2 truncate font-mono text-[10px] tracking-tight"
-					style={{ color: `${theme.foreground}59` }}
+					style={{ color: `${theme.foreground}a6` }}
 				>
 					{title}
 				</span>

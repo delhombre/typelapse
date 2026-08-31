@@ -8,6 +8,27 @@
       "when": 1786288955153,
       "tag": "0000_special_microbe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788121960329,
+      "tag": "0001_long_sprite",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788123551139,
+      "tag": "0002_futuristic_jasper_sitwell",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788124945048,
+      "tag": "0003_lucky_the_anarchist",
+      "breakpoints": true
     }
   ]
 }
