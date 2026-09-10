@@ -29,7 +29,7 @@
 		"better-auth": "^1.6.26",
 		"drizzle-orm": "^0.45.2",
 		"gifenc": "1.0.3",
-		"hono": "^4.12.34",
+		"hono": "^4.13.5",
 		"mediabunny": "1.53.0",
 		"modern-screenshot": "^4.6.8",
 		"motion": "^12.0.0",
