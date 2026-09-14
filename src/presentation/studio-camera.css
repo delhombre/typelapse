@@ -1590,8 +1590,8 @@
 	border-radius: 10px;
 	background: transparent;
 	color: var(--camera-muted);
-	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out),
-		transform 120ms var(--ease-out);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 120ms
+		var(--ease-out);
 }
 
 .studio-camera-root .sc-layer-editor-head button:active,
@@ -1698,8 +1698,8 @@
 	border-radius: 8px;
 	background: transparent;
 	color: var(--camera-muted);
-	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out),
-		transform 100ms var(--ease-out);
+	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out), transform 100ms
+		var(--ease-out);
 }
 
 .studio-camera-root .sc-layer-layout > header button:hover:not(:disabled) {
@@ -1734,8 +1734,8 @@
 	font: inherit;
 	font-size: 9.5px;
 	font-weight: 590;
-	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out),
-		transform 100ms var(--ease-out);
+	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out), transform 100ms
+		var(--ease-out);
 }
 
 .studio-camera-root .sc-layer-presets button:hover {
@@ -1785,7 +1785,7 @@
 	outline: 0;
 	background: transparent;
 	color: var(--camera-ink);
-	font: 550 9.5px/1 var(--font-mono);
+	font: 550 9.5px / 1 var(--font-mono);
 	font-variant-numeric: tabular-nums;
 }
 

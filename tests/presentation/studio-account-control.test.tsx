@@ -10,6 +10,9 @@ import { createAuthStore } from "@/presentation/stores/auth.store";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+/** A fixed clock: the session below must stay live however long this test outlives it. */
+const NOW = new Date("2026-09-01T12:00:00.000Z");
+
 const SESSION: ClientSession = {
 	account: { id: "usr_1", name: "Ada Lovelace", email: "ada@example.com" },
 	expiresAt: new Date("2026-09-02T12:00:00.000Z"),
@@ -47,13 +50,16 @@ describe("StudioAccountControl", () => {
 		const signInEmail = vi.fn(async (_input: EmailCredentials) => {
 			authenticated = true;
 		});
-		const store = createAuthStore({
-			kind: "hosted",
-			port: port({
-				signInEmail,
-				getSession: async () => (authenticated ? SESSION : null),
-			}),
-		});
+		const store = createAuthStore(
+			{
+				kind: "hosted",
+				port: port({
+					signInEmail,
+					getSession: async () => (authenticated ? SESSION : null),
+				}),
+			},
+			{ now: () => NOW },
+		);
 		render(<StudioAccountControl store={store} />);
 
 		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
