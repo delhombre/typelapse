@@ -1,3 +1,4 @@
+import { migrateV1ToV2 } from "@/application/project/migrate-v1-project";
 import { MAX_ANNOTATION_LENGTH } from "@/domain/entities/step";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -18,6 +19,18 @@ const BASE = JSON.stringify({
 		{ code: "const a = 1;", duration: 1000 },
 		{ code: "const a = 2;", duration: 1000 },
 	],
+});
+
+describe("snippet store versioned import", () => {
+	it("opens a code-only V2 document through the same strict import boundary", () => {
+		const document = migrateV1ToV2(JSON.parse(BASE));
+
+		useSnippetStore.getState().importFromJson(JSON.stringify(document));
+
+		const snippet = useSnippetStore.getState().snippet;
+		expect(snippet.title).toBe("identity");
+		expect(snippet.steps.map((step) => step.code)).toEqual(["const a = 1;", "const a = 2;"]);
+	});
 });
 
 describe("snippet store step edits", () => {

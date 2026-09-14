@@ -52,7 +52,7 @@ describe("Plan", () => {
 		it("labels each tier", () => {
 			expect(Plan.local().label).toBe("Local");
 			expect(Plan.free().label).toBe("Free");
-			expect(Plan.pro().label).toBe("Pro");
+			expect(Plan.pro().label).toBe("Creator");
 			expect(Plan.team(3).label).toBe("Team");
 		});
 	});

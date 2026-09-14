@@ -93,12 +93,30 @@
 	animation: studio-tooltip-in-bottom 110ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.studio-tooltip[data-state="instant-open"][data-side="left"],
+.studio-tooltip[data-state="delayed-open"][data-side="left"] {
+	animation: studio-tooltip-in-left 110ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-tooltip[data-state="instant-open"][data-side="right"],
+.studio-tooltip[data-state="delayed-open"][data-side="right"] {
+	animation: studio-tooltip-in-right 110ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .studio-tooltip[data-state="closed"][data-side="top"] {
 	animation: studio-tooltip-out-top 75ms cubic-bezier(0.4, 0, 1, 1);
 }
 
 .studio-tooltip[data-state="closed"][data-side="bottom"] {
 	animation: studio-tooltip-out-bottom 75ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.studio-tooltip[data-state="closed"][data-side="left"] {
+	animation: studio-tooltip-out-left 75ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.studio-tooltip[data-state="closed"][data-side="right"] {
+	animation: studio-tooltip-out-right 75ms cubic-bezier(0.4, 0, 1, 1);
 }
 
 @keyframes studio-tooltip-in-top {
@@ -115,6 +133,20 @@
 	}
 }
 
+@keyframes studio-tooltip-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(3px) scale(0.91);
+	}
+}
+
+@keyframes studio-tooltip-in-right {
+	from {
+		opacity: 0;
+		transform: translateX(-3px) scale(0.91);
+	}
+}
+
 @keyframes studio-tooltip-out-top {
 	to {
 		opacity: 0;
@@ -126,6 +158,20 @@
 	to {
 		opacity: 0;
 		transform: translateY(-2px) scale(0.96);
+	}
+}
+
+@keyframes studio-tooltip-out-left {
+	to {
+		opacity: 0;
+		transform: translateX(2px) scale(0.96);
+	}
+}
+
+@keyframes studio-tooltip-out-right {
+	to {
+		opacity: 0;
+		transform: translateX(-2px) scale(0.96);
 	}
 }
 
@@ -1453,6 +1499,468 @@
 
 .studio-camera-root .sc-tab {
 	display: none;
+}
+
+/* Multimedia appears as a capability of the accepted Studio, never as another
+   shell. These controls only mount after the first authored layer, leaving the
+   code-only composition byte-for-byte visually unchanged. */
+.studio-camera-root .sc-source-divider {
+	height: 1px;
+	margin: 5px 12px;
+	border: 0;
+	background: var(--camera-line);
+}
+
+.studio-camera-root .sc-layer-header-title {
+	color: var(--camera-muted);
+	font-size: 11.5px;
+	font-weight: 520;
+}
+
+/* Code keeps the accepted 5173 proportions. A selected authored layer turns
+   the lower half into navigation only, so its editor gets the room that the
+   code-only Focus/Caption fields normally own. */
+.studio-camera-root .sc-card[data-editor-kind="layer"] .sc-card-editor {
+	padding-bottom: 8px;
+}
+
+.studio-camera-root .sc-card[data-editor-kind="layer"] .sc-card-steps {
+	gap: 8px;
+	padding: 10px 12px 12px;
+}
+
+.studio-camera-root .sc-layer-editor {
+	display: flex;
+	min-height: 0;
+	height: 100%;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: 12px;
+	overflow: auto;
+	padding: 2px;
+}
+
+.studio-camera-root .sc-layer-editor-head,
+.studio-camera-root .sc-layer-editor-head > span {
+	display: flex;
+	align-items: center;
+}
+
+.studio-camera-root .sc-layer-editor-head {
+	justify-content: space-between;
+	gap: 10px;
+}
+
+.studio-camera-root .sc-layer-editor-head > span {
+	min-width: 0;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+}
+
+.studio-camera-root .sc-layer-editor-head small,
+.studio-camera-root .sc-layer-field > span,
+.studio-camera-root .sc-layer-strip-head > span {
+	color: var(--camera-muted);
+	font-size: 9px;
+	font-weight: 650;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+.studio-camera-root .sc-layer-editor-head strong {
+	max-width: 210px;
+	overflow: hidden;
+	color: var(--camera-ink);
+	font-size: 12px;
+	font-weight: 650;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.studio-camera-root .sc-layer-editor-head button,
+.studio-camera-root .sc-layer-strip-head button {
+	display: inline-flex;
+	width: 28px;
+	height: 28px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--camera-muted);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out),
+		transform 120ms var(--ease-out);
+}
+
+.studio-camera-root .sc-layer-editor-head button:active,
+.studio-camera-root .sc-layer-strip-head button:active:not(:disabled) {
+	transform: scale(0.94);
+}
+
+.studio-camera-root .sc-layer-editor-head button:hover,
+.studio-camera-root .sc-layer-strip-head button:hover:not(:disabled) {
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+}
+
+.studio-camera-root .sc-layer-strip-head button:disabled {
+	opacity: 0.28;
+}
+
+.studio-camera-root .sc-layer-field {
+	display: grid;
+	min-width: 0;
+	gap: 6px;
+}
+
+.studio-camera-root .sc-layer-field-grow {
+	min-height: 106px;
+	flex: 0 0 118px;
+}
+
+.studio-camera-root .sc-layer-field textarea,
+.studio-camera-root .sc-layer-field input[type="number"],
+.studio-camera-root .sc-layer-field select {
+	width: 100%;
+	border: 1px solid var(--camera-line);
+	border-radius: 10px;
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+	font: inherit;
+	font-size: 11px;
+	outline: none;
+	transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+.studio-camera-root .sc-layer-field textarea {
+	min-height: 112px;
+	height: 100%;
+	resize: none;
+	padding: 10px;
+	line-height: 1.5;
+}
+
+.studio-camera-root .sc-layer-field input[type="number"],
+.studio-camera-root .sc-layer-field select {
+	height: 34px;
+	padding: 0 9px;
+}
+
+.studio-camera-root .sc-layer-field textarea:focus,
+.studio-camera-root .sc-layer-field input:focus,
+.studio-camera-root .sc-layer-field select:focus {
+	border-color: rgb(49 130 246 / 0.58);
+	box-shadow: 0 0 0 3px rgb(49 130 246 / 0.1);
+}
+
+.studio-camera-root .sc-layer-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 9px;
+}
+
+.studio-camera-root .sc-layer-layout {
+	display: grid;
+	gap: 7px;
+	padding: 8px;
+	border: 1px solid var(--camera-line);
+	border-radius: 13px;
+	background: color-mix(in srgb, var(--camera-pill) 72%, transparent);
+}
+
+.studio-camera-root .sc-layer-layout > header {
+	display: flex;
+	height: 24px;
+	align-items: center;
+	justify-content: space-between;
+	color: var(--camera-muted);
+	font-size: 9px;
+	font-weight: 650;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+.studio-camera-root .sc-layer-layout > header > div {
+	display: flex;
+	gap: 1px;
+}
+
+.studio-camera-root .sc-layer-layout > header button {
+	display: inline-flex;
+	width: 24px;
+	height: 24px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--camera-muted);
+	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out),
+		transform 100ms var(--ease-out);
+}
+
+.studio-camera-root .sc-layer-layout > header button:hover:not(:disabled) {
+	background: var(--camera-paper);
+	color: var(--camera-ink);
+}
+
+.studio-camera-root .sc-layer-layout > header button:active:not(:disabled) {
+	transform: scale(0.92);
+}
+
+.studio-camera-root .sc-layer-layout > header button:disabled {
+	opacity: 0.26;
+}
+
+.studio-camera-root .sc-layer-presets {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 2px;
+	padding: 3px;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--camera-line) 55%, transparent);
+}
+
+.studio-camera-root .sc-layer-presets button {
+	height: 28px;
+	padding: 0 5px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--camera-muted);
+	font: inherit;
+	font-size: 9.5px;
+	font-weight: 590;
+	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out),
+		transform 100ms var(--ease-out);
+}
+
+.studio-camera-root .sc-layer-presets button:hover {
+	background: var(--camera-paper);
+	box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+	color: var(--camera-ink);
+}
+
+.studio-camera-root .sc-layer-presets button:active {
+	transform: scale(0.96);
+}
+
+.studio-camera-root .sc-layer-placement-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 4px;
+}
+
+.studio-camera-root .sc-layer-placement-grid label {
+	display: grid;
+	height: 30px;
+	grid-template-columns: 13px minmax(0, 1fr) 8px;
+	align-items: center;
+	padding: 0 4px;
+	border: 1px solid var(--camera-line);
+	border-radius: 9px;
+	background: var(--camera-paper);
+	color: var(--camera-muted);
+}
+
+.studio-camera-root .sc-layer-placement-grid label:focus-within {
+	border-color: rgb(49 130 246 / 0.58);
+	box-shadow: 0 0 0 2px rgb(49 130 246 / 0.08);
+}
+
+.studio-camera-root .sc-layer-placement-grid span,
+.studio-camera-root .sc-layer-placement-grid small {
+	font-size: 8px;
+	font-weight: 650;
+}
+
+.studio-camera-root .sc-layer-placement-grid input {
+	min-width: 0;
+	height: 27px;
+	padding: 0 2px;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--camera-ink);
+	font: 550 9.5px/1 var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+.studio-camera-root .sc-layer-color input {
+	width: 100%;
+	height: 34px;
+	padding: 4px;
+	border: 1px solid var(--camera-line);
+	border-radius: 10px;
+	background: var(--camera-pill);
+}
+
+.studio-camera-root .sc-layer-check {
+	grid-template-columns: 1fr auto;
+	align-items: end;
+}
+
+.studio-camera-root .sc-layer-check input {
+	width: 34px;
+	height: 34px;
+	margin: 0;
+	accent-color: var(--camera-focus);
+}
+
+.studio-camera-root .sc-layer-range input {
+	width: 100%;
+	accent-color: var(--camera-focus);
+}
+
+.studio-camera-root .sc-layer-audio-summary {
+	display: grid;
+	grid-template-columns: 8px 1fr auto;
+	align-items: center;
+	gap: 8px;
+	padding: 10px;
+	border: 1px solid var(--camera-line);
+	border-radius: 12px;
+	background: var(--camera-pill);
+}
+
+.studio-camera-root .sc-layer-audio-summary > span {
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	background: #7c5cff;
+	box-shadow: 0 0 0 4px rgb(124 92 255 / 0.1);
+}
+
+.studio-camera-root .sc-layer-audio-summary strong {
+	font-size: 11px;
+	font-weight: 630;
+}
+
+.studio-camera-root .sc-layer-audio-summary small {
+	color: var(--camera-muted);
+	font-size: 9.5px;
+}
+
+.studio-camera-root .sc-layer-strip {
+	display: grid;
+	gap: 7px;
+	padding: 8px;
+	border: 1px solid var(--camera-line);
+	border-radius: 13px;
+	background: color-mix(in srgb, var(--camera-pill) 72%, transparent);
+}
+
+.studio-camera-root .sc-layer-strip-head {
+	display: flex;
+	height: 20px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.studio-camera-root .sc-layer-strip-head > div {
+	display: flex;
+	gap: 1px;
+}
+
+.studio-camera-root .sc-layer-pills {
+	display: flex;
+	gap: 5px;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.studio-camera-root .sc-layer-pills::-webkit-scrollbar {
+	display: none;
+}
+
+.studio-camera-root .sc-layer-pill {
+	display: inline-flex;
+	height: 29px;
+	flex: none;
+	align-items: center;
+	gap: 5px;
+	padding: 0 9px;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: 10px;
+	font-weight: 560;
+}
+
+.studio-camera-root .sc-layer-pill[data-selected] {
+	border-color: var(--camera-line);
+	background: #fff;
+	box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+	color: var(--camera-ink);
+}
+
+.studio-camera-root .sc-layer-pill[data-muted] {
+	opacity: 0.46;
+}
+
+.dark .studio-camera-root .sc-layer-pill[data-selected] {
+	background: rgb(255 255 255 / 0.09);
+	box-shadow: none;
+}
+
+.studio-camera-root .sc-composition-surface-host {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform-origin: top left;
+	pointer-events: none;
+}
+
+.studio-camera-root .sc-composition-surface-host[data-slot="under-code"] {
+	z-index: 0;
+}
+
+.studio-camera-root .sc-composition-surface-host[data-slot="over-code"] {
+	z-index: 2;
+}
+
+.studio-camera-root .sc-composition-layer-surface {
+	position: relative;
+	isolation: isolate;
+	pointer-events: none;
+}
+
+.studio-camera-root .sc-composition-layer {
+	display: block;
+	padding: 0;
+	overflow: hidden;
+	border: 0;
+	background: transparent;
+	font: inherit;
+	text-align: inherit;
+	pointer-events: auto;
+	transition: outline-color 150ms var(--ease-out);
+}
+
+.studio-camera-root .sc-composition-layer[data-selected] {
+	outline: 4px solid var(--camera-focus);
+	outline-offset: -4px;
+}
+
+.studio-camera-root .sc-composition-layer:focus-visible {
+	outline: 4px solid var(--camera-focus);
+	outline-offset: -4px;
+}
+
+.studio-camera-root .sc-composition-missing {
+	display: grid;
+	width: 100%;
+	height: 100%;
+	place-items: center;
+	border: 1px dashed rgb(127 127 127 / 0.3);
+	background: rgb(127 127 127 / 0.08);
+	color: rgb(127 127 127 / 0.85);
+	font-size: 18px;
 }
 
 /* The rail sits against the lower edge of the video, while transport lives one
@@ -2809,6 +3317,36 @@
 
 .studio-timeline-clip-duration {
 	right: 7px;
+}
+
+.studio-timeline-layer-marks {
+	position: absolute;
+	bottom: 6px;
+	left: 7px;
+	z-index: 2;
+	display: inline-flex;
+	height: 16px;
+	align-items: center;
+	gap: 1px;
+	padding: 0 4px;
+	border: 1px solid rgb(255 255 255 / 0.12);
+	border-radius: 999px;
+	background: rgb(20 20 19 / 0.74);
+	box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
+	color: rgb(255 255 255 / 0.8);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	pointer-events: none;
+}
+
+.studio-timeline-layer-marks > span {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.studio-timeline-layer-marks > span[data-kind="audio"] {
+	color: #a694ff;
 }
 
 .studio-timeline-resize {

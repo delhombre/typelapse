@@ -1,6 +1,10 @@
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	useStudioCompositionSelectionStore,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "reicon-react";
@@ -58,11 +62,32 @@ export function SceneCodeCard({
 }) {
 	const language = useSnippetStore((s) => s.snippet.language);
 	const setLanguage = useSnippetStore((s) => s.setLanguage);
+	const selectedAudioCueId = useStudioCompositionSelectionStore(
+		(state) => state.selectedAudioCueId,
+	);
+	const composition = useStudioCompositionStore();
+	const selectedScene = composition.value.project.scenes.find(
+		(scene) => scene.id === composition.selectedSceneId,
+	);
+	const selectedBlock = selectedScene?.blocks.find(
+		(block) => block.id === composition.selectedBlockId,
+	);
+	const editorKind = selectedAudioCueId
+		? "Audio"
+		: selectedBlock?.kind === "text"
+			? "Text"
+			: selectedBlock?.kind === "image"
+				? "Image"
+				: selectedBlock?.kind === "video"
+					? "Video"
+					: "Code";
+	const isCode = editorKind === "Code";
 
 	return (
 		<>
 			<motion.div
 				className="sc-card"
+				data-editor-kind={isCode ? "code" : "layer"}
 				animate={{ x: folded ? -22 : 0, opacity: folded ? 0 : 1, scale: folded ? 0.97 : 1 }}
 				transition={springs.default}
 				style={{ transformOrigin: "left center" }}
@@ -70,24 +95,28 @@ export function SceneCodeCard({
 				inert={folded}
 			>
 				<header className="sc-card-head">
-					<span className="sc-eyebrow">Code</span>
-					<select
-						value={language}
-						onChange={(event) => setLanguage(event.target.value)}
-						aria-label="Language"
-						className="sc-select"
-					>
-						{LANGUAGES.map((entry) => (
-							<option key={entry.value} value={entry.value}>
-								{entry.label}
-							</option>
-						))}
-					</select>
+					<span className="sc-eyebrow">{editorKind}</span>
+					{isCode ? (
+						<select
+							value={language}
+							onChange={(event) => setLanguage(event.target.value)}
+							aria-label="Language"
+							className="sc-select"
+						>
+							{LANGUAGES.map((entry) => (
+								<option key={entry.value} value={entry.value}>
+									{entry.label}
+								</option>
+							))}
+						</select>
+					) : (
+						<span className="sc-layer-header-title">Scene layer</span>
+					)}
 					<span className="sc-card-spacer" />
 					{/* `hit-ext`: the glyph is 30px and the header is 44, and nothing else
 					    is within 44px of it, so the target can take the whole height the
 					    header already leaves rather than only the mark. */}
-					<StudioTooltip content="Fold code" side="bottom">
+					<StudioTooltip content={`Fold ${editorKind.toLowerCase()}`} side="bottom">
 						<button
 							type="button"
 							onClick={() => onFold(true)}
@@ -107,7 +136,7 @@ export function SceneCodeCard({
 				</div>
 			</motion.div>
 
-			<StudioTooltip content="Show code">
+			<StudioTooltip content={`Show ${editorKind.toLowerCase()}`}>
 				<motion.button
 					type="button"
 					onClick={() => onFold(false)}
@@ -130,7 +159,7 @@ export function SceneCodeCard({
 					aria-label="Bring the code back"
 				>
 					<ChevronGlyph direction="right" />
-					<span className="sc-tab-label">CODE</span>
+					<span className="sc-tab-label">{editorKind.toUpperCase()}</span>
 				</motion.button>
 			</StudioTooltip>
 		</>

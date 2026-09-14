@@ -6,9 +6,14 @@ import { feedback } from "@/presentation/haptics";
 import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
 import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	useStudioCompositionSelectionStore,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { truncateMiddle } from "@/presentation/utils/truncate-middle";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { StudioLayerStrip } from "./studio-layer-strip";
 
 function getStepPreview(code: string): string {
 	const firstLine = code.split("\n")[0] ?? "";
@@ -310,7 +315,19 @@ export function SceneInspector() {
 	const steps = useSnippetStore((state) => state.snippet.steps);
 	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
 	const captureStep = useSnippetStore((state) => state.captureStep);
+	const composition = useStudioCompositionStore();
+	const selectedAudioCueId = useStudioCompositionSelectionStore(
+		(state) => state.selectedAudioCueId,
+	);
 	const step = steps[currentStepIndex];
+	const selectedScene = composition.value.project.scenes.find(
+		(scene) => scene.id === composition.selectedSceneId,
+	);
+	const selectedBlock = selectedScene?.blocks.find(
+		(block) => block.id === composition.selectedBlockId,
+	);
+	const isLayerSelected =
+		selectedAudioCueId !== null || (selectedBlock !== undefined && selectedBlock.kind !== "code");
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -325,13 +342,17 @@ export function SceneInspector() {
 					</div>
 				</div>
 				<p className="text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
-					{step
-						? "Focus and caption for the selected scene."
-						: "Capture a scene to animate this code."}
+					{isLayerSelected
+						? "Layer controls for this scene."
+						: step
+							? "Focus and caption for the selected scene."
+							: "Capture a scene to animate this code."}
 				</p>
 			</div>
 
-			{step && (
+			<StudioLayerStrip />
+
+			{step && !isLayerSelected && (
 				<motion.div
 					key={step.id}
 					className="grid grid-cols-2 gap-2 rounded-[14px] border border-neutral-200/70 bg-neutral-50/65 p-2.5 dark:border-neutral-800 dark:bg-neutral-900/40"

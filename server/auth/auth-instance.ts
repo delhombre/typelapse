@@ -1,8 +1,22 @@
-import { neon } from "@neondatabase/serverless";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { drizzle } from "drizzle-orm/neon-http";
+import { databaseFromEnv, type CreatorDatabase } from "../db/database";
 import * as schema from "../db/schema";
+
+type AuthEnvironment = Readonly<Record<string, string | undefined>>;
+
+function requiredHttpUrl(value: string, label: string): string {
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		throw new Error(`${label} must be a valid HTTP URL`);
+	}
+	if (url.protocol !== "http:" && url.protocol !== "https:") {
+		throw new Error(`${label} must be a valid HTTP URL`);
+	}
+	return url.toString().replace(/\/$/, "");
+}
 
 /**
  * The auth provider, or nothing at all.
@@ -14,21 +28,31 @@ import * as schema from "../db/schema";
  * and therefore that hosted rendering stays closed. That is the correct
  * outcome: hosted rendering runs on our infrastructure and there is none here.
  */
-export const authInstance = () => {
-	const databaseUrl = process.env.DATABASE_URL;
-
-	if (!databaseUrl) {
+export const authInstance = (
+	database: CreatorDatabase | null = databaseFromEnv(),
+	environment: AuthEnvironment = process.env,
+) => {
+	if (!database) {
 		return null;
 	}
-
-	const db = drizzle(neon(databaseUrl), { schema });
+	const secret = environment.BETTER_AUTH_SECRET?.trim();
+	const rawBaseUrl = environment.BETTER_AUTH_URL?.trim();
+	const rawTrustedOrigin = environment.CORS_ORIGIN?.trim();
+	if (!secret || !rawBaseUrl || !rawTrustedOrigin) {
+		return null;
+	}
+	if (secret.length < 32) {
+		throw new Error("BETTER_AUTH_SECRET must contain at least 32 characters");
+	}
+	const baseURL = requiredHttpUrl(rawBaseUrl, "BETTER_AUTH_URL");
+	const trustedOrigin = requiredHttpUrl(rawTrustedOrigin, "CORS_ORIGIN");
 
 	return betterAuth({
-		database: drizzleAdapter(db, { provider: "pg", schema }),
-		secret: process.env.BETTER_AUTH_SECRET,
-		baseURL: process.env.BETTER_AUTH_URL,
+		database: drizzleAdapter(database, { provider: "pg", schema }),
+		secret,
+		baseURL,
 		emailAndPassword: { enabled: true },
-		trustedOrigins: [process.env.CORS_ORIGIN || "http://localhost:5173"],
+		trustedOrigins: [trustedOrigin],
 	});
 };
 

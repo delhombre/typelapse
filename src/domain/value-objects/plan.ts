@@ -96,7 +96,7 @@ const PRO: PlanCapabilities = {
 const TIER_LABELS: Record<PlanTier, string> = {
 	local: "Local",
 	free: "Free",
-	pro: "Pro",
+	pro: "Creator",
 	team: "Team",
 };
 
@@ -152,7 +152,7 @@ export class Plan {
 	 * explicitly with its seat count (org billing), never from a bare string.
 	 */
 	static fromTier(tier: string): Plan {
-		if (tier === "pro") {
+		if (tier === "pro" || tier === "creator") {
 			return Plan.pro();
 		}
 		if (tier === "local") {
