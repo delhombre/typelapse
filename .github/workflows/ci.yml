@@ -41,6 +41,11 @@ jobs:
         run: pnpm test
 
       - name: Build
+        env:
+          # vite build with Monaco bundled peaks near 4.5 GB of resident
+          # memory; Node's default heap on a 7 GB runner sits below that and
+          # the build died with "heap out of memory".
+          NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm build
 
   audit:
