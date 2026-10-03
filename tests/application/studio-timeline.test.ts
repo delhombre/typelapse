@@ -7,6 +7,7 @@ import {
 	resizeDuration,
 	stepProgress,
 } from "@/application/studio-timeline/model";
+import { buildStudioPlayback } from "@/application/studio-timeline/playback";
 import { describe, expect, it } from "vitest";
 
 describe("studio timeline model", () => {
@@ -64,5 +65,37 @@ describe("studio timeline model", () => {
 		expect(bubbleEdgeAtProgress(0.5)).toBeUndefined();
 		expect(bubbleEdgeAtProgress(0.98)).toBe("end");
 		expect(bubbleEdgeAtProgress(1)).toBe("end");
+	});
+});
+
+describe("studio timeline model on the canonical clock", () => {
+	it("measures the video to the audio tail and keeps Add scene after the last scene", () => {
+		const playback = buildStudioPlayback({
+			durations: [1000, 1000],
+			transitionMs: 600,
+			loop: false,
+			canonicalMs: 20_000,
+		});
+		const model = buildStudioTimeline([1000, 1000], 600, playback);
+
+		expect(model.actualDurationMs).toBe(20_000);
+		expect(model.displayDurationMs).toBe(22_000);
+		expect(model.scenesEndMs).toBe(2600);
+		expect(model.loop).toBeNull();
+	});
+
+	it("lays the loop morph out after the last scene and resolves it to the first", () => {
+		const playback = buildStudioPlayback({
+			durations: [2000, 2000],
+			transitionMs: 600,
+			loop: true,
+			canonicalMs: 4600,
+		});
+		const model = buildStudioTimeline([2000, 2000], 600, playback);
+
+		expect(model.loop).toEqual({ index: 1, startMs: 4600, endMs: 5200 });
+		expect(model.actualDurationMs).toBe(5200);
+		expect(model.scenesEndMs).toBe(5200);
+		expect(indexAtProgress(model, 5100 / MIN_TIMELINE_MS)).toBe(0);
 	});
 });

@@ -3,9 +3,8 @@ import {
 	encodeWavBase64,
 	renderTickTrack,
 } from "@/application/audio/tick-synth";
-import { buildTimeline } from "@/application/magic-move/timeline";
 import { useExportStore } from "@/presentation/stores/export.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { studioPlaybackTimeline, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect } from "react";
 
 type AudioContextCtor = typeof AudioContext;
@@ -55,7 +54,8 @@ export function useTickAudio(): void {
 
 		// Read inputs fresh at play start: the exact numbers the export route uses.
 		const { steps } = useSnippetStore.getState().snippet;
-		if (steps.length < 2) {
+		const timeline = studioPlaybackTimeline();
+		if (steps.length === 0 || !timeline) {
 			return;
 		}
 		const { transitionMs, typewriter } = useExportStore.getState();
@@ -66,7 +66,8 @@ export function useTickAudio(): void {
 			holds,
 			transitionMs,
 		});
-		const totalMs = buildTimeline(holds, transitionMs).totalMs;
+		// The playhead's own total, so a resumed track lands on the held frame.
+		const totalMs = timeline.totalMs;
 		const startProgress = useSnippetStore.getState().playbackProgress;
 		const dataUrl = encodeWavBase64(renderTickTrack(events, totalMs), 44100);
 

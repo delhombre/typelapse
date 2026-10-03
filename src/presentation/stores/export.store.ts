@@ -4,6 +4,7 @@ import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
+import { isPlayableProject } from "@/application/studio-timeline/playback";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
 import type { Snippet } from "@/domain/entities/snippet";
 import { browserCaptureLibrary } from "@/infrastructure/captures/browser-capture-library";
@@ -281,8 +282,9 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			return;
 		}
 
-		if (snippet.steps.length < 2) {
-			set({ outcome: { kind: "failed", message: "At least 2 scenes are required for export." } });
+		// D3: one scene is a video. Authored media took the multimedia route above.
+		if (!isPlayableProject(snippet.steps.length, false)) {
+			set({ outcome: { kind: "failed", message: "A video needs at least one scene." } });
 			feedback("error");
 			return;
 		}
@@ -623,7 +625,7 @@ async function renderStudioMultimedia(input: StudioMultimediaRenderInput): Promi
 				format: input.config.format,
 				width: input.config.width,
 				height: input.config.height,
-				fps: input.config.fps === 60 ? 60 : 30,
+				fps: input.config.fps === 24 || input.config.fps === 60 ? input.config.fps : 30,
 				includeAudio,
 			},
 			signal: controller.signal,

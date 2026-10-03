@@ -70,3 +70,18 @@ describe("captionAt during a transition", () => {
 		expect(result.opacity).toBe(0);
 	});
 });
+
+describe("captionAt during the loop morph", () => {
+	const three = ["first", "second", "third"];
+
+	it("hands the last caption back to the first, as the server composition does", () => {
+		expect(captionAt({ phase: "loop", index: 2, t: 0 }, three)).toEqual({
+			text: "third",
+			opacity: 1,
+		});
+		expect(captionAt({ phase: "loop", index: 2, t: 1 }, three)).toEqual({
+			text: "first",
+			opacity: 1,
+		});
+	});
+});

@@ -3176,6 +3176,13 @@
 	color: #211b00;
 }
 
+/* The loop band marks where the file morphs back; it is not a control, so it
+   keeps the morph's look without its pointer, hover or press. */
+.studio-timeline-transition[data-loop] {
+	cursor: default;
+	pointer-events: none;
+}
+
 .studio-timeline-clip {
 	position: absolute;
 	top: 8px;

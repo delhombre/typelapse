@@ -92,6 +92,41 @@ const EMPTY: Omit<ScriptFrame, "progress" | "timeSeconds"> = {
 	zoom: NO_ZOOM,
 };
 
+/** The inputs a single frame depends on: everything but the clock. */
+export type ScriptFrameInput = Pick<
+	VideoScriptInput,
+	"plan" | "transitionEasing" | "typewriter" | "firstCode" | "focusSets"
+>;
+
+/** A position in the video as the preview's clock reports it. */
+export interface ScriptPosition {
+	phase: SegmentType;
+	index: number;
+	/** Progress within the segment, 0..1. */
+	t: number;
+}
+
+/**
+ * The frame at a playback position. The preview's clock speaks in segments and
+ * local progress rather than whole frames; it resolves through the same walk
+ * as the file, so a hold, a morph and the loop morph look the same in both.
+ */
+export function scriptFrameAt(
+	input: ScriptFrameInput,
+	position: ScriptPosition,
+): Omit<ScriptFrame, "progress" | "timeSeconds"> {
+	const segment: ScriptSegment = {
+		type: position.phase,
+		index: position.index,
+		startFrame: 0,
+		endFrame: POSITION_SPAN,
+	};
+	return resolveFrame(input, segment, Math.min(Math.max(position.t, 0), 1) * POSITION_SPAN);
+}
+
+/** Resolution of a position's local progress, as if its segment were this many frames. */
+const POSITION_SPAN = 1_000_000;
+
 export function videoScript(input: VideoScriptInput): VideoScript {
 	const segments = buildSegments(input);
 	const totalFrames = Math.max(1, segments.at(-1)?.endFrame ?? 1);
@@ -137,7 +172,7 @@ function buildSegments(input: VideoScriptInput): ScriptSegment[] {
 		}
 	}
 
-	if (input.loop && input.durations.length >= 2) {
+	if (appendsLoopMorph(input.loop, input.durations.length)) {
 		segments.push({
 			type: "loop",
 			index: input.durations.length - 1,
@@ -150,6 +185,15 @@ function buildSegments(input: VideoScriptInput): ScriptSegment[] {
 }
 
 /**
+ * Whether the video ends on a last-to-first morph. One scene has nothing to
+ * morph back to. The studio's playback clock asks the same question, so the
+ * preview and the file cannot disagree on the loop.
+ */
+export function appendsLoopMorph(loop: boolean, sceneCount: number): boolean {
+	return loop && sceneCount >= 2;
+}
+
+/**
  * The segment a frame falls in. Zero-length holds exist (a step with duration 0)
  * and must not swallow the frame, hence the strict upper bound; a frame past the
  * end resolves to the last segment so the final image is the finished one.
@@ -159,7 +203,7 @@ function locateSegment(segments: ScriptSegment[], frame: number): ScriptSegment 
 }
 
 function resolveFrame(
-	input: VideoScriptInput,
+	input: ScriptFrameInput,
 	active: ScriptSegment | undefined,
 	frame: number,
 ): Omit<ScriptFrame, "progress" | "timeSeconds"> {
@@ -171,7 +215,7 @@ function resolveFrame(
 
 /** The first hold, typed out. Only ever the first: later steps morph. */
 function typingFrame(
-	input: VideoScriptInput,
+	input: ScriptFrameInput,
 	active: ScriptSegment,
 	frame: number,
 ): Omit<ScriptFrame, "progress" | "timeSeconds"> | null {
@@ -191,7 +235,7 @@ function typingFrame(
 }
 
 function morphFrame(
-	input: VideoScriptInput,
+	input: ScriptFrameInput,
 	active: ScriptSegment,
 	frame: number,
 ): Omit<ScriptFrame, "progress" | "timeSeconds"> {

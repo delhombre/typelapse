@@ -1,4 +1,9 @@
-import { buildTimeline, locate } from "@/application/magic-move/timeline";
+import {
+	type StudioPlaybackTimeline,
+	buildStudioPlayback,
+	locateStudioPlayback,
+	visibleSceneIndex,
+} from "@/application/studio-timeline/playback";
 
 /** The reference leaves editing room after the sequence instead of ending at the last clip. */
 export const MIN_TIMELINE_MS = 12_000;
@@ -27,36 +32,56 @@ export interface StudioTimelineTransition {
 export interface StudioTimelineModel {
 	clips: StudioTimelineClip[];
 	transitions: StudioTimelineTransition[];
+	/** The last-to-first morph, when the video ends on one. */
+	loop: StudioTimelineTransition | null;
 	ticks: number[];
+	/** The canonical duration: what the clock counts to and the file lasts. */
 	actualDurationMs: number;
+	/** Where the scenes (and the loop morph) end; the audio tail may run past it. */
+	scenesEndMs: number;
 	displayDurationMs: number;
 	transitionMs: number;
 	durations: readonly number[];
+	playback: StudioPlaybackTimeline;
 }
 
-/** Build the editing ruler from the same hold/morph timing used by preview and export. */
+/**
+ * Build the editing ruler from the same clock the preview plays and the export
+ * renders. Without one, the ruler measures the scenes alone.
+ */
 export function buildStudioTimeline(
 	durations: readonly number[],
 	transitionMs: number,
+	playback: StudioPlaybackTimeline = buildStudioPlayback({
+		durations,
+		transitionMs,
+		loop: false,
+		canonicalMs: 0,
+	}),
 ): StudioTimelineModel {
-	const playback = buildTimeline([...durations], transitionMs);
 	const clips = playback.segments
 		.filter((segment) => segment.type === "hold")
 		.map((segment) => ({ index: segment.index, startMs: segment.startMs, endMs: segment.endMs }));
 	const transitions = playback.segments
 		.filter((segment) => segment.type === "transition")
 		.map((segment) => ({ index: segment.index, startMs: segment.startMs, endMs: segment.endMs }));
+	const loopSegment = playback.segments.find((segment) => segment.type === "loop");
 	const displayDurationMs = Math.max(MIN_TIMELINE_MS, playback.totalMs + TIMELINE_TAIL_MS);
 	const lastSecond = Math.ceil(displayDurationMs / 1000);
 
 	return {
 		clips,
 		transitions,
+		loop: loopSegment
+			? { index: loopSegment.index, startMs: loopSegment.startMs, endMs: loopSegment.endMs }
+			: null,
 		ticks: Array.from({ length: lastSecond + 1 }, (_, second) => second),
 		actualDurationMs: playback.totalMs,
+		scenesEndMs: playback.scenesEndMs,
 		displayDurationMs,
 		transitionMs,
 		durations,
+		playback,
 	};
 }
 
@@ -81,11 +106,7 @@ export function indexAtProgress(model: StudioTimelineModel, progress: number): n
 	}
 	const displayTime = Math.min(Math.max(progress, 0), 1) * model.displayDurationMs;
 	const elapsed = Math.min(displayTime, model.actualDurationMs);
-	const position = locate(buildTimeline([...model.durations], model.transitionMs), elapsed);
-	return Math.min(
-		position.index + (position.phase === "transition" && position.t >= 0.5 ? 1 : 0),
-		model.clips.length - 1,
-	);
+	return visibleSceneIndex(locateStudioPlayback(model.playback, elapsed), model.clips.length);
 }
 
 /** Convert a horizontal resize into a safe persisted duration. */

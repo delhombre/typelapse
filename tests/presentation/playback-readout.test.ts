@@ -1,6 +1,7 @@
 import {
 	MAX_DOTS,
 	NARROW_MAX_DOTS,
+	formatPlaybackClock,
 	playbackFill,
 	showsDots,
 	stepCounter,
@@ -91,5 +92,18 @@ describe("the counter and the dots", () => {
 	it("names each dot with its position, since a 6px dot has no other label", () => {
 		expect(stepDotLabel(0, 5)).toBe("Scene 1 of 5");
 		expect(stepDotLabel(4, 5)).toBe("Scene 5 of 5");
+	});
+});
+
+describe("the clock", () => {
+	it("reads minutes, seconds and tenths, padded so it never changes width", () => {
+		expect(formatPlaybackClock(0)).toBe("00:00.0");
+		expect(formatPlaybackClock(2650)).toBe("00:02.6");
+		expect(formatPlaybackClock(20_000)).toBe("00:20.0");
+		expect(formatPlaybackClock(61_250)).toBe("01:01.2");
+	});
+
+	it("never reads below zero", () => {
+		expect(formatPlaybackClock(-40)).toBe("00:00.0");
 	});
 });

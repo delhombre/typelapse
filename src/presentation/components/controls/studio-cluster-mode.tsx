@@ -17,7 +17,7 @@ import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect, useState } from "react";
 import { Camera, ChevronLeft, Sliders } from "reicon-react";
-import type { ClusterId } from "./cluster-panels";
+import { type ClusterId, FPS_OPTIONS, NOTHING_TO_RENDER, useCanRender } from "./cluster-panels";
 import {
 	CHROME_PRESETS,
 	PADDING_PRESETS,
@@ -481,7 +481,9 @@ function ExportMode() {
 	const isExporting = useExportStore((state) => state.isExporting);
 	const exportVideo = useExportStore((state) => state.exportVideo);
 	const exportPng = useExportStore((state) => state.exportPng);
-	const hasSteps = useSnippetStore((state) => state.snippet.steps.length >= 2);
+	const fps = useExportStore((state) => state.fps);
+	const setFps = useExportStore((state) => state.setFps);
+	const canRender = useCanRender();
 	const current = presetFor(width, height) ?? FALLBACK_PRESET;
 
 	useEffect(() => {
@@ -516,6 +518,14 @@ function ExportMode() {
 					const dimensions = dimensionsFor(current.aspect, tier as ResolutionTier);
 					setResolution(dimensions.width, dimensions.height);
 				}}
+			/>
+			<span className="si-mode-seam" />
+			<IslandSegmented
+				group="rail-fps"
+				eyebrow="FPS"
+				options={FPS_OPTIONS}
+				value={fps}
+				onSelect={setFps}
 			/>
 			<span className="si-mode-seam" />
 			<IslandSegmented
@@ -556,10 +566,10 @@ function ExportMode() {
 					trigger("light");
 					void exportVideo();
 				}}
-				disabled={isExporting || !hasSteps}
+				disabled={isExporting || !canRender}
 				// The same reason the cluster panel gives: a disabled button with no
-				// word on it reads as broken, on an empty project as much as a 1-scene one.
-				title={hasSteps ? undefined : "A video needs at least two scenes."}
+				// word on it reads as broken.
+				title={canRender ? undefined : NOTHING_TO_RENDER}
 				aria-label={exportCtaLabel({ format, width, height })}
 				className="si-cta si-mode-cta"
 			>

@@ -1,5 +1,6 @@
 import { exportCtaLabel } from "@/application/export/export-label";
 import { FONT_PRESETS } from "@/application/fonts/code-fonts";
+import { isPlayableProject } from "@/application/studio-timeline/playback";
 import {
 	ASPECT_LABELS,
 	type AspectLabel,
@@ -14,6 +15,10 @@ import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	hasAuthoredMultimedia,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { useEffect } from "react";
 import { Camera } from "reicon-react";
 import {
@@ -394,7 +399,9 @@ function ExportCluster() {
 	const isExporting = useExportStore((s) => s.isExporting);
 	const exportVideo = useExportStore((s) => s.exportVideo);
 	const exportPng = useExportStore((s) => s.exportPng);
-	const hasSteps = useSnippetStore((s) => s.snippet.steps.length >= 2);
+	const fps = useExportStore((s) => s.fps);
+	const setFps = useExportStore((s) => s.setFps);
+	const canRender = useCanRender();
 
 	useEffect(() => {
 		if (deviceSupported === null) {
@@ -430,6 +437,13 @@ function ExportCluster() {
 						const dims = dimensionsFor(current.aspect, tier as ResolutionTier);
 						setResolution(dims.width, dims.height);
 					}}
+				/>
+				<IslandSegmented
+					group="fps"
+					eyebrow="FPS"
+					options={FPS_OPTIONS}
+					value={fps}
+					onSelect={setFps}
 				/>
 			</ClusterGroup>
 
@@ -476,8 +490,8 @@ function ExportCluster() {
 						trigger("light");
 						void exportVideo();
 					}}
-					disabled={isExporting || !hasSteps}
-					title={hasSteps ? undefined : "A video needs at least two scenes."}
+					disabled={isExporting || !canRender}
+					title={canRender ? undefined : NOTHING_TO_RENDER}
 					className="si-cta si-cluster-cta"
 				>
 					{isExporting ? "Rendering…" : `Render · ${current.aspect}`}
@@ -485,6 +499,22 @@ function ExportCluster() {
 			</ClusterGroup>
 		</>
 	);
+}
+
+/** The rates a file can be rendered at; the project file carries the choice. */
+export const FPS_OPTIONS = [24, 30, 60].map((rate) => ({
+	value: rate,
+	label: String(rate),
+	title: `${rate} frames per second`,
+}));
+
+export const NOTHING_TO_RENDER = "A video needs at least one scene.";
+
+/** D3: Render is on from one scene, and for authored media such as audio alone. */
+export function useCanRender(): boolean {
+	const sceneCount = useSnippetStore((s) => s.snippet.steps.length);
+	const project = useStudioCompositionStore((s) => s.value.project);
+	return isPlayableProject(sceneCount, hasAuthoredMultimedia(project));
 }
 
 /** What the island's one filled shape says when nothing is open. */

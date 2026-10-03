@@ -10,6 +10,7 @@ import {
 	resizeDuration,
 	stepProgress,
 } from "@/application/studio-timeline/model";
+import { isPlayableProject } from "@/application/studio-timeline/playback";
 import type { Step } from "@/domain/entities/step";
 import { EasingEditor } from "@/presentation/components/timeline/easing-editor";
 import { timelineMotion } from "@/presentation/components/timeline/timeline-motion";
@@ -19,9 +20,13 @@ import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback, feedbackPulse } from "@/presentation/haptics";
 import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
 import { type TempoMs, useExportStore } from "@/presentation/stores/export.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
-import { useStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
+import { studioPlaybackTimeline, useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	hasAuthoredMultimedia,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { isEditableEventTarget } from "@/presentation/utils/editable-target";
+import { formatPlaybackClock } from "@/presentation/utils/playback-readout";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
@@ -44,6 +49,7 @@ import {
 	Pause,
 	Play,
 	Previous,
+	Repeat,
 	TextInputFocus,
 	Trash,
 	Video,
@@ -93,12 +99,15 @@ export function StudioTimeline() {
 	const isPlaying = useSnippetStore((state) => state.isPlaying);
 	const isPreparing = useSnippetStore((state) => state.isPreparing);
 	const playbackProgress = useSnippetStore((state) => state.playbackProgress);
+	const playbackElapsedMs = useSnippetStore((state) => state.playbackElapsedMs);
 	const playback = useSnippetStore((state) => state.playback);
 	const seekPlayback = useSnippetStore((state) => state.seekPlayback);
 	const play = useSnippetStore((state) => state.play);
 	const pause = useSnippetStore((state) => state.pause);
 	const transitionMs = useExportStore((state) => state.transitionMs);
 	const setTransitionMs = useExportStore((state) => state.setTransitionMs);
+	const loop = useExportStore((state) => state.loop);
+	const fps = useExportStore((state) => state.fps);
 	const transitionEasing = useExportStore((state) => state.transitionEasing);
 	const setTransitionEasing = useExportStore((state) => state.setTransitionEasing);
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -121,13 +130,19 @@ export function StudioTimeline() {
 		[compositionProject, steps],
 	);
 
+	const canPlay = isPlayableProject(steps.length, hasAuthoredMultimedia(compositionProject));
+	// The ruler measures the clock the preview plays: scenes, the loop morph
+	// where the export adds it, and the audio tail. The store reads those inputs
+	// itself; the dependencies are what makes the memo notice they changed.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: loop, fps and the composition are read inside studioPlaybackTimeline
 	const model = useMemo(
 		() =>
 			buildStudioTimeline(
 				steps.map((step) => step.duration),
 				transitionMs,
+				studioPlaybackTimeline() ?? undefined,
 			),
-		[steps, transitionMs],
+		[steps, transitionMs, loop, fps, compositionProject],
 	);
 	const progress = playback
 		? playbackProgressOnRuler(model, playbackProgress)
@@ -135,9 +150,9 @@ export function StudioTimeline() {
 	const selectedStepId = steps[currentStepIndex]?.id;
 	const selectedStep = steps[currentStepIndex];
 	const elapsedMs = playback
-		? Math.min(Math.max(playbackProgress, 0), 1) * model.actualDurationMs
+		? Math.min(Math.max(playbackElapsedMs, 0), model.actualDurationMs)
 		: Math.min(progress * model.displayDurationMs, model.actualDurationMs);
-	const addAt = model.actualDurationMs / model.displayDurationMs;
+	const addAt = model.scenesEndMs / model.displayDurationMs;
 	const trackWidthPx = Math.round((model.displayDurationMs / 1000) * PIXELS_PER_SECOND);
 	const draggedStepIndex = draggedStepId
 		? steps.findIndex((step) => step.id === draggedStepId)
@@ -230,9 +245,11 @@ export function StudioTimeline() {
 	const applyTransitionTempo = (tempo: TempoMs) => {
 		setTransitionMs(tempo);
 		if (activeTransitionIndex !== null) {
+			// The store already holds the new tempo, so this is the clock it will play.
 			const nextModel = buildStudioTimeline(
 				steps.map((step) => step.duration),
 				tempo,
+				studioPlaybackTimeline() ?? undefined,
 			);
 			const transition = nextModel.transitions[activeTransitionIndex];
 			if (transition && nextModel.actualDurationMs > 0) {
@@ -488,7 +505,7 @@ export function StudioTimeline() {
 								}
 								void play();
 							}}
-							disabled={steps.length < 2 || isPreparing}
+							disabled={!canPlay || isPreparing}
 							aria-label={isPlaying ? "Pause timeline" : "Play timeline"}
 							className="studio-timeline-play"
 						>
@@ -517,10 +534,12 @@ export function StudioTimeline() {
 				</div>
 				<div className="studio-timeline-time">
 					<output className="studio-timeline-clock" aria-live="off">
-						{formatClock(elapsedMs)}
+						{formatPlaybackClock(elapsedMs)}
 					</output>
 					<span aria-hidden="true">/</span>
-					<span className="studio-timeline-total">{formatRulerEnd(model.displayDurationMs)}</span>
+					<span className="studio-timeline-total">
+						{formatPlaybackClock(model.actualDurationMs)}
+					</span>
 				</div>
 			</header>
 
@@ -556,6 +575,24 @@ export function StudioTimeline() {
 								</span>
 							</button>
 						))}
+						{model.loop ? (
+							<span
+								className="studio-timeline-transition"
+								data-loop=""
+								role="img"
+								aria-label={`Loop: scene ${model.loop.index + 1} morphs back to scene 1, ${formatMorphSeconds(transitionMs)} seconds`}
+								style={
+									{
+										left: `${(model.loop.startMs / model.displayDurationMs) * 100}%`,
+										width: `${((model.loop.endMs - model.loop.startMs) / model.displayDurationMs) * 100}%`,
+									} as CSSProperties
+								}
+							>
+								<span aria-hidden="true">
+									<Repeat size={12} strokeWidth={1.8} />
+								</span>
+							</span>
+						) : null}
 						{model.clips.map((clip) => {
 							const step = steps[clip.index];
 							if (!step) {
@@ -649,7 +686,7 @@ export function StudioTimeline() {
 						>
 							<span className="studio-timeline-playhead-line" aria-hidden="true" />
 							<output className="studio-timeline-bubble" aria-live="off">
-								{formatClock(elapsedMs)}
+								{formatPlaybackClock(elapsedMs)}
 							</output>
 						</div>
 					</div>
@@ -675,7 +712,7 @@ export function StudioTimeline() {
 							aria-valuetext={
 								steps.length === 0
 									? "No scenes"
-									: `${formatClock(elapsedMs)}, scene ${indexAtProgress(model, progress) + 1} of ${steps.length}`
+									: `${formatPlaybackClock(elapsedMs)}, scene ${indexAtProgress(model, progress) + 1} of ${steps.length}`
 							}
 							className="studio-timeline-scrubber"
 						/>
@@ -956,22 +993,10 @@ function CodeFilmFrame({ code }: { code: string }) {
 	);
 }
 
-function formatClock(milliseconds: number): string {
-	const safe = Math.max(milliseconds, 0);
-	const minutes = Math.floor(safe / 60_000);
-	const seconds = Math.floor((safe % 60_000) / 1000);
-	const tenths = Math.floor((safe % 1000) / 100);
-	return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${tenths}`;
-}
-
 function formatDuration(milliseconds: number): string {
 	return `${(Math.max(milliseconds, 0) / 1000).toFixed(1)}s`;
 }
 
 function formatMorphSeconds(milliseconds: number): string {
 	return milliseconds === 650 ? "0.65" : (milliseconds / 1000).toFixed(1);
-}
-
-function formatRulerEnd(milliseconds: number): string {
-	return `${Math.ceil(milliseconds / 1000)}s`;
 }
