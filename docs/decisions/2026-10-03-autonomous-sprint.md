@@ -161,3 +161,28 @@ kept:
 - Found and fixed on the way: billing was broken in every browser (fetch
   called as a method of the adapter); the painter's window took the tallest
   frame's height; the renderers disagreed on the card width by 43 px.
+
+## Executed: wave 2 (2026-10-03, night)
+
+Eight agents, fifteen tickets, nine commits, gates green (269 files, 2,136
+tests, lint, both type checks, build). Calls taken and kept:
+
+- The on-device painter draws text and image layers; video follows (#94,
+  wave 3). Fonts load in the worker with FontFace, never pre-rasterized.
+- One project history: a ring of V2 snapshots observing the stores, not a
+  command log; typing coalesces within a second; one history per local
+  project in IndexedDB. The partial histories were deleted.
+- Deleted media is released on reload, where the undo history is empty.
+- Every import replaces the project behind one named confirm; a delete-only
+  diff plays as the file then "<path> removed"; newline-only diffs are
+  refused.
+- The readable floor: 8 px of code text at 1080p, held and clipped with a
+  fade, the same in the three renderers; the plan lays out only the visible
+  window, anchored top-left (#104 keeps the question of following the focus).
+- Monaco ships in the bundle, so the studio works offline.
+- The theme button is absolute at the top of the page below 1136 px.
+- The Action lives at the repository root for the Marketplace; the skill
+  clones the repository because the CLI is not on npm.
+- Found on the way, P1 for wave 3: the server's multimedia composition does
+  not match the preview (#100), and the studio has no hosted-render control
+  for the Creator plan (new ticket).
