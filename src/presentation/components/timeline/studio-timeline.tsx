@@ -323,13 +323,6 @@ export function StudioTimeline() {
 			setActiveTransitionIndex(null);
 			return;
 		}
-		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z" && pendingDeletion) {
-			event.preventDefault();
-			if (undoDeletion()) {
-				feedback("commit");
-			}
-			return;
-		}
 		if (event.altKey && event.key === "ArrowLeft" && selectedStep) {
 			event.preventDefault();
 			setLayoutMotionMode("instant");
