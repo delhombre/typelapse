@@ -193,4 +193,13 @@ describe("the multimedia project editor store", () => {
 		expect(store.getState().toDocument().project.title).toBe("Synced from Studio");
 		expect(store.getState().toDocument().project.scenes[0]?.blocks).toHaveLength(1);
 	});
+
+	it("keeps no history of its own when the surrounding studio owns it", () => {
+		const store = createProjectStore(textDocument(), { history: false });
+		store.getState().transact((project) => project.addBlock("scene-1", subtitle()));
+
+		expect(store.getState()).toMatchObject({ canUndo: false, past: [] });
+		store.getState().undo();
+		expect(store.getState().toDocument().project.scenes[0]?.blocks).toHaveLength(2);
+	});
 });

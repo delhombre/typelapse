@@ -1,6 +1,7 @@
-import { addTextLayer } from "@/application/project/multimedia-authoring";
+import { addMediaAsset, addTextLayer } from "@/application/project/multimedia-authoring";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { TEMPLATE_CATALOG } from "@/application/templates/catalog";
+import { Asset } from "@/domain/entities/asset";
 import { StudioLayerStrip } from "@/presentation/components/editor/studio-layer-strip";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
@@ -8,7 +9,7 @@ import {
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -55,45 +56,67 @@ describe("StudioLayerStrip", () => {
 
 	afterEach(() => cleanup());
 
-	it("stays absent for a code-only scene with no layer history", () => {
-		render(<StudioLayerStrip />);
+	it("stays absent for a code-only scene", () => {
+		const { container } = render(<StudioLayerStrip />);
 
-		expect(screen.queryByRole("button", { name: "Undo layer edit" })).toBeNull();
+		expect(container.firstChild).toBeNull();
 	});
 
-	it("keeps undo reachable after the last authored layer is deleted", () => {
+	it("carries no undo of its own: the project history's buttons are the studio's only ones", () => {
 		const sceneId = selectedSceneId();
-		render(<StudioLayerStrip />);
 		act(() => {
 			useStudioCompositionStore
 				.getState()
 				.transact((project) => addTextLayer(project, sceneId, { id: "title", text: "Title" }));
 		});
-		act(() => {
-			useStudioCompositionStore
-				.getState()
-				.transact((project) => project.removeBlock(sceneId, "title"));
-		});
-		expect(textLayerCount()).toBe(0);
-
-		fireEvent.click(screen.getByRole("button", { name: "Undo layer edit" }));
+		render(<StudioLayerStrip />);
 
 		expect(textLayerCount()).toBe(1);
+		expect(screen.getByRole("button", { name: "Text" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: /undo|redo/i })).toBeNull();
 	});
 
-	it("keeps redo reachable after undoing the first authored layer", () => {
+	it("names media chips after their file, not their kind", () => {
 		const sceneId = selectedSceneId();
-		render(<StudioLayerStrip />);
+		const longName = `${"launch-teaser-".repeat(30)}final.png`;
 		act(() => {
-			useStudioCompositionStore
-				.getState()
-				.transact((project) => addTextLayer(project, sceneId, { id: "title", text: "Title" }));
+			useStudioCompositionStore.getState().transact((project) =>
+				addMediaAsset(
+					addMediaAsset(
+						project,
+						sceneId,
+						Asset.create({
+							id: "still",
+							kind: "image",
+							fileName: longName,
+							mimeType: "image/png",
+							byteSize: 4,
+							checksum: "a".repeat(64),
+							width: 10,
+							height: 10,
+						}),
+						{ blockId: "still-block" },
+					),
+					sceneId,
+					Asset.create({
+						id: "voice",
+						kind: "audio",
+						fileName: "voice-over.wav",
+						mimeType: "audio/wav",
+						byteSize: 4,
+						checksum: "b".repeat(64),
+						durationMs: 1_000,
+					}),
+					{ cueId: "voice-cue" },
+				),
+			);
 		});
 
-		fireEvent.click(screen.getByRole("button", { name: "Undo layer edit" }));
-		expect(textLayerCount()).toBe(0);
-		fireEvent.click(screen.getByRole("button", { name: "Redo layer edit" }));
+		render(<StudioLayerStrip />);
 
-		expect(textLayerCount()).toBe(1);
+		expect(screen.getByRole("button", { name: longName })).toBeTruthy();
+		expect(screen.getByRole("button", { name: "voice-over.wav" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Image" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Audio" })).toBeNull();
 	});
 });

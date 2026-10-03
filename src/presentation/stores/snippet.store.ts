@@ -107,7 +107,6 @@ interface SnippetState {
 	captureStep: (duration?: number) => void;
 	duplicateStep: (stepId: string) => void;
 	removeStep: (stepId: string) => void;
-	restoreStep: (step: Step, index: number) => void;
 	updateStepDuration: (stepId: string, duration: number) => void;
 	/** Set the spotlight lines for a step. Applied at render time: no re-tokenize. */
 	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => void;
@@ -312,7 +311,7 @@ function cancelRaf() {
 export interface PlaybackComposition {
 	/** `compileSceneTimeline`'s duration: the scenes plus the audio tail. */
 	durationMs: number;
-	/** Authored media send the export down the multimedia route, which has no loop morph. */
+	/** Authored media make a project playable without a captured scene (audio alone). */
 	hasAuthoredMedia: boolean;
 }
 
@@ -343,7 +342,7 @@ export function studioPlaybackTimeline(): StudioPlaybackTimeline | null {
 	return buildStudioPlayback({
 		durations: steps.map((step) => step.duration),
 		transitionMs,
-		loop: loop && !composition.hasAuthoredMedia,
+		loop,
 		canonicalMs: composition.durationMs,
 	});
 }
@@ -670,16 +669,6 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		const updated = snippet.removeStep(stepId);
 		const newIndex = Math.min(currentStepIndex, Math.max(0, updated.steps.length - 1));
 		set({ snippet: updated, currentStepIndex: newIndex });
-		get().rebuildPlan();
-	},
-
-	restoreStep: (step: Step, index: number) => {
-		const { snippet } = get();
-		if (snippet.steps.some((candidate) => candidate.id === step.id)) {
-			return;
-		}
-		const safeIndex = Math.min(Math.max(index, 0), snippet.steps.length);
-		set({ snippet: snippet.insertStep(step, safeIndex), currentStepIndex: safeIndex });
 		get().rebuildPlan();
 	},
 

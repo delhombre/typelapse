@@ -1,5 +1,6 @@
 import { useKeyboardShortcuts } from "@/presentation/hooks/use-keyboard-shortcuts";
 import { useIsDesktop } from "@/presentation/hooks/use-media-query";
+import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { type ReactNode, useEffect } from "react";
 import { MobileShell } from "./mobile-shell";
@@ -26,6 +27,9 @@ export function ResponsiveShell({
 }: ResponsiveShellProps) {
 	useKeyboardShortcuts();
 	const isDesktop = useIsDesktop();
+
+	// The project history records while the studio is open, on either layout.
+	useEffect(() => studioHistory.start(), []);
 
 	// Leaving the studio disarms record mode: clears the pending debounce timer
 	// and flushes a trailing step, so nothing captures into a stale snippet.

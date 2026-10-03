@@ -7,7 +7,7 @@ import {
 } from "@/presentation/stores/studio-composition.store";
 import { AnimatePresence, motion } from "motion/react";
 import type { ComponentType } from "react";
-import { Code, Eye, EyeOff, Image, Music, Redo, Text, Undo, Video } from "reicon-react";
+import { Code, Eye, EyeOff, Image, Music, Text, Video } from "reicon-react";
 
 type LayerIcon = ComponentType<{ size?: number; strokeWidth?: number; "aria-hidden"?: boolean }>;
 
@@ -21,6 +21,14 @@ function sceneStartMs(sceneId: string): number {
 		elapsed += scene.durationMs + (scene.transitionOut?.durationMs ?? 0);
 	}
 	return 0;
+}
+
+/**
+ * The tooltip is a one-line pill: a 255-character file name would run off the
+ * screen. The middle goes, so the start and the extension stay readable.
+ */
+function shortName(name: string): string {
+	return name.length <= 48 ? name : `${name.slice(0, 30)}…${name.slice(-15)}`;
 }
 
 function layerIcon(kind: "code" | "text" | "image" | "video"): LayerIcon {
@@ -63,13 +71,16 @@ export function StudioLayerStrip() {
 	const primaryCode = scene.blocks.find(
 		(block) => block.kind === "code" && block.continuityKey === "primary-code",
 	);
-	// History keeps the row alive: deleting the last layer (or undoing the first
-	// one) must leave its Undo / Redo within reach, or that edit is unrecoverable.
-	const hasHistory = composition.canUndo || composition.canRedo;
-	if (authoredBlocks.length === 0 && audioCues.length === 0 && !hasHistory) {
+	// Undo lives with the project, in the header, so the row can leave with its
+	// last layer: that deletion stays one Cmd+Z away.
+	if (authoredBlocks.length === 0 && audioCues.length === 0) {
 		return null;
 	}
 
+	// A chip names its file: three images used to read "Image", "Image", "Image".
+	const fileNames = new Map(
+		composition.value.project.assets.map((asset) => [asset.id, asset.metadata.fileName]),
+	);
 	const selectCode = () => {
 		composition.selectBlock(scene.id, null);
 		selectAudioCue(null);
@@ -117,32 +128,6 @@ export function StudioLayerStrip() {
 							</button>
 						</StudioTooltip>
 					) : null}
-					<StudioTooltip content="Undo layer edit">
-						<button
-							type="button"
-							onClick={() => {
-								composition.undo();
-								feedback("selection");
-							}}
-							disabled={!composition.canUndo}
-							aria-label="Undo layer edit"
-						>
-							<Undo size={13} aria-hidden="true" />
-						</button>
-					</StudioTooltip>
-					<StudioTooltip content="Redo layer edit">
-						<button
-							type="button"
-							onClick={() => {
-								composition.redo();
-								feedback("selection");
-							}}
-							disabled={!composition.canRedo}
-							aria-label="Redo layer edit"
-						>
-							<Redo size={13} aria-hidden="true" />
-						</button>
-					</StudioTooltip>
 				</div>
 			</div>
 			<div className="sc-layer-pills">
@@ -157,7 +142,11 @@ export function StudioLayerStrip() {
 					{authoredBlocks.map((block) => (
 						<LayerPill
 							key={block.id}
-							label={block.kind === "text" ? "Text" : block.kind === "image" ? "Image" : "Video"}
+							label={
+								block.kind === "text"
+									? "Text"
+									: (fileNames.get(block.assetId) ?? (block.kind === "image" ? "Image" : "Video"))
+							}
 							Icon={layerIcon(block.kind)}
 							selected={composition.selectedBlockId === block.id && selectedAudioCueId === null}
 							onSelect={() => selectBlock(block.id)}
@@ -166,7 +155,7 @@ export function StudioLayerStrip() {
 					{audioCues.map((cue) => (
 						<LayerPill
 							key={cue.id}
-							label="Audio"
+							label={fileNames.get(cue.assetId) ?? "Audio"}
 							Icon={Music}
 							selected={selectedAudioCueId === cue.id}
 							onSelect={() => selectAudio(cue.id)}
@@ -192,7 +181,7 @@ function LayerPill({
 	onSelect: () => void;
 }) {
 	return (
-		<StudioTooltip content={label}>
+		<StudioTooltip content={shortName(label)}>
 			<motion.button
 				type="button"
 				layout

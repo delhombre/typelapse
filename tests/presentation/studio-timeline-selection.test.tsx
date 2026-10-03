@@ -2,6 +2,7 @@ import { addTextLayer } from "@/application/project/multimedia-authoring";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { TEMPLATE_CATALOG } from "@/application/templates/catalog";
 import { StudioTimeline } from "@/presentation/components/timeline/studio-timeline";
+import { useKeyboardShortcuts } from "@/presentation/hooks/use-keyboard-shortcuts";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -55,11 +56,22 @@ describe("StudioTimeline selection follow", () => {
 		expect(screen.getByRole("slider").getAttribute("aria-valuetext")).toBe("00:05.5, scene 3 of 3");
 	});
 
+	it("moves the playhead into the scene it adds instead of leaving the previous frame up", () => {
+		useSnippetStore.getState().setCurrentStepIndex(0);
+		render(<StudioTimeline />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Add scene" }));
+
+		expect(useSnippetStore.getState().currentStepIndex).toBe(3);
+		expect(screen.getByRole("button", { name: "Delete scene 4" })).toBeTruthy();
+		expect(screen.getByRole("slider").getAttribute("aria-valuetext")).toMatch(/scene 4 of 4$/);
+	});
+
 	it("reveals scene-native actions for the selected clip", () => {
 		render(<StudioTimeline />);
 
 		expect(screen.getByText("Scene 3")).toBeTruthy();
-		expect(screen.getByRole("spinbutton", { name: "Scene 3 duration in seconds" })).toBeTruthy();
+		expect(screen.getByRole("textbox", { name: "Scene 3 duration in seconds" })).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Duplicate scene 3" })).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Delete scene 3" })).toBeTruthy();
 	});
@@ -144,7 +156,7 @@ describe("StudioTimeline selection follow", () => {
 	it("supports a scoped delete shortcut without stealing keys from duration input", () => {
 		render(<StudioTimeline />);
 		const timeline = screen.getByRole("region", { name: "Animation timeline" });
-		const duration = screen.getByRole("spinbutton", { name: "Scene 3 duration in seconds" });
+		const duration = screen.getByRole("textbox", { name: "Scene 3 duration in seconds" });
 		const before = useSnippetStore.getState().snippet.steps.length;
 
 		fireEvent.keyDown(duration, { key: "Delete" });
@@ -254,7 +266,13 @@ describe("StudioTimeline selection follow", () => {
 	});
 
 	it("supports the familiar undo shortcut while the timeline owns focus", () => {
-		render(<StudioTimeline />);
+		// The studio's one Cmd+Z handler lives on the shell; the timeline no longer
+		// carries a second one for deletions.
+		function TimelineInStudio() {
+			useKeyboardShortcuts();
+			return <StudioTimeline />;
+		}
+		render(<TimelineInStudio />);
 		const removed = useSnippetStore.getState().snippet.steps[2];
 		if (!removed) {
 			throw new Error("The template must contain three scenes");

@@ -21,7 +21,7 @@ import { create } from "zustand";
  * slot has been read. The bridge's restore replaces it with the slot's own id,
  * which is what keys the stored composition; this placeholder is never saved.
  */
-const BOOT_PROJECT_ID = "studio-project";
+export const BOOT_PROJECT_ID = "studio-project";
 const STATIC_SCENE_DURATION_MS = 3_000;
 
 export function readStudioCompositionSnapshot(): StudioCompositionSnapshot {
@@ -76,8 +76,10 @@ export function readStudioCompositionSnapshot(): StudioCompositionSnapshot {
 	};
 }
 
+// The Studio's project history versions the whole document, layers included.
 export const useStudioCompositionStore = createProjectStore(
 	createStudioCompositionDocument(readStudioCompositionSnapshot()),
+	{ history: false },
 );
 
 interface StudioCompositionSelectionState {
@@ -196,6 +198,25 @@ export function onStudioPersistenceRelease(listener: () => void): () => void {
 	return () => persistenceReleaseListeners.delete(listener);
 }
 
+/**
+ * Point the composition at the scene the timeline has selected, keeping the
+ * selected layer when that scene still holds it. A document load resets the
+ * selection to the first scene; the timeline is the authority on which scene is
+ * being edited.
+ */
+export function followTimelineSelection(blockId: string | null = null): void {
+	const sceneId = studioSceneIdAt(useSnippetStore.getState().currentStepIndex);
+	const composition = useStudioCompositionStore.getState();
+	const scene = composition.value.project.scenes.find((candidate) => candidate.id === sceneId);
+	if (!scene) {
+		return;
+	}
+	composition.selectBlock(
+		sceneId,
+		blockId && scene.blocks.some((block) => block.id === blockId) ? blockId : null,
+	);
+}
+
 export function studioSceneIdAt(index: number): string {
 	const snapshot = readStudioCompositionSnapshot();
 	return (
@@ -222,7 +243,11 @@ export function hasAuthoredMultimedia(
 registerPlaybackComposition(() => {
 	const document = useStudioCompositionStore.getState().toDocument();
 	return {
-		durationMs: compileSceneTimeline({ document, fps: useExportStore.getState().fps }).durationMs,
+		durationMs: compileSceneTimeline({
+			document,
+			fps: useExportStore.getState().fps,
+			loop: useExportStore.getState().loop,
+		}).durationMs,
 		hasAuthoredMedia: hasAuthoredMultimedia(),
 	};
 });

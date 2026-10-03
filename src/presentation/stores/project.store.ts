@@ -65,11 +65,23 @@ function normalizeSelection(
 	return { selectedSceneId: scene.id, selectedBlockId };
 }
 
+export interface ProjectStoreOptions {
+	/**
+	 * False when the surrounding editor versions the whole project itself (the
+	 * Studio's project history): the store then keeps no past of its own, and a
+	 * Studio sync no longer has to reconcile a hundred stale entries per keystroke.
+	 */
+	readonly history?: boolean;
+}
+
 /**
  * Generic multimedia editor state. History belongs to the document itself, so
  * undo never waits for a toast and works identically for text, code and media.
  */
-export function createProjectStore(initialDocument: ProjectDocumentV2) {
+export function createProjectStore(
+	initialDocument: ProjectDocumentV2,
+	{ history = true }: ProjectStoreOptions = {},
+) {
 	const initialValue = hydrateProjectDocument(initialDocument);
 	const initialSelection = normalizeSelection(initialValue.project, {
 		selectedSceneId: initialValue.project.scenes[0]?.id ?? null,
@@ -125,7 +137,7 @@ export function createProjectStore(initialDocument: ProjectDocumentV2) {
 				return;
 			}
 			const selection = normalizeSelection(project, current);
-			const past = [...current.past, snapshot(current)].slice(-MAX_HISTORY);
+			const past = history ? [...current.past, snapshot(current)].slice(-MAX_HISTORY) : [];
 			set({
 				value: Object.freeze({ ...current.value, project }),
 				...selection,
