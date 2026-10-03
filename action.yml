@@ -1,0 +1,205 @@
+name: Typelapse PR to video
+description: Render a pull request into a code video on the runner, upload it as an artifact and comment a link that opens it in the Typelapse studio.
+author: delhombre
+branding:
+  icon: film
+  color: gray-dark
+
+inputs:
+  source:
+    description: What to render. Defaults to the pull request that triggered the run; a commit URL works on a push or a release.
+    default: ${{ github.event.pull_request.html_url }}
+  format:
+    description: mp4, webm or gif.
+    default: mp4
+  size:
+    description: WIDTHxHEIGHT with even edges, such as 1280x720. Empty renders at 1920x1080.
+    default: ""
+  fps:
+    description: 24, 30 or 60. Empty renders at 60, and a GIF is capped at 20.
+    default: ""
+  theme:
+    description: midnight, aurora, frost, dracula, one-dark, catppuccin or nord. Empty keeps the studio's default.
+    default: ""
+  studio-url:
+    description: The studio the comment's link opens, such as https://studio.example.com/app. Empty links a local studio at http://localhost:5173/app.
+    default: ""
+  comment:
+    description: true posts the comment on the pull request and edits it on every push; false writes it to the job summary only.
+    default: "true"
+  github-token:
+    description: Reads the pull request and writes the comment. The workflow's own token is enough.
+    default: ${{ github.token }}
+
+outputs:
+  path:
+    description: The video on the runner, absent when the render failed.
+    value: ${{ steps.render.outputs.path }}
+  studio-url:
+    description: The link that opens the same project in the studio.
+    value: ${{ steps.render.outputs.studio-url }}
+  artifact-url:
+    description: The artifact's download link.
+    value: ${{ steps.upload.outputs.artifact-url }}
+  exit-code:
+    description: The CLI's exit code. 0 written, 2 bad input, 3 GitHub could not serve the source, 4 the render failed.
+    value: ${{ steps.render.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+
+    # pnpm/action-setup reads packageManager from the calling repository and
+    # throws when it differs from a pinned version, so the action installs the
+    # pnpm its own package.json pins, by version.
+    - name: Install pnpm
+      id: setup
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        version=$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '').split('+')[0]")
+        npm install --global --silent "pnpm@$version"
+        echo "store=$(pnpm store path)" >> "$GITHUB_OUTPUT"
+        echo "lock=$(sha256sum pnpm-lock.yaml | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
+    # hashFiles() only reads the caller's workspace, so the key is the hash the
+    # step above took of the action's own lockfile.
+    - uses: actions/cache@v6
+      with:
+        path: ${{ steps.setup.outputs.store }}
+        key: typelapse-pnpm-${{ runner.os }}-${{ steps.setup.outputs.lock }}
+
+    - name: Install Typelapse
+      id: install
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        pnpm install --frozen-lockfile
+        echo "remotion=$(node -p "require('@remotion/renderer/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    # Remotion downloads its headless Chrome into node_modules/.remotion under
+    # the directory it runs from: about 100 MB a run without this.
+    - uses: actions/cache@v6
+      with:
+        path: ${{ github.action_path }}/node_modules/.remotion
+        key: typelapse-remotion-${{ runner.os }}-${{ runner.arch }}-${{ steps.install.outputs.remotion }}
+
+    # ubuntu-latest ships Chrome and these libraries, so this is a no-op there; a
+    # minimal or self-hosted image lacks them and the headless shell dies on
+    # libnspr4.so. The list is Remotion's for Ubuntu 24.04 (libasound2 before it).
+    - name: Install the browser's libraries
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        if ldconfig -p | grep -q libnss3.so && ldconfig -p | grep -q libgbm.so.1 && ldconfig -p | grep -q libasound.so.2; then
+          exit 0
+        fi
+        sudo=$(command -v sudo || true)
+        $sudo apt-get update -qq
+        asound=libasound2t64
+        if ! apt-cache show "$asound" > /dev/null 2>&1; then asound=libasound2; fi
+        $sudo apt-get install -y -qq --no-install-recommends libnss3 libdbus-1-3 libatk1.0-0 "$asound" \
+          libxrandr2 libxkbcommon0 libxfixes3 libxcomposite1 libxdamage1 libgbm1 libcups2 libcairo2 \
+          libpango-1.0-0 libatk-bridge2.0-0
+
+    # The step records the exit code instead of failing, so the comment can say
+    # why; the last step fails the job with the same code.
+    - name: Render
+      id: render
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        SOURCE: ${{ inputs.source }}
+        FORMAT: ${{ inputs.format }}
+        SIZE: ${{ inputs.size }}
+        FPS: ${{ inputs.fps }}
+        THEME: ${{ inputs.theme }}
+        STUDIO_URL: ${{ inputs.studio-url }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        mkdir -p "$RUNNER_TEMP/typelapse"
+        args=(render "$SOURCE" --json --open --format "$FORMAT" --out "$RUNNER_TEMP/typelapse/")
+        if [ -n "$SIZE" ]; then args+=(--size "$SIZE"); fi
+        if [ -n "$FPS" ]; then args+=(--fps "$FPS"); fi
+        if [ -n "$THEME" ]; then args+=(--theme "$THEME"); fi
+        if [ -n "$STUDIO_URL" ]; then args+=(--studio-url "$STUDIO_URL"); fi
+        set +e
+        node cli/bin.mjs "${args[@]}" > "$RUNNER_TEMP/typelapse-result.json"
+        code=$?
+        set -e
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        if [ "$code" = 0 ]; then
+          node -e '
+            const r = JSON.parse(require("fs").readFileSync(process.env.RUNNER_TEMP + "/typelapse-result.json", "utf8"));
+            require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `path=${r.path}\nstudio-url=${r.studioUrl ?? ""}\n`);
+          '
+        fi
+
+    # Unzipped, so the artifact link downloads the video itself.
+    - name: Upload the video
+      id: upload
+      if: steps.render.outputs.exit-code == '0'
+      uses: actions/upload-artifact@v7
+      with:
+        path: ${{ steps.render.outputs.path }}
+        archive: false
+        overwrite: true
+        if-no-files-found: error
+
+    # The job summary gets the same body, which a fork's read-only token can still write.
+    - name: Write the comment
+      if: always() && steps.render.outcome == 'success'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        TYPELAPSE_RESULT: ${{ runner.temp }}/typelapse-result.json
+        TYPELAPSE_COMMENT: ${{ runner.temp }}/typelapse-comment.md
+        TYPELAPSE_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        TYPELAPSE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        TYPELAPSE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: |
+        pnpm exec tsx cli/pr-comment.ts
+        cat "$TYPELAPSE_COMMENT" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Comment on the pull request
+      if: always() && steps.render.outcome == 'success' && inputs.comment == 'true' && github.event.pull_request
+      uses: actions/github-script@v9
+      env:
+        TYPELAPSE_COMMENT: ${{ runner.temp }}/typelapse-comment.md
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const marker = "<!-- typelapse:render-pr -->";
+          const body = require("node:fs").readFileSync(process.env.TYPELAPSE_COMMENT, "utf8");
+          const { owner, repo } = context.repo;
+          const issue_number = context.payload.pull_request.number;
+          try {
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) => comment.body?.startsWith(marker));
+            if (previous) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: previous.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
+          } catch (error) {
+            // A pull request from a fork runs with a read-only token.
+            if (error.status !== 403) throw error;
+            core.warning("This token cannot comment here, so the video's link is in the job summary.");
+          }
+
+    - name: Fail when the render failed
+      if: always() && steps.render.outcome == 'success' && steps.render.outputs.exit-code != '0'
+      shell: bash
+      env:
+        TYPELAPSE_EXIT: ${{ steps.render.outputs.exit-code }}
+      run: |
+        echo "::error title=Typelapse::The render exited with code $TYPELAPSE_EXIT; the job summary says why."
+        exit "$TYPELAPSE_EXIT"

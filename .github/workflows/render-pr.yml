@@ -1,0 +1,30 @@
+# The action at the repository root, run on this repository's own pull
+# requests: the demo of what it posts.
+name: Render PR
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# A new push replaces the render in flight; the comment is edited, not added.
+concurrency:
+  group: render-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render the pull request
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./
+        with:
+          # Set the repository variable once a studio is deployed; empty links a local one.
+          studio-url: ${{ vars.TYPELAPSE_STUDIO_URL }}

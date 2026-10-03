@@ -62,21 +62,75 @@ file was written, `2` bad arguments or a bad file, `3` GitHub could not serve
 the source (private, missing, rate-limited, offline), `4` the render failed.
 Every error is one sentence.
 
+## Render every pull request
+
+```yaml
+# .github/workflows/render-pr.yml
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: delhombre/typelapse@main
+```
+
+The action runs the CLI above on the runner, uploads the video as an artifact
+(unzipped, so the link downloads the file itself) and posts one comment with the
+measured size, rate, length and codec plus a link that opens the pull request in
+the studio. Each push edits that comment instead of adding one. No secret is
+needed: the workflow's own token reads the pull request. Remotion's headless
+browser and the pnpm store are cached between runs.
+
+Inputs, all optional: `source` (defaults to the pull request that triggered the
+run; a commit URL works on a push or a release), `format`, `size`, `fps` and
+`theme` (the CLI's flags), `studio-url` (the studio the link opens; empty links
+a local one at `http://localhost:5173/app`), `comment` (`false` writes the job
+summary only) and `github-token`. Outputs: `path`, `studio-url`,
+`artifact-url` and `exit-code`. A pull request from a fork runs with a read-only
+token, so its link lands in the job summary instead of a comment. This
+repository runs the action on its own pull requests
+([`.github/workflows/render-pr.yml`](.github/workflows/render-pr.yml)).
+
+## Let an agent render it
+
+```bash
+npx skills add delhombre/typelapse --skill typelapse-pr-to-video
+```
+
+Then ask for a pull request as a video, in one prompt. The skill runs the same
+CLI and answers with the file and the studio link; see
+[`skills/typelapse-pr-to-video`](skills/typelapse-pr-to-video/README.md).
+
 ## What is implemented
 
-- One ordered scene timeline with text, code, image and video layers.
+- One studio at `/app`: `ResponsiveShell` (editor, scene inspector, step
+  builder, live preview and timeline) over `StudioCompositionBridge`, so the
+  code steps and the composition (text, code, image and video layers, global
+  audio cues) are one V2 project.
 - Global audio cues with trim, timing, gain and fades.
-- Layer placement, crop, focal point, radius, playback rate, mute and z-order.
-- Scene duration, transitions, reorder, scrub, undo and redo.
-- Shared scene compiler for the DOM preview and Remotion renderer.
-- Real local MP4/WebM rendering from the current multimedia document.
-- IndexedDB autosave and an editable V2 project document.
+- Layer fit, focal point, radius, playback rate, mute and order.
+- Scene duration, transitions, reorder, scrub, undo and redo, on one playback
+  clock that the readout, the ruler and the export share.
+- Three renderers on shared math: the DOM preview, the Remotion composition and
+  the Canvas painter, sizing the card from the same measured width.
+- On-device export with WebCodecs (MP4, WebM up to AV1 4:4:4, GIF) at 24, 30 or
+  60 fps, and a local server render of the same V2 document.
+- A local project library in IndexedDB with autosave. The project file saves
+  and opens the whole V2 document, naming media without embedding it.
 - Optional diff, PR, commit and code-file imports.
+- Headless render: the `typelapse` CLI, the GitHub Action and the agent skill.
 - Hosted owner-scoped project CRUD with optimistic revisions.
 - Private R2 media upload/finalization with MIME, size and SHA-256 verification.
-- Better Auth email/password sessions.
+- Better Auth email/password sessions in the hosted account island.
 - Stripe monthly/annual Checkout, Customer Portal and signed webhook projection.
-- Postgres-backed render and object-deletion workers with leased retries.
+- Postgres-backed render and object-deletion workers with leased retries. The
+  studio's export panel does not submit hosted renders yet.
 
 ## Hosted profile
 

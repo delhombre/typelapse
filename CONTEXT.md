@@ -49,7 +49,17 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
 - **Remotion composition**: the server renderer, importing the same React
   surfaces; the only path that bakes captions and synthesized audio today.
 - **Canvas painter**: the independent 2D-canvas painter behind on-device
-  WebCodecs export (`src/application/frame-painter`).
+  WebCodecs export (`src/application/frame-painter`). It paints the code card
+  and the text and image layers from the same scene compiler the other two
+  read; layers authored before the card go under it, the rest over it
+  (**composition slot**). Device refuses a video layer in one sentence.
+- **Readable floor**: the smallest code text a card is drawn at, 8 px on a
+  1080p canvas and growing with the tier (`MIN_TEXT_PX` in `canvas-fit`).
+  Below it the card stops shrinking and the window clips its code, with a
+  fade on each clipped edge (`clipFades`).
+- **Plan window**: the rows and columns a card can show at the readable floor
+  on any shipped canvas, plus a margin (`VISIBLE_ROW_LIMIT`,
+  `VISIBLE_COL_LIMIT`). The magic-move plan lays out nothing past it.
 
 Shared math lives in `src/application`. A visual feature lands in all three
 or it does not land.
@@ -116,6 +126,15 @@ or it does not land.
   Switching saves the project being left before the next one loads.
 - **Autosave**: IndexedDB persistence of the open local project's V2 document,
   keyed by its id; no destructive action waits for a toast to disappear.
+- **Project history**: the one undo and redo of the open local project. Each
+  entry is a whole project document, so every edit is covered (code, scene
+  durations, order, settings, layers, audio cues, a file opened over the
+  project) and going back is loading a document. Kept per local project and
+  across reloads. A text field and the code editor keep their own undo while
+  they have focus.
+- **Edit burst**: edits to the same values within a second (typing, dragging a
+  layer, scrubbing a number) are one history entry. Adding or removing a scene,
+  a layer or a cue is always an entry of its own.
 
 ## Invariants worth a test
 
@@ -124,6 +143,9 @@ or it does not land.
   plus transitions (plus audio-only tail).
 - Nothing uploads before the user consents; local mode makes no account calls.
 - The export note never promises what the file does not contain.
+- Undo then redo returns the exact project document; an undo never resets the
+  unsaved-work baseline, and the composition shows the timeline's scene.
 - The three renderers size the card with `fitCardToCanvas` from the shared
   placement table and the measured advance (`measureCharWidthRatio`), never a
-  nominal one, and paint the mesh at the timeline's time.
+  nominal one, and paint the mesh at the timeline's time. They hold the text
+  at the readable floor and clip the same window with the same fades.

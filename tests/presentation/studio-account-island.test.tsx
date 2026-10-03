@@ -237,6 +237,71 @@ describe("StudioAccountIsland", () => {
 			document: { project: { id: "project_cloud", title: "Launch, edited" } },
 		});
 	});
+
+	it("opens no cloud connection for an account that never saved this project", async () => {
+		const { api, runtime } = cloudRuntime();
+		const createHostedSync = vi.fn(runtime.createHostedSync);
+		render(
+			<StudioAccountIsland
+				authStore={createAuthStore({ kind: "hosted", port: authPort(SESSION) }, { now: () => NOW })}
+				planStore={planStore()}
+				compositionStore={createProjectStore(localDocument())}
+				cloudRuntime={{ ...runtime, createHostedSync }}
+			/>,
+		);
+
+		fireEvent.click(await screen.findByRole("button", { name: "Account for Ada Lovelace" }));
+
+		expect(screen.getByText("On this device")).toBeTruthy();
+		expect(createHostedSync).not.toHaveBeenCalled();
+		expect(api.list).not.toHaveBeenCalled();
+		expect(api.load).not.toHaveBeenCalled();
+		expect(api.create).not.toHaveBeenCalled();
+	});
+
+	it("reopens the cloud copy saved earlier, keeps local work, and uploads nothing until asked", async () => {
+		const { api, runtime, saved } = cloudRuntime();
+		saved.set("usr_1", "project_cloud");
+		const cloudDocument = localDocument();
+		vi.mocked(api.load).mockResolvedValue(
+			record(
+				4,
+				jsonbEcho({ ...cloudDocument, project: { ...cloudDocument.project, id: "project_cloud" } }),
+			),
+		);
+		vi.mocked(api.update).mockResolvedValueOnce({ outcome: "conflict", currentRevision: 5 });
+		const composition = createProjectStore(localDocument());
+		render(
+			<StudioAccountIsland
+				authStore={createAuthStore({ kind: "hosted", port: authPort(SESSION) }, { now: () => NOW })}
+				planStore={planStore()}
+				compositionStore={composition}
+				cloudRuntime={runtime}
+			/>,
+		);
+
+		fireEvent.click(await screen.findByRole("button", { name: "Account for Ada Lovelace" }));
+		await waitFor(() => expect(screen.getByText("Cloud copy saved")).toBeTruthy());
+		expect(api.load).toHaveBeenCalledWith("project_cloud", expect.anything());
+		expect(api.create).not.toHaveBeenCalled();
+
+		composition.getState().loadDocument(localDocument("Launch, edited"));
+		await waitFor(() => expect(screen.getByText("Cloud copy out of date")).toBeTruthy());
+		expect(api.update).not.toHaveBeenCalled();
+		// The cloud copy is only read: it never replaces the work on this device.
+		expect(composition.getState().value.project).toMatchObject({
+			id: "studio-local-project",
+			title: "Launch, edited",
+		});
+
+		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+		await waitFor(() => expect(screen.getByText("Cloud copy needs attention")).toBeTruthy());
+		expect(api.update).toHaveBeenCalledOnce();
+		expect(vi.mocked(api.update).mock.calls[0]?.[0]).toMatchObject({
+			id: "project_cloud",
+			expectedRevision: 4,
+		});
+	});
 });
 
 describe("the /app shell", () => {
@@ -271,6 +336,13 @@ describe("the /app shell", () => {
 				</StudioTooltipProvider>
 			</MemoryRouter>,
 		);
+
+	it("names the studio with exactly one page heading", () => {
+		shell();
+
+		expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+		expect(screen.getByRole("heading", { level: 1, name: "Typelapse studio" })).toBeTruthy();
+	});
 
 	it("has no account control in the local profile", () => {
 		expect(useAuthStore.getState().status.kind).toBe("local-offline");
