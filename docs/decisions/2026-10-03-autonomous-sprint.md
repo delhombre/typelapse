@@ -208,3 +208,21 @@ tests, lint, both type checks, build). Calls taken and kept:
 - Wave 4: #105 (hosted render in the export panel, the Creator plan's first
   line), #106 and #107 (blank-scene and phone follow-ups). Wave 5: #78, the
   launch pass with emil-prep-for-prod on the final tree.
+
+## Executed: wave 4 (2026-10-04)
+
+Two agents, three tickets, two commits, gates green (276 files, 2,209
+tests, lint, both type checks, build). Calls taken and kept:
+
+- Cloud under Where reads the right to render from /api/billing/allowance,
+  not from the plan endpoint (which answers 503 without Stripe). Choosing
+  Cloud and pressing Render is the consent to upload. One job followed at a
+  time; the job id is the only client-side state; a fresh signed link per
+  download. Proven with PostgreSQL, MinIO over TLS and the real worker.
+- Typewriter with a blank first scene types the first scene with code
+  rather than greying the option (a title card then typed code is a launch
+  video).
+- A one-line pnpm patch on vaul 1.1.2, which drops `modal={false}`, so the
+  phone sheet lets the project name take focus; recorded in patches/.
+- Wave 5 is the launch pass (#78): emil-prep-for-prod on the final tree and
+  the launch kit under docs/launch/.
