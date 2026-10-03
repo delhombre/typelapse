@@ -59,15 +59,10 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { focusLineSet, parseLineRanges } from "../src/application/focus/line-ranges.ts";
-import { THEMES } from "../src/presentation/components/controls/control-presets.ts";
-
-/* The render route rebuilds its Remotion bundle on every request in dev, which
-   for a one-shot script means bundling the composition twice for one file. Set
-   before the route is loaded, hence the dynamic import: `isDev` is read once, at
-   module scope. */
-process.env.NODE_ENV ??= "production";
-const { disposeSharedBundle, renderRoute } = await import("../server/routes/render.ts");
+/* The request body, the theme lookup, the in-process route call and the bundle
+   cleanup are the CLI's (`typelapse render`): one engine, so the demo stays a
+   plain Typelapse export and the CLI is proven by the README's own asset. */
+import { disposeRenderer, gifHeaderSize, renderProject } from "../cli/render-project.ts";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = resolve(ROOT, "docs/demo.project.json");
@@ -93,7 +88,7 @@ async function main() {
 	for (const format of targets) {
 		const startedAt = Date.now();
 		console.log(`\nRendering docs/demo.${format} …`);
-		const bytes = await render(payload, format);
+		const bytes = await renderProject(payload, { format, fps: DEMO_FPS, loop: true });
 		const file = resolve(OUT_DIR, `demo.${format}`);
 		writeFileSync(file, bytes);
 		const measured = report(file, bytes.length, Date.now() - startedAt);
@@ -108,79 +103,6 @@ async function main() {
 			);
 		}
 	}
-}
-
-/**
- * Drive the real render handler in process.
- *
- * `renderRoute` is the Hono app mounted at `/api` by the server, and Hono apps
- * answer `request()` directly — so this is the shipped route, its clamps and its
- * Remotion bundle, without a port to pick or a process to babysit.
- */
-async function render(payload, format) {
-	const response = await renderRoute.request("/render", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(renderRequestBody(payload, format)),
-	});
-	if (!response.ok) {
-		const detail = await response.text();
-		throw new Error(`Render failed (${response.status}): ${detail}`);
-	}
-	return Buffer.from(await response.arrayBuffer());
-}
-
-/** Project file → the exact JSON body the studio's export panel POSTs. */
-function renderRequestBody(payload, format) {
-	return {
-		title: payload.title,
-		language: payload.language,
-		theme: themeData(payload),
-		steps: payload.steps.map((step) => {
-			const focus = [...focusLineSet(parseLineRanges(step.focus ?? "") ?? [])];
-			return {
-				code: step.code,
-				duration: step.duration,
-				focus: focus.length > 0 ? focus : undefined,
-				caption: step.caption || undefined,
-			};
-		}),
-		background: payload.background,
-		windowChrome: payload.windowChrome ?? "macos",
-		showLineNumbers: payload.showLineNumbers ?? true,
-		lineNumberStart: payload.lineNumberStart ?? 1,
-		framePadding: payload.framePadding ?? 24,
-		cardMargin: payload.cardMargin ?? 32,
-		width: payload.width,
-		height: payload.height,
-		fps: DEMO_FPS,
-		format,
-		loop: true,
-		typewriter: payload.typewriter ?? false,
-		focusZoom: payload.focusZoom ?? false,
-		// GIF carries no audio track and the README is watched muted regardless.
-		sound: false,
-		progressStyle: payload.progressStyle ?? "reels",
-		transitionMs: payload.transitionMs ?? 650,
-		watermark: payload.watermark || undefined,
-	};
-}
-
-/** Resolve `themeName` through the studio's own theme table, then the two fields it edits in place. */
-function themeData(payload) {
-	const preset = THEMES.find((entry) => entry.name === payload.themeName);
-	if (!preset) {
-		throw new Error(`Unknown theme '${payload.themeName}' in ${PROJECT}`);
-	}
-	const theme = preset.factory();
-	return {
-		name: theme.name,
-		background: theme.background,
-		foreground: theme.foreground,
-		fontFamily: payload.fontFamily ?? theme.fontFamily,
-		fontSize: theme.fontSize,
-		borderRadius: payload.borderRadius ?? theme.borderRadius,
-	};
 }
 
 /**
@@ -207,7 +129,7 @@ function report(file, bytes, elapsedMs) {
 		// The size check is the whole point of this script, so it cannot depend
 		// on a tool that may be absent. A GIF says its own size in its header;
 		// anything else without ffprobe is a render nobody measured.
-		const header = gifHeaderSize(file);
+		const header = gifHeaderSize(readFileSync(file));
 		if (!header) {
 			throw new Error(
 				`ffprobe is not on PATH and ${where} is not a GIF, so its size cannot be verified. Install ffmpeg or render the GIF alone.`,
@@ -225,15 +147,6 @@ function report(file, bytes, elapsedMs) {
 	console.log(`  ${width}×${height}  ${fps} fps  ${frames} frames  ${megabytes} MB`);
 	console.log(`  shown at ${DEMO_DISPLAY_WIDTH}px → ${factor}x   ${took} → ${where}`);
 	return { width: Number(width), height: Number(height) };
-}
-
-/** A GIF's logical screen size, from bytes 6..9 of its own header; null for any other file. */
-function gifHeaderSize(file) {
-	const bytes = readFileSync(file);
-	if (bytes.length < 10 || bytes.subarray(0, 3).toString("ascii") !== "GIF") {
-		return null;
-	}
-	return { width: bytes.readUInt16LE(6), height: bytes.readUInt16LE(8) };
 }
 
 /** The four numbers that say what a file really is, or null when ffprobe is absent. */
@@ -261,6 +174,6 @@ function ffprobe(file) {
 try {
 	await main();
 } finally {
-	await disposeSharedBundle();
+	await disposeRenderer();
 }
 process.exit(0);

@@ -24,7 +24,12 @@ terms so issues, specs, tests and code use the same ones.
 - **Project document**: the versioned serialized form. **V1** is the legacy
   code-only shape (`Snippet`, `Step`); **V2** is the canonical multimedia
   shape with stable IDs. V1 imports migrate to V2 with deterministic IDs, so
-  the same import has the same fingerprint. Code-only V2 can roll back to V1.
+  the same import has the same fingerprint (and the same scene and step IDs).
+  Code-only V2 can roll back to V1.
+- **Project file**: what "Export project file" writes and "Open project
+  file" reads: the V2 document, code-only projects included, media named by
+  metadata and never embedded. An asset whose bytes this browser lacks opens
+  in its "Media unavailable" state. V1 files still open through the migration.
 - **Revision**: one persisted version of a hosted project; updates are
   optimistic (`409` on a stale revision).
 
@@ -57,11 +62,24 @@ or it does not land.
 - **Rung**: one codec candidate on a ladder, with its codec string and chroma.
 - **Server render**: `POST /api/render` (V1) and the local multimedia render
   route (V2 with multipart assets), local deployment mode only.
+- **Headless render**: `typelapse render <pr-url|commit-url|diff|project.json>`
+  (`cli/`), the server render driven in process with the studio's defaults.
+  A PR becomes the project the studio's own import would build
+  (`application/import/diff-project`). Engine for the GitHub Action and the
+  agent skill; exit codes 0, 2 (arguments), 3 (source), 4 (render).
 - **Hosted render job**: a queued, leased, fenced job on a canonical revision,
   entitlement-gated, with expiring result access.
 - **GIF concessions**: the size and frame-rate caps a GIF gets, computed by
   the same functions on the client and the server, and said out loud in the
   export note.
+- **Playback clock**: the one duration the playhead, the readout, the ruler
+  and the export share (`src/application/studio-timeline/playback.ts`): the
+  scenes and their morphs, the loop morph where the export adds it, then the
+  last frame held until the audio ends (`compileSceneTimeline`).
+- **Playable project**: one scene or more, or authored media without a scene
+  (audio alone). Play and Render ask this one question.
+- **Frame rate**: 24, 30 or 60, chosen in the export panel and carried by the
+  project file (`fps`; absent means 60).
 
 ## Deployment and commerce
 
@@ -74,6 +92,14 @@ or it does not land.
   configuration is absent; `pnpm hosted:check` lists what is missing.
 - **Plan**: `free` or `creator` (paid). Resolved server-side from the Stripe
   projection; never from a header or a body field.
+- **Ceiling**: a hosted limit carried by the Plan (cloud projects, media
+  bytes, hosted render minutes per UTC month, concurrent render jobs). A
+  refusal names the ceiling, its value, the usage and the plan that lifts it.
+- **Allowance**: the one sentence the server writes about an account's
+  ceilings and usage; the account island shows it verbatim.
+- **Grace period**: how long past hosted outputs stay downloadable once the
+  plan no longer covers hosted rendering (30 days from the later of the render
+  and the downgrade).
 - **The rule that settles pricing edge cases**: what runs on the user's
   machine is free and stays free; what runs on our servers is paid.
 
@@ -84,8 +110,12 @@ or it does not land.
 - **Account island**: the part of the island that carries sign-in, cloud save
   (behind an explicit upload consent) and billing in a hosted build. Absent in
   a local build.
-- **Autosave**: IndexedDB persistence of the current project; no destructive
-  action waits for a toast to disappear.
+- **Local project**: one entry of the on-device library behind the project
+  chip, with its own id. Its V2 document (layers, media, audio cues) is stored
+  in IndexedDB under that id; its code spine is also kept in localStorage.
+  Switching saves the project being left before the next one loads.
+- **Autosave**: IndexedDB persistence of the open local project's V2 document,
+  keyed by its id; no destructive action waits for a toast to disappear.
 
 ## Invariants worth a test
 
@@ -94,3 +124,6 @@ or it does not land.
   plus transitions (plus audio-only tail).
 - Nothing uploads before the user consents; local mode makes no account calls.
 - The export note never promises what the file does not contain.
+- The three renderers size the card with `fitCardToCanvas` from the shared
+  placement table and the measured advance (`measureCharWidthRatio`), never a
+  nominal one, and paint the mesh at the timeline's time.

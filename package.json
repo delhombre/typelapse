@@ -4,6 +4,9 @@
 	"private": true,
 	"type": "module",
 	"description": "Open-source animated code snippet videos",
+	"bin": {
+		"typelapse": "cli/bin.mjs"
+	},
 	"packageManager": "pnpm@11.20.0",
 	"scripts": {
 		"dev": "vite",
@@ -13,6 +16,8 @@
 		"build": "tsc && tsc -p server/tsconfig.json && vite build",
 		"preview": "vite preview",
 		"demo:render": "tsx scripts/render-demo.mjs",
+		"typelapse": "node cli/bin.mjs",
+		"sharpness:render": "tsx scripts/render-sharpness.mjs",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "biome check .",
