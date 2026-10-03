@@ -19,8 +19,9 @@ export function SceneDeletionUndo({
 
 	return (
 		<motion.section
+			// Not live itself: it mounts with its words, which a screen reader would
+			// not read. Where it is used, a LiveRegion mounted ahead of it speaks.
 			aria-label={`Deleted scene ${sceneNumber}`}
-			aria-live="polite"
 			className={
 				compact
 					? "scene-list-undo"
@@ -48,4 +49,9 @@ export function SceneDeletionUndo({
 			</motion.button>
 		</motion.section>
 	);
+}
+
+/** What the LiveRegion beside each undo says once a scene is gone. */
+export function sceneDeletedMessage(sceneNumber: number | undefined): string {
+	return sceneNumber === undefined ? "" : `Scene ${sceneNumber} deleted.`;
 }

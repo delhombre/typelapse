@@ -2,23 +2,31 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<!-- viewport-fit=cover: the pages paint under the notch and pad their content
+		     back out with env(safe-area-inset-*). resizes-content: Android's keyboard
+		     shrinks the layout like iOS does, so the phone sheet's editor stays above it. -->
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+		/>
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" />
 		<title>Typelapse: sharp code videos from a pull request</title>
 		<!-- Paints the document in the theme the app will open in, before the bundle
-		     runs: the landing's stored choice or the OS on /, the OS in the studio
-		     (use-landing-theme.ts and theme-mode.store.ts decide the same way). -->
+		     runs: on / the landing's stored choice, elsewhere the studio's, and the OS
+		     before either (use-landing-theme.ts and theme-mode.store.ts decide the
+		     same way). -->
 		<script>
 			try {
 				var root = document.documentElement;
 				var osDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-				if (location.pathname === "/") {
-					var stored = localStorage.getItem("typelapse.landing-theme");
-					root.dataset.landingTheme =
-						stored === "light" || stored === "dark" ? stored : osDark ? "dark" : "light";
-				} else if (osDark) {
+				var landing = location.pathname === "/";
+				var stored = localStorage.getItem(landing ? "typelapse.landing-theme" : "typelapse.studio-theme");
+				var dark = stored === "dark" || (stored !== "light" && osDark);
+				if (landing) {
+					root.dataset.landingTheme = dark ? "dark" : "light";
+				} else if (dark) {
 					root.classList.add("dark");
 				}
 			} catch (error) {}
@@ -48,11 +56,11 @@
 			name="twitter:description"
 			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."
 		/>
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<!-- Two families, not four. Geist carries every sans role; Ioskeley Mono
-		     (self-hosted, below) carries every mono role. -->
-		<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet" />
+		<!-- Two families, not four. Geist carries every sans role, Ioskeley Mono every
+		     mono role, both served from /fonts (the faces come from the font registry,
+		     src/application/fonts/code-fonts.ts). Only the files the first paint sets
+		     text in are preloaded; the other subsets load when a character needs them. -->
+		<link rel="preload" href="/fonts/Geist-latin.woff2" as="font" type="font/woff2" crossorigin />
 		<link rel="preload" href="/fonts/IoskeleyMono-Regular.woff2" as="font" type="font/woff2" crossorigin />
 	</head>
 	<body>

@@ -394,7 +394,7 @@ export function Instrument({
 	const bodyHeight = 5 * WINDOW_FONT * LINE_HEIGHT_RATIO;
 
 	return (
-		<section className="@container mx-auto w-full max-w-5xl px-6">
+		<section className="@container mx-auto w-full max-w-5xl lp-gutter">
 			{/* The stage: a box the frame is centred in, sized by CSS so it gives back
 			    height on a short viewport instead of pushing the dock past the fold.
 			    Its height is also what keeps the dock still while the ratio cycles.

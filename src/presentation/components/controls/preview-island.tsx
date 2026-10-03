@@ -94,8 +94,6 @@ export function PreviewIsland({
 	const isPlaying = useSnippetStore((s) => s.isPlaying);
 	const isPreparing = useSnippetStore((s) => s.isPreparing);
 	const currentStepIndex = useSnippetStore((s) => s.currentStepIndex);
-	const playbackProgress = useSnippetStore((s) => s.playbackProgress);
-	const playback = useSnippetStore((s) => s.playback);
 	const play = useSnippetStore((s) => s.play);
 	const pause = useSnippetStore((s) => s.pause);
 	const setCurrentStepIndex = useSnippetStore((s) => s.setCurrentStepIndex);
@@ -361,9 +359,6 @@ export function PreviewIsland({
 
 	const face = transportFace(isPreparing, isPlaying);
 	const label = transportLabel(face);
-	const fill = playback
-		? Math.min(Math.max(playbackProgress, 0), 1)
-		: playbackFill({ isPlaying, playbackProgress, currentStepIndex, totalSteps });
 	const dots = showsDots(totalSteps, narrow ? NARROW_MAX_DOTS : MAX_DOTS);
 	const selection: SocialPlatform | "off" =
 		resolveSocialPlatform(enabled, platform, width, height) ?? "off";
@@ -565,7 +560,7 @@ export function PreviewIsland({
 									    dots announce the step and the counter announces the run, so a
 									    third voice for the same position would only be noise. */}
 									<div className="si-track" aria-hidden="true">
-										<div className="si-fill" style={{ width: `${fill * 100}%` }} />
+										<IslandFill totalSteps={totalSteps} />
 									</div>
 
 									{dots && (
@@ -712,6 +707,24 @@ export function PreviewIsland({
  * the clusters are not the same size and a sheet that jumped between them would
  * read as four sheets rather than one that changed its mind.
  */
+/**
+ * The track's fill, the island's one reader of the clock. It subscribes on its
+ * own so a playback tick repaints this bar and not the island around it.
+ */
+function IslandFill({ totalSteps }: { totalSteps: number }) {
+	const fill = useSnippetStore((s) =>
+		s.playback
+			? Math.min(Math.max(s.playbackProgress, 0), 1)
+			: playbackFill({
+					isPlaying: s.isPlaying,
+					playbackProgress: s.playbackProgress,
+					currentStepIndex: s.currentStepIndex,
+					totalSteps,
+				}),
+	);
+	return <div className="si-fill" style={{ width: `${fill * 100}%` }} />;
+}
+
 function ClusterSheet({
 	cluster,
 	reduce,

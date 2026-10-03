@@ -10,7 +10,8 @@ import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { NoticeHost } from "@/presentation/components/ui/notice-host";
 import { StudioTooltipProvider } from "@/presentation/components/ui/studio-tooltip";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
-import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import { applyStudioTheme, useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import { useEffect } from "react";
 
 setHighlighter(shikiAdapter);
 
@@ -22,6 +23,10 @@ useSnippetStore.getState().rebuildPlan();
 /** The complete Studio lives behind the /app route chunk. Nothing in this
  * module is evaluated while a visitor is only reading the landing page. */
 export function StudioRoute() {
+	// In an effect, not at module load: arriving from the landing, its cleanup
+	// hands `theme-color` back to index.html's values after this module has run.
+	useEffect(() => applyStudioTheme(useThemeModeStore.getState().mode), []);
+
 	return (
 		<StudioTooltipProvider>
 			<StudioPersistence />

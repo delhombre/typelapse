@@ -14,7 +14,18 @@ const StudioRoute = lazy(() =>
 export function AppRoutes() {
 	return (
 		<Routes>
-			<Route path="/" element={<LandingPage />} />
+			<Route
+				path="/"
+				element={
+					<RouteErrorBoundary
+						heading="This page did not load"
+						message="Reload to try again, or go straight to the studio."
+						offerStudio
+					>
+						<LandingPage />
+					</RouteErrorBoundary>
+				}
+			/>
 			<Route
 				path="/app"
 				element={

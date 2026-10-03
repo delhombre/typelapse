@@ -13,7 +13,15 @@ import {
 	openStudioProjectDocument,
 } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { type ChangeEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import {
+	type ChangeEvent,
+	type KeyboardEvent as ReactKeyboardEvent,
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import {
 	Add,
 	BranchDown,
@@ -53,6 +61,7 @@ export function StudioSourceHub() {
 	const [importing, setImporting] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	const menuRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const mediaInputRef = useRef<HTMLInputElement>(null);
 	const reduce = useReducedMotion() === true;
@@ -60,6 +69,16 @@ export function StudioSourceHub() {
 	const selectAudioCue = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
 
 	const close = useCallback(() => setView(null), []);
+
+	// A menu takes focus when it opens, so the arrows below have somewhere to
+	// start from; a keyboard user used to tab through the page to reach it.
+	useEffect(() => {
+		if (view === "menu") {
+			menuRef.current
+				?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')
+				?.focus();
+		}
+	}, [view]);
 
 	useEffect(() => {
 		if (view === null) {
@@ -227,8 +246,10 @@ export function StudioSourceHub() {
 			<AnimatePresence>
 				{view === "menu" && (
 					<motion.div
+						ref={menuRef}
 						role="menu"
 						aria-label="Source options"
+						onKeyDown={walkMenu}
 						className="sc-source-menu"
 						initial={
 							reduce ? { opacity: 0 } : { opacity: 0, y: -5, scale: 0.97, filter: "blur(4px)" }
@@ -319,6 +340,34 @@ export function StudioSourceHub() {
 			/>
 		</div>
 	);
+}
+
+/** The keys a menu answers to (WAI-ARIA menu pattern): the arrows wrap, Home and End jump. */
+function walkMenu(event: ReactKeyboardEvent<HTMLDivElement>): void {
+	const items = [
+		...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'),
+	];
+	const index = items.findIndex((item) => item === document.activeElement);
+	const last = items.length - 1;
+	const next =
+		event.key === "ArrowDown"
+			? index === last
+				? 0
+				: index + 1
+			: event.key === "ArrowUp"
+				? index <= 0
+					? last
+					: index - 1
+				: event.key === "Home"
+					? 0
+					: event.key === "End"
+						? last
+						: null;
+	if (next === null || items.length === 0) {
+		return;
+	}
+	event.preventDefault();
+	items[next]?.focus();
 }
 
 function SourceChoice({

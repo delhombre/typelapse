@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
+import { addTextLayer } from "@/application/project/multimedia-authoring";
+import { createStudioCompositionDocument } from "@/application/project/studio-composition";
+import { TEMPLATE_CATALOG } from "@/application/templates/catalog";
 import { MobileShell } from "@/presentation/components/layout/mobile-shell";
 import { StudioTooltipProvider } from "@/presentation/components/ui/studio-tooltip";
 import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+	readStudioCompositionSnapshot,
+	useStudioCompositionSelectionStore,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -124,5 +132,35 @@ describe("the phone studio", () => {
 		expect(drop.defaultPrevented).toBe(true);
 		expect(imports.importStudioMediaFiles).toHaveBeenCalledWith([still]);
 		expect(container.querySelector(".sc-drop-veil[data-active]")).toBeNull();
+	});
+
+	it("brings the code back once a layer is selected, and names the section after what it edits", () => {
+		// #109: a layer picked on the stage covered the code editor in the sheet
+		// with its inspector, nothing brought the code back, and the label above
+		// the inspector still said "Code".
+		const project = TEMPLATE_CATALOG[0]?.project;
+		if (!project) throw new Error("The template catalog must contain a project");
+		useSnippetStore.getState().importFromJson(JSON.stringify(project));
+		useStudioCompositionStore
+			.getState()
+			.loadDocument(createStudioCompositionDocument(readStudioCompositionSnapshot()));
+		useStudioCompositionSelectionStore.getState().selectAudioCue(null);
+		const sceneId = useStudioCompositionStore.getState().selectedSceneId;
+		if (!sceneId) throw new Error("The composition must have a selected scene");
+		act(() => {
+			const composition = useStudioCompositionStore.getState();
+			composition.transact((draft) => addTextLayer(draft, sceneId, { id: "title", text: "Title" }));
+			composition.selectBlock(sceneId, "title");
+		});
+		shell();
+		const sheet = screen.getByRole("dialog", { name: "Code and scenes" });
+		const editorSection = () => sheet.querySelector<HTMLElement>("[data-editor-section]");
+
+		expect(editorSection()?.querySelector(".sc-eyebrow")?.textContent).toBe("Text");
+
+		fireEvent.click(within(sheet).getByRole("button", { name: "Code" }));
+
+		expect(useStudioCompositionStore.getState().selectedBlockId).toBeNull();
+		expect(editorSection()?.querySelector(".sc-eyebrow")?.textContent).toBe("Code");
 	});
 });

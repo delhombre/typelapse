@@ -1895,7 +1895,9 @@
 	}
 }
 
-.studio-camera-root .sc-layer-strip {
+/* The row also lives in the phone's sheet, as the way back to the code once a
+   layer is selected there; vaul portals the sheet out of this root. */
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip {
 	display: grid;
 	gap: 7px;
 	padding: 8px;
@@ -1904,30 +1906,30 @@
 	background: color-mix(in srgb, var(--camera-pill) 72%, transparent);
 }
 
-.studio-camera-root .sc-layer-strip-head {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head {
 	display: flex;
 	height: 20px;
 	align-items: center;
 	justify-content: space-between;
 }
 
-.studio-camera-root .sc-layer-strip-head > div {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head > div {
 	display: flex;
 	gap: 1px;
 }
 
-.studio-camera-root .sc-layer-pills {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pills {
 	display: flex;
 	gap: 5px;
 	overflow-x: auto;
 	scrollbar-width: none;
 }
 
-.studio-camera-root .sc-layer-pills::-webkit-scrollbar {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pills::-webkit-scrollbar {
 	display: none;
 }
 
-.studio-camera-root .sc-layer-pill {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill {
 	display: inline-flex;
 	height: 29px;
 	flex: none;
@@ -1943,20 +1945,40 @@
 	font-weight: 560;
 }
 
-.studio-camera-root .sc-layer-pill[data-selected] {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-selected] {
 	border-color: var(--camera-line);
 	background: #fff;
 	box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
 	color: var(--camera-ink);
 }
 
-.studio-camera-root .sc-layer-pill[data-muted] {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-muted] {
 	opacity: 0.46;
 }
 
-.dark .studio-camera-root .sc-layer-pill[data-selected] {
+.dark :is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-selected] {
 	background: rgb(255 255 255 / 0.09);
 	box-shadow: none;
+}
+
+/* Under a finger a chip is a 44px target: at 29px the row in the sheet was the
+   one way back to the code, and the easiest thing on the screen to miss. */
+@media (pointer: coarse) {
+	.sc-sheet .sc-layer-pill {
+		height: 44px;
+		padding: 0 12px;
+		font-size: 12px;
+	}
+
+	/* The eye beside "Layers" too: the head grows to hold a full target. */
+	.sc-sheet .sc-layer-strip-head {
+		height: 44px;
+	}
+
+	.sc-sheet .sc-layer-strip-head button {
+		width: 44px;
+		height: 44px;
+	}
 }
 
 /* The phone's stage draws the same layer surface: these rules name its root
@@ -3763,7 +3785,7 @@
 
 /* Media chips carry file names now; a long one ends in an ellipsis and its
    tooltip holds the whole name. */
-.studio-camera-root .sc-layer-pill span {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill span {
 	max-width: 132px;
 	overflow: hidden;
 	text-overflow: ellipsis;

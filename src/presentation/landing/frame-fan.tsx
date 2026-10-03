@@ -169,7 +169,7 @@ export function FrameFan() {
 	};
 
 	return (
-		<section className="mx-auto w-full max-w-5xl px-6 py-6">
+		<section className="mx-auto w-full max-w-5xl lp-gutter py-6">
 			{/* Desktop: the fan. It switches on at `lg`, not `md`: the hand is about
 			    840px from the outer edge of one rotated corner card to the other, so
 			    at a 768px tablet it ran off both sides of the page and gave the whole

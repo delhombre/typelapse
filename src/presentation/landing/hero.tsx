@@ -129,7 +129,7 @@ export function Hero() {
 	   under the switch's hit area. */
 	return (
 		<section className="lp-hero flex min-h-[100svh] flex-col justify-center pt-16 pb-8 sm:pt-8">
-			<RevealGroup immediate className="mx-auto w-full max-w-[680px] px-6">
+			<RevealGroup immediate className="mx-auto w-full max-w-[680px] lp-gutter">
 				<RevealItem>
 					<h1 className="lp-hero-lead">
 						<strong>Typelapse.</strong> Code videos as sharp as their preview, made in your browser

@@ -20,6 +20,7 @@ import { Camera, ChevronLeft, Sliders } from "reicon-react";
 import { useCloudRenderCta, useCloudTarget } from "./cloud-render";
 import {
 	type ClusterId,
+	DEVICE_CANNOT_ENCODE,
 	FPS_OPTIONS,
 	NOTHING_TO_RENDER,
 	RenderCtaLabel,
@@ -549,7 +550,7 @@ function ExportMode() {
 						// saying why reads as a bug rather than as this browser's limit.
 						title:
 							deviceSupported === false
-								? "This browser has no encoder for the selected format and size."
+								? DEVICE_CANNOT_ENCODE
 								: "Renders in this tab. Nothing is uploaded, and no server has to be running.",
 						disabled: deviceSupported === false,
 					},

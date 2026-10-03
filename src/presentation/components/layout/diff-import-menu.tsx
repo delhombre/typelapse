@@ -1,6 +1,7 @@
 import { classifySource } from "@/application/import/classify-source";
 import { importConfirmLabel, importReplaceQuestion } from "@/application/import/import-wording";
 import { resolvePrUrl } from "@/application/import/pr-url";
+import { BusyLabel } from "@/presentation/components/ui/busy-label";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { type ImportPlayMode, useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
@@ -254,7 +255,7 @@ export function DiffImportMenu({
 										transition={springs.snappy}
 										className="flex h-8 items-center justify-center rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
 									>
-										{loading ? <Spinner /> : "Apply"}
+										<BusyLabel busy={loading}>Apply</BusyLabel>
 									</motion.button>
 								</div>
 								{error && (
@@ -305,15 +306,5 @@ function ModeToggle({
 				);
 			})}
 		</div>
-	);
-}
-
-function Spinner() {
-	return (
-		<svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" role="img">
-			<title>Loading</title>
-			<circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
-			<path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-		</svg>
 	);
 }

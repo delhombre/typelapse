@@ -1,6 +1,8 @@
 import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { PreviewIsland } from "@/presentation/components/controls/preview-island";
+import { StudioLayerStrip } from "@/presentation/components/editor/studio-layer-strip";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
+import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useState } from "react";
@@ -61,6 +63,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const [snap, setSnap] = useState<number | string | null>(PEEK);
 	const [sheetRaised, setSheetRaised] = useState(false);
 	const isPeek = snap === PEEK;
+	const editorKind = useEditorKind();
 	const reduce = useReducedMotion() === true;
 	// A tablet in portrait gets this layout, and it can drag a file in from
 	// another app: it lands where it does on a desktop, in the selected scene.
@@ -143,7 +146,8 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 							<motion.div
 								// Over the full editor the instrument sits at the bottom of the
 								// screen: the end of the sheet scrolls clear of it.
-								className={`flex flex-col gap-6 px-5 pt-2 ${
+								// Landscape puts the notch on a side: the sheet's content clears it.
+								className={`flex flex-col gap-6 pt-2 pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] ${
 									snap === FULL
 										? "pb-[calc(5rem+env(safe-area-inset-bottom))]"
 										: "pb-[max(1.5rem,env(safe-area-inset-bottom))]"
@@ -157,8 +161,12 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 									{stepBuilder}
 								</section>
 
-								<section className="flex min-h-0 flex-col gap-3">
-									<span className="sc-eyebrow">Code</span>
+								{/* The layer row is the desktop card's toggle: once a layer is picked
+								    on the stage its inspector covers the code, and the Code chip (or the
+								    selected chip pressed again) is the way back. */}
+								<section className="flex min-h-0 flex-col gap-3" data-editor-section>
+									<span className="sc-eyebrow">{editorKind}</span>
+									<StudioLayerStrip />
 									<div className="h-[320px]">{editor}</div>
 								</section>
 							</motion.div>

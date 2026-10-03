@@ -1,6 +1,10 @@
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { MAX_ANNOTATION_LENGTH, type Step } from "@/domain/entities/step";
-import { SceneDeletionUndo } from "@/presentation/components/ui/scene-deletion-undo";
+import { LiveRegion } from "@/presentation/components/ui/live-region";
+import {
+	SceneDeletionUndo,
+	sceneDeletedMessage,
+} from "@/presentation/components/ui/scene-deletion-undo";
 import { SceneDurationInput } from "@/presentation/components/ui/scene-duration-input";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
@@ -22,15 +26,14 @@ function getStepPreview(code: string): string {
 }
 
 export function StepBuilder() {
-	const {
-		snippet,
-		captureStep,
-		addBlankScene,
-		updateStepDuration,
-		reorderSteps,
-		currentStepIndex,
-		setCurrentStepIndex,
-	} = useSnippetStore();
+	// Field by field: the whole store changes on every playback tick.
+	const snippet = useSnippetStore((s) => s.snippet);
+	const captureStep = useSnippetStore((s) => s.captureStep);
+	const addBlankScene = useSnippetStore((s) => s.addBlankScene);
+	const updateStepDuration = useSnippetStore((s) => s.updateStepDuration);
+	const reorderSteps = useSnippetStore((s) => s.reorderSteps);
+	const currentStepIndex = useSnippetStore((s) => s.currentStepIndex);
+	const setCurrentStepIndex = useSnippetStore((s) => s.setCurrentStepIndex);
 	const steps = snippet.steps;
 	const { pendingDeletion, deleteScene, undoDeletion } = useSceneDeletion();
 
@@ -149,6 +152,7 @@ export function StepBuilder() {
 				</div>
 			</div>
 
+			<LiveRegion message={sceneDeletedMessage(pendingDeletion?.sceneNumber)} />
 			<AnimatePresence initial={false}>
 				{pendingDeletion && (
 					<SceneDeletionUndo

@@ -172,4 +172,28 @@ describe("StudioSourceHub keyboard exits", () => {
 
 		expect(document.activeElement).toBe(trigger);
 	});
+
+	it("is a menu a keyboard can walk: focus lands on the first choice and the arrows move it", async () => {
+		const { view } = openHub();
+		const items = view.getAllByRole("menuitem");
+		const first = items[0];
+		const last = items[items.length - 1];
+
+		await waitFor(() => expect(document.activeElement).toBe(first));
+
+		fireEvent.keyDown(document.activeElement ?? document, { key: "ArrowDown" });
+		expect(document.activeElement).toBe(items[1]);
+
+		fireEvent.keyDown(document.activeElement ?? document, { key: "End" });
+		expect(document.activeElement).toBe(last);
+
+		fireEvent.keyDown(document.activeElement ?? document, { key: "ArrowDown" });
+		expect(document.activeElement).toBe(first);
+
+		fireEvent.keyDown(document.activeElement ?? document, { key: "ArrowUp" });
+		expect(document.activeElement).toBe(last);
+
+		fireEvent.keyDown(document.activeElement ?? document, { key: "Home" });
+		expect(document.activeElement).toBe(first);
+	});
 });

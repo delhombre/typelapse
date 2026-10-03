@@ -1,10 +1,7 @@
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
+import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
 import { springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
-import {
-	useStudioCompositionSelectionStore,
-	useStudioCompositionStore,
-} from "@/presentation/stores/studio-composition.store";
 import { motion } from "motion/react";
 import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "reicon-react";
@@ -62,25 +59,7 @@ export function SceneCodeCard({
 }) {
 	const language = useSnippetStore((s) => s.snippet.language);
 	const setLanguage = useSnippetStore((s) => s.setLanguage);
-	const selectedAudioCueId = useStudioCompositionSelectionStore(
-		(state) => state.selectedAudioCueId,
-	);
-	const composition = useStudioCompositionStore();
-	const selectedScene = composition.value.project.scenes.find(
-		(scene) => scene.id === composition.selectedSceneId,
-	);
-	const selectedBlock = selectedScene?.blocks.find(
-		(block) => block.id === composition.selectedBlockId,
-	);
-	const editorKind = selectedAudioCueId
-		? "Audio"
-		: selectedBlock?.kind === "text"
-			? "Text"
-			: selectedBlock?.kind === "image"
-				? "Image"
-				: selectedBlock?.kind === "video"
-					? "Video"
-					: "Code";
+	const editorKind = useEditorKind();
 	const isCode = editorKind === "Code";
 
 	return (

@@ -28,8 +28,9 @@ export const REVEAL_DURATION_REDUCED = 0.4;
 export const PRESS_SCALE = 0.97;
 export const PRESS_DURATION = 0.16;
 
-/** Max content width + responsive side padding: the shared grid frame. */
-export const CONTAINER = "mx-auto w-full max-w-[1100px] px-6 sm:px-8";
+/** Max content width + responsive side padding: the shared grid frame. The
+    gutter is `.lp-gutter` (app.css), which also clears a landscape notch. */
+export const CONTAINER = "mx-auto w-full max-w-[1100px] lp-gutter sm:[--lp-gutter:2rem]";
 
 /** Vertical rhythm between full sections (80 / 96 / 112px).
     Was 96 / 128 / 160, which put 320px of empty paper between two sections whose

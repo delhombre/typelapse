@@ -1,5 +1,6 @@
+import { LiveRegion } from "@/presentation/components/ui/live-region";
 import { springs } from "@/presentation/motion";
-import { useExportStore } from "@/presentation/stores/export.store";
+import { type ExportOutcome, useExportStore } from "@/presentation/stores/export.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check } from "reicon-react";
 import { useCloudStatusView } from "./cloud-render";
@@ -40,123 +41,145 @@ export function ExportStatus() {
 	const leave = reduce ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.99 };
 	const transition = reduce ? { duration: 0 } : springs.snappy;
 
+	// The visible rows come and go with their words, so they speak through two
+	// regions that stay mounted instead, in the same order of precedence.
+	const failure = !progress
+		? outcome?.kind === "failed"
+			? outcome.message
+			: !outcome && cloud?.kind === "problem"
+				? cloud.text
+				: ""
+		: "";
+	const news = progress
+		? PHASE_LABELS[progress.phase]
+		: outcome?.kind === "done"
+			? savedSentence(outcome)
+			: !outcome && cloud && cloud.kind !== "problem"
+				? cloud.text
+				: "";
+
 	return (
-		<AnimatePresence mode="wait">
-			{progress && (
-				<motion.output
-					key="progress"
-					initial={enter}
-					animate={settled}
-					exit={leave}
-					transition={transition}
-					data-testid="export-status"
-					className="si-status"
-				>
-					{/* The bar and the percentage are for eyes. A live region that
-					    re-announced a number every few frames would be unusable, so the
-					    screen reader is told the phase once and left alone. */}
-					<span className="sr-only">{PHASE_LABELS[progress.phase]}</span>
-					<div aria-hidden="true" className="si-status-track">
-						<motion.div
-							className="si-status-fill"
-							// An indeterminate phase gets a third of a bar rather than a fake
-							// number: the server streams nothing back and cannot be quoted.
-							animate={{ width: `${(progress.ratio ?? 0.33) * 100}%` }}
-							transition={reduce ? { duration: 0 } : springs.default}
-						/>
-					</div>
-					<span aria-hidden="true" className="si-status-text">
-						{progress.message}
-					</span>
-					<button type="button" onClick={cancelExport} className="si-button">
-						<span className="si-seg-label">Cancel</span>
-					</button>
-				</motion.output>
-			)}
-
-			{!progress && outcome && (
-				<motion.div
-					key={outcome.kind}
-					initial={enter}
-					animate={settled}
-					exit={leave}
-					transition={transition}
-					role={outcome.kind === "failed" ? "alert" : "status"}
-					aria-live={outcome.kind === "failed" ? "assertive" : "polite"}
-					data-testid="export-status"
-					className="si-status"
-					data-tone={outcome.kind === "failed" ? "failed" : undefined}
-				>
-					<span aria-hidden="true" className="si-status-mark">
-						{outcome.kind === "done" ? <CheckIcon /> : "!"}
-					</span>
-					<span className="si-status-text si-status-message">
-						{outcome.kind === "done" ? (
-							<>
-								Saved <strong>{outcome.filename}</strong> · {formatBytes(outcome.bytes)} ·{" "}
-								{(outcome.elapsedMs / 1000).toFixed(1)}s{" "}
-								{outcome.target === "device" ? "on this device" : "on the server"}
-								{outcome.note ? ` · ${outcome.note}` : ""}
-							</>
-						) : (
-							outcome.message
-						)}
-					</span>
-					<button
-						type="button"
-						onClick={dismissOutcome}
-						aria-label="Dismiss export status"
-						className="si-button"
+		<>
+			<LiveRegion message={news} />
+			<LiveRegion message={failure} urgent />
+			<AnimatePresence mode="wait">
+				{progress && (
+					<motion.div
+						key="progress"
+						initial={enter}
+						animate={settled}
+						exit={leave}
+						transition={transition}
+						data-testid="export-status"
+						className="si-status"
 					>
-						<span aria-hidden="true">×</span>
-					</button>
-				</motion.div>
-			)}
-
-			{!progress && !outcome && cloud && (
-				<motion.div
-					key={cloud.key}
-					initial={enter}
-					animate={settled}
-					exit={leave}
-					transition={transition}
-					role={cloud.kind === "problem" ? "alert" : "status"}
-					aria-live={cloud.kind === "problem" ? "assertive" : "polite"}
-					data-testid="cloud-render-status"
-					className="si-status"
-					data-tone={cloud.kind === "problem" ? "failed" : undefined}
-				>
-					{cloud.kind === "progress" ? (
-						// The server reports a phase, never a fraction: a third of a bar,
-						// like the server path, rather than a number nobody measured.
+						{/* The bar and the percentage are for eyes. A live region that
+						    re-announced a number every few frames would be unusable, so the
+						    screen reader is told the phase once and left alone. */}
 						<div aria-hidden="true" className="si-status-track">
-							<div className="si-status-fill" style={{ width: "33%" }} />
+							<motion.div
+								className="si-status-fill"
+								// An indeterminate phase gets a third of a bar rather than a fake
+								// number: the server streams nothing back and cannot be quoted.
+								animate={{ width: `${(progress.ratio ?? 0.33) * 100}%` }}
+								transition={reduce ? { duration: 0 } : springs.default}
+							/>
 						</div>
-					) : cloud.kind === "note" ? null : (
-						<span aria-hidden="true" className="si-status-mark">
-							{cloud.kind === "done" ? <CheckIcon /> : "!"}
+						<span aria-hidden="true" className="si-status-text">
+							{progress.message}
 						</span>
-					)}
-					<span className="si-status-text si-status-message">{cloud.text}</span>
-					{cloud.action && (
-						<button type="button" onClick={cloud.action.run} className="si-button">
-							<span className="si-seg-label">{cloud.action.label}</span>
+						<button type="button" onClick={cancelExport} className="si-button">
+							<span className="si-seg-label">Cancel</span>
 						</button>
-					)}
-					{cloud.dismiss && (
+					</motion.div>
+				)}
+
+				{!progress && outcome && (
+					<motion.div
+						key={outcome.kind}
+						initial={enter}
+						animate={settled}
+						exit={leave}
+						transition={transition}
+						data-testid="export-status"
+						className="si-status"
+						data-tone={outcome.kind === "failed" ? "failed" : undefined}
+					>
+						<span aria-hidden="true" className="si-status-mark">
+							{outcome.kind === "done" ? <CheckIcon /> : "!"}
+						</span>
+						<span className="si-status-text si-status-message">
+							{outcome.kind === "done" ? (
+								<>
+									Saved <strong>{outcome.filename}</strong> · {formatBytes(outcome.bytes)} ·{" "}
+									{(outcome.elapsedMs / 1000).toFixed(1)}s{" "}
+									{outcome.target === "device" ? "on this device" : "on the server"}
+									{outcome.note ? ` · ${outcome.note}` : ""}
+								</>
+							) : (
+								outcome.message
+							)}
+						</span>
 						<button
 							type="button"
-							onClick={cloud.dismiss}
-							aria-label="Dismiss cloud render status"
+							onClick={dismissOutcome}
+							aria-label="Dismiss export status"
 							className="si-button"
 						>
 							<span aria-hidden="true">×</span>
 						</button>
-					)}
-				</motion.div>
-			)}
-		</AnimatePresence>
+					</motion.div>
+				)}
+
+				{!progress && !outcome && cloud && (
+					<motion.div
+						key={cloud.key}
+						initial={enter}
+						animate={settled}
+						exit={leave}
+						transition={transition}
+						data-testid="cloud-render-status"
+						className="si-status"
+						data-tone={cloud.kind === "problem" ? "failed" : undefined}
+					>
+						{cloud.kind === "progress" ? (
+							// The server reports a phase, never a fraction: a third of a bar,
+							// like the server path, rather than a number nobody measured.
+							<div aria-hidden="true" className="si-status-track">
+								<div className="si-status-fill" style={{ width: "33%" }} />
+							</div>
+						) : cloud.kind === "note" ? null : (
+							<span aria-hidden="true" className="si-status-mark">
+								{cloud.kind === "done" ? <CheckIcon /> : "!"}
+							</span>
+						)}
+						<span className="si-status-text si-status-message">{cloud.text}</span>
+						{cloud.action && (
+							<button type="button" onClick={cloud.action.run} className="si-button">
+								<span className="si-seg-label">{cloud.action.label}</span>
+							</button>
+						)}
+						{cloud.dismiss && (
+							<button
+								type="button"
+								onClick={cloud.dismiss}
+								aria-label="Dismiss cloud render status"
+								className="si-button"
+							>
+								<span aria-hidden="true">×</span>
+							</button>
+						)}
+					</motion.div>
+				)}
+			</AnimatePresence>
+		</>
 	);
+}
+
+function savedSentence(outcome: Extract<ExportOutcome, { kind: "done" }>): string {
+	const where = outcome.target === "device" ? "on this device" : "on the server";
+	const note = outcome.note ? ` ${outcome.note}.` : "";
+	return `Saved ${outcome.filename}, ${formatBytes(outcome.bytes)}, in ${(outcome.elapsedMs / 1000).toFixed(1)}s ${where}.${note}`;
 }
 
 function formatBytes(bytes: number): string {

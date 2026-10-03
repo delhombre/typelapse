@@ -63,10 +63,6 @@ export const CLUSTERS: { id: ClusterId; label: string }[] = [
 	{ id: "export", label: "Export" },
 ];
 
-// The default face, fetched once at module load exactly as the old strip did:
-// the picker has to be able to show what it offers before anything is chosen.
-loadGoogleFont("JetBrains+Mono");
-
 /**
  * What the shape and size chips fall back to when the stored dimensions match
  * no preset — a plan-clamped export, or a hand-edited link. Neither row lights
@@ -460,7 +456,7 @@ function ExportCluster() {
 							label: "This device",
 							title:
 								deviceSupported === false
-									? "This browser has no encoder for the selected format and size."
+									? DEVICE_CANNOT_ENCODE
 									: "Renders in this tab. Nothing is uploaded, and no server has to be running.",
 							disabled: deviceSupported === false,
 						},
@@ -512,6 +508,11 @@ function ExportCluster() {
 						shown={isExporting ? "Rendering…" : (cloudCta.label ?? `Render · ${current.aspect}`)}
 					/>
 				</button>
+				{/* A tooltip never shows on a phone, and a disabled button is not
+				    reached by a screen reader: the reason it is greyed is on the page. */}
+				{deviceSupported === false ? (
+					<p className="si-cluster-note">{DEVICE_CANNOT_ENCODE}</p>
+				) : null}
 			</ClusterGroup>
 		</>
 	);
@@ -545,6 +546,9 @@ export const FPS_OPTIONS = [24, 30, 60].map((rate) => ({
 }));
 
 export const NOTHING_TO_RENDER = "A video needs at least one scene.";
+
+/** Why "This device" is greyed: WebCodecs said no to the chosen format and size. */
+export const DEVICE_CANNOT_ENCODE = "This browser cannot encode this format at this size.";
 
 /** D3: Render is on from one scene, and for authored media such as audio alone. */
 export function useCanRender(): boolean {
