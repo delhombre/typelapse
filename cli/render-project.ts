@@ -9,7 +9,9 @@
  */
 
 import { focusLineSet, parseLineRanges } from "@/application/focus/line-ranges";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
+import type { HostedRenderOptions } from "@/application/render/hosted-render-job";
 import { THEMES } from "@/presentation/components/controls/control-presets";
 
 /** What the export panel decides rather than the project: the encode. */
@@ -123,6 +125,39 @@ export async function renderProject(
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
 		body: JSON.stringify(renderRequestBody(payload, settings)),
+	});
+	if (!response.ok) {
+		const detail = await response.text();
+		let message = detail;
+		try {
+			message = (JSON.parse(detail) as { error?: string }).error ?? detail;
+		} catch {
+			// Not JSON: the text is the message.
+		}
+		throw new RenderFailure(response.status, message);
+	}
+	return new Uint8Array(await response.arrayBuffer());
+}
+
+/**
+ * A layered V2 project with no media → the bytes the studio's Server export of
+ * it would download: the shipped local multimedia route, in process, with no
+ * asset parts because the document names none.
+ */
+export async function renderLayeredDocument(
+	document: ProjectDocumentV2,
+	options: HostedRenderOptions,
+): Promise<Uint8Array> {
+	process.env.NODE_ENV ??= "production";
+	const { createLocalMultimediaRenderRoute } = await import(
+		"../server/routes/local-multimedia-render"
+	);
+	const form = new FormData();
+	form.set("document", JSON.stringify(document));
+	form.set("options", JSON.stringify(options));
+	const response = await createLocalMultimediaRenderRoute().request("/render/v2", {
+		method: "POST",
+		body: form,
 	});
 	if (!response.ok) {
 		const detail = await response.text();

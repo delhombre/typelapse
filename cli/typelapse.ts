@@ -10,12 +10,19 @@
 
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
+import type { HostedRenderOptions } from "@/application/render/hosted-render-job";
 import { fetchCommitDiff, fetchPrWalkthrough } from "@/infrastructure/import/pr-import";
 import { outputSettingsFor } from "../server/remotion/output-settings";
 import { type CliFormat, type RenderOptions, parseCliArgs } from "./args";
 import { CliError, EXIT_RENDER, EXIT_USAGE, type FailureCode } from "./errors";
-import { RenderFailure, type RenderSettings, renderProject } from "./render-project";
+import {
+	RenderFailure,
+	type RenderSettings,
+	renderLayeredDocument,
+	renderProject,
+} from "./render-project";
 import {
 	DEFAULT_STUDIO_URL,
 	type SourceDeps,
@@ -39,6 +46,8 @@ export interface CliIO extends SourceDeps {
 	stdout: (text: string) => void;
 	stderr: (text: string) => void;
 	render: (project: ProjectPayload, settings: RenderSettings) => Promise<Uint8Array>;
+	/** A project with text layers and no media, through the local multimedia route. */
+	renderLayered: (document: ProjectDocumentV2, options: HostedRenderOptions) => Promise<Uint8Array>;
 	measure: (path: string, format: CliFormat) => Promise<MeasuredVideo>;
 }
 
@@ -105,6 +114,10 @@ async function render(options: RenderOptions, io: CliIO): Promise<void> {
 	const studioBase = options.open ? studioBaseOf(options, io.env) : null;
 
 	const source = await resolveSource(options.source, io);
+	if (source.layered) {
+		await renderLayered(source.layered, source.arg, options, io);
+		return;
+	}
 	const project = applyOverrides(source.project, {
 		theme: options.theme,
 		size: options.size,
@@ -130,7 +143,61 @@ async function render(options: RenderOptions, io: CliIO): Promise<void> {
 		`Rendering ${source.arg} as ${options.format}, ${planned.width}x${planned.height} at ${planned.fps} fps${capped}…`,
 	);
 
-	const bytes = await renderOrFail(io, project, settings);
+	const bytes = await renderOrFail(() => io.render(project, settings));
+	const studioUrl = studioBase ? () => studioLink(source, project, studioBase) : null;
+	await deliver(path, bytes, options, io, studioUrl);
+}
+
+/**
+ * A project with a text layer: the multimedia route draws it, MP4 or WebM, at
+ * the project's own size and rate unless --size or --fps say otherwise. Its
+ * theme lives on each layer, so --theme has nothing single to change.
+ */
+async function renderLayered(
+	document: ProjectDocumentV2,
+	arg: string,
+	options: RenderOptions,
+	io: CliIO,
+): Promise<void> {
+	if (options.format === "gif") {
+		throw new CliError("A project with text layers renders as mp4 or webm, not gif", EXIT_USAGE);
+	}
+	if (options.theme) {
+		throw new CliError(
+			"A project with text layers keeps the theme of each layer, so change it in the studio",
+			EXIT_USAGE,
+		);
+	}
+	if (options.open) {
+		io.stderr(
+			"typelapse: a project with text layers opens in the studio with Open project file, so there is no link to print",
+		);
+	}
+	const { canvas, settings, title } = document.project;
+	const renderOptions: HostedRenderOptions = {
+		format: options.format,
+		width: options.size?.width ?? canvas.width,
+		height: options.size?.height ?? canvas.height,
+		fps: options.fps ?? settings.fps ?? 60,
+		includeAudio: false,
+		...(options.loop ? { loop: true } : {}),
+	};
+	const path = await outputPath(options.out, title, options.format, io.cwd);
+	io.stderr(
+		`Rendering ${arg} as ${options.format}, ${renderOptions.width}x${renderOptions.height} at ${renderOptions.fps} fps…`,
+	);
+	const bytes = await renderOrFail(() => io.renderLayered(document, renderOptions));
+	await deliver(path, bytes, options, io, null);
+}
+
+/** Write the file, read it back, and say what it is: the same result for every source. */
+async function deliver(
+	path: string,
+	bytes: Uint8Array,
+	options: RenderOptions,
+	io: CliIO,
+	studioLinkFor: (() => string) | null,
+): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, bytes);
 
@@ -143,7 +210,7 @@ async function render(options: RenderOptions, io: CliIO): Promise<void> {
 			EXIT_RENDER,
 		);
 	}
-	const studioUrl = studioBase ? studioLink(source, project, studioBase) : null;
+	const studioUrl = studioLinkFor ? studioLinkFor() : null;
 
 	if (options.json) {
 		io.stdout(
@@ -167,13 +234,9 @@ async function render(options: RenderOptions, io: CliIO): Promise<void> {
 	);
 }
 
-async function renderOrFail(
-	io: CliIO,
-	project: ProjectPayload,
-	settings: RenderSettings,
-): Promise<Uint8Array> {
+async function renderOrFail(run: () => Promise<Uint8Array>): Promise<Uint8Array> {
 	try {
-		return await io.render(project, settings);
+		return await run();
 	} catch (error) {
 		if (error instanceof RenderFailure && (error.status === 400 || error.status === 413)) {
 			// The route judged the request, not the machine: the project needs fixing.
@@ -268,6 +331,7 @@ export function defaultIO(): CliIO {
 		fetchPr: fetchPrWalkthrough,
 		fetchCommit: fetchCommitDiff,
 		render: renderProject,
+		renderLayered: renderLayeredDocument,
 		measure: measureVideo,
 	};
 }

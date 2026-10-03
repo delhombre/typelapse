@@ -24,6 +24,15 @@ const ROOT = resolve(__dirname, "../..");
 const DIFF = readFileSync(resolve(__dirname, "fixtures/greet.diff"), "utf8");
 const DEMO = JSON.parse(readFileSync(resolve(ROOT, "docs/demo.project.json"), "utf8"));
 
+/** These sources are code; a layered one has no V1 project to read. */
+async function resolveCode(arg: string, io: SourceDeps) {
+	const source = await resolveSource(arg, io);
+	if (!source.project) {
+		throw new Error(`${arg} resolved to a layered project`);
+	}
+	return source;
+}
+
 function deps(overrides: Partial<SourceDeps> = {}): SourceDeps {
 	return {
 		cwd: ROOT,
@@ -50,7 +59,7 @@ describe("resolveSource", () => {
 	it("reads a pull request through the studio's own PR import and keeps its title", async () => {
 		const io = deps();
 
-		const source = await resolveSource("https://github.com/octocat/Hello-World/pull/1/files", io);
+		const source = await resolveCode("https://github.com/octocat/Hello-World/pull/1/files", io);
 
 		expect(io.fetchPr).toHaveBeenCalledWith({ owner: "octocat", repo: "Hello-World", number: 1 });
 		expect(source.kind).toBe("pr");
@@ -60,7 +69,7 @@ describe("resolveSource", () => {
 	it("reads a commit the same way", async () => {
 		const io = deps();
 
-		const source = await resolveSource("github.com/octocat/Hello-World/commit/7fd1a60", io);
+		const source = await resolveCode("github.com/octocat/Hello-World/commit/7fd1a60", io);
 
 		expect(io.fetchCommit).toHaveBeenCalledWith({
 			owner: "octocat",
@@ -71,20 +80,20 @@ describe("resolveSource", () => {
 	});
 
 	it("reads a diff file relative to where the command was run", async () => {
-		const source = await resolveSource("tests/cli/fixtures/greet.diff", deps());
+		const source = await resolveCode("tests/cli/fixtures/greet.diff", deps());
 
 		expect(source.kind).toBe("diff");
 		expect(source.project).toEqual(projectFromDiff(DIFF));
 	});
 
 	it("reads a diff piped on stdin when the source is -", async () => {
-		const source = await resolveSource("-", deps());
+		const source = await resolveCode("-", deps());
 
 		expect(source.project).toEqual(projectFromDiff(DIFF));
 	});
 
 	it("reads a project file as written, with nothing filled in", async () => {
-		const source = await resolveSource("docs/demo.project.json", deps());
+		const source = await resolveCode("docs/demo.project.json", deps());
 
 		expect(source.kind).toBe("project");
 		expect(source.project).toMatchObject({
@@ -102,7 +111,7 @@ describe("resolveSource", () => {
 	it("rolls a code-only V2 document back to the project the render route reads", async () => {
 		const v2 = JSON.stringify(migrateV1ToV2(DEMO));
 
-		const source = await resolveSource("demo.v2.json", deps({ readText: async () => v2 }));
+		const source = await resolveCode("demo.v2.json", deps({ readText: async () => v2 }));
 
 		expect(source.project.steps.map((step) => step.code)).toEqual(
 			DEMO.steps.map((step: { code: string }) => step.code),
@@ -165,7 +174,7 @@ describe("studioLink", () => {
 
 	it("links a pull request by its URL, so the studio imports it the way the landing does", async () => {
 		const url = "https://github.com/octocat/Hello-World/pull/1";
-		const source = await resolveSource(url, deps());
+		const source = await resolveCode(url, deps());
 
 		const link = studioLink(source, source.project, "http://localhost:5173/app");
 
@@ -174,7 +183,7 @@ describe("studioLink", () => {
 	});
 
 	it("carries a file's project whole, overrides included, so the studio opens what was rendered", async () => {
-		const source = await resolveSource("docs/demo.project.json", deps());
+		const source = await resolveCode("docs/demo.project.json", deps());
 		const project = applyOverrides(source.project, { theme: "nord" });
 
 		const link = studioLink(source, project, "https://studio.example");

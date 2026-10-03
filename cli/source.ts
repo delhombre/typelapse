@@ -18,7 +18,10 @@ import {
 	resolvePrUrl,
 } from "@/application/import/pr-url";
 import { projectV2ToV1 } from "@/application/project/migrate-v1-project";
-import { parseProjectDocument } from "@/application/project/project-document";
+import {
+	type ProjectDocumentV2,
+	parseProjectDocument,
+} from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import type { Walkthrough } from "@/infrastructure/import/pr-import";
 import { THEMES } from "@/presentation/components/controls/control-presets";
@@ -27,12 +30,25 @@ import { CliError, EXIT_SOURCE, EXIT_USAGE } from "./errors";
 
 export type SourceKind = "pr" | "commit" | "diff" | "project";
 
-export interface ResolvedSource {
-	kind: SourceKind;
-	project: ProjectPayload;
-	/** Exactly what was passed, for the progress line and for a PR's studio link. */
-	arg: string;
-}
+export type ResolvedSource =
+	| {
+			kind: SourceKind;
+			project: ProjectPayload;
+			/** Exactly what was passed, for the progress line and for a PR's studio link. */
+			arg: string;
+			layered?: undefined;
+	  }
+	| {
+			kind: "project";
+			/**
+			 * A V2 project the code-only route cannot draw (a text layer) and that
+			 * names no media, so this one file is all of it: the multimedia route
+			 * renders it.
+			 */
+			layered: ProjectDocumentV2;
+			arg: string;
+			project?: undefined;
+	  };
 
 export interface SourceDeps {
 	/** Where relative paths are read from: the directory the command was typed in. */
@@ -63,7 +79,11 @@ export async function resolveSource(arg: string, deps: SourceDeps): Promise<Reso
 	}
 	const name = arg === "-" ? "stdin" : arg;
 	const text = arg === "-" ? await deps.readStdin() : await readLocal(arg, deps);
-	return { kind: kindOfText(text, name), project: projectFromText(text, name), arg };
+	const kind = kindOfText(text, name);
+	const read = projectFromText(text, name);
+	return "schemaVersion" in read
+		? { kind: "project", layered: read, arg }
+		: { kind, project: read, arg };
 }
 
 async function readLocal(arg: string, deps: SourceDeps): Promise<string> {
@@ -89,7 +109,7 @@ function kindOfText(text: string, name: string): SourceKind {
 	throw new CliError(`${name} is neither a Typelapse project file nor a unified diff`, EXIT_USAGE);
 }
 
-function projectFromText(text: string, name: string): ProjectPayload {
+function projectFromText(text: string, name: string): ProjectPayload | ProjectDocumentV2 {
 	try {
 		return isJsonObject(text) ? projectFromJson(text) : projectFromDiff(text);
 	} catch (error) {
@@ -102,10 +122,11 @@ function projectFromText(text: string, name: string): ProjectPayload {
 /**
  * The studio's own reader: the same validation `importFromJson` runs, and a
  * code-only V2 document rolled back to the shape the render route takes. A V2
- * document with images, video or audio needs the multimedia route and its
- * assets, which a single JSON file does not carry.
+ * document that cannot roll back (a text layer) comes back whole when it names
+ * no media; images, video or audio need their bytes, which a single JSON file
+ * does not carry.
  */
-function projectFromJson(text: string): ProjectPayload {
+function projectFromJson(text: string): ProjectPayload | ProjectDocumentV2 {
 	const parsed = parseProjectDocument(JSON.parse(text));
 	if (parsed.schemaVersion === 1) {
 		return parsed.document;
@@ -113,7 +134,10 @@ function projectFromJson(text: string): ProjectPayload {
 	try {
 		return projectV2ToV1(parsed.document);
 	} catch {
-		throw new Error("it holds images, video or audio, and the CLI renders code projects for now");
+		if (parsed.document.project.assets.length === 0) {
+			return parsed.document;
+		}
+		throw new Error("it holds images, video or audio, whose bytes a project file does not carry");
 	}
 }
 

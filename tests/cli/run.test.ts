@@ -32,6 +32,7 @@ function io(overrides: Partial<CliIO> = {}): CliIO {
 		fetchPr: async () => ({ diffText: DIFF, title: "Trim the name" }),
 		fetchCommit: async () => ({ diffText: DIFF, title: "trim" }),
 		render: vi.fn(async () => BYTES),
+		renderLayered: vi.fn(async () => BYTES),
 		measure: vi.fn(async () => ({
 			width: 1920,
 			height: 1080,
