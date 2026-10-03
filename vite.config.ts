@@ -16,7 +16,9 @@ export default defineConfig({
 	server: {
 		proxy: {
 			"/api": {
-				target: "http://localhost:3001",
+				// Several dev servers can run side by side, each against its own API
+				// process, when the port is not hardcoded.
+				target: process.env.TYPELAPSE_API_URL ?? "http://localhost:3001",
 				changeOrigin: true,
 			},
 		},
