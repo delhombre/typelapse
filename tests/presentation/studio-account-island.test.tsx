@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { PrivateAssetApiPort } from "@/application/assets/private-media-upload.port";
 import type { ClientAuthPort, ClientSession } from "@/application/auth/client-auth.port";
 import type {
@@ -361,5 +363,21 @@ describe("the /app shell", () => {
 		const island = container.querySelector(".sc-island-group-utilities .sc-account-island");
 		expect(island).not.toBeNull();
 		expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
+	});
+});
+
+describe("the account island's material", () => {
+	it("defines every token the account control reads in both studio shells", () => {
+		const read = (path: string) => readFileSync(resolve(__dirname, "../..", path), "utf8");
+		const control = read("src/presentation/components/multimedia/studio-account-control.css");
+		const island = read("src/presentation/components/layout/studio-account-island.css");
+		const used = new Set([...control.matchAll(/var\((--mm-[a-z-]+)/g)].map((match) => match[1]));
+		// The phone shell has no `.studio-camera-root`, so the mapping cannot sit under it.
+		const mapping = island.match(/^\.sc-account-island \{([^}]*)\}/m)?.[1] ?? "";
+
+		expect(used.size).toBeGreaterThan(0);
+		for (const token of used) {
+			expect(mapping, token).toContain(`${token}:`);
+		}
 	});
 });

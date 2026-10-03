@@ -5,6 +5,7 @@ import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
+import { hasAudibleMedia } from "@/application/render/scene-timeline";
 import { isPlayableProject } from "@/application/studio-timeline/playback";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
 import type { Snippet } from "@/domain/entities/snippet";
@@ -317,8 +318,8 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					filename,
 					startedAt,
 					watermarkText: resolved.watermark,
-					// The painter writes no audio track, cues included.
-					sound: sound || (authored?.project.audioCues.length ?? 0) > 0,
+					// The painter writes no audio track: no cue, no unmuted video's sound.
+					sound: sound || (authored ? hasAudibleMedia(authored) : false),
 					sizeNote,
 					composition: authored,
 					set,
@@ -629,11 +630,7 @@ async function renderStudioMultimedia(input: StudioMultimediaRenderInput): Promi
 				},
 			},
 		};
-		const includeAudio =
-			document.project.audioCues.length > 0 ||
-			document.project.scenes.some((scene) =>
-				scene.blocks.some((block) => block.kind === "video" && !block.muted),
-			);
+		const includeAudio = hasAudibleMedia(document);
 		input.set({
 			progress: { phase: "rendering", message: "Rendering media locally…", ratio: null },
 		});

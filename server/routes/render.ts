@@ -342,6 +342,9 @@ renderRoute.post(
 				colorSpace: output.colorSpace,
 				imageFormat: output.imageFormat,
 				jpegQuality: output.jpegQuality,
+				// Nothing to hear, no audio track: a silent AAC stream lengthens the file
+				// past the device export (the V2 renderer's `hasAudibleMedia` rule).
+				muted: audioDataUrl === undefined,
 				// A GIF's palette pass and a video's colour conversion are rewritten;
 				// everything else keeps the arguments Remotion built.
 				ffmpegOverride: ({ args }) =>

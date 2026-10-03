@@ -15,12 +15,8 @@ export class CloudRenderAdapter implements CloudExportPort {
 	async submitRender(request: CloudRenderRequest): Promise<CloudRenderJob> {
 		const res = await fetch(`${this.baseUrl}/render`, {
 			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				// Placeholder entitlement: a real impl sends a signed session token
-				// and the server verifies the subscription; never trust this header.
-				"x-typelapse-plan": "pro",
-			},
+			// No plan header: the server resolves entitlement from the session.
+			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(request),
 		});
 		if (!res.ok) {

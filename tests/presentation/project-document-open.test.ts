@@ -93,7 +93,6 @@ describe("opening a project document", () => {
 		expect(scenes).toHaveLength(3);
 		expect(textLayerCount()).toBe(0);
 		expect(hasAuthoredMultimedia()).toBe(false);
-		expect(useStudioCompositionStore.getState().canUndo).toBe(false);
 	});
 
 	it("leaves both stores untouched when the file is refused", () => {

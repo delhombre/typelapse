@@ -27,5 +27,5 @@ export class CliError extends Error {
 /** Trim and end on a full stop, so messages from other layers read as the CLI's own. */
 export function sentence(message: string): string {
 	const text = message.trim().replace(/\s+/g, " ");
-	return /[.?]$/.test(text) ? text : `${text}.`;
+	return /[.?!]$/.test(text) ? text : `${text}.`;
 }

@@ -4,7 +4,6 @@ import {
 } from "@/application/project/hydrate-project-document";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { serializeProjectDocument } from "@/application/project/serialize-project-document";
-import { createStarterMultimediaProject } from "@/application/project/starter-multimedia-project";
 import type { Project } from "@/domain/entities/project";
 import { create } from "zustand";
 
@@ -15,37 +14,13 @@ interface EditorSnapshot {
 }
 
 export interface ProjectStoreState extends EditorSnapshot {
-	readonly canUndo: boolean;
-	readonly canRedo: boolean;
 	selectScene(sceneId: string | null): void;
 	selectBlock(sceneId: string, blockId: string | null): void;
 	loadDocument(document: ProjectDocumentV2): void;
 	transact(edit: (project: Project) => Project): void;
-	/**
-	 * Reconcile state owned by the surrounding Studio (code scenes, order and
-	 * timing) without turning every keystroke into a multimedia undo entry.
-	 * Existing history is reconciled too, so undoing a layer edit never resurrects
-	 * stale code or a deleted Studio scene.
-	 */
+	/** Reconcile state owned by the surrounding Studio (code scenes, order and timing). */
 	synchronize(edit: (project: Project) => Project): void;
-	undo(): void;
-	redo(): void;
 	toDocument(): ProjectDocumentV2;
-}
-
-interface InternalProjectStoreState extends ProjectStoreState {
-	readonly past: readonly EditorSnapshot[];
-	readonly future: readonly EditorSnapshot[];
-}
-
-const MAX_HISTORY = 100;
-
-function snapshot(state: EditorSnapshot): EditorSnapshot {
-	return {
-		value: state.value,
-		selectedSceneId: state.selectedSceneId,
-		selectedBlockId: state.selectedBlockId,
-	};
 }
 
 function normalizeSelection(
@@ -65,36 +40,20 @@ function normalizeSelection(
 	return { selectedSceneId: scene.id, selectedBlockId };
 }
 
-export interface ProjectStoreOptions {
-	/**
-	 * False when the surrounding editor versions the whole project itself (the
-	 * Studio's project history): the store then keeps no past of its own, and a
-	 * Studio sync no longer has to reconcile a hundred stale entries per keystroke.
-	 */
-	readonly history?: boolean;
-}
-
 /**
- * Generic multimedia editor state. History belongs to the document itself, so
- * undo never waits for a toast and works identically for text, code and media.
+ * Generic multimedia editor state. It keeps no past: the Studio's project
+ * history versions the whole document, layers included.
  */
-export function createProjectStore(
-	initialDocument: ProjectDocumentV2,
-	{ history = true }: ProjectStoreOptions = {},
-) {
+export function createProjectStore(initialDocument: ProjectDocumentV2) {
 	const initialValue = hydrateProjectDocument(initialDocument);
 	const initialSelection = normalizeSelection(initialValue.project, {
 		selectedSceneId: initialValue.project.scenes[0]?.id ?? null,
 		selectedBlockId: null,
 	});
 
-	return create<InternalProjectStoreState>((set, get) => ({
+	return create<ProjectStoreState>((set, get) => ({
 		value: initialValue,
 		...initialSelection,
-		past: [],
-		future: [],
-		canUndo: false,
-		canRedo: false,
 		selectScene: (sceneId) => {
 			if (sceneId === null) {
 				set({ selectedSceneId: null, selectedBlockId: null });
@@ -121,14 +80,7 @@ export function createProjectStore(
 				selectedSceneId: value.project.scenes[0]?.id ?? null,
 				selectedBlockId: null,
 			});
-			set({
-				value,
-				...selection,
-				past: [],
-				future: [],
-				canUndo: false,
-				canRedo: false,
-			});
+			set({ value, ...selection });
 		},
 		transact: (edit) => {
 			const current = get();
@@ -137,71 +89,20 @@ export function createProjectStore(
 				return;
 			}
 			const selection = normalizeSelection(project, current);
-			const past = history ? [...current.past, snapshot(current)].slice(-MAX_HISTORY) : [];
-			set({
-				value: Object.freeze({ ...current.value, project }),
-				...selection,
-				past,
-				future: [],
-				canUndo: past.length > 0,
-				canRedo: false,
-			});
+			set({ value: Object.freeze({ ...current.value, project }), ...selection });
 		},
 		synchronize: (edit) => {
 			const current = get();
-			const reconcile = (entry: EditorSnapshot): EditorSnapshot => {
-				const project = edit(entry.value.project);
-				const selection = normalizeSelection(project, entry);
-				return {
-					value:
-						project === entry.value.project
-							? entry.value
-							: Object.freeze({ ...entry.value, project }),
-					...selection,
-				};
-			};
-			const next = reconcile(current);
+			const project = edit(current.value.project);
+			const selection = normalizeSelection(project, current);
 			set({
-				...next,
-				past: current.past.map(reconcile),
-				future: current.future.map(reconcile),
-			});
-		},
-		undo: () => {
-			const current = get();
-			const previous = current.past.at(-1);
-			if (!previous) {
-				return;
-			}
-			const past = current.past.slice(0, -1);
-			const future = [...current.future, snapshot(current)];
-			set({
-				...previous,
-				past,
-				future,
-				canUndo: past.length > 0,
-				canRedo: true,
-			});
-		},
-		redo: () => {
-			const current = get();
-			const next = current.future.at(-1);
-			if (!next) {
-				return;
-			}
-			const past = [...current.past, snapshot(current)].slice(-MAX_HISTORY);
-			const future = current.future.slice(0, -1);
-			set({
-				...next,
-				past,
-				future,
-				canUndo: true,
-				canRedo: future.length > 0,
+				value:
+					project === current.value.project
+						? current.value
+						: Object.freeze({ ...current.value, project }),
+				...selection,
 			});
 		},
 		toDocument: () => serializeProjectDocument(get().value),
 	}));
 }
-
-/** Default V2 editor hook. Tests and embedders can still create isolated stores. */
-export const useProjectStore = createProjectStore(createStarterMultimediaProject());

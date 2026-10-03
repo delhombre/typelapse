@@ -1,0 +1,70 @@
+// @vitest-environment node
+import { mkdtemp, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const remotion = vi.hoisted(() => ({
+	renderMedia: vi.fn(async ({ outputLocation }: { outputLocation: string }) => {
+		await writeFile(outputLocation, "video");
+	}),
+}));
+
+vi.mock("@remotion/bundler", () => ({
+	bundle: async () => mkdtemp(path.join(os.tmpdir(), "typelapse-test-bundle-")),
+}));
+
+vi.mock("@remotion/renderer", () => ({
+	selectComposition: async () => ({
+		id: "Typelapse",
+		width: 1920,
+		height: 1080,
+		fps: 30,
+		durationInFrames: 60,
+	}),
+	renderMedia: remotion.renderMedia,
+}));
+
+const { renderRoute } = await import("../../server/routes/render");
+
+function render(body: Record<string, unknown>) {
+	return renderRoute.request("/render", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			title: "Audio",
+			language: "typescript",
+			theme: {
+				name: "github-dark",
+				fontFamily: "monospace",
+				background: "#0d1117",
+				foreground: "#e6edf3",
+			},
+			steps: [{ code: "const a = 1;", duration: 600 }],
+			format: "mp4",
+			...body,
+		}),
+	});
+}
+
+describe("the V1 render route's audio track", () => {
+	beforeEach(() => {
+		remotion.renderMedia.mockClear();
+	});
+
+	// A silent AAC stream lengthens the file past the device export, and the
+	// export note promises no sound: the V2 renderer's rule, applied to V1.
+	it("writes no audio track when the project has no sound", async () => {
+		const response = await render({ sound: false });
+
+		expect(response.status).toBe(200);
+		expect(remotion.renderMedia).toHaveBeenCalledWith(expect.objectContaining({ muted: true }));
+	});
+
+	it("keeps the tick track when sound is on", async () => {
+		const response = await render({ sound: true });
+
+		expect(response.status).toBe(200);
+		expect(remotion.renderMedia).toHaveBeenCalledWith(expect.objectContaining({ muted: false }));
+	});
+});

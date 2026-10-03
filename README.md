@@ -180,6 +180,20 @@ The public pricing UI reads amounts from `/api/billing/catalog`. The server
 resolves configured Stripe Price IDs; the browser never submits a Price ID and
 signed webhooks remain the only source of paid entitlement.
 
+## Deployment
+
+Two addresses are not known until the studio is deployed:
+
+- `TYPELAPSE_APP_URL`, the studio's public URL, is read at build time: `vite
+  build` writes it into the `og:image` and `twitter:image` tags, since crawlers
+  ignore a relative share image. Without it the build still succeeds, warns and
+  points them at `http://localhost:5173`. The hosted API reads the same variable
+  for the Stripe return URLs.
+- `TYPELAPSE_STUDIO_URL` is a repository variable (Settings, Secrets and
+  variables, Actions, Variables). The render workflow passes it as `studio-url`,
+  so the pull request comment links the deployed studio; left empty, the link
+  opens a local one. The CLI reads the same name from the environment.
+
 ## Business model encoded in the product
 
 - **On-device:** the complete local editor, accountless and not artificially

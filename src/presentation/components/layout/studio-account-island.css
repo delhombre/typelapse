@@ -1,9 +1,10 @@
 /*
  * The account control was drawn for the multimedia studio's `--mm-*` tokens.
  * Inside the Studio it borrows the camera tokens instead, so the island and
- * its panel read as the same instrument material as their neighbours.
+ * its panel read as the same instrument material as their neighbours. Both
+ * shells define the camera tokens, so nothing here waits for the desktop root.
  */
-.studio-camera-root .sc-account-island {
+.sc-account-island {
 	--mm-surface: rgb(255 255 255 / 0.96);
 	--mm-ink: var(--camera-ink);
 	--mm-muted: var(--camera-muted);
@@ -17,7 +18,7 @@
 	padding-inline: 3px;
 }
 
-.dark .studio-camera-root .sc-account-island {
+.dark .sc-account-island {
 	--mm-surface: rgb(27 28 32 / 0.96);
 	--mm-ink: #f5f5f7;
 	--mm-hairline: rgb(255 255 255 / 0.11);
@@ -27,7 +28,7 @@
 }
 
 /* Same 32px round target as the utility glyphs beside it. */
-.studio-camera-root .sc-account-island .mm-account-trigger {
+.sc-account-island .mm-account-trigger {
 	width: 32px;
 	min-width: 32px;
 	height: 32px;
@@ -35,16 +36,16 @@
 	border-radius: 16px;
 }
 
-.studio-camera-root .sc-account-island .mm-account-avatar {
+.sc-account-island .mm-account-avatar {
 	border-radius: 12px;
 }
 
-.studio-camera-root .sc-account-island .mm-account-popover {
+.sc-account-island .mm-account-popover {
 	color: var(--mm-ink);
 	text-align: left;
 }
 
-.studio-camera-root .sc-account-island .mm-eyebrow {
+.sc-account-island .mm-eyebrow {
 	margin: 0;
 	color: var(--mm-muted);
 	font-size: 8.5px;

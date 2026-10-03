@@ -1,6 +1,5 @@
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { TextBlock } from "@/domain/entities/block";
-import { Scene } from "@/domain/entities/scene";
 import { createProjectStore } from "@/presentation/stores/project.store";
 import { describe, expect, it } from "vitest";
 
@@ -67,8 +66,6 @@ describe("the multimedia project editor store", () => {
 		expect(store.getState()).toMatchObject({
 			selectedSceneId: "scene-1",
 			selectedBlockId: null,
-			canUndo: false,
-			canRedo: false,
 		});
 
 		store.getState().transact((project) => project.addBlock("scene-1", subtitle()));
@@ -78,59 +75,12 @@ describe("the multimedia project editor store", () => {
 		expect(store.getState()).toMatchObject({
 			selectedSceneId: "scene-1",
 			selectedBlockId: "subtitle-1",
-			canUndo: true,
-			canRedo: false,
 		});
 	});
 
-	it("supports immediate consecutive undo and redo without waiting for a toast", () => {
+	it("rejects foreign block selections", () => {
 		const store = createProjectStore(textDocument());
-		const second = Scene.create({
-			id: "scene-2",
-			durationMs: 1_000,
-			blocks: [subtitle()],
-		});
-		const third = Scene.create({
-			id: "scene-3",
-			durationMs: 1_000,
-			blocks: [TextBlock.create({ ...subtitle(), id: "subtitle-3" })],
-		});
-		store.getState().transact((project) => project.addScene(second));
-		store.getState().transact((project) => project.addScene(third));
 
-		store.getState().undo();
-		store.getState().undo();
-
-		expect(
-			store
-				.getState()
-				.toDocument()
-				.project.scenes.map((scene) => scene.id),
-		).toEqual(["scene-1"]);
-		expect(store.getState()).toMatchObject({ canUndo: false, canRedo: true });
-
-		store.getState().redo();
-		store.getState().redo();
-		expect(
-			store
-				.getState()
-				.toDocument()
-				.project.scenes.map((scene) => scene.id),
-		).toEqual(["scene-1", "scene-2", "scene-3"]);
-	});
-
-	it("restores selection with history and rejects foreign block selections", () => {
-		const store = createProjectStore(textDocument());
-		store.getState().selectBlock("scene-1", "title-1");
-		store.getState().transact((project) => project.addBlock("scene-1", subtitle()));
-		store.getState().selectBlock("scene-1", "subtitle-1");
-
-		store.getState().undo();
-
-		expect(store.getState()).toMatchObject({
-			selectedSceneId: "scene-1",
-			selectedBlockId: "title-1",
-		});
 		expect(() => store.getState().selectBlock("scene-1", "missing")).toThrow(
 			"Block missing does not belong to scene scene-1",
 		);
@@ -145,7 +95,6 @@ describe("the multimedia project editor store", () => {
 		);
 
 		expect(store.getState().toDocument()).toEqual(before);
-		expect(store.getState()).toMatchObject({ canUndo: false, canRedo: false });
 	});
 
 	it("loads a canonical project as a new editing session", () => {
@@ -172,34 +121,16 @@ describe("the multimedia project editor store", () => {
 		expect(store.getState()).toMatchObject({
 			selectedSceneId: "loaded-scene",
 			selectedBlockId: null,
-			canUndo: false,
-			canRedo: false,
-			past: [],
-			future: [],
 		});
 	});
 
-	it("synchronizes the Studio scene spine without adding or corrupting authored history", () => {
+	it("synchronizes the Studio scene spine and keeps the authored layers", () => {
 		const store = createProjectStore(textDocument());
 		store.getState().transact((project) => project.addBlock("scene-1", subtitle()));
 
 		store.getState().synchronize((project) => project.rename("Synced from Studio"));
 
 		expect(store.getState().toDocument().project.title).toBe("Synced from Studio");
-		expect(store.getState()).toMatchObject({ canUndo: true, canRedo: false });
-
-		store.getState().undo();
-
-		expect(store.getState().toDocument().project.title).toBe("Synced from Studio");
-		expect(store.getState().toDocument().project.scenes[0]?.blocks).toHaveLength(1);
-	});
-
-	it("keeps no history of its own when the surrounding studio owns it", () => {
-		const store = createProjectStore(textDocument(), { history: false });
-		store.getState().transact((project) => project.addBlock("scene-1", subtitle()));
-
-		expect(store.getState()).toMatchObject({ canUndo: false, past: [] });
-		store.getState().undo();
 		expect(store.getState().toDocument().project.scenes[0]?.blocks).toHaveLength(2);
 	});
 });
