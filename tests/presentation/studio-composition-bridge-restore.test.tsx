@@ -1,11 +1,21 @@
+import { hydrateProjectDocument } from "@/application/project/hydrate-project-document";
 import { addMediaAsset, addTextLayer } from "@/application/project/multimedia-authoring";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
+import {
+	type EncodedProjectHistory,
+	createProjectHistory,
+	encodeProjectHistory,
+	recordProjectEdit,
+} from "@/application/project/project-history";
 import { serializeProjectDocument } from "@/application/project/serialize-project-document";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { Asset } from "@/domain/entities/asset";
 import { StudioCompositionBridge } from "@/presentation/components/layout/studio-composition-bridge";
+import { createStudioHistory } from "@/presentation/stores/project-history.store";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	readStudioCompositionSnapshot,
+	readStudioProjectDocument,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
 import { createLocalProject } from "@/presentation/utils/local-project-storage";
@@ -297,4 +307,102 @@ describe("StudioCompositionBridge restore", () => {
 		});
 		expect(ready).toBe(true);
 	});
+
+	it("boots the V1 draft on the scene ids the stored project has, so nothing needs re-keying", async () => {
+		const stored = bootDraftOverStoredIds("studio-project");
+		library.loadProject.mockResolvedValue(stored);
+
+		render(<StudioCompositionBridge />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1_000);
+		});
+
+		const kept = ["kept-1", "kept-2"];
+		expect(useSnippetStore.getState().snippet.steps.map((step) => step.id)).toEqual(kept);
+		const restored = readStudioProjectDocument().project;
+		expect(restored.scenes.map((scene) => scene.id)).toEqual(kept);
+		expect(restored.scenes[1]?.blocks.map((block) => block.id)).toContain("kept-text");
+		expect(useSnippetStore.getState().hasUnsavedEdits()).toBe(false);
+	});
+
+	it("undoes into the stored history after a reload with the same scene ids", async () => {
+		createLocalProject(
+			{
+				title: "ids.ts",
+				code: "const a = 1;",
+				language: "typescript",
+				themeName: "midnight",
+				background: "mesh:solar",
+				steps: [],
+			},
+			{ id: "alpha" },
+		);
+		const stored = bootDraftOverStoredIds("alpha");
+		const earlier = { ...stored, project: { ...stored.project, title: "Before the reload" } };
+		const saved = new Map<string, EncodedProjectHistory>();
+		saved.set(
+			"alpha",
+			encodeProjectHistory(recordProjectEdit(createProjectHistory(earlier), stored, 0)),
+		);
+		library.loadProject.mockResolvedValue(stored);
+		const history = createStudioHistory({
+			storage: {
+				load: async (projectId) => structuredClone(saved.get(projectId) ?? null),
+				save: async () => undefined,
+			},
+			now: () => 60_000,
+		});
+		const stop = history.start();
+
+		render(<StudioCompositionBridge />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1_000);
+		});
+		await history.ready();
+
+		expect(history.undo()).toBe(true);
+		const undone = readStudioProjectDocument().project;
+		expect(undone.title).toBe("Before the reload");
+		expect(undone.scenes.map((scene) => scene.id)).toEqual(["kept-1", "kept-2"]);
+		stop();
+		window.localStorage.clear();
+	});
 });
+
+/**
+ * Put a V1 draft in the snippet (it mints ids of its own) and return last
+ * session's stored composition of the same code, under ids it kept, with a
+ * text layer on the second scene.
+ */
+function bootDraftOverStoredIds(projectId: string): ProjectDocumentV2 {
+	useSnippetStore.getState().importFromJson(
+		JSON.stringify({
+			title: "ids.ts",
+			// The live code is the last step's, as a studio that captured it holds.
+			code: "const a = 2;",
+			language: "typescript",
+			themeName: "midnight",
+			background: "mesh:solar",
+			steps: [
+				{ code: "const a = 1;", duration: 1000 },
+				{ code: "const a = 2;", duration: 1000 },
+			],
+		}),
+	);
+	const booted = createStudioCompositionDocument({ ...readStudioCompositionSnapshot(), projectId });
+	const lastSession = hydrateProjectDocument({
+		...booted,
+		project: {
+			...booted.project,
+			scenes: booted.project.scenes.map((scene, index) => ({ ...scene, id: `kept-${index + 1}` })),
+		},
+	});
+	return serializeProjectDocument({
+		...lastSession,
+		project: addTextLayer(lastSession.project, "kept-2", {
+			id: "kept-text",
+			text: "Still here",
+			placement: { x: 0, y: 0, width: 1, height: 0.2 },
+		}),
+	});
+}

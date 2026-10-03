@@ -1,12 +1,14 @@
 import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { PreviewIsland } from "@/presentation/components/controls/preview-island";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
+import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
 import { StudioAccountIsland } from "./studio-account-island";
+import { StudioHistoryControls } from "./studio-history-controls";
 import { StudioSourceHub } from "./studio-source-hub";
 import { StudioUtilities } from "./studio-utilities";
 import { TemplateGallery } from "./template-gallery";
@@ -61,6 +63,9 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const isPeek = snap === PEEK;
 	const rootRef = useKeptAudible();
 	const reduce = useReducedMotion() === true;
+	// A tablet in portrait gets this layout, and it can drag a file in from
+	// another app: it lands where it does on a desktop, in the selected scene.
+	const draggingFile = useStudioFileDrop();
 	// The frame keeps the room above the instrument. Over the full editor it
 	// keeps the scenes stop's room rather than refitting to a frame nobody sees.
 	const stageLine = isPeek ? PEEK : `${MID * 100}dvh`;
@@ -87,6 +92,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			    gives up its width first. */}
 			<div className="sc-corner-row">
 				<ProjectChip />
+				<StudioHistoryControls />
 				<section className="sc-chip sc-mobile-resources" aria-label="Studio resources">
 					<StudioSourceHub />
 					<CaptureLibrary />
@@ -158,6 +164,9 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 					</Drawer.Content>
 				</Drawer.Portal>
 			</Drawer.Root>
+			<div className="sc-drop-veil" data-active={draggingFile ? "" : undefined} aria-hidden="true">
+				<p>Drop to add to the selected scene</p>
+			</div>
 		</main>
 	);
 }

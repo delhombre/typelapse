@@ -215,48 +215,6 @@ export function settleProjectHistory(
 	return { ...history, entries };
 }
 
-/**
- * Carry the history over to the scene ids the project was reopened with. A
- * reload rebuilds the code spine with ids of its own; without this, every entry
- * would name scenes the studio no longer has, and the first undo would only
- * swap ids. Ids are matched by position between the stored present and the
- * reopened document, and only when both have the same number of scenes.
- */
-export function rekeyProjectHistory(
-	history: ProjectHistory,
-	document: ProjectDocumentV2,
-): ProjectHistory {
-	const stored = presentProjectDocument(history).project.scenes;
-	const opened = document.project.scenes;
-	if (stored.length !== opened.length) {
-		return history;
-	}
-	const ids = new Map<string, string>();
-	stored.forEach((scene, index) => {
-		const id = opened[index]?.id;
-		if (id && id !== scene.id) {
-			ids.set(scene.id, id);
-		}
-	});
-	if (ids.size === 0) {
-		return history;
-	}
-	const rekey = (entry: ProjectDocumentV2): ProjectDocumentV2 =>
-		entry.project.scenes.some((scene) => ids.has(scene.id))
-			? {
-					...entry,
-					project: {
-						...entry.project,
-						scenes: entry.project.scenes.map((scene) => {
-							const id = ids.get(scene.id);
-							return id ? { ...scene, id } : scene;
-						}),
-					},
-				}
-			: entry;
-	return { ...history, entries: history.entries.map(rekey) };
-}
-
 export function undoProjectEdit(history: ProjectHistory): ProjectHistory {
 	return canUndoProjectEdit(history)
 		? { ...history, index: history.index - 1, lastEdit: null }

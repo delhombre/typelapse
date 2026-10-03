@@ -16,8 +16,10 @@ import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import {
 	adoptStoredSceneIds,
 	createStudioCompositionDocument,
+	storedSceneIdsFor,
 } from "@/application/project/studio-composition";
 import { openStudioDocument } from "@/application/project/studio-document";
+import { Step } from "@/domain/entities/step";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	hasAuthoredMultimedia,
@@ -173,8 +175,9 @@ export async function restoreStudioProject(
 		}
 	}
 	// The code was loaded from the project's spine, whose step ids need not be
-	// the ones the layers were saved under: re-key the stored scenes onto the
-	// live ones by position and identical code before loading.
+	// the ones the layers and the history were saved under: the steps take the
+	// stored ids, so the composition loads exactly as it was stored.
+	takeStoredSceneIds(document);
 	loadStudioCompositionDocument(adoptStoredSceneIds(document, readStudioCompositionSnapshot()));
 	// loadDocument resets selection to the first scene; follow the Studio's.
 	const sceneId = studioSceneIdAt(useSnippetStore.getState().currentStepIndex);
@@ -182,6 +185,31 @@ export async function restoreStudioProject(
 	if (composition.value.project.scenes.some((scene) => scene.id === sceneId)) {
 		composition.selectScene(sceneId);
 	}
+}
+
+/** Rename the snippet's steps to the stored scene ids they match; not an edit. */
+function takeStoredSceneIds(document: ProjectDocumentV2): void {
+	const { snippet } = useSnippetStore.getState();
+	const ids = storedSceneIdsFor(document, readStudioCompositionSnapshot().scenes);
+	if (snippet.steps.length === 0 || snippet.steps.every((step, index) => step.id === ids[index])) {
+		return;
+	}
+	let renamed = snippet;
+	for (const step of snippet.steps) {
+		renamed = renamed.removeStep(step.id);
+	}
+	snippet.steps.forEach((step, index) => {
+		renamed = renamed.addStep(
+			Step.create({
+				id: ids[index] ?? step.id,
+				code: step.code,
+				duration: step.duration,
+				highlightRanges: [...step.highlightRanges],
+				annotation: step.annotation,
+			}),
+		);
+	});
+	useSnippetStore.setState({ snippet: renamed });
 }
 
 /** A composition of the code the snippet holds and nothing else, under this id. */

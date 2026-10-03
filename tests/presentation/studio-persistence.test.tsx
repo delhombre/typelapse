@@ -1,6 +1,7 @@
 import type { ProjectPayload } from "@/application/project/project-payload";
 import { StudioPersistence } from "@/presentation/components/layout/studio-persistence";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { createLocalProject, readLocalProjects } from "@/presentation/utils/local-project-storage";
 import { clearDraft, readDraft, writeDraft } from "@/presentation/utils/studio-draft";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -50,6 +51,28 @@ describe("StudioPersistence", () => {
 		render(<StudioPersistence />);
 
 		expect(useSnippetStore.getState().snippet.title).toBe(before);
+	});
+
+	it("opens an arrival import in a new local project and leaves the open one as it was", () => {
+		window.localStorage.clear();
+		const alpha = createLocalProject(JSON.parse(payload({ title: "alpha.ts" })), {
+			id: "alpha",
+			now: 1,
+		});
+		writeDraft(payload({ title: "alpha.ts" }));
+		window.location.hash = "#import=abc";
+
+		render(<StudioPersistence />);
+		useSnippetStore.getState().importSnippet("const imported = 1;", { title: "imported.ts" });
+		window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
+
+		const library = readLocalProjects();
+		expect(library.projects).toHaveLength(2);
+		expect(library.activeId).not.toBe("alpha");
+		expect(library.projects.find((record) => record.id === "alpha")).toEqual(alpha);
+		const arrival = library.projects.find((record) => record.id === library.activeId);
+		expect(arrival?.project.title).toBe("imported.ts");
+		window.localStorage.clear();
 	});
 
 	it("blocks unload while the studio holds unsaved edits, flushing the draft first", () => {

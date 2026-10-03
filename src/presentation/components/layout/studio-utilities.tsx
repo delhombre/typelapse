@@ -128,7 +128,7 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 		<div ref={rootRef} className={`sc-chip sc-utilities ${compact ? "sc-utilities-compact" : ""}`}>
 			{compact ? (
 				<>
-					<StudioTooltip content="Project actions" side="bottom">
+					<StudioTooltip content="More" side="bottom">
 						<motion.button
 							ref={menuTriggerRef}
 							type="button"
@@ -139,7 +139,7 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 							whileTap={{ scale: 0.96 }}
 							transition={springs.snappy}
 							className="hit-ext sc-glyph-button"
-							aria-label="More project actions"
+							aria-label="More actions"
 							aria-haspopup="menu"
 							aria-expanded={menuOpen}
 						>
@@ -150,7 +150,7 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 						{menuOpen && (
 							<motion.div
 								role="menu"
-								aria-label="Project actions"
+								aria-label="More actions"
 								className="sc-utility-overflow-menu"
 								initial={{ opacity: 0, y: -4, scale: 0.97, filter: "blur(3px)" }}
 								animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
@@ -169,6 +169,26 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 										<Share size={14} aria-hidden="true" />
 									)}
 									<span>{shareCopied ? "Link copied" : "Copy share link"}</span>
+								</button>
+								{/* A phone's top row also carries undo and redo, so the two
+								    set-once toggles wait in here rather than take the name's room. */}
+								<button type="button" role="menuitem" onClick={handleThemeToggle}>
+									{mode === "dark" ? (
+										<Sun size={14} aria-hidden="true" />
+									) : (
+										<Moon size={14} aria-hidden="true" />
+									)}
+									<span>{mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}</span>
+								</button>
+								<button type="button" role="menuitem" onClick={handleFeedbackToggle}>
+									{interfaceFeedback ? (
+										<VolumeHigh size={14} aria-hidden="true" />
+									) : (
+										<VolumeMute size={14} aria-hidden="true" />
+									)}
+									<span>
+										{interfaceFeedback ? "Mute interface feedback" : "Enable interface feedback"}
+									</span>
 								</button>
 							</motion.div>
 						)}
@@ -195,31 +215,31 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 							<Share size={13} aria-hidden="true" />
 						)}
 					</UtilityButton>
+					<UtilityButton
+						onClick={handleThemeToggle}
+						label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+						tooltip={`Appearance · ${mode === "dark" ? "Dark" : "Light"}`}
+					>
+						{mode === "dark" ? (
+							<Sun size={13} aria-hidden="true" />
+						) : (
+							<Moon size={13} aria-hidden="true" />
+						)}
+					</UtilityButton>
+					<UtilityButton
+						onClick={handleFeedbackToggle}
+						label={interfaceFeedback ? "Mute interface feedback" : "Enable interface feedback"}
+						tooltip={`Sound & haptics · ${interfaceFeedback ? "On" : "Off"}`}
+						active={interfaceFeedback}
+					>
+						{interfaceFeedback ? (
+							<VolumeHigh size={13} aria-hidden="true" />
+						) : (
+							<VolumeMute size={13} aria-hidden="true" />
+						)}
+					</UtilityButton>
 				</>
 			)}
-			<UtilityButton
-				onClick={handleThemeToggle}
-				label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-				tooltip={`Appearance · ${mode === "dark" ? "Dark" : "Light"}`}
-			>
-				{mode === "dark" ? (
-					<Sun size={13} aria-hidden="true" />
-				) : (
-					<Moon size={13} aria-hidden="true" />
-				)}
-			</UtilityButton>
-			<UtilityButton
-				onClick={handleFeedbackToggle}
-				label={interfaceFeedback ? "Mute interface feedback" : "Enable interface feedback"}
-				tooltip={`Sound & haptics · ${interfaceFeedback ? "On" : "Off"}`}
-				active={interfaceFeedback}
-			>
-				{interfaceFeedback ? (
-					<VolumeHigh size={13} aria-hidden="true" />
-				) : (
-					<VolumeMute size={13} aria-hidden="true" />
-				)}
-			</UtilityButton>
 		</div>
 	);
 }

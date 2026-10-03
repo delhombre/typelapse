@@ -9,7 +9,6 @@ import {
 	presentProjectDocument,
 	recordProjectEdit,
 	redoProjectEdit,
-	rekeyProjectHistory,
 	settleProjectHistory,
 	undoProjectEdit,
 } from "@/application/project/project-history";
@@ -248,7 +247,7 @@ export function createStudioHistory({
 				// The stored present can lag the project (a crash before the last
 				// write): the project as it opened becomes the newest entry.
 				const opened = presentProjectDocument(target);
-				history = recordProjectEdit(rekeyProjectHistory(decoded, opened), opened, now());
+				history = recordProjectEdit(decoded, opened, now());
 				dirty = history !== decoded;
 				publish();
 			})

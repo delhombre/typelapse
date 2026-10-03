@@ -10,7 +10,6 @@ import {
 	presentProjectDocument,
 	recordProjectEdit,
 	redoProjectEdit,
-	rekeyProjectHistory,
 	undoProjectEdit,
 } from "@/application/project/project-history";
 import { createStarterMultimediaProject } from "@/application/project/starter-multimedia-project";
@@ -176,27 +175,6 @@ describe("project history", () => {
 		expect(presentProjectDocument(history).project.scenes[1]).toBe(
 			presentProjectDocument(before).project.scenes[1],
 		);
-	});
-
-	it("takes the scene ids a reopened project was given, so the first undo is a real one", () => {
-		let history = createProjectHistory(base);
-		history = recordProjectEdit(history, titled(base, "A"), 0);
-		const reopened: ProjectDocumentV2 = {
-			...titled(base, "A"),
-			project: {
-				...titled(base, "A").project,
-				scenes: base.project.scenes.map((scene) => ({ ...scene, id: "reopened-1" })),
-			},
-		};
-
-		const rekeyed = recordProjectEdit(rekeyProjectHistory(history, reopened), reopened, 5_000);
-
-		expect(rekeyed.entries).toHaveLength(2);
-		expect(presentProjectDocument(rekeyed)).toEqual(reopened);
-		expect(presentProjectDocument(undoProjectEdit(rekeyed)).project.scenes[0]?.id).toBe(
-			"reopened-1",
-		);
-		expect(presentProjectDocument(undoProjectEdit(rekeyed)).project.title).toBe(base.project.title);
 	});
 
 	it("survives an encode and decode with its position", () => {

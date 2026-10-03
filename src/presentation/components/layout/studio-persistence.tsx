@@ -1,7 +1,10 @@
+import { nextUntitledTitle } from "@/application/project/local-project-library";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
+	createLocalProject,
 	ensureActiveLocalProject,
+	readLocalProjects,
 	saveActiveLocalProject,
 } from "@/presentation/utils/local-project-storage";
 import {
@@ -36,16 +39,26 @@ export function StudioPersistence() {
 		// content and then failed to deliver any can no longer flush an empty
 		// studio over the draft it skipped for.
 		const pristine = JSON.stringify(useSnippetStore.getState().toProjectPayload());
+		const arrival = hasArrivalPayload(arrivalHash);
 		if (!restoredRef.current) {
 			restoredRef.current = true;
 			restoreDraftOnBoot(arrivalHash);
+			// A link that carries content opens a project of its own, before the
+			// composition restore reads which project is active: the project that
+			// was open keeps its code, layers and history. The import names it.
+			if (arrival) {
+				createLocalProject({
+					...useSnippetStore.getState().toProjectPayload(),
+					title: nextUntitledTitle(readLocalProjects().projects.map((r) => r.project.title)),
+				});
+			}
 		}
 		const current = useSnippetStore.getState().toProjectPayload();
 		ensureActiveLocalProject(current);
 		// A plain visit may have restored a newer single-draft snapshot. Sync it
 		// into the active project immediately. A content-bearing link gets to load
 		// first; its first real state change will be caught by the autosave below.
-		if (!hasArrivalPayload(arrivalHash)) {
+		if (!arrival) {
 			saveActiveLocalProject(current);
 		}
 		const autosave = startDraftAutosave(pristine, (json) => {
