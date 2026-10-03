@@ -5,6 +5,7 @@ import {
 	type HostedProjectAssetResolverPort,
 } from "../../src/application/assets/canonicalize-hosted-project-assets";
 import { authenticateAccount } from "../../src/application/auth/authenticate-account";
+import { planLimitRefusal } from "../../src/application/billing/plan-allowance";
 import { hydrateProjectDocument } from "../../src/application/project/hydrate-project-document";
 import { migrateV1ToV2 } from "../../src/application/project/migrate-v1-project";
 import type { ProjectDocumentRepositoryPort } from "../../src/application/project/project-document-repository.port";
@@ -13,6 +14,8 @@ import {
 	type ProjectDocumentV2,
 } from "../../src/application/project/project-document";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
+import type { SubscriptionPort } from "../../src/domain/ports/subscription.port";
+import { Plan } from "../../src/domain/value-objects/plan";
 
 const MAX_PROJECT_DOCUMENT_BYTES = 2 * 1024 * 1024;
 
@@ -26,6 +29,8 @@ export interface ProjectsRouteDeps {
 	readonly auth: AuthPort;
 	readonly projects: ProjectDocumentRepositoryPort;
 	readonly assets?: HostedProjectAssetResolverPort;
+	/** Resolves the ceiling; without billing every account is on the free plan. */
+	readonly subscriptions?: SubscriptionPort;
 	readonly now?: () => Date;
 	readonly createId?: () => string;
 }
@@ -61,6 +66,7 @@ export function createProjectsRoute({
 	auth,
 	projects,
 	assets = { resolveReadyForProject: async () => [] },
+	subscriptions = { planFor: async () => Plan.free() },
 	now = () => new Date(),
 	createId = () => `project_${crypto.randomUUID()}`,
 }: ProjectsRouteDeps): Hono<ProjectsRouteEnv> {
@@ -102,8 +108,17 @@ export function createProjectsRoute({
 			if (document.project.assets.length > 0) {
 				throw new Error("Create the hosted project before attaching assets");
 			}
-			const project = await projects.create({ ownerId: c.get("accountId"), document });
-			return c.json({ project }, 201);
+			const ownerId = c.get("accountId");
+			const plan = await subscriptions.planFor(ownerId);
+			const result = await projects.create({
+				ownerId,
+				document,
+				maxProjects: plan.limitFor("cloudProjects"),
+			});
+			if (result.outcome === "limit-reached") {
+				return c.json(planLimitRefusal(plan, "cloudProjects", result.projectCount), 402);
+			}
+			return c.json({ project: result.project }, 201);
 		} catch (error) {
 			return c.json(
 				{ error: error instanceof Error ? error.message : "Invalid project document" },

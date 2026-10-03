@@ -3,6 +3,7 @@ import {
 	GIF_MAX_EDGE,
 	GIF_MAX_FPS,
 	gifFilterOverride,
+	videoColorOverride,
 	outputSettingsFor,
 	safeFormat,
 } from "../../server/remotion/output-settings";
@@ -42,6 +43,44 @@ describe("outputSettingsFor, video", () => {
 			crf: 20,
 			imageFormat: "jpeg",
 		});
+	});
+});
+
+describe("outputSettingsFor, colour", () => {
+	/**
+	 * Without a colour space Remotion leaves JPEG frames full range and tags the
+	 * stream bt470bg, so players show other colours than the preview and the
+	 * on-device MP4. BT.709 limited range is what the browser exporter writes.
+	 */
+	it("tags video BT.709 limited range and leaves the GIF palette alone", () => {
+		expect(outputSettingsFor("mp4", 1920, 1080, 30).colorSpace).toBe("bt709");
+		expect(outputSettingsFor("webm", 1920, 1080, 30).colorSpace).toBe("bt709");
+		expect(outputSettingsFor("gif", 720, 540, 20).colorSpace).toBeUndefined();
+	});
+});
+
+describe("videoColorOverride", () => {
+	const REMOTION_BT709 = "zscale=matrix=709:matrixin=709:range=limited";
+
+	/**
+	 * Remotion's BT.709 filter declares its input BT.709, but the frames are
+	 * JPEG, which is BT.601 full range, so reds drift (49 decodes as 42 on a
+	 * #3366cc field). It also leaves primaries and transfer unknown on ffmpeg 7.
+	 */
+	it("reads the JPEG frames as BT.601 full range and tags all four BT.709 fields", () => {
+		expect(videoColorOverride(["-c:v", "libx264", "-vf", REMOTION_BT709, "-crf", "18"])).toEqual([
+			"-c:v",
+			"libx264",
+			"-vf",
+			"zscale=matrixin=470bg:rangein=full:primariesin=709:transferin=709:matrix=709:range=limited:primaries=709:transfer=709",
+			"-crf",
+			"18",
+		]);
+	});
+
+	it("leaves a command line without that filter alone", () => {
+		const args = ["-c:v", "copy", "-colorspace:v", "bt709"];
+		expect(videoColorOverride(args)).toEqual(args);
 	});
 });
 

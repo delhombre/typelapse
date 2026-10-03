@@ -14,6 +14,7 @@ import type {
 	HostedRenderTemporaryArtifact,
 } from "../../../src/application/render/process-hosted-render-job";
 import { compileSceneTimeline } from "../../../src/application/render/scene-timeline";
+import { SERVER_VIDEO_COLOR_SPACE, videoColorOverride } from "../../remotion/output-settings";
 import type { RemotionV2CompositionInput } from "../../remotion/v2/types";
 
 export interface HostedRenderAssetMaterializerPort {
@@ -75,6 +76,11 @@ export interface RemotionV2RuntimeApiPort {
 		readonly codec: "h264" | "vp8";
 		readonly outputLocation: string;
 		readonly pixelFormat: "yuv420p";
+		readonly colorSpace: typeof SERVER_VIDEO_COLOR_SPACE;
+		readonly ffmpegOverride: (input: {
+			readonly type: "pre-stitcher" | "stitcher";
+			readonly args: string[];
+		}) => string[];
 		readonly imageFormat: "jpeg";
 		readonly overwrite: true;
 		readonly muted: boolean;
@@ -159,6 +165,8 @@ export function createRemotionV2Runtime(
 					codec: input.format === "mp4" ? "h264" : "vp8",
 					outputLocation: input.outputPath,
 					pixelFormat: "yuv420p",
+					colorSpace: SERVER_VIDEO_COLOR_SPACE,
+					ffmpegOverride: ({ args }) => videoColorOverride(args),
 					imageFormat: "jpeg",
 					overwrite: true,
 					muted: !input.includeAudio,

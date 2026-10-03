@@ -6,6 +6,7 @@ import {
 } from "../../server/billing/billing-service";
 import { createBillingRoute } from "../../server/routes/billing";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
+import { Plan } from "../../src/domain/value-objects/plan";
 
 const NOW = new Date("2026-08-30T20:00:00.000Z");
 
@@ -184,6 +185,56 @@ describe("billing route", () => {
 		});
 		expect(transient.status).toBe(503);
 		expect(await transient.json()).toEqual({ error: "Billing webhook is temporarily unavailable" });
+	});
+
+	it("returns the server's allowance sentence even when Stripe is not configured", async () => {
+		const seen: Array<readonly [string, string]> = [];
+		const app = new Hono().route(
+			"/api/billing",
+			createBillingRoute({
+				auth: auth("user-7"),
+				billing: null,
+				subscriptions: { planFor: async () => Plan.free() },
+				usage: {
+					usageFor: async (ownerId, periodStart) => {
+						seen.push([ownerId, periodStart.toISOString()]);
+						return {
+							cloudProjects: 2,
+							mediaBytes: 12 * 1024 * 1024,
+							hostedRenderMsThisMonth: 0,
+							activeRenders: 0,
+						};
+					},
+				},
+				now: () => NOW,
+			}),
+		);
+
+		const anonymous = await app.request("http://localhost/api/billing/allowance");
+		const response = await app.request(accountRequest("/api/billing/allowance"));
+
+		expect(anonymous.status).toBe(401);
+		expect(response.status).toBe(200);
+		expect(seen).toEqual([["user-7", "2026-08-01T00:00:00.000Z"]]);
+		expect(await response.json()).toEqual({
+			allowance: {
+				plan: "free",
+				sentence:
+					"You are using 2 of 3 cloud projects and 12\u00a0MB of 100\u00a0MB of media; hosted renders come with Creator.",
+				limits: {
+					cloudProjects: 3,
+					mediaBytes: 100 * 1024 * 1024,
+					hostedRenderTime: 0,
+					concurrentRenders: 0,
+				},
+				usage: {
+					cloudProjects: 2,
+					mediaBytes: 12 * 1024 * 1024,
+					hostedRenderMsThisMonth: 0,
+					activeRenders: 0,
+				},
+			},
+		});
 	});
 
 	it("fails closed when billing is not configured", async () => {

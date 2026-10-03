@@ -9,6 +9,8 @@ export interface PlanState {
 	plan: Plan;
 	catalog: BillingCatalog | null;
 	billingAvailable: boolean;
+	/** The server's allowance sentence, shown verbatim; null when it has none. */
+	allowance: string | null;
 	cadence: BillingCadence;
 	isUpgrading: boolean;
 	error: string | null;
@@ -42,6 +44,7 @@ export function createPlanStore({
 		plan: deploymentMode === "local" ? Plan.local() : Plan.free(),
 		catalog: null,
 		billingAvailable: false,
+		allowance: null,
 		cadence: "monthly",
 		isUpgrading: false,
 		error: null,
@@ -52,14 +55,16 @@ export function createPlanStore({
 				set({ plan: Plan.local(), error: null });
 				return;
 			}
-			const [catalog, plan] = await Promise.allSettled([
+			const [catalog, plan, allowance] = await Promise.allSettled([
 				billing.getCatalog(),
 				billing.getCurrentPlan(),
+				billing.getAllowance?.() ?? Promise.resolve(null),
 			]);
 			set({
 				catalog: catalog.status === "fulfilled" ? catalog.value : null,
 				billingAvailable: catalog.status === "fulfilled",
 				plan: plan.status === "fulfilled" ? plan.value : Plan.free(),
+				allowance: allowance.status === "fulfilled" ? allowance.value : null,
 				error: null,
 			});
 		},

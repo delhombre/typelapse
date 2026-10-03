@@ -1,8 +1,15 @@
 import { Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { authenticateAccount } from "../../src/application/auth/authenticate-account";
+import {
+	type AccountUsagePort,
+	allowanceSentence,
+	hostedTierName,
+	renderPeriodStart,
+} from "../../src/application/billing/plan-allowance";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
 import type { BillingCadence } from "../../src/domain/ports/billing.port";
+import type { SubscriptionPort } from "../../src/domain/ports/subscription.port";
 import {
 	type BillingService,
 	InvalidBillingWebhookSignatureError,
@@ -19,6 +26,12 @@ interface BillingRouteEnv {
 export interface BillingRouteDeps {
 	readonly auth: AuthPort;
 	readonly billing: BillingService | null;
+	/**
+	 * The allowance needs only the account's plan and its usage, not Stripe: a
+	 * free account has ceilings whether or not checkout is configured.
+	 */
+	readonly subscriptions?: SubscriptionPort;
+	readonly usage?: AccountUsagePort;
 	readonly now?: () => Date;
 }
 
@@ -26,6 +39,8 @@ export interface BillingRouteDeps {
 export function createBillingRoute({
 	auth,
 	billing,
+	subscriptions,
+	usage,
 	now = () => new Date(),
 }: BillingRouteDeps): Hono<BillingRouteEnv> {
 	const route = new Hono<BillingRouteEnv>();
@@ -56,6 +71,37 @@ export function createBillingRoute({
 			onError: (c) => c.json({ error: "Billing webhook is too large" }, 413),
 		}),
 	);
+
+	route.get("/allowance", async (c) => {
+		if (!subscriptions || !usage) {
+			return c.json({ error: "Hosted allowance is not configured" }, 503);
+		}
+		const accountId = await authenticateAccount({
+			credential: c.req.header("cookie") ?? null,
+			auth,
+			now: now(),
+		});
+		if (!accountId) {
+			return c.json({ error: "Sign in to see your allowance" }, 401);
+		}
+		const [plan, current] = await Promise.all([
+			subscriptions.planFor(accountId),
+			usage.usageFor(accountId, renderPeriodStart(now())),
+		]);
+		return c.json({
+			allowance: {
+				plan: hostedTierName(plan),
+				sentence: allowanceSentence(plan, current),
+				limits: {
+					cloudProjects: plan.limitFor("cloudProjects"),
+					mediaBytes: plan.limitFor("mediaBytes"),
+					hostedRenderTime: plan.limitFor("hostedRenderTime"),
+					concurrentRenders: plan.limitFor("concurrentRenders"),
+				},
+				usage: current,
+			},
+		});
+	});
 
 	route.get("/catalog", async (c) => {
 		if (!billing) {

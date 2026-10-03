@@ -98,6 +98,22 @@ describe("StudioAccountControl", () => {
 		expect(screen.queryByText("Cloud sync on")).toBeNull();
 	});
 
+	it("shows the allowance sentence the server returned, even without a checkout", () => {
+		const store = createAuthStore({ kind: "local-offline" });
+		store.setState({
+			status: { kind: "authenticated", session: SESSION },
+			operation: "idle",
+			canSync: true,
+			error: null,
+		});
+		const sentence = "You are using 1 of 3 cloud projects and 0 MB of 100 MB of media.";
+		render(<StudioAccountControl store={store} allowance={sentence} />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
+
+		expect(screen.getByText(sentence)).toBeTruthy();
+	});
+
 	it("offers provider-backed monthly and annual Creator checkout inside the account island", () => {
 		const store = createAuthStore({ kind: "local-offline" });
 		store.setState({

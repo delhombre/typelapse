@@ -19,6 +19,8 @@ export interface StudioAccountControlProps {
 	readonly cloudProjectState?: StudioCloudProjectState;
 	readonly onSaveToCloud?: () => void;
 	readonly billing?: StudioBillingControl;
+	/** The server's allowance sentence, shown as written; the client holds no numbers. */
+	readonly allowance?: string | null;
 }
 
 export interface StudioBillingControl {
@@ -53,6 +55,7 @@ export function StudioAccountControl({
 	cloudProjectState = "device",
 	onSaveToCloud,
 	billing,
+	allowance,
 }: StudioAccountControlProps) {
 	const { status, operation, error, refreshSession, signIn, signUp, signOut } = store();
 	const reduceMotion = useReducedMotion() === true;
@@ -142,6 +145,7 @@ export function StudioAccountControl({
 							formMode={formMode}
 							cloudProjectState={cloudProjectState}
 							billing={billing}
+							allowance={allowance}
 							onFormMode={setFormMode}
 							onSaveToCloud={onSaveToCloud}
 							onSignIn={(email, password) => signIn({ email, password })}
@@ -162,6 +166,7 @@ interface AccountPanelProps {
 	readonly formMode: FormMode;
 	readonly cloudProjectState: StudioCloudProjectState;
 	readonly billing?: StudioBillingControl;
+	readonly allowance?: string | null;
 	readonly onFormMode: (mode: FormMode) => void;
 	readonly onSaveToCloud?: () => void;
 	readonly onSignIn: (email: string, password: string) => Promise<void>;
@@ -176,6 +181,7 @@ function AccountPanel({
 	formMode,
 	cloudProjectState,
 	billing,
+	allowance,
 	onFormMode,
 	onSaveToCloud,
 	onSignIn,
@@ -234,6 +240,7 @@ function AccountPanel({
 				<h2>{status.session.account.name}</h2>
 				<p>{status.session.account.email}</p>
 				{billing ? <AccountBilling billing={billing} /> : null}
+				{allowance ? <p className="mm-account-allowance">{allowance}</p> : null}
 				<p>{syncCopy.body}</p>
 				{onSaveToCloud && cloudProjectState !== "connecting" && cloudProjectState !== "synced" ? (
 					<button type="button" className="mm-account-primary" onClick={onSaveToCloud}>

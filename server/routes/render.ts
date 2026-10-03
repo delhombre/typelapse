@@ -14,10 +14,7 @@ import {
 	renderTickTrack,
 } from "../../src/application/audio/tick-synth";
 import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradient";
-import {
-	MAX_RENDER_DIMENSION,
-	MIN_RENDER_DIMENSION,
-} from "../../src/domain/entities/render-config";
+import { clampRenderDimension } from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
 import {
 	DEFAULT_TRANSITION_EASING,
@@ -25,7 +22,12 @@ import {
 } from "../../src/application/magic-move/easing";
 import { resolveShikiLanguage, resolveShikiTheme } from "../../src/infrastructure/highlighting/shiki-registry";
 import { buildServerMagicMovePlan } from "../remotion/magic-move-plan";
-import { gifFilterOverride, outputSettingsFor, safeFormat } from "../remotion/output-settings";
+import {
+	gifFilterOverride,
+	outputSettingsFor,
+	safeFormat,
+	videoColorOverride,
+} from "../remotion/output-settings";
 import {
 	progressStyleOf,
 	renderRequestProblem,
@@ -199,8 +201,8 @@ renderRoute.post(
 		// format have the last word on size and rate: a GIF asked for at 1080p60
 		// comes back at 960 and 20, because that is what the format can spend its
 		// bytes on. `output` is what actually gets rendered, from here on.
-		const askedWidth = clampNumber(body.width, MIN_RENDER_DIMENSION, MAX_RENDER_DIMENSION, 1920);
-		const askedHeight = clampNumber(body.height, MIN_RENDER_DIMENSION, MAX_RENDER_DIMENSION, 1080);
+		const askedWidth = clampRenderDimension(body.width, 1920);
+		const askedHeight = clampRenderDimension(body.height, 1080);
 		const askedFps = clampFps(body.fps);
 		const output = outputSettingsFor(safeFormat(body.format), askedWidth, askedHeight, askedFps);
 		const { width, height, fps } = output;
@@ -337,12 +339,13 @@ renderRoute.post(
 				inputProps: { input },
 				crf: output.crf,
 				pixelFormat: output.pixelFormat,
+				colorSpace: output.colorSpace,
 				imageFormat: output.imageFormat,
 				jpegQuality: output.jpegQuality,
-				// Only a GIF's palette pass is rewritten; every other codec keeps the
-				// arguments Remotion built.
-				ffmpegOverride:
-					output.format === "gif" ? ({ args }) => gifFilterOverride(args) : undefined,
+				// A GIF's palette pass and a video's colour conversion are rewritten;
+				// everything else keeps the arguments Remotion built.
+				ffmpegOverride: ({ args }) =>
+					output.format === "gif" ? gifFilterOverride(args) : videoColorOverride(args),
 			});
 
 			const fileBuffer = fs.readFileSync(outputPath);

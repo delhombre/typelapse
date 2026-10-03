@@ -65,19 +65,36 @@ export function createProjectDocumentRepository(
 		},
 
 		async create(input) {
-			const [row] = await db
-				.insert(projects)
-				.values({
-					id: input.document.project.id,
-					ownerId: input.ownerId,
-					title: input.document.project.title,
-					document: input.document,
-				})
-				.returning();
-			if (!row) {
-				throw new Error("Project persistence returned no created row");
-			}
-			return storedProjectFromRow(row);
+			// Same owner lock as asset reservation and render enqueue: a burst of
+			// creates serializes, so the count it reads is the count it inserts against.
+			return db.transaction(async (tx) => {
+				await tx.execute(
+					sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.ownerId}, 0))`,
+				);
+				if (Number.isFinite(input.maxProjects)) {
+					const [owned] = await tx
+						.select({ count: sql<number>`count(*)::int` })
+						.from(projects)
+						.where(eq(projects.ownerId, input.ownerId));
+					const projectCount = Number(owned?.count ?? 0);
+					if (projectCount >= input.maxProjects) {
+						return { outcome: "limit-reached" as const, projectCount };
+					}
+				}
+				const [row] = await tx
+					.insert(projects)
+					.values({
+						id: input.document.project.id,
+						ownerId: input.ownerId,
+						title: input.document.project.title,
+						document: input.document,
+					})
+					.returning();
+				if (!row) {
+					throw new Error("Project persistence returned no created row");
+				}
+				return { outcome: "created" as const, project: storedProjectFromRow(row) };
+			});
 		},
 
 		async update(input) {

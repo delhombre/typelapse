@@ -6,6 +6,7 @@ import type {
 	ReadyHostedProjectAsset,
 } from "../../src/application/assets/hosted-project-asset-resolver.port";
 import type {
+	CreateProjectDocumentResult,
 	ProjectDocumentRepositoryPort,
 	ProjectDocumentSummary,
 	StoredProjectDocument,
@@ -13,6 +14,7 @@ import type {
 } from "../../src/application/project/project-document-repository.port";
 import type { ProjectDocumentV2 } from "../../src/application/project/project-document";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
+import { Plan } from "../../src/domain/value-objects/plan";
 
 const NOW = new Date("2026-08-30T20:00:00.000Z");
 const LEGACY = {
@@ -94,7 +96,12 @@ class MemoryProjects implements ProjectDocumentRepositoryPort {
 	async create(input: {
 		readonly ownerId: string;
 		readonly document: ProjectDocumentV2;
-	}): Promise<StoredProjectDocument> {
+		readonly maxProjects: number;
+	}): Promise<CreateProjectDocumentResult> {
+		const owned = [...this.records.values()].filter((record) => record.ownerId === input.ownerId);
+		if (owned.length >= input.maxProjects) {
+			return { outcome: "limit-reached", projectCount: owned.length };
+		}
 		const record: StoredProjectDocument = {
 			id: input.document.project.id,
 			ownerId: input.ownerId,
@@ -104,7 +111,7 @@ class MemoryProjects implements ProjectDocumentRepositoryPort {
 			updatedAt: NOW,
 		};
 		this.records.set(record.id, record);
-		return record;
+		return { outcome: "created", project: record };
 	}
 
 	async update(input: {
@@ -194,15 +201,18 @@ function appFor(
 	projects: MemoryProjects,
 	auth: AuthPort = signedInAs("account-1"),
 	assets: HostedProjectAssetResolverPort = new MemoryAssets(),
+	plan: Plan = Plan.free(),
 ) {
+	let created = 0;
 	return new Hono().route(
 		"/api/projects",
 		createProjectsRoute({
-				auth,
-				projects,
-				assets,
+			auth,
+			projects,
+			assets,
+			subscriptions: { planFor: async () => plan },
 			now: () => NOW,
-			createId: () => "project-server-1",
+			createId: () => (created++ === 0 ? "project-server-1" : `project-server-${created}`),
 		}),
 	);
 }
@@ -245,6 +255,46 @@ describe("hosted project documents", () => {
 			project: { id: "project-server-1", title: "First project" },
 		});
 		expect(projects.records.get("project-server-1")?.ownerId).toBe("account-1");
+	});
+
+	it("refuses a free account's fourth cloud project with the ceiling and the plan that lifts it", async () => {
+		const projects = new MemoryProjects();
+		const app = appFor(projects);
+		const create = () =>
+			app.request(
+				request("/api/projects", { method: "POST", body: JSON.stringify({ document: LEGACY }) }),
+			);
+
+		const statuses = [];
+		for (let index = 0; index < 3; index += 1) {
+			statuses.push((await create()).status);
+		}
+		const fourth = await create();
+
+		expect(statuses).toEqual([201, 201, 201]);
+		expect(fourth.status).toBe(402);
+		expect(await fourth.json()).toEqual({
+			error: "Free keeps 3 cloud projects; Creator keeps 100",
+			code: "plan-limit",
+			ceiling: "cloudProjects",
+			limit: 3,
+			used: 3,
+			plan: "free",
+			upgradeTo: "creator",
+		});
+		expect(projects.records.size).toBe(3);
+	});
+
+	it("lets a Creator account keep more than three cloud projects", async () => {
+		const projects = new MemoryProjects();
+		const app = appFor(projects, signedInAs("account-1"), new MemoryAssets(), Plan.pro());
+
+		for (let index = 0; index < 4; index += 1) {
+			const response = await app.request(
+				request("/api/projects", { method: "POST", body: JSON.stringify({ document: LEGACY }) }),
+			);
+			expect(response.status).toBe(201);
+		}
 	});
 
 	it("requires the hosted project to exist before any asset can be attached", async () => {

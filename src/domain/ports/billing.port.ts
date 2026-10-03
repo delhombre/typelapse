@@ -41,4 +41,9 @@ export interface BillingPort {
 	startCheckout(cadence: BillingCadence): Promise<CheckoutSession>;
 	/** Open the provider portal for cancellation, invoices and payment methods. */
 	openPortal(): Promise<BillingPortalSession>;
+	/**
+	 * The server's one-sentence account allowance (ceilings and usage). The
+	 * client shows it verbatim and never computes a number of its own.
+	 */
+	getAllowance?(): Promise<string>;
 }

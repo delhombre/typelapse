@@ -14,17 +14,21 @@ import {
 	type HostedRenderDownloadService,
 } from "../src/application/render/hosted-render-download";
 import type { AuthPort } from "../src/domain/ports/auth.port";
+import type { SubscriptionPort } from "../src/domain/ports/subscription.port";
 import { Plan } from "../src/domain/value-objects/plan";
 import { betterAuthAdapter } from "../src/infrastructure/auth/better-auth.adapter";
 import { authInstance, type AuthInstance } from "./auth/auth-instance";
 import type { HostedRenderDeps } from "./auth/hosted-render-guard";
+import { createAccountPlanResolver } from "./billing/account-plan";
 import { billingServiceFromEnv } from "./billing/billing-from-env";
 import type { BillingService } from "./billing/billing-service";
 import { type DeploymentMode, deploymentModeFrom } from "./config/deployment-mode";
+import { createAccountUsageRepository } from "./db/account-usage.repository";
 import {
 	createAssetRepository,
 	createHostedProjectAssetResolver,
 } from "./db/asset.repository";
+import { createBillingProjectionStore } from "./db/billing-projection.store";
 import { databaseFromEnv, type CreatorDatabase } from "./db/database";
 import { createProjectDocumentRepository } from "./db/project-document.repository";
 import { createRenderOutputRepository } from "./db/render-job.repository";
@@ -114,6 +118,22 @@ export async function createApp(
 					expiresInSeconds: 60,
 				})
 			: (options.renderDownloads ?? null);
+	/**
+	 * Entitlement and quotas come from the durable Stripe projection whenever a
+	 * database exists, even with checkout unconfigured: with no Stripe no row is
+	 * ever written, so every account is free and the free ceilings apply.
+	 */
+	const subscriptions: SubscriptionPort = database
+		? createAccountPlanResolver(createBillingProjectionStore({ db: database }))
+		: {
+				planFor: async (accountId) => {
+					if (!billing) {
+						return Plan.free();
+					}
+					const plan = await billing.planFor(accountId);
+					return plan.tier === "creator" ? Plan.pro() : Plan.free();
+				},
+			};
 	const projectSync = Boolean(authPort && projectRepository && projectAssetResolver);
 	const privateAssets = Boolean(authPort && assetRepository && objectStorage);
 	const hostedRendering = Boolean(authPort && renderJobs && renderDownloads);
@@ -153,30 +173,24 @@ export async function createApp(
 				auth: authPort,
 				projects: projectRepository,
 				assets: projectAssetResolver,
+				subscriptions,
 			}),
 		);
 	}
 	if (authPort && assetRepository && objectStorage) {
 		app.route(
 			"/api/assets",
-			createAssetsRoute({ auth: authPort, assets: assetRepository, storage: objectStorage }),
+			createAssetsRoute({
+				auth: authPort,
+				assets: assetRepository,
+				storage: objectStorage,
+				subscriptions,
+			}),
 		);
 	}
 
-	/** Hosted entitlements come from the durable Stripe projection when configured. */
 	const hostedRenderDeps: HostedRenderDeps | undefined = authPort
-		? {
-				auth: authPort,
-				subscriptions: {
-					planFor: async (accountId) => {
-						if (!billing) {
-							return Plan.free();
-						}
-						const plan = await billing.planFor(accountId);
-						return plan.tier === "creator" ? Plan.pro() : Plan.free();
-					},
-				},
-			}
+		? { auth: authPort, subscriptions }
 		: undefined;
 
 	if (deploymentMode === "local") {
@@ -205,6 +219,8 @@ export async function createApp(
 		createBillingRoute({
 			auth: authPort ?? { verify: async () => null },
 			billing,
+			subscriptions,
+			...(database ? { usage: createAccountUsageRepository(database) } : {}),
 		}),
 	);
 

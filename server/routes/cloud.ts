@@ -1,6 +1,11 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import {
+	outputExpiredRefusal,
+	planLimitRefusal,
+} from "../../src/application/billing/plan-allowance";
+import {
+	type HostedRenderJob,
 	type HostedRenderJobService,
 	parseHostedRenderOptions,
 } from "../../src/application/render/hosted-render-job";
@@ -8,10 +13,11 @@ import type {
 	HostedRenderDownload,
 	HostedRenderDownloadService,
 } from "../../src/application/render/hosted-render-download";
+import type { Plan } from "../../src/domain/value-objects/plan";
 import {
 	type HostedRenderDeps,
 	defaultHostedRenderDeps,
-	requireHostedRenderEntitlement,
+	requireHostedAccount,
 } from "../auth/hosted-render-guard";
 
 const MAX_RENDER_REQUEST_BYTES = 32 * 1024;
@@ -19,12 +25,33 @@ const MAX_RENDER_REQUEST_BYTES = 32 * 1024;
 interface CloudRouteEnv {
 	Variables: {
 		accountId: string;
+		plan: Plan;
 	};
 }
 
 export interface CloudRouteDeps extends HostedRenderDeps {
 	readonly renderJobs?: HostedRenderJobService;
 	readonly renderDownloads?: HostedRenderDownloadService;
+	readonly now?: () => Date;
+}
+
+/** A paid plan keeps every output; a downgraded one keeps them for its grace period. */
+async function keepsOutput(
+	deps: CloudRouteDeps,
+	c: Context<CloudRouteEnv>,
+	job: HostedRenderJob,
+	now: Date,
+): Promise<boolean> {
+	const plan = c.get("plan");
+	if (plan.capabilities.allowsCloudExport) {
+		return true;
+	}
+	const downgradedAt = (await deps.subscriptions.downgradedAt?.(c.get("accountId"))) ?? null;
+	return plan.keepsHostedOutput({
+		completedAt: job.completedAt ?? job.createdAt,
+		downgradedAt,
+		now,
+	});
 }
 
 async function downloadResponse(
@@ -78,8 +105,9 @@ export const createCloudRoute = (
 	deps: CloudRouteDeps = { ...defaultHostedRenderDeps },
 ): Hono<CloudRouteEnv> => {
 	const cloudRoute = new Hono<CloudRouteEnv>();
+	const now = deps.now ?? (() => new Date());
 
-	cloudRoute.use("*", requireHostedRenderEntitlement(deps));
+	cloudRoute.use("*", requireHostedAccount(deps));
 	cloudRoute.use(
 		"/render",
 		bodyLimit({
@@ -89,6 +117,10 @@ export const createCloudRoute = (
 	);
 
 	cloudRoute.post("/render", async (c) => {
+		const plan = c.get("plan");
+		if (!plan.capabilities.allowsCloudExport) {
+			return c.json(planLimitRefusal(plan, "hostedRenderTime", 0), 402);
+		}
 		if (!deps.renderJobs) {
 			return c.json({ error: "Hosted rendering is not configured" }, 503);
 		}
@@ -106,7 +138,16 @@ export const createCloudRoute = (
 			projectId: body.projectId,
 			revision: body.revision,
 			renderOptions: body.renderOptions,
+			plan,
+			now: now(),
 		});
+		if (result.outcome === "plan-limit") {
+			// Too many jobs at once clears by itself, so it is a retry, not an upgrade.
+			return c.json(
+				planLimitRefusal(plan, result.ceiling, result.used),
+				result.ceiling === "concurrentRenders" ? 429 : 402,
+			);
+		}
 		if (result.outcome === "project-not-found") {
 			return c.json({ error: "Project not found" }, 404);
 		}
@@ -136,6 +177,9 @@ export const createCloudRoute = (
 		if (job.status !== "succeeded" || !deps.renderDownloads) {
 			return c.json({ job });
 		}
+		if (!(await keepsOutput(deps, c, job, now()))) {
+			return c.json({ job });
+		}
 		const result = await downloadResponse(deps, c.get("accountId"), job.id);
 		if (result.outcome !== "ready") {
 			return c.json({ error: "Render output is temporarily unavailable" }, 503);
@@ -152,6 +196,9 @@ export const createCloudRoute = (
 		const job = await deps.renderJobs.status(c.get("accountId"), jobId);
 		if (!job) {
 			return c.json({ error: "Render job not found" }, 404);
+		}
+		if (job.status === "succeeded" && !(await keepsOutput(deps, c, job, now()))) {
+			return c.json(outputExpiredRefusal(c.get("plan")), 402);
 		}
 		const result = await downloadResponse(deps, c.get("accountId"), jobId);
 		if (result.outcome === "not-found") {

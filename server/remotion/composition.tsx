@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gradient";
-import { fitCardToCanvas, renderScaleFor } from "../../src/application/layout/canvas-fit";
+import {
+	BASE_VIDEO_SCALE,
+	CANVAS_MARGIN,
+	fitCardToCanvas,
+	renderScaleFor,
+} from "../../src/application/layout/canvas-fit";
+import { advanceProbeFont, measureCharWidthRatio } from "../../src/application/layout/char-advance";
 import {
 	FRAME_SECONDARY_ALPHA_HEX,
 	LINE_HEIGHT_RATIO,
@@ -21,6 +27,7 @@ import {
 import { captionAt } from "../../src/application/captions/caption-timing";
 import { renderTyping, typedCharCount } from "../../src/application/magic-move/typewriter";
 import { FrameChrome } from "../../src/presentation/components/preview/frame-chrome";
+import { GlowDecoration } from "../../src/presentation/components/preview/glow-decoration";
 import { GrainOverlay } from "../../src/presentation/components/preview/grain-overlay";
 import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic-move-canvas";
 import { ReelsProgress } from "../../src/presentation/components/preview/reels-progress";
@@ -28,18 +35,24 @@ import { StepCaption } from "../../src/presentation/components/preview/step-capt
 import { getWatermarkColor } from "../../src/presentation/utils/watermark-color";
 import type { RenderInput, ThemeData } from "./types";
 
-/**
- * Upscale factor from the 14px editor preview to crisp text at the reference
- * 1080p tier. Higher tiers multiply it by their share of that short edge (see
- * `renderScaleFor`), so 4K draws the same shot with twice the pixels rather
- * than the same card marooned in a bigger background.
- */
-export const BASE_VIDEO_SCALE = 2.2;
-/** Safe-area margin on each side of the canvas the card is fit into. */
-const CANVAS_MARGIN = 0.05;
+// The base scale and the safe-area margin are the shared placement table's
+// (application/layout/canvas-fit), read by the preview and the painter too.
+export { BASE_VIDEO_SCALE };
 
-function useFontLoaded(fontFamily: string) {
+/** Advance ÷ size of the theme font as this page resolves it, or of its fallback. */
+function measureAdvance(fontFamily: string, fontSize: number): number {
+	const ctx = document.createElement("canvas").getContext("2d");
+	return ctx ? measureCharWidthRatio(ctx, fontFamily, fontSize) : Number.NaN;
+}
+
+/**
+ * Load the fonts, then measure the theme font's advance: the card is sized on
+ * the same advance the `ch`-placed glyphs land on, measured the way the preview
+ * and the painter measure theirs. The frame is held until both are done.
+ */
+function useFontLoaded(fontFamily: string, fontSize: number): number {
 	const [handle] = useState(() => delayRender(`Loading fonts: ${fontFamily}`));
+	const [charWidthRatio, setCharWidthRatio] = useState(() => measureAdvance(fontFamily, fontSize));
 
 	useEffect(() => {
 		const fontName = fontFamily.split(",")[0]?.trim().replace(/'/g, "") ?? "JetBrains Mono";
@@ -55,14 +68,24 @@ function useFontLoaded(fontFamily: string) {
 					style.textContent = css;
 					document.head.appendChild(style);
 				}
-				return document.fonts.ready;
+				// A face that no element has asked for yet is not loading, so `ready`
+				// alone would let the probe measure the fallback.
+				return document.fonts.load(advanceProbeFont(fontFamily, fontSize), "0");
 			})
-			.then(() => continueRender(handle))
+			.then(() => document.fonts.ready)
+			.then(() => {
+				setCharWidthRatio(measureAdvance(fontFamily, fontSize));
+				continueRender(handle);
+			})
 			.catch((err) => {
 				console.error("Font loading failed:", err);
+				// The fallback is what the glyphs will be set in, so it is what to size on.
+				setCharWidthRatio(measureAdvance(fontFamily, fontSize));
 				continueRender(handle);
 			});
-	}, [handle, fontFamily]);
+	}, [handle, fontFamily, fontSize]);
+
+	return charWidthRatio;
 }
 
 interface Segment {
@@ -94,7 +117,7 @@ function buildSegments(durationsMs: number[], transitionMs: number, fps: number,
 }
 
 export function TypelapseComposition({ input }: { input: RenderInput }) {
-	useFontLoaded(input.theme.fontFamily);
+	const charWidthRatio = useFontLoaded(input.theme.fontFamily, input.theme.fontSize);
 
 	const frame = useCurrentFrame();
 	const { fps, width, height, durationInFrames } = useVideoConfig();
@@ -145,6 +168,7 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 				canvasWidth={width}
 				canvasHeight={height}
 				videoScale={videoScale}
+				charWidthRatio={charWidthRatio}
 				reels={
 					steps.length >= 2 ? (
 						<ReelsProgress
@@ -315,6 +339,7 @@ export function CenteredFrame({
 	canvasWidth,
 	canvasHeight,
 	videoScale,
+	charWidthRatio,
 	reels,
 	caption,
 	children,
@@ -331,6 +356,8 @@ export function CenteredFrame({
 	canvasHeight: number;
 	/** Upscale factor for this canvas, from `renderScaleFor`. */
 	videoScale: number;
+	/** The theme font's measured advance ÷ size (`measureCharWidthRatio`). */
+	charWidthRatio: number;
 	reels?: React.ReactNode;
 	caption?: React.ReactNode;
 	children: React.ReactNode;
@@ -357,6 +384,7 @@ export function CenteredFrame({
 		canvasWidth,
 		canvasHeight,
 		canvasMargin: CANVAS_MARGIN,
+		charWidthRatio,
 	});
 	const natural = fit.natural;
 	const scale = fit.scale;
@@ -518,31 +546,6 @@ export function WatermarkOverlay({
 			}}
 		>
 			{text}
-		</div>
-	);
-}
-
-function GlowDecoration() {
-	return (
-		<div
-			style={{
-				position: "absolute",
-				inset: 0,
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				pointerEvents: "none",
-			}}
-		>
-			<div
-				style={{
-					width: "70%",
-					height: "60%",
-					borderRadius: 28,
-					background: "radial-gradient(closest-side, rgba(255,255,255,0.05), transparent)",
-					filter: "blur(48px)",
-				}}
-			/>
 		</div>
 	);
 }

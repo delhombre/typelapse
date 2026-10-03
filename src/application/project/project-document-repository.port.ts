@@ -18,6 +18,10 @@ export interface ProjectDocumentSummary {
 	readonly updatedAt: Date;
 }
 
+export type CreateProjectDocumentResult =
+	| { readonly outcome: "created"; readonly project: StoredProjectDocument }
+	| { readonly outcome: "limit-reached"; readonly projectCount: number };
+
 export type UpdateProjectDocumentResult =
 	| { readonly outcome: "updated"; readonly project: StoredProjectDocument }
 	| { readonly outcome: "conflict"; readonly currentRevision: number }
@@ -33,10 +37,15 @@ export type UpdateProjectDocumentResult =
 export interface ProjectDocumentRepositoryPort {
 	listByOwner(ownerId: AccountId): Promise<readonly ProjectDocumentSummary[]>;
 	findOwnedById(ownerId: AccountId, id: string): Promise<StoredProjectDocument | null>;
+	/**
+	 * Create unless the owner already holds `maxProjects`. The count and the
+	 * insert are one atomic step, so concurrent creates cannot overshoot it.
+	 */
 	create(input: {
 		readonly ownerId: AccountId;
 		readonly document: ProjectDocumentV2;
-	}): Promise<StoredProjectDocument>;
+		readonly maxProjects: number;
+	}): Promise<CreateProjectDocumentResult>;
 	update(input: {
 		readonly ownerId: AccountId;
 		readonly id: string;

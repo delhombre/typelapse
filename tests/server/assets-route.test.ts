@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { Plan } from "../../src/domain/value-objects/plan";
 import { describe, expect, it } from "vitest";
 import { createAssetsRoute } from "../../server/routes/assets";
 import type {
@@ -23,10 +24,20 @@ const CHECKSUM = "a".repeat(64);
 class RouteAssetsFake implements AssetRepositoryPort {
 	readonly records = new Map<string, AssetRecord>();
 	readonly referencedIds = new Set<string>();
+	usedBytes = 0;
+	lastLimitBytes = 0;
 
 	async reservePending(
 		input: Parameters<AssetRepositoryPort["reservePending"]>[0],
 	): Promise<ReservePendingAssetResult> {
+		this.lastLimitBytes = input.maxOwnerStorageBytes;
+		if (this.usedBytes + input.metadata.byteSize > input.maxOwnerStorageBytes) {
+			return {
+				outcome: "quota-exceeded",
+				usedBytes: this.usedBytes,
+				limitBytes: input.maxOwnerStorageBytes,
+			};
+		}
 		const asset: AssetRecord = {
 			id: input.id,
 			ownerId: input.ownerId,
@@ -169,6 +180,7 @@ function appFor(
 	assets: RouteAssetsFake,
 	storage: RouteStorageFake,
 	auth: AuthPort = signedInAs("account-1"),
+	plan: Plan = Plan.free(),
 ) {
 	return new Hono().route(
 		"/api/assets",
@@ -176,6 +188,7 @@ function appFor(
 			auth,
 			assets,
 			storage,
+			subscriptions: { planFor: async () => plan },
 			now: () => NOW,
 			createId: () => "asset-route-1",
 		}),
@@ -247,6 +260,38 @@ describe("assets route", () => {
 		expect(body.asset).not.toHaveProperty("objectKey");
 		expect(body.asset).not.toHaveProperty("ownerId");
 		expect(body.asset).not.toHaveProperty("reserveIdempotencyKey");
+	});
+
+	it("stores up to the plan's media allowance and names the ceiling past it", async () => {
+		const MB = 1024 * 1024;
+		const assets = new RouteAssetsFake();
+		assets.usedBytes = 100 * MB - 1000;
+		const reserve = (plan: Plan) =>
+			appFor(assets, new RouteStorageFake(), signedInAs("account-1"), plan).request(
+				request("/api/assets/reserve", {
+					method: "POST",
+					headers: { "idempotency-key": "reserve-quota-1" },
+					body: JSON.stringify({ projectId: "project-1", metadata: IMAGE_METADATA }),
+				}),
+			);
+
+		const free = await reserve(Plan.free());
+		expect(free.status).toBe(413);
+		expect(await free.json()).toEqual({
+			error: "Free stores 100\u00a0MB of media; Creator stores 5\u00a0GB",
+			code: "plan-limit",
+			ceiling: "mediaBytes",
+			limit: 100 * MB,
+			used: 100 * MB - 1000,
+			plan: "free",
+			upgradeTo: "creator",
+			usedBytes: 100 * MB - 1000,
+			limitBytes: 100 * MB,
+		});
+
+		const creator = await reserve(Plan.pro());
+		expect(creator.status).toBe(201);
+		expect(assets.lastLimitBytes).toBe(5 * 1024 * MB);
 	});
 
 	it("requires an idempotency key before creating a pending record", async () => {

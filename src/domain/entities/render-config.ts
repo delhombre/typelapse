@@ -99,6 +99,36 @@ export const MAX_RENDER_DIMENSION = ASPECT_LABELS.flatMap((aspect) =>
 /** Keeps a zero, a negative or a one-pixel frame out of the encoder. */
 export const MIN_RENDER_DIMENSION = 16;
 
+/**
+ * The one size rule every render path applies, on each axis: an even integer
+ * inside the shared bounds. Even because 4:2:0 chroma is subsampled by two, so
+ * an odd edge holds half a chroma sample and encoders refuse it. A rule rather
+ * than a list of sizes, because a list admitted 16:9 and refused the 4:5 and 3:4
+ * presets the studio ships.
+ */
+export function isRenderDimension(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= MIN_RENDER_DIMENSION &&
+		value <= MAX_RENDER_DIMENSION &&
+		value % 2 === 0
+	);
+}
+
+/**
+ * What the synchronous route does with an untrusted edge: clamp it into the
+ * bounds, then round down to even, so a size the rule allows passes untouched
+ * and any other lands on the nearest size it would allow.
+ */
+export function clampRenderDimension(value: unknown, fallback: number): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		return fallback;
+	}
+	const clamped = Math.min(MAX_RENDER_DIMENSION, Math.max(MIN_RENDER_DIMENSION, value));
+	return Math.floor(clamped / 2) * 2;
+}
+
 export interface RenderConfigProps {
 	width: number;
 	height: number;

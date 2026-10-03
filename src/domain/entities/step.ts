@@ -49,6 +49,8 @@ export function captionFromGeneratedLabel(label: string | undefined): string | u
 }
 
 export interface StepProps {
+	/** A stable id from a project file, so the layers keyed to its scene stay attached. */
+	id?: string;
 	code: string;
 	duration?: number;
 	highlightRanges?: HighlightRange[];
@@ -114,7 +116,7 @@ export class Step {
 		const duration = props.duration ?? 1000;
 		Step.assertValid(props.code, duration);
 		return new Step({
-			id: crypto.randomUUID(),
+			id: props.id ?? crypto.randomUUID(),
 			code: props.code,
 			duration,
 			highlightRanges: props.highlightRanges ?? [],

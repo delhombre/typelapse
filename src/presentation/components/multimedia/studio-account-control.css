@@ -119,6 +119,12 @@
 	line-height: 1.55;
 }
 
+/* The allowance is mostly numbers: figures of one width keep "2 of 3" steady as usage moves. */
+.mm-account-copy > .mm-account-allowance {
+	font-variant-numeric: tabular-nums;
+	text-wrap: pretty;
+}
+
 .mm-account-copy > a,
 .mm-account-actions a,
 .mm-account-actions button {

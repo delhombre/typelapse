@@ -104,6 +104,64 @@ describe("hosted render entitlement", () => {
 		);
 
 		expect(response.status).toBe(402);
+		expect(await response.json()).toEqual({
+			error: "Hosted renders come with Creator",
+			code: "plan-limit",
+			ceiling: "hostedRenderTime",
+			limit: 0,
+			used: 0,
+			plan: "free",
+			upgradeTo: "creator",
+		});
+	});
+
+	it("passes the server-resolved plan to the job service and refuses past the monthly minutes", async () => {
+		let seenPlan: Plan | null = null;
+		const route = createCloudRoute({
+			auth: signedInAs("acc_1"),
+			subscriptions: on(Plan.pro()),
+			renderJobs: {
+				...renderJobs,
+				submit: async (input) => {
+					seenPlan = input.plan;
+					return { outcome: "plan-limit", ceiling: "hostedRenderTime", used: 3_590_000 };
+				},
+			},
+		});
+
+		const response = await hostedApp(route).request(renderRequest({ cookie: "session=valid" }));
+
+		expect((seenPlan as Plan | null)?.tier).toBe("pro");
+		expect(response.status).toBe(402);
+		expect(await response.json()).toMatchObject({
+			code: "plan-limit",
+			ceiling: "hostedRenderTime",
+			limit: 3_600_000,
+			used: 3_590_000,
+			plan: "creator",
+			upgradeTo: null,
+		});
+	});
+
+	it("asks a Creator account to wait when three jobs already run", async () => {
+		const route = createCloudRoute({
+			auth: signedInAs("acc_1"),
+			subscriptions: on(Plan.pro()),
+			renderJobs: {
+				...renderJobs,
+				submit: async () => ({ outcome: "plan-limit", ceiling: "concurrentRenders", used: 3 }),
+			},
+		});
+
+		const response = await hostedApp(route).request(renderRequest({ cookie: "session=valid" }));
+
+		expect(response.status).toBe(429);
+		expect(await response.json()).toMatchObject({
+			ceiling: "concurrentRenders",
+			limit: 3,
+			used: 3,
+			upgradeTo: null,
+		});
 	});
 
 	it("accepts a signed-in account whose plan includes hosted rendering", async () => {

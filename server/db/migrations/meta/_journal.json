@@ -29,6 +29,13 @@
       "when": 1788124945048,
       "tag": "0003_lucky_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791039064951,
+      "tag": "0004_hosted_render_duration",
+      "breakpoints": true
     }
   ]
 }

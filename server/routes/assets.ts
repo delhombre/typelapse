@@ -7,7 +7,10 @@ import {
 } from "../../src/application/assets/asset-ingestion";
 import type { AssetRecord } from "../../src/application/assets/asset-repository.port";
 import { authenticateAccount } from "../../src/application/auth/authenticate-account";
+import { planLimitRefusal } from "../../src/application/billing/plan-allowance";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
+import type { SubscriptionPort } from "../../src/domain/ports/subscription.port";
+import { Plan } from "../../src/domain/value-objects/plan";
 
 interface AssetsRouteEnv {
 	Variables: {
@@ -19,6 +22,8 @@ const MAX_ASSET_REQUEST_BYTES = 64 * 1024;
 
 export interface AssetsRouteDeps extends AssetIngestionDependencies {
 	readonly auth: AuthPort;
+	/** Resolves the media allowance; without billing every account is on the free plan. */
+	readonly subscriptions?: SubscriptionPort;
 }
 
 async function readJsonObject(request: Request): Promise<Record<string, unknown> | null> {
@@ -48,9 +53,16 @@ function assetView(asset: AssetRecord) {
 	};
 }
 
-function errorResponse(c: Context<AssetsRouteEnv>, error: unknown): Response {
+function errorResponse(c: Context<AssetsRouteEnv>, error: unknown, plan?: Plan): Response {
 	if (!(error instanceof AssetIngestionError)) {
 		throw error;
+	}
+	if (error.code === "quota-exceeded" && plan) {
+		const usedBytes = Number(error.details?.usedBytes ?? 0);
+		return c.json(
+			{ ...planLimitRefusal(plan, "mediaBytes", usedBytes), ...error.details },
+			413,
+		);
 	}
 	const body = { error: error.message, code: error.code, ...error.details };
 	switch (error.code) {
@@ -79,6 +91,7 @@ export function createAssetsRoute({
 	assets,
 	storage,
 	policy,
+	subscriptions = { planFor: async () => Plan.free() },
 	now = () => new Date(),
 	createId,
 }: AssetsRouteDeps): Hono<AssetsRouteEnv> {
@@ -115,12 +128,14 @@ export function createAssetsRoute({
 		if (!input || !hasOnlyKeys(input, ["projectId", "metadata"])) {
 			return c.json({ error: "Project id and asset metadata are required" }, 400);
 		}
+		const plan = await subscriptions.planFor(c.get("accountId"));
 		try {
 			const result = await service.reserve({
 				ownerId: c.get("accountId"),
 				projectId: input.projectId,
 				metadata: input.metadata,
 				idempotencyKey,
+				maxOwnerStorageBytes: plan.limitFor("mediaBytes"),
 			});
 			const body = {
 				asset: assetView(result.asset),
@@ -129,7 +144,7 @@ export function createAssetsRoute({
 			};
 			return result.replayed ? c.json(body, 200) : c.json(body, 201);
 		} catch (error) {
-			return errorResponse(c, error);
+			return errorResponse(c, error, plan);
 		}
 	});
 

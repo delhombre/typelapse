@@ -40,6 +40,11 @@ interface AppliedRow extends Record<string, unknown> {
 	readonly id: string;
 }
 
+interface RenderUsageRow extends Record<string, unknown> {
+	readonly activeRenders: number | string;
+	readonly renderMsInPeriod: number | string;
+}
+
 interface RawRenderOutputRow extends Record<string, unknown> {
 	readonly status: string;
 	readonly objectKey: string | null;
@@ -145,47 +150,74 @@ export function hostedRenderJobFromRow(row: RenderJobRow): HostedRenderJob {
 export function createRenderJobRepository(db: CreatorDatabase): RenderJobRepositoryPort {
 	return {
 		async enqueueOrGet(input) {
-			const [created] = await db
-				.insert(renderJobs)
-				.values({
-					id: input.id,
-					projectId: input.projectId,
-					ownerId: input.ownerId,
-					revision: input.revision,
-					projectDocument: input.projectDocument,
-					renderOptions: input.renderOptions as unknown as RenderOptions,
-					renderOptionsHash: input.renderOptionsHash,
-					compilerVersion: input.compilerVersion,
-				})
-				.onConflictDoNothing({
-					target: [
-						renderJobs.projectId,
-						renderJobs.revision,
-						renderJobs.compilerVersion,
-						renderJobs.renderOptionsHash,
-					],
-				})
-				.returning();
-			if (created) {
-				return hostedRenderJobFromRow(created);
-			}
-			const [existing] = await db
-				.select()
-				.from(renderJobs)
-				.where(
-					and(
-						eq(renderJobs.ownerId, input.ownerId),
-						eq(renderJobs.projectId, input.projectId),
-						eq(renderJobs.revision, input.revision),
-						eq(renderJobs.compilerVersion, input.compilerVersion),
-						eq(renderJobs.renderOptionsHash, input.renderOptionsHash),
-					),
-				)
-				.limit(1);
-			if (!existing) {
-				throw new Error("Idempotent render job could not be reloaded");
-			}
-			return hostedRenderJobFromRow(existing);
+			// The owner lock is the one asset reservation takes, so two submissions
+			// from the same account serialize and cannot both fit the last minutes.
+			return db.transaction(async (tx) => {
+				await tx.execute(
+					sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.ownerId}, 0))`,
+				);
+				const [existing] = await tx
+					.select()
+					.from(renderJobs)
+					.where(
+						and(
+							eq(renderJobs.ownerId, input.ownerId),
+							eq(renderJobs.projectId, input.projectId),
+							eq(renderJobs.revision, input.revision),
+							eq(renderJobs.compilerVersion, input.compilerVersion),
+							eq(renderJobs.renderOptionsHash, input.renderOptionsHash),
+						),
+					)
+					.limit(1);
+				if (existing) {
+					return { outcome: "enqueued" as const, job: hostedRenderJobFromRow(existing) };
+				}
+				// Failed and canceled jobs produced nothing, so they spend no minutes.
+				const usage = await tx.execute<RenderUsageRow>(
+					sql`SELECT
+						count(*) FILTER (WHERE status IN ('queued', 'running')) AS "activeRenders",
+						COALESCE(SUM(duration_ms) FILTER (
+							WHERE status IN ('queued', 'running', 'succeeded')
+								AND created_at >= ${input.quota.periodStart}
+						), 0) AS "renderMsInPeriod"
+					FROM render_jobs
+					WHERE owner_id = ${input.ownerId}`,
+				);
+				const activeRenders = Number(usage.rows[0]?.activeRenders ?? 0);
+				const renderMsInPeriod = Number(usage.rows[0]?.renderMsInPeriod ?? 0);
+				if (activeRenders >= input.quota.maxActiveRenders) {
+					return {
+						outcome: "quota-exceeded" as const,
+						ceiling: "concurrentRenders" as const,
+						used: activeRenders,
+					};
+				}
+				if (renderMsInPeriod + input.durationMs > input.quota.maxRenderMsInPeriod) {
+					return {
+						outcome: "quota-exceeded" as const,
+						ceiling: "hostedRenderTime" as const,
+						used: renderMsInPeriod,
+					};
+				}
+				const [created] = await tx
+					.insert(renderJobs)
+					.values({
+						id: input.id,
+						projectId: input.projectId,
+						ownerId: input.ownerId,
+						revision: input.revision,
+						projectDocument: input.projectDocument,
+						renderOptions: input.renderOptions as unknown as RenderOptions,
+						renderOptionsHash: input.renderOptionsHash,
+						compilerVersion: input.compilerVersion,
+						durationMs: input.durationMs,
+					})
+					.returning();
+				if (!created) {
+					throw new Error("Render job persistence returned no created row");
+				}
+				return { outcome: "enqueued" as const, job: hostedRenderJobFromRow(created) };
+			});
 		},
 
 		async findOwnedById(ownerId, id) {

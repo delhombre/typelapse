@@ -71,6 +71,7 @@ function HostedAccountIsland({
 		plan,
 		catalog,
 		billingAvailable,
+		allowance,
 		cadence,
 		isUpgrading,
 		error: billingError,
@@ -90,6 +91,7 @@ function HostedAccountIsland({
 				store={authStore}
 				cloudProjectState={cloudProjectState}
 				{...(runtime ? { onSaveToCloud: saveToCloud } : {})}
+				allowance={allowance}
 				billing={{
 					planLabel: plan.label,
 					paid: plan.isPaid,

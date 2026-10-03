@@ -56,7 +56,9 @@ function billingPrice(value: unknown): { currency: string; unitAmount: number } 
 
 /** Browser adapter for the server-authoritative Stripe integration. */
 export class StripeBillingAdapter implements BillingPort {
-	constructor(private readonly fetcher: typeof fetch = fetch) {}
+	// The default wraps fetch rather than storing it: called as `this.fetcher(...)`
+	// a bare window.fetch throws "Illegal invocation" in every browser.
+	constructor(private readonly fetcher: typeof fetch = (input, init) => fetch(input, init)) {}
 
 	async getCatalog(): Promise<BillingCatalog> {
 		const response = await this.fetcher("/api/billing/catalog", { credentials: "include" });
@@ -77,6 +79,16 @@ export class StripeBillingAdapter implements BillingPort {
 		const body = await responseBody(response);
 		const tier = isRecord(body.plan) ? body.plan.tier : undefined;
 		return tier === "creator" ? Plan.pro() : Plan.free();
+	}
+
+	async getAllowance(): Promise<string> {
+		const response = await this.fetcher("/api/billing/allowance", { credentials: "include" });
+		const body = await responseBody(response);
+		const sentence = isRecord(body.allowance) ? body.allowance.sentence : undefined;
+		if (typeof sentence !== "string" || !sentence.trim()) {
+			throw new Error("Billing returned an invalid allowance");
+		}
+		return sentence;
 	}
 
 	async startCheckout(cadence: BillingCadence): Promise<CheckoutSession> {

@@ -47,6 +47,14 @@ const MIME_TYPES: Record<SafeFormat, string> = {
 /** Quality of the JPEG intermediate the video formats capture each frame as. */
 const JPEG_QUALITY = 95;
 
+/**
+ * The colour space every server video is encoded in. Remotion's default leaves
+ * the JPEG frames full range (yuvj420p) and tags them bt470bg, so a player
+ * decodes other colours than the preview. BT.709 limited range is what the
+ * on-device WebCodecs exporter writes, so the three renderers agree on colour.
+ */
+export const SERVER_VIDEO_COLOR_SPACE = "bt709";
+
 export interface OutputSettings {
 	format: SafeFormat;
 	codec: "h264" | "vp8" | "gif";
@@ -54,6 +62,8 @@ export interface OutputSettings {
 	imageFormat: "jpeg" | "png";
 	jpegQuality: number | undefined;
 	pixelFormat: "yuv420p" | undefined;
+	/** Undefined for GIF, whose palette pass Remotion always runs in BT.601. */
+	colorSpace: typeof SERVER_VIDEO_COLOR_SPACE | undefined;
 	mimeType: string;
 	/** Encoded width, already brought inside the format's budget. */
 	width: number;
@@ -108,6 +118,27 @@ export function gifFilterOverride(args: readonly string[]): string[] {
 	return patched;
 }
 
+/**
+ * Remotion's BT.709 conversion, as it builds it for `colorSpace: "bt709"`. It
+ * declares the input BT.709, but the frames are JPEG screenshots, which are
+ * BT.601 full range: reds drift (a #3366cc field decodes 42 instead of 49).
+ * On ffmpeg 7 it also leaves primaries and transfer unknown, so the stream is
+ * only half tagged. The replacement names the real input and tags all four.
+ */
+const REMOTION_BT709_FILTER = "zscale=matrix=709:matrixin=709:range=limited";
+const TYPELAPSE_BT709_FILTER =
+	"zscale=matrixin=470bg:rangein=full:primariesin=709:transferin=709:matrix=709:range=limited:primaries=709:transfer=709";
+
+export function videoColorOverride(args: readonly string[]): string[] {
+	const index = args.indexOf(REMOTION_BT709_FILTER);
+	if (index === -1) {
+		return [...args];
+	}
+	const patched = [...args];
+	patched[index] = TYPELAPSE_BT709_FILTER;
+	return patched;
+}
+
 /** Whitelist the format at the trust boundary; never interpolate the raw field. */
 export function safeFormat(value: unknown): SafeFormat {
 	return RENDER_FORMATS.includes(value as SafeFormat) ? (value as SafeFormat) : "mp4";
@@ -135,6 +166,7 @@ export function outputSettingsFor(
 		imageFormat: isGif ? "png" : "jpeg",
 		jpegQuality: isGif ? undefined : JPEG_QUALITY,
 		pixelFormat: isGif ? undefined : "yuv420p",
+		colorSpace: isGif ? undefined : SERVER_VIDEO_COLOR_SPACE,
 		mimeType: MIME_TYPES[format],
 		width: size.width,
 		height: size.height,

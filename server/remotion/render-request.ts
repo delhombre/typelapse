@@ -37,8 +37,9 @@ export function renderRequestProblem(body: unknown): string | null {
 		return "Request body must be a JSON object";
 	}
 	const { steps, theme } = body;
-	if (!Array.isArray(steps) || steps.length < 2) {
-		return "At least 2 steps required";
+	// One scene is a video (decision D3 of the 2026-10-03 sprint).
+	if (!Array.isArray(steps) || steps.length < 1) {
+		return "At least 1 step required";
 	}
 	if (steps.length > MAX_STEPS) {
 		return `Too many steps (max ${MAX_STEPS})`;

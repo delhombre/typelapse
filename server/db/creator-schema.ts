@@ -293,6 +293,12 @@ export const renderJobs = pgTable(
 		renderOptions: jsonb("render_options").$type<RenderOptions>().notNull(),
 		renderOptionsHash: text("render_options_hash").notNull(),
 		compilerVersion: text("compiler_version").notNull(),
+		/**
+		 * Output length in milliseconds, computed from the snapshot at submission.
+		 * The monthly render minutes sum it; rows from before the quota are NULL
+		 * and count as zero.
+		 */
+		durationMs: integer("duration_ms"),
 		status: renderJobStatus("status").default("queued").notNull(),
 		attempts: integer("attempts").default(0).notNull(),
 		availableAt: hostedTimestamp("available_at").defaultNow().notNull(),

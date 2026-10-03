@@ -35,10 +35,16 @@ describe("renderRequestProblem", () => {
 		expect(renderRequestProblem(body())).toBeNull();
 	});
 
+	it("renders one step: a single scene is a video", () => {
+		const oneScene = body({ steps: [{ code: "const a = 1;", duration: 2000 }] });
+		expect(renderRequestProblem(oneScene)).toBeNull();
+	});
+
 	it("names the problem for bodies that used to crash the route into a 500", () => {
 		expect(renderRequestProblem(null)).toBe("Request body must be a JSON object");
 		expect(renderRequestProblem([1, 2])).toBe("Request body must be a JSON object");
-		expect(renderRequestProblem(body({ steps: "abcdef" }))).toBe("At least 2 steps required");
+		expect(renderRequestProblem(body({ steps: "abcdef" }))).toBe("At least 1 step required");
+		expect(renderRequestProblem(body({ steps: [] }))).toBe("At least 1 step required");
 		expect(renderRequestProblem(body({ steps: [1, 2] }))).toBe(
 			"Each step needs its code as a string",
 		);

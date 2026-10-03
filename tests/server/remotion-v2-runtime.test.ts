@@ -59,6 +59,17 @@ describe("Remotion V2 runtime", () => {
 				durationInFrames: 15,
 			},
 			muted: false,
+			colorSpace: "bt709",
 		});
+		expect(
+			// The callback assigns it, which TypeScript's narrowing cannot see.
+			(renderInput as Parameters<RemotionV2RuntimeApiPort["renderMedia"]>[0] | null)?.ffmpegOverride({
+				type: "pre-stitcher",
+				args: ["-vf", "zscale=matrix=709:matrixin=709:range=limited"],
+			}),
+		).toEqual([
+			"-vf",
+			"zscale=matrixin=470bg:rangein=full:primariesin=709:transferin=709:matrix=709:range=limited:primaries=709:transfer=709",
+		]);
 	});
 });

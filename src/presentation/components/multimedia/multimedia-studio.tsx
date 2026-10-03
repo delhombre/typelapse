@@ -268,6 +268,7 @@ export function MultimediaStudio({
 		plan,
 		catalog,
 		billingAvailable,
+		allowance,
 		cadence,
 		isUpgrading,
 		error: billingError,
@@ -973,6 +974,7 @@ export function MultimediaStudio({
 								store={authStore}
 								cloudProjectState={cloudProjectState}
 								onSaveToCloud={() => void saveToCloud()}
+								allowance={allowance}
 								billing={{
 									planLabel: plan.label,
 									paid: plan.isPaid,

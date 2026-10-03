@@ -71,6 +71,8 @@ export interface ReserveAssetRequest {
 	readonly projectId: unknown;
 	readonly idempotencyKey: string;
 	readonly metadata: unknown;
+	/** The account plan's media allowance; the policy's ceiling still caps it. */
+	readonly maxOwnerStorageBytes?: number;
 }
 
 export interface ReserveAssetResponse {
@@ -326,7 +328,10 @@ export function createAssetIngestionService({
 				objectKey: createObjectKey(input.ownerId, projectId, id),
 				metadata,
 				idempotencyKey,
-				maxOwnerStorageBytes: policy.maxOwnerStorageBytes,
+				maxOwnerStorageBytes: Math.min(
+					input.maxOwnerStorageBytes ?? policy.maxOwnerStorageBytes,
+					policy.maxOwnerStorageBytes,
+				),
 				now: now(),
 			});
 

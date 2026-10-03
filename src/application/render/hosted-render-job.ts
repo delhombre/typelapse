@@ -1,3 +1,7 @@
+import { isRenderDimension } from "../../domain/entities/render-config";
+import type { Plan } from "../../domain/value-objects/plan";
+import { renderPeriodStart } from "../billing/plan-allowance";
+import { hydrateProjectDocument } from "../project/hydrate-project-document";
 import type { ProjectDocumentV2 } from "../project/project-document";
 import type { ProjectDocumentRepositoryPort } from "../project/project-document-repository.port";
 
@@ -8,7 +12,7 @@ export interface HostedRenderOptions {
 	readonly format: HostedRenderFormat;
 	readonly width: number;
 	readonly height: number;
-	readonly fps: 30 | 60;
+	readonly fps: 24 | 30 | 60;
 	readonly includeAudio: boolean;
 }
 
@@ -31,7 +35,26 @@ export interface RenderAssetReadinessPort {
 	}): Promise<readonly string[]>;
 }
 
+/** The plan's render ceilings, checked by the store under the same lock as the insert. */
+export interface RenderJobQuota {
+	readonly maxActiveRenders: number;
+	readonly maxRenderMsInPeriod: number;
+	readonly periodStart: Date;
+}
+
+export type EnqueueRenderJobResult =
+	| { readonly outcome: "enqueued"; readonly job: HostedRenderJob }
+	| {
+			readonly outcome: "quota-exceeded";
+			readonly ceiling: "concurrentRenders" | "hostedRenderTime";
+			readonly used: number;
+	  };
+
 export interface RenderJobRepositoryPort {
+	/**
+	 * Idempotent: a resubmission of the same revision and options returns the
+	 * existing job without counting against the quota a second time.
+	 */
 	enqueueOrGet(input: {
 		readonly id: string;
 		readonly ownerId: string;
@@ -41,7 +64,10 @@ export interface RenderJobRepositoryPort {
 		readonly renderOptions: HostedRenderOptions;
 		readonly renderOptionsHash: string;
 		readonly compilerVersion: string;
-	}): Promise<HostedRenderJob>;
+		/** Output length, which is what the monthly minutes measure. */
+		readonly durationMs: number;
+		readonly quota: RenderJobQuota;
+	}): Promise<EnqueueRenderJobResult>;
 	findOwnedById(ownerId: string, id: string): Promise<HostedRenderJob | null>;
 }
 
@@ -51,8 +77,16 @@ export interface HostedRenderJobService {
 		readonly projectId: string;
 		readonly revision: number;
 		readonly renderOptions: HostedRenderOptions;
+		/** Resolved server-side from the account, never from the request. */
+		readonly plan: Plan;
+		readonly now: Date;
 	}): Promise<
 		| { readonly outcome: "accepted"; readonly job: HostedRenderJob }
+		| {
+				readonly outcome: "plan-limit";
+				readonly ceiling: "concurrentRenders" | "hostedRenderTime";
+				readonly used: number;
+		  }
 		| { readonly outcome: "project-not-found" }
 		| { readonly outcome: "revision-conflict"; readonly currentRevision: number }
 		| { readonly outcome: "assets-unavailable"; readonly assetIds: readonly string[] }
@@ -61,7 +95,6 @@ export interface HostedRenderJobService {
 }
 
 const RENDER_FORMATS = new Set<HostedRenderFormat>(["mp4", "webm"]);
-const RENDER_DIMENSIONS = new Set([720, 1080, 1280, 1440, 1920, 2160, 2560, 3840]);
 
 export function parseHostedRenderOptions(input: unknown): HostedRenderOptions {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) {
@@ -71,16 +104,11 @@ export function parseHostedRenderOptions(input: unknown): HostedRenderOptions {
 	if (!RENDER_FORMATS.has(value.format as HostedRenderFormat)) {
 		throw new Error("Unsupported hosted render format");
 	}
-	if (
-		typeof value.width !== "number" ||
-		!RENDER_DIMENSIONS.has(value.width) ||
-		typeof value.height !== "number" ||
-		!RENDER_DIMENSIONS.has(value.height)
-	) {
+	if (!isRenderDimension(value.width) || !isRenderDimension(value.height)) {
 		throw new Error("Unsupported hosted render dimensions");
 	}
-	if (value.fps !== 30 && value.fps !== 60) {
-		throw new Error("Hosted render fps must be 30 or 60");
+	if (value.fps !== 24 && value.fps !== 30 && value.fps !== 60) {
+		throw new Error("Hosted render fps must be 24, 30 or 60");
 	}
 	if (typeof value.includeAudio !== "boolean") {
 		throw new Error("Hosted render includeAudio must be boolean");
@@ -133,7 +161,7 @@ export function createHostedRenderJobService(input: {
 			if (missing.length > 0) {
 				return { outcome: "assets-unavailable", assetIds: missing };
 			}
-			const job = await jobs.enqueueOrGet({
+			const result = await jobs.enqueueOrGet({
 				id: createId(),
 				ownerId: request.ownerId,
 				projectId: request.projectId,
@@ -142,8 +170,17 @@ export function createHostedRenderJobService(input: {
 				renderOptions: request.renderOptions,
 				renderOptionsHash: hashOptions(renderOptionsIdentity(request.renderOptions)),
 				compilerVersion,
+				durationMs: hydrateProjectDocument(project.document).project.durationMs,
+				quota: {
+					maxActiveRenders: request.plan.limitFor("concurrentRenders"),
+					maxRenderMsInPeriod: request.plan.limitFor("hostedRenderTime"),
+					periodStart: renderPeriodStart(request.now),
+				},
 			});
-			return { outcome: "accepted", job };
+			if (result.outcome === "quota-exceeded") {
+				return { outcome: "plan-limit", ceiling: result.ceiling, used: result.used };
+			}
+			return { outcome: "accepted", job: result.job };
 		},
 
 		status(ownerId, jobId) {

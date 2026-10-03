@@ -47,6 +47,34 @@ describe("hosted Stripe billing client", () => {
 		});
 	});
 
+	it("calls the browser fetch unbound, as browsers require", async () => {
+		// A real window.fetch throws "Illegal invocation" when called as a method
+		// of another object, which made every billing call fail in the browser.
+		vi.stubGlobal("fetch", function (this: unknown) {
+			if (this !== undefined && this !== globalThis) {
+				return Promise.reject(new TypeError("Illegal invocation"));
+			}
+			return Promise.resolve(jsonResponse({ allowance: { sentence: "Allowance." } }));
+		});
+		try {
+			await expect(new StripeBillingAdapter().getAllowance()).resolves.toBe("Allowance.");
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	it("reads the allowance sentence the server wrote, with session cookies", async () => {
+		const sentence = "You are using 2 of 3 cloud projects and 12 MB of 100 MB of media.";
+		const fetcher = vi.fn(async () => jsonResponse({ allowance: { plan: "free", sentence } }));
+		const billing = new StripeBillingAdapter(fetcher);
+
+		await expect(billing.getAllowance()).resolves.toBe(sentence);
+		expect(fetcher).toHaveBeenCalledWith("/api/billing/allowance", { credentials: "include" });
+		await expect(
+			new StripeBillingAdapter(vi.fn(async () => jsonResponse({ allowance: {} }))).getAllowance(),
+		).rejects.toThrow("allowance");
+	});
+
 	it("never simulates a paid plan when the hosted backend refuses the request", async () => {
 		const billing = new StripeBillingAdapter(
 			vi.fn(async () => jsonResponse({ error: "Sign in" }, 401)),

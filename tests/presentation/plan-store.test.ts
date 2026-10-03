@@ -49,6 +49,28 @@ describe("deployment-aware plan store", () => {
 		expect(remote.getCurrentPlan).toHaveBeenCalledOnce();
 	});
 
+	it("keeps the server's allowance sentence and drops it when the server cannot give one", async () => {
+		const sentence = "You are using 2 of 3 cloud projects and 12 MB of 100 MB of media.";
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({ getAllowance: async () => sentence }),
+		});
+
+		await store.getState().refresh();
+		expect(store.getState().allowance).toBe(sentence);
+
+		const failing = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({
+				getAllowance: async () => {
+					throw new Error("Hosted allowance is not configured");
+				},
+			}),
+		});
+		await failing.getState().refresh();
+		expect(failing.getState().allowance).toBeNull();
+	});
+
 	it("uses only validated adapter redirects for checkout and portal navigation", async () => {
 		const navigate = vi.fn();
 		const store = createPlanStore({

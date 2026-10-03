@@ -68,6 +68,7 @@ describe("render job persistence mapping", () => {
 			renderOptions: { format: "mp4" },
 			renderOptionsHash: "a".repeat(64),
 			compilerVersion: "compiler-v2",
+			durationMs: 1000,
 			status: "succeeded",
 			attempts: 1,
 			availableAt: NOW,
