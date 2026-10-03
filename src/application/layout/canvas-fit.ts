@@ -19,6 +19,17 @@ import { type ChromeVariant, frameNaturalSize } from "./frame-metrics";
 export const REFERENCE_SHORT_EDGE = 1080;
 
 /**
+ * Upscale factor from the 14px editor type to crisp video text at the reference
+ * 1080p tier; higher tiers multiply it by their share of that short edge (see
+ * `renderScaleFor`). One constant for the three renderers: the preview, the
+ * composition and the painter each used to keep their own copy of it.
+ */
+export const BASE_VIDEO_SCALE = 2.2;
+
+/** Safe-area margin kept on each side of the canvas the card is fit into. */
+export const CANVAS_MARGIN = 0.05;
+
+/**
  * The upscale factor a canvas of this size should draw the card at.
  *
  * `fitScale` never enlarges, so a fixed scale would make a higher tier a bigger
@@ -83,8 +94,12 @@ export interface CardCanvasFitInput {
 	canvasHeight: number;
 	/** Safe-area margin kept on each side of the canvas (fraction). */
 	canvasMargin: number;
-	/** Measured monospace advance ÷ font size, when the target can measure it. */
-	charWidthRatio?: number;
+	/**
+	 * Monospace advance ÷ font size, from `measureCharWidthRatio` in the font the
+	 * target paints with. Required: a card sized on any other number is wider or
+	 * narrower than the glyphs inside it.
+	 */
+	charWidthRatio: number;
 }
 
 export interface CardCanvasFit {
@@ -132,5 +147,37 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 		scale,
 		widthFraction: (paddedWidth * scale) / input.canvasWidth,
 		heightFraction: (paddedHeight * scale) / input.canvasHeight,
+	};
+}
+
+export interface PreviewCardPlacementInput
+	extends Omit<CardCanvasFitInput, "scale" | "canvasMargin"> {
+	/** Width of the aspect box the preview draws the canvas into, in CSS px. */
+	boxWidth: number;
+}
+
+export interface PreviewCardPlacement {
+	/** The window's width at editor size (unscaled px), before `cardScale`. */
+	windowWidth: number;
+	/** Box px per editor px: the one transform that puts the card in the box. */
+	cardScale: number;
+}
+
+/**
+ * How the DOM preview draws the exporters' card inside its aspect box.
+ *
+ * The preview lays the card out at editor size (14px type, unscaled padding and
+ * margin), so it takes the exporters' window width divided by their render scale,
+ * and one transform that carries editor px to box px: the render scale, the fit,
+ * and the box's own share of the canvas. Laid out any other way (it used to be a
+ * fixed 42rem card squeezed into the slot) the window and the type each come out
+ * a different size from the export's.
+ */
+export function previewCardPlacement(input: PreviewCardPlacementInput): PreviewCardPlacement {
+	const unit = renderScaleFor(input.canvasWidth, input.canvasHeight, BASE_VIDEO_SCALE);
+	const fit = fitCardToCanvas({ ...input, scale: unit, canvasMargin: CANVAS_MARGIN });
+	return {
+		windowWidth: fit.natural.width / unit,
+		cardScale: (unit * fit.scale * input.boxWidth) / input.canvasWidth,
 	};
 }

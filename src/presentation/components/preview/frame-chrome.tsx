@@ -10,7 +10,11 @@
 // Relative, not aliased: the Remotion composition imports this component and is
 // type-checked by `server/tsconfig.json`, which has no `@/` path mapping. Every
 // other component the video shares does the same.
-import { CHROME_FONT_STACK, CHROME_STYLE } from "../../../application/layout/frame-metrics";
+import {
+	CHROME_FONT_STACK,
+	CHROME_STYLE,
+	CHROME_TEXT_LINE_HEIGHT,
+} from "../../../application/layout/frame-metrics";
 
 export type WindowChrome = "macos" | "browser" | "terminal" | "none";
 
@@ -26,6 +30,11 @@ export function isWindowChrome(value: unknown): value is WindowChrome {
  * frame painter read too. Three surfaces draw this bar; one of them used to draw
  * it from a partial copy of these literals and rendered two of the three
  * variants as an empty strip.
+ *
+ * The line height and the hairline are set here rather than inherited for the
+ * same reason: the studio's body line height is 1.5 and headless Chrome's is
+ * `normal`, and a 1px hairline does not grow with the card the painter scales.
+ * Either one left to the page made the preview's bar taller than the export's.
  */
 const MONO = CHROME_FONT_STACK;
 
@@ -67,7 +76,8 @@ function MacosChrome({ title, foreground, scale }: BarProps) {
 				alignItems: "center",
 				gap: bar.gap * scale,
 				padding: `${bar.padY * scale}px ${bar.padX * scale}px`,
-				borderBottom: `${CHROME_STYLE.border}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
+				lineHeight: CHROME_TEXT_LINE_HEIGHT,
+				borderBottom: `${CHROME_STYLE.border * scale}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
 			}}
 		>
 			{bar.lights.map((color) => (
@@ -100,7 +110,8 @@ function BrowserChrome({ title, foreground, scale }: BarProps) {
 				alignItems: "center",
 				gap: bar.gap * scale,
 				padding: `${bar.padY * scale}px ${bar.padX * scale}px`,
-				borderBottom: `${CHROME_STYLE.border}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
+				lineHeight: CHROME_TEXT_LINE_HEIGHT,
+				borderBottom: `${CHROME_STYLE.border * scale}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
 			}}
 		>
 			<div
@@ -161,8 +172,9 @@ function TerminalChrome({ title, foreground, scale }: BarProps) {
 				alignItems: "center",
 				gap: bar.gap * scale,
 				padding: `${bar.padY * scale}px ${bar.padX * scale}px`,
+				lineHeight: CHROME_TEXT_LINE_HEIGHT,
 				background: `${foreground}${bar.barAlpha}`,
-				borderBottom: `${CHROME_STYLE.border}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
+				borderBottom: `${CHROME_STYLE.border * scale}px solid ${foreground}${CHROME_STYLE.borderAlpha}`,
 			}}
 		>
 			<span

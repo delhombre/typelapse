@@ -19,14 +19,14 @@
 import { GRAIN_OPACITY, GRAIN_TILE_SIZE, GRAIN_TILE_URL } from "@/application/backgrounds/grain";
 import { transparencyPlan, wantsTransparency } from "@/application/export/transparency";
 import { advanceDriftMessage } from "@/application/fonts/font-fidelity";
-import { canvasFont } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
 import type { GrainTile } from "@/application/frame-painter/scene";
+import { measureCharWidthRatio } from "@/application/layout/char-advance";
 import { CHROME_FONT_STACK } from "@/application/layout/frame-metrics";
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, WebMOutputFormat } from "mediabunny";
 import { decodeBackdropImage } from "./backdrop-image";
 import type { ClientExportEvent, ClientExportJob } from "./client-export-job";
-import { BASE_VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
+import { sceneFor, scriptFor } from "./client-export-scene";
 import { firstEncodableRung, qualityOf } from "./codec-probe";
 import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
@@ -251,12 +251,9 @@ async function measureAdvance(
 	// The chrome bar is set in the app's own mono whatever the code is set in, so
 	// it is a second family this scope has to have before it paints anything.
 	await loadExportFonts(scope.fonts, fontFamily, CHROME_FONT_STACK);
-	// The base rather than the tier's scale, deliberately: what comes back is an
-	// advance *divided by* the size, so the number is scale-free and the two
-	// scopes have to measure at the same size to be comparable at all.
-	const size = fontSize * BASE_VIDEO_SCALE;
-	ctx.font = canvasFont(size, fontFamily);
-	return ctx.measureText("0").width / size;
+	// The same probe the document and the server take, at the same size, so the
+	// three answers are comparable and the card is sized on this scope's glyphs.
+	return measureCharWidthRatio(ctx, fontFamily, fontSize);
 }
 
 /** Decode the shared grain tile once, ready to be tiled by the painter. */

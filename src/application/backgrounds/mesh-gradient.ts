@@ -4,8 +4,9 @@
  * Produces a CSS `background` string for a given preset and time `t` (seconds).
  * Colored blobs drift along looping sine paths, giving the flowing "liquid"
  * backdrop that premium code-video tools use. The exact same function drives the
- * browser preview (via rAF) and the exported video (via Remotion's frame count),
- * so the motion reads identically in both.
+ * browser preview, the exported video and the painter, and all three feed it the
+ * timeline's own time (never a wall clock), so a paused or scrubbed preview shows
+ * the drift the exported frame at that timestamp has.
  */
 
 interface Blob {

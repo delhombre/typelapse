@@ -53,3 +53,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-03 [autonomous-sprint](2026-10-03-autonomous-sprint.md): the
   backlog worked to done in waves; the landing aligned with the viability
   positioning; the painter learns text and image layers; one scene is a video.
+- 2026-10-03 [canonical-card-width](2026-10-03-canonical-card-width.md): the
+  card is sized on the measured advance through one placement table; the
+  preview's plate and wall-clock mesh go.

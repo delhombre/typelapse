@@ -20,11 +20,9 @@ export type ChromeVariant = "macos" | "browser" | "terminal" | "none";
 
 /** Row height as a multiple of font size: matches `MagicMoveCanvas`. */
 export const LINE_HEIGHT_RATIO = 1.6;
-/** Monospace advance as a fraction of the font size: matches the video width math. */
-export const CHAR_WIDTH_RATIO = 0.62;
 
-/** Intrinsic line box of chrome-bar text (no explicit line-height); slight
- *  over-estimate so the fit leaves a hair of margin rather than cropping. */
+/** Line height of chrome-bar text: `FrameChrome` sets it explicitly, so the bar
+ *  both DOM renderers lay out is exactly as tall as `chromeBarHeight` says. */
 export const CHROME_TEXT_LINE_HEIGHT = 1.35;
 /** StepCaption footprint below the card: marginTop 14 + reserved minHeight 20. */
 const CAPTION_BLOCK = 14 + 20;
@@ -166,11 +164,12 @@ export interface FrameNaturalSizeInput {
 	/** Upscale factor: chrome bar and caption block scale with it. */
 	scale: number;
 	/**
-	 * Monospace advance as a fraction of the font size, when the target can
-	 * measure its own resolved font (a canvas can: `measureText("0").width`).
-	 * Defaults to `CHAR_WIDTH_RATIO`, the nominal value a DOM renderer assumes.
+	 * Monospace advance as a fraction of the font size, measured in the font the
+	 * target paints with (`measureCharWidthRatio`). There is no default: the
+	 * nominal 0.62 the server once assumed sized its window 36 px wider than the
+	 * glyphs inside it at 1080p.
 	 */
-	charWidthRatio?: number;
+	charWidthRatio: number;
 }
 
 /**
@@ -190,7 +189,7 @@ export function frameNaturalSize(input: FrameNaturalSizeInput): { width: number;
 		scale,
 	} = input;
 	const maxLines = Math.max(1, input.maxLines);
-	const charRatio = input.charWidthRatio ?? CHAR_WIDTH_RATIO;
+	const charRatio = input.charWidthRatio;
 	const lineHeight = fontSize * LINE_HEIGHT_RATIO;
 
 	// Height: chrome bar + code area (padding top/bottom + one row per line) + caption.

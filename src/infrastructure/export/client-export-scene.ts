@@ -14,7 +14,7 @@ import {
 	type GrainTile,
 	frameScene,
 } from "@/application/frame-painter/scene";
-import { renderScaleFor } from "@/application/layout/canvas-fit";
+import { BASE_VIDEO_SCALE, CANVAS_MARGIN, renderScaleFor } from "@/application/layout/canvas-fit";
 import type { ClientExportJob } from "./client-export-job";
 
 /**
@@ -27,16 +27,11 @@ export interface SceneAssets {
 }
 
 /**
- * The composition's own constants. They are mirrored rather than imported
- * because `server/remotion/composition.tsx` is a server module; when the two
- * paths are finally merged this is the pair that has to move.
- *
- * `BASE_VIDEO_SCALE` is a *base*, and the name says so now because the old one
- * did not. It was called `VIDEO_SCALE` and handed to the scene as if it were
- * the scale to draw at, which is true only at 1080p — see `sceneInputFor`.
+ * The shared placement table's constants, re-exported for the worker and its
+ * tests. `BASE_VIDEO_SCALE` is a *base*: the scale to draw at is
+ * `renderScaleFor(...)` of it, which is 2.2 only at 1080p (see `sceneInputFor`).
  */
-export const BASE_VIDEO_SCALE = 2.2;
-export const CANVAS_MARGIN = 0.05;
+export { BASE_VIDEO_SCALE, CANVAS_MARGIN };
 
 export function sceneInputFor(
 	job: ClientExportJob,

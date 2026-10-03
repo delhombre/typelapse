@@ -6,20 +6,15 @@ import {
 	resolveBackgroundCss,
 } from "@/application/backgrounds/mesh-gradient";
 import { captionAt } from "@/application/captions/caption-timing";
+import { scriptFrameAt } from "@/application/export/video-script";
 import { focusLineSet } from "@/application/focus/line-ranges";
-import { fitCardToCanvas, renderScaleFor } from "@/application/layout/canvas-fit";
+import { previewCardPlacement } from "@/application/layout/canvas-fit";
 import { concentric } from "@/application/layout/concentric";
 import { fitScale } from "@/application/layout/fit-scale";
 import { FRAME_SECONDARY_ALPHA_HEX, LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
-import { type CubicBezier, cubicBezierAt } from "@/application/magic-move/easing";
-import { renderStatic, renderTransition } from "@/application/magic-move/engine";
-import {
-	NO_ZOOM,
-	type ZoomTransform,
-	interpolateZoom,
-	zoomForFocus,
-} from "@/application/magic-move/focus-zoom";
-import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
+import type { CubicBezier } from "@/application/magic-move/easing";
+import { renderStatic } from "@/application/magic-move/engine";
+import { NO_ZOOM, type ZoomTransform, zoomForFocus } from "@/application/magic-move/focus-zoom";
 import { studioCompositionTimeMs } from "@/application/project/studio-composition";
 import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import type { Theme } from "@/domain/entities/theme";
@@ -52,12 +47,14 @@ import {
 	useState,
 } from "react";
 import { FrameChrome, type WindowChrome } from "./frame-chrome";
+import { GlowDecoration } from "./glow-decoration";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
 import { SocialPreviewOverlay } from "./social-preview-overlay";
 import { StepCaption } from "./step-caption";
 import { StudioCompositionAudio, StudioCompositionLayers } from "./studio-composition-layers";
+import { useCharWidthRatio } from "./use-char-width-ratio";
 
 /** Pre-paint background for the node: mesh base color, image cover CSS, or none. */
 function staticBackground(
@@ -75,58 +72,49 @@ function staticBackground(
 }
 
 /**
- * Paint the background straight on the DOM node (no re-render). Mesh presets
- * animate via rAF; an uploaded image is painted once: feeding a giant data URL
- * through motion's `animate` would be wasteful, so it is set imperatively here.
+ * Paint the background straight on the DOM node. A mesh preset is painted at
+ * `timeSeconds`, the timeline's own time, exactly as the composition paints it at
+ * `frame / fps` and the painter at the script's time: paused, the mesh holds; a
+ * scrub lands on the same drift the exported frame has. It used to run on its
+ * own wall clock, so no paused frame ever matched a timestamp. An uploaded image
+ * is painted once: feeding a giant data URL through motion's `animate` would be
+ * wasteful, so it is set imperatively here.
  */
-function useDynamicBackground(ref: RefObject<HTMLDivElement | null>, background: string) {
-	useEffect(() => {
-		// Image: paint the cover CSS once and clear it on change/unmount. This runs
-		// after render + the previous cleanup, so it also restores the image if a
-		// mesh cleanup happened to clear the node on the same commit.
-		if (isImageBackground(background)) {
-			if (ref.current) {
-				ref.current.style.background = resolveBackgroundCss(background, 0);
-			}
-			return () => {
-				if (ref.current) {
-					ref.current.style.background = "";
-				}
-			};
-		}
-		const preset = parseMeshBackground(background);
-		if (!preset) {
+function useDynamicBackground(
+	ref: RefObject<HTMLDivElement | null>,
+	background: string,
+	timeSeconds: number,
+) {
+	// Both painters are layout effects: React runs every layout cleanup before
+	// any layout setup in a commit, so switching between an image and a mesh never
+	// lets one's cleanup wipe what the other just painted.
+	useLayoutEffect(() => {
+		const el = ref.current;
+		if (!el || !isImageBackground(background)) {
 			return;
 		}
-		// Respect reduced motion: paint a single static frame, don't oscillate.
-		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		if (reduced) {
-			if (ref.current) {
-				ref.current.style.background = meshGradientCss(preset, 0);
-			}
-			return () => {
-				if (ref.current) {
-					ref.current.style.background = "";
-				}
-			};
-		}
-		let raf = 0;
-		const start = performance.now();
-		const tick = () => {
-			const el = ref.current;
-			if (el) {
-				el.style.background = meshGradientCss(preset, (performance.now() - start) / 1000);
-			}
-			raf = requestAnimationFrame(tick);
-		};
-		raf = requestAnimationFrame(tick);
+		// Image: paint the cover CSS once and clear it on change/unmount.
+		el.style.background = resolveBackgroundCss(background, 0);
 		return () => {
-			cancelAnimationFrame(raf);
-			if (ref.current) {
-				ref.current.style.background = "";
-			}
+			el.style.background = "";
 		};
 	}, [background, ref]);
+
+	// The mesh repaints whenever the timeline moves, and only then. Reduced
+	// motion keeps the first frame on screen: the preference is about what moves
+	// in front of the viewer, and the export is not on screen.
+	useLayoutEffect(() => {
+		const el = ref.current;
+		const preset = parseMeshBackground(background);
+		if (!el || !preset) {
+			return;
+		}
+		const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+		el.style.background = meshGradientCss(preset, reduced ? 0 : timeSeconds);
+		return () => {
+			el.style.background = "";
+		};
+	}, [background, ref, timeSeconds]);
 }
 
 /** Content box (padding excluded) of an element, read live: the fallback used on
@@ -170,9 +158,6 @@ function contentBox(el: HTMLElement): { width: number; height: number } {
  */
 const STAGE_CARD_MAX_RADIUS = 20;
 
-const SOCIAL_BASE_VIDEO_SCALE = 2.2;
-const SOCIAL_CANVAS_MARGIN = 0.05;
-
 /** Gentle phone-screen rounding for the social aspect box, proportional and capped. */
 function socialCanvasRadius(width: number, height: number): number {
 	return Math.round(Math.min(28, Math.min(width, height) * 0.05));
@@ -188,6 +173,7 @@ export function LivePreview() {
 		isPlaying,
 		playback,
 		playbackProgress,
+		playbackElapsedMs,
 		background,
 		windowChrome,
 		showLineNumbers,
@@ -215,12 +201,16 @@ export function LivePreview() {
 		() => compileSceneTimeline({ document: compositionDocument, fps: exportFps }),
 		[compositionDocument, exportFps],
 	);
-	const compositionTimeMs = studioCompositionTimeMs(
-		compositionDocument.project.scenes,
-		transitionMs,
-		currentStepIndex,
-		playback,
-	);
+	// Playing or scrubbed, the composition follows the canonical clock, which
+	// runs past the last scene while an audio cue is still sounding.
+	const compositionTimeMs = playback
+		? playbackElapsedMs
+		: studioCompositionTimeMs(
+				compositionDocument.project.scenes,
+				transitionMs,
+				currentStepIndex,
+				null,
+			);
 	const compositionFrame = compositionTimeline.frameAt(
 		Math.round((compositionTimeMs / 1_000) * exportFps),
 	);
@@ -258,7 +248,6 @@ export function LivePreview() {
 	const containerEntry = useResizeObserverNode(containerNode);
 	const cardEntry = useResizeObserverNode(cardNode);
 	const [fitScaleValue, setFitScaleValue] = useState(1);
-	const [cardNatural, setCardNatural] = useState<{ width: number; height: number } | null>(null);
 
 	// Reconcile the social platform against the export aspect (null when off, or
 	// when the aspect has no immersive platform, e.g. 16:9).
@@ -278,14 +267,23 @@ export function LivePreview() {
 	const availWidth = containerEntry?.contentRect.width;
 	const availHeight = containerEntry?.contentRect.height;
 	const hasCaptionText = snippet.steps.some((s) => (s.annotation ?? "") !== "");
+	const charWidthRatio = useCharWidthRatio(snippet.theme.fontFamily, snippet.theme.fontSize);
 	const aspectCanvas = useMemo(() => {
-		if (!aspectCanvasEnabled || !plan || plan.frames.length === 0 || !cardNatural) {
+		if (!aspectCanvasEnabled || !plan || plan.frames.length === 0) {
 			return null;
 		}
 		if (!availWidth || !availHeight || availWidth <= 0 || availHeight <= 0) {
 			return null;
 		}
-		const fit = fitCardToCanvas({
+		if (!Number.isFinite(charWidthRatio)) {
+			return null;
+		}
+		const boxScale = fitScale(exportWidth, exportHeight, availWidth, availHeight);
+		const boxWidth = exportWidth * boxScale;
+		const boxHeight = exportHeight * boxScale;
+		// The exporters' card, from the same placement table: the window at their
+		// width laid out at editor size, and one transform to their text scale.
+		const placement = previewCardPlacement({
 			plan,
 			chrome: windowChrome,
 			fontSize: snippet.theme.fontSize,
@@ -294,27 +292,25 @@ export function LivePreview() {
 			showLineNumbers,
 			lineNumberStart,
 			hasCaption: hasCaptionText,
-			scale: renderScaleFor(exportWidth, exportHeight, SOCIAL_BASE_VIDEO_SCALE),
 			canvasWidth: exportWidth,
 			canvasHeight: exportHeight,
-			canvasMargin: SOCIAL_CANVAS_MARGIN,
+			charWidthRatio,
+			boxWidth,
 		});
-		const boxScale = fitScale(exportWidth, exportHeight, availWidth, availHeight);
-		const boxWidth = exportWidth * boxScale;
-		const boxHeight = exportHeight * boxScale;
-		// Fit the window's real (fixed-width) footprint into the same padded-card slot
-		// the video reserves for it: widthFraction x heightFraction of the canvas.
-		const cardScale = Math.min(
-			(fit.widthFraction * boxWidth) / cardNatural.width,
-			(fit.heightFraction * boxHeight) / cardNatural.height,
-		);
-		return { boxWidth, boxHeight, cardScale, radius: socialCanvasRadius(boxWidth, boxHeight) };
+		return {
+			boxWidth,
+			boxHeight,
+			boxScale,
+			windowWidth: placement.windowWidth,
+			cardScale: placement.cardScale,
+			radius: socialCanvasRadius(boxWidth, boxHeight),
+		};
 	}, [
 		aspectCanvasEnabled,
 		plan,
-		cardNatural,
 		availWidth,
 		availHeight,
+		charWidthRatio,
 		windowChrome,
 		snippet.theme.fontSize,
 		framePadding,
@@ -330,8 +326,13 @@ export function LivePreview() {
 	// In social mode the window's mesh margin goes transparent and the mesh moves to
 	// the aspect box, so the window sits opaque over one continuous canvas (seamless
 	// margins), exactly like the export's full-bleed background AbsoluteFill.
-	useDynamicBackground(previewRef, aspectCanvasActive ? "transparent" : background);
-	useDynamicBackground(boxRef, aspectCanvasActive ? background : "transparent");
+	const timelineSeconds = compositionTimeMs / 1_000;
+	useDynamicBackground(
+		previewRef,
+		aspectCanvasActive ? "transparent" : background,
+		timelineSeconds,
+	);
+	useDynamicBackground(boxRef, aspectCanvasActive ? background : "transparent", timelineSeconds);
 	// Play the synthesized tick track during preview playback (same rendered WAV the
 	// export bakes in), so the preview sounds identical to the video.
 	useTickAudio();
@@ -341,9 +342,9 @@ export function LivePreview() {
 	// is disarmed separately by ResponsiveShell's own unmount cleanup.
 	useEffect(() => () => useSnippetStore.getState().pause(), []);
 
-	// Fit-to-viewport for the plain (non-social) code window, plus the card's natural
-	// footprint the social placement centers in its aspect box. Both read the same
-	// pre-transform measurement, so social scaling never feeds back into it.
+	// Fit-to-viewport for the plain (non-canvas) code window, from the card's
+	// pre-transform measurement. The aspect canvas does not read it: its card is
+	// placed by the shared table, not by what the DOM happened to lay out.
 	//
 	// The content-shape deps (plan, padding, chrome, gutter) are not read below:
 	// they re-run this measure right after the DOM they shape has been committed,
@@ -362,11 +363,6 @@ export function LivePreview() {
 		const naturalW = cardSize?.inlineSize ?? cardNode.offsetWidth;
 		const naturalH = cardSize?.blockSize ?? cardNode.offsetHeight;
 		setFitScaleValue(fitScale(naturalW, naturalH, box.width, box.height));
-		setCardNatural((prev) =>
-			prev && prev.width === naturalW && prev.height === naturalH
-				? prev
-				: { width: naturalW, height: naturalH },
-		);
 	}, [
 		containerEntry,
 		cardEntry,
@@ -444,12 +440,18 @@ export function LivePreview() {
 		<motion.div
 			ref={attachCard}
 			data-export-target
-			className={`relative w-[42rem] ${isPlaying && !isTransparent && !aspectCanvasActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
+			className={`relative ${aspectCanvas ? "" : "w-[42rem]"} ${isPlaying && !isTransparent && !aspectCanvasActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
 			animate={cardBackgroundAnimate}
 			transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
 			style={{
 				opacity: isBuilding ? 0.85 : 1,
 				padding: isTransparent ? 0 : cardMargin,
+				// On the export canvas the window is exactly as wide as the exporters
+				// draw it (at editor size; the wrapper scales it). Elsewhere the card
+				// keeps the studio's fixed 42rem.
+				width: aspectCanvas
+					? aspectCanvas.windowWidth + 2 * (isTransparent ? 0 : cardMargin)
+					: undefined,
 				// Concentric law: the outer corner follows the window's radius plus the
 				// margin, so a square window (radius 0) yields a square card.
 				borderRadius: cardRadius,
@@ -469,7 +471,10 @@ export function LivePreview() {
 				}
 			}}
 		>
-			{!isTransparent && <GrainOverlay />}
+			{/* On the export canvas the grain lies on the whole canvas, under the card,
+			    as both exporters bake it; on the card alone it read as a rounded plate
+			    over the margin that no exported frame contains. */}
+			{!isTransparent && !aspectCanvasActive && <GrainOverlay />}
 
 			{/* One content column. The reels bar, the window, the caption and the
 						    watermark all live in this z-10 box, so the progress bar lines up
@@ -568,6 +573,10 @@ export function LivePreview() {
 							background: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
 						}}
 					>
+						{/* The exporters' canvas texture, the glow and the grain they lay over
+						    the background under the card, at the box's share of the canvas. */}
+						{!isTransparent ? <GlowDecoration scale={aspectCanvas.boxScale} /> : null}
+						{!isTransparent ? <GrainOverlay scale={aspectCanvas.boxScale} /> : null}
 						{hasCompositionLayers ? (
 							<div
 								className="sc-composition-surface-host"
@@ -717,44 +726,10 @@ function resolveView(
 	focusSets: (Set<number> | undefined)[],
 	transitionEasing: CubicBezier,
 ): FrameView {
-	if (playback) {
-		if (typewriter && playback.phase === "hold" && playback.index === 0 && plan.typing) {
-			const reveal = typedCharCount(firstCode.length, playback.t);
-			const { tokens, cursor } = renderTyping(firstCode, plan.typing, reveal);
-			const lineCount = plan.frames[0]?.lineCount ?? 1;
-			return {
-				tokens,
-				lineCount,
-				lineNumberCount: lineCount,
-				cursor,
-				zoom: zoomForFocus(focusSets[0], lineCount),
-			};
-		}
-		if (playback.phase === "transition") {
-			const transition = plan.transitions[playback.index];
-			const fromFrame = plan.frames[playback.index];
-			const toFrame = plan.frames[playback.index + 1];
-			if (transition && fromFrame && toFrame) {
-				const moveEase = (progress: number) => cubicBezierAt(transitionEasing, progress);
-				const eased = moveEase(playback.t);
-				const fromZoom = zoomForFocus(focusSets[playback.index], fromFrame.lineCount);
-				const toZoom = zoomForFocus(focusSets[playback.index + 1], toFrame.lineCount);
-				return {
-					tokens: renderTransition(
-						transition.from,
-						transition.to,
-						playback.t,
-						{ moveEase },
-						focusSets[playback.index],
-						focusSets[playback.index + 1],
-					),
-					lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
-					lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
-					zoom: interpolateZoom(fromZoom, toZoom, playback.t, moveEase),
-				};
-			}
-		}
-		return staticView(plan.frames[playback.index] ?? plan.frames[0], focusSets[playback.index]);
+	if (playback && plan.frames[playback.index]) {
+		// The same walk the exported file takes, so a morph and the loop morph
+		// look the same in both.
+		return scriptFrameAt({ plan, typewriter, firstCode, focusSets, transitionEasing }, playback);
 	}
 
 	const index = Math.min(Math.max(currentStepIndex, 0), plan.frames.length - 1);
