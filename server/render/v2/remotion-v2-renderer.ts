@@ -23,6 +23,7 @@ import {
 	videoColorOverride,
 } from "../../remotion/output-settings";
 import type { RemotionV2CompositionInput } from "../../remotion/v2/types";
+import { buildCodeCardInput } from "./code-card-input";
 
 export interface HostedRenderAssetMaterializerPort {
 	/** Writes the private object to the exact adapter-owned destination. */
@@ -344,11 +345,15 @@ export function createHostedRemotionV2Renderer(input: {
 				}
 
 				const timeline = compileSceneTimeline({ document, fps: renderInput.options.fps, loop });
+				const renderDocument = sanitizedRenderDocument(document, publicNames);
+				const card = await buildCodeCardInput({ document: renderDocument, loop });
+				renderInput.signal.throwIfAborted();
 				const compositionInput: RemotionV2CompositionInput = {
-					document: sanitizedRenderDocument(document, publicNames),
+					document: renderDocument,
 					assetSources,
 					includeAudio,
 					loop,
+					...(card ? { card } : {}),
 				};
 				const inputProps = { input: compositionInput } as const;
 				const serveUrl = await runtime.bundle({

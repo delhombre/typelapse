@@ -2,7 +2,11 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { V2RemotionComposition } from "../../server/remotion/v2/composition";
+import { buildCodeCardInput } from "../../server/render/v2/code-card-input";
 import type { ProjectDocumentV2 } from "../../src/application/project/project-document";
+import { proofDocument } from "./remotion-v2-proof-document";
+
+const currentFrame = vi.hoisted(() => ({ value: 0 }));
 
 vi.mock("remotion", async () => {
 	const ReactRuntime = await import("react");
@@ -33,7 +37,9 @@ vi.mock("remotion", async () => {
 				children,
 			),
 		staticFile: (publicPath: string) => `bundle://${publicPath}`,
-		useCurrentFrame: () => 0,
+		delayRender: () => 1,
+		continueRender: () => undefined,
+		useCurrentFrame: () => currentFrame.value,
 		useVideoConfig: () => ({
 			fps: 30,
 			width: 1920,
@@ -229,7 +235,7 @@ describe("V2 Remotion component", () => {
 		expect(markup).toContain('src="bundle://assets/asset-0.wav"');
 	});
 
-	it("mounts a real video element and a static code layer", () => {
+	it("mounts a real video element and no static code layer", () => {
 		const markup = renderToStaticMarkup(
 			React.createElement(V2RemotionComposition, {
 				input: {
@@ -242,11 +248,58 @@ describe("V2 Remotion component", () => {
 
 		expect(markup).toContain('data-remotion="video"');
 		expect(markup).toContain('src="bundle://assets/asset-0.mp4"');
-		expect(markup).toContain("const rendered = true;");
-		expect(markup).toContain('data-language="typescript"');
-		expect(markup).toContain('data-code-theme="midnight"');
-		expect(markup).toContain("Component");
-		expect(markup).toContain("border-radius:12px");
-		expect(markup).toContain('data-code-line-numbers=""');
+		// Without the studio's card in the input, a code block is not drawn at all.
+		expect(markup).not.toContain("data-code-layer");
+		expect(markup).not.toContain("const rendered = true;");
+	});
+
+	it("draws the studio's card between the layer slots, then the mark over everything", async () => {
+		const doc = proofDocument();
+		const card = await buildCodeCardInput({ document: doc, loop: false });
+		if (!card) {
+			throw new Error("the proof project has a card");
+		}
+		currentFrame.value = 15;
+		const markup = renderToStaticMarkup(
+			React.createElement(V2RemotionComposition, {
+				input: {
+					document: doc,
+					assetSources: [{ assetId: "asset-proof-photo", publicPath: "assets/asset-0.png" }],
+					includeAudio: false,
+					card,
+				},
+			}),
+		);
+		currentFrame.value = 0;
+
+		const photo = markup.indexOf('data-remotion="image"');
+		const window = markup.indexOf("data-code-window");
+		const mark = markup.lastIndexOf("@typelapse");
+		// Scene 1 holds at frame 15: the card is there but hidden, the texts over it.
+		expect(window).toBeGreaterThan(-1);
+		expect(markup).toContain("opacity:0");
+		expect(markup.indexOf("Ship the greeting")).toBeGreaterThan(window);
+		expect(mark).toBeGreaterThan(markup.indexOf("in three scenes, on this device"));
+		expect(photo).toBe(-1);
+		expect(markup).not.toContain("data-code-layer");
+
+		// Scene 2 holds at 2.5 s: the photo, authored before the card, lies under it.
+		currentFrame.value = 75;
+		const scene2 = renderToStaticMarkup(
+			React.createElement(V2RemotionComposition, {
+				input: {
+					document: doc,
+					assetSources: [{ assetId: "asset-proof-photo", publicPath: "assets/asset-0.png" }],
+					includeAudio: false,
+					card,
+				},
+			}),
+		);
+		currentFrame.value = 0;
+		expect(scene2.indexOf('data-remotion="image"')).toBeGreaterThan(-1);
+		expect(scene2.indexOf('data-remotion="image"')).toBeLessThan(
+			scene2.indexOf("data-code-window"),
+		);
+		expect(scene2).toContain("console.");
 	});
 });

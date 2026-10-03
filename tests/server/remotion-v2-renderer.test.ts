@@ -9,6 +9,7 @@ import {
 	createHostedRemotionV2Renderer,
 } from "../../server/render/v2/remotion-v2-renderer";
 import type { ProjectDocumentV2 } from "../../src/application/project/project-document";
+import { proofDocument } from "./remotion-v2-proof-document";
 
 const IMAGE_BYTES = Buffer.from("private-image-bytes");
 const OUTPUT_BYTES = Buffer.from("rendered-mp4");
@@ -251,6 +252,57 @@ describe("hosted Remotion V2 renderer", () => {
 		expect(rendered[0]?.durationInFrames).toBe(99);
 		expect(rendered[0]?.includeAudio).toBe(false);
 		expect(rendered[0]?.inputProps.input).toMatchObject({ loop: true, includeAudio: false });
+		await renderer.cleanup(artifact);
+	});
+
+	it("lays out the studio's card in Node and hands it to the composition", async () => {
+		const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "typelapse-v2-test-"));
+		temporaryRoots.push(temporaryRoot);
+		const rendered: Parameters<RemotionV2RuntimePort["renderMedia"]>[0][] = [];
+		const renderer = createHostedRemotionV2Renderer({
+			assets: { materializePrivateAsset: async () => undefined },
+			runtime: {
+				bundle: async () => "http://remotion.invalid/job-bundle",
+				selectComposition: async () => ({ id: "TypelapseV2" }),
+				async renderMedia(input) {
+					rendered.push(input);
+					await writeFile(input.outputPath, OUTPUT_BYTES);
+				},
+			},
+			temporaryRoot,
+		});
+		const proof = proofDocument();
+		const document: ProjectDocumentV2 = {
+			...proof,
+			project: {
+				...proof.project,
+				// The photo's bytes are not this test's subject; the card is.
+				assets: [],
+				scenes: proof.project.scenes.map((scene) => ({
+					...scene,
+					blocks: scene.blocks.filter((block) => block.kind !== "image"),
+				})),
+			},
+		};
+
+		const artifact = await renderer.render({
+			jobId: "job-card",
+			ownerId: "owner-1",
+			projectId: "proof-93",
+			revision: 1,
+			document,
+			options: { format: "mp4", width: 1920, height: 1080, fps: 60, includeAudio: false, loop: true },
+			compilerVersion: "compiler-v2",
+			signal: new AbortController().signal,
+		});
+
+		const card = rendered[0]?.inputProps.input.card;
+		expect(card).toMatchObject({ title: "greet.ts", loop: true, watermark: "@typelapse" });
+		expect(card?.steps).toHaveLength(3);
+		expect(card?.plan.frames).toHaveLength(3);
+		expect(card?.plan.loopTransition).toBeDefined();
+		// Three 1.5 s holds, two 1 s morphs and the 1 s loop morph, at 60 fps.
+		expect(rendered[0]?.durationInFrames).toBe(450);
 		await renderer.cleanup(artifact);
 	});
 

@@ -5,6 +5,7 @@ import {
 	projectRemotionVideoTiming,
 } from "../../server/remotion/v2/composition";
 import type { ProjectDocumentV2 } from "../../src/application/project/project-document";
+import { proofDocument } from "./remotion-v2-proof-document";
 
 const CHECKSUM = createHash("sha256").update("private-image-bytes").digest("hex");
 
@@ -299,7 +300,7 @@ describe("Remotion V2 composition", () => {
 		]);
 	});
 
-	it("resolves real video time and a static code layer", () => {
+	it("resolves real video time and leaves the code block to the card", () => {
 		const composition = compileV2RemotionComposition({
 			input: {
 				document: videoAndCodeDocument(),
@@ -324,31 +325,75 @@ describe("Remotion V2 composition", () => {
 				muted: true,
 				mediaRect: { x: 0, y: 0, width: 1920, height: 1080 },
 			},
-			{
-				kind: "code",
-				blockId: "code-block",
-				code: "const rendered = true;",
-				language: "typescript",
-				showLineNumbers: true,
-				lineNumberStart: 7,
-				visual: {
-					themeName: "midnight",
-					background: "#0d1117",
-					foreground: "#e6edf3",
-					chrome: "none",
-					fontFamily: "Ioskeley Mono, ui-monospace, monospace",
-					fontSize: 18,
-					lineHeight: 1.55,
-					borderRadius: 12,
-					framePadding: 24,
-					boxShadow: "0 24px 64px rgb(0 0 0 / 0.22), 0 2px 10px rgb(0 0 0 / 0.16)",
-					lineNumberColor: "#e6edf340",
-					lineNumberGap: 18,
-				},
-			},
 		]);
+		// No renderer draws a code block from its placement: the studio's card does.
+		expect(composition.frameAt(15).layers).toHaveLength(1);
 		expect(
 			projectRemotionVideoTiming({ frame: 15, fps: 30, sourceTimeMs: 1_250 }),
 		).toEqual({ sourceFrame: 38, sequenceFromFrame: -23 });
+	});
+
+	it("splits the layers around the card and fades the card with its scene", () => {
+		const composition = compileV2RemotionComposition({
+			input: {
+				document: proofDocument(),
+				assetSources: [{ assetId: "asset-proof-photo", publicPath: "assets/asset-0.png" }],
+				includeAudio: false,
+			},
+			fps: 60,
+			width: 1920,
+			height: 1080,
+			resolvePublicAsset: (publicPath) => `bundle://${publicPath}`,
+		});
+
+		// Title card: the card is hidden and the texts, authored after it, lie over it.
+		const t0 = composition.frameAt(0);
+		expect(t0.codeOpacity).toBe(0);
+		expect(t0.layers.map((layer) => [layer.blockId, layer.slot])).toEqual([
+			["headline", "over-code"],
+			["byline", "over-code"],
+		]);
+		// Mid-morph (t = 2.0 s): the card is half way in, the photo under it.
+		const mid = composition.frameAt(120);
+		expect(mid.codeOpacity).toBeCloseTo(0.5, 1);
+		expect(mid.layers.find((layer) => layer.blockId === "photo")?.slot).toBe("under-code");
+		// Scene 2 holds: a whole card over the photo, which keeps its project-canvas box.
+		const scene2 = composition.frameAt(150);
+		expect(scene2.codeOpacity).toBe(1);
+		expect(scene2.layers).toMatchObject([
+			{
+				kind: "image",
+				blockId: "photo",
+				slot: "under-code",
+				borderRadius: 48,
+				box: { x: 1152, y: 0.12 * 1080, width: 0.34 * 1920, height: 0.76 * 1080 },
+			},
+		]);
+		// The last frame is code alone.
+		expect(composition.totalFrames).toBe(390);
+		expect(composition.frameAt(389).layers).toEqual([]);
+		expect(composition.frameAt(389).codeOpacity).toBe(1);
+	});
+
+	it("keeps layer boxes in project pixels and scales the surface to the output", () => {
+		const composition = compileV2RemotionComposition({
+			input: {
+				document: proofDocument(),
+				assetSources: [{ assetId: "asset-proof-photo", publicPath: "assets/asset-0.png" }],
+				includeAudio: false,
+			},
+			fps: 30,
+			width: 3840,
+			height: 2160,
+			resolvePublicAsset: (publicPath) => `bundle://${publicPath}`,
+		});
+
+		expect(composition.surfaceScale).toBe(2);
+		expect(composition.frameAt(0).layers[0]?.box).toEqual({
+			x: 192,
+			y: 324,
+			width: 1536,
+			height: 194.4,
+		});
 	});
 });

@@ -121,11 +121,43 @@ function buildSegments(durationsMs: number[], transitionMs: number, fps: number,
 }
 
 export function TypelapseComposition({ input }: { input: RenderInput }) {
+	const frame = useCurrentFrame();
+	const { fps, width, height } = useVideoConfig();
+	const { theme, background, watermark, audioDataUrl } = input;
+	const videoScale = renderScaleFor(width, height, BASE_VIDEO_SCALE);
+	const isTransparent = background === "transparent";
+	const backgroundCss = isTransparent ? "transparent" : resolveBackgroundCss(background, frame / fps);
+
+	return (
+		<AbsoluteFill style={{ background: backgroundCss }}>
+			{/* Synthesized tick track, mounted at frame 0 so it spans the whole video. */}
+			{audioDataUrl && <Audio src={audioDataUrl} />}
+			{!isTransparent && <GlowDecoration />}
+			{!isTransparent && <GrainOverlay />}
+			<CodeCard input={input} />
+			{watermark && (
+				<WatermarkOverlay
+					text={watermark}
+					color={getWatermarkColor(background, theme.foreground)}
+					fontFamily={theme.fontFamily}
+					scale={videoScale}
+				/>
+			)}
+		</AbsoluteFill>
+	);
+}
+
+/**
+ * The card at this frame: magic move, typewriter, focus zoom, reels bar and
+ * caption, centred by the shared fit. Exported for the multimedia composition,
+ * which lays a project's text and image layers under and over this same card.
+ */
+export function CodeCard({ input }: { input: RenderInput }) {
 	const charWidthRatio = useFontLoaded(input.theme.fontFamily, input.theme.fontSize);
 
 	const frame = useCurrentFrame();
 	const { fps, width, height, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, transitionEasing, loop, typewriter, focusZoom, progressStyle, watermark, audioDataUrl } =
+	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, transitionEasing, loop, focusZoom, progressStyle } =
 		input;
 
 	const segments = buildSegments(
@@ -140,14 +172,12 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	// framing is identical at every resolution tier and only the fidelity changes.
 	const videoScale = renderScaleFor(width, height, BASE_VIDEO_SCALE);
 
-	const isTransparent = background === "transparent";
 	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
 	const typingView = resolveTypingView(input, active, frame, focusSets[0]);
 	const view = typingView ?? resolveView(plan, active, frame, focusSets, transitionEasing);
 	const cursor = typingView?.cursor ?? null;
 	const wmColor = getWatermarkColor(background, theme.foreground);
-	const backgroundCss = isTransparent ? "transparent" : resolveBackgroundCss(background, frame / fps);
 
 	// Per-step captions overlaid beneath the frame; same timing function as the preview.
 	const annotations = steps.map((s) => s.caption ?? "");
@@ -155,72 +185,58 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	const caption = captionForSegment(active, frame, annotations);
 
 	return (
-		<AbsoluteFill style={{ background: backgroundCss }}>
-			{/* Synthesized tick track, mounted at frame 0 so it spans the whole video. */}
-			{audioDataUrl && <Audio src={audioDataUrl} />}
-			{!isTransparent && <GlowDecoration />}
-			{!isTransparent && <GrainOverlay />}
-			<CenteredFrame
-				plan={plan}
-				theme={theme}
-				title={title}
-				windowChrome={windowChrome}
-				showLineNumbers={showLineNumbers}
-				lineNumberStart={lineNumberStart}
-				framePadding={framePadding}
-				cardMargin={cardMargin}
-				canvasWidth={width}
-				canvasHeight={height}
-				videoScale={videoScale}
-				charWidthRatio={charWidthRatio}
-				reels={
-					steps.length >= 2 ? (
-						<ReelsProgress
-							style={progressStyle}
-							segments={steps.length}
-							progress={frame / Math.max(1, durationInFrames)}
-							scale={videoScale}
-						/>
-					) : null
-				}
-				caption={
-					hasCaptions ? (
-						<StepCaption
-							text={caption.text}
-							opacity={caption.opacity}
-							color={wmColor}
-							scale={videoScale}
-						/>
-					) : null
-				}
-			>
-				{/* Focus zoom: identical transform to the preview so the video matches. */}
-				<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * videoScale)}>
-					<MagicMoveCanvas
-						tokens={view.tokens}
-						lineCount={view.lineCount}
-						lineNumberCount={view.lineNumberCount}
-						fontSize={theme.fontSize * videoScale}
-						lineHeightRatio={LINE_HEIGHT_RATIO}
-						fontFamily={theme.fontFamily}
-						color={theme.foreground}
-						showLineNumbers={showLineNumbers}
-						lineNumberStart={lineNumberStart}
-						lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
-						padding={framePadding * videoScale}
-						cursor={cursor}
+		<CenteredFrame
+			plan={plan}
+			theme={theme}
+			title={title}
+			windowChrome={windowChrome}
+			showLineNumbers={showLineNumbers}
+			lineNumberStart={lineNumberStart}
+			framePadding={framePadding}
+			cardMargin={cardMargin}
+			canvasWidth={width}
+			canvasHeight={height}
+			videoScale={videoScale}
+			charWidthRatio={charWidthRatio}
+			reels={
+				steps.length >= 2 ? (
+					<ReelsProgress
+						style={progressStyle}
+						segments={steps.length}
+						progress={frame / Math.max(1, durationInFrames)}
+						scale={videoScale}
 					/>
-				</div>
-			</CenteredFrame>
-			{watermark && (
-				<WatermarkOverlay
-					text={watermark}
-					color={wmColor}
+				) : null
+			}
+			caption={
+				hasCaptions ? (
+					<StepCaption
+						text={caption.text}
+						opacity={caption.opacity}
+						color={wmColor}
+						scale={videoScale}
+					/>
+				) : null
+			}
+		>
+			{/* Focus zoom: identical transform to the preview so the video matches. */}
+			<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * videoScale)}>
+				<MagicMoveCanvas
+					tokens={view.tokens}
+					lineCount={view.lineCount}
+					lineNumberCount={view.lineNumberCount}
+					fontSize={theme.fontSize * videoScale}
+					lineHeightRatio={LINE_HEIGHT_RATIO}
 					fontFamily={theme.fontFamily}
-					scale={videoScale}
+					color={theme.foreground}
+					showLineNumbers={showLineNumbers}
+					lineNumberStart={lineNumberStart}
+					lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
+					padding={framePadding * videoScale}
+					cursor={cursor}
 				/>
-			)}
-		</AbsoluteFill>
+			</div>
+		</CenteredFrame>
 	);
 }
 

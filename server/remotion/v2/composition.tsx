@@ -1,10 +1,12 @@
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useState } from "react";
 import {
 	AbsoluteFill,
 	Audio,
 	Img,
 	OffthreadVideo,
 	Sequence,
+	continueRender,
+	delayRender,
 	staticFile,
 	useCurrentFrame,
 	useVideoConfig,
@@ -19,22 +21,30 @@ import {
 	fitMediaToBox,
 	projectFittedMediaRect,
 } from "../../../src/application/layout/media-fit";
-import type { BlockPlacementPayload } from "../../../src/application/project/project-document";
+import { fontsToLoad, googleFontCssUrl } from "../../../src/application/fonts/code-fonts";
+import { BASE_VIDEO_SCALE, renderScaleFor } from "../../../src/application/layout/canvas-fit";
+import type {
+	BlockPlacementPayload,
+	ProjectDocumentV2,
+} from "../../../src/application/project/project-document";
 import {
-	type ResolvedCodeLayer,
-	type ResolvedSceneLayer,
-	compileSceneTimeline,
-} from "../../../src/application/render/scene-timeline";
+	type CompositionSlot,
+	compositionSlot,
+	primaryCodeOpacity,
+} from "../../../src/application/render/composition-slots";
 import {
-	type CodeLayerVisual,
-	projectCodeLayerVisual,
 	projectTextLayerVisual,
 	type TextLayerVisual,
 } from "../../../src/application/render/scene-layer-visuals";
 import {
-	MultimediaCodeLayerContent,
-	MultimediaTextLayerContent,
-} from "../../../src/presentation/components/multimedia/multimedia-layer-content";
+	type ResolvedSceneLayer,
+	compileSceneTimeline,
+} from "../../../src/application/render/scene-timeline";
+import { MultimediaTextLayerContent } from "../../../src/presentation/components/multimedia/multimedia-layer-content";
+import { GlowDecoration } from "../../../src/presentation/components/preview/glow-decoration";
+import { GrainOverlay } from "../../../src/presentation/components/preview/grain-overlay";
+import { getWatermarkColor } from "../../../src/presentation/utils/watermark-color";
+import { CodeCard, WatermarkOverlay } from "../composition";
 import type { RemotionV2CompositionInput } from "./types";
 
 interface PixelBox {
@@ -47,7 +57,10 @@ interface PixelBox {
 interface CompositionLayerBase {
 	readonly blockId: string;
 	readonly opacity: number;
+	/** In project canvas pixels: the surface is scaled to the output as one, as in the preview. */
 	readonly box: PixelBox;
+	/** The side of the code card it is painted on (`compositionSlot`). */
+	readonly slot: CompositionSlot;
 	readonly borderRadius?: number;
 }
 
@@ -73,19 +86,14 @@ export type V2CompositionLayer =
 			readonly playbackRate: number;
 			readonly sourceEnded: boolean;
 			readonly muted: boolean;
-		})
-	| (CompositionLayerBase & {
-			readonly kind: "code";
-			readonly code: string;
-			readonly language: string;
-			readonly showLineNumbers: boolean;
-			readonly lineNumberStart: number;
-			readonly visual: CodeLayerVisual;
 		});
 
 export interface V2CompositionFrame {
 	readonly background: string;
+	/** Every layer but code, in paint order; the card sits between the two slots. */
 	readonly layers: readonly V2CompositionLayer[];
+	/** How visible the card is, the number the painter and the preview fade it by. */
+	readonly codeOpacity: number;
 }
 
 export interface V2CompositionAudioTrack {
@@ -104,6 +112,8 @@ export interface V2RemotionCompositionPlan {
 	readonly totalFrames: number;
 	readonly durationMs: number;
 	readonly audioTracks: readonly V2CompositionAudioTrack[];
+	/** Output px per project canvas px, the painter's `surfaceScale`. */
+	readonly surfaceScale: number;
 	frameAt(frame: number): V2CompositionFrame;
 }
 
@@ -138,20 +148,6 @@ function hostedBackground(background: string, timeSeconds: number): string {
 
 function millisecondsToFrames(milliseconds: number, fps: number): number {
 	return Math.round((milliseconds / 1_000) * fps);
-}
-
-function staticCodeLayer(layer: ResolvedCodeLayer, box: PixelBox): V2CompositionLayer {
-	return {
-		kind: "code",
-		blockId: layer.blockId,
-		opacity: layer.opacity,
-		box,
-		code: layer.code,
-		language: layer.language,
-		showLineNumbers: layer.showLineNumbers,
-		lineNumberStart: layer.lineNumberStart,
-		visual: projectCodeLayerVisual(layer),
-	};
 }
 
 export function compileV2RemotionComposition(input: {
@@ -198,6 +194,7 @@ export function compileV2RemotionComposition(input: {
 	const mediaLayer = (
 		layer: Extract<ResolvedSceneLayer, { kind: "image" | "video" }>,
 		box: PixelBox,
+		slot: CompositionSlot,
 	): V2CompositionLayer => {
 		const asset = assets.get(layer.assetId);
 		const source = sources.get(layer.assetId);
@@ -221,6 +218,7 @@ export function compileV2RemotionComposition(input: {
 				blockId: layer.blockId,
 				opacity: layer.opacity,
 				box,
+				slot,
 				...(layer.borderRadius !== undefined ? { borderRadius: layer.borderRadius } : {}),
 				source,
 				fit: fitted,
@@ -232,6 +230,7 @@ export function compileV2RemotionComposition(input: {
 			blockId: layer.blockId,
 			opacity: layer.opacity,
 			box,
+			slot,
 			...(layer.borderRadius !== undefined ? { borderRadius: layer.borderRadius } : {}),
 			source,
 			fit: fitted,
@@ -244,37 +243,41 @@ export function compileV2RemotionComposition(input: {
 		};
 	};
 
+	const { canvas } = input.input.document.project;
 	return {
 		totalFrames: timeline.totalFrames,
 		durationMs: timeline.durationMs,
 		audioTracks,
+		surfaceScale: input.width / canvas.width,
 		frameAt(frame) {
 			const resolved = timeline.frameAt(frame);
-			const layers = resolved.layers.map((layer): V2CompositionLayer => {
-				const box = pixelBox(layer.placement, input.width, input.height);
-				switch (layer.kind) {
-					case "text":
-						return {
-							kind: layer.kind,
-							blockId: layer.blockId,
-							opacity: layer.opacity,
-							box,
-							text: layer.text,
-							visual: projectTextLayerVisual(layer),
-						};
-					case "image":
-					case "video":
-						return mediaLayer(layer, box);
-					case "code":
-						return staticCodeLayer(layer, box);
+			const layers: V2CompositionLayer[] = [];
+			for (const layer of resolved.layers) {
+				// The card is the studio's, drawn by `CodeCard`; no renderer draws a code
+				// block from its own placement.
+				if (layer.kind === "code") {
+					continue;
 				}
-			});
+				const box = pixelBox(layer.placement, canvas.width, canvas.height);
+				const slot = compositionSlot(input.input.document, layer);
+				layers.push(
+					layer.kind === "text"
+						? {
+								kind: layer.kind,
+								blockId: layer.blockId,
+								opacity: layer.opacity,
+								box,
+								slot,
+								text: layer.text,
+								visual: projectTextLayerVisual(layer),
+							}
+						: mediaLayer(layer, box, slot),
+				);
+			}
 			return {
-				background: hostedBackground(
-					input.input.document.project.canvas.background,
-					resolved.timeMs / 1_000,
-				),
+				background: hostedBackground(canvas.background, resolved.timeMs / 1_000),
 				layers,
+				codeOpacity: primaryCodeOpacity(resolved),
 			};
 		},
 	};
@@ -338,12 +341,7 @@ export function projectRemotionVideoTiming({
 	};
 }
 
-function visualLayer(
-	layer: V2CompositionLayer,
-	frame: number,
-	fps: number,
-	projectTitle: string,
-): ReactNode {
+function visualLayer(layer: V2CompositionLayer, frame: number, fps: number): ReactNode {
 	switch (layer.kind) {
 		case "text":
 			return (
@@ -389,20 +387,6 @@ function visualLayer(
 				</div>
 			);
 		}
-		case "code":
-			return (
-				<div key={layer.blockId} style={positionedStyle(layer.box, layer.opacity)}>
-					<MultimediaCodeLayerContent
-						blockId={layer.blockId}
-						code={layer.code}
-						language={layer.language}
-						showLineNumbers={layer.showLineNumbers}
-						lineNumberStart={layer.lineNumberStart}
-						projectTitle={projectTitle}
-						visual={layer.visual}
-					/>
-				</div>
-			);
 	}
 }
 
@@ -416,21 +400,143 @@ function audioVolume(track: V2CompositionAudioTrack): (relativeFrame: number) =>
 	};
 }
 
+/**
+ * Hold the frame until every text layer's face has loaded, as `useFontLoaded`
+ * holds it for the card's mono: the stylesheets the preview links (the shared
+ * registry's URLs, Geist at index.html's weights), then each layer's own
+ * weight, size and characters, since a face nothing has asked for is not
+ * loading and `ready` alone would let the frame paint the fallback.
+ */
+function useTextFontsLoaded(document: ProjectDocumentV2): void {
+	const faces = useMemo(() => {
+		const found = new Map<string, { font: string; text: string; stack: string }>();
+		for (const scene of document.project.scenes) {
+			for (const block of scene.blocks) {
+				if (block.kind !== "text") {
+					continue;
+				}
+				const { fontFamily, fontSize, fontWeight } = block.typography;
+				const font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+				const text = `${found.get(font)?.text ?? ""}${block.text}`;
+				found.set(font, { font, text, stack: fontFamily });
+			}
+		}
+		return [...found.values()];
+	}, [document]);
+	const [handle] = useState(() =>
+		faces.length > 0 ? delayRender("Loading text layer fonts") : null,
+	);
+
+	useEffect(() => {
+		if (handle === null) {
+			return;
+		}
+		const urls = fontsToLoad(...faces.map((face) => face.stack)).flatMap((font) =>
+			font.google ? [googleFontCssUrl(font.google, font.weights)] : [],
+		);
+		Promise.all(urls.map((url) => fetch(url).then((response) => response.text())))
+			.then((sheets) => {
+				for (const css of sheets) {
+					const style = window.document.createElement("style");
+					style.textContent = css;
+					window.document.head.appendChild(style);
+				}
+				return Promise.all(faces.map((face) => window.document.fonts.load(face.font, face.text)));
+			})
+			.then(() => window.document.fonts.ready)
+			.catch((error) => {
+				// The fallback is what the layers will be set in; the frame still renders.
+				console.error("Text layer font loading failed:", error);
+			})
+			.finally(() => continueRender(handle));
+	}, [handle, faces]);
+}
+
+/** One slot's layers on a surface the size of the project canvas, scaled to the output as one. */
+function LayerSurface({
+	layers,
+	canvas,
+	surfaceScale,
+	frame,
+	fps,
+}: {
+	readonly layers: readonly V2CompositionLayer[];
+	readonly canvas: { readonly width: number; readonly height: number };
+	readonly surfaceScale: number;
+	readonly frame: number;
+	readonly fps: number;
+}) {
+	if (layers.length === 0) {
+		return null;
+	}
+	return (
+		<div
+			style={{
+				position: "absolute",
+				left: 0,
+				top: 0,
+				width: canvas.width,
+				height: canvas.height,
+				transform: `scale(${surfaceScale})`,
+				transformOrigin: "0 0",
+			}}
+		>
+			{layers.map((layer) => visualLayer(layer, frame, fps))}
+		</div>
+	);
+}
+
 export function V2RemotionComposition({ input }: { readonly input: RemotionV2CompositionInput }) {
+	useTextFontsLoaded(input.document);
 	const frame = useCurrentFrame();
 	const { fps, width, height } = useVideoConfig();
-	const composition = compileV2RemotionComposition({
-		input,
-		fps,
-		width,
-		height,
-		resolvePublicAsset: staticFile,
-	});
+	const composition = useMemo(
+		() =>
+			compileV2RemotionComposition({
+				input,
+				fps,
+				width,
+				height,
+				resolvePublicAsset: staticFile,
+			}),
+		[input, fps, width, height],
+	);
 	const resolved = composition.frameAt(frame);
+	const { canvas, settings } = input.document.project;
+	const isTransparent = canvas.background === "transparent";
+	const surface = { canvas, surfaceScale: composition.surfaceScale, frame, fps };
+	const card = input.card;
+	// The mark is the code-only composition's, set in the card's font; a project
+	// with no card falls back to the studio's default theme for it.
+	const markTheme = card?.theme ?? {
+		foreground: "#e6edf3",
+		fontFamily: "JetBrains Mono, monospace",
+	};
 	return (
 		<AbsoluteFill style={{ background: resolved.background }}>
-			{resolved.layers.map((layer) =>
-				visualLayer(layer, frame, fps, input.document.project.title),
+			{!isTransparent && <GlowDecoration />}
+			{!isTransparent && <GrainOverlay />}
+			<LayerSurface
+				{...surface}
+				layers={resolved.layers.filter((layer) => layer.slot === "under-code")}
+			/>
+			{card && (
+				// CSS fades the card as one picture, as the painter composites it once.
+				<AbsoluteFill style={{ opacity: resolved.codeOpacity }}>
+					<CodeCard input={card} />
+				</AbsoluteFill>
+			)}
+			<LayerSurface
+				{...surface}
+				layers={resolved.layers.filter((layer) => layer.slot === "over-code")}
+			/>
+			{settings.watermark && (
+				<WatermarkOverlay
+					text={settings.watermark}
+					color={getWatermarkColor(canvas.background, markTheme.foreground)}
+					fontFamily={markTheme.fontFamily}
+					scale={renderScaleFor(width, height, BASE_VIDEO_SCALE)}
+				/>
 			)}
 			{composition.audioTracks.map((track) => (
 				<Sequence
