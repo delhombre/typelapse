@@ -42,6 +42,7 @@ import { sceneFor, scriptFor } from "./client-export-scene";
 import { firstEncodableRung } from "./codec-probe";
 import { decodeCompositionImages } from "./composition-images";
 import { loadCompositionVideos } from "./composition-videos";
+import { grainTileOf, rasterizeGrainTile } from "./grain-tile";
 import { encodingFor, evenDimensions } from "./video-encoding";
 
 /**
@@ -127,7 +128,7 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			throw new ClientExportUnsupportedError("This browser gave us no 2D context to paint into.");
 		}
 		const scene = sceneFor({ ...job, width, height }, job.documentCharWidthRatio, {
-			grain: null,
+			grain: grainTileOf(job.grain, "png"),
 			backdropImage: await decodeBackdropImage(job.background),
 		});
 		paintFrame(ctx, scene, scriptFor(job).frameAt(0));
@@ -204,7 +205,8 @@ export class WebCodecsRendererAdapter implements RendererPort {
 
 			// The bitmaps move to the worker rather than being copied: a photo decoded
 			// at its full size is the largest thing a job carries.
-			worker.postMessage(job, job.composition?.images.map((image) => image.bitmap) ?? []);
+			const bitmaps = job.composition?.images.map((image) => image.bitmap) ?? [];
+			worker.postMessage(job, job.grain ? [...bitmaps, job.grain] : bitmaps);
 		});
 	}
 
@@ -258,6 +260,7 @@ export class WebCodecsRendererAdapter implements RendererPort {
 						),
 					}
 				: null,
+			grain: await rasterizeGrainTile(),
 
 			documentCharWidthRatio: await measureDocumentAdvance(
 				snippet.theme.fontFamily,

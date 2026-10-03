@@ -77,6 +77,11 @@ export interface ClientExportJob {
 	hasCaption?: boolean;
 	/** The text and image layers around the card; absent for code alone. */
 	composition?: ClientExportComposition | null;
+	/**
+	 * The film-grain tile, rasterised in the tab (see `grain-tile.ts`) and
+	 * transferred: the worker cannot turn the SVG into pixels itself.
+	 */
+	grain?: ImageBitmap | null;
 
 	/**
 	 * The advance the *document* resolved, for drift reporting only. The worker

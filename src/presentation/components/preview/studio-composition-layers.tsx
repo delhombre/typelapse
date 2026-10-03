@@ -19,6 +19,8 @@ export type StudioCompositionLayerSlot = CompositionSlot;
 interface StudioCompositionLayersProps {
 	readonly document: ProjectDocumentV2;
 	readonly frame: SceneTimelineFrame;
+	/** The rate `frame` was compiled at: a paused step is one frame of it. */
+	readonly fps: number;
 	readonly slot: StudioCompositionLayerSlot;
 	readonly playing: boolean;
 	readonly selectedBlockId: string | null;
@@ -113,10 +115,12 @@ function StudioImageLayer({
 function StudioVideoLayer({
 	document,
 	layer,
+	fps,
 	playing,
 }: {
 	document: ProjectDocumentV2;
 	layer: ResolvedVideoLayer;
+	fps: number;
 	playing: boolean;
 }) {
 	const ref = useRef<HTMLVideoElement>(null);
@@ -136,11 +140,14 @@ function StudioVideoLayer({
 			return;
 		}
 		const requestedSeconds = layer.sourceTimeMs / 1_000;
-		const tolerance = playing ? 0.12 : 0.04;
+		// Paused, half a frame: a fixed 0.04 s swallowed a one-frame step at 60 fps
+		// (0.017 s) and showed the previous source frame where the export, which
+		// decodes every frame exactly, shows the next one.
+		const tolerance = playing ? 0.12 : 0.5 / fps;
 		if (Math.abs(video.currentTime - requestedSeconds) > tolerance) {
 			video.currentTime = requestedSeconds;
 		}
-	}, [layer.sourceTimeMs, playing]);
+	}, [layer.sourceTimeMs, playing, fps]);
 	useEffect(() => {
 		const video = ref.current;
 		if (!video) {
@@ -186,6 +193,7 @@ function MissingMedia() {
 function layerContent(
 	document: ProjectDocumentV2,
 	layer: Exclude<ResolvedSceneLayer, { kind: "code" }>,
+	fps: number,
 	playing: boolean,
 ): ReactNode {
 	if (layer.kind === "text") {
@@ -194,13 +202,14 @@ function layerContent(
 	if (layer.kind === "image") {
 		return <StudioImageLayer document={document} layer={layer} />;
 	}
-	return <StudioVideoLayer document={document} layer={layer} playing={playing} />;
+	return <StudioVideoLayer document={document} layer={layer} fps={fps} playing={playing} />;
 }
 
 /** Native-canvas layer surface, scaled as a whole by the accepted preview. */
 export function StudioCompositionLayers({
 	document,
 	frame,
+	fps,
 	slot,
 	playing,
 	selectedBlockId,
@@ -243,7 +252,7 @@ export function StudioCompositionLayers({
 							onSelectLayer(layer.sceneId, layer.blockId);
 						}}
 					>
-						{layerContent(document, layer, playing)}
+						{layerContent(document, layer, fps, playing)}
 					</button>
 				);
 			})}

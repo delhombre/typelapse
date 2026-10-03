@@ -15,7 +15,12 @@
  * measures it.
  */
 
-import { type CodeFont, fontsToLoad, googleFontCssUrl } from "@/application/fonts/code-fonts";
+import {
+	type CodeFont,
+	fontsToLoad,
+	googleFontCssUrl,
+	selfHostedFaces,
+} from "@/application/fonts/code-fonts";
 import { type FontFaceSource, parseFontFaceSources } from "@/application/fonts/font-face-css";
 import { unresolvedFontMessage } from "@/application/fonts/font-fidelity";
 
@@ -78,8 +83,8 @@ async function register(registry: FontRegistry, font: CodeFont): Promise<boolean
 }
 
 async function sourcesFor(font: CodeFont): Promise<FontFaceSource[]> {
-	if (font.url) {
-		return [{ family: font.family, url: font.url }];
+	if (font.files) {
+		return selfHostedFaces(font);
 	}
 	if (!font.google) {
 		return [];

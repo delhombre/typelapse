@@ -16,11 +16,9 @@
  * rather than assumed away.
  */
 
-import { GRAIN_OPACITY, GRAIN_TILE_SIZE, GRAIN_TILE_URL } from "@/application/backgrounds/grain";
 import { transparencyPlan, wantsTransparency } from "@/application/export/transparency";
 import { advanceDriftMessage } from "@/application/fonts/font-fidelity";
 import { paintFrame } from "@/application/frame-painter/painter";
-import type { GrainTile } from "@/application/frame-painter/scene";
 import { measureCharWidthRatio } from "@/application/layout/char-advance";
 import { CHROME_FONT_STACK } from "@/application/layout/frame-metrics";
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, WebMOutputFormat } from "mediabunny";
@@ -32,6 +30,7 @@ import { openCompositionVideos } from "./composition-videos";
 import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
 import { gifSafeFps } from "./gif-timing";
+import { grainTileOf } from "./grain-tile";
 import { type CodecRung, encodingFor, evenDimensions } from "./video-encoding";
 import { loadExportFonts } from "./worker-fonts";
 
@@ -117,7 +116,7 @@ async function run(job: ClientExportJob): Promise<void> {
 	}
 
 	const scene = sceneFor({ ...job, width, height }, charWidthRatio, {
-		grain: await decodeGrain(),
+		grain: grainTileOf(job.grain, encoding.container),
 		backdropImage: await decodeBackdropImage(job.background),
 	});
 	const codeScript = scriptFor({ ...job, fps });
@@ -296,19 +295,6 @@ async function measureAdvance(
 	// The same probe the document and the server take, at the same size, so the
 	// three answers are comparable and the card is sized on this scope's glyphs.
 	return measureCharWidthRatio(ctx, fontFamily, fontSize);
-}
-
-/** Decode the shared grain tile once, ready to be tiled by the painter. */
-async function decodeGrain(): Promise<GrainTile | null> {
-	try {
-		const response = await fetch(GRAIN_TILE_URL);
-		const image = await createImageBitmap(await response.blob());
-		return { image, size: GRAIN_TILE_SIZE, opacity: GRAIN_OPACITY };
-	} catch {
-		// The grain is texture, not information: a frame without it is still a
-		// frame, so this must never be what fails an export.
-		return null;
-	}
 }
 
 function report(completedFrames: number, totalFrames: number): void {
