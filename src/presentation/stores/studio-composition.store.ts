@@ -8,6 +8,7 @@ import {
 	synchronizeStudioComposition,
 } from "@/application/project/studio-composition";
 import { studioProjectDocument } from "@/application/project/studio-document";
+import { hasCodeCard } from "@/application/render/composition-slots";
 import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import type { Project } from "@/domain/entities/project";
 import type { Scene } from "@/domain/entities/scene";
@@ -76,10 +77,8 @@ export function readStudioCompositionSnapshot(): StudioCompositionSnapshot {
 	};
 }
 
-// The Studio's project history versions the whole document, layers included.
 export const useStudioCompositionStore = createProjectStore(
 	createStudioCompositionDocument(readStudioCompositionSnapshot()),
-	{ history: false },
 );
 
 interface StudioCompositionSelectionState {
@@ -225,6 +224,10 @@ export function studioSceneIdAt(index: number): string {
 	);
 }
 
+/**
+ * Whether the project holds anything the code-only route cannot draw: media,
+ * a text layer, or a blank scene (a code-only render would put a card on it).
+ */
 export function hasAuthoredMultimedia(
 	project: Pick<Project, "assets" | "audioCues" | "scenes"> = useStudioCompositionStore.getState()
 		.value.project,
@@ -232,7 +235,9 @@ export function hasAuthoredMultimedia(
 	return (
 		project.assets.length > 0 ||
 		project.audioCues.length > 0 ||
-		project.scenes.some((scene) => scene.blocks.some((block) => block.kind !== "code"))
+		project.scenes.some(
+			(scene) => scene.blocks.some((block) => block.kind !== "code") || !hasCodeCard(scene),
+		)
 	);
 }
 

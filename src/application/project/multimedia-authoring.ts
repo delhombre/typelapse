@@ -49,30 +49,34 @@ export function addEmptyScene(
 	);
 }
 
+interface TextLayerOptions {
+	readonly id?: string;
+	readonly text?: string;
+	readonly placement?: BlockPlacement;
+}
+
+/** The text layer "Add text" creates, also the title a bare blank scene starts with. */
+export function newTextLayer(options: TextLayerOptions = {}): TextBlock {
+	return TextBlock.create({
+		...(options.id ? { id: options.id } : {}),
+		text: options.text ?? "Add your text",
+		placement: options.placement ?? DEFAULT_TEXT_PLACEMENT,
+		typography: {
+			fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif",
+			fontSize: 88,
+			fontWeight: 650,
+			color: "#fffaf0",
+			align: "center",
+		},
+	});
+}
+
 export function addTextLayer(
 	project: Project,
 	sceneId: string,
-	options: {
-		readonly id?: string;
-		readonly text?: string;
-		readonly placement?: BlockPlacement;
-	} = {},
+	options: TextLayerOptions = {},
 ): Project {
-	return project.addBlock(
-		sceneId,
-		TextBlock.create({
-			...(options.id ? { id: options.id } : {}),
-			text: options.text ?? "Add your text",
-			placement: options.placement ?? DEFAULT_TEXT_PLACEMENT,
-			typography: {
-				fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif",
-				fontSize: 88,
-				fontWeight: 650,
-				color: "#fffaf0",
-				align: "center",
-			},
-		}),
-	);
+	return project.addBlock(sceneId, newTextLayer(options));
 }
 
 export function addCodeLayer(

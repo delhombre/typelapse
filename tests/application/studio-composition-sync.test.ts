@@ -6,6 +6,7 @@ import {
 	type StudioCompositionSnapshot,
 	adoptStoredSceneIds,
 	createStudioCompositionDocument,
+	storedSceneIdsFor,
 	studioCompositionTimeMs,
 	studioSceneLayerKinds,
 	synchronizeStudioComposition,
@@ -233,5 +234,204 @@ describe("studio composition synchronization", () => {
 		);
 
 		expect(adopted).toBe(stored);
+	});
+
+	it("hands the stored ids to live scenes of identical code, and only to those", () => {
+		const stored = createStudioCompositionDocument(
+			snapshot([
+				{ id: "kept-one", code: "one", durationMs: 1_000 },
+				{ id: "kept-two", code: "two", durationMs: 1_000 },
+			]),
+		);
+
+		const ids = storedSceneIdsFor(stored, [
+			{ id: "minted-one", code: "one", durationMs: 1_000 },
+			{ id: "minted-two", code: "edited two", durationMs: 1_000 },
+			{ id: "minted-three", code: "three", durationMs: 1_000 },
+		]);
+
+		expect(ids).toEqual(["kept-one", "minted-two", "minted-three"]);
+	});
+
+	describe("a blank scene (no code card)", () => {
+		it("is created with no block at all, beside a code scene", () => {
+			const document = createStudioCompositionDocument(
+				snapshot([
+					{ id: "title", code: "", durationMs: 1_500, caption: "Launch" },
+					{ id: "code", code: "const a = 1;", durationMs: 1_000 },
+				]),
+			);
+
+			expect(document.project.scenes[0]).toMatchObject({ id: "title", caption: "Launch" });
+			expect(document.project.scenes[0]?.blocks).toEqual([]);
+			expect(document.project.scenes[1]?.blocks.map((block) => block.kind)).toEqual(["code"]);
+		});
+
+		it("ends a project, or is all of it, without inventing live code", () => {
+			const trailing = createStudioCompositionDocument(
+				snapshot([
+					{ id: "code", code: "const a = 1;", durationMs: 1_000 },
+					{ id: "outro", code: "", durationMs: 1_500 },
+				]),
+			);
+			expect(trailing.project.legacySource).toEqual({
+				liveCode: "const a = 1;",
+				hadCapturedSteps: true,
+			});
+
+			const textOnly = createStudioCompositionDocument(
+				snapshot([{ id: "title", code: "", durationMs: 1_500 }]),
+			);
+			expect(textOnly.project.legacySource).toBeUndefined();
+		});
+
+		it("starts as a title card when nothing else in the project is visible", () => {
+			// A project needs a visual block or an audio cue: a lone bare blank
+			// scene takes the text layer "Add text" would create.
+			const created = createStudioCompositionDocument(
+				snapshot([
+					{ id: "title", code: "", durationMs: 1_500 },
+					{ id: "pause", code: "", durationMs: 1_000 },
+				]),
+			);
+			expect(created.project.scenes[0]?.blocks).toMatchObject([
+				{ kind: "text", text: "Add your text" },
+			]);
+			expect(created.project.scenes[1]?.blocks).toEqual([]);
+
+			const live = hydrateProjectDocument(
+				createStudioCompositionDocument(
+					snapshot([{ id: STUDIO_LIVE_SCENE_ID, code: "live", durationMs: 3_000 }]),
+				),
+			).project;
+			const blankFirst = synchronizeStudioComposition(
+				live,
+				snapshot([{ id: "title", code: "", durationMs: 1_500 }]),
+			);
+			expect(blankFirst.scenes[0]?.blocks.map((block) => block.kind)).toEqual(["text"]);
+
+			// Deleting the last code scene leaves a bare blank one: it becomes the title.
+			const twoScenes = hydrateProjectDocument(
+				createStudioCompositionDocument(
+					snapshot([
+						{ id: "code", code: "one", durationMs: 1_000 },
+						{ id: "outro", code: "", durationMs: 1_000 },
+					]),
+				),
+			).project;
+			const outroOnly = synchronizeStudioComposition(
+				twoScenes,
+				snapshot([{ id: "outro", code: "", durationMs: 1_000 }]),
+			);
+			expect(outroOnly.scenes.map((scene) => scene.blocks.map((block) => block.kind))).toEqual([
+				["text"],
+			]);
+		});
+
+		it("is continued only by its own kind: a title is not carried over code", () => {
+			const hydrated = hydrateProjectDocument(
+				createStudioCompositionDocument(snapshot([{ id: "title", code: "", durationMs: 1_500 }])),
+			);
+			const titled = hydrated.project;
+
+			const next = synchronizeStudioComposition(
+				titled,
+				snapshot([
+					{ id: "title", code: "", durationMs: 1_500 },
+					{ id: "code", code: "const a = 1;", durationMs: 1_000 },
+					{ id: "title-copy", code: "", durationMs: 1_000 },
+				]),
+			);
+			const kinds = next.scenes.map((scene) => scene.blocks.map((block) => block.kind));
+			// The code scene starts with its card only; a blank after it starts bare.
+			expect(kinds).toEqual([["text"], ["code"], []]);
+
+			// A blank right after a blank (a duplicated title card) keeps the title.
+			const duplicated = synchronizeStudioComposition(
+				titled,
+				snapshot([
+					{ id: "title", code: "", durationMs: 1_500 },
+					{ id: "title-copy", code: "", durationMs: 1_500 },
+				]),
+			);
+			expect(duplicated.scenes[1]?.blocks.map((block) => block.kind)).toEqual(["text"]);
+		});
+
+		it("keeps its text layer and gains no card when the snapshot syncs", () => {
+			const hydrated = hydrateProjectDocument(
+				createStudioCompositionDocument(
+					snapshot([
+						{ id: "title", code: "", durationMs: 1_500 },
+						{ id: "code", code: "const a = 1;", durationMs: 1_000 },
+					]),
+				),
+			);
+			const titled = addTextLayer(hydrated.project, "title", { id: "headline", text: "Ship it" });
+
+			const next = synchronizeStudioComposition(
+				titled,
+				snapshot([
+					{ id: "title", code: "", durationMs: 2_000 },
+					{ id: "code", code: "const a = 2;", durationMs: 1_000 },
+				]),
+			);
+
+			expect(next.scenes[0]?.durationMs).toBe(2_000);
+			expect(next.scenes[0]?.blocks.map((block) => [block.kind, block.id])).toEqual([
+				["text", "headline"],
+			]);
+			expect(next.scenes[1]?.blocks.find((block) => block.kind === "code")).toMatchObject({
+				code: "const a = 2;",
+			});
+		});
+
+		it("drops the card from the live scene when the first scene added is blank", () => {
+			const hydrated = hydrateProjectDocument(
+				createStudioCompositionDocument(
+					snapshot([{ id: STUDIO_LIVE_SCENE_ID, code: "live", durationMs: 3_000 }]),
+				),
+			);
+			const titled = addTextLayer(hydrated.project, STUDIO_LIVE_SCENE_ID, {
+				id: "headline",
+				text: "Ship it",
+			});
+
+			const next = synchronizeStudioComposition(
+				titled,
+				snapshot([{ id: "title", code: "", durationMs: 1_500 }]),
+			);
+
+			expect(next.scenes[0]?.blocks.map((block) => block.kind)).toEqual(["text"]);
+		});
+
+		it("keeps its layers across a reload that re-mints the step ids", () => {
+			const saved = hydrateProjectDocument(
+				createStudioCompositionDocument(
+					snapshot([
+						{ id: "old-title", code: "", durationMs: 1_500 },
+						{ id: "old-code", code: "one", durationMs: 1_000 },
+					]),
+				),
+			);
+			const stored = serializeProjectDocument({
+				...saved,
+				project: addTextLayer(saved.project, "old-title", { id: "headline", text: "Ship it" }),
+			});
+			const live = snapshot([
+				{ id: "new-title", code: "", durationMs: 1_500 },
+				{ id: "new-code", code: "one", durationMs: 1_000 },
+			]);
+
+			expect(storedSceneIdsFor(stored, live.scenes)).toEqual(["old-title", "old-code"]);
+			const adopted = adoptStoredSceneIds(stored, live);
+			expect(adopted.project.scenes.map((scene) => scene.id)).toEqual(["new-title", "new-code"]);
+			// A code scene is not a blank one: the stored title stays off it.
+			expect(
+				storedSceneIdsFor(stored, [
+					{ id: "new-title", code: "one", durationMs: 1_500 },
+					{ id: "new-code", code: "", durationMs: 1_000 },
+				]),
+			).toEqual(["new-title", "new-code"]);
+		});
 	});
 });

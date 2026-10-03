@@ -315,7 +315,11 @@ function normalizeV1(input: Record<string, unknown>): ProjectDocumentV1 {
 		if (!isRecord(raw)) {
 			throw new Error("Each step must be an object");
 		}
-		const stepCode = requiredString(raw.code, "Each step must have a non-empty 'code'");
+		if (typeof raw.code !== "string") {
+			throw new Error("Each step must have a 'code'");
+		}
+		// Empty code is a blank step (a title card): its scene draws no code card.
+		const stepCode = raw.code.trim() === "" ? "" : raw.code;
 		assertImportableCode(stepCode, `Step ${index + 1}`);
 		totalCharacters += stepCode.length;
 		if (totalCharacters > MAX_IMPORTED_CODE_CHARACTERS) {

@@ -25,6 +25,7 @@ export function StepBuilder() {
 	const {
 		snippet,
 		captureStep,
+		addBlankScene,
 		updateStepDuration,
 		reorderSteps,
 		currentStepIndex,
@@ -143,6 +144,7 @@ export function StepBuilder() {
 				</span>
 				<div className="flex items-center gap-2">
 					<RecordButton />
+					<BlankSceneButton onAdd={addBlankScene} />
 					<CaptureButton onCapture={captureStep} />
 				</div>
 			</div>
@@ -227,9 +229,13 @@ export function StepBuilder() {
 								<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[11px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
 									{index + 1}
 								</span>
-								<span className="truncate font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
-									{getStepPreview(step.code)}
-								</span>
+								{step.hasCode ? (
+									<span className="truncate font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+										{getStepPreview(step.code)}
+									</span>
+								) : (
+									<span className="truncate text-[11px] text-neutral-500">No code</span>
+								)}
 							</button>
 
 							{/* Duration input */}
@@ -283,10 +289,13 @@ export function StepBuilder() {
 							</StudioTooltip>
 						</div>
 
-						{/* Row 2: spotlight lines + caption */}
+						{/* Row 2: spotlight lines + caption. A blank scene has no code to
+						    spotlight, so its caption takes the whole row. */}
 						<div className="grid grid-cols-2 gap-1.5">
-							<FocusInput step={step} index={index} />
-							<CaptionInput step={step} index={index} />
+							{step.hasCode ? <FocusInput step={step} index={index} /> : null}
+							<div className={step.hasCode ? "min-w-0" : "col-span-2 min-w-0"}>
+								<CaptionInput step={step} index={index} />
+							</div>
 						</div>
 					</motion.div>
 				))}
@@ -308,6 +317,7 @@ export function SceneInspector() {
 	const steps = useSnippetStore((state) => state.snippet.steps);
 	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
 	const captureStep = useSnippetStore((state) => state.captureStep);
+	const addBlankScene = useSnippetStore((state) => state.addBlankScene);
 	const composition = useStudioCompositionStore();
 	const selectedAudioCueId = useStudioCompositionSelectionStore(
 		(state) => state.selectedAudioCueId,
@@ -325,21 +335,26 @@ export function SceneInspector() {
 	return (
 		<div className="flex flex-col gap-3">
 			<div className="grid gap-1.5">
-				<div className="flex items-center justify-between gap-3">
-					<p className="text-xs font-semibold tracking-[-0.01em] text-neutral-800 dark:text-neutral-100">
+				{/* The three add controls outgrow a narrow island: they wrap under the
+				    label rather than breaking "Scene 1 of 3" over two lines. */}
+				<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+					<p className="whitespace-nowrap text-xs font-semibold tracking-[-0.01em] text-neutral-800 dark:text-neutral-100">
 						{step ? `Scene ${currentStepIndex + 1} of ${steps.length}` : "No scene yet"}
 					</p>
 					<div className="flex shrink-0 items-center gap-2">
 						<RecordButton />
+						<BlankSceneButton onAdd={addBlankScene} />
 						<CaptureButton onCapture={captureStep} />
 					</div>
 				</div>
 				<p className="text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
 					{isLayerSelected
 						? "Layer controls for this scene."
-						: step
+						: step?.hasCode
 							? "Focus and caption for the selected scene."
-							: "Capture a scene to animate this code."}
+							: step
+								? "Caption for this scene without code."
+								: "Capture a scene to animate this code."}
 				</p>
 			</div>
 
@@ -353,13 +368,18 @@ export function SceneInspector() {
 					animate={{ opacity: 1, y: 0 }}
 					transition={springs.snappy}
 				>
-					<label htmlFor={`scene-${step.id}-focus`} className="grid min-w-0 gap-1.5">
-						<span className="text-[10px] font-semibold tracking-[0.08em] text-neutral-500 uppercase dark:text-neutral-400">
-							Focus lines
-						</span>
-						<FocusInput id={`scene-${step.id}-focus`} step={step} index={currentStepIndex} />
-					</label>
-					<label htmlFor={`scene-${step.id}-caption`} className="grid min-w-0 gap-1.5">
+					{step.hasCode ? (
+						<label htmlFor={`scene-${step.id}-focus`} className="grid min-w-0 gap-1.5">
+							<span className="text-[10px] font-semibold tracking-[0.08em] text-neutral-500 uppercase dark:text-neutral-400">
+								Focus lines
+							</span>
+							<FocusInput id={`scene-${step.id}-focus`} step={step} index={currentStepIndex} />
+						</label>
+					) : null}
+					<label
+						htmlFor={`scene-${step.id}-caption`}
+						className={`grid min-w-0 gap-1.5 ${step.hasCode ? "" : "col-span-2"}`}
+					>
 						<span className="text-[10px] font-semibold tracking-[0.08em] text-neutral-500 uppercase dark:text-neutral-400">
 							Caption
 						</span>
@@ -368,6 +388,30 @@ export function SceneInspector() {
 				</motion.div>
 			)}
 		</div>
+	);
+}
+
+/**
+ * Adds a scene without code: a title card, an outro, a pause over media. A
+ * ghost beside Capture rather than a third dashed button, so Capture stays the
+ * row's main way to add a scene.
+ */
+function BlankSceneButton({ onAdd }: { onAdd: () => void }) {
+	return (
+		<StudioTooltip content="Add a scene without code">
+			<motion.button
+				type="button"
+				onClick={() => {
+					onAdd();
+					feedback("commit");
+				}}
+				whileTap={{ scale: 0.96 }}
+				transition={springs.snappy}
+				className="flex h-8 items-center rounded-xl px-2.5 text-xs font-medium text-neutral-500 transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+			>
+				Blank
+			</motion.button>
+		</StudioTooltip>
 	);
 }
 
@@ -480,7 +524,7 @@ function FocusInput({ step, index, id }: { step: Step; index: number; id?: strin
 				}}
 				onClick={(e) => e.stopPropagation()}
 				placeholder="focus 2-4,7"
-				className={`w-full truncate rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] text-neutral-600 transition placeholder:text-neutral-500 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 ${borderClasses}`}
+				className={`w-full truncate rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] pointer-coarse:text-base text-neutral-600 transition placeholder:text-neutral-500 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 ${borderClasses}`}
 			/>
 		</StudioTooltip>
 	);
@@ -517,7 +561,7 @@ function CaptionInput({ step, index, id }: { step: Step; index: number; id?: str
 				onClick={(e) => e.stopPropagation()}
 				maxLength={MAX_ANNOTATION_LENGTH}
 				placeholder="caption…"
-				className="w-full truncate rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-[11px] text-neutral-600 transition placeholder:text-neutral-500 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 dark:focus:border-neutral-700"
+				className="w-full truncate rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-[11px] pointer-coarse:text-base text-neutral-600 transition placeholder:text-neutral-500 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 dark:focus:border-neutral-700"
 			/>
 		</StudioTooltip>
 	);

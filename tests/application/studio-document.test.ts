@@ -149,17 +149,48 @@ describe("openStudioDocument", () => {
 		expect(opened.spine.code).toBe("const live = 1;");
 	});
 
-	it("refuses a scene the code studio cannot represent before anything is loaded", () => {
+	it("opens a scene without a code layer as a blank step, its layers attached", () => {
 		const document = layeredDocument();
 		const scenes = document.project.scenes.map((scene, index) =>
 			index === 1
 				? { ...scene, blocks: scene.blocks.filter((block) => block.kind !== "code") }
 				: scene,
 		);
+		const titled = { ...document, project: { ...document.project, scenes } };
+
+		const opened = openStudioDocument(JSON.parse(JSON.stringify(titled)));
+
+		expect(opened.document).toEqual(titled);
+		expect(opened.spine.steps.map((step) => step.id)).toEqual(["scene-a", "scene-b"]);
+		expect(opened.spine.steps.map((step) => step.code)).toEqual(["const a = 1;", ""]);
+		expect(opened.spine.steps[1]?.caption).toBe("Two");
+	});
+
+	it("opens a text-only V2 file that has no code anywhere", () => {
+		const document = layeredDocument();
+		const scenes = document.project.scenes.map((scene) => ({
+			...scene,
+			blocks: scene.blocks.filter((block) => block.kind === "text"),
+		}));
+		const { legacySource: _legacy, ...project } = document.project;
+		const textOnly = { ...document, project: { ...project, assets: [], scenes } };
+
+		const opened = openStudioDocument(JSON.parse(JSON.stringify(textOnly)));
+
+		expect(opened.spine.steps.map((step) => step.code)).toEqual(["", ""]);
+		// The editor still holds something to capture next.
+		expect(opened.spine.code.trim()).not.toBe("");
+		expect(opened.spine.language).toBe("typescript");
+		expect(opened.spine.themeName).toBe("midnight");
+	});
+
+	it("still refuses a V2 file whose aggregate is invalid before anything is loaded", () => {
+		const document = layeredDocument();
+		const scenes = document.project.scenes.map((scene) => ({ ...scene, durationMs: -1 }));
 
 		expect(() =>
 			openStudioDocument({ ...document, project: { ...document.project, scenes } }),
-		).toThrow(/code/);
+		).toThrow();
 	});
 });
 
@@ -203,5 +234,30 @@ describe("studioProjectDocument", () => {
 		);
 
 		expect(document.project.legacySource?.liveCode).toBe("const b = 2;");
+	});
+
+	it("round-trips a title card before a code scene through the project file", () => {
+		const live = snapshot([
+			{ id: "title", code: "", durationMs: 1500, caption: "Launch" },
+			{ id: "code", code: "const a = 1;", durationMs: 2000 },
+		]);
+		const composed = hydrateProjectDocument(createStudioCompositionDocument(live));
+		const project = addTextLayer(composed.project, "title", { id: "title-text", text: "Ship it" });
+		const saved = studioProjectDocument(
+			serializeProjectDocument({ ...composed, project }),
+			live,
+			"   ",
+		);
+
+		expect(saved.project.scenes[0]?.blocks.map((block) => block.kind)).toEqual(["text"]);
+		expect(saved.project.legacySource?.liveCode).toBe("const a = 1;");
+
+		const reopened = openStudioDocument(JSON.parse(JSON.stringify(saved)));
+		expect(reopened.document).toEqual(saved);
+		expect(reopened.spine.steps.map((step) => [step.id, step.code])).toEqual([
+			["title", ""],
+			["code", "const a = 1;"],
+		]);
+		expect(reopened.spine.steps[0]?.caption).toBe("Launch");
 	});
 });

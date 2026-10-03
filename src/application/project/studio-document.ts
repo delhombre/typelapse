@@ -26,41 +26,45 @@ export interface OpenedStudioDocument {
 	readonly spine: StudioSpine;
 }
 
-function sceneCode(scene: ProjectDocumentV2["project"]["scenes"][number]): CodeBlockPayload {
+/**
+ * What the editor holds when a document has no code at all (text and media
+ * only). The live code is never empty: it is what the next Capture takes.
+ */
+const NO_CODE_EDITOR_SEED = "// Write the code for your next scene here.";
+
+/** The scene's code card, or none for a blank scene (a title card). */
+function sceneCode(
+	scene: ProjectDocumentV2["project"]["scenes"][number],
+): CodeBlockPayload | undefined {
 	const codes = scene.blocks.filter((block): block is CodeBlockPayload => block.kind === "code");
-	const code =
-		codes.find((block) => block.continuityKey === PRIMARY_CODE_CONTINUITY_KEY) ?? codes[0];
-	if (!code) {
-		throw new Error("Every scene needs a code layer to open in the studio.");
-	}
-	return code;
+	return codes.find((block) => block.continuityKey === PRIMARY_CODE_CONTINUITY_KEY) ?? codes[0];
 }
 
 /**
  * The V1 reading of a V2 document's code, normalized by the same reader a V1
  * file goes through, so both formats meet the same import limits and defaults.
+ * A blank scene reads as a blank step; the card's settings come from the first
+ * scene that has one, or the studio's defaults when none does.
  */
 function spineSourceOf(document: ProjectDocumentV2): ProjectDocumentV1 {
 	const { project } = document;
 	const blocks = project.scenes.map(sceneCode);
-	const first = blocks[0];
-	if (!first) {
-		throw new Error("Every scene needs a code layer to open in the studio.");
-	}
+	const coded = blocks.filter((block): block is CodeBlockPayload => block !== undefined);
+	const first = coded[0];
 	const captured = project.legacySource?.hadCapturedSteps ?? true;
 	const raw: Record<string, unknown> = {
 		title: project.title,
-		code: project.legacySource?.liveCode ?? blocks.at(-1)?.code ?? first.code,
-		language: first.language,
-		themeName: first.themeName,
-		...(first.fontFamily ? { fontFamily: first.fontFamily } : {}),
-		...(first.borderRadius !== undefined ? { borderRadius: first.borderRadius } : {}),
+		code: project.legacySource?.liveCode ?? coded.at(-1)?.code ?? NO_CODE_EDITOR_SEED,
+		language: first?.language ?? "typescript",
+		themeName: first?.themeName ?? "midnight",
+		...(first?.fontFamily ? { fontFamily: first.fontFamily } : {}),
+		...(first?.borderRadius !== undefined ? { borderRadius: first.borderRadius } : {}),
 		background: project.canvas.background,
-		windowChrome: first.chrome,
-		showLineNumbers: first.showLineNumbers,
-		lineNumberStart: first.lineNumberStart,
-		framePadding: first.framePadding,
-		cardMargin: first.cardMargin,
+		windowChrome: first?.chrome,
+		showLineNumbers: first?.showLineNumbers,
+		lineNumberStart: first?.lineNumberStart,
+		framePadding: first?.framePadding,
+		cardMargin: first?.cardMargin,
 		watermark: project.settings.watermark ?? "",
 		progressStyle: project.settings.progressStyle,
 		typewriter: project.settings.typewriter,
@@ -74,7 +78,7 @@ function spineSourceOf(document: ProjectDocumentV2): ProjectDocumentV1 {
 		...(project.settings.fps ? { fps: project.settings.fps } : {}),
 		steps: captured
 			? project.scenes.map((scene, index) => ({
-					code: blocks[index]?.code,
+					code: blocks[index]?.code ?? "",
 					duration: scene.durationMs,
 					...(blocks[index]?.focus ? { focus: blocks[index]?.focus } : {}),
 					...(scene.caption ? { caption: scene.caption } : {}),
@@ -128,10 +132,13 @@ export function studioProjectDocument(
 	snapshot: StudioCompositionSnapshot,
 	liveCode: string,
 ): ProjectDocumentV2 {
+	// The last scene with code: a blank scene has none to fall back on.
 	const fallbackCode = composition.project.scenes
-		.at(-1)
-		?.blocks.find((block): block is CodeBlockPayload => block.kind === "code")?.code;
-	const code = liveCode.trim() ? liveCode : (snapshot.scenes.at(-1)?.code ?? fallbackCode ?? "");
+		.map(sceneCode)
+		.filter((block) => block !== undefined)
+		.at(-1)?.code;
+	const snapshotCode = snapshot.scenes.filter((scene) => scene.code.trim() !== "").at(-1)?.code;
+	const code = liveCode.trim() ? liveCode : (snapshotCode ?? fallbackCode ?? NO_CODE_EDITOR_SEED);
 	const document: ProjectDocumentV2 = {
 		schemaVersion: 2,
 		project: {

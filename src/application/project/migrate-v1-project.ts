@@ -55,26 +55,29 @@ export function migrateV1ToV2(document: ProjectDocumentV1): ProjectDocumentV2 {
 				...(index < steps.length - 1
 					? { transitionOut: { kind: "magic-move" as const, durationMs: transitionMs } }
 					: {}),
-				blocks: [
-					{
-						id: `${projectId}-scene-${index + 1}-code`,
-						kind: "code" as const,
-						code: step.code,
-						language: source.language,
-						themeName: source.themeName,
-						...(source.fontFamily ? { fontFamily: source.fontFamily } : {}),
-						...(source.borderRadius !== undefined ? { borderRadius: source.borderRadius } : {}),
-						...(step.focus ? { focus: step.focus } : {}),
-						chrome: source.windowChrome ?? "macos",
-						showLineNumbers: source.showLineNumbers ?? true,
-						lineNumberStart: source.lineNumberStart ?? 1,
-						framePadding: source.framePadding ?? 24,
-						cardMargin: source.cardMargin ?? 32,
-						continuityKey: "primary-code",
-						opacity: 1,
-						placement: { x: 0, y: 0, width: 1, height: 1 },
-					},
-				],
+				// A blank step is a scene with no code card.
+				blocks: step.code
+					? [
+							{
+								id: `${projectId}-scene-${index + 1}-code`,
+								kind: "code" as const,
+								code: step.code,
+								language: source.language,
+								themeName: source.themeName,
+								...(source.fontFamily ? { fontFamily: source.fontFamily } : {}),
+								...(source.borderRadius !== undefined ? { borderRadius: source.borderRadius } : {}),
+								...(step.focus ? { focus: step.focus } : {}),
+								chrome: source.windowChrome ?? "macos",
+								showLineNumbers: source.showLineNumbers ?? true,
+								lineNumberStart: source.lineNumberStart ?? 1,
+								framePadding: source.framePadding ?? 24,
+								cardMargin: source.cardMargin ?? 32,
+								continuityKey: "primary-code",
+								opacity: 1,
+								placement: { x: 0, y: 0, width: 1, height: 1 },
+							},
+						]
+					: [],
 			})),
 		},
 	};

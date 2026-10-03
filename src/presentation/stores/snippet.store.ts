@@ -105,6 +105,8 @@ interface SnippetState {
 
 	// Step management
 	captureStep: (duration?: number) => void;
+	/** Append a scene without code (a title card) and select it. */
+	addBlankScene: () => void;
 	duplicateStep: (stepId: string) => void;
 	removeStep: (stepId: string) => void;
 	updateStepDuration: (stepId: string, duration: number) => void;
@@ -376,11 +378,6 @@ function isCapturable(snippet: Snippet): boolean {
 	return !lastStep || lastStep.code !== snippet.code;
 }
 
-/** The codes the plan animates over: the captured steps, or the live code. */
-function effectiveCodes(snippet: Snippet): string[] {
-	return snippet.steps.length > 0 ? snippet.steps.map((s) => s.code) : [snippet.code];
-}
-
 /**
  * The authored half of the project: everything this store owns. Split out from
  * the full payload because it is also what the unsaved-work warning compares,
@@ -624,7 +621,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		}
 		const plan = buildMagicMovePlan(
 			rawShikiHighlighter,
-			effectiveCodes(snippet),
+			snippet.morphCodes(),
 			snippet.language,
 			snippet.theme.name,
 			snippet.theme.background,
@@ -644,6 +641,15 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		const { snippet } = get();
 		const step = Step.create({ code: snippet.code, duration });
 		set({ snippet: snippet.addStep(step), currentStepIndex: snippet.steps.length });
+		get().rebuildPlan();
+	},
+
+	addBlankScene: () => {
+		const { snippet } = get();
+		set({
+			snippet: snippet.addStep(Step.create({ code: "" })),
+			currentStepIndex: snippet.steps.length,
+		});
 		get().rebuildPlan();
 	},
 

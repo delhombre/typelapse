@@ -112,9 +112,24 @@ describe("parseProjectDocument", () => {
 		expect(() => parseProjectDocument({ ...LEGACY, code: "" })).toThrow(
 			"Missing or invalid 'code'",
 		);
-		expect(() =>
-			parseProjectDocument({ ...LEGACY, steps: [{ code: "", duration: 1000 }] }),
-		).toThrow("Each step must have a non-empty 'code'");
+		expect(() => parseProjectDocument({ ...LEGACY, steps: [{ duration: 1000 }] })).toThrow(
+			"Each step must have a 'code'",
+		);
+	});
+
+	it("reads a step with empty code as a blank step", () => {
+		const parsed = parseProjectDocument({
+			...LEGACY,
+			steps: [
+				{ code: "  ", duration: 1000, caption: "Title" },
+				{ code: "const a = 1;", duration: 1000 },
+			],
+		});
+		expect(parsed.schemaVersion).toBe(1);
+		if (parsed.schemaVersion === 1) {
+			expect(parsed.document.steps.map((step) => step.code)).toEqual(["", "const a = 1;"]);
+			expect(parsed.document.steps[0]?.caption).toBe("Title");
+		}
 	});
 
 	it("rejects an unknown schema version explicitly", () => {

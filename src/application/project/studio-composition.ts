@@ -9,6 +9,7 @@ import { Project } from "../../domain/entities/project";
 import { Scene } from "../../domain/entities/scene";
 import type { CubicBezier } from "../magic-move/easing";
 import { hydrateProjectDocument } from "./hydrate-project-document";
+import { newTextLayer } from "./multimedia-authoring";
 import { type ProjectDocumentV2, parseProjectDocument } from "./project-document";
 import type {
 	ProjectFps,
@@ -128,6 +129,23 @@ export function studioCompositionTimeMs(
 	return elapsed + durationMs + progress * transitionMs;
 }
 
+/**
+ * A stored scene's card code as a step carries it: empty for a blank scene, so
+ * a blank scene is matched by a blank step and never by a code one.
+ */
+function primaryCodeText(
+	blocks: readonly {
+		readonly kind: string;
+		readonly continuityKey?: string;
+		readonly code?: string;
+	}[],
+): string {
+	const primary = blocks.find(
+		(block) => block.kind === "code" && block.continuityKey === PRIMARY_CODE_CONTINUITY_KEY,
+	);
+	return primary?.code ?? "";
+}
+
 function primaryCode(blocks: readonly Block[]): CodeBlock | undefined {
 	return blocks.find(
 		(block): block is CodeBlock =>
@@ -215,6 +233,14 @@ function synchronizedBlocks(
 	target: StudioCompositionSceneSnapshot,
 	snapshot: StudioCompositionSnapshot,
 ): readonly Block[] {
+	if (target.code === "") {
+		// A blank scene has no card: its other layers stay, the card goes.
+		return (source?.blocks ?? []).flatMap((block) =>
+			block.kind === "code" && block.continuityKey === PRIMARY_CODE_CONTINUITY_KEY
+				? []
+				: [source?.id === target.id ? block : cloneBlock(block, target.id)],
+		);
+	}
 	const sourceCode = source ? primaryCode(source.blocks) : undefined;
 	const code = createPrimaryCode(
 		target,
@@ -239,6 +265,15 @@ function synchronizedBlocks(
 	const firstOverlay = blocks.findIndex((block) => block.kind === "text" || block.kind === "code");
 	const insertionIndex = firstOverlay < 0 ? blocks.length : firstOverlay;
 	return [...blocks.slice(0, insertionIndex), code, ...blocks.slice(insertionIndex)];
+}
+
+/**
+ * A project needs a visual block or an audio cue, so when every scene is blank
+ * and bare (a Blank added to a fresh studio, the last code scene deleted) the
+ * first one starts as a title card, with the layer "Add text" would create.
+ */
+function starterTitle(sceneId: string): TextBlock {
+	return newTextLayer({ id: `${sceneId}::title` });
 }
 
 function transitionFor(
@@ -267,7 +302,11 @@ export function synchronizeStudioComposition(
 	const scenes: Scene[] = [];
 	for (const [index, target] of snapshot.scenes.entries()) {
 		const exact = existingById.get(target.id) ?? restoredScenes.get(target.id);
-		const previous = scenes.at(-1);
+		// A new scene continues the one before it only when both are the same
+		// kind: a title card is not carried over the code that follows it.
+		const previous = scenes
+			.slice(-1)
+			.find((scene) => (primaryCode(scene.blocks) !== undefined) === (target.code !== ""));
 		const liveFallback =
 			index === 0 && project.scenes.length === 1 && project.scenes[0]?.id === STUDIO_LIVE_SCENE_ID
 				? project.scenes[0]
@@ -283,6 +322,20 @@ export function synchronizeStudioComposition(
 				...(transitionOut ? { transitionOut } : {}),
 			}),
 		);
+	}
+	const first = scenes[0];
+	if (
+		first &&
+		project.audioCues.length === 0 &&
+		scenes.every((scene) => scene.blocks.length === 0)
+	) {
+		scenes[0] = Scene.create({
+			id: first.id,
+			durationMs: first.durationMs,
+			blocks: [starterTitle(first.id)],
+			...(first.caption ? { caption: first.caption } : {}),
+			...(first.transitionOut ? { transitionOut: first.transitionOut } : {}),
+		});
 	}
 
 	return Project.create({
@@ -300,15 +353,35 @@ export function synchronizeStudioComposition(
 }
 
 /**
- * Re-key a stored composition onto the live Studio scene ids.
+ * The ids the live Studio scenes take from a stored composition.
  *
  * Step ids are not part of the draft payload, so every boot mints fresh ones
- * while the composition saved in IndexedDB still carries last session's ids.
- * Synchronization matches scenes by id, so without this every authored text
- * and media layer would be dropped (and the poorer document autosaved over the
- * good one) on the first edit after a reload. A stored scene adopts the live id
- * at the same position only when its primary code is identical, which keeps a
- * different project's layers from leaking into an imported one.
+ * while the composition saved in IndexedDB, and the history saved with it,
+ * still carry last session's. The boot hands the stored ids to the code spine
+ * rather than re-keying what was stored, so a reload changes no id anywhere. A
+ * live scene takes the stored id at its position only when the primary code is
+ * identical, which keeps a different project's ids off an imported one.
+ */
+export function storedSceneIdsFor(
+	document: ProjectDocumentV2,
+	scenes: StudioCompositionSnapshot["scenes"],
+): string[] {
+	const liveIds = new Set(scenes.map((scene) => scene.id));
+	return scenes.map((target, index) => {
+		const stored = document.project.scenes[index];
+		if (!stored || stored.id === target.id || liveIds.has(stored.id)) {
+			return target.id;
+		}
+		return primaryCodeText(stored.blocks) === target.code ? stored.id : target.id;
+	});
+}
+
+/**
+ * Re-key a stored composition onto the live Studio scene ids: the converse of
+ * {@link storedSceneIdsFor}, for a document whose ids the spine cannot take (a
+ * live code project shows one scene under the Studio's live id). Synchronization
+ * matches scenes by id, so without it every authored layer would be dropped on
+ * the first edit. Same rule: same position, identical primary code.
  */
 export function adoptStoredSceneIds(
 	document: ProjectDocumentV2,
@@ -321,10 +394,7 @@ export function adoptStoredSceneIds(
 		if (!target || target.id === scene.id || storedIds.has(target.id)) {
 			return scene;
 		}
-		const primary = scene.blocks.find(
-			(block) => block.kind === "code" && block.continuityKey === PRIMARY_CODE_CONTINUITY_KEY,
-		);
-		if (primary?.kind !== "code" || primary.code !== target.code) {
+		if (primaryCodeText(scene.blocks) !== target.code) {
 			return scene;
 		}
 		changed = true;
@@ -336,6 +406,7 @@ export function adoptStoredSceneIds(
 export function createStudioCompositionDocument(
 	snapshot: StudioCompositionSnapshot,
 ): ProjectDocumentV2 {
+	const liveCode = snapshot.scenes.filter((scene) => scene.code !== "").at(-1)?.code;
 	const seed: ProjectDocumentV2 = {
 		schemaVersion: 2,
 		project: {
@@ -357,10 +428,15 @@ export function createStudioCompositionDocument(
 			},
 			assets: [],
 			audioCues: [],
-			legacySource: {
-				liveCode: snapshot.scenes.at(-1)?.code ?? "",
-				hadCapturedSteps: snapshot.scenes[0]?.id !== STUDIO_LIVE_SCENE_ID,
-			},
+			// The last scene with code; a project of blank scenes has none to keep.
+			...(liveCode
+				? {
+						legacySource: {
+							liveCode,
+							hadCapturedSteps: snapshot.scenes[0]?.id !== STUDIO_LIVE_SCENE_ID,
+						},
+					}
+				: {}),
 			scenes: snapshot.scenes.map((scene, index) => ({
 				id: scene.id,
 				durationMs: scene.durationMs,
@@ -373,29 +449,46 @@ export function createStudioCompositionDocument(
 							},
 						}
 					: {}),
-				blocks: [
-					{
-						id: `${scene.id}::primary-code`,
-						kind: "code" as const,
-						code: scene.code,
-						language: snapshot.language,
-						themeName: snapshot.themeName,
-						fontFamily: snapshot.fontFamily,
-						borderRadius: snapshot.borderRadius,
-						...(scene.focus ? { focus: scene.focus } : {}),
-						chrome: snapshot.windowChrome,
-						showLineNumbers: snapshot.showLineNumbers,
-						lineNumberStart: snapshot.lineNumberStart,
-						framePadding: snapshot.framePadding,
-						cardMargin: snapshot.cardMargin,
-						continuityKey: PRIMARY_CODE_CONTINUITY_KEY,
-						opacity: 1,
-						placement: FULL_CANVAS,
-					},
-				],
+				// A blank scene starts with no block at all.
+				blocks: scene.code
+					? [
+							{
+								id: `${scene.id}::primary-code`,
+								kind: "code" as const,
+								code: scene.code,
+								language: snapshot.language,
+								themeName: snapshot.themeName,
+								fontFamily: snapshot.fontFamily,
+								borderRadius: snapshot.borderRadius,
+								...(scene.focus ? { focus: scene.focus } : {}),
+								chrome: snapshot.windowChrome,
+								showLineNumbers: snapshot.showLineNumbers,
+								lineNumberStart: snapshot.lineNumberStart,
+								framePadding: snapshot.framePadding,
+								cardMargin: snapshot.cardMargin,
+								continuityKey: PRIMARY_CODE_CONTINUITY_KEY,
+								opacity: 1,
+								placement: FULL_CANVAS,
+							},
+						]
+					: [],
 			})),
 		},
 	};
+	const firstScene = seed.project.scenes[0];
+	if (firstScene && !liveCode) {
+		const title = starterTitle(firstScene.id);
+		firstScene.blocks = [
+			{
+				id: title.id,
+				kind: "text",
+				text: title.text,
+				typography: { ...title.typography },
+				opacity: title.opacity,
+				placement: { ...title.placement },
+			},
+		];
+	}
 	const parsed = parseProjectDocument(seed);
 	if (parsed.schemaVersion !== 2) {
 		throw new Error("Expected a Studio composition document");

@@ -27,7 +27,10 @@ import type { CubicBezier } from "@/application/magic-move/easing";
 import { renderStatic } from "@/application/magic-move/engine";
 import { NO_ZOOM, type ZoomTransform, zoomForFocus } from "@/application/magic-move/focus-zoom";
 import { studioCompositionTimeMs } from "@/application/project/studio-composition";
-import { primaryCodeOpacity as compiledCodeOpacity } from "@/application/render/composition-slots";
+import {
+	primaryCodeOpacity as compiledCodeOpacity,
+	hasCodeCard,
+} from "@/application/render/composition-slots";
 import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import type { Theme } from "@/domain/entities/theme";
 import { useStudioVideoMode } from "@/presentation/contexts/studio-video-mode";
@@ -206,8 +209,9 @@ export function LivePreview() {
 	const composition = useStudioCompositionStore();
 	const selectAuthoredAudio = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
 	const compositionDocument = useMemo(() => composition.toDocument(), [composition]);
-	const hasCompositionLayers = compositionDocument.project.scenes.some((scene) =>
-		scene.blocks.some((block) => block.kind !== "code"),
+	// A blank scene counts: only the composed canvas fades the card off it.
+	const hasCompositionLayers = compositionDocument.project.scenes.some(
+		(scene) => scene.blocks.some((block) => block.kind !== "code") || !hasCodeCard(scene),
 	);
 	const hasCompositionAudio = compositionDocument.project.audioCues.length > 0;
 	const hasComposition = hasCompositionLayers || hasCompositionAudio;

@@ -86,6 +86,18 @@ describe("migrateV1ToV2", () => {
 		expect(project.audioCues).toEqual([]);
 	});
 
+	it("turns a blank step into a scene with no code block, and refuses to roll it back", () => {
+		const migrated = migrateV1ToV2({
+			...LEGACY,
+			steps: [{ code: "", duration: 1500, caption: "Title" }, ...LEGACY.steps],
+		});
+		const [title, code] = migrated.project.scenes;
+
+		expect(title).toMatchObject({ durationMs: 1500, caption: "Title", blocks: [] });
+		expect(code?.blocks[0]).toMatchObject({ kind: "code", code: "const answer = 1;" });
+		expect(() => projectV2ToV1(migrated)).toThrow("only code-only V2 projects can roll back");
+	});
+
 	it("creates one static scene when the legacy project has no captured steps", () => {
 		const migrated = migrateV1ToV2({ ...LEGACY, steps: [], code: "console.log('static')" });
 

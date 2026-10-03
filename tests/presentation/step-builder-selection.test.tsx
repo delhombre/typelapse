@@ -51,6 +51,18 @@ describe("StepBuilder selection follow", () => {
 		expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest", inline: "nearest" });
 	});
 
+	it("types every field at 16 px under a coarse pointer, so a phone does not zoom into it", () => {
+		const { container } = render(<StepBuilder />);
+		const fields = [...container.querySelectorAll("input")];
+
+		expect(fields.length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("textbox", { name: /focus lines/ }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole("textbox", { name: /caption/ }).length).toBeGreaterThan(0);
+		for (const field of fields) {
+			expect(field.className).toContain("pointer-coarse:text-base");
+		}
+	});
+
 	it("keeps the full scene list on mobile and restores a deleted scene in place", () => {
 		render(<StepBuilder />);
 		const removed = useSnippetStore.getState().snippet.steps[2];

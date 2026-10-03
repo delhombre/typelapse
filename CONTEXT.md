@@ -13,6 +13,11 @@ terms so issues, specs, tests and code use the same ones.
 - **Scene**: one entry of the ordered visual timeline. Has a duration, an
   optional outgoing **transition** and an optional caption. A scene may be
   empty.
+- **Blank scene**: a scene with no code card (no primary code block). It
+  still has its duration, transition, caption, text and media layers; a title
+  card is a blank scene with a text layer. No renderer draws a card on it, and
+  through a transition the neighbouring scene's card fades in or out where it
+  stands instead of morphing out of nothing.
 - **Block**: one z-ordered layer inside a scene. Four kinds: **TextBlock**,
   **CodeBlock**, **ImageBlock**, **VideoBlock**. Placement, crop, focal point,
   radius, playback rate and mute live on the block.
@@ -37,7 +42,12 @@ terms so issues, specs, tests and code use the same ones.
 
 - **Snippet**: a code sample with language and theme.
 - **Step**: one state of the code with a hold duration, focus ranges and a
-  caption. Steps are the units the **magic move** morphs between.
+  caption. Steps are the units the **magic move** morphs between. Each step
+  is the studio's handle on one scene (same id). A step with empty code is a
+  **blank step**: its scene is a blank scene, and the magic move holds the
+  nearest captured code there so the card has something still to fade.
+- **Live code**: what the code editor holds, never empty. Capture turns it
+  into a step; with no step at all it is the one scene the studio shows.
 - **Magic move**: the pure, dependency-free token-morphing engine
   (`src/application/magic-move`) shared by every renderer.
 
@@ -50,9 +60,11 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
   surfaces; the only path that bakes captions and synthesized audio today.
 - **Canvas painter**: the independent 2D-canvas painter behind on-device
   WebCodecs export (`src/application/frame-painter`). It paints the code card
-  and the text and image layers from the same scene compiler the other two
-  read; layers authored before the card go under it, the rest over it
-  (**composition slot**). Device refuses a video layer in one sentence.
+  and the text, image and video layers from the same scene compiler the other
+  two read; layers authored before the card go under it, the rest over it
+  (**composition slot**). A video layer shows the source frame at or before
+  its `sourceTimeMs`, decoded in the worker; Device refuses, in one sentence,
+  a video it cannot read or decode.
 - **Readable floor**: the smallest code text a card is drawn at, 8 px on a
   1080p canvas and growing with the tier (`MIN_TEXT_PX` in `canvas-fit`).
   Below it the card stops shrinking and the window clips its code, with a
@@ -123,7 +135,10 @@ or it does not land.
 - **Local project**: one entry of the on-device library behind the project
   chip, with its own id. Its V2 document (layers, media, audio cues) is stored
   in IndexedDB under that id; its code spine is also kept in localStorage.
-  Switching saves the project being left before the next one loads.
+  Switching saves the project being left before the next one loads. A link
+  that carries content (`#import=`, `#share=`) on a fresh load opens in a new
+  local project, named by what it imports; the open one is left as it was.
+  A reload keeps every scene id: the code spine takes the stored ones.
 - **Autosave**: IndexedDB persistence of the open local project's V2 document,
   keyed by its id; no destructive action waits for a toast to disappear.
 - **Project history**: the one undo and redo of the open local project. Each

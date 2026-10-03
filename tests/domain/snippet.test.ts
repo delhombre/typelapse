@@ -1,5 +1,5 @@
 import { RenderConfig } from "@/domain/entities/render-config";
-import { Snippet } from "@/domain/entities/snippet";
+import { Snippet, morphCodes } from "@/domain/entities/snippet";
 import { Step } from "@/domain/entities/step";
 import { Theme } from "@/domain/entities/theme";
 import { describe, expect, it } from "vitest";
@@ -157,5 +157,48 @@ describe("Snippet", () => {
 		expect(updated).not.toBe(snippet);
 		expect(snippet.steps).toHaveLength(0);
 		expect(updated.steps).toHaveLength(1);
+	});
+
+	describe("morphCodes", () => {
+		const base = () => Snippet.create({ title: "T", code: "live", language: "ts" });
+
+		it("is the live code alone before any step is captured", () => {
+			expect(base().morphCodes()).toEqual(["live"]);
+		});
+
+		it("is each step's code, in order", () => {
+			const snippet = base()
+				.addStep(Step.create({ code: "a" }))
+				.addStep(Step.create({ code: "b" }));
+			expect(snippet.morphCodes()).toEqual(["a", "b"]);
+		});
+
+		it("holds the next captured code on a blank step, so the card fades in where it stands", () => {
+			const snippet = base()
+				.addStep(Step.create({ code: "" }))
+				.addStep(Step.create({ code: "" }))
+				.addStep(Step.create({ code: "a" }))
+				.addStep(Step.create({ code: "b" }));
+			expect(snippet.morphCodes()).toEqual(["a", "a", "a", "b"]);
+		});
+
+		it("holds the previous captured code on a trailing blank step", () => {
+			const snippet = base()
+				.addStep(Step.create({ code: "a" }))
+				.addStep(Step.create({ code: "" }));
+			expect(snippet.morphCodes()).toEqual(["a", "a"]);
+		});
+
+		it("is one pure rule the server can call with each scene's code", () => {
+			expect(morphCodes(["", "a", "", "b", ""], "live")).toEqual(["a", "a", "b", "b", "b"]);
+			expect(morphCodes([], "live")).toEqual(["live"]);
+		});
+
+		it("holds the live code when no step has code", () => {
+			const snippet = base()
+				.addStep(Step.create({ code: "" }))
+				.addStep(Step.create({ code: "" }));
+			expect(snippet.morphCodes()).toEqual(["live", "live"]);
+		});
 	});
 });

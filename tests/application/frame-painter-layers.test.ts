@@ -421,6 +421,6 @@ describe("primaryCodeOpacity", () => {
 	});
 
 	it("shows the card when no scene carries one", () => {
-		expect(primaryCodeOpacity({ layers: [] })).toBe(1);
+		expect(primaryCodeOpacity({ scenes: [], layers: [] })).toBe(1);
 	});
 });

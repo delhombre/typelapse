@@ -6,6 +6,18 @@ export const PRIMARY_CODE_CONTINUITY_KEY = "primary-code";
 export type CompositionSlot = "under-code" | "over-code";
 
 /**
+ * Whether a scene carries the studio's code card. A blank scene (a title card)
+ * does not, and no renderer draws a card on it.
+ */
+export function hasCodeCard(scene: {
+	readonly blocks: readonly { readonly kind: string; readonly continuityKey?: string }[];
+}): boolean {
+	return scene.blocks.some(
+		(block) => block.kind === "code" && block.continuityKey === PRIMARY_CODE_CONTINUITY_KEY,
+	);
+}
+
+/**
  * Which side of the studio's code card a layer is painted on.
  *
  * The card is not drawn from its block's placement: the preview and the painter
@@ -36,22 +48,28 @@ export function compositionSlot(
  * crossfade of the two scenes' own card opacities, as every other layer gets
  * it. The preview used to read the current step's opacity instead, which made
  * a card hidden on a title card pop in at a step boundary while the painter
- * faded it. A frame with no card at all (no scene yet) shows the card.
+ * faded it. A blank scene contributes no card, so a frame of blank scenes
+ * hides it; only a frame with no scene at all (nothing to hide it) shows it.
+ *
+ * Pure, for every renderer to call: the server composition draws each code
+ * layer itself, which already puts no card on a blank scene.
  */
 export function primaryCodeOpacity(frame: {
+	readonly scenes: readonly unknown[];
 	readonly layers: readonly {
 		readonly kind: string;
 		readonly opacity: number;
 		readonly continuityKey?: string;
 	}[];
 }): number {
+	if (frame.scenes.length === 0) {
+		return 1;
+	}
 	let opacity = 0;
-	let found = false;
 	for (const layer of frame.layers) {
 		if (layer.kind === "code" && layer.continuityKey === PRIMARY_CODE_CONTINUITY_KEY) {
-			found = true;
 			opacity += layer.opacity;
 		}
 	}
-	return found ? Math.min(1, opacity) : 1;
+	return Math.min(1, opacity);
 }

@@ -87,10 +87,16 @@ export class Step {
 		this.annotation = props.annotation;
 	}
 
-	private static assertValid(code: string, duration: number): void {
-		if (!code.trim()) {
-			throw new Error("Step code must not be empty");
-		}
+	/**
+	 * Empty code is a blank step: its scene has no code card (a title card).
+	 * Whitespace draws nothing either, so it is the same blank step rather than
+	 * a card with no text in it.
+	 */
+	private static normalizeCode(code: string): string {
+		return code.trim() === "" ? "" : code;
+	}
+
+	private static assertValid(duration: number): void {
 		if (duration <= 0) {
 			throw new Error("Duration must be positive");
 		}
@@ -112,12 +118,17 @@ export class Step {
 		return trimmed === "" ? undefined : trimmed;
 	}
 
+	/** False for a blank step, whose scene draws no code card. */
+	get hasCode(): boolean {
+		return this.code !== "";
+	}
+
 	static create(props: StepProps): Step {
 		const duration = props.duration ?? 1000;
-		Step.assertValid(props.code, duration);
+		Step.assertValid(duration);
 		return new Step({
 			id: props.id ?? crypto.randomUUID(),
-			code: props.code,
+			code: Step.normalizeCode(props.code),
 			duration,
 			highlightRanges: props.highlightRanges ?? [],
 			annotation: Step.normalizeAnnotation(props.annotation),
@@ -133,10 +144,10 @@ export class Step {
 	with(changes: StepChanges): Step {
 		const code = changes.code ?? this.code;
 		const duration = changes.duration ?? this.duration;
-		Step.assertValid(code, duration);
+		Step.assertValid(duration);
 		return new Step({
 			id: this.id,
-			code,
+			code: Step.normalizeCode(code),
 			duration,
 			highlightRanges: changes.highlightRanges ?? this.highlightRanges,
 			annotation:
