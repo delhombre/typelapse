@@ -7,8 +7,9 @@ import {
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { DEFAULT_TRANSITION_EASING, isCubicBezier } from "@/application/magic-move/easing";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
-import { projectV2ToV1 } from "@/application/project/migrate-v1-project";
-import { parseProjectDocument } from "@/application/project/project-document";
+import { hydrateProjectDocument } from "@/application/project/hydrate-project-document";
+import { migrateV1ToV2, projectV2ToV1 } from "@/application/project/migrate-v1-project";
+import { assertImportableCode, parseProjectDocument } from "@/application/project/project-document";
 import { type ProjectContent, contentFingerprint } from "@/application/project/project-fingerprint";
 import type { ProjectPayload, ProjectStepPayload } from "@/application/project/project-payload";
 import { MAX_RENDER_DIMENSION, MIN_RENDER_DIMENSION } from "@/domain/entities/render-config";
@@ -829,6 +830,11 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 		const parsed = parseProjectDocument(data);
 		const obj = parsed.schemaVersion === 1 ? parsed.document : projectV2ToV1(parsed.document);
+		// Every load is mirrored into the V2 composition, whose aggregate is
+		// stricter than the lenient V1 reader. Proving the document hydrates as V2
+		// here, before any set(), stops a file the composition would refuse from
+		// replacing the snippet first and then failing halfway with an error.
+		hydrateProjectDocument(migrateV1ToV2(obj));
 
 		const themeFactories: Record<string, () => Theme> = {
 			midnight: Theme.midnight,
@@ -944,6 +950,9 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		if (code.trim() === "") {
 			throw new Error("Paste some code first.");
 		}
+		// Same bound as a project file: a 40,000-line paste froze the tab for
+		// minutes, and the autosaved draft froze it again on every reload.
+		assertImportableCode(code);
 		const current = get().snippet;
 		// Built from scratch rather than through rebuildSnippet, which carries the
 		// existing steps over: dropping them is the entire point of an import.

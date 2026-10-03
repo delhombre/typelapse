@@ -2,7 +2,9 @@ import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
 import { useInterfaceFeedbackStore } from "@/presentation/stores/interface-feedback.store";
+import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { hasAuthoredMultimedia } from "@/presentation/stores/studio-composition.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { copyToClipboard, decodeShareLink, encodeShareLink } from "@/presentation/utils/share-link";
 import { AnimatePresence, motion } from "motion/react";
@@ -110,6 +112,16 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 		a.click();
 		URL.revokeObjectURL(url);
 		feedback("commit");
+		// The project file is still the V1 code format: text, media and audio
+		// layers live only in this browser. Say so at the moment of saving, so the
+		// file is never mistaken for a complete backup (contract: an export that
+		// leaves media behind must carry an explicit warning).
+		if (hasAuthoredMultimedia()) {
+			notify("Saved the code scenes only.", {
+				tone: "info",
+				detail: "Text, media and audio layers are not included in this file yet.",
+			});
+		}
 	}, [exportToJson, snippetTitle]);
 
 	return (

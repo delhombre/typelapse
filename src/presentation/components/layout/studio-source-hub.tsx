@@ -3,7 +3,6 @@ import { ConfirmDiscardOverlay } from "@/presentation/components/ui/confirm-disc
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
 import { notify } from "@/presentation/stores/notice.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
@@ -13,6 +12,10 @@ import {
 	studioMediaImporter,
 	studioMediaRegistry,
 } from "@/presentation/studio-media-runtime";
+import {
+	hasStudioWorkToLose,
+	openStudioProjectDocument,
+} from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type ChangeEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -31,6 +34,14 @@ import { UrlImportMenu } from "./url-import-menu";
 type SourceView = "menu" | "url" | "diff" | null;
 
 /**
+ * A project file holds references and code, never media bytes, so a real one
+ * is a few hundred kilobytes. Anything past this is refused before it is read:
+ * a 100 MB file used to be read, parsed and handed to the highlighter, and the
+ * tab never came back.
+ */
+const MAX_PROJECT_FILE_BYTES = 5 * 1024 * 1024;
+
+/**
  * One door for everything that enters a project.
  *
  * ui.camera keeps media acquisition as a single, legible action instead of a
@@ -47,7 +58,6 @@ export function StudioSourceHub() {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const mediaInputRef = useRef<HTMLInputElement>(null);
 	const reduce = useReducedMotion() === true;
-	const importFromJson = useSnippetStore((state) => state.importFromJson);
 	const composition = useStudioCompositionStore();
 	const selectAudioCue = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
 
@@ -77,26 +87,32 @@ export function StudioSourceHub() {
 		};
 	}, [close, view]);
 
-	const applyJson = useCallback(
-		(json: string, name: string) => {
-			try {
-				importFromJson(json);
-				feedback("commit");
-			} catch (error) {
-				feedback("error");
-				notify(error instanceof Error ? error.message : "That file could not be read.", {
-					tone: "error",
-					detail: name,
-				});
-			}
-		},
-		[importFromJson],
-	);
+	const applyJson = useCallback((json: string, name: string) => {
+		try {
+			openStudioProjectDocument(json);
+			feedback("commit");
+		} catch (error) {
+			feedback("error");
+			notify(error instanceof Error ? error.message : "That file could not be read.", {
+				tone: "error",
+				detail: name,
+			});
+		}
+	}, []);
 
 	const handleFileChange = useCallback(
 		(event: ChangeEvent<HTMLInputElement>) => {
 			const file = event.target.files?.[0];
 			if (!file) {
+				return;
+			}
+			if (file.size > MAX_PROJECT_FILE_BYTES) {
+				event.target.value = "";
+				feedback("error");
+				notify("That file is too large to be a Typelapse project.", {
+					tone: "error",
+					detail: file.name,
+				});
 				return;
 			}
 			const reader = new FileReader();
@@ -105,7 +121,7 @@ export function StudioSourceHub() {
 				if (typeof text !== "string") {
 					return;
 				}
-				if (useSnippetStore.getState().hasUnsavedEdits()) {
+				if (hasStudioWorkToLose()) {
 					setPendingFile({ name: file.name, json: text });
 					return;
 				}

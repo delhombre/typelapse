@@ -25,7 +25,16 @@ export function diffToSnapshots(
 	const files = filterLockfiles(parsed.files);
 	const hunkCount = files.reduce((sum, file) => sum + file.hunks.length, 0);
 	if (hunkCount === 0) {
-		throw new Error("No diff hunks found: paste the output of `git diff`.");
+		// A real git diff can still carry no text hunks: only binary files, pure
+		// renames or mode changes. Telling that user to paste `git diff` output,
+		// which is exactly what they pasted, sends them in a circle.
+		// The parser keeps only files with hunks, so git's own per-file header is
+		// the evidence that a real diff was pasted.
+		throw new Error(
+			/^diff --git /m.test(diffText)
+				? "This diff only changes binary files, renames or modes: there is no code to animate."
+				: "No diff hunks found: paste the output of `git diff`.",
+		);
 	}
 
 	// Windowed by default (readable on real PRs); options can force full frames.

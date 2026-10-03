@@ -167,6 +167,46 @@ const THEMES = new Set([
 ]);
 const MARGINS = [16, 24, 32, 48, 64] as const;
 
+/**
+ * The longest step the Studio can hold. Mirrors the timeline editor's
+ * `MAX_STEP_DURATION_MS` (kept literal here because this module is shared with
+ * the server and stays on relative imports). An unbounded duration from a file
+ * once built a tick array per second of a 30,000-year timeline and crashed the
+ * Studio on every boot, because the draft had already saved it.
+ */
+export const MAX_IMPORTED_STEP_DURATION_MS = 10_000;
+
+/**
+ * What one document may ask the Studio to tokenize. Highlighting is linear in
+ * code size but runs on the main thread: around 12,000 lines froze the tab for
+ * seconds and a 100 MB string never came back. These bounds sit well above any
+ * code a video can show, and they are checked before anything is mutated.
+ */
+export const MAX_IMPORTED_STEPS = 500;
+export const MAX_IMPORTED_CODE_LINES = 5_000;
+export const MAX_IMPORTED_CODE_CHARACTERS = 1_000_000;
+
+/**
+ * Throw a user-facing error when code is too large to import. `label` names the
+ * thing being imported so the message says what to shorten.
+ */
+export function assertImportableCode(code: string, label = "This code"): void {
+	if (code.length > MAX_IMPORTED_CODE_CHARACTERS) {
+		throw new Error(
+			`${label} is too large to animate (over ${MAX_IMPORTED_CODE_CHARACTERS.toLocaleString("en-US")} characters).`,
+		);
+	}
+	let lines = 1;
+	for (let index = code.indexOf("\n"); index !== -1; index = code.indexOf("\n", index + 1)) {
+		lines += 1;
+		if (lines > MAX_IMPORTED_CODE_LINES) {
+			throw new Error(
+				`${label} is too long to animate (over ${MAX_IMPORTED_CODE_LINES.toLocaleString("en-US")} lines).`,
+			);
+		}
+	}
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -256,18 +296,35 @@ function normalizeV1(input: Record<string, unknown>): ProjectDocumentV1 {
 		throw new Error(`Unknown theme '${themeName}'`);
 	}
 
+	assertImportableCode(code, "The project code");
+
 	const steps = input.steps === undefined ? [] : input.steps;
 	if (!Array.isArray(steps)) {
 		throw new Error("Invalid 'steps'");
 	}
-	const normalizedSteps = steps.map((raw) => {
+	if (steps.length > MAX_IMPORTED_STEPS) {
+		throw new Error(
+			`This project has ${steps.length.toLocaleString("en-US")} steps; Typelapse opens at most ${MAX_IMPORTED_STEPS}.`,
+		);
+	}
+	let totalCharacters = code.length;
+	const normalizedSteps = steps.map((raw, index) => {
 		if (!isRecord(raw)) {
 			throw new Error("Each step must be an object");
 		}
 		const stepCode = requiredString(raw.code, "Each step must have a non-empty 'code'");
+		assertImportableCode(stepCode, `Step ${index + 1}`);
+		totalCharacters += stepCode.length;
+		if (totalCharacters > MAX_IMPORTED_CODE_CHARACTERS) {
+			throw new Error(
+				`This project is too large to animate (over ${MAX_IMPORTED_CODE_CHARACTERS.toLocaleString("en-US")} characters of code).`,
+			);
+		}
+		// Whole milliseconds inside the editor's range: a scene duration is a safe
+		// integer in the V2 aggregate, and the timeline draws one tick per second.
 		const duration =
 			typeof raw.duration === "number" && Number.isFinite(raw.duration) && raw.duration > 0
-				? raw.duration
+				? Math.min(Math.max(Math.round(raw.duration), 1), MAX_IMPORTED_STEP_DURATION_MS)
 				: 1000;
 		const focus = typeof raw.focus === "string" && raw.focus.trim() !== "" ? raw.focus : undefined;
 		const caption =
@@ -313,12 +370,18 @@ function normalizeV1(input: Record<string, unknown>): ProjectDocumentV1 {
 		steps: normalizedSteps,
 		windowChrome,
 		showLineNumbers: typeof input.showLineNumbers === "boolean" ? input.showLineNumbers : true,
+		// Both fall back like every other cosmetic field rather than reaching the
+		// V2 code block, which refuses them and would fail the import halfway.
 		lineNumberStart:
-			typeof input.lineNumberStart === "number" && input.lineNumberStart >= 1
+			typeof input.lineNumberStart === "number" &&
+			input.lineNumberStart >= 1 &&
+			Number.isSafeInteger(Math.floor(input.lineNumberStart))
 				? Math.floor(input.lineNumberStart)
 				: 1,
 		framePadding:
-			typeof input.framePadding === "number" && Number.isFinite(input.framePadding)
+			typeof input.framePadding === "number" &&
+			Number.isFinite(input.framePadding) &&
+			input.framePadding >= 0
 				? input.framePadding
 				: 24,
 		cardMargin: normalizeMargin(input.cardMargin),
@@ -333,7 +396,9 @@ function normalizeV1(input: Record<string, unknown>): ProjectDocumentV1 {
 		...(typeof input.fontFamily === "string" && input.fontFamily.trim() !== ""
 			? { fontFamily: input.fontFamily }
 			: {}),
-		...(typeof input.borderRadius === "number" && Number.isFinite(input.borderRadius)
+		...(typeof input.borderRadius === "number" &&
+		Number.isFinite(input.borderRadius) &&
+		input.borderRadius >= 0
 			? { borderRadius: input.borderRadius }
 			: {}),
 	};

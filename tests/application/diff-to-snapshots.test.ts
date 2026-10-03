@@ -97,6 +97,22 @@ describe("diffToSnapshots", () => {
 		expect(() => diffToSnapshots("this is not a diff at all")).toThrow();
 	});
 
+	it("says why a real git diff with only binary files or renames has nothing to animate", () => {
+		const binaryOnly = [
+			"diff --git a/logo.png b/logo.png",
+			"index 1111111..2222222 100644",
+			"Binary files a/logo.png and b/logo.png differ",
+		].join("\n");
+		expect(() => diffToSnapshots(binaryOnly)).toThrow("only changes binary files");
+		const renameOnly = [
+			"diff --git a/x.ts b/y.ts",
+			"similarity index 100%",
+			"rename from x.ts",
+			"rename to y.ts",
+		].join("\n");
+		expect(() => diffToSnapshots(renameOnly)).toThrow("only changes binary files, renames");
+	});
+
 	it("drops a lockfile and keeps the real changed file", () => {
 		const diff = nl([
 			"diff --git a/package.json b/package.json",

@@ -10,7 +10,10 @@ import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { StudioBottomSheet } from "@/presentation/components/ui/studio-bottom-sheet";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	hasStudioWorkToLose,
+	openStudioProjectDocument,
+} from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type CSSProperties, memo, useCallback, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, ChevronLeft, Grid, X } from "reicon-react";
@@ -52,7 +55,6 @@ export function TemplateGallery() {
 	const [open, setOpen] = useState(false);
 	const [pending, setPending] = useState<TemplateDefinition | null>(null);
 	const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
-	const importFromJson = useSnippetStore((state) => state.importFromJson);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const reduce = useReducedMotion() === true;
 
@@ -68,16 +70,16 @@ export function TemplateGallery() {
 
 	const load = useCallback(
 		(template: TemplateDefinition) => {
-			importFromJson(JSON.stringify(template.project));
+			openStudioProjectDocument(JSON.stringify(template.project));
 			feedback("commit");
 			close();
 		},
-		[close, importFromJson],
+		[close],
 	);
 
 	const choose = useCallback(
 		(template: TemplateDefinition) => {
-			if (useSnippetStore.getState().hasUnsavedEdits()) {
+			if (hasStudioWorkToLose()) {
 				setActivePreviewId(null);
 				setPending(template);
 				return;

@@ -1,4 +1,4 @@
-import { classifySource } from "@/application/import/classify-source";
+import { classifySource, isBareLink } from "@/application/import/classify-source";
 import { resolveCommitUrl, resolvePrUrl } from "@/application/import/pr-url";
 import { languageFromPath } from "@/application/language/language-from-filename";
 import {
@@ -125,6 +125,12 @@ export function useSourceImport(): SourceImport {
 				// Synchronous, and throws a user-facing message on unusable input.
 				store.importDiff(trimmed);
 				return true;
+			}
+
+			if (isBareLink(trimmed)) {
+				throw new Error(
+					"Typelapse can read GitHub pull requests, commits and files, gists and raw code links. That link is none of them.",
+				);
 			}
 
 			// The raw paste, not the trimmed one: a leading blank line, a body
