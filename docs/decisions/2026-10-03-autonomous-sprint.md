@@ -186,3 +186,25 @@ tests, lint, both type checks, build). Calls taken and kept:
 - Found on the way, P1 for wave 3: the server's multimedia composition does
   not match the preview (#100), and the studio has no hosted-render control
   for the Creator plan (new ticket).
+
+## Executed: wave 3 (2026-10-04, early)
+
+Five agents, seven tickets, five commits, gates green (271 files, 2,168
+tests, lint, both type checks, build). Calls taken and kept:
+
+- The server's multimedia composition reuses the V1 code card (extracted as
+  CodeCard) instead of a second renderer; a scene without code keeps the
+  neighbour's code through morphCodes so the card fades in place.
+- A blank step is a step whose code is empty, not a new kind; one rule
+  (hasCodeCard, primaryCodeOpacity) for the three renderers; a new scene
+  inherits layers only from a scene of the same kind.
+- Video layers decode in the worker (mediabunny plus WebCodecs); the
+  seek-per-frame alternative was measured and not built.
+- An arrival import opens a new local project; scene ids are stable at the
+  source and the history no longer rekeys.
+- Subtracted: five dead multimedia components, the project store's history,
+  the unused hosted-render client (the Creator path in the export panel is
+  #105, wave 4), the stub plan header.
+- Wave 4: #105 (hosted render in the export panel, the Creator plan's first
+  line), #106 and #107 (blank-scene and phone follow-ups). Wave 5: #78, the
+  launch pass with emil-prep-for-prod on the final tree.
