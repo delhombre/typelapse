@@ -1,8 +1,10 @@
 import { hydrateProjectDocument } from "@/application/project/hydrate-project-document";
 import { addMediaAsset, addTextLayer } from "@/application/project/multimedia-authoring";
+import { serializeProjectDocument } from "@/application/project/serialize-project-document";
 import {
 	STUDIO_LIVE_SCENE_ID,
 	type StudioCompositionSnapshot,
+	adoptStoredSceneIds,
 	createStudioCompositionDocument,
 	studioCompositionTimeMs,
 	studioSceneLayerKinds,
@@ -181,5 +183,55 @@ describe("studio composition synchronization", () => {
 
 		expect(studioSceneLayerKinds(withAudio, "scene-one")).toEqual(["text"]);
 		expect(studioSceneLayerKinds(withAudio, "scene-two")).toEqual(["audio"]);
+	});
+
+	it("keeps authored layers across a reload that re-mints the step ids", () => {
+		// Last session: two captured scenes, a title on the second one, autosaved.
+		const saved = hydrateProjectDocument(
+			createStudioCompositionDocument(
+				snapshot([
+					{ id: "old-one", code: "one", durationMs: 1_000 },
+					{ id: "old-two", code: "two", durationMs: 2_000 },
+				]),
+			),
+		);
+		const stored = serializeProjectDocument({
+			...saved,
+			project: addTextLayer(saved.project, "old-two", { id: "title", text: "Persist me" }),
+		});
+		// This session: the draft restore created the same steps under new ids.
+		const live = snapshot([
+			{ id: "new-one", code: "one", durationMs: 1_000 },
+			{ id: "new-two", code: "two", durationMs: 2_000 },
+		]);
+
+		const adopted = adoptStoredSceneIds(stored, live);
+		const next = synchronizeStudioComposition(hydrateProjectDocument(adopted).project, live);
+
+		expect(next.scenes.map((scene) => scene.id)).toEqual(["new-one", "new-two"]);
+		expect(studioSceneLayerKinds(next, "new-two")).toEqual(["text"]);
+		expect(next.scenes[1]?.blocks.find((block) => block.kind === "text")).toMatchObject({
+			id: "title",
+			text: "Persist me",
+		});
+	});
+
+	it("does not hand a stored layer to a scene whose code differs", () => {
+		const saved = hydrateProjectDocument(
+			createStudioCompositionDocument(
+				snapshot([{ id: "old-one", code: "one", durationMs: 1_000 }]),
+			),
+		);
+		const stored = serializeProjectDocument({
+			...saved,
+			project: addTextLayer(saved.project, "old-one", { id: "title", text: "Other project" }),
+		});
+
+		const adopted = adoptStoredSceneIds(
+			stored,
+			snapshot([{ id: "imported", code: "imported code", durationMs: 1_000 }]),
+		);
+
+		expect(adopted).toBe(stored);
 	});
 });

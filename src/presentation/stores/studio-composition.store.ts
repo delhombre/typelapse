@@ -95,9 +95,24 @@ function archiveRemovedScenes(desiredIds: ReadonlySet<string>): void {
 
 /** Reconcile once; cheap signature guards make playback rAF updates no-ops. */
 export function synchronizeStudioCompositionStore(): void {
+	reconcileStudioComposition(false);
+}
+
+/**
+ * Reconcile even though the Studio snapshot is unchanged. For callers that
+ * replaced the composition itself (a restore): the loaded document still has
+ * to be reconciled against the Studio, which the signature guard would skip.
+ * A separate entry point because the plain one is handed to store `subscribe`,
+ * which calls it with store state as arguments.
+ */
+export function resynchronizeStudioCompositionStore(): void {
+	reconcileStudioComposition(true);
+}
+
+function reconcileStudioComposition(force: boolean): void {
 	const snapshot = readStudioCompositionSnapshot();
 	const signature = snapshotSignature(snapshot);
-	if (signature === lastSnapshotSignature) {
+	if (!force && signature === lastSnapshotSignature) {
 		return;
 	}
 	lastSnapshotSignature = signature;

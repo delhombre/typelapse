@@ -14,6 +14,7 @@ import type { Step } from "@/domain/entities/step";
 import { EasingEditor } from "@/presentation/components/timeline/easing-editor";
 import { timelineMotion } from "@/presentation/components/timeline/timeline-motion";
 import { SceneDeletionUndo } from "@/presentation/components/ui/scene-deletion-undo";
+import { SceneDurationInput } from "@/presentation/components/ui/scene-duration-input";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback, feedbackPulse } from "@/presentation/haptics";
 import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
@@ -28,6 +29,7 @@ import {
 	type KeyboardEvent,
 	type PointerEvent,
 	useEffect,
+	useId,
 	useMemo,
 	useRef,
 	useState,
@@ -58,6 +60,26 @@ const TEMPO_OPTIONS = [
 	{ value: 650, label: "Smooth", seconds: "0.65" },
 	{ value: 1000, label: "Cinematic", seconds: "1.0" },
 ] as const satisfies readonly { value: TempoMs; label: string; seconds: string }[];
+
+/** The timeline's labelled wrapper around the shared draft-keeping field. */
+function SceneDurationField({
+	label,
+	durationMs,
+	onCommit,
+}: {
+	label: string;
+	durationMs: number;
+	onCommit: (durationMs: number) => void;
+}) {
+	const inputId = useId();
+	return (
+		<label className="studio-scene-duration" htmlFor={inputId}>
+			<span className="sr-only">{label}</span>
+			<SceneDurationInput id={inputId} durationMs={durationMs} onCommit={onCommit} />
+			<span aria-hidden="true">s</span>
+		</label>
+	);
+}
 
 export function StudioTimeline() {
 	const steps = useSnippetStore((state) => state.snippet.steps);
@@ -359,24 +381,15 @@ export function StudioTimeline() {
 									<CodeFilmFrame code={selectedStep.code} />
 								</span>
 								<strong>Scene {currentStepIndex + 1}</strong>
-								<label className="studio-scene-duration">
-									<span className="sr-only">Scene {currentStepIndex + 1} duration in seconds</span>
-									<input
-										type="number"
-										min={0.4}
-										max={10}
-										step={0.1}
-										value={selectedStep.duration / 1000}
-										onChange={(event) => {
-											const seconds = Number.parseFloat(event.target.value);
-											if (Number.isFinite(seconds) && seconds >= 0.4 && seconds <= 10) {
-												setLayoutMotionMode("instant");
-												updateStepDuration(selectedStep.id, Math.round(seconds * 1000));
-											}
-										}}
-									/>
-									<span aria-hidden="true">s</span>
-								</label>
+								<SceneDurationField
+									key={selectedStep.id}
+									label={`Scene ${currentStepIndex + 1} duration in seconds`}
+									durationMs={selectedStep.duration}
+									onCommit={(durationMs) => {
+										setLayoutMotionMode("instant");
+										updateStepDuration(selectedStep.id, durationMs);
+									}}
+								/>
 								<div ref={easingAnchorRef} className="studio-easing-anchor">
 									<button
 										type="button"

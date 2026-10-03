@@ -293,6 +293,40 @@ export function synchronizeStudioComposition(
 	});
 }
 
+/**
+ * Re-key a stored composition onto the live Studio scene ids.
+ *
+ * Step ids are not part of the draft payload, so every boot mints fresh ones
+ * while the composition saved in IndexedDB still carries last session's ids.
+ * Synchronization matches scenes by id, so without this every authored text
+ * and media layer would be dropped (and the poorer document autosaved over the
+ * good one) on the first edit after a reload. A stored scene adopts the live id
+ * at the same position only when its primary code is identical, which keeps a
+ * different project's layers from leaking into an imported one.
+ */
+export function adoptStoredSceneIds(
+	document: ProjectDocumentV2,
+	snapshot: StudioCompositionSnapshot,
+): ProjectDocumentV2 {
+	const storedIds = new Set(document.project.scenes.map((scene) => scene.id));
+	let changed = false;
+	const scenes = document.project.scenes.map((scene, index) => {
+		const target = snapshot.scenes[index];
+		if (!target || target.id === scene.id || storedIds.has(target.id)) {
+			return scene;
+		}
+		const primary = scene.blocks.find(
+			(block) => block.kind === "code" && block.continuityKey === PRIMARY_CODE_CONTINUITY_KEY,
+		);
+		if (primary?.kind !== "code" || primary.code !== target.code) {
+			return scene;
+		}
+		changed = true;
+		return { ...scene, id: target.id };
+	});
+	return changed ? { ...document, project: { ...document.project, scenes } } : document;
+}
+
 export function createStudioCompositionDocument(
 	snapshot: StudioCompositionSnapshot,
 ): ProjectDocumentV2 {

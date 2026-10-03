@@ -1,4 +1,5 @@
 import "@/app.css";
+import { RouteErrorBoundary } from "@/presentation/components/ui/route-error-boundary";
 import { LandingPage } from "@/presentation/landing/landing-page";
 import { MotionConfig } from "motion/react";
 import { StrictMode, Suspense, lazy } from "react";
@@ -32,9 +33,11 @@ createRoot(root).render(
 					<Route
 						path="/app"
 						element={
-							<Suspense fallback={<div className="min-h-dvh bg-paper" aria-busy="true" />}>
-								<StudioRoute />
-							</Suspense>
+							<RouteErrorBoundary>
+								<Suspense fallback={<div className="min-h-dvh bg-paper" aria-busy="true" />}>
+									<StudioRoute />
+								</Suspense>
+							</RouteErrorBoundary>
 						}
 					/>
 				</Routes>

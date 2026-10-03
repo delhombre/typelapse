@@ -63,7 +63,10 @@ export function StudioLayerStrip() {
 	const primaryCode = scene.blocks.find(
 		(block) => block.kind === "code" && block.continuityKey === "primary-code",
 	);
-	if (authoredBlocks.length === 0 && audioCues.length === 0) {
+	// History keeps the row alive: deleting the last layer (or undoing the first
+	// one) must leave its Undo / Redo within reach, or that edit is unrecoverable.
+	const hasHistory = composition.canUndo || composition.canRedo;
+	if (authoredBlocks.length === 0 && audioCues.length === 0 && !hasHistory) {
 		return null;
 	}
 

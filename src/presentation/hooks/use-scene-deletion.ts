@@ -2,8 +2,6 @@ import type { Step } from "@/domain/entities/step";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useCallback, useEffect, useState } from "react";
 
-const UNDO_WINDOW_MS = 7000;
-
 interface PendingSceneDeletion {
 	step: Step;
 	index: number;
@@ -16,8 +14,10 @@ interface PendingSceneDeletion {
  *
  * The recovery stays valid only while the remaining timeline is untouched. If
  * another edit changes its shape, restoring at an old index would be a lie, so
- * the pending action quietly expires. The store remains the source of truth;
- * this hook only owns the brief, local affordance.
+ * the pending action quietly expires. It never expires on a clock: a scene is
+ * real work, and a user who looks away for a few seconds must still be able to
+ * get it back. The store remains the source of truth; this hook only owns the
+ * local affordance.
  */
 export function useSceneDeletion() {
 	const steps = useSnippetStore((state) => state.snippet.steps);
@@ -57,14 +57,6 @@ export function useSceneDeletion() {
 		setPendingDeletion(null);
 		return true;
 	}, [pendingDeletion, restoreStep]);
-
-	useEffect(() => {
-		if (!pendingDeletion) {
-			return;
-		}
-		const timer = window.setTimeout(() => setPendingDeletion(null), UNDO_WINDOW_MS);
-		return () => window.clearTimeout(timer);
-	}, [pendingDeletion]);
 
 	useEffect(() => {
 		if (!pendingDeletion) {

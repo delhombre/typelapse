@@ -1,6 +1,7 @@
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { MAX_ANNOTATION_LENGTH, type Step } from "@/domain/entities/step";
 import { SceneDeletionUndo } from "@/presentation/components/ui/scene-deletion-undo";
+import { SceneDurationInput } from "@/presentation/components/ui/scene-duration-input";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
 import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
@@ -234,19 +235,10 @@ export function StepBuilder() {
 							{/* Duration input */}
 							<div className="flex shrink-0 items-center gap-1">
 								<StudioTooltip content="Duration in seconds">
-									<input
-										type="number"
-										min={0.4}
-										max={10}
-										step={0.1}
-										value={step.duration / 1000}
+									<SceneDurationInput
+										durationMs={step.duration}
+										onCommit={(durationMs) => updateStepDuration(step.id, durationMs)}
 										aria-label={`Scene ${index + 1} duration in seconds`}
-										onChange={(e) => {
-											const seconds = Number.parseFloat(e.target.value);
-											if (Number.isFinite(seconds) && seconds >= 0.4 && seconds <= 10) {
-												updateStepDuration(step.id, Math.round(seconds * 1000));
-											}
-										}}
 										onClick={(e) => e.stopPropagation()}
 										className="w-12 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 transition-[border-color,background-color] duration-150 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 									/>
