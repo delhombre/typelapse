@@ -184,4 +184,14 @@ describe("isSafeBackground", () => {
 		expect(isSafeBackground("http://evil.example/x.png")).toBe(false);
 		expect(isSafeBackground("")).toBe(false);
 	});
+
+	it("rejects a gradient that names a resource without spelling url(", () => {
+		// The image-set form reached a local listener from headless Chrome, on both the
+		// V1 and the V2 server renderer, before the guard refused it.
+		expect(isSafeBackground('linear-gradient(red, blue), image-set("http://127.0.0.1/x" 1x)')).toBe(
+			false,
+		);
+		expect(isSafeBackground("linear-gradient(red, blue), \\75 rl(http://127.0.0.1/x)")).toBe(false);
+		expect(isSafeBackground("linear-gradient(red, blue), image('http://127.0.0.1/x')")).toBe(false);
+	});
 });

@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,6 +26,11 @@ import {
 import { resolveShikiLanguage, resolveShikiTheme } from "../../src/infrastructure/highlighting/shiki-registry";
 import { buildServerMagicMovePlan } from "../remotion/magic-move-plan";
 import { gifFilterOverride, outputSettingsFor, safeFormat } from "../remotion/output-settings";
+import {
+	progressStyleOf,
+	renderRequestProblem,
+	windowChromeOf,
+} from "../remotion/render-request";
 import type { RenderInput, RenderRequestBody, StepData } from "../remotion/types";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -73,16 +79,35 @@ function createBundle() {
 	});
 }
 
-let bundlePromise: Promise<string> = createBundle().catch((err) => {
-	console.error("Bundle failed:", err);
-	throw err;
-});
+/* Production bundles once and shares it. Dev bundles per request so composition
+   edits show up without a restart, and each of those bundles is single-use: it
+   is ~21 MB in the OS temp dir, and nothing removed it, so every dev render used
+   to leave one behind. Dev therefore skips the shared bundle entirely (it was
+   never served) and removes its own after the render. */
+const bundlePromise: Promise<string> | null = isDev
+	? null
+	: createBundle().catch((err) => {
+			console.error("Bundle failed:", err);
+			throw err;
+		});
 
-function getBundle() {
-	if (isDev) {
-		bundlePromise = createBundle();
+/** For one-shot callers (the demo script): the shared bundle outlives no process, so remove it. */
+async function disposeSharedBundle(): Promise<void> {
+	if (!bundlePromise) {
+		return;
 	}
-	return bundlePromise;
+	const serveUrl = await bundlePromise.catch(() => null);
+	if (serveUrl) {
+		await rm(serveUrl, { recursive: true, force: true });
+	}
+}
+
+async function acquireBundle(): Promise<{ serveUrl: string; release: () => Promise<void> }> {
+	if (bundlePromise) {
+		return { serveUrl: await bundlePromise, release: async () => undefined };
+	}
+	const serveUrl = await createBundle();
+	return { serveUrl, release: () => rm(serveUrl, { recursive: true, force: true }) };
 }
 getHighlighter().catch(console.error);
 
@@ -107,7 +132,6 @@ const MAX_TRANSITION_MS = 5_000;
 const MIN_CARD_MARGIN = 16;
 const MAX_CARD_MARGIN = 64;
 const DEFAULT_CARD_MARGIN = 32;
-const MAX_STEPS = 50;
 /** Overflow guard for durationInFrames, above the maximum the clamps above allow. */
 const MAX_TOTAL_FRAMES = 108_000;
 /** Reject bodies past this; image backgrounds are data URLs up to ~4 MB, so keep it high. */
@@ -139,14 +163,28 @@ renderRoute.post(
 		onError: (c) => c.json({ error: "Payload too large" }, 413),
 	}),
 	async (c) => {
-		const body = (await c.req.json()) as RenderRequestBody;
+		// A body that is not JSON, or not the shape below, is the caller's mistake:
+		// say so with a 400 instead of letting a TypeError surface as a 500.
+		let parsed: unknown;
+		try {
+			parsed = await c.req.json();
+		} catch {
+			return c.json({ error: "Request body must be valid JSON" }, 400);
+		}
+		const problem = renderRequestProblem(parsed);
+		if (problem) {
+			return c.json({ error: problem }, 400);
+		}
+		const body = parsed as RenderRequestBody;
+		// The title names the download and the window; a missing one is not worth a 400.
+		const title = typeof body.title === "string" ? body.title : "Typelapse";
+		const windowChrome = windowChromeOf(body.windowChrome ?? "macos");
+		const progressStyle = progressStyleOf(body.progressStyle ?? "reels");
 
 		const {
-			title,
 			language,
 			theme,
 			steps,
-			windowChrome = "macos",
 			showLineNumbers = true,
 			lineNumberStart = 1,
 			framePadding,
@@ -154,16 +192,8 @@ renderRoute.post(
 			typewriter = false,
 			focusZoom = false,
 			sound = false,
-			progressStyle = "reels",
 			watermark,
 		} = body;
-
-		if (!steps || steps.length < 2) {
-			return c.json({ error: "At least 2 steps required" }, 400);
-		}
-		if (steps.length > MAX_STEPS) {
-			return c.json({ error: `Too many steps (max ${MAX_STEPS})` }, 400);
-		}
 
 		// Clamp every untrusted numeric before it reaches renderMedia, then let the
 		// format have the last word on size and rate: a GIF asked for at 1080p60
@@ -203,11 +233,13 @@ renderRoute.post(
 		// SSRF guard: only known-safe backgrounds are painted server-side. Anything
 		// that could make headless Chrome fetch a remote resource falls back to mesh.
 		let background = body.background;
-		if (!isSafeBackground(background)) {
+		if (typeof background !== "string" || !isSafeBackground(background)) {
 			console.warn(`Rejected unsafe background, using default mesh: ${background}`);
 			background = DEFAULT_BACKGROUND;
 		}
 
+		let workDir: string | null = null;
+		let bundle: Awaited<ReturnType<typeof acquireBundle>> | null = null;
 		try {
 			const highlighter = await getHighlighter();
 			const lang = resolveShikiLanguage(language);
@@ -275,7 +307,8 @@ renderRoute.post(
 				audioDataUrl,
 			};
 
-			const bundleLocation = await getBundle();
+			bundle = await acquireBundle();
+			const bundleLocation = bundle.serveUrl;
 
 			const composition = await selectComposition({
 				serveUrl: bundleLocation,
@@ -283,8 +316,12 @@ renderRoute.post(
 				inputProps: { input },
 			});
 
-			// Only the whitelisted `fmt` ever reaches the filesystem path.
-			const outputPath = path.join(os.tmpdir(), `typelapse-${Date.now()}.${fmt}`);
+			// Only the whitelisted `fmt` ever reaches the filesystem path. A private
+			// directory per render, rather than a `Date.now()` name, means two renders
+			// in the same millisecond cannot share a file, and a failed render's
+			// partial output goes with the directory in `finally`.
+			workDir = await mkdtemp(path.join(os.tmpdir(), "typelapse-render-"));
+			const outputPath = path.join(workDir, `output.${fmt}`);
 
 			await renderMedia({
 				composition: {
@@ -309,7 +346,6 @@ renderRoute.post(
 			});
 
 			const fileBuffer = fs.readFileSync(outputPath);
-			fs.unlinkSync(outputPath);
 
 			return new Response(fileBuffer, {
 				headers: {
@@ -320,8 +356,13 @@ renderRoute.post(
 		} catch (err) {
 			console.error("Render failed:", err);
 			return c.json({ error: err instanceof Error ? err.message : "Render failed" }, 500);
+		} finally {
+			if (workDir) {
+				await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+			}
+			await bundle?.release().catch(() => undefined);
 		}
 	},
 );
 
-export { renderRoute };
+export { disposeSharedBundle, renderRoute };

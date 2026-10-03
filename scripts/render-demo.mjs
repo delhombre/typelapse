@@ -67,7 +67,7 @@ import { THEMES } from "../src/presentation/components/controls/control-presets.
    before the route is loaded, hence the dynamic import: `isDev` is read once, at
    module scope. */
 process.env.NODE_ENV ??= "production";
-const { renderRoute } = await import("../server/routes/render.ts");
+const { disposeSharedBundle, renderRoute } = await import("../server/routes/render.ts");
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PROJECT = resolve(ROOT, "docs/demo.project.json");
@@ -100,7 +100,9 @@ async function main() {
 		// The route is free to bring a GIF inside its own budget, so believe the
 		// file rather than the request: a silent downscale here is the blur coming
 		// back, and it should stop the script instead of reaching the README.
-		if (measured && measured.width !== payload.width) {
+		// Height too: a clamp that kept the width but not the aspect would pass a
+		// width-only check and still squash the frame.
+		if (measured && (measured.width !== payload.width || measured.height !== payload.height)) {
 			throw new Error(
 				`demo.${format} came back ${measured.width}×${measured.height}, not ${payload.width}×${payload.height}. The renderer clamped it; pick a size it will keep.`,
 			);
@@ -255,5 +257,10 @@ function ffprobe(file) {
 	}
 }
 
-await main();
+// The bundle is ~21 MB in the OS temp dir and nothing else will ever remove it.
+try {
+	await main();
+} finally {
+	await disposeSharedBundle();
+}
 process.exit(0);

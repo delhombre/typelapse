@@ -170,7 +170,10 @@ export function isImageBackground(background: string): boolean {
  * fails. Default-deny: only these known-safe forms pass.
  *  - `mesh:<id>` and `transparent`: no resource reference at all.
  *  - a solid hex color.
- *  - a CSS gradient that contains no `url(` (so it cannot reference a URL).
+ *  - a CSS gradient with no `url(`, no quote and no backslash. A gradient can
+ *    still name a resource without `url(`: `image-set("http://...")` takes a
+ *    quoted string, and a CSS escape (`\75 rl(`) spells `url(` without the
+ *    letters. Neither needs to appear in a colour stop, so both are refused.
  *  - `image:data:image/...`: an inline data URL only (see parseImageBackground).
  * Anything else, notably a raw `url(...)` or an `image:` with a non-data scheme,
  * is rejected.
@@ -189,7 +192,7 @@ export function isSafeBackground(background: string): boolean {
 		return parseImageBackground(background) !== null;
 	}
 	if (/gradient\(/i.test(background)) {
-		return !/url\(/i.test(background);
+		return !/url\(|["'\\]/i.test(background);
 	}
 	return false;
 }

@@ -262,7 +262,8 @@ function finalizationFailureError(failureCode: AssetFailureCode | null): AssetIn
 	return new AssetIngestionError("invalid-state", "Only a pending asset can be finalized");
 }
 
-function detectedMimeMatchesClaim(detected: string | null, claimed: string): boolean {
+/** Exported so the local render route sniffs media by the same rule as hosted ingestion. */
+export function detectedMimeMatchesClaim(detected: string | null, claimed: string): boolean {
 	if (detected === claimed) {
 		return true;
 	}

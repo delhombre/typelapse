@@ -8,7 +8,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createLocalMultimediaRenderRoute } from "../../server/routes/local-multimedia-render";
 import type { HostedMultimediaRendererPort } from "../../src/application/render/process-hosted-render-job";
 
-const IMAGE_BYTES = new TextEncoder().encode("private-local-image");
+/** A real 1x1 PNG: the route sniffs content, so a text stand-in is no longer an image. */
+const IMAGE_BYTES = new Uint8Array(
+	Buffer.from(
+		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+		"base64",
+	),
+);
 const VIDEO_BYTES = new TextEncoder().encode("rendered-local-video");
 
 function checksum(bytes: Uint8Array): string {
@@ -162,6 +168,56 @@ describe("local multimedia render route", () => {
 			assetId: "image-1",
 		});
 		expect(created).toBe(0);
+	});
+
+	it("refuses a PDF declared as a PNG with a 415 before starting Remotion", async () => {
+		let created = 0;
+		const route = createLocalMultimediaRenderRoute({
+			createRenderer: () => {
+				created += 1;
+				throw new Error("must not start");
+			},
+		});
+		// Metadata that describes the PDF exactly, so only the content sniff can catch it.
+		const pdf = new TextEncoder().encode("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n");
+		const form = multipart({ bytes: pdf });
+		const payload = JSON.parse(form.get("document") as string);
+		payload.project.assets[0].byteSize = pdf.byteLength;
+		payload.project.assets[0].checksum = checksum(pdf);
+		form.set("document", JSON.stringify(payload));
+
+		const response = await route.request("http://localhost/render/v2", {
+			method: "POST",
+			body: form,
+		});
+
+		expect(response.status).toBe(415);
+		expect(await response.json()).toEqual({
+			error: "Media content does not match its declared type",
+			assetId: "image-1",
+		});
+		expect(created).toBe(0);
+	});
+
+	it("names a media part sent twice instead of calling it missing", async () => {
+		const form = multipart();
+		form.append("asset:image-1", form.get("asset:image-1") as File);
+		const route = createLocalMultimediaRenderRoute({
+			createRenderer: () => {
+				throw new Error("must not start");
+			},
+		});
+
+		const response = await route.request("http://localhost/render/v2", {
+			method: "POST",
+			body: form,
+		});
+
+		expect(response.status).toBe(400);
+		expect(await response.json()).toEqual({
+			error: "Project media is sent more than once",
+			assetId: "image-1",
+		});
 	});
 
 	it("does not leak renderer failures or leave a successful-looking video response", async () => {

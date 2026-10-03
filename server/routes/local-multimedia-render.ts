@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
+import { fileTypeFromBuffer } from "file-type";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { detectedMimeMatchesClaim } from "../../src/application/assets/asset-ingestion";
 import {
 	type ProjectDocumentV2,
 	parseProjectDocument,
@@ -18,6 +20,8 @@ import { createHostedRemotionV2Renderer } from "../render/v2/remotion-v2-rendere
 
 const MAX_MULTIPART_BYTES = 256 * 1024 * 1024;
 const MAX_ASSET_BYTES = 128 * 1024 * 1024;
+/** Same leading sample hosted ingestion sniffs, so both paths reach the same verdict. */
+const FILE_TYPE_SAMPLE_BYTES = 8 * 1024;
 
 export interface LocalRenderAssetBytesPort {
 	bytesFor(assetId: string): Promise<Uint8Array>;
@@ -124,6 +128,13 @@ async function validatedAssets(
 	let totalBytes = 0;
 	for (const asset of document.project.assets) {
 		const values = form.getAll(`asset:${asset.id}`);
+		// Two parts for one id is ambiguous, not missing: say which, so the caller
+		// fixes the right thing.
+		if (values.length > 1) {
+			throw new LocalRenderRequestError("Project media is sent more than once", 400, {
+				assetId: asset.id,
+			});
+		}
 		if (values.length !== 1 || !(values[0] instanceof File)) {
 			throw new LocalRenderRequestError("Project media is missing", 400, { assetId: asset.id });
 		}
@@ -146,6 +157,16 @@ async function validatedAssets(
 				422,
 				{ assetId: asset.id },
 			);
+		}
+		// The checksum only proves the bytes are the ones the document describes,
+		// and the client wrote both. A PDF declared as `image/png` passed every check
+		// above and failed inside Chrome as a 500 "Local render failed"; sniffing the
+		// content, as hosted ingestion does, turns it into a 415 before any render.
+		const detected = await fileTypeFromBuffer(bytes.subarray(0, FILE_TYPE_SAMPLE_BYTES));
+		if (!detectedMimeMatchesClaim(detected?.mime ?? null, asset.mimeType)) {
+			throw new LocalRenderRequestError("Media content does not match its declared type", 415, {
+				assetId: asset.id,
+			});
 		}
 		result.set(asset.id, bytes);
 	}
