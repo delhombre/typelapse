@@ -134,3 +134,30 @@ domain and a fast-forward of `main`.
 session branch is pushed as `claude/project-status-862f90` for backup and
 CI), the staging accounts (#70), the prices and the licence (#79), the DevRel
 interviews (#77), the trusted proxy at deployment (#65).
+
+## Executed: wave 1 (2026-10-03, evening)
+
+Seven agents, fifteen tickets, six commits, gates green (249 files, 1,987
+tests, lint, both type checks, build). Product calls taken by agents and
+kept:
+
+- The landing claim is measurable, not superlative: "as sharp as their
+  preview, made in your browser from a pull request". ProRes 4444 tools also
+  keep full chroma, so "the sharpest" could be disputed. Pivot: "use the
+  sharpest". The sharpness proof is a still PNG pair (21.8 KB), both sides
+  rendered by the on-device painter so the codec is the only variable.
+- A V1 file always opens with the same IDs; a V2 file keeps its own; an
+  opened file takes the active local project's id and can never overwrite
+  another project. Media bytes are read by asset id across local projects.
+- A scene without a code layer does not open yet (#96): the studio's spine
+  is still the V1 code column; a title-card-first launch video needs it.
+- Loop means the same thing on every project; the multimedia route learns
+  it (#97) rather than hiding the toggle.
+- fps lives in the project file only when it is not 60; the CLI loops a GIF
+  by default and nothing else.
+- Plan reads come from the Stripe projection whenever a database exists;
+  monthly minutes are output duration of queued, running and succeeded jobs
+  since the first of the UTC month; a replayed render is never counted twice.
+- Found and fixed on the way: billing was broken in every browser (fetch
+  called as a method of the adapter); the painter's window took the tallest
+  frame's height; the renderers disagreed on the card width by 43 px.
