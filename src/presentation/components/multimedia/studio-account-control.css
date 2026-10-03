@@ -54,6 +54,8 @@
 	position: absolute;
 	top: calc(100% + 10px);
 	right: -4px;
+	/* A dialog's UA styles pin `left: 0`, which would win over `right`. */
+	left: auto;
 	z-index: 80;
 	width: min(330px, calc(100vw - 24px));
 	margin: 0;
@@ -300,4 +302,10 @@
 	.mm-account-form input {
 		transition-duration: 0.01ms;
 	}
+}
+
+/* Outside the form grid the primary action would shrink to its label. */
+.mm-account-copy > .mm-account-primary {
+	width: 100%;
+	margin: 0 0 12px;
 }

@@ -14,6 +14,7 @@ import { type CSSProperties, type ReactNode, useCallback, useState } from "react
 import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
 import { SceneCodeCard } from "./scene-code-card";
+import { StudioAccountIsland } from "./studio-account-island";
 import { StudioSourceHub } from "./studio-source-hub";
 import { StudioUtilities } from "./studio-utilities";
 import { TemplateGallery } from "./template-gallery";
@@ -94,6 +95,7 @@ export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps)
 						<div className="sc-island-group sc-island-group-utilities">
 							<TemplateGallery />
 							<StudioUtilities />
+							<StudioAccountIsland />
 						</div>
 					</motion.div>
 				</header>

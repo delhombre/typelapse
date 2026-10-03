@@ -273,6 +273,46 @@ describe("hosted project sync coordinator", () => {
 		expect(api.update).toHaveBeenCalledOnce();
 	});
 
+	it("treats a jsonb echo with reordered keys as saved and issues no extra revision", async () => {
+		const reorder = (value: unknown): unknown => {
+			if (Array.isArray(value)) return value.map(reorder);
+			if (value === null || typeof value !== "object") return value;
+			const reversed: Record<string, unknown> = {};
+			for (const key of Object.keys(value).reverse()) {
+				reversed[key] = reorder((value as Record<string, unknown>)[key]);
+			}
+			return reversed;
+		};
+		const api = apiWith({
+			load: vi.fn(async () =>
+				record(3, reorder(document("hosted-project-1")) as ProjectDocumentV2),
+			),
+			update: vi.fn(async (input) => ({
+				outcome: "updated" as const,
+				project: record(input.expectedRevision + 1, reorder(input.document) as ProjectDocumentV2),
+			})),
+		});
+		const { coordinator } = createHarness({ api });
+		await coordinator.connect({
+			session: SESSION,
+			localDocument: document(),
+			hostedProjectId: "hosted-project-1",
+		});
+
+		coordinator.scheduleSave(document("hosted-project-1"));
+		await coordinator.flush();
+		expect(api.update).not.toHaveBeenCalled();
+
+		const edited = document("hosted-project-1", "Edited");
+		coordinator.scheduleSave(edited);
+		await coordinator.flush();
+		coordinator.scheduleSave(edited);
+		await coordinator.flush();
+
+		expect(api.update).toHaveBeenCalledOnce();
+		expect(coordinator.getState()).toMatchObject({ kind: "ready", revision: 4 });
+	});
+
 	it("surfaces an optimistic concurrency conflict and never retries it", async () => {
 		const update = vi.fn(async () => ({ outcome: "conflict" as const, currentRevision: 12 }));
 		const api = apiWith({ load: vi.fn(async () => record(9)), update });

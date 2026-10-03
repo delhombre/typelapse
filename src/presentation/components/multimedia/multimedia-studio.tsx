@@ -7,6 +7,7 @@ import {
 	selectAudioCue,
 	updateAudioCue,
 } from "@/application/project/audio-cue-authoring";
+import { canonicalJson } from "@/application/project/canonical-json";
 import {
 	HostedProjectSyncError,
 	type HostedProjectSyncState,
@@ -379,7 +380,7 @@ export function MultimediaStudio({
 				references.save(accountId, project.id);
 				state.loadDocument(project.document);
 				setHostedProjectId(project.id);
-				setCloudSavedSignature(JSON.stringify(project.document));
+				setCloudSavedSignature(canonicalJson(project.document));
 			})
 			.catch(() => undefined);
 
@@ -646,7 +647,7 @@ export function MultimediaStudio({
 		if (hostedProjectId !== document.project.id || cloudSavedSignature === null) {
 			return "device" as const;
 		}
-		return cloudSavedSignature === JSON.stringify(document)
+		return cloudSavedSignature === canonicalJson(document)
 			? ("synced" as const)
 			: ("unsaved" as const);
 	})();
@@ -690,7 +691,7 @@ export function MultimediaStudio({
 				const result = await existing.flush();
 				if (result.outcome === "saved" || result.outcome === "noop") {
 					setHostedProjectId(result.project.id);
-					setCloudSavedSignature(JSON.stringify(result.project.document));
+					setCloudSavedSignature(canonicalJson(result.project.document));
 				}
 			} catch (error) {
 				const current = existing.getState();
@@ -766,7 +767,7 @@ export function MultimediaStudio({
 			references.save(accountId, result.project.id);
 			state.loadDocument(result.project.document);
 			setHostedProjectId(result.project.id);
-			setCloudSavedSignature(JSON.stringify(result.project.document));
+			setCloudSavedSignature(canonicalJson(result.project.document));
 			setHostedSyncState({
 				kind: "ready",
 				projectId: result.project.id,

@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
+import { StudioAccountIsland } from "./studio-account-island";
 import { StudioSourceHub } from "./studio-source-hub";
 import { StudioUtilities } from "./studio-utilities";
 import { TemplateGallery } from "./template-gallery";
@@ -65,6 +66,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 					<TemplateGallery />
 				</section>
 				<StudioUtilities compact />
+				<StudioAccountIsland />
 			</div>
 
 			{/* The instrument floats above the sheet, on the sheet's own peek line. */}

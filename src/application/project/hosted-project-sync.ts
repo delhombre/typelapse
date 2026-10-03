@@ -14,6 +14,7 @@ import type {
 	UploadedPrivateMedia,
 } from "../assets/upload-private-media";
 import type { ClientSession } from "../auth/client-auth.port";
+import { canonicalJson } from "./canonical-json";
 import {
 	HostedProjectApiError,
 	type HostedProjectApiPort,
@@ -221,8 +222,9 @@ function canonicalDocument(input: ProjectDocumentV2): ProjectDocumentV2 {
 	}
 }
 
+/** Key-order-insensitive: the server stores documents as jsonb, which reorders keys. */
 function fingerprint(document: ProjectDocumentV2): string {
-	return JSON.stringify(document);
+	return canonicalJson(document);
 }
 
 function activeSession(session: ClientSession | null, now: Date): ClientSession {

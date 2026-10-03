@@ -191,7 +191,7 @@ function AccountPanel({
 				<p className="mm-eyebrow">Local project</p>
 				<h2>Private by default.</h2>
 				<p>No account required. Your editing session and media stay on this device.</p>
-				<a href="/#pricing">Compare cloud plans</a>
+				<a href="/">About Typelapse</a>
 			</div>
 		);
 	}
@@ -241,7 +241,7 @@ function AccountPanel({
 					</button>
 				) : null}
 				<div className="mm-account-actions">
-					{!billing?.available ? <a href="/#pricing">Cloud plans</a> : null}
+					{!billing?.available ? <a href="/">About Typelapse</a> : null}
 					<button
 						type="button"
 						disabled={operation === "signing-out"}
