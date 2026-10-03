@@ -1548,7 +1548,9 @@
 	padding: 10px 12px 12px;
 }
 
-.studio-camera-root .sc-layer-editor {
+/* The layer inspector also lives in the phone's sheet, which vaul portals to
+   the body, outside this root: each rule names both places. */
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor {
 	display: flex;
 	min-height: 0;
 	height: 100%;
@@ -1559,27 +1561,27 @@
 	padding: 2px;
 }
 
-.studio-camera-root .sc-layer-editor-head,
-.studio-camera-root .sc-layer-editor-head > span {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head > span {
 	display: flex;
 	align-items: center;
 }
 
-.studio-camera-root .sc-layer-editor-head {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head {
 	justify-content: space-between;
 	gap: 10px;
 }
 
-.studio-camera-root .sc-layer-editor-head > span {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head > span {
 	min-width: 0;
 	flex-direction: column;
 	align-items: flex-start;
 	gap: 2px;
 }
 
-.studio-camera-root .sc-layer-editor-head small,
-.studio-camera-root .sc-layer-field > span,
-.studio-camera-root .sc-layer-strip-head > span {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head small,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field > span,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head > span {
 	color: var(--camera-muted);
 	font-size: 9px;
 	font-weight: 650;
@@ -1587,7 +1589,7 @@
 	text-transform: uppercase;
 }
 
-.studio-camera-root .sc-layer-editor-head strong {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head strong {
 	max-width: 210px;
 	overflow: hidden;
 	color: var(--camera-ink);
@@ -1597,8 +1599,8 @@
 	white-space: nowrap;
 }
 
-.studio-camera-root .sc-layer-editor-head button,
-.studio-camera-root .sc-layer-strip-head button {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button {
 	display: inline-flex;
 	width: 28px;
 	height: 28px;
@@ -1613,35 +1615,35 @@
 		var(--ease-out);
 }
 
-.studio-camera-root .sc-layer-editor-head button:active,
-.studio-camera-root .sc-layer-strip-head button:active:not(:disabled) {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button:active,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:active:not(:disabled) {
 	transform: scale(0.94);
 }
 
-.studio-camera-root .sc-layer-editor-head button:hover,
-.studio-camera-root .sc-layer-strip-head button:hover:not(:disabled) {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button:hover,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:hover:not(:disabled) {
 	background: var(--camera-pill);
 	color: var(--camera-ink);
 }
 
-.studio-camera-root .sc-layer-strip-head button:disabled {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:disabled {
 	opacity: 0.28;
 }
 
-.studio-camera-root .sc-layer-field {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field {
 	display: grid;
 	min-width: 0;
 	gap: 6px;
 }
 
-.studio-camera-root .sc-layer-field-grow {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field-grow {
 	min-height: 106px;
 	flex: 0 0 118px;
 }
 
-.studio-camera-root .sc-layer-field textarea,
-.studio-camera-root .sc-layer-field input[type="number"],
-.studio-camera-root .sc-layer-field select {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field input[type="number"],
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field select {
 	width: 100%;
 	border: 1px solid var(--camera-line);
 	border-radius: 10px;
@@ -1653,7 +1655,7 @@
 	transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
 }
 
-.studio-camera-root .sc-layer-field textarea {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea {
 	min-height: 112px;
 	height: 100%;
 	resize: none;
@@ -1661,26 +1663,26 @@
 	line-height: 1.5;
 }
 
-.studio-camera-root .sc-layer-field input[type="number"],
-.studio-camera-root .sc-layer-field select {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field input[type="number"],
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field select {
 	height: 34px;
 	padding: 0 9px;
 }
 
-.studio-camera-root .sc-layer-field textarea:focus,
-.studio-camera-root .sc-layer-field input:focus,
-.studio-camera-root .sc-layer-field select:focus {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea:focus,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field input:focus,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field select:focus {
 	border-color: rgb(49 130 246 / 0.58);
 	box-shadow: 0 0 0 3px rgb(49 130 246 / 0.1);
 }
 
-.studio-camera-root .sc-layer-grid {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 9px;
 }
 
-.studio-camera-root .sc-layer-layout {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout {
 	display: grid;
 	gap: 7px;
 	padding: 8px;
@@ -1689,7 +1691,7 @@
 	background: color-mix(in srgb, var(--camera-pill) 72%, transparent);
 }
 
-.studio-camera-root .sc-layer-layout > header {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header {
 	display: flex;
 	height: 24px;
 	align-items: center;
@@ -1701,12 +1703,12 @@
 	text-transform: uppercase;
 }
 
-.studio-camera-root .sc-layer-layout > header > div {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header > div {
 	display: flex;
 	gap: 1px;
 }
 
-.studio-camera-root .sc-layer-layout > header button {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button {
 	display: inline-flex;
 	width: 24px;
 	height: 24px;
@@ -1721,20 +1723,20 @@
 		var(--ease-out);
 }
 
-.studio-camera-root .sc-layer-layout > header button:hover:not(:disabled) {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:hover:not(:disabled) {
 	background: var(--camera-paper);
 	color: var(--camera-ink);
 }
 
-.studio-camera-root .sc-layer-layout > header button:active:not(:disabled) {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:active:not(:disabled) {
 	transform: scale(0.92);
 }
 
-.studio-camera-root .sc-layer-layout > header button:disabled {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:disabled {
 	opacity: 0.26;
 }
 
-.studio-camera-root .sc-layer-presets {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-presets {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 2px;
@@ -1743,7 +1745,7 @@
 	background: color-mix(in srgb, var(--camera-line) 55%, transparent);
 }
 
-.studio-camera-root .sc-layer-presets button {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button {
 	height: 28px;
 	padding: 0 5px;
 	border: 0;
@@ -1757,23 +1759,23 @@
 		var(--ease-out);
 }
 
-.studio-camera-root .sc-layer-presets button:hover {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:hover {
 	background: var(--camera-paper);
 	box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
 	color: var(--camera-ink);
 }
 
-.studio-camera-root .sc-layer-presets button:active {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:active {
 	transform: scale(0.96);
 }
 
-.studio-camera-root .sc-layer-placement-grid {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 4px;
 }
 
-.studio-camera-root .sc-layer-placement-grid label {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid label {
 	display: grid;
 	height: 30px;
 	grid-template-columns: 13px minmax(0, 1fr) 8px;
@@ -1785,18 +1787,18 @@
 	color: var(--camera-muted);
 }
 
-.studio-camera-root .sc-layer-placement-grid label:focus-within {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid label:focus-within {
 	border-color: rgb(49 130 246 / 0.58);
 	box-shadow: 0 0 0 2px rgb(49 130 246 / 0.08);
 }
 
-.studio-camera-root .sc-layer-placement-grid span,
-.studio-camera-root .sc-layer-placement-grid small {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid span,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid small {
 	font-size: 8px;
 	font-weight: 650;
 }
 
-.studio-camera-root .sc-layer-placement-grid input {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid input {
 	min-width: 0;
 	height: 27px;
 	padding: 0 2px;
@@ -1808,7 +1810,7 @@
 	font-variant-numeric: tabular-nums;
 }
 
-.studio-camera-root .sc-layer-color input {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-color input {
 	width: 100%;
 	height: 34px;
 	padding: 4px;
@@ -1817,24 +1819,24 @@
 	background: var(--camera-pill);
 }
 
-.studio-camera-root .sc-layer-check {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-check {
 	grid-template-columns: 1fr auto;
 	align-items: end;
 }
 
-.studio-camera-root .sc-layer-check input {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-check input {
 	width: 34px;
 	height: 34px;
 	margin: 0;
 	accent-color: var(--camera-focus);
 }
 
-.studio-camera-root .sc-layer-range input {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-range input {
 	width: 100%;
 	accent-color: var(--camera-focus);
 }
 
-.studio-camera-root .sc-layer-audio-summary {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary {
 	display: grid;
 	grid-template-columns: 8px 1fr auto;
 	align-items: center;
@@ -1845,7 +1847,7 @@
 	background: var(--camera-pill);
 }
 
-.studio-camera-root .sc-layer-audio-summary > span {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary > span {
 	width: 8px;
 	height: 8px;
 	border-radius: 999px;
@@ -1853,14 +1855,25 @@
 	box-shadow: 0 0 0 4px rgb(124 92 255 / 0.1);
 }
 
-.studio-camera-root .sc-layer-audio-summary strong {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary strong {
 	font-size: 11px;
 	font-weight: 630;
 }
 
-.studio-camera-root .sc-layer-audio-summary small {
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary small {
 	color: var(--camera-muted);
 	font-size: 9.5px;
+}
+
+/* Under a finger every field types at 16px: iOS zooms the page into anything
+   smaller, and the zoom stays after the keyboard closes. */
+@media (pointer: coarse) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea,
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-field input[type="number"],
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-field select,
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid input {
+		font-size: 16px;
+	}
 }
 
 .studio-camera-root .sc-layer-strip {
@@ -1927,7 +1940,9 @@
 	box-shadow: none;
 }
 
-.studio-camera-root .sc-composition-surface-host {
+/* The phone's stage draws the same layer surface: these rules name its root
+   too, or the surface scales about its centre and lands off the stage. */
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-surface-host {
 	position: absolute;
 	top: 0;
 	left: 0;
@@ -1935,21 +1950,21 @@
 	pointer-events: none;
 }
 
-.studio-camera-root .sc-composition-surface-host[data-slot="under-code"] {
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-surface-host[data-slot="under-code"] {
 	z-index: 0;
 }
 
-.studio-camera-root .sc-composition-surface-host[data-slot="over-code"] {
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-surface-host[data-slot="over-code"] {
 	z-index: 2;
 }
 
-.studio-camera-root .sc-composition-layer-surface {
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-layer-surface {
 	position: relative;
 	isolation: isolate;
 	pointer-events: none;
 }
 
-.studio-camera-root .sc-composition-layer {
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-layer {
 	display: block;
 	padding: 0;
 	overflow: hidden;
@@ -1961,17 +1976,17 @@
 	transition: outline-color 150ms var(--ease-out);
 }
 
-.studio-camera-root .sc-composition-layer[data-selected] {
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-layer[data-selected] {
 	outline: 4px solid var(--camera-focus);
 	outline-offset: -4px;
 }
 
-.studio-camera-root .sc-composition-layer:focus-visible {
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-layer:focus-visible {
 	outline: 4px solid var(--camera-focus);
 	outline-offset: -4px;
 }
 
-.studio-camera-root .sc-composition-missing {
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-missing {
 	display: grid;
 	width: 100%;
 	height: 100%;
@@ -3417,12 +3432,20 @@
 	transform: translate(-50%, -50%) scaleX(1.66);
 }
 
-.studio-timeline-add {
+.studio-timeline-adds {
 	position: absolute;
 	top: 14px;
+	display: flex;
 	width: 126px;
 	height: calc(100% - 28px);
 	margin-left: 10px;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.studio-timeline-add {
+	min-height: 0;
+	flex: 1 1 auto;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -3443,6 +3466,20 @@
 	border-color: rgb(255 255 255 / 0.18);
 	background: rgb(255 255 255 / 0.04);
 	color: #aaa9a3;
+}
+
+/* Blank is the quieter of the two, as it is beside Capture in the scene list:
+   no dashed outline until the pointer is on it, and 44px, a finger's floor. */
+.studio-timeline-add[data-blank] {
+	height: 44px;
+	flex: none;
+	border-color: transparent;
+	background: transparent;
+}
+
+.dark .studio-timeline-add[data-blank] {
+	border-color: transparent;
+	background: transparent;
 }
 
 @media (hover: hover) and (pointer: fine) {

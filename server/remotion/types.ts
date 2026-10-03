@@ -50,6 +50,8 @@ export interface RenderInput {
 	loop: boolean;
 	/** Type the first step out character by character before the animation. */
 	typewriter: boolean;
+	/** The step the typewriter types: the first with a card (`typingHoldIndex`). Absent = 0. */
+	typingIndex?: number;
 	/** Cinematic push-in toward each step's spotlighted lines. */
 	focusZoom: boolean;
 	/** Progress indicator style baked over the video. */

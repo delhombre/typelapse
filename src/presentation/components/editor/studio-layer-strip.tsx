@@ -85,13 +85,18 @@ export function StudioLayerStrip() {
 		composition.selectBlock(scene.id, null);
 		selectAudioCue(null);
 	};
+	// A chip is a toggle: pressing the selected one again returns to the scene's
+	// own fields, the only way back to them on a blank scene, which has no Code chip.
 	const selectBlock = (blockId: string) => {
-		composition.selectBlock(scene.id, blockId);
+		composition.selectBlock(
+			scene.id,
+			composition.selectedBlockId === blockId && selectedAudioCueId === null ? null : blockId,
+		);
 		selectAudioCue(null);
 	};
 	const selectAudio = (cueId: string) => {
 		composition.selectBlock(scene.id, null);
-		selectAudioCue(cueId);
+		selectAudioCue(selectedAudioCueId === cueId ? null : cueId);
 	};
 
 	return (
@@ -131,13 +136,15 @@ export function StudioLayerStrip() {
 				</div>
 			</div>
 			<div className="sc-layer-pills">
-				<LayerPill
-					label="Code"
-					Icon={Code}
-					selected={composition.selectedBlockId === null && selectedAudioCueId === null}
-					muted={primaryCode?.opacity === 0}
-					onSelect={selectCode}
-				/>
+				{primaryCode ? (
+					<LayerPill
+						label="Code"
+						Icon={Code}
+						selected={composition.selectedBlockId === null && selectedAudioCueId === null}
+						muted={primaryCode.opacity === 0}
+						onSelect={selectCode}
+					/>
+				) : null}
 				<AnimatePresence initial={false}>
 					{authoredBlocks.map((block) => (
 						<LayerPill

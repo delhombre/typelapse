@@ -1,6 +1,7 @@
 import { type BundledLanguage, type Highlighter, createHighlighter } from "shiki";
 import { focusLineSet, parseLineRanges } from "../../../src/application/focus/line-ranges";
 import { DEFAULT_TRANSITION_EASING } from "../../../src/application/magic-move/easing";
+import { typingHoldIndex } from "../../../src/application/magic-move/typewriter";
 import type {
 	CodeBlockPayload,
 	ProjectDocumentV2,
@@ -138,6 +139,8 @@ export async function buildCodeCardInput(input: {
 		transitionEasing: project.settings.transitionEasing ?? DEFAULT_TRANSITION_EASING,
 		loop: input.loop,
 		typewriter: project.settings.typewriter,
+		// A title card first is typed past, as in the studio: the first card is typed.
+		typingIndex: typingHoldIndex(cards.map((card) => card?.code ?? "")),
 		focusZoom: project.settings.focusZoom,
 		progressStyle: project.settings.progressStyle,
 		// The multimedia composition draws the mark itself, over every layer.

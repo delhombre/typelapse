@@ -54,6 +54,37 @@ export function typedCharCount(
 	return Math.ceil(ratio * codeLength);
 }
 
+/**
+ * The hold the typewriter types over: the first scene with code. A video that
+ * opens on a title card (a blank scene) draws no card there, so typing over it
+ * typed nothing anyone could see. 0 when no scene has code.
+ */
+export function typingHoldIndex(sceneCodes: readonly string[]): number {
+	return Math.max(
+		0,
+		sceneCodes.findIndex((code) => code !== ""),
+	);
+}
+
+/**
+ * How far the reveal has typed at a playback position, 0..1, or null once the
+ * morph takes over. Every segment before the typed hold is an empty window, so
+ * the card fades in on nothing and is then typed, never shown whole first.
+ * One rule for the preview, the painter and the server's card.
+ */
+export function typingProgressAt(
+	position: { phase: "hold" | "transition" | "loop"; index: number; t: number },
+	holdIndex: number,
+): number | null {
+	if (position.phase === "loop") {
+		return null;
+	}
+	if (position.index < holdIndex) {
+		return 0;
+	}
+	return position.phase === "hold" && position.index === holdIndex ? position.t : null;
+}
+
 /** Reveal the first `revealChars` characters, slicing the straddling token, plus the cursor. */
 export function renderTyping(
 	code: string,

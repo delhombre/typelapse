@@ -3,7 +3,7 @@ import { PreviewIsland } from "@/presentation/components/controls/preview-island
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { motion, useReducedMotion } from "motion/react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
@@ -61,7 +61,6 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const [snap, setSnap] = useState<number | string | null>(PEEK);
 	const [sheetRaised, setSheetRaised] = useState(false);
 	const isPeek = snap === PEEK;
-	const rootRef = useKeptAudible();
 	const reduce = useReducedMotion() === true;
 	// A tablet in portrait gets this layout, and it can drag a file in from
 	// another app: it lands where it does on a desktop, in the selected scene.
@@ -71,7 +70,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const stageLine = isPeek ? PEEK : `${MID * 100}dvh`;
 
 	return (
-		<main className="studio-root sc-root sc-root-mobile" ref={rootRef}>
+		<main className="studio-root sc-root sc-root-mobile">
 			<h1 className="sr-only">Typelapse studio</h1>
 			{/* A phone has no room to step the stage back into, so a raised cluster
 			    takes its room from the slot instead: the frame gets out of the way
@@ -117,6 +116,9 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				</div>
 			</div>
 
+			{/* Non-modal for real since vaul forwards `modal` (patches/vaul@1.1.2.patch):
+			    the island and the project name outside the sheet take focus and stay
+			    in the accessibility tree while it is open. */}
 			<Drawer.Root
 				open
 				modal={false}
@@ -169,40 +171,4 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			</div>
 		</main>
 	);
-}
-
-/**
- * Keeps the scene audible while the sheet is open.
- *
- * The drawer is declared non-modal and permanently open, because the preview
- * behind it has to keep updating while you work — but it marks everything
- * outside itself `aria-hidden` all the same. That was survivable while the only
- * thing outside was a preview and a top bar. It is not now: the island outside
- * the sheet holds the transport and all four clusters, and a screen reader was
- * being told none of it exists.
- *
- * So the attribute comes back off, and an observer takes it off again each time
- * it returns. Nothing is being misreported: there is no modal on this screen,
- * and everything on it really is reachable.
- */
-function useKeptAudible() {
-	const ref = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		const node = ref.current;
-		if (!node) {
-			return;
-		}
-		const reveal = () => {
-			if (node.getAttribute("aria-hidden") === "true") {
-				node.removeAttribute("aria-hidden");
-			}
-		};
-		reveal();
-		const observer = new MutationObserver(reveal);
-		observer.observe(node, { attributes: true, attributeFilter: ["aria-hidden"] });
-		return () => observer.disconnect();
-	}, []);
-
-	return ref;
 }

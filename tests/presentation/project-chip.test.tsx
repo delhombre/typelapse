@@ -92,3 +92,17 @@ describe("ProjectChip local-first menu", () => {
 		expect(new Set(names).size).toBe(4);
 	});
 });
+
+describe("the project name as a field", () => {
+	it("is a name, not prose, and Enter is done: it closes the phone's keyboard", () => {
+		open(payload("Alpha"));
+		const name = screen.getByRole("textbox", { name: "Project name" }) as HTMLInputElement;
+		expect(name.getAttribute("spellcheck")).toBe("false");
+		expect(name.getAttribute("autocomplete")).toBe("off");
+		expect(name.getAttribute("enterkeyhint")).toBe("done");
+
+		name.focus();
+		fireEvent.keyDown(name, { key: "Enter" });
+		expect(document.activeElement).not.toBe(name);
+	});
+});

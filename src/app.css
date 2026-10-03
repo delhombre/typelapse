@@ -2673,7 +2673,10 @@ html.dark:not([data-landing-theme]) {
 	padding: 68px 8px 0;
 }
 
-.sc-root-mobile {
+/* The sheet is portaled to the body, out of the root's reach: it takes the
+   same tokens so the layer inspector inside it reads as it does on a desktop. */
+.sc-root-mobile,
+.sc-sheet {
 	--camera-focus: #1d1d20;
 	--camera-ink: #1d1d20;
 	--camera-line: rgb(29 29 32 / 0.06);
@@ -2682,7 +2685,8 @@ html.dark:not([data-landing-theme]) {
 	--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024);
 }
 
-.dark .sc-root-mobile {
+.dark .sc-root-mobile,
+.dark .sc-sheet {
 	--camera-focus: #f5f5f7;
 	--camera-ink: #f5f5f7;
 	--camera-line: rgb(255 255 255 / 0.08);
@@ -3077,6 +3081,13 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* A touch focuses the name, and iOS zooms the page into any field under 16px. */
+@media (pointer: coarse) {
+	.sc-title {
+		font-size: 16px;
+	}
+}
+
 /* Neutral-400 on the studio's paper is 2.3:1, which is a hint you cannot read.
    The name is the one field whose placeholder is the whole content when it is
    empty, so it takes the ramp's first legible step. Dark keeps 400: there the
@@ -3417,6 +3428,7 @@ html.dark:not([data-landing-theme]) {
 /* ─────────────────────────── The phone's sheet ─────────────────────────── */
 
 .sc-sheet {
+	--camera-paper: #f9fafc;
 	position: fixed;
 	right: 0;
 	bottom: 0;
@@ -3435,5 +3447,6 @@ html.dark:not([data-landing-theme]) {
 }
 
 .dark .sc-sheet {
+	--camera-paper: #101114;
 	background: color-mix(in oklch, var(--color-neutral-950) 88%, transparent);
 }

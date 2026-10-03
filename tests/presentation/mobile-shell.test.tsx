@@ -59,10 +59,8 @@ describe("the phone studio", () => {
 		const before = useSnippetStore.getState().snippet.title;
 		stopHistory = studioHistory.start();
 		shell();
-		// The open drawer marks the test container aria-hidden (it is the portal's
-		// sibling here); the role query still finds the controls by name.
-		const undo = screen.getByRole("button", { name: "Undo", hidden: true }) as HTMLButtonElement;
-		const redo = screen.getByRole("button", { name: "Redo", hidden: true }) as HTMLButtonElement;
+		const undo = screen.getByRole("button", { name: "Undo" }) as HTMLButtonElement;
+		const redo = screen.getByRole("button", { name: "Redo" }) as HTMLButtonElement;
 
 		act(() => {
 			useSnippetStore.getState().setTitle("Edited on a phone");
@@ -88,6 +86,24 @@ describe("the phone studio", () => {
 			screen.getByRole("menuitem", { name: /dark mode|light mode/, hidden: true }),
 		).toBeTruthy();
 		expect(screen.getByRole("menuitem", { name: /interface feedback/, hidden: true })).toBeTruthy();
+	});
+
+	it("lets the project name take focus while the sheet is open, so it can be renamed", async () => {
+		shell();
+		// #107: the sheet held focus like a modal dialog: once anything in it had
+		// focus (it takes it when it opens), a touch on the name was pulled straight
+		// back into the sheet, so a phone could never rename the project.
+		const sheet = screen.getByRole("dialog", { name: "Code and scenes" });
+		act(() => sheet.focus());
+		// Nor is anything outside the sheet hidden from a screen reader any more.
+		const name = screen.getByRole("textbox", { name: "Project name" });
+		expect(name.closest("[aria-hidden='true']")).toBeNull();
+
+		act(() => name.focus());
+
+		expect(document.activeElement).toBe(name);
+		fireEvent.change(name, { target: { value: "Renamed on a phone" } });
+		expect(useSnippetStore.getState().snippet.title).toBe("Renamed on a phone");
 	});
 
 	it("imports a file dropped on it and shows where it will land while it is dragged", async () => {

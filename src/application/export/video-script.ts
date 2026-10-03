@@ -30,7 +30,7 @@ import {
 	interpolateZoom,
 	zoomForFocus,
 } from "../magic-move/focus-zoom";
-import { renderTyping, typedCharCount } from "../magic-move/typewriter";
+import { renderTyping, typedCharCount, typingProgressAt } from "../magic-move/typewriter";
 
 export interface VideoScriptInput {
 	plan: MagicMovePlan;
@@ -45,8 +45,10 @@ export interface VideoScriptInput {
 	loop: boolean;
 	/** Type the first step out character by character. */
 	typewriter: boolean;
-	/** The first step's source, which the typewriter reveals a prefix of. */
+	/** The typed scene's source, which the typewriter reveals a prefix of. */
 	firstCode: string;
+	/** The scene the typewriter types (`typingHoldIndex`): the first with code. */
+	typingIndex?: number;
 	/** Per-step spotlight (1-indexed line numbers), index-aligned with `durations`. */
 	focusSets: readonly (Set<number> | undefined)[];
 }
@@ -95,7 +97,7 @@ const EMPTY: Omit<ScriptFrame, "progress" | "timeSeconds"> = {
 /** The inputs a single frame depends on: everything but the clock. */
 export type ScriptFrameInput = Pick<
 	VideoScriptInput,
-	"plan" | "transitionEasing" | "typewriter" | "firstCode" | "focusSets"
+	"plan" | "transitionEasing" | "typewriter" | "firstCode" | "typingIndex" | "focusSets"
 >;
 
 /** A position in the video as the preview's clock reports it. */
@@ -213,24 +215,29 @@ function resolveFrame(
 	return typingFrame(input, active, frame) ?? morphFrame(input, active, frame);
 }
 
-/** The first hold, typed out. Only ever the first: later steps morph. */
+/** The typed scene's hold, typed out, and an empty window before it; later steps morph. */
 function typingFrame(
 	input: ScriptFrameInput,
 	active: ScriptSegment,
 	frame: number,
 ): Omit<ScriptFrame, "progress" | "timeSeconds"> | null {
-	if (!input.typewriter || active.type !== "hold" || active.index !== 0 || !input.plan.typing) {
+	const holdIndex = input.typingIndex ?? 0;
+	const progress = typingProgressAt(
+		{ phase: active.type, index: active.index, t: spanProgress(active, frame) },
+		holdIndex,
+	);
+	if (!input.typewriter || progress === null || !input.plan.typing) {
 		return null;
 	}
-	const reveal = typedCharCount(input.firstCode.length, spanProgress(active, frame));
+	const reveal = typedCharCount(input.firstCode.length, progress);
 	const { tokens, cursor } = renderTyping(input.firstCode, input.plan.typing, reveal);
-	const lineCount = input.plan.frames[0]?.lineCount ?? 1;
+	const lineCount = input.plan.frames[holdIndex]?.lineCount ?? 1;
 	return {
 		tokens,
 		lineCount,
 		lineNumberCount: lineCount,
 		cursor,
-		zoom: zoomForFocus(input.focusSets[0], lineCount),
+		zoom: zoomForFocus(input.focusSets[holdIndex], lineCount),
 	};
 }
 

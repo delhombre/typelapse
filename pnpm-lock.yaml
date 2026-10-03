@@ -14,6 +14,9 @@ overrides:
   fast-uri: ^3.1.5
   '@babel/core': ^7.29.1
 
+patchedDependencies:
+  vaul@1.1.2: 4146d597128f4a6e7ee29dccd06da4bcedb3eb3205dbb53433140fdc5681393f
+
 importers:
 
   .:
@@ -110,7 +113,7 @@ importers:
         version: 4.21.0
       vaul:
         specifier: ^1.1.2
-        version: 1.1.2(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 1.1.2(patch_hash=4146d597128f4a6e7ee29dccd06da4bcedb3eb3205dbb53433140fdc5681393f)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       web-haptics:
         specifier: ^0.0.6
         version: 0.0.6(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -6770,7 +6773,7 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  vaul@1.1.2(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  vaul@1.1.2(patch_hash=4146d597128f4a6e7ee29dccd06da4bcedb3eb3205dbb53433140fdc5681393f)(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       '@radix-ui/react-dialog': 1.1.19(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react: 19.2.4

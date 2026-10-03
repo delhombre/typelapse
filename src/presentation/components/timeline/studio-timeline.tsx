@@ -93,6 +93,7 @@ export function StudioTimeline() {
 	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
 	const setCurrentStepIndex = useSnippetStore((state) => state.setCurrentStepIndex);
 	const captureStep = useSnippetStore((state) => state.captureStep);
+	const addBlankScene = useSnippetStore((state) => state.addBlankScene);
 	const duplicateStep = useSnippetStore((state) => state.duplicateStep);
 	const reorderSteps = useSnippetStore((state) => state.reorderSteps);
 	const updateStepDuration = useSnippetStore((state) => state.updateStepDuration);
@@ -654,18 +655,34 @@ export function StudioTimeline() {
 							);
 						})}
 
-						<button
-							type="button"
-							onClick={() => {
-								feedback("commit");
-								captureStep();
-							}}
-							className="studio-timeline-add"
-							style={{ left: `${addAt * 100}%` }}
-						>
-							<Add size={14} strokeWidth={1.6} aria-hidden="true" />
-							Add scene
-						</button>
+						{/* The scene list's two ways to add a scene, in the same order of
+						    weight: Capture takes the editor's code, Blank a scene without. */}
+						<div className="studio-timeline-adds" style={{ left: `${addAt * 100}%` }}>
+							<button
+								type="button"
+								onClick={() => {
+									feedback("commit");
+									captureStep();
+								}}
+								className="studio-timeline-add"
+							>
+								<Add size={14} strokeWidth={1.6} aria-hidden="true" />
+								Add scene
+							</button>
+							<StudioTooltip content="Add a scene without code">
+								<button
+									type="button"
+									onClick={() => {
+										feedback("commit");
+										addBlankScene();
+									}}
+									className="studio-timeline-add"
+									data-blank=""
+								>
+									Blank
+								</button>
+							</StudioTooltip>
+						</div>
 
 						<div
 							className="studio-timeline-playhead"

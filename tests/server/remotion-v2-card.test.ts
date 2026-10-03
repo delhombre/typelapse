@@ -118,5 +118,7 @@ describe("Remotion V2 code card", () => {
 		expect(card?.steps.map((step) => step.duration)).toEqual([1500, 1500, 1500]);
 		expect(card?.plan.frames).toHaveLength(3);
 		expect(card?.theme.name).toBe("midnight");
+		// #106: the typewriter types scene 2, the first with a card, not the title.
+		expect(card?.typingIndex).toBe(1);
 	});
 });

@@ -21,6 +21,7 @@ import { advanceProbeFont, measureCharWidthRatio } from "@/application/layout/ch
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
 import type { CubicBezier } from "@/application/magic-move/easing";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
+import { typingHoldIndex } from "@/application/magic-move/typewriter";
 import type { LocalProjectLibraryPort } from "@/application/project/local-project-library.port";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
@@ -209,10 +210,12 @@ export class WebCodecsRendererAdapter implements RendererPort {
 
 	private async buildJob(snippet: Snippet, config: RenderConfig): Promise<ClientExportJob> {
 		const scenery = this.scenery;
+		const typingIndex = typingHoldIndex(snippet.steps.map((step) => step.code));
 		return {
 			plan: scenery.plan,
 			durations: snippet.steps.map((step) => step.duration),
-			firstCode: snippet.steps[0]?.code ?? snippet.code,
+			firstCode: snippet.steps[typingIndex]?.code ?? snippet.code,
+			typingIndex,
 			focus: snippet.steps.map((step) => [...focusLineSet(step.highlightRanges)]),
 
 			width: config.width,

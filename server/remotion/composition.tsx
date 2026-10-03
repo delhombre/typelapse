@@ -28,7 +28,11 @@ import {
 	zoomForFocus,
 } from "../../src/application/magic-move/focus-zoom";
 import { captionAt } from "../../src/application/captions/caption-timing";
-import { renderTyping, typedCharCount } from "../../src/application/magic-move/typewriter";
+import {
+	renderTyping,
+	typedCharCount,
+	typingProgressAt,
+} from "../../src/application/magic-move/typewriter";
 import { ClipFades } from "../../src/presentation/components/preview/clip-fades";
 import { FrameChrome } from "../../src/presentation/components/preview/frame-chrome";
 import { GlowDecoration } from "../../src/presentation/components/preview/glow-decoration";
@@ -174,7 +178,7 @@ export function CodeCard({ input }: { input: RenderInput }) {
 
 	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
-	const typingView = resolveTypingView(input, active, frame, focusSets[0]);
+	const typingView = resolveTypingView(input, active, frame, focusSets[input.typingIndex ?? 0]);
 	const view = typingView ?? resolveView(plan, active, frame, focusSets, transitionEasing);
 	const cursor = typingView?.cursor ?? null;
 	const wmColor = getWatermarkColor(background, theme.foreground);
@@ -267,22 +271,30 @@ function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): 
 	};
 }
 
-/** Typewriter view for the first hold when typewriter mode is on, else null. */
+/**
+ * Typewriter view over the typed step's hold, and the empty window before it,
+ * when typewriter mode is on; else null.
+ */
 function resolveTypingView(
 	input: RenderInput,
 	active: Segment | undefined,
 	frame: number,
 	focus: Set<number> | undefined,
 ): TypingFrameView | null {
-	if (!input.typewriter || !active || active.type !== "hold" || active.index !== 0 || !input.plan.typing) {
+	if (!input.typewriter || !active || !input.plan.typing) {
 		return null;
 	}
-	const code = input.steps[0]?.code ?? "";
+	const holdIndex = input.typingIndex ?? 0;
 	const span = active.endFrame - active.startFrame;
-	const p = span > 0 ? (frame - active.startFrame) / span : 1;
+	const t = span > 0 ? (frame - active.startFrame) / span : 1;
+	const p = typingProgressAt({ phase: active.type, index: active.index, t }, holdIndex);
+	if (p === null) {
+		return null;
+	}
+	const code = input.steps[holdIndex]?.code ?? "";
 	const reveal = typedCharCount(code.length, p);
 	const { tokens, cursor } = renderTyping(code, input.plan.typing, reveal);
-	const lineCount = input.plan.frames[0]?.lineCount ?? 1;
+	const lineCount = input.plan.frames[holdIndex]?.lineCount ?? 1;
 	return { tokens, lineCount, lineNumberCount: lineCount, cursor, zoom: zoomForFocus(focus, lineCount) };
 }
 

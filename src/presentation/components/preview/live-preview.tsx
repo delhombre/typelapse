@@ -26,6 +26,7 @@ import { watermarkPlacement } from "@/application/layout/watermark-placement";
 import type { CubicBezier } from "@/application/magic-move/easing";
 import { renderStatic } from "@/application/magic-move/engine";
 import { NO_ZOOM, type ZoomTransform, zoomForFocus } from "@/application/magic-move/focus-zoom";
+import { typingHoldIndex } from "@/application/magic-move/typewriter";
 import { studioCompositionTimeMs } from "@/application/project/studio-composition";
 import {
 	primaryCodeOpacity as compiledCodeOpacity,
@@ -419,15 +420,16 @@ export function LivePreview() {
 		return <EmptyState building />;
 	}
 
-	const firstCode = snippet.steps[0]?.code ?? snippet.code;
+	// A title card first is typed past: the first scene with code is typed.
+	const typingIndex = typingHoldIndex(snippet.steps.map((s) => s.code));
+	const firstCode = snippet.steps[typingIndex]?.code ?? snippet.code;
 	// Per-step spotlight, applied at render time (no re-tokenize when focus edits).
 	const focusSets = snippet.steps.map((s) => focusLineSet(s.highlightRanges));
 	const view = resolveView(
 		plan,
 		playback,
 		currentStepIndex,
-		typewriter,
-		firstCode,
+		{ typewriter, firstCode, typingIndex },
 		focusSets,
 		transitionEasing,
 	);
@@ -814,15 +816,14 @@ function resolveView(
 	plan: NonNullable<ReturnType<typeof useSnippetStore.getState>["plan"]>,
 	playback: PlaybackState | null,
 	currentStepIndex: number,
-	typewriter: boolean,
-	firstCode: string,
+	typing: { typewriter: boolean; firstCode: string; typingIndex: number },
 	focusSets: (Set<number> | undefined)[],
 	transitionEasing: CubicBezier,
 ): FrameView {
 	if (playback && plan.frames[playback.index]) {
 		// The same walk the exported file takes, so a morph and the loop morph
 		// look the same in both.
-		return scriptFrameAt({ plan, typewriter, firstCode, focusSets, transitionEasing }, playback);
+		return scriptFrameAt({ plan, ...typing, focusSets, transitionEasing }, playback);
 	}
 
 	const index = Math.min(Math.max(currentStepIndex, 0), plan.frames.length - 1);

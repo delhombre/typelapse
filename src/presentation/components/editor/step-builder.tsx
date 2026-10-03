@@ -407,7 +407,7 @@ function BlankSceneButton({ onAdd }: { onAdd: () => void }) {
 				}}
 				whileTap={{ scale: 0.96 }}
 				transition={springs.snappy}
-				className="flex h-8 items-center rounded-xl px-2.5 text-xs font-medium text-neutral-500 transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+				className="flex h-8 items-center pointer-coarse:h-11 rounded-xl px-2.5 text-xs font-medium text-neutral-500 transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
 			>
 				Blank
 			</motion.button>
@@ -425,7 +425,7 @@ function CaptureButton({ onCapture }: { onCapture: () => void }) {
 			}}
 			whileTap={{ scale: 0.96 }}
 			transition={springs.snappy}
-			className="flex h-8 items-center gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition-[border-color,background-color,color] duration-150 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+			className="flex h-8 items-center pointer-coarse:h-11 gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition-[border-color,background-color,color] duration-150 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
 		>
 			<PlusIcon />
 			Capture
@@ -446,8 +446,8 @@ function RecordButton() {
 	const pulsing = isRecording && !reduceMotion;
 
 	const className = isRecording
-		? "flex h-8 items-center gap-1.5 rounded-xl border border-red-400/60 bg-red-500/10 px-3 text-xs font-medium text-red-500 transition"
-		: "flex h-8 items-center gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
+		? "flex h-8 items-center pointer-coarse:h-11 gap-1.5 rounded-xl border border-red-400/60 bg-red-500/10 px-3 text-xs font-medium text-red-500 transition"
+		: "flex h-8 items-center pointer-coarse:h-11 gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
 
 	return (
 		<StudioTooltip content="Auto-capture after each pause">

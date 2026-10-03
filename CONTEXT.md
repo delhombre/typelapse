@@ -91,6 +91,14 @@ or it does not land.
   agent skill; exit codes 0, 2 (arguments), 3 (source), 4 (render).
 - **Hosted render job**: a queued, leased, fenced job on a canonical revision,
   entitlement-gated, with expiring result access.
+- **Where**: the export panel's choice of machine. **Device** (WebCodecs in
+  this tab), **Server** (the local Remotion routes) and, in a hosted build for
+  a signed-in account only, **Cloud**: Render saves the canonical revision
+  through the account island's cloud save, then submits a hosted render job.
+  The browser keeps nothing but the job id; status, the signed download and
+  every refusal (the 402 that names the plan, the grace period's end) come
+  from the server in its own sentence. A plan without hosted renders uploads
+  nothing.
 - **GIF concessions**: the size and frame-rate caps a GIF gets, computed by
   the same functions on the client and the server, and said out loud in the
   export note.

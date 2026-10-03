@@ -91,6 +91,7 @@ export function scriptFor(job: ClientExportJob): VideoScript {
 		loop: job.loop,
 		typewriter: job.typewriter,
 		firstCode: job.firstCode,
+		typingIndex: job.typingIndex,
 		// An empty spotlight is no spotlight: `undefined`, not an empty set, or
 		// the engine would dim every line at once.
 		focusSets: job.focus.map((lines) => (lines.length > 0 ? new Set(lines) : undefined)),

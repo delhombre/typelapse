@@ -162,6 +162,16 @@ export function ProjectChip() {
 					type="text"
 					value={title}
 					onChange={(event) => setTitle(event.target.value)}
+					// The name saves as it is typed, so Enter only has to put the
+					// keyboard away.
+					onKeyDown={(event) => {
+						if (event.key === "Enter") {
+							event.currentTarget.blur();
+						}
+					}}
+					enterKeyHint="done"
+					spellCheck={false}
+					autoComplete="off"
 					placeholder="Untitled"
 					aria-label="Project name"
 					className="sc-title"

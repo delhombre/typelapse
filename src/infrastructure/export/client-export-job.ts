@@ -46,8 +46,10 @@ export interface ClientExportJob {
 	plan: MagicMovePlan;
 	/** Hold duration of each step, in milliseconds. */
 	durations: number[];
-	/** The first step's source, which the typewriter reveals a prefix of. */
+	/** The typed scene's source, which the typewriter reveals a prefix of. */
 	firstCode: string;
+	/** The scene the typewriter types: the first with code (`typingHoldIndex`). */
+	typingIndex?: number;
 	/** Per-step spotlight as 1-indexed line numbers; an empty array is no spotlight. */
 	focus: number[][];
 
