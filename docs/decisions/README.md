@@ -50,3 +50,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-03 [viability](2026-10-03-viability.md): positioning (sharpest,
   local, from a PR), the rule sharpened, Creator $12 or $99, free quotas, the
   headless path against HyperFrames, the sequence to the first euro.
+- 2026-10-03 [autonomous-sprint](2026-10-03-autonomous-sprint.md): the
+  backlog worked to done in waves; the landing aligned with the viability
+  positioning; the painter learns text and image layers; one scene is a video.
