@@ -1,5 +1,6 @@
 import { fitMediaToBox, projectFittedMediaRect } from "@/application/layout/media-fit";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
+import { type CompositionSlot, compositionSlot } from "@/application/render/composition-slots";
 import { projectTextLayerVisual } from "@/application/render/scene-layer-visuals";
 import type {
 	ResolvedImageLayer,
@@ -13,7 +14,7 @@ import { studioMediaRegistry } from "@/presentation/studio-media-runtime";
 import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useRef } from "react";
 
-export type StudioCompositionLayerSlot = "under-code" | "over-code";
+export type StudioCompositionLayerSlot = CompositionSlot;
 
 interface StudioCompositionLayersProps {
 	readonly document: ProjectDocumentV2;
@@ -32,16 +33,11 @@ function belongsToSlot(
 	if (layer.kind === "code") {
 		return false;
 	}
-	const scene = document.project.scenes.find((candidate) => candidate.id === layer.sceneId);
-	if (!scene) {
+	if (!document.project.scenes.some((candidate) => candidate.id === layer.sceneId)) {
 		return false;
 	}
-	const layerIndex = scene.blocks.findIndex((block) => block.id === layer.blockId);
-	const codeIndex = scene.blocks.findIndex(
-		(block) => block.kind === "code" && block.continuityKey === "primary-code",
-	);
-	const underCode = codeIndex >= 0 && layerIndex < codeIndex;
-	return slot === "under-code" ? underCode : !underCode;
+	// The painter splits the layers around the card by the same rule.
+	return compositionSlot(document, layer) === slot;
 }
 
 function layerStyle(document: ProjectDocumentV2, layer: ResolvedSceneLayer): CSSProperties {
@@ -101,6 +97,10 @@ function StudioImageLayer({
 			style={{
 				position: "absolute",
 				display: "block",
+				// The studio's preflight caps media at its box's width; a cover fit is
+				// wider than its box by design, and the cap squashed it out of its clip.
+				maxWidth: "none",
+				maxHeight: "none",
 				left: rect.x,
 				top: rect.y,
 				width: rect.width,
@@ -166,6 +166,10 @@ function StudioVideoLayer({
 			style={{
 				position: "absolute",
 				display: "block",
+				// The studio's preflight caps media at its box's width; a cover fit is
+				// wider than its box by design, and the cap squashed it out of its clip.
+				maxWidth: "none",
+				maxHeight: "none",
 				left: rect.x,
 				top: rect.y,
 				width: rect.width,

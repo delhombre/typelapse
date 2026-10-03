@@ -26,7 +26,7 @@ import { CHROME_FONT_STACK } from "@/application/layout/frame-metrics";
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, WebMOutputFormat } from "mediabunny";
 import { decodeBackdropImage } from "./backdrop-image";
 import type { ClientExportEvent, ClientExportJob } from "./client-export-job";
-import { sceneFor, scriptFor } from "./client-export-scene";
+import { compositionPlanFor, sceneFor, scriptFor, textFontStacks } from "./client-export-scene";
 import { firstEncodableRung, qualityOf } from "./codec-probe";
 import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
@@ -97,7 +97,12 @@ async function run(job: ClientExportJob): Promise<void> {
 	// what the format can deliver is what keeps the duration exact.
 	const fps = encoding.container === "gif" ? gifSafeFps(job.fps) : job.fps;
 
-	const charWidthRatio = await measureAdvance(ctx, job.theme.fontFamily, job.theme.fontSize);
+	const charWidthRatio = await measureAdvance(
+		ctx,
+		job.theme.fontFamily,
+		job.theme.fontSize,
+		job.composition ? textFontStacks(job.composition.document) : [],
+	);
 	// The net under the font loading: two scopes that resolved the same family to
 	// different metrics would put the video out of line with the preview, and a
 	// video that is quietly off is worse than an export that says why it stopped.
@@ -114,10 +119,29 @@ async function run(job: ClientExportJob): Promise<void> {
 		grain: await decodeGrain(),
 		backdropImage: await decodeBackdropImage(job.background),
 	});
-	const script = scriptFor({ ...job, fps });
+	const codeScript = scriptFor({ ...job, fps });
+	// A studio project's text and image layers come from the scene compiler the
+	// preview reads, at the file's own rate. Its timeline can outrun the code's
+	// (an audio cue past the last scene), and the code then holds its last frame.
+	const composition = job.composition
+		? compositionPlanFor(job.composition, { width, fps, loop: job.loop })
+		: null;
+	const script = composition
+		? { ...codeScript, totalFrames: Math.max(codeScript.totalFrames, composition.totalFrames) }
+		: codeScript;
+	// Where a translucent card is painted whole before it is faded as one picture.
+	const scratchCanvas = composition ? new OffscreenCanvas(width, height) : null;
+	const scratchCtx = scratchCanvas?.getContext("2d") ?? null;
+	const scratch =
+		scratchCanvas && scratchCtx ? { ctx: scratchCtx, image: scratchCanvas } : undefined;
 
 	const painter = (frame: number) => {
-		paintFrame(ctx, scene, script.frameAt(frame));
+		paintFrame(
+			ctx,
+			scene,
+			codeScript.frameAt(frame),
+			composition ? { ...composition.layersAt(frame), scratch } : undefined,
+		);
 	};
 
 	const result =
@@ -247,10 +271,14 @@ async function measureAdvance(
 	ctx: OffscreenCanvasRenderingContext2D,
 	fontFamily: string,
 	fontSize: number,
+	textStacks: string[],
 ): Promise<number> {
 	// The chrome bar is set in the app's own mono whatever the code is set in, so
-	// it is a second family this scope has to have before it paints anything.
-	await loadExportFonts(scope.fonts, fontFamily, CHROME_FONT_STACK);
+	// it is a second family this scope has to have before it paints anything; a
+	// text layer's face (Geist) is a third. FontFace works in a Chromium worker,
+	// so the faces are loaded here rather than pre-rasterized in the tab: text
+	// rasterized at one size and scaled would not be the preview's glyphs.
+	await loadExportFonts(scope.fonts, fontFamily, CHROME_FONT_STACK, ...textStacks);
 	// The same probe the document and the server take, at the same size, so the
 	// three answers are comparable and the card is sized on this scope's glyphs.
 	return measureCharWidthRatio(ctx, fontFamily, fontSize);

@@ -21,6 +21,8 @@ import { advanceProbeFont, measureCharWidthRatio } from "@/application/layout/ch
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
 import type { CubicBezier } from "@/application/magic-move/easing";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
+import type { LocalProjectLibraryPort } from "@/application/project/local-project-library.port";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
 import type { Snippet } from "@/domain/entities/snippet";
 import type {
@@ -37,6 +39,7 @@ import {
 } from "./client-export-job";
 import { sceneFor, scriptFor } from "./client-export-scene";
 import { firstEncodableRung } from "./codec-probe";
+import { decodeCompositionImages } from "./composition-images";
 import { encodingFor, evenDimensions } from "./video-encoding";
 
 /**
@@ -58,6 +61,16 @@ export interface ClientScenery {
 	focusZoom: boolean;
 	progress: SceneProgress | null;
 	watermark: SceneWatermark | null;
+	/** Whether any scene has a caption, which the card budgets room for. */
+	hasCaption?: boolean;
+	/**
+	 * A studio project's text and image layers: the V2 document, and the store
+	 * its images' bytes are read from on this device.
+	 */
+	composition?: {
+		document: ProjectDocumentV2;
+		library: Pick<LocalProjectLibraryPort, "loadAsset">;
+	} | null;
 }
 
 /**
@@ -187,7 +200,9 @@ export class WebCodecsRendererAdapter implements RendererPort {
 				);
 			};
 
-			worker.postMessage(job);
+			// The bitmaps move to the worker rather than being copied: a photo decoded
+			// at its full size is the largest thing a job carries.
+			worker.postMessage(job, job.composition?.images.map((image) => image.bitmap) ?? []);
 		});
 	}
 
@@ -225,6 +240,16 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			lineNumberStart: scenery.lineNumberStart,
 			progress: scenery.progress,
 			watermark: scenery.watermark,
+			hasCaption: scenery.hasCaption ?? false,
+			composition: scenery.composition
+				? {
+						document: scenery.composition.document,
+						images: await decodeCompositionImages(
+							scenery.composition.document,
+							scenery.composition.library,
+						),
+					}
+				: null,
 
 			documentCharWidthRatio: await measureDocumentAdvance(
 				snippet.theme.fontFamily,

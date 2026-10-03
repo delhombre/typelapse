@@ -15,6 +15,16 @@ import type {
  */
 export class RecordingContext implements PaintContext {
 	readonly commands: string[] = [];
+	/**
+	 * The font's ascent and descent as fractions of its size, for the tests that
+	 * pin where a baseline lands. Absent, `measureText` reports a width only, the
+	 * way an older context does, and the painter falls back to `middle`.
+	 */
+	readonly #fontMetrics: { ascent: number; descent: number } | null;
+
+	constructor(options: { fontMetrics?: { ascent: number; descent: number } } = {}) {
+		this.#fontMetrics = options.fontMetrics ?? null;
+	}
 
 	#fillStyle: string | PaintGradient | PaintPattern = "#000000";
 	#globalAlpha = 1;
@@ -145,22 +155,40 @@ export class RecordingContext implements PaintContext {
 		this.commands.push(`clearRect(${round(x)},${round(y)},${round(w)},${round(h)})`);
 	}
 
-	drawImage(_image: unknown, dx: number, dy: number, dw: number, dh: number): void {
-		this.commands.push(`drawImage(${round(dx)},${round(dy)},${round(dw)},${round(dh)})`);
+	drawImage(image: unknown, dx: number, dy: number, dw: number, dh: number): void {
+		// A test image may carry a label, so a test can tell which one was drawn.
+		const label = (image as { label?: string } | null)?.label;
+		const prefix = label ? `${label}:` : "";
+		this.commands.push(`drawImage(${prefix}${round(dx)},${round(dy)},${round(dw)},${round(dh)})`);
 	}
 
 	fillText(text: string, x: number, y: number): void {
 		this.commands.push(`fillText(${JSON.stringify(text)},${round(x)},${round(y)})`);
 	}
 
-	measureText(text: string): { width: number } {
+	measureText(text: string): {
+		width: number;
+		fontBoundingBoxAscent?: number;
+		fontBoundingBoxDescent?: number;
+	} {
 		// A perfect monospace of advance 0.6em, so tests can predict every position.
 		// The size is read out of the shorthand rather than off its front, because
 		// a weight or an `italic` gets there first (`600 26.4px "…"`).
 		const size = Number.parseFloat(/(\d*\.?\d+)px/.exec(this.#font)?.[1] ?? "") || 10;
 		const tracking = /^(-?[\d.]+)em$/.exec(this.#letterSpacing)?.[1];
-		const advance = size * (0.6 + Number(tracking ?? 0));
-		return { width: text.length * advance };
+		const trackingPx = /^(-?[\d.]+)px$/.exec(this.#letterSpacing)?.[1];
+		const advance = size * (0.6 + Number(tracking ?? 0)) + Number(trackingPx ?? 0);
+		const width = text.length * advance;
+		if (!this.#fontMetrics) {
+			return { width };
+		}
+		// Relative to the alphabetic baseline, which is the only one the painter
+		// measures against.
+		return {
+			width,
+			fontBoundingBoxAscent: size * this.#fontMetrics.ascent,
+			fontBoundingBoxDescent: size * this.#fontMetrics.descent,
+		};
 	}
 
 	createLinearGradient(x0: number, y0: number, x1: number, y1: number): PaintGradient {

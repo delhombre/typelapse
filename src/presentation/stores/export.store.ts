@@ -1,4 +1,5 @@
 import type { CaptureRecord } from "@/application/captures/capture-record";
+import { deviceExportRefusal } from "@/application/export/device-export-refusal";
 import { exportCodecNote, formatName } from "@/application/export/export-label";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
@@ -271,14 +272,28 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 		const startedAt = performance.now();
 		const studioComposition = await import("./studio-composition.store");
-		if (studioComposition.hasAuthoredMultimedia()) {
+		const authored = studioComposition.hasAuthoredMultimedia()
+			? studioComposition.useStudioCompositionStore.getState().toDocument()
+			: null;
+		// Text and image layers paint on this device (autonomous sprint D2); only
+		// Server sends the media to the local Remotion route.
+		if (authored && get().target === "server") {
 			await renderStudioMultimedia({
-				document: studioComposition.useStudioCompositionStore.getState().toDocument(),
+				document: authored,
 				config: resolved.config,
 				filename,
 				startedAt,
+				loop,
 				set,
 			});
+			return;
+		}
+		// Refused before anything is decoded or posted: Device never becomes the
+		// server behind the user's back.
+		const refusal = authored ? deviceExportRefusal(authored) : null;
+		if (refusal) {
+			set({ outcome: { kind: "failed", message: refusal } });
+			feedback("error");
 			return;
 		}
 
@@ -302,8 +317,10 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					filename,
 					startedAt,
 					watermarkText: resolved.watermark,
-					sound,
+					// The painter writes no audio track, cues included.
+					sound: sound || (authored?.project.audioCues.length ?? 0) > 0,
 					sizeNote,
+					composition: authored,
 					set,
 					scenery: {
 						background,
@@ -567,6 +584,7 @@ interface StudioMultimediaRenderInput {
 	config: RenderConfig;
 	filename: string;
 	startedAt: number;
+	loop: boolean;
 	set: (partial: Partial<ExportState>) => void;
 }
 
@@ -627,6 +645,7 @@ async function renderStudioMultimedia(input: StudioMultimediaRenderInput): Promi
 				height: input.config.height,
 				fps: input.config.fps === 24 || input.config.fps === 60 ? input.config.fps : 30,
 				includeAudio,
+				loop: input.loop,
 			},
 			signal: controller.signal,
 		});
@@ -679,6 +698,8 @@ interface DeviceRenderInput {
 	sound: boolean;
 	/** What became of an odd requested size, or null when it was already even. */
 	sizeNote: string | null;
+	/** The studio's text and image layers, or null for code alone. */
+	composition: ProjectDocumentV2 | null;
 	set: (partial: Partial<ExportState>) => void;
 	scenery: {
 		background: string;
@@ -726,9 +747,12 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 	});
 
 	try {
-		const { WebCodecsRendererAdapter } = await import(
-			"@/infrastructure/export/webcodecs-renderer.adapter"
-		);
+		const [{ WebCodecsRendererAdapter }, library] = await Promise.all([
+			import("@/infrastructure/export/webcodecs-renderer.adapter"),
+			input.composition
+				? import("@/presentation/studio-media-runtime").then((m) => m.studioLocalLibrary)
+				: null,
+		]);
 		const renderer = new WebCodecsRendererAdapter({
 			plan,
 			background: scenery.background,
@@ -754,6 +778,9 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 						color: getWatermarkColor(scenery.background, snippet.theme.foreground),
 					}
 				: null,
+			// Both DOM renderers centre the window and its caption band as one unit.
+			hasCaption: snippet.steps.some((step) => (step.annotation ?? "") !== ""),
+			composition: input.composition && library ? { document: input.composition, library } : null,
 		});
 
 		const blob = await renderer.renderVideo(snippet, config, {

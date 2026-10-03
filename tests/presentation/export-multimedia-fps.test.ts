@@ -46,7 +46,7 @@ describe("multimedia export frame rate", () => {
 	});
 
 	it.each([24, 30, 60])("renders at the %i fps chosen in the export panel", async (fps) => {
-		useExportStore.setState({ format: "mp4", fps });
+		useExportStore.setState({ target: "server", format: "mp4", fps });
 
 		await useExportStore.getState().exportVideo();
 

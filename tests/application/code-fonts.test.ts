@@ -47,6 +47,21 @@ describe("FONT_PRESETS", () => {
 	});
 });
 
+describe("the text layers' face", () => {
+	it("loads Geist with the weights the document asks Google for", () => {
+		// A text layer is set in Geist at 650, which resolves to the 700 face in a
+		// document holding 400, 500, 600 and 700 (index.html). A worker asking for
+		// the code fonts' 400, 500 and 700 would resolve the same 700, but a
+		// weight of 550 would land on 500 in one scope and 600 in the other.
+		const [geist] = fontsToLoad("Geist, ui-sans-serif, system-ui, sans-serif");
+		expect(geist?.family).toBe("Geist");
+		expect(googleFontCssUrl(geist?.google ?? "", geist?.weights)).toBe(
+			"https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap",
+		);
+		expect(FONT_PRESETS).not.toContain(geist);
+	});
+});
+
 describe("primaryFamily", () => {
 	it("takes the first family in a stack, unquoted", () => {
 		expect(primaryFamily("'JetBrains Mono', ui-monospace, monospace")).toBe("JetBrains Mono");

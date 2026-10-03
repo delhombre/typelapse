@@ -12,7 +12,24 @@ import type { SceneProgress, SceneTheme, SceneWatermark } from "@/application/fr
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
 import type { CubicBezier } from "@/application/magic-move/easing";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { RenderFormat } from "@/domain/entities/render-config";
+
+/** One decoded image a layer shows, transferred to the worker rather than copied. */
+export interface ClientExportImage {
+	assetId: string;
+	bitmap: ImageBitmap;
+}
+
+/**
+ * A studio project's layers: the V2 document the scene compiler reads (plain
+ * data, it clones) and the images its layers show, decoded in the tab from the
+ * local asset store. The document never carries bytes; the bitmaps do.
+ */
+export interface ClientExportComposition {
+	document: ProjectDocumentV2;
+	images: ClientExportImage[];
+}
 
 export interface ClientExportJob {
 	plan: MagicMovePlan;
@@ -43,6 +60,10 @@ export interface ClientExportJob {
 	lineNumberStart: number;
 	progress: SceneProgress | null;
 	watermark: SceneWatermark | null;
+	/** Whether any scene has a caption, which the card budgets room for. */
+	hasCaption?: boolean;
+	/** The text and image layers around the card; absent for code alone. */
+	composition?: ClientExportComposition | null;
 
 	/**
 	 * The advance the *document* resolved, for drift reporting only. The worker

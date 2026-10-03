@@ -85,7 +85,7 @@ async function sourcesFor(font: CodeFont): Promise<FontFaceSource[]> {
 		return [];
 	}
 	try {
-		const response = await fetch(googleFontCssUrl(font.google));
+		const response = await fetch(googleFontCssUrl(font.google, font.weights));
 		if (!response.ok) {
 			return [];
 		}

@@ -9,7 +9,9 @@
  *
  * The order mirrors the Remotion composition exactly: background, glow, grain,
  * then the card (window, chrome, gutter, code), so the three surfaces stay one
- * picture.
+ * picture. A studio project's text and image layers go around the card in the
+ * order the preview stacks them: the layers authored before it, the card, the
+ * layers authored after it (`layers.ts`).
  */
 
 import {
@@ -21,6 +23,7 @@ import {
 	radialGradientRadii,
 } from "../backgrounds/backdrop";
 import { meshBlobsAt } from "../backgrounds/mesh-gradient";
+import { clipFadeStops } from "../layout/canvas-fit";
 import {
 	CHROME_FONT_STACK,
 	CHROME_STYLE,
@@ -29,12 +32,15 @@ import {
 	chromePadY,
 	chromeRowHeight,
 } from "../layout/frame-metrics";
+import { watermarkPlacement } from "../layout/watermark-placement";
 import { gutterLabels } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
 import type { ZoomTransform } from "../magic-move/focus-zoom";
 import { canvasFont, colorWithAlpha } from "./font";
+import { type LayeredFrame, paintLayers } from "./layers";
 import type { PaintContext } from "./paint-context";
 import type { FrameScene, GrainTile } from "./scene";
+import { CssBaselines } from "./text";
 
 /** Everything about a frame that changes from one instant to the next. */
 export interface FrameState {
@@ -66,10 +72,6 @@ const PROGRESS_TRACK = "rgba(255,255,255,0.22)";
 const PROGRESS_FILL = "rgba(255,255,255,0.92)";
 /** A radius no track can reach, which is how CSS spells a pill. */
 const PILL = 999;
-/** `WatermarkOverlay`'s inset and size, in canvas pixels (not card space). */
-const WATERMARK_RIGHT = 56;
-const WATERMARK_BOTTOM = 48;
-const WATERMARK_SIZE = 22;
 /** The caret's own metrics, straight from `MagicMoveCanvas`. */
 const CARET_MIN_WIDTH = 1.5;
 const CARET_WIDTH_RATIO = 0.09;
@@ -78,11 +80,64 @@ const CARET_TOP_RATIO = 0.14;
 const CARET_OPACITY = 0.85;
 const CARET_RADIUS = 1;
 
-export function paintFrame(ctx: PaintContext, sized: FrameScene, state: FrameState): void {
+/**
+ * @param layers A studio project's layers around the card, from `layeredFrameAt`;
+ *   absent for a code-only video, which is the card alone.
+ */
+export function paintFrame(
+	ctx: PaintContext,
+	sized: FrameScene,
+	state: FrameState,
+	layers?: LayeredFrame,
+): void {
 	paintBackground(ctx, sized, state.timeSeconds);
 	paintGrain(ctx, sized, sized.style.grain);
 
+	if (layers) {
+		paintLayers(ctx, layers.under, layers.surfaceScale);
+	}
+	paintCardLayer(ctx, sized, state, layers);
+	if (layers) {
+		paintLayers(ctx, layers.over, layers.surfaceScale);
+	}
+
+	paintWatermark(ctx, sized);
+}
+
+/**
+ * The card at the opacity its scene gives it. CSS fades the card as one
+ * picture, so a translucent card is painted whole onto the scratch surface and
+ * composited once, rather than fading each of its draws.
+ */
+function paintCardLayer(
+	ctx: PaintContext,
+	sized: FrameScene,
+	state: FrameState,
+	layers: LayeredFrame | undefined,
+): void {
+	const opacity = layers ? clamp01(layers.codeOpacity) : 1;
+	if (opacity <= INVISIBLE) {
+		return;
+	}
+	if (opacity >= 1) {
+		paintCard(ctx, sized, state);
+		return;
+	}
+	const scratch = layers?.scratch;
+	if (!scratch) {
+		throw new Error("A translucent code card needs a scratch surface to be composited on.");
+	}
+	const { width, height } = sized.canvas;
+	scratch.ctx.clearRect(0, 0, width, height);
+	paintCard(scratch.ctx, sized, state);
+	ctx.globalAlpha = opacity;
+	ctx.drawImage(scratch.image, 0, 0, width, height);
+	ctx.globalAlpha = 1;
+}
+
+function paintCard(ctx: PaintContext, sized: FrameScene, state: FrameState): void {
 	const scene = fitWindowToFrame(sized, state.lineCount);
+	const baselines = new CssBaselines(ctx);
 	ctx.save();
 	ctx.translate(scene.card.originX, scene.card.originY);
 	ctx.scale(scene.card.scale, scene.card.scale);
@@ -92,19 +147,45 @@ export function paintFrame(ctx: PaintContext, sized: FrameScene, state: FrameSta
 
 	ctx.save();
 	paintWindow(ctx, scene);
-	paintChrome(ctx, scene);
+	paintChrome(ctx, scene, baselines);
 	ctx.save();
 	clipBody(ctx, scene, state.lineCount);
 	applyZoom(ctx, scene, state);
 	clipCodeArea(ctx, scene, state.lineCount);
-	paintGutter(ctx, scene, state.lineNumberCount);
-	paintTokens(ctx, scene, state.tokens);
+	paintGutter(ctx, scene, state.lineNumberCount, baselines);
+	paintTokens(ctx, scene, state.tokens, baselines);
 	paintCaret(ctx, scene, state.cursor);
 	ctx.restore();
+	paintClipFades(ctx, scene);
 	ctx.restore();
 	ctx.restore();
+}
 
-	paintWatermark(ctx, scene);
+/**
+ * The fades over the edges the window clips at the readable floor. Anchored to
+ * the window's right and bottom edges, as the DOM anchors them, so a step
+ * shorter than the clipped window still fades at its own edge. They sit inside
+ * the window's clip and outside the zoom: the window is cut, not the code.
+ */
+function paintClipFades(ctx: PaintContext, scene: FrameScene): void {
+	const [clear, solid] = clipFadeStops(scene.style.theme.background);
+	const right = scene.window.x + scene.window.width;
+	const bottom = scene.window.y + scene.window.height;
+	for (const fade of scene.fades) {
+		const top = scene.window.y + fade.y;
+		const [x, y, width, height] =
+			fade.edge === "right"
+				? [right - fade.width, top, fade.width, bottom - top]
+				: [scene.window.x, bottom - fade.height, scene.window.width, fade.height];
+		const gradient =
+			fade.edge === "right"
+				? ctx.createLinearGradient(x, 0, x + width, 0)
+				: ctx.createLinearGradient(0, y, 0, y + height);
+		gradient.addColorStop(0, clear);
+		gradient.addColorStop(1, solid);
+		ctx.fillStyle = gradient;
+		ctx.fillRect(x, y, width, height);
+	}
 }
 
 /**
@@ -343,7 +424,7 @@ function paintWindow(ctx: PaintContext, scene: FrameScene): void {
  * The type is the app's own mono rather than the theme's, because that is what
  * `FrameChrome` sets it in whatever the code is set in.
  */
-function paintChrome(ctx: PaintContext, scene: FrameScene): void {
+function paintChrome(ctx: PaintContext, scene: FrameScene, baselines: CssBaselines): void {
 	const { chrome, theme } = scene.style;
 	if (chrome === "none") {
 		return;
@@ -366,18 +447,22 @@ function paintChrome(ctx: PaintContext, scene: FrameScene): void {
 	// and above the border.
 	const cy = y + (chromePadY(chrome) + chromeRowHeight(chrome) / 2) * unit;
 	ctx.textAlign = "left";
-	ctx.textBaseline = "middle";
 	if (chrome === "macos") {
-		paintMacosChrome(ctx, scene, cy);
+		paintMacosChrome(ctx, scene, cy, baselines);
 	} else if (chrome === "browser") {
-		paintBrowserChrome(ctx, scene, cy);
+		paintBrowserChrome(ctx, scene, cy, baselines);
 	} else {
-		paintTerminalChrome(ctx, scene, cy);
+		paintTerminalChrome(ctx, scene, cy, baselines);
 	}
 	setTracking(ctx, "normal");
 }
 
-function paintMacosChrome(ctx: PaintContext, scene: FrameScene, cy: number): void {
+function paintMacosChrome(
+	ctx: PaintContext,
+	scene: FrameScene,
+	cy: number,
+	baselines: CssBaselines,
+): void {
 	const bar = CHROME_STYLE.macos;
 	const unit = scene.unit;
 	const { theme, title } = scene.style;
@@ -398,7 +483,7 @@ function paintMacosChrome(ctx: PaintContext, scene: FrameScene, cy: number): voi
 	setTracking(ctx, bar.titleTracking);
 	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
 	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
-	ctx.fillText(title, cx + bar.gap * unit, cy);
+	ctx.fillText(title, cx + bar.gap * unit, baselines.at(cy, chromeLine(bar.titleSize, unit)));
 }
 
 /**
@@ -409,7 +494,12 @@ function paintMacosChrome(ctx: PaintContext, scene: FrameScene, cy: number): voi
  * inside it, so both have to be measured rather than assumed — which is why this
  * is the one bar whose layout depends on the string it is given.
  */
-function paintBrowserChrome(ctx: PaintContext, scene: FrameScene, cy: number): void {
+function paintBrowserChrome(
+	ctx: PaintContext,
+	scene: FrameScene,
+	cy: number,
+	baselines: CssBaselines,
+): void {
 	const bar = CHROME_STYLE.browser;
 	const unit = scene.unit;
 	const { theme, title } = scene.style;
@@ -420,8 +510,9 @@ function paintBrowserChrome(ctx: PaintContext, scene: FrameScene, cy: number): v
 	ctx.font = canvasFont(bar.chevronSize * unit, CHROME_FONT_STACK);
 	ctx.fillStyle = withHexAlpha(theme.foreground, bar.chevronAlpha);
 	let cx = left;
+	const chevronY = baselines.at(cy, chromeLine(bar.chevronSize, unit));
 	for (const chevron of bar.chevrons) {
-		ctx.fillText(chevron, cx, cy);
+		ctx.fillText(chevron, cx, chevronY);
 		cx += ctx.measureText(chevron).width + bar.chevronGap * unit;
 	}
 	// The last chevron added a gap that is not there; take it back.
@@ -455,12 +546,17 @@ function paintBrowserChrome(ctx: PaintContext, scene: FrameScene, cy: number): v
 	const label = truncate(ctx, title, pillWidth - 2 * padX);
 	ctx.textAlign = "center";
 	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
-	ctx.fillText(label, pillX + pillWidth / 2, cy);
+	ctx.fillText(label, pillX + pillWidth / 2, baselines.at(cy, chromeLine(bar.titleSize, unit)));
 	ctx.textAlign = "left";
 }
 
 /** The terminal bar: a prompt glyph at a weight of its own, then the title. */
-function paintTerminalChrome(ctx: PaintContext, scene: FrameScene, cy: number): void {
+function paintTerminalChrome(
+	ctx: PaintContext,
+	scene: FrameScene,
+	cy: number,
+	baselines: CssBaselines,
+): void {
 	const bar = CHROME_STYLE.terminal;
 	const unit = scene.unit;
 	const { theme, title } = scene.style;
@@ -469,7 +565,7 @@ function paintTerminalChrome(ctx: PaintContext, scene: FrameScene, cy: number): 
 	setTracking(ctx, "normal");
 	ctx.font = canvasFont(bar.promptSize * unit, CHROME_FONT_STACK, undefined, bar.promptWeight);
 	ctx.fillStyle = withHexAlpha(theme.foreground, bar.promptAlpha);
-	ctx.fillText(bar.prompt, left, cy);
+	ctx.fillText(bar.prompt, left, baselines.at(cy, chromeLine(bar.promptSize, unit)));
 	const promptWidth = ctx.measureText(bar.prompt).width;
 
 	if (title === "") {
@@ -478,7 +574,16 @@ function paintTerminalChrome(ctx: PaintContext, scene: FrameScene, cy: number): 
 	setTracking(ctx, bar.titleTracking);
 	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
 	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
-	ctx.fillText(title, left + promptWidth + bar.gap * unit, cy);
+	ctx.fillText(
+		title,
+		left + promptWidth + bar.gap * unit,
+		baselines.at(cy, chromeLine(bar.titleSize, unit)),
+	);
+}
+
+/** The line box of a chrome bar's text: `FrameChrome` sets its own line height. */
+function chromeLine(size: number, unit: number): number {
+	return size * unit * CHROME_TEXT_LINE_HEIGHT;
 }
 
 /**
@@ -579,18 +684,26 @@ function clipCodeArea(ctx: PaintContext, scene: FrameScene, lineCount: number): 
 	ctx.clip();
 }
 
-function paintGutter(ctx: PaintContext, scene: FrameScene, lineNumberCount: number): void {
+function paintGutter(
+	ctx: PaintContext,
+	scene: FrameScene,
+	lineNumberCount: number,
+	baselines: CssBaselines,
+): void {
 	const { gutter, code, style } = scene;
 	if (!gutter) {
 		return;
 	}
 	ctx.font = canvasFont(code.fontSize, style.theme.fontFamily);
 	ctx.textAlign = "right";
-	ctx.textBaseline = "middle";
 	ctx.fillStyle = withHexAlpha(style.theme.foreground, FRAME_SECONDARY_ALPHA_HEX);
 	const rows = Math.max(1, Math.round(lineNumberCount));
 	for (const [row, label] of gutterLabels(style.lineNumberStart, rows).entries()) {
-		ctx.fillText(label, gutter.textRight, code.y + (row + 0.5) * code.lineHeight);
+		ctx.fillText(
+			label,
+			gutter.textRight,
+			baselines.at(code.y + (row + 0.5) * code.lineHeight, code.lineHeight),
+		);
 	}
 }
 
@@ -599,10 +712,14 @@ function paintGutter(ctx: PaintContext, scene: FrameScene, lineNumberCount: numb
  * down, and carries its own opacity from the engine's morph: the canvas
  * equivalent of the preview's absolutely positioned `ch`-offset spans.
  */
-function paintTokens(ctx: PaintContext, scene: FrameScene, tokens: RenderToken[]): void {
+function paintTokens(
+	ctx: PaintContext,
+	scene: FrameScene,
+	tokens: RenderToken[],
+	baselines: CssBaselines,
+): void {
 	const { code, style } = scene;
 	ctx.textAlign = "left";
-	ctx.textBaseline = "middle";
 	for (const token of tokens) {
 		if (token.opacity <= INVISIBLE) {
 			continue;
@@ -613,7 +730,7 @@ function paintTokens(ctx: PaintContext, scene: FrameScene, tokens: RenderToken[]
 		ctx.fillText(
 			token.content,
 			code.x + token.col * code.charWidth,
-			code.y + (token.line + 0.5) * code.lineHeight,
+			baselines.at(code.y + (token.line + 0.5) * code.lineHeight, code.lineHeight),
 		);
 	}
 	ctx.globalAlpha = 1;
@@ -693,27 +810,27 @@ function pill(
 /**
  * The watermark, in canvas pixels rather than card space: the composition
  * anchors it to the video's own bottom-right corner, not to the card, so it
- * stays put whatever the card is scaled to.
+ * stays put whatever the card is scaled to, and grows with the tier like
+ * everything else drawn at video size (`watermarkPlacement`).
  *
- * The DOM positions the text's *line box*; a canvas positions a baseline. The
- * alphabetic baseline is placed at the inset, which puts the descenders a
- * couple of pixels lower than the DOM would. It is the one place this file
- * approximates rather than reproduces, and on a corner watermark that is the
- * right trade against measuring font metrics at paint time.
+ * The DOM positions the text's line box (`line-height: normal`), whose bottom
+ * sits the font's descent below the baseline. JetBrains Mono and the other
+ * shipped monos have no line gap, which is the one term a canvas cannot report.
  */
 function paintWatermark(ctx: PaintContext, scene: FrameScene): void {
 	const watermark = scene.style.watermark;
 	if (!watermark || watermark.text === "") {
 		return;
 	}
-	ctx.font = canvasFont(WATERMARK_SIZE, scene.style.theme.fontFamily);
+	const placement = watermarkPlacement(scene.unit);
+	ctx.font = canvasFont(placement.fontSize, scene.style.theme.fontFamily);
 	ctx.textAlign = "right";
-	ctx.textBaseline = "alphabetic";
+	const descent = new CssBaselines(ctx).descent();
 	ctx.fillStyle = watermark.color;
 	ctx.fillText(
 		watermark.text,
-		scene.canvas.width - WATERMARK_RIGHT,
-		scene.canvas.height - WATERMARK_BOTTOM,
+		scene.canvas.width - placement.right,
+		scene.canvas.height - placement.bottom - descent,
 	);
 }
 

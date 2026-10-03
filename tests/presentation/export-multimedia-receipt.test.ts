@@ -1,10 +1,9 @@
 import { useExportStore } from "@/presentation/stores/export.store";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-/* A multimedia project always renders through the local Remotion route,
-   whatever "Where" is set to. The receipt used to echo the toggle and say
-   "on this device" for a file whose media had just been posted to
-   /api/render/v2. */
+/* With Where set to Server, a multimedia project renders through the local
+   Remotion route and the receipt says so. (With Where set to Device it now
+   renders on this device: export-device-layers.test.ts.) */
 
 const render = vi.fn(async () => new Blob(["video"], { type: "video/mp4" }));
 
@@ -32,26 +31,63 @@ vi.mock("@/infrastructure/export/local-multimedia-render-http.adapter", () => ({
 	},
 }));
 vi.mock("@/presentation/studio-media-runtime", () => ({ studioLocalLibrary: {} }));
+// Hoisted: the store builds its download adapter when its module loads.
+const { download, rememberCapture } = vi.hoisted(() => ({
+	download: vi.fn(async () => undefined),
+	rememberCapture: vi.fn(async () => undefined),
+}));
 vi.mock("@/infrastructure/export/browser-download.adapter", () => ({
 	BrowserDownloadAdapter: class {
-		async export() {}
+		export = download;
 	},
 }));
 vi.mock("@/infrastructure/captures/browser-capture-library", () => ({
-	browserCaptureLibrary: { save: async () => undefined, add: async () => undefined },
+	browserCaptureLibrary: { save: async () => undefined, add: rememberCapture },
 }));
 
 describe("multimedia export receipt", () => {
 	afterEach(() => {
 		useExportStore.setState(useExportStore.getInitialState(), true);
+		render.mockClear();
+		download.mockClear();
+		rememberCapture.mockClear();
 	});
 
-	it("says the server rendered it even when Where is set to Device", async () => {
-		useExportStore.setState({ target: "device", format: "mp4" });
+	it("says the server rendered it", async () => {
+		useExportStore.setState({ target: "server", format: "mp4" });
 
 		await useExportStore.getState().exportVideo();
 
 		expect(render).toHaveBeenCalledTimes(1);
 		expect(useExportStore.getState().outcome).toMatchObject({ kind: "done", target: "server" });
+	});
+
+	it("shows a render error without downloading or claiming success", async () => {
+		render.mockRejectedValueOnce(new Error("The local encoder stopped."));
+		useExportStore.setState({ target: "server", format: "mp4" });
+
+		await useExportStore.getState().exportVideo();
+
+		expect(useExportStore.getState().outcome).toEqual({
+			kind: "failed",
+			message: "The local encoder stopped.",
+		});
+		expect(download).not.toHaveBeenCalled();
+		expect(rememberCapture).not.toHaveBeenCalled();
+		expect(useExportStore.getState().isExporting).toBe(false);
+	});
+
+	it("does not claim success when the browser refuses to save the rendered file", async () => {
+		download.mockRejectedValueOnce(new Error("The browser blocked the download."));
+		useExportStore.setState({ target: "server", format: "mp4" });
+
+		await useExportStore.getState().exportVideo();
+
+		expect(download).toHaveBeenCalledTimes(1);
+		expect(useExportStore.getState().outcome).toEqual({
+			kind: "failed",
+			message: "The browser blocked the download.",
+		});
+		expect(rememberCapture).not.toHaveBeenCalled();
 	});
 });

@@ -14,8 +14,19 @@
  */
 
 import { type Backdrop, parseBackdrop } from "../backgrounds/backdrop";
-import { type PlanExtent, fitCardToCanvas, tallestFrame } from "../layout/canvas-fit";
-import { type ChromeVariant, LINE_HEIGHT_RATIO, chromeBarHeight } from "../layout/frame-metrics";
+import {
+	type ClipFade,
+	type PlanExtent,
+	clipFades,
+	fitCardToCanvas,
+	tallestFrame,
+} from "../layout/canvas-fit";
+import {
+	type ChromeVariant,
+	LINE_HEIGHT_RATIO,
+	captionBlockHeight,
+	chromeBarHeight,
+} from "../layout/frame-metrics";
 import type { PaintImage } from "./paint-context";
 
 /** A decoded grain tile, ready to be tiled over the background. */
@@ -96,6 +107,12 @@ export interface FrameSceneInput {
 	focusZoom?: boolean;
 	progress?: SceneProgress | null;
 	watermark?: SceneWatermark | null;
+	/**
+	 * Whether any scene has a caption. The painter bakes none yet, but both DOM
+	 * renderers centre the window and its caption band as one unit, so the card
+	 * has to budget the band to land where theirs does.
+	 */
+	hasCaption?: boolean;
 }
 
 export interface FrameScene {
@@ -111,6 +128,8 @@ export interface FrameScene {
 	code: { x: number; y: number; charWidth: number; lineHeight: number; fontSize: number };
 	/** Right edge the gutter labels are aligned to, or null when they are off. */
 	gutter: { textRight: number } | null;
+	/** Fades over the edges the window clips at the readable floor, window space. */
+	fades: ClipFade[];
 	style: {
 		theme: SceneTheme;
 		title: string;
@@ -142,7 +161,7 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 		cardMargin: input.cardMargin,
 		showLineNumbers: input.showLineNumbers,
 		lineNumberStart: input.lineNumberStart,
-		hasCaption: false,
+		hasCaption: input.hasCaption ?? false,
 		scale,
 		canvasWidth: input.canvasWidth,
 		canvasHeight: input.canvasHeight,
@@ -152,6 +171,8 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 
 	const cardWidth = fit.natural.width + 2 * cardPadding;
 	const cardHeight = fit.natural.height + 2 * cardPadding;
+	// The window is the unit less its caption band, which hangs below it.
+	const windowHeight = fit.natural.height - captionBlockHeight(input.hasCaption ?? false, scale);
 	const chromeHeight = chromeBarHeight(input.chrome, scale);
 	const gutterWidth = gutterColumnWidth(input, charWidth, fontSize);
 
@@ -169,7 +190,7 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 			x: cardPadding,
 			y: cardPadding,
 			width: fit.natural.width,
-			height: fit.natural.height,
+			height: windowHeight,
 			radius: input.theme.borderRadius * scale,
 		},
 		chromeHeight,
@@ -181,6 +202,13 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 			fontSize,
 		},
 		gutter: gutterWidth > 0 ? { textRight: cardPadding + padding + gutterWidth - fontSize } : null,
+		fades: clipFades({
+			clip: fit.clip,
+			windowWidth: fit.natural.width,
+			windowHeight,
+			chromeHeight,
+			fontSize,
+		}),
 		style: {
 			theme: input.theme,
 			title: input.title,

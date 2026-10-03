@@ -22,6 +22,8 @@ export interface CodeFont {
 	google?: string;
 	/** A file this app ships itself. */
 	url?: string;
+	/** The weights to ask Google for, when not the code fonts' three. */
+	weights?: string;
 }
 
 const JETBRAINS: CodeFont = {
@@ -56,8 +58,10 @@ export const FONT_PRESETS: readonly CodeFont[] = [
 ];
 
 /**
- * Every family the app knows how to fetch, which is one more than it offers: a
- * theme can carry the app's own self-hosted mono even though no picker sets it.
+ * Every family the app knows how to fetch, which is two more than it offers: a
+ * theme can carry the app's own self-hosted mono even though no picker sets it,
+ * and a text layer is set in Geist, the app's sans, which the render worker has
+ * to load as surely as any code font.
  */
 export const LOADABLE_FONTS: readonly CodeFont[] = [
 	...FONT_PRESETS,
@@ -66,6 +70,15 @@ export const LOADABLE_FONTS: readonly CodeFont[] = [
 		family: "Ioskeley Mono",
 		stack: "Ioskeley Mono, monospace",
 		url: "/fonts/IoskeleyMono-Regular.woff2",
+	},
+	{
+		label: "Geist",
+		family: "Geist",
+		stack: "Geist, ui-sans-serif, system-ui, sans-serif",
+		google: "Geist",
+		// The weights index.html asks for, so a text layer's weight resolves to the
+		// same face in the worker as in the document.
+		weights: "400;500;600;700",
 	},
 ];
 
@@ -112,6 +125,6 @@ export function fontsToLoad(...stacks: string[]): CodeFont[] {
  * composition fetches, so all three surfaces get the same file: 400 for code,
  * 500 and 700 for whatever a theme marks bold.
  */
-export function googleFontCssUrl(google: string): string {
-	return `https://fonts.googleapis.com/css2?family=${google}:wght@400;500;700&display=swap`;
+export function googleFontCssUrl(google: string, weights = "400;500;700"): string {
+	return `https://fonts.googleapis.com/css2?family=${google}:wght@${weights}&display=swap`;
 }

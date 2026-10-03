@@ -8,6 +8,9 @@
  */
 
 import { type VideoScript, videoScript } from "@/application/export/video-script";
+import { layeredFrameAt } from "@/application/frame-painter/composition";
+import type { LayeredFrame } from "@/application/frame-painter/layers";
+import type { PaintImage } from "@/application/frame-painter/paint-context";
 import {
 	type BackdropImage,
 	type FrameSceneInput,
@@ -15,7 +18,9 @@ import {
 	frameScene,
 } from "@/application/frame-painter/scene";
 import { BASE_VIDEO_SCALE, CANVAS_MARGIN, renderScaleFor } from "@/application/layout/canvas-fit";
-import type { ClientExportJob } from "./client-export-job";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
+import { compileSceneTimeline } from "@/application/render/scene-timeline";
+import type { ClientExportComposition, ClientExportJob } from "./client-export-job";
 
 /**
  * The decoded images a frame needs, which a job cannot carry: neither survives
@@ -68,6 +73,7 @@ export function sceneInputFor(
 		focusZoom: job.focusZoom,
 		progress: job.progress,
 		watermark: job.watermark,
+		hasCaption: job.hasCaption ?? false,
 	};
 }
 
@@ -89,4 +95,46 @@ export function scriptFor(job: ClientExportJob): VideoScript {
 		// the engine would dim every line at once.
 		focusSets: job.focus.map((lines) => (lines.length > 0 ? new Set(lines) : undefined)),
 	});
+}
+
+/** The layers of each frame, and how many frames the compiled timeline runs. */
+export interface CompositionPlan {
+	totalFrames: number;
+	layersAt(frame: number): Omit<LayeredFrame, "scratch">;
+}
+
+/**
+ * The scene compiler the DOM preview and the composition read, compiled at the
+ * file's own rate, with the layers of each frame laid out for the painter.
+ */
+export function compositionPlanFor(
+	composition: ClientExportComposition,
+	output: { width: number; fps: number; loop: boolean },
+): CompositionPlan {
+	const timeline = compileSceneTimeline({
+		document: composition.document,
+		fps: output.fps,
+		loop: output.loop,
+	});
+	const images = new Map<string, PaintImage>(
+		composition.images.map((image) => [image.assetId, image.bitmap]),
+	);
+	return {
+		totalFrames: timeline.totalFrames,
+		layersAt: (frame) =>
+			layeredFrameAt(composition.document, timeline.frameAt(frame), images, output.width),
+	};
+}
+
+/** Every font stack a text layer names, once each, for the worker to load. */
+export function textFontStacks(document: ProjectDocumentV2): string[] {
+	const stacks = new Set<string>();
+	for (const scene of document.project.scenes) {
+		for (const block of scene.blocks) {
+			if (block.kind === "text") {
+				stacks.add(block.typography.fontFamily);
+			}
+		}
+	}
+	return [...stacks];
 }
