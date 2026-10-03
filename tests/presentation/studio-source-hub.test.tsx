@@ -139,3 +139,37 @@ describe("StudioSourceHub media import", () => {
 		expect(useStudioCompositionStore.getState().selectedBlockId).toBeNull();
 	});
 });
+
+describe("StudioSourceHub keyboard exits", () => {
+	afterEach(() => cleanup());
+
+	function openHub() {
+		const view = render(
+			<MemoryRouter>
+				<StudioSourceHub />
+			</MemoryRouter>,
+		);
+		const trigger = view.getByRole("button", { name: "Add source" });
+		fireEvent.click(trigger);
+		return { view, trigger };
+	}
+
+	it("hands focus back to Add source when Escape closes the menu", () => {
+		const { view, trigger } = openHub();
+		view.getByRole("menuitem", { name: "Import from URL" }).focus();
+
+		fireEvent.keyDown(document.activeElement ?? document, { key: "Escape" });
+
+		expect(document.activeElement).toBe(trigger);
+	});
+
+	it("hands focus back to Add source when Escape closes the link field", () => {
+		const { view, trigger } = openHub();
+		fireEvent.click(view.getByRole("menuitem", { name: "Import from URL" }));
+		view.getByRole("textbox", { name: "Gist or GitHub link" }).focus();
+
+		fireEvent.keyDown(document.activeElement ?? document, { key: "Escape" });
+
+		expect(document.activeElement).toBe(trigger);
+	});
+});

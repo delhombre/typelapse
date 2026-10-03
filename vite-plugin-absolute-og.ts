@@ -29,6 +29,22 @@ export function absolutizeSocialImages(html: string, origin: string): string {
 	});
 }
 
+/**
+ * What the build should say about the origin it was given, or null when it is a
+ * public one. `.env.example` ships the local address, so a deploy that copied it
+ * built silently with every share card pointing at a laptop.
+ */
+export function socialOriginWarning(configured: string | undefined): string | null {
+	if (!configured) {
+		return `TYPELAPSE_APP_URL is not set; og:image and twitter:image point at ${FALLBACK_ORIGIN}. Set it to the public URL before deploying.`;
+	}
+	const { hostname } = new URL(configured);
+	if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") {
+		return `TYPELAPSE_APP_URL is a local address (${configured}); og:image and twitter:image will not load outside this machine. Set it to the public URL before deploying.`;
+	}
+	return null;
+}
+
 export function absoluteOgImage(): Plugin {
 	let origin = FALLBACK_ORIGIN;
 	return {
@@ -39,10 +55,10 @@ export function absoluteOgImage(): Plugin {
 			const configured = (process.env.TYPELAPSE_APP_URL ?? env.TYPELAPSE_APP_URL)?.trim();
 			if (configured) {
 				origin = configured;
-			} else {
-				config.logger.warn(
-					`TYPELAPSE_APP_URL is not set; og:image and twitter:image point at ${FALLBACK_ORIGIN}. Set it to the public URL before deploying.`,
-				);
+			}
+			const warning = socialOriginWarning(configured);
+			if (warning) {
+				config.logger.warn(warning);
 			}
 		},
 		transformIndexHtml(html) {

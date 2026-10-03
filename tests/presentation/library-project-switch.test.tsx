@@ -4,6 +4,7 @@ import type { ProjectPayload } from "@/application/project/project-payload";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { Asset } from "@/domain/entities/asset";
 import { ProjectChip } from "@/presentation/components/layout/project-chip";
+import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	readStudioCompositionSnapshot,
@@ -150,6 +151,32 @@ beforeEach(async () => {
 afterEach(cleanup);
 
 describe("switching local projects", () => {
+	it("stays on the open project when the chosen one cannot be read, so nothing is saved over it", async () => {
+		// A record from another version can name a theme this studio no longer has.
+		createLocalProject(
+			{ ...payload("Gamma"), themeName: "retired-theme" },
+			{ id: "gamma", now: 30 },
+		);
+		activateLocalProject("alpha");
+		render(
+			<MemoryRouter>
+				<ProjectChip />
+			</MemoryRouter>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: /Open Gamma/ }));
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		});
+
+		expect(readLocalProjects().activeId).toBe("alpha");
+		expect(useSnippetStore.getState().snippet.title).toBe("Alpha");
+		expect(useNoticeStore.getState().notices.map((notice) => notice.message)).toContain(
+			"Gamma could not be opened, so Alpha stays open.",
+		);
+	});
+
 	it("keeps each project's layers and media to itself, back and forth and across a reload", async () => {
 		useStudioCompositionStore
 			.getState()

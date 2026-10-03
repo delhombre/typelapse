@@ -200,8 +200,9 @@ export function UrlImportMenu({
 										onChange={(e) => setUrl(e.target.value)}
 										onKeyDown={onInputKeyDown}
 										placeholder="gist or github url"
+										aria-label="Gist or GitHub link"
 										spellCheck={false}
-										className="h-8 flex-1 rounded-xl border border-neutral-200/70 bg-white px-2.5 font-mono text-[11px] text-neutral-700 outline-none transition placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+										className="h-8 flex-1 rounded-xl border border-neutral-200/70 bg-white px-2.5 font-mono text-[11px] pointer-coarse:text-base text-neutral-700 outline-none transition-[border-color] duration-150 placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 									/>
 									<motion.button
 										type="button"
@@ -214,7 +215,11 @@ export function UrlImportMenu({
 										{loading ? <Spinner /> : "Fetch"}
 									</motion.button>
 								</div>
-								{message && <p className="mt-1.5 px-0.5 text-[11px] text-red-500">{message}</p>}
+								{message && (
+									<p role="alert" className="mt-1.5 px-0.5 text-[11px] text-red-500">
+										{message}
+									</p>
+								)}
 							</>
 						)}
 					</motion.div>

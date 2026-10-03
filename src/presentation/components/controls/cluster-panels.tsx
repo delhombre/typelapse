@@ -13,7 +13,7 @@ import {
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
-import { useExportStore } from "@/presentation/stores/export.store";
+import { serverRenderOffered, useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	hasAuthoredMultimedia,
@@ -21,7 +21,7 @@ import {
 } from "@/presentation/stores/studio-composition.store";
 import { useEffect } from "react";
 import { Camera } from "reicon-react";
-import { useCloudRenderCta, useCloudTarget } from "./cloud-render";
+import { RENDER_BUSY_LABELS, useCloudRenderCta, useCloudTarget } from "./cloud-render";
 import {
 	CHROME_PRESETS,
 	PADDING_PRESETS,
@@ -464,11 +464,16 @@ function ExportCluster() {
 									: "Renders in this tab. Nothing is uploaded, and no server has to be running.",
 							disabled: deviceSupported === false,
 						},
-						{
-							value: "server" as const,
-							label: "Server",
-							title: "Renders with Remotion on the Typelapse API server, which has to be running.",
-						},
+						...(serverRenderOffered()
+							? [
+									{
+										value: "server" as const,
+										label: "Server",
+										title:
+											"Renders with Remotion on the Typelapse API server, which has to be running.",
+									},
+								]
+							: []),
 						...(cloudTarget ? [cloudTarget] : []),
 					]}
 					value={target}
@@ -491,17 +496,44 @@ function ExportCluster() {
 				<button
 					type="button"
 					onClick={() => {
+						if (isExporting || cloudCta.busy) return;
 						trigger("light");
 						void exportVideo();
 					}}
-					disabled={isExporting || !canRender || cloudCta.busy}
+					// Busy, it stays focusable: a disabled button drops a keyboard user's
+					// focus to the page the moment they press it.
+					disabled={!canRender}
+					aria-disabled={isExporting || cloudCta.busy || undefined}
 					title={canRender ? undefined : NOTHING_TO_RENDER}
 					className="si-cta si-cluster-cta"
 				>
-					{isExporting ? "Rendering…" : (cloudCta.label ?? `Render · ${current.aspect}`)}
+					<RenderCtaLabel
+						idle={`Render · ${current.aspect}`}
+						shown={isExporting ? "Rendering…" : (cloudCta.label ?? `Render · ${current.aspect}`)}
+					/>
 				</button>
 			</ClusterGroup>
 		</>
+	);
+}
+
+/**
+ * The Render button's words, every one it can say stacked in one grid cell and
+ * only the current one visible. The button is as wide as its longest label from
+ * the start, so pressing it does not resize the island, which springs its width
+ * off this row and would slide every control beside it. The hidden ones are
+ * aria-hidden, so the button's name is the word on screen.
+ */
+export function RenderCtaLabel({ idle, shown }: { idle: string; shown: string }) {
+	const labels = [...new Set([idle, ...RENDER_BUSY_LABELS, "Rendering…", shown])];
+	return (
+		<span className="si-cta-labels">
+			{labels.map((label) => (
+				<span key={label} aria-hidden={label === shown ? undefined : true}>
+					{label}
+				</span>
+			))}
+		</span>
 	);
 }
 

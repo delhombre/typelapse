@@ -45,6 +45,34 @@ describe("StudioAccountControl", () => {
 		expect(screen.queryByRole("textbox", { name: "Email" })).toBeNull();
 	});
 
+	it("hands focus back to its trigger when Escape or the close button shuts the panel", () => {
+		const store = createAuthStore({ kind: "local-offline" });
+		render(<StudioAccountControl store={store} />);
+		const trigger = screen.getByRole("button", { name: "On this device" });
+
+		fireEvent.click(trigger);
+		screen.getByRole("button", { name: "Close account panel" }).focus();
+		fireEvent.keyDown(document.activeElement ?? document, { key: "Escape" });
+		expect(document.activeElement).toBe(trigger);
+
+		fireEvent.click(trigger);
+		fireEvent.click(screen.getByRole("button", { name: "Close account panel" }));
+		expect(document.activeElement).toBe(trigger);
+	});
+
+	it("leaves focus alone when a session is already there at page load", async () => {
+		const store = createAuthStore(
+			{ kind: "hosted", port: port({ getSession: async () => SESSION }) },
+			{ now: () => NOW },
+		);
+		render(<StudioAccountControl store={store} />);
+
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Account for Ada Lovelace" })).toBeTruthy(),
+		);
+		expect(document.activeElement).toBe(document.body);
+	});
+
 	it("boots hosted session state and signs in without a toast", async () => {
 		let authenticated = false;
 		const signInEmail = vi.fn(async (_input: EmailCredentials) => {
@@ -80,6 +108,10 @@ describe("StudioAccountControl", () => {
 			password: "correct horse battery staple",
 		});
 		expect(screen.queryByRole("alert")).toBeNull();
+		// The panel closed under the Continue button that had focus.
+		expect(document.activeElement).toBe(
+			screen.getByRole("button", { name: "Account for Ada Lovelace" }),
+		);
 	});
 
 	it("does not claim cloud sync before the authenticated user opts this project in", () => {

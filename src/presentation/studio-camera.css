@@ -1257,20 +1257,33 @@
 	transition: transform 180ms var(--ease-out);
 }
 
-.showcase-card:hover .showcase-card-action,
+/* A tap must not leave the arrow nudged: hover only where a pointer hovers. */
 .showcase-card:focus-visible .showcase-card-action {
 	color: #1d1d20;
 	opacity: 1;
 }
 
-.showcase-card:hover .showcase-card-action svg,
 .showcase-card:focus-visible .showcase-card-action svg {
 	transform: translate(1px, -1px);
 }
 
-.dark .showcase-card:hover .showcase-card-action,
 .dark .showcase-card:focus-visible .showcase-card-action {
 	color: #f5f5f7;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.showcase-card:hover .showcase-card-action {
+		color: #1d1d20;
+		opacity: 1;
+	}
+
+	.showcase-card:hover .showcase-card-action svg {
+		transform: translate(1px, -1px);
+	}
+
+	.dark .showcase-card:hover .showcase-card-action {
+		color: #f5f5f7;
+	}
 }
 
 .dark .showcase-card-feature,
@@ -1620,10 +1633,12 @@
 	transform: scale(0.94);
 }
 
-:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button:hover,
-:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:hover:not(:disabled) {
-	background: var(--camera-pill);
-	color: var(--camera-ink);
+@media (hover: hover) and (pointer: fine) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button:hover,
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:hover:not(:disabled) {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:disabled {
@@ -1723,9 +1738,11 @@
 		var(--ease-out);
 }
 
-:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:hover:not(:disabled) {
-	background: var(--camera-paper);
-	color: var(--camera-ink);
+@media (hover: hover) and (pointer: fine) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:hover:not(:disabled) {
+		background: var(--camera-paper);
+		color: var(--camera-ink);
+	}
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:active:not(:disabled) {
@@ -1759,10 +1776,12 @@
 		var(--ease-out);
 }
 
-:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:hover {
-	background: var(--camera-paper);
-	box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
-	color: var(--camera-ink);
+@media (hover: hover) and (pointer: fine) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:hover {
+		background: var(--camera-paper);
+		box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+		color: var(--camera-ink);
+	}
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:active {
@@ -2056,8 +2075,10 @@
 	font-weight: 680;
 }
 
-.studio-camera-root .si-cta:hover:not(:disabled):not([data-open]) {
-	background: #ffd326;
+@media (hover: hover) and (pointer: fine) {
+	.studio-camera-root .si-cta:hover:not(:disabled):not([aria-disabled="true"]):not([data-open]) {
+		background: #ffd326;
+	}
 }
 
 .studio-camera-root .si-dock-timeline .si-cta-detail {
@@ -2271,6 +2292,13 @@
 	background: rgb(255 255 255 / 0.075);
 	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.09);
 	font-size: 11px;
+}
+
+/* iOS zooms into a field under 16px; the island's fields open on phones too. */
+@media (pointer: coarse) {
+	.studio-camera-root .si-input {
+		font-size: 16px;
+	}
 }
 
 .studio-camera-root .si-input:focus {
@@ -2796,10 +2824,12 @@
 		120ms var(--ease-out), transform 100ms var(--ease-out);
 }
 
-.studio-easing-editor .studio-easing-presets button:hover {
-	border-color: rgb(29 29 32 / 0.15);
-	background: #fff;
-	color: var(--camera-ink);
+@media (hover: hover) and (pointer: fine) {
+	.studio-easing-editor .studio-easing-presets button:hover {
+		border-color: rgb(29 29 32 / 0.15);
+		background: #fff;
+		color: var(--camera-ink);
+	}
 }
 
 .studio-easing-editor .studio-easing-presets button[data-active] {
@@ -2814,10 +2844,12 @@
 	color: #aaaab0;
 }
 
-.dark .studio-easing-editor .studio-easing-presets button:hover {
-	border-color: rgb(255 255 255 / 0.17);
-	background: rgb(255 255 255 / 0.075);
-	color: #fff;
+@media (hover: hover) and (pointer: fine) {
+	.dark .studio-easing-editor .studio-easing-presets button:hover {
+		border-color: rgb(255 255 255 / 0.17);
+		background: rgb(255 255 255 / 0.075);
+		color: #fff;
+	}
 }
 
 .dark .studio-easing-editor .studio-easing-presets button[data-active] {

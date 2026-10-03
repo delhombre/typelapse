@@ -7,6 +7,7 @@ import {
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
+import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { holdStudioPersistence } from "@/presentation/stores/studio-composition.store";
 import {
@@ -46,12 +47,26 @@ async function openLocalProject(select: () => LocalProjectRecord | null): Promis
 			// Storage blocked or full: the code spine above is saved, and the switch
 			// must not trap the user in the current project.
 		}
+		const leaving = readLocalProjects().activeId;
 		const selected = select();
 		if (!selected) {
 			return false;
 		}
 		const json = JSON.stringify(selected.project);
-		useSnippetStore.getState().importFromJson(json);
+		try {
+			useSnippetStore.getState().importFromJson(json);
+		} catch {
+			// A record this studio cannot read (a theme from another version) must
+			// not become the active slot: the open project would autosave over it.
+			if (leaving) {
+				activateLocalProject(leaving);
+			}
+			notify(
+				`${selected.project.title} could not be opened, so ${useSnippetStore.getState().snippet.title} stays open.`,
+				{ tone: "error" },
+			);
+			return false;
+		}
 		writeDraft(json);
 		try {
 			await restoreStudioProject(selected.id);

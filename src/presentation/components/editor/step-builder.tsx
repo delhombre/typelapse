@@ -234,7 +234,9 @@ export function StepBuilder() {
 										{getStepPreview(step.code)}
 									</span>
 								) : (
-									<span className="truncate text-[11px] text-neutral-500">No code</span>
+									<span className="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
+										No code
+									</span>
 								)}
 							</button>
 

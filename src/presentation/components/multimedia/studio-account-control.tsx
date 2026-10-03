@@ -60,7 +60,17 @@ export function StudioAccountControl({
 	const { status, operation, error, refreshSession, signIn, signUp, signOut } = store();
 	const reduceMotion = useReducedMotion() === true;
 	const rootRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
 	const [open, setOpen] = useState(false);
+	const openRef = useRef(open);
+	openRef.current = open;
+
+	// The panel unmounts under the focus it holds; a keyboard user goes back to
+	// the trigger rather than to the top of the page.
+	const closeToTrigger = () => {
+		setOpen(false);
+		triggerRef.current?.focus();
+	};
 	const [formMode, setFormMode] = useState<FormMode>("sign-in");
 
 	useEffect(() => {
@@ -70,7 +80,18 @@ export function StudioAccountControl({
 	}, [operation, refreshSession, status.kind]);
 
 	useEffect(() => {
-		if (status.kind === "authenticated") setOpen(false);
+		if (status.kind !== "authenticated") return;
+		const signedInFromPanel = openRef.current;
+		setOpen(false);
+		// Signed in from the panel: focus was on Continue, which is going away. A
+		// session found at page load leaves focus where it is.
+		const active = document.activeElement;
+		if (
+			signedInFromPanel &&
+			(active === document.body || (active && rootRef.current?.contains(active)))
+		) {
+			triggerRef.current?.focus();
+		}
 	}, [status.kind]);
 
 	useEffect(() => {
@@ -85,7 +106,7 @@ export function StudioAccountControl({
 	const closeOnEscape = (event: KeyboardEvent<HTMLDivElement>) => {
 		if (event.key === "Escape") {
 			event.stopPropagation();
-			setOpen(false);
+			closeToTrigger();
 		}
 	};
 
@@ -108,6 +129,7 @@ export function StudioAccountControl({
 	return (
 		<div ref={rootRef} className="mm-account" onKeyDown={closeOnEscape}>
 			<button
+				ref={triggerRef}
 				type="button"
 				className="mm-account-trigger"
 				aria-label={trigger.label}
@@ -134,7 +156,7 @@ export function StudioAccountControl({
 							type="button"
 							className="mm-account-close"
 							aria-label="Close account panel"
-							onClick={() => setOpen(false)}
+							onClick={closeToTrigger}
 						>
 							<X size={15} aria-hidden="true" />
 						</button>

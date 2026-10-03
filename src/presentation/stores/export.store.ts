@@ -23,7 +23,7 @@ import { create } from "zustand";
 // Type-only: the render request contract lives with the other render DTOs. This
 // import is erased at build time, so no server code enters the client bundle.
 import type { RenderRequestBody } from "../../../server/remotion/types";
-import { useHostedRenderJobsStore } from "./hosted-render-jobs.store";
+import { isHostedBuild, useHostedRenderJobsStore } from "./hosted-render-jobs.store";
 import { usePlanStore } from "./plan.store";
 import { useSnippetStore } from "./snippet.store";
 import { useSocialPreviewStore } from "./social-preview.store";
@@ -50,6 +50,14 @@ export interface ExportProgress {
  * render job (`hosted-render-jobs.store`).
  */
 export type ExportTarget = "device" | "server" | "cloud";
+
+/**
+ * Server is the local Remotion routes, and a hosted build does not mount them:
+ * there the option is not shown and no sentence sends anyone to it.
+ */
+export function serverRenderOffered(): boolean {
+	return !isHostedBuild();
+}
 
 /**
  * How the last export ended. A render that finishes with no visible trace is a
@@ -341,8 +349,8 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				outcome: {
 					kind: "failed",
 					message: alternative
-						? `This browser cannot encode ${formatName(resolved.config.format)} on this device, but it can make a ${formatName(alternative)}. Nothing was uploaded. Switch the format to ${formatName(alternative)}, or choose server rendering explicitly.`
-						: "This browser cannot encode the selected video on this device. Nothing was uploaded. Choose server rendering explicitly to continue.",
+						? `This browser cannot encode ${formatName(resolved.config.format)} on this device, but it can make a ${formatName(alternative)}. Nothing was uploaded. Switch the format to ${formatName(alternative)}${serverRenderOffered() ? ", or choose server rendering explicitly" : ""}.`
+						: `This browser cannot encode the selected video on this device. Nothing was uploaded. ${serverRenderOffered() ? "Choose server rendering explicitly to continue." : "Try it in a recent Chrome or Edge."}`,
 				},
 			});
 			return;
@@ -795,7 +803,7 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 				kind: "failed",
 				message: `${
 					error instanceof Error ? error.message : "The render failed on this device."
-				} You can switch to the server render instead.`,
+				}${serverRenderOffered() ? " You can switch to the server render instead." : ""}`,
 			},
 		});
 		feedback("error");
@@ -885,7 +893,11 @@ function deviceNote(
 		notes.push(gif);
 	}
 	if (sound) {
-		notes.push("no audio track on this device yet. Render on the server for sound");
+		notes.push(
+			serverRenderOffered()
+				? "no audio track on this device yet. Render on the server for sound"
+				: "no audio track on this device yet",
+		);
 	}
 	if (snippet.steps.some((step) => step.annotation)) {
 		notes.push("captions are not baked on this device yet");

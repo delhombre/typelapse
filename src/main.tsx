@@ -1,16 +1,9 @@
 import "@/app.css";
-import { RouteErrorBoundary } from "@/presentation/components/ui/route-error-boundary";
-import { LandingPage } from "@/presentation/landing/landing-page";
+import { AppRoutes } from "@/app-routes";
 import { MotionConfig } from "motion/react";
-import { StrictMode, Suspense, lazy } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-
-const StudioRoute = lazy(() =>
-	import("@/presentation/studio/studio-route").then(({ StudioRoute: RouteComponent }) => ({
-		default: RouteComponent,
-	})),
-);
+import { BrowserRouter } from "react-router-dom";
 
 const root = document.getElementById("root");
 if (!root) {
@@ -28,19 +21,7 @@ createRoot(root).render(
 		    variants keep them; this is the net under everything else. */}
 		<MotionConfig reducedMotion="user">
 			<BrowserRouter>
-				<Routes>
-					<Route path="/" element={<LandingPage />} />
-					<Route
-						path="/app"
-						element={
-							<RouteErrorBoundary>
-								<Suspense fallback={<div className="min-h-dvh bg-paper" aria-busy="true" />}>
-									<StudioRoute />
-								</Suspense>
-							</RouteErrorBoundary>
-						}
-					/>
-				</Routes>
+				<AppRoutes />
 			</BrowserRouter>
 		</MotionConfig>
 	</StrictMode>,

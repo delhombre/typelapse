@@ -90,7 +90,9 @@ function HostedAccountIsland({
 	} = planStore();
 
 	useEffect(() => {
-		if (authStatus.kind !== "checking") void refreshPlan();
+		if (authStatus.kind !== "checking") {
+			void refreshPlan({ signedIn: authStatus.kind === "authenticated" });
+		}
 	}, [authStatus.kind, refreshPlan]);
 
 	return (

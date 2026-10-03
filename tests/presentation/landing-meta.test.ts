@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { absolutizeSocialImages } from "../../vite-plugin-absolute-og";
+import { absolutizeSocialImages, socialOriginWarning } from "../../vite-plugin-absolute-og";
 
 /**
  * What a crawler reads before anyone sees the page: the title, the description
@@ -79,5 +79,13 @@ describe("the share image", () => {
 		// Only the images: the favicon and the font preload stay same-origin paths.
 		expect(built).toContain('href="/favicon.svg"');
 		expect(built).toContain('href="/fonts/IoskeleyMono-Regular.woff2"');
+	});
+
+	it("warns at build time when the origin is missing or local, and only then", () => {
+		expect(socialOriginWarning(undefined)).toMatch(/TYPELAPSE_APP_URL is not set/);
+		// .env.example ships the local address: copied into a deploy, it was silent.
+		expect(socialOriginWarning("http://localhost:5173")).toMatch(/local address/);
+		expect(socialOriginWarning("http://127.0.0.1:4173")).toMatch(/local address/);
+		expect(socialOriginWarning("https://typelapse.example")).toBeNull();
 	});
 });

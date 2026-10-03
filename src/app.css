@@ -61,6 +61,21 @@
 html {
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
+	/* No font inflation in landscape, and no grey flash on tap: every control
+	   carries its own pressed state. */
+	-webkit-text-size-adjust: 100%;
+	-webkit-tap-highlight-color: transparent;
+}
+
+/* No double-tap-zoom wait on a control, and a long press does not select its
+   label. Content stays selectable. */
+:where(button, a, input, select, textarea, [role="button"]) {
+	touch-action: manipulation;
+}
+
+:where(button, [role="button"]) {
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 /* Set while the landing is mounted. The landing element paints itself, but not
@@ -85,6 +100,9 @@ html[data-landing-theme="dark"] {
 html:not([data-landing-theme]) {
 	background: #fafaf9;
 	color-scheme: light;
+	/* The studio is a fixed shell: a drag on the stage must not rubber-band the
+	   page or pull to refresh. The landing scrolls, so it keeps both. */
+	overscroll-behavior: none;
 }
 
 html.dark:not([data-landing-theme]) {
@@ -254,8 +272,10 @@ html.dark:not([data-landing-theme]) {
 /* The landing's dark theme. Every `.lp-*` class and every Tailwind
    `text-ink` / `text-ash` / `bg-paper` reads these three vars, so remapping
    them here flips the whole page without touching a single section.
-   Warm, not a neutral slate: the warmth is the brand. */
-.landing-root[data-theme="dark"] {
+   Warm, not a neutral slate: the warmth is the brand. The 404 and the route
+   error boundary read the same three, under the studio's `.dark`. */
+.landing-root[data-theme="dark"],
+.dark .route-state {
 	--color-paper: #121110;
 	--color-ink: #f5f3ef;
 	--color-ash: #a8a39a;
@@ -2478,6 +2498,14 @@ html.dark:not([data-landing-theme]) {
 	transition: background-color 150ms var(--ease-out);
 }
 
+/* iOS zooms into a field under 16px and never zooms back; the island floats on
+   the phone shell. */
+@media (pointer: coarse) {
+	.studio-root .si-input {
+		font-size: 16px;
+	}
+}
+
 .studio-root .si-input::placeholder {
 	color: var(--dock-dim);
 }
@@ -2514,11 +2542,16 @@ html.dark:not([data-landing-theme]) {
 		var(--ease-out);
 }
 
-.studio-root .si-cta:active:not(:disabled) {
-	transform: scale(0.96);
+/* Only for people who have not asked for less motion: the reduced-motion rule
+   above comes earlier in the file and lost to this one on order alone. */
+@media (prefers-reduced-motion: no-preference) {
+	.studio-root .si-cta:active:not(:disabled):not([aria-disabled="true"]) {
+		transform: scale(0.96);
+	}
 }
 
-.studio-root .si-cta:disabled {
+.studio-root .si-cta:disabled,
+.studio-root .si-cta[aria-disabled="true"] {
 	cursor: default;
 	opacity: 0.55;
 }
@@ -2536,7 +2569,7 @@ html.dark:not([data-landing-theme]) {
    control that had just opened the sheet — two filled shapes in a zone whose
    one rule is that there is only ever one. */
 @media (hover: hover) and (pointer: fine) {
-	.studio-root .si-cta:hover:not(:disabled):not([data-open]) {
+	.studio-root .si-cta:hover:not(:disabled):not([aria-disabled="true"]):not([data-open]) {
 		background: var(--color-primary-hover);
 	}
 
@@ -2547,6 +2580,20 @@ html.dark:not([data-landing-theme]) {
 
 .studio-root .si-cluster-cta {
 	margin-left: auto;
+}
+
+/* RenderCtaLabel: every label in one cell, so the widest sets the width. */
+.studio-root .si-cta-labels {
+	display: inline-grid;
+}
+
+.studio-root .si-cta-labels > * {
+	grid-area: 1 / 1;
+	text-align: center;
+}
+
+.studio-root .si-cta-labels > [aria-hidden] {
+	visibility: hidden;
 }
 
 /* At 390 the island is the whole width of the phone and the detail is the first

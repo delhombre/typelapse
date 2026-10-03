@@ -31,7 +31,7 @@ export class RouteErrorBoundary extends Component<
 		return (
 			<main
 				role="alert"
-				className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-paper px-6 text-center"
+				className="route-state flex min-h-dvh flex-col items-center justify-center gap-3 bg-paper px-6 text-center"
 			>
 				<h1 className="text-[15px] font-semibold text-ink">Typelapse hit a problem</h1>
 				<p className="max-w-[34ch] text-[13px] leading-5 text-ash">

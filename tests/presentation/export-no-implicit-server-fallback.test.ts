@@ -28,6 +28,7 @@ describe("on-device export privacy", () => {
 		useExportStore.setState(useExportStore.getInitialState(), true);
 		useSnippetStore.setState(useSnippetStore.getInitialState(), true);
 		vi.unstubAllGlobals();
+		vi.unstubAllEnvs();
 	});
 
 	it("does not upload or change target when WebCodecs cannot encode", async () => {
@@ -43,6 +44,19 @@ describe("on-device export privacy", () => {
 			kind: "failed",
 			message:
 				"This browser cannot encode the selected video on this device. Nothing was uploaded. Choose server rendering explicitly to continue.",
+		});
+	});
+
+	it("does not point a hosted build at a server render it does not have", async () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		vi.stubGlobal("fetch", vi.fn());
+
+		await useExportStore.getState().exportVideo();
+
+		expect(useExportStore.getState().outcome).toEqual({
+			kind: "failed",
+			message:
+				"This browser cannot encode the selected video on this device. Nothing was uploaded. Try it in a recent Chrome or Edge.",
 		});
 	});
 });

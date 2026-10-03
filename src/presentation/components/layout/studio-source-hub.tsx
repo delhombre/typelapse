@@ -52,6 +52,7 @@ export function StudioSourceHub() {
 	const [sourceStatus, setSourceStatus] = useState<string | null>(null);
 	const [importing, setImporting] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const mediaInputRef = useRef<HTMLInputElement>(null);
 	const reduce = useReducedMotion() === true;
@@ -74,6 +75,9 @@ export function StudioSourceHub() {
 			if (event.key === "Escape") {
 				event.preventDefault();
 				close();
+				// The panel unmounts under the focus it holds; without this a keyboard
+				// user lands on the page and starts again from the top.
+				triggerRef.current?.focus();
 			}
 		};
 		document.addEventListener("pointerdown", onPointerDown);
@@ -203,6 +207,7 @@ export function StudioSourceHub() {
 				className="hidden"
 			/>
 			<motion.button
+				ref={triggerRef}
 				type="button"
 				aria-label="Add source"
 				aria-haspopup="menu"

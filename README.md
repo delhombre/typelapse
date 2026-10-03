@@ -46,7 +46,9 @@ git diff | pnpm typelapse render - --open
 ```
 
 The source is a pull request URL, a commit URL, a unified diff file (`-` reads
-stdin) or a project exported from the studio. The CLI drives the same render
+stdin) or a project exported from the studio. A project with text layers and no
+media renders as MP4 or WebM through the same V2 composition as the studio's
+server export; the launch clip is one (`docs/launch/launch.project.json`). The CLI drives the same render
 route and the same defaults as the studio's export, on this machine and with no
 account: MP4 at 1920x1080 and 60 fps unless the project or a flag says
 otherwise. Flags: `--format mp4|webm|gif`, `--size WxH` (even edges),
@@ -129,8 +131,9 @@ CLI and answers with the file and the studio link; see
 - Private R2 media upload/finalization with MIME, size and SHA-256 verification.
 - Better Auth email/password sessions in the hosted account island.
 - Stripe monthly/annual Checkout, Customer Portal and signed webhook projection.
-- Postgres-backed render and object-deletion workers with leased retries. The
-  studio's export panel does not submit hosted renders yet.
+- Postgres-backed render and object-deletion workers with leased retries. In a
+  hosted build, a signed-in account renders on them from the export panel's
+  Cloud choice under Where.
 
 ## Hosted profile
 

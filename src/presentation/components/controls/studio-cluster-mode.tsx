@@ -1,5 +1,5 @@
 import { resolveBackgroundCss } from "@/application/backgrounds/mesh-gradient";
-import { exportCtaLabel } from "@/application/export/export-label";
+import { exportCtaDetail } from "@/application/export/export-label";
 import { FONT_PRESETS } from "@/application/fonts/code-fonts";
 import {
 	ASPECT_LABELS,
@@ -13,12 +13,18 @@ import {
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
-import { useExportStore } from "@/presentation/stores/export.store";
+import { serverRenderOffered, useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect, useState } from "react";
 import { Camera, ChevronLeft, Sliders } from "reicon-react";
 import { useCloudRenderCta, useCloudTarget } from "./cloud-render";
-import { type ClusterId, FPS_OPTIONS, NOTHING_TO_RENDER, useCanRender } from "./cluster-panels";
+import {
+	type ClusterId,
+	FPS_OPTIONS,
+	NOTHING_TO_RENDER,
+	RenderCtaLabel,
+	useCanRender,
+} from "./cluster-panels";
 import {
 	CHROME_PRESETS,
 	PADDING_PRESETS,
@@ -487,6 +493,7 @@ function ExportMode() {
 	const canRender = useCanRender();
 	const cloudTarget = useCloudTarget();
 	const cloudCta = useCloudRenderCta(target);
+	const renderLabel = isExporting ? "Rendering…" : (cloudCta.label ?? "Render");
 	const current = presetFor(width, height) ?? FALLBACK_PRESET;
 
 	useEffect(() => {
@@ -546,7 +553,7 @@ function ExportMode() {
 								: "Renders in this tab. Nothing is uploaded, and no server has to be running.",
 						disabled: deviceSupported === false,
 					},
-					{ value: "server" as const, label: "Server" },
+					...(serverRenderOffered() ? [{ value: "server" as const, label: "Server" }] : []),
 					...(cloudTarget ? [cloudTarget] : []),
 				]}
 				value={target}
@@ -567,17 +574,27 @@ function ExportMode() {
 			<button
 				type="button"
 				onClick={() => {
+					if (isExporting || cloudCta.busy) return;
 					trigger("light");
 					void exportVideo();
 				}}
-				disabled={isExporting || !canRender || cloudCta.busy}
+				// Busy, it stays focusable: a disabled button drops a keyboard user's
+				// focus to the page the moment they press it.
+				disabled={!canRender}
+				aria-disabled={isExporting || cloudCta.busy || undefined}
 				// The same reason the cluster panel gives: a disabled button with no
 				// word on it reads as broken.
 				title={canRender ? undefined : NOTHING_TO_RENDER}
-				aria-label={exportCtaLabel({ format, width, height })}
+				// The name is the word on the button, plus the format and size it
+				// leaves out while idle; busy, it is what the button says.
+				aria-label={
+					renderLabel === "Render"
+						? `Render · ${exportCtaDetail({ format, width, height })}`
+						: renderLabel
+				}
 				className="si-cta si-mode-cta"
 			>
-				{isExporting ? "Rendering…" : (cloudCta.label ?? "Render")}
+				<RenderCtaLabel idle="Render" shown={renderLabel} />
 			</button>
 		</>
 	);

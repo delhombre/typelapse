@@ -7,6 +7,22 @@
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" />
 		<title>Typelapse: sharp code videos from a pull request</title>
+		<!-- Paints the document in the theme the app will open in, before the bundle
+		     runs: the landing's stored choice or the OS on /, the OS in the studio
+		     (use-landing-theme.ts and theme-mode.store.ts decide the same way). -->
+		<script>
+			try {
+				var root = document.documentElement;
+				var osDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+				if (location.pathname === "/") {
+					var stored = localStorage.getItem("typelapse.landing-theme");
+					root.dataset.landingTheme =
+						stored === "light" || stored === "dark" ? stored : osDark ? "dark" : "light";
+				} else if (osDark) {
+					root.classList.add("dark");
+				}
+			} catch (error) {}
+		</script>
 		<meta
 			name="description"
 			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."

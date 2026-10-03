@@ -46,7 +46,9 @@ export function IslandSegmented<T extends string | number>({
 	return (
 		<span className="si-cluster-field">
 			{eyebrow && <span className="si-eyebrow">{eyebrow}</span>}
-			<span className="si-seg">
+			{/* The eyebrow is for eyes; the group's name is what tells a screen reader
+			    that "24" is a frame rate and "Server" is where the video is made. */}
+			<span className="si-seg" role={eyebrow ? "group" : undefined} aria-label={eyebrow}>
 				{options.map((option) => {
 					const selected = option.value === value;
 					const button = (

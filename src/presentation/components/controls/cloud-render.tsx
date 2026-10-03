@@ -65,6 +65,9 @@ export function useCloudRenderCta(target: ExportTarget): { busy: boolean; label:
 	return { busy: true, label: BUSY_LABELS[phase.kind] ?? "Rendering…" };
 }
 
+/** Every word the Render button can say while busy, the device render's included. */
+export const RENDER_BUSY_LABELS: readonly string[] = [...new Set(Object.values(BUSY_LABELS))];
+
 export interface CloudStatusView {
 	readonly key: string;
 	readonly kind: "progress" | "note" | "done" | "problem";

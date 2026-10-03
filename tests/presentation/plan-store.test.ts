@@ -49,6 +49,24 @@ describe("deployment-aware plan store", () => {
 		expect(remote.getCurrentPlan).toHaveBeenCalledOnce();
 	});
 
+	it("asks a signed-out visitor's browser only for the public catalog", async () => {
+		const remote = billing({
+			getCurrentPlan: vi.fn(async () => Plan.pro()),
+			getAllowance: vi.fn(async () => "never read"),
+		});
+		const store = createPlanStore({ deploymentMode: "hosted", billing: remote });
+
+		await store.getState().refresh({ signedIn: false });
+
+		// Plan and allowance belong to an account: asking for them without one was
+		// two 401s in the console on every first visit.
+		expect(remote.getCurrentPlan).not.toHaveBeenCalled();
+		expect(remote.getAllowance).not.toHaveBeenCalled();
+		expect(store.getState().plan.tier).toBe("free");
+		expect(store.getState().allowance).toBeNull();
+		expect(store.getState().billingAvailable).toBe(true);
+	});
+
 	it("keeps the server's allowance sentence and drops it when the server cannot give one", async () => {
 		const sentence = "You are using 2 of 3 cloud projects and 12 MB of 100 MB of media.";
 		const store = createPlanStore({

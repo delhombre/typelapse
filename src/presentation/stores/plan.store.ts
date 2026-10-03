@@ -15,7 +15,8 @@ export interface PlanState {
 	isUpgrading: boolean;
 	error: string | null;
 	selectCadence(cadence: BillingCadence): void;
-	refresh(): Promise<void>;
+	/** Signed out, only the public catalog is read: plan and allowance need an account. */
+	refresh(options?: { readonly signedIn?: boolean }): Promise<void>;
 	upgrade(cadence?: BillingCadence): Promise<void>;
 	manageBilling(): Promise<void>;
 }
@@ -50,15 +51,15 @@ export function createPlanStore({
 		error: null,
 		selectCadence: (cadence) => set({ cadence }),
 
-		refresh: async () => {
+		refresh: async ({ signedIn = true } = {}) => {
 			if (deploymentMode === "local") {
 				set({ plan: Plan.local(), error: null });
 				return;
 			}
 			const [catalog, plan, allowance] = await Promise.allSettled([
 				billing.getCatalog(),
-				billing.getCurrentPlan(),
-				billing.getAllowance?.() ?? Promise.resolve(null),
+				signedIn ? billing.getCurrentPlan() : Promise.resolve(Plan.free()),
+				signedIn ? (billing.getAllowance?.() ?? Promise.resolve(null)) : Promise.resolve(null),
 			]);
 			set({
 				catalog: catalog.status === "fulfilled" ? catalog.value : null,
