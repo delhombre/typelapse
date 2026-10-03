@@ -2,27 +2,40 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Self-hosted so the mono is not a third-party round trip. Only the two weights
-   actually used are loaded, and font-synthesis is off, so a missing weight
-   surfaces as an obvious regression instead of a fabricated bold. */
+/* Geist, Ioskeley Mono and JetBrains Mono are self-hosted: their @font-face
+   rules come from the font registry (src/application/fonts/code-fonts.ts),
+   installed by main.tsx, so the document, the render worker and the server
+   composition register the same files at the same weights.
+
+   Geist swaps in over Arial resized to Geist's metrics, so the text keeps its
+   width and its lines while the file lands. Measured with canvas measureText:
+   Geist runs 1.0069 times Arial's advance at 400, 1.0286 at 500, and against
+   Arial Bold 0.9907 at 600 and 1.011 at 700; ascent 1.005em, descent 0.295em,
+   no line gap. Each face takes the midpoint of the two weights it stands in
+   for, and the overrides are the metrics divided by that size-adjust.
+   Liberation Sans is Arial's metric twin where Arial is absent. */
 @font-face {
-	font-family: "Ioskeley Mono";
-	src: url("/fonts/IoskeleyMono-Regular.woff2") format("woff2");
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
+	font-family: "Geist Fallback";
+	src: local("Arial"), local("ArialMT"), local("Liberation Sans");
+	font-weight: 100 500;
+	size-adjust: 101.77%;
+	ascent-override: 98.75%;
+	descent-override: 28.99%;
+	line-gap-override: 0%;
 }
 
 @font-face {
-	font-family: "Ioskeley Mono";
-	src: url("/fonts/IoskeleyMono-SemiBold.woff2") format("woff2");
-	font-weight: 600;
-	font-style: normal;
-	font-display: swap;
+	font-family: "Geist Fallback";
+	src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");
+	font-weight: 600 900;
+	size-adjust: 100.08%;
+	ascent-override: 100.42%;
+	descent-override: 29.48%;
+	line-gap-override: 0%;
 }
 
 @theme {
-	--font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+	--font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
 	--font-mono: "Ioskeley Mono", ui-monospace, SFMono-Regular, monospace;
 
 	/* The brand's primary: every filled action in the product wears it, on the
@@ -269,6 +282,15 @@ html.dark:not([data-landing-theme]) {
 	background: var(--color-paper);
 }
 
+/* The page's side gutters. index.html sets viewport-fit=cover, so a phone in
+   landscape draws the page under its notch; each gutter is at least the inset
+   on its side, and full-bleed bands still paint edge to edge. A container sets
+   --lp-gutter to widen it (2rem from `sm`). */
+.landing-root .lp-gutter {
+	padding-right: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px));
+	padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
+}
+
 /* The landing's dark theme. Every `.lp-*` class and every Tailwind
    `text-ink` / `text-ash` / `bg-paper` reads these three vars, so remapping
    them here flips the whole page without touching a single section.
@@ -414,7 +436,11 @@ html.dark:not([data-landing-theme]) {
    carries the voice. The name takes the ink and the weight; the rest stays
    ash, so there is one thing to land on and one to read after. */
 .landing-root .lp-hero-lead {
-	max-width: 52ch;
+	/* 52ch of Geist, whose zero is 0.663em. Written in em because ch follows the
+	   face on screen: while Geist loads, the fallback's narrower zero made the
+	   measure 86px shorter, the lead took a line more, and the hero jumped when
+	   Geist landed. */
+	max-width: calc(52 * 0.663em);
 	font-size: 17px;
 	line-height: 26px;
 	letter-spacing: -0.01em;
@@ -2402,6 +2428,17 @@ html.dark:not([data-landing-theme]) {
 	gap: 5px;
 }
 
+/* A sentence under a row, on a line of its own, saying why something in the
+   row cannot be chosen. */
+.studio-root .si-cluster-note {
+	flex-basis: 100%;
+	margin: 0;
+	padding: 0 2px;
+	color: var(--dock-dim);
+	font-size: 11.5px;
+	line-height: 16px;
+}
+
 .studio-root .si-cluster-field {
 	display: inline-flex;
 	align-items: center;
@@ -2717,7 +2754,7 @@ html.dark:not([data-landing-theme]) {
 /* The phone's slot states its own bottom inline, since the sheet's peek is a
    number the drawer owns rather than a constant this file could name. */
 .sc-root-mobile .sc-stage-slot {
-	padding: 68px 8px 0;
+	padding: 68px max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
 }
 
 /* The sheet is portaled to the body, out of the root's reach: it takes the
@@ -2800,11 +2837,14 @@ html.dark:not([data-landing-theme]) {
 /* At 390 the two corners meet in the middle, so they stop being corners and
    become a row: the utilities keep their width, and the project chip is the one
    that gives, down to its brand and whatever is left of its name. */
+/* viewport-fit=cover puts a landscape phone's notch over the page: each edge
+   keeps at least the inset on its side, here and on the stage, the dock and the
+   top-row popovers. */
 .sc-corner-row {
 	position: absolute;
 	top: 10px;
-	right: 10px;
-	left: 10px;
+	right: max(10px, env(safe-area-inset-right, 0px));
+	left: max(10px, env(safe-area-inset-left, 0px));
 	z-index: 30;
 	display: flex;
 	align-items: center;
@@ -2887,8 +2927,8 @@ html.dark:not([data-landing-theme]) {
 .sc-root-mobile .sc-source-form-popover[aria-label="Import a git diff"] {
 	position: fixed;
 	top: 58px;
-	right: 10px;
-	left: 10px;
+	right: max(10px, env(safe-area-inset-right, 0px));
+	left: max(10px, env(safe-area-inset-left, 0px));
 	width: auto;
 	margin: 0;
 	z-index: 80;
@@ -3454,7 +3494,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 .sc-root-mobile .sc-dock-slot {
-	padding: 0 8px;
+	padding: 0 max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
 }
 
 .sc-dock-arrival {

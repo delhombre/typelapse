@@ -1,17 +1,29 @@
+import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
 	FONT_PRESETS,
 	LOADABLE_FONTS,
 	fontsToLoad,
 	googleFontCssUrl,
 	primaryFamily,
+	selfHostedFaces,
 } from "@/application/fonts/code-fonts";
-import { parseFontFaceSources } from "@/application/fonts/font-face-css";
+import { fontFaceRules, parseFontFaceSources } from "@/application/fonts/font-face-css";
 import {
 	MAX_ADVANCE_DRIFT,
 	advanceDriftMessage,
 	unresolvedFontMessage,
 } from "@/application/fonts/font-fidelity";
 import { describe, expect, it } from "vitest";
+
+/** The faces a registered family serves itself. */
+function facesOf(family: string) {
+	const [font] = fontsToLoad(family);
+	if (!font) {
+		throw new Error(`${family} is not in the registry`);
+	}
+	return selfHostedFaces(font);
+}
 
 describe("FONT_PRESETS", () => {
 	it("offers the five families the settings panel has always offered", () => {
@@ -28,7 +40,7 @@ describe("FONT_PRESETS", () => {
 		// The whole point: a preset with no resolvable URL is a preset the worker
 		// silently substitutes a fallback for.
 		for (const font of LOADABLE_FONTS) {
-			expect(Boolean(font.google || font.url), font.family).toBe(true);
+			expect(Boolean(font.google || font.files?.length), font.family).toBe(true);
 		}
 	});
 
@@ -42,23 +54,88 @@ describe("FONT_PRESETS", () => {
 		// Ioskeley Mono is the app's own mono; a theme can carry it even though
 		// the picker does not offer it, so the worker still has to be able to load it.
 		const ioskeley = LOADABLE_FONTS.find((font) => font.family === "Ioskeley Mono");
-		expect(ioskeley?.url).toBe("/fonts/IoskeleyMono-Regular.woff2");
+		expect(facesOf("Ioskeley Mono").map((face) => [face.url, face.weight])).toEqual([
+			["/fonts/IoskeleyMono-Regular.woff2", "400"],
+			["/fonts/IoskeleyMono-SemiBold.woff2", "600"],
+		]);
 		expect(FONT_PRESETS).not.toContain(ioskeley);
+	});
+
+	it("ships every self-hosted file it names", () => {
+		for (const font of LOADABLE_FONTS) {
+			for (const face of selfHostedFaces(font)) {
+				expect(face.url, font.family).toMatch(/^\/fonts\/[\w-]+\.woff2$/);
+				expect(existsSync(resolve("public", `.${face.url}`)), face.url).toBe(true);
+			}
+		}
+	});
+});
+
+describe("the default code font", () => {
+	it("is served by the app, at the code fonts' three weights", () => {
+		// The default theme's face is on screen the moment the studio opens, so it
+		// cannot wait on a third party: every scope loads the same files from /fonts.
+		const [jetbrains] = fontsToLoad("JetBrains Mono, monospace");
+		expect(jetbrains?.google).toBeUndefined();
+		const faces = facesOf("JetBrains Mono");
+		expect(new Set(faces.map((face) => face.weight))).toEqual(new Set(["400", "500", "700"]));
+		expect(faces.every((face) => face.family === "JetBrains Mono")).toBe(true);
+		expect(faces.find((face) => face.unicodeRange?.startsWith("U+0000-00FF"))?.url).toBe(
+			"/fonts/JetBrainsMono-latin.woff2",
+		);
 	});
 });
 
 describe("the text layers' face", () => {
-	it("loads Geist with the weights the document asks Google for", () => {
+	it("holds Geist at the four weights every scope registers", () => {
 		// A text layer is set in Geist at 650, which resolves to the 700 face in a
-		// document holding 400, 500, 600 and 700 (index.html). A worker asking for
-		// the code fonts' 400, 500 and 700 would resolve the same 700, but a
-		// weight of 550 would land on 500 in one scope and 600 in the other.
+		// scope holding 400, 500, 600 and 700. The variable file is registered once
+		// per weight, as Google served it, never as one 400-700 range: a range
+		// would draw 650 at 650, and 550 would land differently in a scope that
+		// registered the faces apart.
 		const [geist] = fontsToLoad("Geist, ui-sans-serif, system-ui, sans-serif");
 		expect(geist?.family).toBe("Geist");
-		expect(googleFontCssUrl(geist?.google ?? "", geist?.weights)).toBe(
-			"https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap",
+		expect(geist?.google).toBeUndefined();
+		const faces = facesOf("Geist");
+		expect(new Set(faces.map((face) => face.weight))).toEqual(
+			new Set(["400", "500", "600", "700"]),
 		);
+		expect(faces.every((face) => face.unicodeRange)).toBe(true);
 		expect(FONT_PRESETS).not.toContain(geist);
+	});
+});
+
+describe("the document's fonts", () => {
+	const html = readFileSync(resolve("index.html"), "utf8");
+
+	it("asks no third party for a font", () => {
+		expect(html).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
+	});
+
+	it("preloads the Geist file the first paint sets text in", () => {
+		const latin = facesOf("Geist").find((face) => face.unicodeRange?.startsWith("U+0000-00FF"));
+		expect(latin?.url).toBe("/fonts/Geist-latin.woff2");
+		expect(html).toContain(
+			'<link rel="preload" href="/fonts/Geist-latin.woff2" as="font" type="font/woff2" crossorigin />',
+		);
+	});
+});
+
+describe("fontFaceRules", () => {
+	it("writes faces back as the rules the reader reads", () => {
+		const faces = facesOf("Geist");
+		const css = fontFaceRules(faces);
+		expect(parseFontFaceSources(css)).toEqual(faces);
+		expect(css).toContain("font-display: swap");
+	});
+
+	it("lets a bundle point a face at its own copy of the file", () => {
+		const faces = facesOf("Ioskeley Mono");
+		const css = fontFaceRules(faces, (url) => `bundle:${url}`);
+		expect(parseFontFaceSources(css).map((face) => face.url)).toEqual([
+			"bundle:/fonts/IoskeleyMono-Regular.woff2",
+			"bundle:/fonts/IoskeleyMono-SemiBold.woff2",
+		]);
 	});
 });
 

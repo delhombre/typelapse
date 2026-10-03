@@ -1,3 +1,4 @@
+import { memo } from "react";
 // Relative, like every other component the Remotion composition pulls in: that
 // bundle resolves no path alias.
 import {
@@ -13,7 +14,7 @@ import {
  * in the browser preview and in Remotion's headless Chrome so the exported
  * video matches.
  */
-export function GrainOverlay({
+function GrainOverlayView({
 	opacity = GRAIN_OPACITY,
 	scale = 1,
 }: {
@@ -44,3 +45,6 @@ export function GrainOverlay({
 		/>
 	);
 }
+
+// Memoized: its props hold still while the preview repaints on every playback tick.
+export const GrainOverlay = memo(GrainOverlayView);

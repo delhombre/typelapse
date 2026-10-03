@@ -40,7 +40,10 @@ const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg
 };
 
 export function CodeEditor() {
-	const { snippet, setCode, syncEditorTheme } = useSnippetStore();
+	// Field by field: the whole store changes on every playback tick.
+	const snippet = useSnippetStore((s) => s.snippet);
+	const setCode = useSnippetStore((s) => s.setCode);
+	const syncEditorTheme = useSnippetStore((s) => s.syncEditorTheme);
 	const isDark = useThemeModeStore((s) => s.mode === "dark");
 	const monacoRef = useRef<Monaco | null>(null);
 	const editorRef = useRef<Parameters<OnMount>[0] | null>(null);

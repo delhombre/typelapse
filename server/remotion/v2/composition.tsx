@@ -21,7 +21,6 @@ import {
 	fitMediaToBox,
 	projectFittedMediaRect,
 } from "../../../src/application/layout/media-fit";
-import { fontsToLoad, googleFontCssUrl } from "../../../src/application/fonts/code-fonts";
 import { BASE_VIDEO_SCALE, renderScaleFor } from "../../../src/application/layout/canvas-fit";
 import type {
 	BlockPlacementPayload,
@@ -45,6 +44,7 @@ import { GlowDecoration } from "../../../src/presentation/components/preview/glo
 import { GrainOverlay } from "../../../src/presentation/components/preview/grain-overlay";
 import { getWatermarkColor } from "../../../src/presentation/utils/watermark-color";
 import { CodeCard, WatermarkOverlay } from "../composition";
+import { fontStylesheets } from "../font-files";
 import type { RemotionV2CompositionInput } from "./types";
 
 interface PixelBox {
@@ -402,8 +402,8 @@ function audioVolume(track: V2CompositionAudioTrack): (relativeFrame: number) =>
 
 /**
  * Hold the frame until every text layer's face has loaded, as `useFontLoaded`
- * holds it for the card's mono: the stylesheets the preview links (the shared
- * registry's URLs, Geist at index.html's weights), then each layer's own
+ * holds it for the card's mono: the faces the preview registers (the shared
+ * registry's files, bundled; Geist at the document's weights), then each layer's own
  * weight, size and characters, since a face nothing has asked for is not
  * loading and `ready` alone would let the frame paint the fallback.
  */
@@ -431,10 +431,7 @@ function useTextFontsLoaded(document: ProjectDocumentV2): void {
 		if (handle === null) {
 			return;
 		}
-		const urls = fontsToLoad(...faces.map((face) => face.stack)).flatMap((font) =>
-			font.google ? [googleFontCssUrl(font.google, font.weights)] : [],
-		);
-		Promise.all(urls.map((url) => fetch(url).then((response) => response.text())))
+		fontStylesheets(...faces.map((face) => face.stack))
 			.then((sheets) => {
 				for (const css of sheets) {
 					const style = window.document.createElement("style");

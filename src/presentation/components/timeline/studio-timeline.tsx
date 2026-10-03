@@ -3,6 +3,7 @@ import {
 	studioSceneLayerKinds,
 } from "@/application/project/studio-composition";
 import {
+	type StudioTimelineModel,
 	bubbleEdgeAtProgress,
 	buildStudioTimeline,
 	indexAtProgress,
@@ -14,7 +15,11 @@ import { isPlayableProject } from "@/application/studio-timeline/playback";
 import type { Step } from "@/domain/entities/step";
 import { EasingEditor } from "@/presentation/components/timeline/easing-editor";
 import { timelineMotion } from "@/presentation/components/timeline/timeline-motion";
-import { SceneDeletionUndo } from "@/presentation/components/ui/scene-deletion-undo";
+import { LiveRegion } from "@/presentation/components/ui/live-region";
+import {
+	SceneDeletionUndo,
+	sceneDeletedMessage,
+} from "@/presentation/components/ui/scene-deletion-undo";
 import { SceneDurationInput } from "@/presentation/components/ui/scene-duration-input";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback, feedbackPulse } from "@/presentation/haptics";
@@ -33,6 +38,7 @@ import {
 	type DragEvent,
 	type KeyboardEvent,
 	type PointerEvent,
+	type RefObject,
 	useEffect,
 	useId,
 	useMemo,
@@ -56,6 +62,7 @@ import {
 	WavePulse,
 	X,
 } from "reicon-react";
+import { useShallow } from "zustand/react/shallow";
 
 const PIXELS_PER_SECOND = 100;
 type LayoutMotionMode = "settle" | "instant" | "direct";
@@ -99,9 +106,6 @@ export function StudioTimeline() {
 	const updateStepDuration = useSnippetStore((state) => state.updateStepDuration);
 	const isPlaying = useSnippetStore((state) => state.isPlaying);
 	const isPreparing = useSnippetStore((state) => state.isPreparing);
-	const playbackProgress = useSnippetStore((state) => state.playbackProgress);
-	const playbackElapsedMs = useSnippetStore((state) => state.playbackElapsedMs);
-	const playback = useSnippetStore((state) => state.playback);
 	const seekPlayback = useSnippetStore((state) => state.seekPlayback);
 	const play = useSnippetStore((state) => state.play);
 	const pause = useSnippetStore((state) => state.pause);
@@ -145,14 +149,8 @@ export function StudioTimeline() {
 			),
 		[steps, transitionMs, loop, fps, compositionProject],
 	);
-	const progress = playback
-		? playbackProgressOnRuler(model, playbackProgress)
-		: stepProgress(model, currentStepIndex);
 	const selectedStepId = steps[currentStepIndex]?.id;
 	const selectedStep = steps[currentStepIndex];
-	const elapsedMs = playback
-		? Math.min(Math.max(playbackElapsedMs, 0), model.actualDurationMs)
-		: Math.min(progress * model.displayDurationMs, model.actualDurationMs);
 	const addAt = model.scenesEndMs / model.displayDurationMs;
 	const trackWidthPx = Math.round((model.displayDurationMs / 1000) * PIXELS_PER_SECOND);
 	const draggedStepIndex = draggedStepId
@@ -167,34 +165,6 @@ export function StudioTimeline() {
 			setLayoutMotionMode("settle");
 		}
 	}, [layoutMotionMode]);
-
-	useEffect(() => {
-		if (!isPlaying || !scrollRef.current) {
-			return;
-		}
-		const scroller = scrollRef.current;
-		const playheadX = progress * Math.max(scroller.scrollWidth, trackWidthPx);
-		const safeLeft = scroller.scrollLeft + scroller.clientWidth * 0.18;
-		const safeRight = scroller.scrollLeft + scroller.clientWidth * 0.82;
-		let target = scroller.scrollLeft;
-		if (playheadX < safeLeft) {
-			target = playheadX - scroller.clientWidth * 0.28;
-		} else if (playheadX > safeRight) {
-			target = playheadX - scroller.clientWidth * 0.7;
-		} else {
-			return;
-		}
-		const clamped = Math.min(
-			Math.max(scroller.scrollWidth - scroller.clientWidth, 0),
-			Math.max(target, 0),
-		);
-		if (reduceMotion) {
-			scroller.scrollLeft = clamped;
-			return;
-		}
-		const delta = clamped - scroller.scrollLeft;
-		scroller.scrollLeft = Math.abs(delta) < 0.5 ? clamped : scroller.scrollLeft + delta * 0.22;
-	}, [isPlaying, progress, reduceMotion, trackWidthPx]);
 
 	// A selection can come from the editor cards, the transport, or the ruler.
 	// Keep that scene visible, but leave the strip alone during playback: the
@@ -462,6 +432,7 @@ export function StudioTimeline() {
 							</motion.span>
 						)}
 					</AnimatePresence>
+					<LiveRegion message={sceneDeletedMessage(pendingDeletion?.sceneNumber)} />
 					<AnimatePresence initial={false}>
 						{pendingDeletion && (
 							<SceneDeletionUndo
@@ -527,9 +498,7 @@ export function StudioTimeline() {
 					</StudioTooltip>
 				</div>
 				<div className="studio-timeline-time">
-					<output className="studio-timeline-clock" aria-live="off">
-						{formatPlaybackClock(elapsedMs)}
-					</output>
+					<TimelineClock model={model} />
 					<span aria-hidden="true">/</span>
 					<span className="studio-timeline-total">
 						{formatPlaybackClock(model.actualDurationMs)}
@@ -684,21 +653,13 @@ export function StudioTimeline() {
 							</StudioTooltip>
 						</div>
 
-						<div
-							className="studio-timeline-playhead"
-							data-edge={bubbleEdgeAtProgress(progress)}
-							data-playing={isPlaying ? "" : undefined}
-							style={
-								{
-									"--timeline-progress-shift": `${(progress - 1) * 100}%`,
-								} as CSSProperties
-							}
-						>
-							<span className="studio-timeline-playhead-line" aria-hidden="true" />
-							<output className="studio-timeline-bubble" aria-live="off">
-								{formatPlaybackClock(elapsedMs)}
-							</output>
-						</div>
+						<TimelinePlayhead
+							model={model}
+							isPlaying={isPlaying}
+							reduceMotion={reduceMotion}
+							trackWidthPx={trackWidthPx}
+							scrollRef={scrollRef}
+						/>
 					</div>
 
 					<div className="studio-timeline-ruler">
@@ -712,24 +673,145 @@ export function StudioTimeline() {
 								{second > 0 ? `${second}s` : "0s"}
 							</span>
 						))}
-						<input
-							type="range"
-							min={0}
-							max={1000}
-							value={Math.round(progress * 1000)}
-							onChange={(event) => scrub(Number(event.target.value) / 1000)}
-							aria-label="Scrub timeline"
-							aria-valuetext={
-								steps.length === 0
-									? "No scenes"
-									: `${formatPlaybackClock(elapsedMs)}, scene ${indexAtProgress(model, progress) + 1} of ${steps.length}`
-							}
-							className="studio-timeline-scrubber"
-						/>
+						<TimelineScrubber model={model} sceneCount={steps.length} onScrub={scrub} />
 					</div>
 				</div>
 			</div>
 		</section>
+	);
+}
+
+/**
+ * Where the playhead stands on the ruler: on the clock while it runs or was
+ * scrubbed, otherwise at the selected scene.
+ */
+function rulerPosition(
+	state: ReturnType<typeof useSnippetStore.getState>,
+	model: StudioTimelineModel,
+) {
+	if (state.playback) {
+		return {
+			progress: playbackProgressOnRuler(model, state.playbackProgress),
+			elapsedMs: Math.min(Math.max(state.playbackElapsedMs, 0), model.actualDurationMs),
+		};
+	}
+	const progress = stepProgress(model, state.currentStepIndex);
+	return {
+		progress,
+		elapsedMs: Math.min(progress * model.displayDurationMs, model.actualDurationMs),
+	};
+}
+
+// The clock's readers below subscribe on their own, so a playback tick repaints
+// the playhead, the readout and the scrubber and never the rows of clips.
+
+function TimelineClock({ model }: { model: StudioTimelineModel }) {
+	const clock = useSnippetStore((state) =>
+		formatPlaybackClock(rulerPosition(state, model).elapsedMs),
+	);
+	return (
+		<output className="studio-timeline-clock" aria-live="off">
+			{clock}
+		</output>
+	);
+}
+
+function TimelinePlayhead({
+	model,
+	isPlaying,
+	reduceMotion,
+	trackWidthPx,
+	scrollRef,
+}: {
+	model: StudioTimelineModel;
+	isPlaying: boolean;
+	reduceMotion: boolean;
+	trackWidthPx: number;
+	scrollRef: RefObject<HTMLDivElement | null>;
+}) {
+	const { progress, elapsedMs } = useSnippetStore(
+		useShallow((state) => rulerPosition(state, model)),
+	);
+
+	useEffect(() => {
+		if (!isPlaying || !scrollRef.current) {
+			return;
+		}
+		const scroller = scrollRef.current;
+		const playheadX = progress * Math.max(scroller.scrollWidth, trackWidthPx);
+		const safeLeft = scroller.scrollLeft + scroller.clientWidth * 0.18;
+		const safeRight = scroller.scrollLeft + scroller.clientWidth * 0.82;
+		let target = scroller.scrollLeft;
+		if (playheadX < safeLeft) {
+			target = playheadX - scroller.clientWidth * 0.28;
+		} else if (playheadX > safeRight) {
+			target = playheadX - scroller.clientWidth * 0.7;
+		} else {
+			return;
+		}
+		const clamped = Math.min(
+			Math.max(scroller.scrollWidth - scroller.clientWidth, 0),
+			Math.max(target, 0),
+		);
+		if (reduceMotion) {
+			scroller.scrollLeft = clamped;
+			return;
+		}
+		const delta = clamped - scroller.scrollLeft;
+		scroller.scrollLeft = Math.abs(delta) < 0.5 ? clamped : scroller.scrollLeft + delta * 0.22;
+	}, [isPlaying, progress, reduceMotion, trackWidthPx, scrollRef]);
+
+	return (
+		<div
+			className="studio-timeline-playhead"
+			data-edge={bubbleEdgeAtProgress(progress)}
+			data-playing={isPlaying ? "" : undefined}
+			style={
+				{
+					"--timeline-progress-shift": `${(progress - 1) * 100}%`,
+				} as CSSProperties
+			}
+		>
+			<span className="studio-timeline-playhead-line" aria-hidden="true" />
+			<output className="studio-timeline-bubble" aria-live="off">
+				{formatPlaybackClock(elapsedMs)}
+			</output>
+		</div>
+	);
+}
+
+function TimelineScrubber({
+	model,
+	sceneCount,
+	onScrub,
+}: {
+	model: StudioTimelineModel;
+	sceneCount: number;
+	onScrub: (progress: number) => void;
+}) {
+	const { value, valueText } = useSnippetStore(
+		useShallow((state) => {
+			const { progress, elapsedMs } = rulerPosition(state, model);
+			return {
+				value: Math.round(progress * 1000),
+				valueText:
+					sceneCount === 0
+						? "No scenes"
+						: `${formatPlaybackClock(elapsedMs)}, scene ${indexAtProgress(model, progress) + 1} of ${sceneCount}`,
+			};
+		}),
+	);
+	return (
+		<input
+			type="range"
+			min={0}
+			max={1000}
+			value={value}
+			onChange={(event) => onScrub(Number(event.target.value) / 1000)}
+			aria-label="Scrub timeline"
+			aria-valuetext={valueText}
+			className="studio-timeline-scrubber"
+		/>
 	);
 }
 

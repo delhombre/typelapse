@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 /**
  * The soft centre glow both exporters lay over the background, under the card.
  *
@@ -6,7 +8,7 @@
  * the two are the same picture at two sizes. The painter's `paintGlow`
  * approximates it.
  */
-export function GlowDecoration({ scale = 1 }: { scale?: number }) {
+function GlowDecorationView({ scale = 1 }: { scale?: number }) {
 	return (
 		<div
 			style={{
@@ -30,3 +32,6 @@ export function GlowDecoration({ scale = 1 }: { scale?: number }) {
 		</div>
 	);
 }
+
+// Memoized: its props hold still while the preview repaints on every playback tick.
+export const GlowDecoration = memo(GlowDecorationView);

@@ -1,9 +1,12 @@
 import "@/app.css";
 import { AppRoutes } from "@/app-routes";
+import { installSelfHostedFonts } from "@/presentation/utils/self-hosted-fonts";
 import { MotionConfig } from "motion/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+
+installSelfHostedFonts();
 
 const root = document.getElementById("root");
 if (!root) {

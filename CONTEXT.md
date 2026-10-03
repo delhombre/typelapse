@@ -71,7 +71,12 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
   fade on each clipped edge (`clipFades`).
 - **Plan window**: the rows and columns a card can show at the readable floor
   on any shipped canvas, plus a margin (`VISIBLE_ROW_LIMIT`,
-  `VISIBLE_COL_LIMIT`). The magic-move plan lays out nothing past it.
+  `VISIBLE_COL_LIMIT`). The magic-move plan lays out nothing past it. On a file
+  longer than the window, each step's window starts a few rows above its focus
+  band, else above the first line it changes against its neighbour, else at
+  the top; a step that changes nothing keeps the window where it was
+  (`magic-move/window`). The three renderers scroll between windows on the
+  morph's easing; a file that fits the window never scrolls.
 
 Shared math lives in `src/application`. A visual feature lands in all three
 or it does not land.

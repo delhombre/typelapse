@@ -11,6 +11,8 @@
  * still painter can all read it, and every entry says where its file is.
  */
 
+import type { FontFaceSource } from "./font-face-css";
+
 export interface CodeFont {
 	/** The picker's own short label. */
 	label: string;
@@ -20,17 +22,89 @@ export interface CodeFont {
 	stack: string;
 	/** Google Fonts family token, when that is where the app fetches it from. */
 	google?: string;
-	/** A file this app ships itself. */
-	url?: string;
-	/** The weights to ask Google for, when not the code fonts' three. */
+	/** The files this app ships itself, under `public/fonts`. */
+	files?: readonly FontFile[];
+	/** The weights a scope holds, when not the code fonts' three. */
 	weights?: string;
 }
+
+/**
+ * One file the app serves for a family. A variable file with no `weight` of its
+ * own is registered once per weight of the family, as Google registered it; a
+ * `unicodeRange` makes the scope fetch the file only when a character needs it.
+ */
+export interface FontFile {
+	url: string;
+	weight?: string;
+	unicodeRange?: string;
+}
+
+/** The code fonts' three weights: 400 for code, 500 and 700 for what a theme marks bold. */
+const CODE_WEIGHTS = "400;500;700";
+
+// Google's own subset files, copied byte for byte (OFL, licences beside them),
+// so a face that used to come from fonts.gstatic.com draws the same glyphs.
+const JETBRAINS_MONO_FILES: readonly FontFile[] = [
+	{
+		url: "/fonts/JetBrainsMono-cyrillic-ext.woff2",
+		unicodeRange: "U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F",
+	},
+	{
+		url: "/fonts/JetBrainsMono-cyrillic.woff2",
+		unicodeRange: "U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116",
+	},
+	{
+		url: "/fonts/JetBrainsMono-greek.woff2",
+		unicodeRange: "U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF",
+	},
+	{
+		url: "/fonts/JetBrainsMono-vietnamese.woff2",
+		unicodeRange:
+			"U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB",
+	},
+	{
+		url: "/fonts/JetBrainsMono-latin-ext.woff2",
+		unicodeRange:
+			"U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+	},
+	{
+		url: "/fonts/JetBrainsMono-latin.woff2",
+		unicodeRange:
+			"U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+	},
+];
+
+const GEIST_FILES: readonly FontFile[] = [
+	{
+		url: "/fonts/Geist-cyrillic-ext.woff2",
+		unicodeRange: "U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F",
+	},
+	{
+		url: "/fonts/Geist-cyrillic.woff2",
+		unicodeRange: "U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116",
+	},
+	{
+		url: "/fonts/Geist-vietnamese.woff2",
+		unicodeRange:
+			"U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB",
+	},
+	{
+		url: "/fonts/Geist-latin-ext.woff2",
+		unicodeRange:
+			"U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+	},
+	{
+		url: "/fonts/Geist-latin.woff2",
+		unicodeRange:
+			"U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+	},
+];
 
 const JETBRAINS: CodeFont = {
 	label: "JetBrains",
 	family: "JetBrains Mono",
 	stack: "JetBrains Mono, monospace",
-	google: "JetBrains+Mono",
+	files: JETBRAINS_MONO_FILES,
 };
 
 /** The families the picker offers, in the order it offers them. */
@@ -69,15 +143,18 @@ export const LOADABLE_FONTS: readonly CodeFont[] = [
 		label: "Ioskeley",
 		family: "Ioskeley Mono",
 		stack: "Ioskeley Mono, monospace",
-		url: "/fonts/IoskeleyMono-Regular.woff2",
+		files: [
+			{ url: "/fonts/IoskeleyMono-Regular.woff2", weight: "400" },
+			{ url: "/fonts/IoskeleyMono-SemiBold.woff2", weight: "600" },
+		],
 	},
 	{
 		label: "Geist",
 		family: "Geist",
 		stack: "Geist, ui-sans-serif, system-ui, sans-serif",
-		google: "Geist",
-		// The weights index.html asks for, so a text layer's weight resolves to the
-		// same face in the worker as in the document.
+		files: GEIST_FILES,
+		// The weights the UI is set in, so a text layer's weight resolves to the
+		// same face in the worker and the server as in the document.
 		weights: "400;500;600;700",
 	},
 ];
@@ -119,12 +196,29 @@ export function fontsToLoad(...stacks: string[]): CodeFont[] {
 }
 
 /**
+ * The faces a self-hosted family registers, in the one shape the document, the
+ * render worker and the server composition all read. Empty for a Google family.
+ */
+export function selfHostedFaces(font: CodeFont): FontFaceSource[] {
+	const weights = (font.weights ?? CODE_WEIGHTS).split(";");
+	return (font.files ?? []).flatMap((file) =>
+		(file.weight ? [file.weight] : weights).map((weight) => ({
+			family: font.family,
+			url: file.url,
+			weight,
+			style: "normal",
+			unicodeRange: file.unicodeRange,
+		})),
+	);
+}
+
+/**
  * The stylesheet URL for a Google family.
  *
  * The same three weights the settings panel injects and the Remotion
  * composition fetches, so all three surfaces get the same file: 400 for code,
  * 500 and 700 for whatever a theme marks bold.
  */
-export function googleFontCssUrl(google: string, weights = "400;500;700"): string {
+export function googleFontCssUrl(google: string, weights = CODE_WEIGHTS): string {
 	return `https://fonts.googleapis.com/css2?family=${google}:wght@${weights}&display=swap`;
 }

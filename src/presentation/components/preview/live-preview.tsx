@@ -27,6 +27,7 @@ import type { CubicBezier } from "@/application/magic-move/easing";
 import { renderStatic } from "@/application/magic-move/engine";
 import { NO_ZOOM, type ZoomTransform, zoomForFocus } from "@/application/magic-move/focus-zoom";
 import { typingHoldIndex } from "@/application/magic-move/typewriter";
+import { frameFirstRow, scrollRows } from "@/application/magic-move/window";
 import { studioCompositionTimeMs } from "@/application/project/studio-composition";
 import {
 	primaryCodeOpacity as compiledCodeOpacity,
@@ -62,6 +63,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { ClipFades } from "./clip-fades";
 import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GlowDecoration } from "./glow-decoration";
@@ -198,7 +200,27 @@ export function LivePreview() {
 		framePadding,
 		cardMargin,
 		watermark,
-	} = useSnippetStore();
+		// Only what the preview reads: the clock fields repaint it every frame, and
+		// nothing else in the store should.
+	} = useSnippetStore(
+		useShallow((s) => ({
+			snippet: s.snippet,
+			plan: s.plan,
+			isBuilding: s.isBuilding,
+			currentStepIndex: s.currentStepIndex,
+			isPlaying: s.isPlaying,
+			playback: s.playback,
+			playbackProgress: s.playbackProgress,
+			playbackElapsedMs: s.playbackElapsedMs,
+			background: s.background,
+			windowChrome: s.windowChrome,
+			showLineNumbers: s.showLineNumbers,
+			lineNumberStart: s.lineNumberStart,
+			framePadding: s.framePadding,
+			cardMargin: s.cardMargin,
+			watermark: s.watermark,
+		})),
+	);
 
 	const progressStyle = useExportStore((s) => s.progressStyle);
 	const typewriter = useExportStore((s) => s.typewriter);
@@ -544,6 +566,7 @@ export function LivePreview() {
 							lineNumberColor={`${snippet.theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
 							padding={framePadding}
 							cursor={view.cursor}
+							firstRow={view.firstRow}
 						/>
 					</div>
 				</FrameShell>
@@ -629,6 +652,7 @@ export function LivePreview() {
 								<StudioCompositionLayers
 									document={compositionDocument}
 									frame={compositionFrame}
+									fps={exportFps}
 									slot="under-code"
 									playing={isPlaying}
 									selectedBlockId={composition.selectedBlockId}
@@ -668,6 +692,7 @@ export function LivePreview() {
 								<StudioCompositionLayers
 									document={compositionDocument}
 									frame={compositionFrame}
+									fps={exportFps}
 									slot="over-code"
 									playing={isPlaying}
 									selectedBlockId={composition.selectedBlockId}
@@ -784,6 +809,8 @@ function FrameShell({
 
 interface FrameView {
 	tokens: ReturnType<typeof renderStatic>;
+	/** The code row at the window's top; 0 unless a long file's window moved. */
+	firstRow: number;
 	lineCount: number;
 	lineNumberCount: number;
 	cursor?: { line: number; col: number } | null;
@@ -791,7 +818,13 @@ interface FrameView {
 	zoom: ZoomTransform;
 }
 
-const EMPTY_VIEW: FrameView = { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
+const EMPTY_VIEW: FrameView = {
+	tokens: [],
+	firstRow: 0,
+	lineCount: 1,
+	lineNumberCount: 1,
+	zoom: NO_ZOOM,
+};
 
 /**
  * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
@@ -831,17 +864,21 @@ function resolveView(
 }
 
 function staticView(
-	frame: { tokens: Parameters<typeof renderStatic>[0]; lineCount: number } | undefined,
+	frame:
+		| { tokens: Parameters<typeof renderStatic>[0]; lineCount: number; firstRow?: number }
+		| undefined,
 	focus?: Set<number>,
 ): FrameView {
 	if (!frame) {
 		return EMPTY_VIEW;
 	}
+	const firstRow = frameFirstRow(frame);
 	return {
-		tokens: renderStatic(frame.tokens, focus),
+		tokens: scrollRows(renderStatic(frame.tokens, focus), firstRow),
+		firstRow,
 		lineCount: frame.lineCount,
 		lineNumberCount: frame.lineCount,
-		zoom: zoomForFocus(focus, frame.lineCount),
+		zoom: zoomForFocus(focus, frame.lineCount, firstRow),
 	};
 }
 

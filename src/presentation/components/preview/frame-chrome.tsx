@@ -7,6 +7,7 @@
  * `scale` so the 2.2× video reads identically to the 1× preview.
  */
 
+import { memo } from "react";
 // Relative, not aliased: the Remotion composition imports this component and is
 // type-checked by `server/tsconfig.json`, which has no `@/` path mapping. Every
 // other component the video shares does the same.
@@ -47,7 +48,7 @@ interface FrameChromeProps {
 	scale?: number;
 }
 
-export function FrameChrome({ chrome, title, foreground, scale = 1 }: FrameChromeProps) {
+function FrameChromeView({ chrome, title, foreground, scale = 1 }: FrameChromeProps) {
 	if (chrome === "none") {
 		return null;
 	}
@@ -206,3 +207,6 @@ function TerminalChrome({ title, foreground, scale }: BarProps) {
 function Dot({ size, color }: { size: number; color: string }) {
 	return <div style={{ width: size, height: size, borderRadius: "50%", background: color }} />;
 }
+
+// Memoized: its props hold still while the preview repaints on every playback tick.
+export const FrameChrome = memo(FrameChromeView);
