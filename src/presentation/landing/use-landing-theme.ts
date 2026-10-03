@@ -5,6 +5,10 @@ export type LandingTheme = "light" | "dark";
 
 const STORAGE_KEY = "typelapse.landing-theme";
 
+/** The paper each theme paints the page with, which is what sits under the
+    browser chrome at the top of the page. The same two values as app.css. */
+const CHROME_COLOR: Record<LandingTheme, string> = { light: "#faf9f6", dark: "#121110" };
+
 /**
  * A theme flip remaps every colour token at once, so without help it is a hard
  * cut: the whole page — paper, ink, hairlines, the mesh behind the cards —
@@ -56,6 +60,25 @@ export function useLandingTheme(): [LandingTheme, () => void] {
 
 		return () => {
 			document.documentElement.removeAttribute("data-landing-theme");
+		};
+	}, [theme]);
+
+	// The status bar and the URL bar take `theme-color`, and index.html can only
+	// answer the OS preference, so a visitor who picked dark on a light phone got
+	// a cream bar over a near-black page. Every tag takes the chosen paper while
+	// the landing is mounted, and gets its own value back when it leaves, so the
+	// studio is answered by the OS again.
+	useEffect(() => {
+		const tags = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+		const original = tags.map((tag) => tag.content);
+		for (const tag of tags) {
+			tag.content = CHROME_COLOR[theme];
+		}
+
+		return () => {
+			tags.forEach((tag, i) => {
+				tag.content = original[i] ?? tag.content;
+			});
 		};
 	}, [theme]);
 

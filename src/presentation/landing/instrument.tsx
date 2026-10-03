@@ -20,6 +20,7 @@ import { useResizeObserver } from "@/presentation/hooks/use-resize-observer";
 import { springs } from "@/presentation/motion";
 import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform } from "motion/react";
 import {
+	type CSSProperties,
 	type MouseEvent as ReactMouseEvent,
 	type ReactNode,
 	useCallback,
@@ -393,11 +394,17 @@ export function Instrument({
 	const bodyHeight = 5 * WINDOW_FONT * LINE_HEIGHT_RATIO;
 
 	return (
-		<section className="mx-auto w-full max-w-5xl px-6">
+		<section className="@container mx-auto w-full max-w-5xl px-6">
 			{/* The stage: a box the frame is centred in, sized by CSS so it gives back
 			    height on a short viewport instead of pushing the dock past the fold.
-			    Its height is also what keeps the dock still while the ratio cycles. */}
-			<div ref={setStage} className="lp-stage flex w-full items-center justify-center">
+			    Its height is also what keeps the dock still while the ratio cycles.
+			    The ratio is handed to CSS so the stage can also stop at the height its
+			    width allows, which on a phone is far less than the viewport offers. */}
+			<div
+				ref={setStage}
+				className="lp-stage flex w-full items-center justify-center"
+				style={{ "--stage-ratio": STAGE.h / STAGE.w } as CSSProperties}
+			>
 				<motion.div
 					role="img"
 					aria-label="Live preview: a code snippet morphing token by token on a mesh gradient background"

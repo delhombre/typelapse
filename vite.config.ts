@@ -2,12 +2,13 @@ import { resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { absoluteOgImage } from "./vite-plugin-absolute-og";
 import { lapse } from "./vite-plugin-lapse";
 
 export default defineConfig({
 	// `lapse` is a no-op unless @aiforui/lapse is installed locally, and it never
 	// applies to a build. See vite-plugin-lapse.ts.
-	plugins: [react(), tailwindcss(), lapse()],
+	plugins: [react(), tailwindcss(), lapse(), absoluteOgImage()],
 	resolve: {
 		alias: {
 			"@": resolve(__dirname, "./src"),

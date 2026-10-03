@@ -124,13 +124,16 @@ export function Hero() {
 		}
 	}
 
+	/* Below `sm` the column reaches the corner the fixed theme switch floats in,
+	   and its 44px target ends 60px down, so the lead starts at 64 rather than
+	   under the switch's hit area. */
 	return (
-		<section className="lp-hero flex min-h-[100svh] flex-col justify-center py-8">
+		<section className="lp-hero flex min-h-[100svh] flex-col justify-center pt-16 pb-8 sm:pt-8">
 			<RevealGroup immediate className="mx-auto w-full max-w-[680px] px-6">
 				<RevealItem>
 					<h1 className="lp-hero-lead">
-						<strong>Typelapse.</strong> Turn a code change into a video. Paste a pull request, a
-						diff or a snippet. It morphs token by token and renders for the feed.
+						<strong>Typelapse.</strong> Code videos as sharp as their preview, made in your browser
+						from a pull request. Text, images, video and audio share the same scenes.
 					</h1>
 				</RevealItem>
 				<RevealItem>

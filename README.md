@@ -4,10 +4,13 @@
 
 # Typelapse
 
-A scene-first multimedia motion studio for text, code, images, video and audio.
-Use every medium on its own or compose them into launch videos, walkthroughs,
-social clips and code stories. Diffs and pull requests are structured inputs,
-not the product boundary.
+Code videos as sharp as their preview, made in your browser from a pull
+request, a diff or a snippet. The WebM export keeps every colour sample on
+every glyph (AV1 4:4:4), measured against H.264 4:2:0 on the same frame in
+[`docs/sharpness`](docs/sharpness/sharpness.json). On-device, it needs no
+account and uploads nothing. Underneath is a scene-first multimedia motion
+studio: text, code, images, video and audio share the same scenes, on their own
+or composed into launch videos, walkthroughs and social clips.
 
 Typelapse has two honest deployment profiles:
 
@@ -32,6 +35,32 @@ pnpm dev:server   # local render API at http://localhost:3001
 Open `/app`. The default profile keeps the project and imported media on this
 device. Exporting a `.typelapse.json` file preserves the editable document, but
 does not pretend to embed original media bytes.
+
+## Render from the command line
+
+```bash
+pnpm typelapse render https://github.com/octocat/Hello-World/pull/1
+pnpm typelapse render change.diff --format gif --out change.gif
+pnpm typelapse render docs/demo.project.json --size 1280x720 --fps 30 --json
+git diff | pnpm typelapse render - --open
+```
+
+The source is a pull request URL, a commit URL, a unified diff file (`-` reads
+stdin) or a project exported from the studio. The CLI drives the same render
+route and the same defaults as the studio's export, on this machine and with no
+account: MP4 at 1920x1080 and 60 fps unless the project or a flag says
+otherwise. Flags: `--format mp4|webm|gif`, `--size WxH` (even edges),
+`--fps 24|30|60`, `--theme <name>`, `--out <path>`, `--loop`/`--no-loop`
+(a GIF loops by default), `--open` (also print a studio link that opens the same
+project; set the studio with `--studio-url` or `TYPELAPSE_STUDIO_URL`) and
+`--json` (one line: `path`, `bytes`, `width`, `height`, `fps`, `durationMs`,
+`codec`, read back from the file). `GITHUB_TOKEN` reads private repositories
+and lifts GitHub's rate limit.
+
+stdout carries only the result; progress goes to stderr. Exit codes: `0` the
+file was written, `2` bad arguments or a bad file, `3` GitHub could not serve
+the source (private, missing, rate-limited, offline), `4` the render failed.
+Every error is one sentence.
 
 ## What is implemented
 

@@ -4,31 +4,33 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="theme-color" content="#FAF9F6" />
-		<title>Typelapse: beautiful code animations</title>
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" />
+		<title>Typelapse: sharp code videos from a pull request</title>
 		<meta
 			name="description"
-			content="Typelapse turns code changes into polished, token-level videos for every feed. Import a pull request, refine the motion, and export exactly what you preview."
+			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."
 		/>
 		<!-- OpenGraph -->
-		<meta property="og:title" content="Typelapse: your code, in motion" />
+		<meta property="og:title" content="Typelapse: code videos as sharp as their preview" />
 		<meta
 			property="og:description"
-			content="Turn a pull request, diff or snippet into a polished code video. Refine the motion and export exactly what you preview."
+			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."
 		/>
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="Typelapse" />
-		<!-- Rendered by Typelapse itself (1200×630 frame of the self-demo). Make absolute at deploy. -->
+		<!-- Rendered by Typelapse itself (1200×630 frame of the self-demo). Root-relative here;
+		     vite-plugin-absolute-og.ts puts it on TYPELAPSE_APP_URL at build time. -->
 		<meta property="og:image" content="/og.png" />
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
 		<!-- Twitter -->
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:image" content="/og.png" />
-		<meta name="twitter:title" content="Typelapse: your code, in motion" />
+		<meta name="twitter:title" content="Typelapse: code videos as sharp as their preview" />
 		<meta
 			name="twitter:description"
-			content="Turn a pull request, diff or snippet into a polished code video. Refine the motion and export exactly what you preview."
+			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."
 		/>
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

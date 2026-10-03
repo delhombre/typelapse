@@ -1,7 +1,7 @@
 import { TRANSITION_MS } from "@/application/magic-move/timeline";
 import { Theme } from "@/domain/entities/theme";
 import { LoopingFrames } from "@/presentation/components/preview/looping-frames";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FeatureSection } from "./feature-section";
 
 /* The signature feature, performed rather than described.
@@ -32,6 +32,37 @@ const HOLDS = [900, 1050, 1800];
 const PLAYBACK_MS =
 	HOLDS.reduce((total, hold) => total + hold, 0) + (STEPS.length - 1) * TRANSITION_MS;
 
+/** The size the code is designed at, and the most it is ever drawn at. */
+const MORPH_FONT = 15;
+
+/**
+ * The font size at which the code fills the frame's content box and no more.
+ *
+ * The frame used to hold 15px and scroll the rest: at 375px that cut 188px off
+ * the right, which is where the lines that morph in end, and the scroller
+ * became a tab stop with nothing to do in it. The code's width is stated in
+ * `ch`, so it is proportional to its font size, and one measurement at any size
+ * gives the width per pixel of font. Quarter pixels, rounded down: a size rounded
+ * up is a size that overflows by a sliver.
+ */
+export function fitMorphFontSize({
+	available,
+	naturalWidth,
+	naturalSize,
+	max,
+}: {
+	available: number;
+	naturalWidth: number;
+	naturalSize: number;
+	max: number;
+}): number {
+	if (available <= 0 || naturalWidth <= 0 || naturalSize <= 0) {
+		return max;
+	}
+	const widthPerPx = naturalWidth / naturalSize;
+	return Math.min(max, Math.floor((available / widthPerPx) * 4) / 4);
+}
+
 /** Feature a: the signature magic-move, shown running. */
 export function MagicMoveSection() {
 	return (
@@ -47,6 +78,50 @@ export function MagicMoveSection() {
 
 function LiveMorph() {
 	const [playing, setPlaying] = useState(false);
+	const frame = useRef<HTMLDivElement>(null);
+	const [fontSize, setFontSize] = useState(MORPH_FONT);
+
+	/* Sized the way the Instrument's window already is on a phone: the whole
+	   demo scales to its frame rather than showing part of it. Measured before
+	   paint so the first frame is already the fitted one, again whenever the
+	   room changes, and once the mono has loaded, since `ch` changes with it.
+	   The room is the column the demo sits in, not the frame: the frame hugs
+	   its code, so measured on itself a shrunk font shrank the frame, and a
+	   phone turned to landscape kept the small size it had no reason to keep. */
+	useLayoutEffect(() => {
+		const node = frame.current;
+		const column = node?.parentElement?.parentElement;
+		if (!node || !column) {
+			return;
+		}
+		let alive = true;
+		const horizontalPadding = (el: Element) => {
+			const style = getComputedStyle(el);
+			return Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
+		};
+		const fit = () => {
+			const code = node.firstElementChild as HTMLElement | null;
+			if (!alive || !code) {
+				return;
+			}
+			setFontSize(
+				fitMorphFontSize({
+					available: column.clientWidth - horizontalPadding(column) - horizontalPadding(node),
+					naturalWidth: code.offsetWidth,
+					naturalSize: Number.parseFloat(getComputedStyle(code).fontSize),
+					max: MORPH_FONT,
+				}),
+			);
+		};
+		fit();
+		const observer = new ResizeObserver(fit);
+		observer.observe(column);
+		document.fonts?.ready.then(fit);
+		return () => {
+			alive = false;
+			observer.disconnect();
+		};
+	}, []);
 
 	useEffect(() => {
 		if (!playing) {
@@ -63,12 +138,12 @@ function LiveMorph() {
 
 	return (
 		<div className="lp-morph-demo">
-			<div className="lp-morph-frame">
+			<div ref={frame} className="lp-morph-frame">
 				<LoopingFrames
 					frames={STEPS}
 					holds={HOLDS}
 					theme={Theme.oneDark()}
-					fontSize={15}
+					fontSize={fontSize}
 					lineNumbers
 					loop={false}
 					playing={playing}

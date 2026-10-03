@@ -1,0 +1,42 @@
+{
+	"project": "sharpness.project.json",
+	"fps": 60,
+	"frame": 45,
+	"crop": {
+		"x": 718,
+		"y": 582,
+		"width": 288,
+		"height": 48
+	},
+	"measuredIn": "RGB, against the painter's lossless frame, on the cropped glyph line",
+	"browser": "Chromium 151",
+	"platform": "macOS",
+	"files": [
+		{
+			"label": "AV1 4:4:4",
+			"format": "webm",
+			"codecName": "av1",
+			"profile": "High",
+			"pixFmt": "yuv444p",
+			"width": 1920,
+			"height": 1080,
+			"bytes": 557391,
+			"frames": 96,
+			"psnr": 42.81,
+			"crop": "av1-444.png"
+		},
+		{
+			"label": "H.264 4:2:0",
+			"format": "mp4",
+			"codecName": "h264",
+			"profile": "High",
+			"pixFmt": "yuv420p",
+			"width": 1920,
+			"height": 1080,
+			"bytes": 1458339,
+			"frames": 96,
+			"psnr": 32.18,
+			"crop": "h264-420.png"
+		}
+	]
+}

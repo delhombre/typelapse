@@ -95,25 +95,17 @@ html.dark:not([data-landing-theme]) {
 /* The document keeps its platform-native scrollbar. Only compact, contained
    work surfaces get the quieter 8px treatment; changing every scrollbar made
    the marketing page itself feel like an embedded panel. */
-:where(.sc-card-steps-body, .studio-root .si-sheet, .landing-root .lp-morph-frame) {
+:where(.sc-card-steps-body, .studio-root .si-sheet) {
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in oklch, currentColor 18%, transparent) transparent;
 }
 
-:where(
-		.sc-card-steps-body,
-		.studio-root .si-sheet,
-		.landing-root .lp-morph-frame
-	)::-webkit-scrollbar {
+:where(.sc-card-steps-body, .studio-root .si-sheet)::-webkit-scrollbar {
 	width: 8px;
 	height: 8px;
 }
 
-:where(
-		.sc-card-steps-body,
-		.studio-root .si-sheet,
-		.landing-root .lp-morph-frame
-	)::-webkit-scrollbar-thumb {
+:where(.sc-card-steps-body, .studio-root .si-sheet)::-webkit-scrollbar-thumb {
 	border-radius: 4px;
 	background: color-mix(in oklch, currentColor 18%, transparent);
 }
@@ -509,6 +501,51 @@ html.dark:not([data-landing-theme]) {
 	pointer-events: none;
 }
 
+/* Focus takes the ring's own layer and pixel, in the accent every other focus
+   ring on the page uses, two pixels wide so it reads as a state and not as a
+   darker hairline. Where the pastilles come down onto the field they cover it,
+   as they cover the hairline: the block and the field are one object, and the
+   ring traces the part of it you type into. The block caret was the only sign
+   of focus before, and it stands down the moment there is text. */
+.landing-root .lp-field:has(textarea:focus-visible)::before {
+	box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+/* iOS zooms the page into any field under 16px and does not zoom back out, so a
+   tap on the hero left the visitor on a cropped, drifted page. A finger gets
+   the 16px; the caret, sized in em, follows. */
+@media (pointer: coarse) {
+	.landing-root .lp-field {
+		font-size: 16px;
+	}
+
+	/* The two other targets in the field's block are short of a thumb. A
+	   pastille is 35px tall and the lead sits 22px above it with nothing in
+	   between, so it reaches 9px up into that margin and no further. */
+	.landing-root .lp-mode {
+		position: relative;
+	}
+
+	.landing-root .lp-mode::after {
+		content: "";
+		position: absolute;
+		inset: -9px 0 0;
+	}
+
+	/* The button is 40px in a 52px field; the 6px above, below and to its right
+	   are field that answered to nobody but the textarea's focus. Its left stays
+	   where it is, against the text you are typing. */
+	.landing-root .lp-field-cta {
+		position: relative;
+	}
+
+	.landing-root .lp-field-cta::after {
+		content: "";
+		position: absolute;
+		inset: -6px -6px -6px 0;
+	}
+}
+
 /* Sized to its content so the caret can stand at the end of the text instead of
    at the end of the box. It still shrinks when the text outgrows the room, and
    the caret then sits where the text visibly ends, which is the same place. */
@@ -854,8 +891,15 @@ html.dark:not([data-landing-theme]) {
 	--helper-lane: 34px;
 }
 
+/* And no taller than its width can use. The frame is fitted to the stage on
+   both axes, so past `width × ratio` the height only adds empty paper: at 375 the
+   viewport rule gave 352px to a 184px frame, a 130px band above and below the
+   Instrument. `cqi` is the Instrument section's content box, the stage's width. */
 .landing-root .lp-stage {
-	height: clamp(232px, calc(100svh - var(--hero-chrome)), var(--stage-max));
+	height: min(
+		clamp(232px, calc(100svh - var(--hero-chrome)), var(--stage-max)),
+		calc(100cqi * var(--stage-ratio) + var(--helper-lane))
+	);
 	/* The frame is centred in what is left above the lane, so the strip the
 	   helper opens into is always empty whatever the ratio. The observer that
 	   scales the frame reads the content box, so it respects this for free. */
@@ -1140,6 +1184,48 @@ html.dark:not([data-landing-theme]) {
 
 .landing-root .lp-island-cta:active {
 	transform: scale(0.98);
+}
+
+/* A finger, not a cursor. The 35px pitch above is a mouse's target; a thumb
+   needs 44 in both axes, so on a coarse pointer every control grows to 36 and
+   the gap to 8, and the half-gap extents above reach exactly 44 wide while the
+   island's 6px of padding above and below make them 48 tall. The panels hold
+   eight controls, 364px of island at full size, so below that width the gap
+   gives first and then the controls, down to the mouse's own sizes at 320:
+   a smaller target beats a page that scrolls sideways. */
+@media (pointer: coarse) {
+	.landing-root .lp-island {
+		height: 48px;
+	}
+
+	.landing-root .lp-island-row {
+		--island-gap: clamp(4px, calc((100vw - 364px) / 7 + 8px), 8px);
+		--island-control: clamp(30px, calc((100vw - 56px) / 8), 36px);
+	}
+
+	.landing-root .lp-island-button,
+	.landing-root .lp-island-button-tight {
+		min-width: var(--island-control);
+		height: var(--island-control);
+	}
+
+	.landing-root .lp-island-cta {
+		height: var(--island-control);
+	}
+
+	.landing-root .lp-island-button::after {
+		inset-block: -6px;
+	}
+
+	/* The CTA's 3px margin sits on top of the gap, so it takes that much more
+	   of the seam than the control before it does. */
+	.landing-root .lp-island-row > .lp-island-cta::after {
+		inset: -6px -6px -6px calc(var(--island-gap) / -2 - 3px);
+	}
+
+	.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
+		inset-inline-end: calc(var(--island-gap) / -2);
+	}
 }
 
 /* The island's helper.
@@ -1547,21 +1633,18 @@ html.dark:not([data-landing-theme]) {
    here would make the page look like two screenshots of the same app rather
    than one object and one detail of it. */
 /* The code inside states its own width in `ch`, and the longest line of the demo
-   is 50 characters wide: about 460px at this size, in a column that is 342px at
-   390. Centred, the overflow split itself evenly and ate a character off BOTH
-   ends, and being wider than the viewport it dragged the whole document
-   sideways.
-
-   `safe center` is the whole fix for the first half: centred while it fits, and
-   the moment it does not, alignment falls back to the start so nothing is put
-   out of reach. Shrinking to fit was the alternative and it is not one: 50
-   characters inside 286px of content box is a 9px font, which is not a demo of
-   anything. It keeps its size and scrolls. */
+   is 50 characters wide: about 460px at 15px, in a column that is 327px at 375.
+   It once kept that size and scrolled, which hid the right-hand 188px at 375,
+   where the lines that morph in end, and made the frame a tab stop with nothing
+   to do in it. LiveMorph now sizes the font to the content box, the way the
+   Instrument's window scales on a phone, so nothing overflows: `hidden` rather
+   than `auto` keeps it from ever being a scroller, and `safe center` stays as
+   the guard for the frame before the font is measured. */
 .landing-root .lp-morph-frame {
 	display: flex;
 	justify-content: safe center;
 	max-width: 100%;
-	overflow-x: auto;
+	overflow: hidden;
 	padding: 30px 28px;
 	border-radius: 16px;
 	background: #1f2229;
@@ -1574,6 +1657,14 @@ html.dark:not([data-landing-theme]) {
    the cut into a scroll. */
 .landing-root .lp-morph-frame > * {
 	flex: none;
+}
+
+/* On a phone the padding is the code's room: 10px less on each side is a
+   half-pixel more of font. */
+@media (max-width: 479px) {
+	.landing-root .lp-morph-frame {
+		padding: 22px 18px;
+	}
 }
 
 .landing-root .lp-morph-demo {

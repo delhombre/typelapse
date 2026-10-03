@@ -6,6 +6,7 @@ import { Hero } from "./hero";
 import { MagicMoveSection } from "./magic-move-section";
 import { Nav } from "./nav";
 import { InkButton, LandingIntroProvider, LogoLockup, Reveal } from "./primitives";
+import { SharpnessSection } from "./sharpness-section";
 import { SocialSection } from "./social-section";
 import { ThemeToggle } from "./theme-toggle";
 import { CONTAINER, HAIRLINE, SECTION_PY } from "./tokens";
@@ -42,6 +43,10 @@ export function LandingPage() {
 					<MagicMoveSection />
 					<SocialSection />
 					<ExportSection />
+					{/* The proof under the step that makes the file: the same frame out of
+					    two of its formats, measured, so "preview matches export" is a
+					    number on the page rather than a promise in the hero. */}
+					<SharpnessSection />
 					<CapabilityLedger />
 					<Cta />
 				</main>
