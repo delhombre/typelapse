@@ -20,7 +20,7 @@ const DEFAULT_TEXT_PLACEMENT: BlockPlacement = { x: 0.12, y: 0.2, width: 0.76, h
 const DEFAULT_CODE_PLACEMENT: BlockPlacement = { x: 0.12, y: 0.18, width: 0.76, height: 0.64 };
 const DEFAULT_MEDIA_PLACEMENT: BlockPlacement = { x: 0, y: 0, width: 1, height: 1 };
 const MIN_LAYER_SIZE = 0.05;
-const MIN_VIDEO_TRIM_MS = 100;
+export const MIN_VIDEO_TRIM_MS = 100;
 const MIN_VIDEO_PLAYBACK_RATE = 0.25;
 const MAX_VIDEO_PLAYBACK_RATE = 4;
 

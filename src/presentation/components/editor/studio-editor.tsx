@@ -5,6 +5,7 @@ import {
 } from "@/application/project/audio-cue-authoring";
 import {
 	type LayerOrderAction,
+	MIN_VIDEO_TRIM_MS,
 	type UpdateLayerPlacementPatch,
 	reorderLayer,
 	updateLayerPlacement,
@@ -18,6 +19,7 @@ import {
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
+import { studioMediaRegistry } from "@/presentation/studio-media-runtime";
 import { type ChangeEvent, useEffect, useState } from "react";
 import { ArrowDown, ArrowDownSquare, ArrowUp, ArrowUpSquare, Trash } from "reicon-react";
 import { CodeEditor } from "./code-editor";
@@ -54,6 +56,7 @@ export function StudioEditor() {
 				fileName={audioSelection.asset.metadata.fileName}
 				cue={audioSelection.cue}
 				sourceDurationMs={audioSelection.asset.metadata.durationMs}
+				sourceAvailable={studioMediaRegistry.resolve(audioSelection.asset.id) !== null}
 				onPatch={(patch) =>
 					composition.transact((project) => updateAudioCue(project, selectedAudioCueId, patch))
 				}
@@ -102,6 +105,8 @@ export function StudioEditor() {
 		<MediaLayerEditor
 			block={block}
 			fileName={asset?.metadata.fileName ?? "Media"}
+			sourceDurationMs={asset?.metadata.kind === "video" ? asset.metadata.durationMs : null}
+			sceneDurationMs={scene.durationMs}
 			onPatch={(patch) =>
 				composition.transact((project) => updateMediaLayer(project, scene.id, block.id, patch))
 			}
@@ -127,6 +132,66 @@ function finiteNumber(event: ChangeEvent<HTMLInputElement>, apply: (value: numbe
 	if (Number.isFinite(value)) {
 		apply(value);
 	}
+}
+
+function formatSeconds(ms: number): string {
+	return (ms / 1000).toFixed(1);
+}
+
+/**
+ * Seconds in the field, integer milliseconds in the model. An empty or
+ * out-of-range entry is ignored here: the cue and block invariants throw on it,
+ * and a throw inside a change handler would only leave a console error.
+ */
+function SecondsField({
+	label,
+	valueMs,
+	minMs,
+	maxMs,
+	onCommit,
+}: {
+	label: string;
+	valueMs: number;
+	minMs: number;
+	maxMs: number;
+	onCommit: (valueMs: number) => void;
+}) {
+	const safeMaxMs = Math.max(minMs, maxMs);
+	return (
+		<label className="sc-layer-field">
+			<span>{label}</span>
+			<input
+				type="number"
+				min={minMs / 1000}
+				max={safeMaxMs / 1000}
+				step={0.1}
+				value={valueMs / 1000}
+				onChange={(event) => {
+					const nextMs = Math.round(event.currentTarget.valueAsNumber * 1000);
+					if (!Number.isSafeInteger(nextMs) || nextMs < minMs || nextMs > safeMaxMs) {
+						return;
+					}
+					onCommit(nextMs);
+				}}
+			/>
+		</label>
+	);
+}
+
+/**
+ * A clip and its scene rarely share a length. Say what the preview and the
+ * export will do with the difference instead of letting a held last frame or
+ * a cut-off clip pass for normal playback.
+ */
+function videoTimingNote(block: VideoBlock, sceneDurationMs: number): string {
+	const playedMs = Math.round((block.trim.endMs - block.trim.startMs) / block.playbackRate);
+	if (playedMs + 50 < sceneDurationMs) {
+		return `Holds its last frame for the final ${formatSeconds(sceneDurationMs - playedMs)} s of the scene`;
+	}
+	if (playedMs > sceneDurationMs + 50) {
+		return `The scene ends first: the last ${formatSeconds(playedMs - sceneDurationMs)} s are not shown`;
+	}
+	return "Fills the scene";
 }
 
 function EditorHeader({
@@ -252,6 +317,8 @@ function TextLayerEditor({
 function MediaLayerEditor({
 	block,
 	fileName,
+	sourceDurationMs,
+	sceneDurationMs,
 	onPatch,
 	onDelete,
 	onPlacement,
@@ -261,6 +328,8 @@ function MediaLayerEditor({
 }: {
 	block: ImageBlock | VideoBlock;
 	fileName: string;
+	sourceDurationMs: number | null;
+	sceneDurationMs: number;
 	onPatch: (patch: Parameters<typeof updateMediaLayer>[3]) => void;
 	onDelete: () => void;
 	onPlacement: (patch: UpdateLayerPlacementPatch) => void;
@@ -346,6 +415,31 @@ function MediaLayerEditor({
 						/>
 					</label>
 				</div>
+			) : null}
+			{block.kind === "video" ? (
+				<>
+					<div className="sc-layer-grid">
+						<SecondsField
+							label="Source in"
+							valueMs={block.trim.startMs}
+							minMs={0}
+							maxMs={block.trim.endMs - MIN_VIDEO_TRIM_MS}
+							onCommit={(trimStartMs) => onPatch({ trimStartMs })}
+						/>
+						<SecondsField
+							label="Source out"
+							valueMs={block.trim.endMs}
+							minMs={block.trim.startMs + MIN_VIDEO_TRIM_MS}
+							maxMs={sourceDurationMs ?? block.trim.endMs}
+							onCommit={(trimEndMs) => onPatch({ trimEndMs })}
+						/>
+					</div>
+					<div className="sc-layer-audio-summary" data-testid="video-timing">
+						<span aria-hidden="true" />
+						<strong>{formatSeconds(block.trim.endMs - block.trim.startMs)} s clip</strong>
+						<small>{videoTimingNote(block, sceneDurationMs)}</small>
+					</div>
+				</>
 			) : null}
 		</div>
 	);
@@ -441,36 +535,47 @@ function AudioLayerEditor({
 	fileName,
 	cue,
 	sourceDurationMs,
+	sourceAvailable,
 	onPatch,
 	onDelete,
 }: {
 	fileName: string;
 	cue: ReturnType<typeof resolveAudioCue>["cue"];
 	sourceDurationMs: number;
+	sourceAvailable: boolean;
 	onPatch: (patch: Parameters<typeof updateAudioCue>[2]) => void;
 	onDelete: () => void;
 }) {
+	// Trim and fades share one budget: the trimmed clip must stay longer than
+	// both fades together, or the cue invariant rejects the edit.
+	const minimumClipMs = Math.max(1, cue.fadeInMs + cue.fadeOutMs);
+	const patchGain = (percent: number) => {
+		if (Number.isFinite(percent)) {
+			onPatch({ gain: Math.min(Math.max(percent, 0), 100) / 100 });
+		}
+	};
 	return (
 		<div className="sc-layer-editor">
 			<EditorHeader eyebrow="Audio cue" title={fileName} onDelete={onDelete} />
 			<div className="sc-layer-audio-summary">
 				<span aria-hidden="true" />
-				<strong>{(cue.durationMs / 1000).toFixed(1)} s clip</strong>
-				<small>{(sourceDurationMs / 1000).toFixed(1)} s source</small>
+				<strong>{formatSeconds(cue.durationMs)} s clip</strong>
+				{/* An image says "Media unavailable" on the stage; a silent cue has no
+				    stage, so its missing bytes are named here instead. */}
+				<small>
+					{sourceAvailable
+						? `${formatSeconds(sourceDurationMs)} s source`
+						: "Source file is not in this browser"}
+				</small>
 			</div>
 			<div className="sc-layer-grid">
-				<label className="sc-layer-field">
-					<span>Timeline start</span>
-					<input
-						type="number"
-						min={0}
-						step={0.1}
-						value={cue.startMs / 1000}
-						onChange={(event) =>
-							onPatch({ startMs: Math.round(event.currentTarget.valueAsNumber * 1000) })
-						}
-					/>
-				</label>
+				<SecondsField
+					label="Timeline start"
+					valueMs={cue.startMs}
+					minMs={0}
+					maxMs={Number.MAX_SAFE_INTEGER - cue.durationMs}
+					onCommit={(startMs) => onPatch({ startMs })}
+				/>
 				<label className="sc-layer-field">
 					<span>Volume</span>
 					<input
@@ -478,9 +583,37 @@ function AudioLayerEditor({
 						min={0}
 						max={100}
 						value={Math.round(cue.gain * 100)}
-						onChange={(event) => onPatch({ gain: event.currentTarget.valueAsNumber / 100 })}
+						onChange={(event) => patchGain(event.currentTarget.valueAsNumber)}
 					/>
 				</label>
+				<SecondsField
+					label="Source in"
+					valueMs={cue.trim.startMs}
+					minMs={0}
+					maxMs={cue.trim.endMs - minimumClipMs}
+					onCommit={(trimStartMs) => onPatch({ trimStartMs })}
+				/>
+				<SecondsField
+					label="Source out"
+					valueMs={cue.trim.endMs}
+					minMs={cue.trim.startMs + minimumClipMs}
+					maxMs={sourceDurationMs}
+					onCommit={(trimEndMs) => onPatch({ trimEndMs })}
+				/>
+				<SecondsField
+					label="Fade in"
+					valueMs={cue.fadeInMs}
+					minMs={0}
+					maxMs={cue.durationMs - cue.fadeOutMs}
+					onCommit={(fadeInMs) => onPatch({ fadeInMs })}
+				/>
+				<SecondsField
+					label="Fade out"
+					valueMs={cue.fadeOutMs}
+					minMs={0}
+					maxMs={cue.durationMs - cue.fadeInMs}
+					onCommit={(fadeOutMs) => onPatch({ fadeOutMs })}
+				/>
 			</div>
 			<label className="sc-layer-field sc-layer-range">
 				<span>Volume</span>
@@ -489,7 +622,7 @@ function AudioLayerEditor({
 					min={0}
 					max={100}
 					value={Math.round(cue.gain * 100)}
-					onChange={(event) => onPatch({ gain: event.currentTarget.valueAsNumber / 100 })}
+					onChange={(event) => patchGain(event.currentTarget.valueAsNumber)}
 				/>
 			</label>
 		</div>
