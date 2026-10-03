@@ -70,9 +70,13 @@ export function transparencyPlan(input: TransparencyInput): TransparencyPlan {
 		keepAlpha: false,
 		encodeAlpha: false,
 		outcome: "flattened",
+		// GIF is the one format named as the way out, because it is the only one
+		// that keeps the channel everywhere: the server's WebM is captured as JPEG
+		// and encoded 4:2:0, so it flattens too, and this browser's WebM just said
+		// it would not carry alpha either.
 		note:
 			input.format === "webm"
-				? "no WebM encoder on this browser will carry an alpha channel, so the transparent background was flattened to black — a GIF keeps it, and so does the server render"
-				: "MP4 (H.264) has no alpha channel, so the transparent background was flattened to black — export WebM or GIF to keep it",
+				? "no WebM encoder on this browser will carry an alpha channel, so the transparent background was flattened to black. Export GIF to keep it"
+				: "MP4 (H.264) has no alpha channel, so the transparent background was flattened to black. Export GIF to keep it",
 	};
 }

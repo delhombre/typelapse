@@ -7,6 +7,11 @@ const FORMAT_NAMES: Record<RenderFormat, string> = {
 	gif: "GIF",
 };
 
+/** A format as it writes its own name: "MP4", "WebM", "GIF". */
+export function formatName(format: RenderFormat): string {
+	return FORMAT_NAMES[format];
+}
+
 /**
  * What the one filled shape in the island says.
  *

@@ -525,6 +525,12 @@ function ExportMode() {
 					{
 						value: "device" as const,
 						label: "Device",
+						// Same words as the cluster panel: a chip that greys out without
+						// saying why reads as a bug rather than as this browser's limit.
+						title:
+							deviceSupported === false
+								? "This browser has no encoder for the selected format and size."
+								: "Renders in this tab. Nothing is uploaded, and no server has to be running.",
 						disabled: deviceSupported === false,
 					},
 					{ value: "server" as const, label: "Server" },
@@ -551,6 +557,9 @@ function ExportMode() {
 					void exportVideo();
 				}}
 				disabled={isExporting || !hasSteps}
+				// The same reason the cluster panel gives: a disabled button with no
+				// word on it reads as broken, on an empty project as much as a 1-scene one.
+				title={hasSteps ? undefined : "A video needs at least two scenes."}
 				aria-label={exportCtaLabel({ format, width, height })}
 				className="si-cta si-mode-cta"
 			>

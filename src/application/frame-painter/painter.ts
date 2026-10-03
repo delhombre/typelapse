@@ -78,10 +78,11 @@ const CARET_TOP_RATIO = 0.14;
 const CARET_OPACITY = 0.85;
 const CARET_RADIUS = 1;
 
-export function paintFrame(ctx: PaintContext, scene: FrameScene, state: FrameState): void {
-	paintBackground(ctx, scene, state.timeSeconds);
-	paintGrain(ctx, scene, scene.style.grain);
+export function paintFrame(ctx: PaintContext, sized: FrameScene, state: FrameState): void {
+	paintBackground(ctx, sized, state.timeSeconds);
+	paintGrain(ctx, sized, sized.style.grain);
 
+	const scene = fitWindowToFrame(sized, state.lineCount);
 	ctx.save();
 	ctx.translate(scene.card.originX, scene.card.originY);
 	ctx.scale(scene.card.scale, scene.card.scale);
@@ -104,6 +105,38 @@ export function paintFrame(ctx: PaintContext, scene: FrameScene, state: FrameSta
 	ctx.restore();
 
 	paintWatermark(ctx, scene);
+}
+
+/**
+ * The scene with the window cut to this frame's own height, and the card kept
+ * centred on it.
+ *
+ * Both DOM renderers size the window from its content: `MagicMoveCanvas` is as
+ * tall as its line count, which is fractional through a morph, and the column
+ * it sits in is centred on the canvas. Only the *fit* is held at the tallest
+ * frame, so the card never pumps between steps. `frameScene` resolves the
+ * tallest window once for the fit, and the painter used to draw that window on
+ * every frame: a three-line step came out in a six-line window, with empty rows
+ * under the code and the card sitting higher than the preview puts it.
+ */
+function fitWindowToFrame(scene: FrameScene, lineCount: number): FrameScene {
+	const height = Math.min(
+		scene.window.height,
+		scene.chromeHeight + bodyBox(scene, lineCount).height,
+	);
+	const shrink = scene.window.height - height;
+	if (shrink <= 0) {
+		return scene;
+	}
+	return {
+		...scene,
+		card: {
+			...scene.card,
+			originY: scene.card.originY + (shrink * scene.card.scale) / 2,
+			height: scene.card.height - shrink,
+		},
+		window: { ...scene.window, height },
+	};
 }
 
 /**
@@ -457,7 +490,13 @@ function paintTerminalChrome(ctx: PaintContext, scene: FrameScene, cy: number): 
  */
 function setTracking(ctx: PaintContext, tracking: string): void {
 	if (ctx.letterSpacing !== undefined) {
-		ctx.letterSpacing = tracking;
+		// A context's `letterSpacing` takes a length and nothing else: CSS's
+		// `normal` is silently ignored, exactly like a gradient on `fillStyle`.
+		// Measured: after "-0.02em", assigning "normal" reads back "-0.02em". The
+		// reset after a chrome title was therefore a no-op, and every glyph of code
+		// under it was drawn tracked tighter than its grid cell, opening a gap after
+		// each long token that the preview never shows. Zero is what CSS means.
+		ctx.letterSpacing = tracking === "normal" ? "0px" : tracking;
 	}
 }
 

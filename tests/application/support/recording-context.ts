@@ -83,6 +83,12 @@ export class RecordingContext implements PaintContext {
 	}
 
 	set letterSpacing(value: string) {
+		// A real context ignores anything that is not a length (CSS's `normal`
+		// included), so the recorder does too: otherwise a reset that the browser
+		// drops on the floor would pass here.
+		if (!/^-?(\d+\.?\d*|\.\d+)(px|em|rem|ch)?$/.test(value)) {
+			return;
+		}
 		this.#letterSpacing = value;
 		this.commands.push(`letterSpacing=${value}`);
 	}

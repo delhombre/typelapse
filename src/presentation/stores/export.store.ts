@@ -1,5 +1,5 @@
 import type { CaptureRecord } from "@/application/captures/capture-record";
-import { exportCodecNote } from "@/application/export/export-label";
+import { exportCodecNote, formatName } from "@/application/export/export-label";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
@@ -11,6 +11,7 @@ import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download
 import { CloudRenderAdapter } from "@/infrastructure/export/cloud-render.adapter";
 import { gifDimensions } from "@/infrastructure/export/gif-quality";
 import { gifSafeFps } from "@/infrastructure/export/gif-timing";
+import { evenDimensions } from "@/infrastructure/export/video-encoding";
 import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { ProgressStyle } from "@/presentation/components/preview/reels-progress";
 import { feedback } from "@/presentation/haptics";
@@ -240,7 +241,31 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		// Apply plan entitlements (resolution/fps caps + watermark) in one place so
 		// the preview and the export never disagree. Under Plan.local this is a
 		// pass-through no-op: nothing is clamped and the user's watermark is kept.
-		const resolved = resolveExport(plan, { width, height, fps, format, userWatermark: watermark });
+		// The encoders take even sizes only (4:2:0 chroma is subsampled by two) and
+		// `RenderConfig` refuses an odd one outright. The chips only ever offer even
+		// sizes, but a share link or a project file can carry any integer, and the
+		// refusal used to escape this click handler as an unhandled rejection: the
+		// button did nothing at all. So the size is brought down to even here, the
+		// way the worker would, and anything else that refuses says so on screen.
+		const even = evenDimensions(width, height);
+		let resolved: ReturnType<typeof resolveExport>;
+		try {
+			resolved = resolveExport(plan, { ...even, fps, format, userWatermark: watermark });
+		} catch (error) {
+			set({
+				outcome: {
+					kind: "failed",
+					message: error instanceof Error ? error.message : "These export settings are invalid.",
+				},
+			});
+			feedback("error");
+			return;
+		}
+		// A GIF's own note already states the size it came out at.
+		const sizeNote =
+			format !== "gif" && (even.width !== width || even.height !== height)
+				? `${even.width}×${even.height} (not ${width}×${height}: video encoders need even sizes)`
+				: null;
 
 		const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 		const startedAt = performance.now();
@@ -251,7 +276,6 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				config: resolved.config,
 				filename,
 				startedAt,
-				target: get().target,
 				set,
 			});
 			return;
@@ -277,6 +301,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					startedAt,
 					watermarkText: resolved.watermark,
 					sound,
+					sizeNote,
 					set,
 					scenery: {
 						background,
@@ -295,11 +320,16 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				});
 				return;
 			}
+			// A refusal is only half an answer when another format would render
+			// right here: name it, so the next step is a format switch on this device
+			// rather than an upload.
+			const alternative = await encodableAlternative(resolved.config);
 			set({
 				outcome: {
 					kind: "failed",
-					message:
-						"This browser cannot encode the selected video on this device. Nothing was uploaded. Choose server rendering explicitly to continue.",
+					message: alternative
+						? `This browser cannot encode ${formatName(resolved.config.format)} on this device, but it can make a ${formatName(alternative)}. Nothing was uploaded. Switch the format to ${formatName(alternative)}, or choose server rendering explicitly.`
+						: "This browser cannot encode the selected video on this device. Nothing was uploaded. Choose server rendering explicitly to continue.",
 				},
 			});
 			return;
@@ -506,12 +536,35 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	},
 }));
 
+/**
+ * The first other format this browser will encode at the same size and rate,
+ * video before GIF: a GIF is always available, and always the bigger, coarser
+ * file, so it is the suggestion of last resort.
+ */
+async function encodableAlternative(config: RenderConfig): Promise<RenderFormat | null> {
+	try {
+		const { isClientExportSupported } = await import(
+			"@/infrastructure/export/webcodecs-renderer.adapter"
+		);
+		for (const other of ["mp4", "webm", "gif"] as const) {
+			if (
+				other !== config.format &&
+				(await isClientExportSupported(other, config.width, config.height, config.fps))
+			) {
+				return other;
+			}
+		}
+	} catch {
+		// No suggestion is better than a wrong one.
+	}
+	return null;
+}
+
 interface StudioMultimediaRenderInput {
 	document: ProjectDocumentV2;
 	config: RenderConfig;
 	filename: string;
 	startedAt: number;
-	target: ExportTarget;
 	set: (partial: Partial<ExportState>) => void;
 }
 
@@ -587,7 +640,9 @@ async function renderStudioMultimedia(input: StudioMultimediaRenderInput): Promi
 				kind: "done",
 				filename: `${input.filename}.${input.config.format}`,
 				bytes: blob.size,
-				target: input.target,
+				// Always the local Remotion route, whatever "Where" says: the media was
+				// posted to /api/render/v2, so the receipt must not claim this device.
+				target: "server",
 				elapsedMs: performance.now() - input.startedAt,
 				note: "Rendered from the same layered composition as the preview.",
 			},
@@ -620,6 +675,8 @@ interface DeviceRenderInput {
 	watermarkText: string | undefined;
 	/** Only so the panel can say the canvas renderer has no audio track yet. */
 	sound: boolean;
+	/** What became of an odd requested size, or null when it was already even. */
+	sizeNote: string | null;
 	set: (partial: Partial<ExportState>) => void;
 	scenery: {
 		background: string;
@@ -730,6 +787,7 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 					input.sound,
 					renderer.lastMeasurements?.transparencyNote ?? null,
 					renderer.lastMeasurements?.codecLabel ?? null,
+					input.sizeNote,
 				),
 			},
 		});
@@ -816,6 +874,7 @@ function deviceNote(
 	sound: boolean,
 	transparency: string | null,
 	codecLabel: string | null,
+	sizeNote: string | null,
 ): string | undefined {
 	const notes: string[] = [];
 
@@ -823,6 +882,9 @@ function deviceNote(
 	const codec = exportCodecNote(config.format, codecLabel);
 	if (codec) {
 		notes.push(codec);
+	}
+	if (sizeNote) {
+		notes.push(sizeNote);
 	}
 	if (transparency) {
 		notes.push(transparency);
@@ -832,13 +894,19 @@ function deviceNote(
 		notes.push(gif);
 	}
 	if (sound) {
-		notes.push("no audio track on this device yet — render on the server for sound");
+		notes.push("no audio track on this device yet. Render on the server for sound");
 	}
 	if (snippet.steps.some((step) => step.annotation)) {
 		notes.push("captions are not baked on this device yet");
 	}
 
-	return notes.length > 0 ? `${notes.join(". ")}.` : undefined;
+	// Each fragment is written to read inside a sentence, so the join is what
+	// makes each one start like a sentence again.
+	return notes.length > 0 ? `${notes.map(sentenceCase).join(". ")}.` : undefined;
+}
+
+function sentenceCase(fragment: string): string {
+	return fragment.charAt(0).toUpperCase() + fragment.slice(1);
 }
 
 /**

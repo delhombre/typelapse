@@ -264,7 +264,9 @@ describe("paintChrome: the code below it is unaffected", () => {
 		// every glyph of code under it.
 		for (const chrome of VARIANTS) {
 			const { ctx } = paint({ chrome });
-			const reset = ctx.commands.lastIndexOf("letterSpacing=normal");
+			// `0px`, not `normal`: a canvas ignores the keyword and keeps the title's
+			// tracking, which the recorder now reproduces.
+			const reset = ctx.commands.lastIndexOf("letterSpacing=0px");
 			const token = ctx.commands.findIndex((command) => command.startsWith('fillText("const"'));
 			expect(reset, chrome).toBeGreaterThanOrEqual(0);
 			expect(reset, chrome).toBeLessThan(token);
