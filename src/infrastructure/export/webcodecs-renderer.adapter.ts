@@ -35,7 +35,8 @@ import {
 	type ClientExportMeasurements,
 	ClientExportUnsupportedError,
 } from "./client-export-job";
-import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
+import { BASE_VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
+import { firstEncodableRung } from "./codec-probe";
 import { encodingFor, evenDimensions } from "./video-encoding";
 
 /**
@@ -80,21 +81,9 @@ export async function isClientExportSupported(
 	if (encoding.container === "gif") {
 		return true;
 	}
-	if (typeof VideoEncoder === "undefined") {
-		return false;
-	}
-	for (const codec of encoding.probeCodecs) {
-		const support = await VideoEncoder.isConfigSupported({
-			codec,
-			width: w,
-			height: h,
-			framerate: fps,
-		});
-		if (support.supported) {
-			return true;
-		}
-	}
-	return false;
+	// The same seam the worker uses, so the panel cannot offer a path the render
+	// will then refuse: one ladder, one probe, one answer.
+	return (await firstEncodableRung(encoding.ladder, { width: w, height: h, fps })) !== null;
 }
 
 export class WebCodecsRendererAdapter implements RendererPort {
@@ -254,7 +243,7 @@ export class WebCodecsRendererAdapter implements RendererPort {
  * video is off the preview, and we would rather know that than not.
  */
 async function measureDocumentAdvance(fontFamily: string, fontSize: number): Promise<number> {
-	const size = fontSize * VIDEO_SCALE;
+	const size = fontSize * BASE_VIDEO_SCALE;
 	const font = canvasFont(size, fontFamily);
 	try {
 		await document.fonts.load(font, "0");

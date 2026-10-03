@@ -14,6 +14,7 @@ import {
 	type GrainTile,
 	frameScene,
 } from "@/application/frame-painter/scene";
+import { renderScaleFor } from "@/application/layout/canvas-fit";
 import type { ClientExportJob } from "./client-export-job";
 
 /**
@@ -29,8 +30,12 @@ export interface SceneAssets {
  * The composition's own constants. They are mirrored rather than imported
  * because `server/remotion/composition.tsx` is a server module; when the two
  * paths are finally merged this is the pair that has to move.
+ *
+ * `BASE_VIDEO_SCALE` is a *base*, and the name says so now because the old one
+ * did not. It was called `VIDEO_SCALE` and handed to the scene as if it were
+ * the scale to draw at, which is true only at 1080p — see `sceneInputFor`.
  */
-export const VIDEO_SCALE = 2.2;
+export const BASE_VIDEO_SCALE = 2.2;
 export const CANVAS_MARGIN = 0.05;
 
 export function sceneInputFor(
@@ -51,7 +56,17 @@ export function sceneInputFor(
 		showLineNumbers: job.showLineNumbers,
 		lineNumberStart: job.lineNumberStart,
 		charWidthRatio,
-		scale: VIDEO_SCALE,
+		// The tier, applied — and this is the line that was missing.
+		//
+		// The composition draws at `renderScaleFor(...)` and so does the live
+		// preview; this one drew at the flat base, and `fitScale` never enlarges.
+		// So a 4K export was not a sharper video, it was the 1080p card at its
+		// 1080p pixel size centred in four times the canvas: the same text
+		// resolution as the 1080p file, four times the encode, and *softer* on
+		// screen the moment a player fit it to the display. The two paths that
+		// already had this right are why the preview and the server render did not
+		// show it.
+		scale: renderScaleFor(job.width, job.height, BASE_VIDEO_SCALE),
 		canvasMargin: CANVAS_MARGIN,
 		grain: assets.grain,
 		backdropImage: assets.backdropImage,
