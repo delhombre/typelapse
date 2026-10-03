@@ -226,3 +226,18 @@ tests, lint, both type checks, build). Calls taken and kept:
   phone sheet lets the project name take focus; recorded in patches/.
 - Wave 5 is the launch pass (#78): emil-prep-for-prod on the final tree and
   the launch kit under docs/launch/.
+
+## Executed: wave 5 (2026-10-04)
+
+The launch pass (#78): emil-prep-for-prod across nine lanes on the final
+tree, verdict "ship from the code side", two commits, gates green (281 files,
+2,247 tests). Calls kept: Server is hidden under Where in a hosted build
+rather than explained; `viewport-fit=cover` deferred to #110 with its
+landscape padding; launch copy carries no allowance numbers and marks the
+prices pending D8; the CLI renders a V2 project with text layers so the
+launch clip comes from a committed file. The kit lives in docs/launch
+(Product Hunt, thread, assets, owner checklist with the eleven device checks).
+Wave 6 closes the last four agent tickets: the plan window follows the focus
+(#104), the device export colour pipeline (#108), the phone return to code
+and the accessibility batch (#109, #110), playback re-renders and
+self-hosted Geist (#111).
