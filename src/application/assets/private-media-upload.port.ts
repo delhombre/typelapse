@@ -122,6 +122,8 @@ export interface SignedPutPort {
 
 export type PrivateMediaUploadErrorCode =
 	| "invalid-file"
+	| "empty-file"
+	| "file-too-large"
 	| "unsupported-media-type"
 	| "invalid-metadata"
 	| "invalid-idempotency-key"

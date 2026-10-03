@@ -1,4 +1,4 @@
-import { addMediaAsset, addTextLayer } from "@/application/project/multimedia-authoring";
+import { addTextLayer } from "@/application/project/multimedia-authoring";
 import { ConfirmDiscardOverlay } from "@/presentation/components/ui/confirm-discard";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
@@ -7,11 +7,7 @@ import {
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
-import {
-	studioLocalLibrary,
-	studioMediaImporter,
-	studioMediaRegistry,
-} from "@/presentation/studio-media-runtime";
+import { importStudioMediaFiles } from "@/presentation/utils/studio-media-import";
 import {
 	hasStudioWorkToLose,
 	openStudioProjectDocument,
@@ -54,6 +50,7 @@ export function StudioSourceHub() {
 	const [pendingFile, setPendingFile] = useState<{ name: string; json: string } | null>(null);
 	const [mediaAccept, setMediaAccept] = useState("image/*,video/*");
 	const [sourceStatus, setSourceStatus] = useState<string | null>(null);
+	const [importing, setImporting] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -161,63 +158,23 @@ export function StudioSourceHub() {
 
 	const handleMediaChange = useCallback(
 		async (event: ChangeEvent<HTMLInputElement>) => {
-			const file = event.target.files?.[0];
+			const files = [...(event.target.files ?? [])];
 			event.target.value = "";
-			if (!file) {
+			if (files.length === 0) {
 				return;
 			}
-			const sceneId = composition.selectedSceneId ?? composition.value.project.scenes[0]?.id;
-			if (!sceneId) {
-				return;
-			}
-			setSourceStatus(`Reading ${file.name}…`);
-			let pendingAssetId: string | null = null;
-			try {
-				const result = await studioMediaImporter.importFile(file);
-				pendingAssetId = result.asset.id;
-				await studioLocalLibrary.saveAsset({
-					projectId: composition.value.project.id,
-					assetId: result.asset.id,
-					mimeType: result.asset.metadata.mimeType,
-					byteSize: result.asset.metadata.byteSize,
-					opaqueHandle: file,
-				});
-				const blockId = crypto.randomUUID();
-				const cueId = crypto.randomUUID();
-				let startMs = 0;
-				for (const scene of composition.value.project.scenes) {
-					if (scene.id === sceneId) {
-						break;
-					}
-					startMs += scene.durationMs + (scene.transitionOut?.durationMs ?? 0);
-				}
-				composition.transact((project) =>
-					addMediaAsset(project, sceneId, result.asset, {
-						blockId,
-						cueId,
-						startMs,
-					}),
-				);
-				pendingAssetId = null;
-				if (result.asset.kind === "audio") {
-					composition.selectBlock(sceneId, null);
-					selectAudioCue(cueId);
-				} else {
-					composition.selectBlock(sceneId, blockId);
-					selectAudioCue(null);
-				}
-				setSourceStatus(null);
-				close();
-				feedback("commit");
-			} catch (error) {
-				if (pendingAssetId) {
-					studioMediaRegistry.revoke(pendingAssetId);
-				}
-				feedback("error");
-				setSourceStatus(error instanceof Error ? error.message : "This media could not be added.");
-			}
+			setSourceStatus(
+				files.length === 1 ? `Adding ${files[0]?.name}…` : `Adding ${files.length} files…`,
+			);
+			// Each refusal is a notice naming the file; the menu has done its job
+			// either way, so it closes once the batch is through.
+			setImporting(true);
+			const added = await importStudioMediaFiles(files).finally(() => setImporting(false));
+			setSourceStatus(null);
+			close();
+			feedback(added > 0 ? "commit" : "error");
 		},
-		[close, composition, selectAudioCue],
+		[close],
 	);
 
 	const setUrlOpen = useCallback((open: boolean) => {
@@ -241,6 +198,7 @@ export function StudioSourceHub() {
 				ref={mediaInputRef}
 				type="file"
 				accept={mediaAccept}
+				multiple
 				onChange={handleMediaChange}
 				className="hidden"
 			/>
@@ -289,12 +247,14 @@ export function StudioSourceHub() {
 						/>
 						<SourceChoice
 							label="Add photo or video"
+							disabled={importing}
 							detail="Place media behind or above the code"
 							icon={<Image size={14} aria-hidden="true" />}
 							onClick={() => openMediaPicker("image/*,video/*")}
 						/>
 						<SourceChoice
 							label="Add audio"
+							disabled={importing}
 							detail="Music, voice-over or a sound cue"
 							icon={<Music size={14} aria-hidden="true" />}
 							onClick={() => openMediaPicker("audio/*")}
@@ -361,11 +321,13 @@ function SourceChoice({
 	detail,
 	icon,
 	onClick,
+	disabled = false,
 }: {
 	label: string;
 	detail: string;
 	icon: ReactNode;
 	onClick: () => void;
+	disabled?: boolean;
 }) {
 	return (
 		<button
@@ -379,6 +341,7 @@ function SourceChoice({
 						: label
 			}
 			className="sc-source-choice"
+			disabled={disabled}
 			onClick={() => {
 				feedback("selection");
 				onClick();

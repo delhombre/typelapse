@@ -20,7 +20,7 @@ import {
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
 import { studioMediaRegistry } from "@/presentation/studio-media-runtime";
-import { type ChangeEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type ReactNode, useEffect, useState } from "react";
 import { ArrowDown, ArrowDownSquare, ArrowUp, ArrowUpSquare, Trash } from "reicon-react";
 import { CodeEditor } from "./code-editor";
 
@@ -38,6 +38,24 @@ function safeAudioSelection(
 	}
 }
 
+/**
+ * The code editor stays mounted while a layer's inspector covers it. Swapping
+ * it out remounted Monaco on every layer selection, and each mount made two new
+ * worker blob URLs that were never revoked. The same element sits first in
+ * every branch, so React keeps it; `hidden` takes it out of sight and of the
+ * accessibility tree, and Monaco relayouts when it is shown again.
+ */
+function withCodeEditor(layerEditor: ReactNode | null) {
+	return (
+		<>
+			<div className="flex h-full flex-col" hidden={layerEditor !== null}>
+				<CodeEditor />
+			</div>
+			{layerEditor}
+		</>
+	);
+}
+
 export function StudioEditor() {
 	const composition = useStudioCompositionStore();
 	const selectedAudioCueId = useStudioCompositionSelectionStore(
@@ -51,7 +69,7 @@ export function StudioEditor() {
 	const audioSelection = safeAudioSelection(composition.value.project, selectedAudioCueId);
 
 	if (selectedAudioCueId && audioSelection) {
-		return (
+		return withCodeEditor(
 			<AudioLayerEditor
 				fileName={audioSelection.asset.metadata.fileName}
 				cue={audioSelection.cue}
@@ -65,16 +83,16 @@ export function StudioEditor() {
 					selectAuthoredAudio(null);
 					feedback("commit");
 				}}
-			/>
+			/>,
 		);
 	}
 
 	if (!scene || !block || block.kind === "code") {
-		return <CodeEditor />;
+		return withCodeEditor(null);
 	}
 	if (block.kind === "text") {
 		const blockIndex = scene.blocks.findIndex((candidate) => candidate.id === block.id);
-		return (
+		return withCodeEditor(
 			<TextLayerEditor
 				block={block}
 				onPatch={(patch) =>
@@ -95,13 +113,13 @@ export function StudioEditor() {
 				}
 				layerIndex={blockIndex}
 				layerCount={scene.blocks.length}
-			/>
+			/>,
 		);
 	}
 	const asset = composition.value.project.assets.find(
 		(candidate) => candidate.id === block.assetId,
 	);
-	return (
+	return withCodeEditor(
 		<MediaLayerEditor
 			block={block}
 			fileName={asset?.metadata.fileName ?? "Media"}
@@ -123,7 +141,7 @@ export function StudioEditor() {
 			}
 			layerIndex={scene.blocks.findIndex((candidate) => candidate.id === block.id)}
 			layerCount={scene.blocks.length}
-		/>
+		/>,
 	);
 }
 

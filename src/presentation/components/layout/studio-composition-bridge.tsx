@@ -1,3 +1,5 @@
+import { referencedAssetIds } from "@/application/project/multimedia-authoring";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { STUDIO_LIVE_SCENE_ID } from "@/application/project/studio-composition";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -11,6 +13,7 @@ import {
 } from "@/presentation/stores/studio-composition.store";
 import { studioLocalLibrary } from "@/presentation/studio-media-runtime";
 import { readLocalProjects } from "@/presentation/utils/local-project-storage";
+import { setStudioCompositionRestored } from "@/presentation/utils/studio-composition-ready";
 import {
 	LEGACY_STUDIO_PROJECT_ID,
 	restoreStudioProject,
@@ -44,7 +47,21 @@ export function StudioCompositionBridge() {
 		const unsubscribeSnippet = useSnippetStore.subscribe(synchronizeStudioCompositionStore);
 		const unsubscribeExport = useExportStore.subscribe(synchronizeStudioCompositionStore);
 		let persistenceTimer: ReturnType<typeof setTimeout> | null = null;
+		let pending: { readonly document: ProjectDocumentV2; readonly signature: string } | null = null;
 		let lastPersisted = "";
+		const write = () => {
+			if (persistenceTimer) {
+				clearTimeout(persistenceTimer);
+				persistenceTimer = null;
+			}
+			if (!pending) {
+				return;
+			}
+			const { document, signature } = pending;
+			pending = null;
+			lastPersisted = signature;
+			void studioLocalLibrary.saveProject(document).catch(() => undefined);
+		};
 		const persist = () => {
 			// Held while another project's layers are being put back on its code:
 			// the composition mixes two projects until that lands.
@@ -56,16 +73,25 @@ export function StudioCompositionBridge() {
 			if (signature === lastPersisted) {
 				return;
 			}
+			pending = { document, signature };
 			if (persistenceTimer) {
 				clearTimeout(persistenceTimer);
 			}
-			persistenceTimer = setTimeout(() => {
-				lastPersisted = signature;
-				void studioLocalLibrary.saveProject(document).catch(() => undefined);
-			}, PERSIST_DELAY_MS);
+			persistenceTimer = setTimeout(write, PERSIST_DELAY_MS);
 		};
+		// The debounce must not cost the last edit: a tab closed or sent to the
+		// background inside it writes at once. Hidden comes first and leaves time
+		// for IndexedDB; pagehide covers a close that skips it.
+		const flushWhenHidden = () => {
+			if (document.visibilityState === "hidden") {
+				write();
+			}
+		};
+		document.addEventListener("visibilitychange", flushWhenHidden);
+		window.addEventListener("pagehide", write);
 		const unsubscribeComposition = useStudioCompositionStore.subscribe(persist);
 		const unsubscribeRelease = onStudioPersistenceRelease(persist);
+		setStudioCompositionRestored(false);
 		if (typeof indexedDB !== "undefined") {
 			void restoreStudioProject(bootProjectId(), () => active, { adoptLegacy: true })
 				.catch(() => undefined)
@@ -74,11 +100,22 @@ export function StudioCompositionBridge() {
 						return;
 					}
 					restored = true;
+					setStudioCompositionRestored(true);
 					persist();
+					// Reload is the checkpoint where no undo can bring a deleted layer
+					// back: bytes no project references any more leave the device. The
+					// open project's live ids are kept even before its save lands.
+					void studioLocalLibrary
+						.deleteUnreferencedAssets(referencedAssetIds(readStudioProjectDocument()))
+						.catch(() => undefined);
 				});
+		} else {
+			setStudioCompositionRestored(true);
 		}
 		return () => {
 			active = false;
+			document.removeEventListener("visibilitychange", flushWhenHidden);
+			window.removeEventListener("pagehide", write);
 			if (persistenceTimer) {
 				clearTimeout(persistenceTimer);
 			}

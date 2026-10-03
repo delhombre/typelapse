@@ -5,12 +5,15 @@ import {
 	addMediaAsset,
 	addTextLayer,
 	placeRegisteredMediaAsset,
+	pruneUnreferencedAssets,
+	referencedAssetIds,
 	reorderLayer,
 	updateCodeLayer,
 	updateLayerPlacement,
 	updateMediaLayer,
 	updateTextLayer,
 } from "@/application/project/multimedia-authoring";
+import { serializeProjectDocument } from "@/application/project/serialize-project-document";
 import { createStarterMultimediaProject } from "@/application/project/starter-multimedia-project";
 import { Asset } from "@/domain/entities/asset";
 import { describe, expect, it } from "vitest";
@@ -310,5 +313,50 @@ describe("multimedia authoring", () => {
 			"caption-overlay",
 		]);
 		expect(reorderLayer(back, "scene-1", "starter-text", "back")).toBe(back);
+	});
+
+	it("drops the assets no layer or cue references, and keeps the document when none are", () => {
+		const asset = (id: string, kind: "image" | "audio") =>
+			kind === "image"
+				? Asset.create({
+						id,
+						kind,
+						fileName: `${id}.png`,
+						mimeType: "image/png",
+						byteSize: 4,
+						checksum: "a".repeat(64),
+						width: 10,
+						height: 10,
+					})
+				: Asset.create({
+						id,
+						kind,
+						fileName: `${id}.wav`,
+						mimeType: "audio/wav",
+						byteSize: 4,
+						checksum: "b".repeat(64),
+						durationMs: 1_000,
+					});
+		const hydrated = hydrateProjectDocument(
+			createStarterMultimediaProject({ projectId: "project-1", sceneId: "scene-1" }),
+		);
+		let authored = addMediaAsset(hydrated.project, "scene-1", asset("kept-image", "image"), {
+			blockId: "kept-block",
+		});
+		authored = addMediaAsset(authored, "scene-1", asset("kept-audio", "audio"), {
+			cueId: "kept-cue",
+		});
+		authored = addMediaAsset(authored, "scene-1", asset("deleted-image", "image"), {
+			blockId: "deleted-block",
+		}).removeBlock("scene-1", "deleted-block");
+		const document = serializeProjectDocument({ ...hydrated, project: authored });
+
+		expect([...referencedAssetIds(document)].sort()).toEqual(["kept-audio", "kept-image"]);
+		const pruned = pruneUnreferencedAssets(document);
+		expect(pruned.project.assets.map((entry) => entry.id).sort()).toEqual([
+			"kept-audio",
+			"kept-image",
+		]);
+		expect(pruneUnreferencedAssets(pruned)).toBe(pruned);
 	});
 });

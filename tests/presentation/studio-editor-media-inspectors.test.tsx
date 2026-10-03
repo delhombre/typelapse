@@ -7,11 +7,23 @@ import {
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Monaco is irrelevant here and needs a real browser.
-vi.mock("@/presentation/components/editor/code-editor", () => ({ CodeEditor: () => null }));
+// Monaco needs a real browser; the stand-in counts mounts, since each one
+// recreated Monaco's two worker blob URLs.
+const editorMounts = vi.hoisted(() => ({ count: 0 }));
+vi.mock("@/presentation/components/editor/code-editor", async () => {
+	const { useEffect } = await import("react");
+	return {
+		CodeEditor: () => {
+			useEffect(() => {
+				editorMounts.count += 1;
+			}, []);
+			return <div data-testid="code-editor" />;
+		},
+	};
+});
 
 const AUDIO = Asset.create({
 	id: "audio-1",
@@ -119,5 +131,22 @@ describe("StudioEditor media inspectors", () => {
 		fireEvent.change(field("Source in"), { target: { value: "4" } });
 		expect(videoBlock().trim).toEqual({ startMs: 4_000, endMs: 5_000 });
 		expect(screen.getByTestId("video-timing").textContent).toContain("Holds its last frame");
+	});
+
+	it("keeps the code editor mounted, out of sight, while a layer is selected", () => {
+		useStudioCompositionStore
+			.getState()
+			.transact((project) => addMediaAsset(project, sceneId(), VIDEO, { blockId: "video-block" }));
+		editorMounts.count = 0;
+		render(<StudioEditor />);
+
+		for (let round = 0; round < 20; round += 1) {
+			act(() => useStudioCompositionStore.getState().selectBlock(sceneId(), "video-block"));
+			expect(screen.getByTestId("code-editor").closest("[hidden]")).not.toBeNull();
+			act(() => useStudioCompositionStore.getState().selectBlock(sceneId(), null));
+			expect(screen.getByTestId("code-editor").closest("[hidden]")).toBeNull();
+		}
+
+		expect(editorMounts.count).toBe(1);
 	});
 });

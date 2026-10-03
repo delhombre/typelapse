@@ -1,6 +1,11 @@
 // @vitest-environment node
 import "fake-indexeddb/auto";
+import { hydrateProjectDocument } from "@/application/project/hydrate-project-document";
+import { addMediaAsset } from "@/application/project/multimedia-authoring";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
+import { serializeProjectDocument } from "@/application/project/serialize-project-document";
 import { createStarterMultimediaProject } from "@/application/project/starter-multimedia-project";
+import { Asset } from "@/domain/entities/asset";
 import { IndexedDbLocalProjectAdapter } from "@/infrastructure/project/indexeddb-local-project.adapter";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -9,6 +14,38 @@ const adapters: IndexedDbLocalProjectAdapter[] = [];
 function titled(projectId: string, title: string) {
 	const document = createStarterMultimediaProject({ projectId });
 	return { ...document, project: { ...document.project, title } };
+}
+
+/** A project whose one scene shows each of these images. */
+function withImages(projectId: string, assetIds: readonly string[]): ProjectDocumentV2 {
+	const hydrated = hydrateProjectDocument(
+		createStarterMultimediaProject({ projectId, sceneId: `${projectId}-scene` }),
+	);
+	let project = hydrated.project;
+	for (const assetId of assetIds) {
+		const asset = Asset.create({
+			id: assetId,
+			kind: "image",
+			fileName: `${assetId}.png`,
+			mimeType: "image/png",
+			byteSize: 4,
+			checksum: "a".repeat(64),
+			width: 10,
+			height: 10,
+		});
+		project = addMediaAsset(project, `${projectId}-scene`, asset, { blockId: `${assetId}-block` });
+	}
+	return serializeProjectDocument({ ...hydrated, project });
+}
+
+async function storeBlob(local: IndexedDbLocalProjectAdapter, projectId: string, assetId: string) {
+	await local.saveAsset({
+		projectId,
+		assetId,
+		mimeType: "image/png",
+		byteSize: 4,
+		opaqueHandle: new Blob([new Uint8Array([1, 2, 3, 4])], { type: "image/png" }),
+	});
 }
 
 function adapter() {
@@ -109,5 +146,67 @@ describe("IndexedDbLocalProjectAdapter", () => {
 				opaqueHandle: new Blob([new Uint8Array([1, 2, 3, 4])], { type: "image/png" }),
 			}),
 		).rejects.toThrow(/size/);
+	});
+
+	it("lists stored media per project and deletes one blob", async () => {
+		const local = adapter();
+		await storeBlob(local, "alpha", "a-1");
+		await storeBlob(local, "alpha", "a-2");
+		await storeBlob(local, "beta", "b-1");
+
+		expect((await local.listAssets("alpha")).map((asset) => asset.assetId).sort()).toEqual([
+			"a-1",
+			"a-2",
+		]);
+		expect(await local.listAssets()).toHaveLength(3);
+
+		await local.deleteAsset("a-1");
+		await local.deleteAsset("missing");
+
+		expect((await local.listAssets()).map((asset) => asset.assetId).sort()).toEqual(["a-2", "b-1"]);
+		await expect(local.loadAsset({ projectId: "alpha", assetId: "a-1" })).resolves.toBeNull();
+	});
+
+	it("deletes only the blobs that no stored project and no kept id references", async () => {
+		const local = adapter();
+		// Alpha shows a-kept; beta shows a-shared, a blob alpha imported: a project
+		// file opened into another project reads the same bytes by asset id.
+		await local.saveProject(withImages("alpha", ["a-kept"]));
+		await local.saveProject(withImages("beta", ["a-shared"]));
+		for (const assetId of ["a-kept", "a-shared", "a-orphan", "a-live"]) {
+			await storeBlob(local, "alpha", assetId);
+		}
+
+		const deleted = await local.deleteUnreferencedAssets(["a-live"]);
+
+		expect(deleted).toEqual(["a-orphan"]);
+		expect((await local.listAssets()).map((asset) => asset.assetId).sort()).toEqual([
+			"a-kept",
+			"a-live",
+			"a-shared",
+		]);
+	});
+
+	it("deletes nothing when a stored project cannot be read, since its references are unknown", async () => {
+		const databaseName = `typelapse-test-${crypto.randomUUID()}`;
+		const local = new IndexedDbLocalProjectAdapter({ databaseName });
+		adapters.push(local);
+		await local.saveProject(withImages("alpha", []));
+		await storeBlob(local, "alpha", "a-orphan");
+		const raw = await new Promise<IDBDatabase>((resolve, reject) => {
+			const request = indexedDB.open(databaseName);
+			request.onsuccess = () => resolve(request.result);
+			request.onerror = () => reject(request.error);
+		});
+		await new Promise<void>((resolve, reject) => {
+			const transaction = raw.transaction("projects", "readwrite");
+			transaction.objectStore("projects").put({ id: "broken", document: { schemaVersion: 9 } });
+			transaction.oncomplete = () => resolve();
+			transaction.onerror = () => reject(transaction.error);
+		});
+		raw.close();
+
+		await expect(local.deleteUnreferencedAssets()).resolves.toEqual([]);
+		expect(await local.listAssets()).toHaveLength(1);
 	});
 });

@@ -9,6 +9,7 @@ import {
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
 import { createLocalProject } from "@/presentation/utils/local-project-storage";
+import { whenStudioCompositionReady } from "@/presentation/utils/studio-composition-ready";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +19,7 @@ const library = vi.hoisted(() => ({
 	loadAsset: vi.fn(),
 	saveProject: vi.fn(),
 	saveAsset: vi.fn(),
+	deleteUnreferencedAssets: vi.fn(),
 }));
 
 vi.mock("@/presentation/studio-media-runtime", async () => {
@@ -45,6 +47,42 @@ function deferred<T>() {
 	});
 	return { promise, resolve };
 }
+
+/** The stored image, plus a second one whose layer was deleted before the save. */
+function storedProjectWithOrphan(): ProjectDocumentV2 {
+	const blank = useStudioCompositionStore.getState().value;
+	const sceneId = blank.project.scenes[0]?.id ?? "";
+	const orphan = Asset.create({
+		id: "orphan-image",
+		kind: "image",
+		fileName: "gone.png",
+		mimeType: "image/png",
+		byteSize: 4,
+		checksum: "b".repeat(64),
+		width: 640,
+		height: 360,
+	});
+	const withOrphan = addMediaAsset(
+		addMediaAsset(blank.project, sceneId, Asset.create({ ...storedImageProps }), {
+			blockId: "stored-block",
+		}),
+		sceneId,
+		orphan,
+		{ blockId: "orphan-block" },
+	).removeBlock(sceneId, "orphan-block");
+	return serializeProjectDocument({ ...blank, project: withOrphan });
+}
+
+const storedImageProps = {
+	id: "stored-image",
+	kind: "image",
+	fileName: "still.png",
+	mimeType: "image/png",
+	byteSize: 4,
+	checksum: "a".repeat(64),
+	width: 640,
+	height: 360,
+} as const;
 
 function storedProjectWithImage(): ProjectDocumentV2 {
 	const blank = useStudioCompositionStore.getState().value;
@@ -74,6 +112,7 @@ describe("StudioCompositionBridge restore", () => {
 		library.moveProject.mockReset().mockResolvedValue(null);
 		library.loadAsset.mockReset();
 		library.saveProject.mockReset().mockResolvedValue(undefined);
+		library.deleteUnreferencedAssets.mockReset().mockResolvedValue([]);
 		useStudioCompositionStore
 			.getState()
 			.loadDocument(createStudioCompositionDocument(readStudioCompositionSnapshot()));
@@ -171,5 +210,91 @@ describe("StudioCompositionBridge restore", () => {
 		for (const [document] of library.saveProject.mock.calls) {
 			expect((document as ProjectDocumentV2).project.assets).toHaveLength(1);
 		}
+	});
+
+	it("restores without the assets no layer references, and sweeps the blobs nothing uses", async () => {
+		library.loadProject.mockResolvedValue(storedProjectWithOrphan());
+		library.loadAsset.mockResolvedValue({
+			assetId: "stored-image",
+			mimeType: "image/png",
+			byteSize: 4,
+			opaqueHandle: new Blob(["png!"], { type: "image/png" }),
+		});
+
+		render(<StudioCompositionBridge />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1_000);
+		});
+
+		const restored = useStudioCompositionStore.getState().value.project;
+		expect(restored.assets.map((asset) => asset.id)).toEqual(["stored-image"]);
+		// No object URL is made for bytes nothing shows.
+		expect(library.loadAsset.mock.calls.map(([input]) => input.assetId)).not.toContain(
+			"orphan-image",
+		);
+		expect(library.saveProject).toHaveBeenCalled();
+		for (const [document] of library.saveProject.mock.calls) {
+			expect((document as ProjectDocumentV2).project.assets.map((asset) => asset.id)).toEqual([
+				"stored-image",
+			]);
+		}
+		expect(library.deleteUnreferencedAssets).toHaveBeenCalledOnce();
+		const [kept] = library.deleteUnreferencedAssets.mock.calls[0] ?? [];
+		expect([...(kept as Iterable<string>)]).toEqual(["stored-image"]);
+	});
+
+	it("writes a pending save at once when the page is hidden", async () => {
+		library.loadProject.mockResolvedValue(null);
+		render(<StudioCompositionBridge />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1_000);
+		});
+		library.saveProject.mockClear();
+
+		act(() => {
+			const state = useStudioCompositionStore.getState();
+			const sceneId = state.value.project.scenes[0]?.id ?? "";
+			state.transact((project) =>
+				addTextLayer(project, sceneId, {
+					id: "late-text",
+					text: "Late",
+					placement: { x: 0, y: 0, width: 1, height: 0.2 },
+				}),
+			);
+		});
+		expect(library.saveProject).not.toHaveBeenCalled();
+		act(() => {
+			window.dispatchEvent(new Event("pagehide"));
+		});
+
+		expect(library.saveProject).toHaveBeenCalledOnce();
+		const [saved] = library.saveProject.mock.calls[0] as [ProjectDocumentV2];
+		expect(
+			saved.project.scenes.some((scene) => scene.blocks.some((block) => block.id === "late-text")),
+		).toBe(true);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1_000);
+		});
+		expect(library.saveProject).toHaveBeenCalledOnce();
+	});
+
+	it("holds an import until the stored project has been put back", async () => {
+		const pending = deferred<ProjectDocumentV2 | null>();
+		library.loadProject.mockReturnValue(pending.promise);
+		render(<StudioCompositionBridge />);
+		let ready = false;
+		void whenStudioCompositionReady().then(() => {
+			ready = true;
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(500);
+		});
+		expect(ready).toBe(false);
+
+		await act(async () => {
+			pending.resolve(null);
+			await vi.advanceTimersByTimeAsync(10);
+		});
+		expect(ready).toBe(true);
 	});
 });

@@ -1,4 +1,5 @@
 import { Asset, type AssetKind } from "../../domain/entities/asset";
+import { DEFAULT_ASSET_INGESTION_POLICY } from "./asset-ingestion";
 import {
 	type PrivateMediaFile,
 	type PrivateMediaMetadataPort,
@@ -76,17 +77,64 @@ function mediaKind(file: PrivateMediaFile): AssetKind {
 	);
 }
 
+const MEBIBYTE = 1024 * 1024;
+const GIBIBYTE = 1024 * MEBIBYTE;
+const KIND_PLURAL: Readonly<Record<AssetKind, string>> = {
+	image: "Images",
+	video: "Videos",
+	audio: "Audio files",
+};
+
+/** Rounded up, so a file just past a ceiling never reads as equal to it. */
+function formatBytes(bytes: number): string {
+	if (bytes >= GIBIBYTE) {
+		return `${Math.ceil((bytes / GIBIBYTE) * 10) / 10} GB`;
+	}
+	return `${Math.ceil(bytes / MEBIBYTE)} MB`;
+}
+
+/**
+ * The hosted policy's longest file name. A longer local name would import, then
+ * fail the day the project is saved to the cloud, so it is shortened here,
+ * keeping the extension.
+ */
+const MAX_FILE_NAME_LENGTH = 255;
+
+function storableFileName(name: string): string {
+	if (name.length <= MAX_FILE_NAME_LENGTH) {
+		return name;
+	}
+	const dot = name.lastIndexOf(".");
+	const extension = dot > 0 && name.length - dot <= 16 ? name.slice(dot) : "";
+	return `${name.slice(0, MAX_FILE_NAME_LENGTH - extension.length)}${extension}`;
+}
+
 function assertFile(file: PrivateMediaFile): AssetKind {
 	if (
 		!file.name.trim() ||
 		!file.mimeType.trim() ||
-		!positiveInteger(file.byteSize) ||
 		file.opaqueHandle === null ||
 		file.opaqueHandle === undefined
 	) {
 		throw new PrivateMediaUploadError("invalid-file", "The selected media file is invalid.");
 	}
-	return mediaKind(file);
+	if (file.byteSize === 0) {
+		throw new PrivateMediaUploadError("empty-file", "This file is empty.");
+	}
+	if (!positiveInteger(file.byteSize)) {
+		throw new PrivateMediaUploadError("invalid-file", "The selected media file is invalid.");
+	}
+	const kind = mediaKind(file);
+	// The same ceilings as a hosted upload: a project that opens here must not be
+	// refused later by the cloud, and a 5 GB file must not be hashed to find out.
+	const maxBytes = DEFAULT_ASSET_INGESTION_POLICY.maxBytesByKind[kind];
+	if (file.byteSize > maxBytes) {
+		throw new PrivateMediaUploadError(
+			"file-too-large",
+			`${KIND_PLURAL[kind]} can be up to ${formatBytes(maxBytes)}; this one is ${formatBytes(file.byteSize)}.`,
+		);
+	}
+	return kind;
 }
 
 function releaseSafely(lease: SceneAssetSourceLease): void {
@@ -127,7 +175,7 @@ export function createImportLocalMedia({
 			throwIfAborted(options.signal);
 			const common = {
 				...(createAssetId ? { id: createAssetId() } : {}),
-				fileName: file.name,
+				fileName: storableFileName(file.name),
 				mimeType: file.mimeType.trim().toLowerCase(),
 				byteSize: file.byteSize,
 				checksum,

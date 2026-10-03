@@ -15,6 +15,7 @@ import {
 } from "../../domain/entities/block";
 import type { Project } from "../../domain/entities/project";
 import { Scene } from "../../domain/entities/scene";
+import type { ProjectDocumentV2 } from "./project-document";
 
 const DEFAULT_TEXT_PLACEMENT: BlockPlacement = { x: 0.12, y: 0.2, width: 0.76, height: 0.3 };
 const DEFAULT_CODE_PLACEMENT: BlockPlacement = { x: 0.12, y: 0.18, width: 0.76, height: 0.64 };
@@ -119,6 +120,32 @@ export function addMediaAsset(
 		throw new Error(`Asset ${asset.id} is already registered`);
 	}
 	return placeMediaAsset(project.registerAsset(asset), sceneId, asset, options);
+}
+
+/** Every asset a layer or an audio cue of this document points at. */
+export function referencedAssetIds(document: ProjectDocumentV2): Set<string> {
+	const ids = new Set(document.project.audioCues.map((cue) => cue.assetId));
+	for (const scene of document.project.scenes) {
+		for (const block of scene.blocks) {
+			if (block.kind === "image" || block.kind === "video") {
+				ids.add(block.assetId);
+			}
+		}
+	}
+	return ids;
+}
+
+/**
+ * The document without the assets nothing references any more: what a deleted
+ * layer or cue leaves behind once no undo can bring it back (a restore, where
+ * history is empty). The same document comes back when there is nothing to drop.
+ */
+export function pruneUnreferencedAssets(document: ProjectDocumentV2): ProjectDocumentV2 {
+	const referenced = referencedAssetIds(document);
+	const assets = document.project.assets.filter((asset) => referenced.has(asset.id));
+	return assets.length === document.project.assets.length
+		? document
+		: { ...document, project: { ...document.project, assets } };
 }
 
 /** Place canonical metadata that was already registered by a hosted upload. */

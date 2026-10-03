@@ -3,6 +3,7 @@ import type {
 	LocalAssetContentInput,
 	LocalProjectLibraryPort,
 } from "@/application/project/local-project-library.port";
+import { referencedAssetIds } from "@/application/project/multimedia-authoring";
 import {
 	type ProjectDocumentV2,
 	parseProjectDocument,
@@ -42,6 +43,13 @@ interface TypelapseLocalDatabase extends DBSchema {
 		key: StoredSetting["key"];
 		value: StoredSetting;
 	};
+}
+
+/** What the library knows about one stored blob, without the bytes. */
+export interface StoredAssetSummary {
+	readonly assetId: string;
+	readonly projectId: string;
+	readonly byteSize: number;
 }
 
 export interface IndexedDbLocalProjectAdapterOptions {
@@ -186,6 +194,62 @@ export class IndexedDbLocalProjectAdapter implements LocalProjectLibraryPort {
 			byteSize: input.byteSize,
 			blob: input.opaqueHandle,
 		});
+	}
+
+	/** The stored blobs, all of them or those one project imported. */
+	async listAssets(projectId?: string): Promise<StoredAssetSummary[]> {
+		const database = await this.database();
+		const stored = projectId
+			? await database.getAllFromIndex(
+					"assets",
+					"by-project",
+					safeIdentifier(projectId, "Project id"),
+				)
+			: await database.getAll("assets");
+		return stored.map(({ assetId, projectId: owner, byteSize }) => ({
+			assetId,
+			projectId: owner,
+			byteSize,
+		}));
+	}
+
+	async deleteAsset(assetId: string): Promise<void> {
+		await (await this.database()).delete("assets", safeIdentifier(assetId, "Asset id"));
+	}
+
+	/**
+	 * Delete every blob that no stored project references, nor any of `keep`
+	 * (the open project's live ids), and return the deleted ids. Bytes are shared
+	 * by asset id across local projects, so every project is read, in the same
+	 * transaction as the deletes. One unreadable project means its references are
+	 * unknown, and then nothing is deleted.
+	 */
+	async deleteUnreferencedAssets(keep: Iterable<string> = []): Promise<string[]> {
+		const transaction = (await this.database()).transaction(["projects", "assets"], "readwrite");
+		const referenced = new Set(keep);
+		for (const stored of await transaction.objectStore("projects").getAll()) {
+			let document: ProjectDocumentV2;
+			try {
+				document = canonicalDocument(stored.document);
+			} catch {
+				transaction.abort();
+				await transaction.done.catch(() => undefined);
+				return [];
+			}
+			for (const assetId of referencedAssetIds(document)) {
+				referenced.add(assetId);
+			}
+		}
+		const assets = transaction.objectStore("assets");
+		const deleted: string[] = [];
+		for (const assetId of await assets.getAllKeys()) {
+			if (!referenced.has(assetId)) {
+				deleted.push(assetId);
+				await assets.delete(assetId);
+			}
+		}
+		await transaction.done;
+		return deleted;
 	}
 
 	async destroy(): Promise<void> {

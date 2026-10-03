@@ -139,6 +139,50 @@ describe("import local media", () => {
 		expect(deps.sourceFactory.create).not.toHaveBeenCalled();
 	});
 
+	it("names an empty file instead of calling it invalid, before hashing", async () => {
+		const deps = dependencies();
+		const importer = createImportLocalMedia(deps);
+
+		await expect(importer.execute({ file: imageFile({ byteSize: 0 }) })).rejects.toMatchObject({
+			code: "empty-file",
+			message: "This file is empty.",
+		});
+		expect(deps.hasher.sha256).not.toHaveBeenCalled();
+	});
+
+	it("applies the hosted size ceilings on this device too, before hashing", async () => {
+		const deps = dependencies();
+		const importer = createImportLocalMedia(deps);
+		const mebibyte = 1024 * 1024;
+
+		await expect(
+			importer.execute({ file: imageFile({ byteSize: 30 * mebibyte }) }),
+		).rejects.toMatchObject({
+			code: "file-too-large",
+			message: "Images can be up to 25 MB; this one is 30 MB.",
+		});
+		await expect(
+			importer.execute({
+				file: imageFile({ name: "talk.mp4", mimeType: "video/mp4", byteSize: 2049 * mebibyte }),
+			}),
+		).rejects.toMatchObject({
+			code: "file-too-large",
+			message: "Videos can be up to 2 GB; this one is 2.1 GB.",
+		});
+		expect(deps.hasher.sha256).not.toHaveBeenCalled();
+	});
+
+	it("keeps a long file name within the 255 characters a cloud save accepts, extension included", async () => {
+		const deps = dependencies();
+		const importer = createImportLocalMedia(deps);
+		const name = `${"a".repeat(500)}.png`;
+
+		const { asset } = await importer.execute({ file: imageFile({ name }) });
+
+		expect(asset.metadata.fileName).toHaveLength(255);
+		expect(asset.metadata.fileName.endsWith("a.png")).toBe(true);
+	});
+
 	it("releases a malformed source lease instead of registering it for another asset", async () => {
 		const deps = dependencies();
 		deps.sourceFactory.create = vi.fn(() => ({

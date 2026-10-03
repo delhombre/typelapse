@@ -24,6 +24,7 @@ class FakeMediaElement implements BrowserMediaElementProbe {
 	preload = "";
 	src = "";
 	autofire: "loadedmetadata" | "error" | null = "loadedmetadata";
+	canPlayType?: (type: string) => string;
 
 	addEventListener(type: string, listener: () => void): void {
 		const listeners = this.listeners.get(type) ?? new Set();
@@ -160,6 +161,46 @@ describe("browser media metadata adapter", () => {
 		expect(failure).toMatchObject({ code: "invalid-metadata" });
 		expect(String(failure)).not.toContain("token=private");
 		expect(element.actions).toEqual(["pause", "remove:src", "load"]);
+	});
+
+	it("names the formats this browser plays when it cannot decode the file", async () => {
+		const element = new FakeMediaElement();
+		element.autofire = "error";
+		const playable = new Set(["audio/wav", "audio/ogg", "audio/webm"]);
+		element.canPlayType = (type: string) => (playable.has(type) ? "maybe" : "");
+		const { env } = environment(element);
+		const adapter = new BrowserMediaMetadataAdapter(env);
+
+		await expect(adapter.inspect(file("audio/mpeg"), {})).rejects.toMatchObject({
+			code: "unsupported-media-type",
+			message: "This browser cannot play MP3 files. It plays WAV, WebM and Ogg.",
+		});
+	});
+
+	it("keeps the generic sentence when the browser says it can play the type", async () => {
+		const element = new FakeMediaElement();
+		element.autofire = "error";
+		element.canPlayType = () => "probably";
+		const { env } = environment(element);
+		const adapter = new BrowserMediaMetadataAdapter(env);
+
+		await expect(adapter.inspect(file("video/mp4"), {})).rejects.toMatchObject({
+			code: "invalid-metadata",
+			message: "The media metadata could not be read.",
+		});
+	});
+
+	it("says a file that does not decode as an image is not one", async () => {
+		const { env } = environment();
+		env.createImageBitmap = vi.fn(async () => {
+			throw new Error("InvalidStateError");
+		});
+		const adapter = new BrowserMediaMetadataAdapter(env);
+
+		await expect(adapter.inspect(file("image/png"), {})).rejects.toMatchObject({
+			code: "invalid-metadata",
+			message: "This file could not be opened as an image.",
+		});
 	});
 
 	it("rejects unsupported media before allocating a probe", async () => {

@@ -1,3 +1,4 @@
+import { DEFAULT_ASSET_INGESTION_POLICY } from "../../application/assets/asset-ingestion";
 import {
 	type PrivateMediaFile,
 	type PrivateMediaInspection,
@@ -23,6 +24,7 @@ export interface BrowserMediaElementProbe {
 	load(): void;
 	pause(): void;
 	removeAttribute(name: "src"): void;
+	canPlayType?(type: string): string;
 }
 
 export interface BrowserMediaMetadataEnvironment {
@@ -102,7 +104,10 @@ function imageBitmap(
 	try {
 		pending = environment.createImageBitmap(source);
 	} catch {
-		throw new PrivateMediaUploadError("invalid-metadata", "The image metadata could not be read.");
+		throw new PrivateMediaUploadError(
+			"invalid-metadata",
+			"This file could not be opened as an image.",
+		);
 	}
 	return new Promise((resolve, reject) => {
 		let settled = false;
@@ -130,7 +135,10 @@ function imageBitmap(
 				settled = true;
 				cleanup();
 				reject(
-					new PrivateMediaUploadError("invalid-metadata", "The image metadata could not be read."),
+					new PrivateMediaUploadError(
+						"invalid-metadata",
+						"This file could not be opened as an image.",
+					),
 				);
 			},
 		);
@@ -199,6 +207,9 @@ async function timedMetadata(
 		return validateInspection({ kind, durationMs });
 	} catch (error) {
 		throwIfAborted(options.signal);
+		if (error instanceof PrivateMediaUploadError && error.code === "invalid-metadata") {
+			throw undecodableType(element, kind, file.mimeType.trim().toLowerCase()) ?? error;
+		}
 		if (error instanceof PrivateMediaUploadError) throw error;
 		if (error instanceof Error && error.name === "AbortError") throw abortError();
 		throw new PrivateMediaUploadError("invalid-metadata", "The media metadata could not be read.");
@@ -218,6 +229,54 @@ async function timedMetadata(
 			} catch {}
 		}
 	}
+}
+
+const FORMAT_LABELS: Readonly<Record<string, string>> = {
+	"audio/mpeg": "MP3",
+	"audio/mp4": "M4A",
+	"audio/wav": "WAV",
+	"audio/x-wav": "WAV",
+	"audio/webm": "WebM",
+	"audio/ogg": "Ogg",
+	"audio/flac": "FLAC",
+	"video/mp4": "MP4",
+	"video/webm": "WebM",
+	"video/quicktime": "MOV",
+};
+
+function listInWords(items: readonly string[]): string {
+	return items.length < 2
+		? (items[0] ?? "")
+		: `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
+}
+
+/**
+ * A file the element refused, explained when the browser says outright that it
+ * has no decoder for the type (headless Chromium ships without MP3, for one):
+ * the person then knows which formats would work here instead of guessing.
+ */
+function undecodableType(
+	element: BrowserMediaElementProbe,
+	kind: "video" | "audio",
+	mimeType: string,
+): PrivateMediaUploadError | null {
+	if (typeof element.canPlayType !== "function" || element.canPlayType(mimeType) !== "") {
+		return null;
+	}
+	const label = FORMAT_LABELS[mimeType] ?? mimeType;
+	const playable = [
+		...new Set(
+			DEFAULT_ASSET_INGESTION_POLICY.allowedMimeTypes[kind]
+				.filter((type) => element.canPlayType?.(type) !== "")
+				.map((type) => FORMAT_LABELS[type] ?? type),
+		),
+	];
+	return new PrivateMediaUploadError(
+		"unsupported-media-type",
+		playable.length > 0
+			? `This browser cannot play ${label} files. It plays ${listInWords(playable)}.`
+			: `This browser cannot play ${label} files.`,
+	);
 }
 
 /** DOM probes stay in this adapter; application receives validated numbers only. */

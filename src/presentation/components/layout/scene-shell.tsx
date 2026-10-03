@@ -4,6 +4,7 @@ import { StudioControlRail } from "@/presentation/components/controls/studio-con
 import { StudioTimeline } from "@/presentation/components/timeline/studio-timeline";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { trigger } from "@/presentation/haptics";
+import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { springs } from "@/presentation/motion";
 import {
 	readShellPreferences,
@@ -15,6 +16,7 @@ import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
 import { SceneCodeCard } from "./scene-code-card";
 import { StudioAccountIsland } from "./studio-account-island";
+import { StudioHistoryControls } from "./studio-history-controls";
 import { StudioSourceHub } from "./studio-source-hub";
 import { StudioUtilities } from "./studio-utilities";
 import { TemplateGallery } from "./template-gallery";
@@ -35,6 +37,7 @@ const ARRIVAL_DELAY = { stage: 0, rail: 0.06, chrome: 0.1, editor: 0.14 } as con
 export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps) {
 	const reduce = useReducedMotion() === true;
 	const [folded, setFolded] = useState(() => readShellPreferences().codeFolded);
+	const draggingFile = useStudioFileDrop();
 
 	const fold = useCallback((next: boolean) => {
 		trigger("light");
@@ -81,6 +84,7 @@ export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps)
 					>
 						<div className="sc-island-group sc-island-group-project">
 							<ProjectChip />
+							<StudioHistoryControls />
 							<StudioSourceHub />
 							<CaptureLibrary />
 						</div>
@@ -131,6 +135,13 @@ export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps)
 
 				<div className="sc-timeline-slot">
 					<StudioTimeline />
+				</div>
+				<div
+					className="sc-drop-veil"
+					data-active={draggingFile ? "" : undefined}
+					aria-hidden="true"
+				>
+					<p>Drop to add to the selected scene</p>
 				</div>
 			</main>
 		</StudioVideoModeProvider>
