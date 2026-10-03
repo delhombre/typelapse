@@ -24,7 +24,7 @@ export function DiffSection() {
 		<FeatureSection
 			eyebrow="Step 01 · Paste"
 			title="It starts with a diff."
-			line="Paste a unified diff or a GitHub pull request. Typelapse reads the change, finds its meaningful beats and turns them into editable scenes — ready on the timeline before you touch a control."
+			line="Paste a unified diff or a GitHub pull request. Typelapse reads the change, finds its meaningful beats and turns them into editable scenes, ready on the timeline before you touch a control."
 			align="right"
 			visual={<ImportProductShot />}
 		/>

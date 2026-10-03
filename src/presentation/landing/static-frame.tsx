@@ -101,7 +101,11 @@ export const StaticFrame = memo(function StaticFrame({
 	   a miss goes async, and the resolved highlight re-renders this frame. */
 	const cacheKey = highlightCacheKey(themeName, language, code);
 	const [, onHighlighted] = useReducer((n: number) => n + 1, 0);
-	const html = readHighlight(cacheKey) ?? "";
+	/* Shiki makes a standalone code block keyboard-scrollable with tabindex="0".
+	   Every frame here is a picture (a labelled role="img", or inside an
+	   aria-hidden wrapper), so that left a tab stop on invisible code, one per
+	   card, some of them under aria-hidden. Same rule as StaticCodePoster. */
+	const html = (readHighlight(cacheKey) ?? "").replaceAll(' tabindex="0"', "");
 
 	useEffect(() => {
 		if (readHighlight(cacheKey) !== undefined) {

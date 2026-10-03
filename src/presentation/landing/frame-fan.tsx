@@ -136,7 +136,7 @@ const FAN = [
 
 /**
  * A held hand of code cards. On desktop they overlap
- * in a fan; hovering one springs it up and straightens it, quietly. On mobile the
+ * in a fan; hovering one springs it up and straightens it, quietly. Below `lg` the
  * fan collapses to a horizontal scroll-snap row with no rotation.
  */
 export function FrameFan() {
@@ -170,8 +170,11 @@ export function FrameFan() {
 
 	return (
 		<section className="mx-auto w-full max-w-5xl px-6 py-6">
-			{/* Desktop: the fan. */}
-			<div className="relative hidden h-[380px] md:block">
+			{/* Desktop: the fan. It switches on at `lg`, not `md`: the hand is about
+			    840px from the outer edge of one rotated corner card to the other, so
+			    at a 768px tablet it ran off both sides of the page and gave the whole
+			    landing a horizontal scroll. */}
+			<div className="relative hidden h-[380px] lg:block">
 				{FAN.map((card, i) => {
 					const baseZ = 30 - Math.abs(i - 2) * 10;
 					/* Only the cards touching the hovered one move aside, and they move
@@ -263,7 +266,7 @@ export function FrameFan() {
 			{/* Mobile: a plain scroll-snap row, no rotation. It deals itself in too —
 			    the reveal that used to wrap the whole component is gone, and the row
 			    is as much a set of cards as the fan is. */}
-			<div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+			<div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 				{FAN.map((card) => (
 					<div
 						key={card.ratio}

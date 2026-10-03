@@ -1,5 +1,5 @@
 import { DiffSection } from "@/presentation/landing/diff-section";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 describe("landing diff section", () => {
@@ -15,5 +15,28 @@ describe("landing diff section", () => {
 		expect(screen.getByText("3 scenes ready")).toBeTruthy();
 		expect(screen.getByText("Add scene")).toBeTruthy();
 		expect(screen.queryByText("Generated timeline")).toBeNull();
+	});
+
+	it("leaves no tab stop on the highlighted code inside the picture", async () => {
+		const { container } = render(<DiffSection />);
+
+		// Shiki emits <pre tabindex="0">; the frame is aria-hidden decoration, so a
+		// keyboard user would land on code they are told is not there.
+		const pre = await waitFor(
+			() => {
+				const found = container.querySelector("pre");
+				expect(found).not.toBeNull();
+				return found as HTMLPreElement;
+			},
+			{ timeout: 10_000 },
+		);
+		expect(pre.closest("[aria-hidden='true']")).not.toBeNull();
+		expect(container.querySelector("[tabindex]")).toBeNull();
+	});
+
+	it("writes its copy without em-dashes", () => {
+		const { container } = render(<DiffSection />);
+
+		expect(container.textContent).not.toContain("\u2014");
 	});
 });
