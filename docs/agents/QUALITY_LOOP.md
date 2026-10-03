@@ -114,8 +114,11 @@ the changes made; a before and after screenshot is in the report.
 ### 5 Prove
 
 Pstack **Prove It Works**: verify against the real artifact, not a proxy. A
-journey is proven in a real browser (`agent-browser`, own ports, restart the
-dev server after every source edit). An export is proven with `ffprobe` on
+journey is proven in a real browser (`agent-browser`, own ports). When other
+agents edit the same worktree, HMR reloads the page mid-test and can leave two
+instances alive, so prove against `vite build` served by `vite preview`, or a
+Vite started with `hmr: false` and `watch: null` from a config outside the
+repo, restarted after every source edit. An export is proven with `ffprobe` on
 the downloaded file and a frame compared with the preview. A hosted flow is
 proven against a disposable PostgreSQL. Do not run the full `pnpm test` while
 another agent runs anything in the same worktree; the orchestrator runs the
