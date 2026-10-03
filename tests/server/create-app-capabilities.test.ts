@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Hono } from "hono";
 import { createApp } from "../../server/index";
+import type { AuthInstance } from "../../server/auth/auth-instance";
 import type { BillingService } from "../../server/billing/billing-service";
 import type { AssetRepositoryPort } from "../../src/application/assets/asset-repository.port";
 import type { HostedProjectAssetResolverPort } from "../../src/application/assets/hosted-project-asset-resolver.port";
@@ -239,5 +240,34 @@ describe("createApp hosted capabilities", () => {
 		expect(response.headers.get("x-request-id")).toBe("request_123");
 		expect(errors).toEqual(["Unhandled request failure request_123"]);
 		expect(errors.join(" ")).not.toContain("never-log-this");
+	});
+
+	it("refuses oversized auth bodies before Better Auth parses them", async () => {
+		const parsedBodies: number[] = [];
+		const auth = {
+			handler: async (request: Request) => {
+				parsedBodies.push((await request.text()).length);
+				return new Response(null, { status: 401 });
+			},
+		} as unknown as AuthInstance;
+		const app = await createApp({
+			deploymentMode: "hosted",
+			database: null,
+			auth,
+			authPort: null,
+		});
+		const signIn = (body: string) =>
+			app.request("http://localhost/api/auth/sign-in/email", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body,
+			});
+
+		const oversized = await signIn(JSON.stringify({ password: "a".repeat(20 * 1024 * 1024) }));
+		const ordinary = await signIn(JSON.stringify({ email: "qa@example.test", password: "x" }));
+
+		expect(oversized.status).toBe(413);
+		expect(ordinary.status).toBe(401);
+		expect(parsedBodies).toHaveLength(1);
 	});
 });

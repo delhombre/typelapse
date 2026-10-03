@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
 import type { AssetRepositoryPort } from "../src/application/assets/asset-repository.port";
@@ -34,6 +35,8 @@ import { createLocalMultimediaRenderRoute } from "./routes/local-multimedia-rend
 import { createProjectsRoute } from "./routes/projects";
 import { hostedRenderJobServiceFromEnv } from "./render/render-job-service";
 import { r2ObjectStorageFromEnv } from "./storage/r2-object-storage";
+
+const MAX_AUTH_REQUEST_BYTES = 64 * 1024;
 
 export interface CreateAppOptions {
 	readonly deploymentMode?: DeploymentMode;
@@ -131,6 +134,16 @@ export async function createApp(
 	);
 
 	if (auth) {
+		// Auth payloads are a few hundred bytes. Without a ceiling Better Auth parses
+		// whatever arrives, so an anonymous 20 MB sign-in body is buffered and parsed
+		// before it is rejected.
+		app.use(
+			"/api/auth/*",
+			bodyLimit({
+				maxSize: MAX_AUTH_REQUEST_BYTES,
+				onError: (c) => c.json({ error: "Auth request is too large" }, 413),
+			}),
+		);
 		app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 	}
 	if (authPort && projectRepository && projectAssetResolver) {

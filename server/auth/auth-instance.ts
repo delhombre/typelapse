@@ -53,6 +53,12 @@ export const authInstance = (
 		baseURL,
 		emailAndPassword: { enabled: true },
 		trustedOrigins: [trustedOrigin],
+		// Better Auth only rate limits when NODE_ENV is "production", and nothing in
+		// our start path sets it: `tsx server/index.ts` would serve sign-in with no
+		// brute-force ceiling at all. Configured auth is hosted auth, so the limit is
+		// always on. The client IP comes from `x-forwarded-for`, which the platform
+		// proxy must set; the store is in memory, so the ceiling is per instance.
+		rateLimit: { enabled: true },
 	});
 };
 
