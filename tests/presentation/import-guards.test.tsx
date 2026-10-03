@@ -174,7 +174,7 @@ describe("UrlImportMenu guard", () => {
 		expect(fetchSpy).not.toHaveBeenCalled();
 
 		// Confirming hands over to the ordinary fetch path.
-		fireEvent.click(screen.getByRole("button", { name: "Fetch it" }));
+		fireEvent.click(screen.getByRole("button", { name: "Import the file" }));
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalled();
 		});

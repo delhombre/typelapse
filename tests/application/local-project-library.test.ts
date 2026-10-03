@@ -1,6 +1,8 @@
 import {
 	EMPTY_LOCAL_PROJECT_LIBRARY,
 	activeLocalProject,
+	distinctProjectLabels,
+	nextUntitledTitle,
 	parseLocalProjectLibrary,
 	removeLocalProject,
 	upsertLocalProject,
@@ -74,5 +76,25 @@ describe("local project library", () => {
 		const removed = removeLocalProject(two, "two");
 		expect(removed.activeId).toBe("one");
 		expect(activeLocalProject(removed)?.project.title).toBe("One");
+	});
+});
+
+describe("default project names", () => {
+	it("gives each new project the first free Untitled name", () => {
+		expect(nextUntitledTitle([])).toBe("Untitled");
+		expect(nextUntitledTitle(["Alpha"])).toBe("Untitled");
+		expect(nextUntitledTitle(["Untitled"])).toBe("Untitled 2");
+		expect(nextUntitledTitle(["Untitled", "Untitled 2"])).toBe("Untitled 3");
+		expect(nextUntitledTitle(["Untitled 2", " untitled "])).toBe("Untitled 3");
+		expect(nextUntitledTitle(["Untitled 2"])).toBe("Untitled");
+	});
+
+	it("never lists two identical lines, even for a library that already holds duplicates", () => {
+		expect(distinctProjectLabels(["Untitled", "Alpha", "Untitled", "Untitled"])).toEqual([
+			"Untitled",
+			"Alpha",
+			"Untitled (2)",
+			"Untitled (3)",
+		]);
 	});
 });

@@ -1,8 +1,33 @@
 import { languageFromPath } from "@/application/language/language-from-filename";
 import { parseUnifiedDiff } from "./parse-unified-diff";
 import { generateSnapshots, normalizeSnapshots } from "./snapshots";
-import type { DiffToSnapshotsOptions, DiffToSnapshotsResult } from "./types";
-import { filterLockfiles } from "./windowing";
+import type { DiffFile, DiffHunk, DiffToSnapshotsOptions, DiffToSnapshotsResult } from "./types";
+import { ELLIPSIS, filterLockfiles } from "./windowing";
+
+const NO_NEWLINE_MARKER = /^\\ No newline at end of file/m;
+
+function sideOf(hunk: DiffHunk, dropped: "add" | "remove"): string {
+	return hunk.lines
+		.filter((line) => line.type !== dropped)
+		.map((line) => line.content)
+		.join("\n");
+}
+
+/**
+ * True when no hunk changes a visible character: the parser reads lines
+ * without their terminators, so a diff that only adds or drops the final
+ * newline, or swaps CRLF for LF, has identical sides once parsed.
+ */
+export function changesOnlyLineEndings(files: readonly DiffFile[]): boolean {
+	return files.every((file) =>
+		file.hunks.every((hunk) => sideOf(hunk, "add") === sideOf(hunk, "remove")),
+	);
+}
+
+/** The caption of the frame a delete-only diff ends on. */
+function removalCaption(files: readonly DiffFile[], path: string | undefined): string {
+	return files.length === 1 && path ? `${path} removed` : `${files.length} files removed`;
+}
 
 /**
  * The application use-case: turn pasted unified-diff text into an animatable
@@ -37,6 +62,14 @@ export function diffToSnapshots(
 		);
 	}
 
+	if (changesOnlyLineEndings(files)) {
+		throw new Error(
+			NO_NEWLINE_MARKER.test(diffText)
+				? "This diff only changes the newline at the end of the file: there is nothing to animate."
+				: "This diff only changes line endings: there is nothing to animate.",
+		);
+	}
+
 	// Windowed by default (readable on real PRs); options can force full frames.
 	const snapshots = normalizeSnapshots(
 		generateSnapshots({ files }, { mode: options.mode, windowing: options.windowing }),
@@ -48,10 +81,22 @@ export function diffToSnapshots(
 	const primary = files.find((file) => file.hunks.length > 0);
 	const path = primary?.newPath ?? primary?.oldPath ?? undefined;
 
+	// A diff that only deletes files would end on the file as it was, with
+	// nothing saying it went away. It plays as two scenes instead: the file,
+	// then a frame that says what happened. A step cannot hold empty code, so
+	// that frame holds the same omission mark the windowed frames use.
+	const deletesOnly = files.every((file) => file.isDeleted);
+	const first = snapshots[0];
+	const told =
+		deletesOnly && first
+			? [first, { code: ELLIPSIS, label: removalCaption(files, path) }]
+			: snapshots;
+
 	return {
-		snapshots,
+		snapshots: told,
 		language: languageFromPath(path),
 		path,
 		fileCount: files.length,
+		removesOnly: deletesOnly,
 	};
 }

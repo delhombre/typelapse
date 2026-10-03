@@ -72,4 +72,23 @@ describe("ProjectChip local-first menu", () => {
 			true,
 		);
 	});
+
+	it("names three new projects apart and lists three distinct lines", async () => {
+		ensureActiveLocalProject(payload("Untitled"), { id: "first", now: 10 });
+		open(payload("Untitled"));
+
+		for (const expected of ["Untitled 2", "Untitled 3", "Untitled 4"]) {
+			fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
+			fireEvent.click(screen.getByRole("menuitem", { name: "New project" }));
+			await waitFor(() => expect(useSnippetStore.getState().snippet.title).toBe(expected));
+		}
+
+		fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
+		const names = screen
+			.getAllByRole("menuitem")
+			.map((item) => item.getAttribute("aria-label"))
+			.filter((name): name is string => name?.startsWith("Open ") === true);
+		expect(names).toHaveLength(4);
+		expect(new Set(names).size).toBe(4);
+	});
 });

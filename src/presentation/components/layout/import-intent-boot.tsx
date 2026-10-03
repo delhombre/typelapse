@@ -1,9 +1,13 @@
 import { classifySource } from "@/application/import/classify-source";
+import { importConfirmLabel, importReplaceQuestion } from "@/application/import/import-wording";
+import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { type ImportIntent, takeImportIntent } from "@/presentation/utils/import-intent";
+import { whenStudioCompositionReady } from "@/presentation/utils/studio-composition-ready";
+import { hasStudioWorkToLose } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 /**
  * Picks up what the landing hero was pasted, on arrival in the studio.
@@ -12,27 +16,80 @@ import { useEffect, useState } from "react";
  * because a landing page has nowhere honest to put a spinner: you asked to go
  * to the studio, so you go, and the work is shown happening where the result
  * will appear. That makes `/app#import=…` a real link too — it opens a pull
- * request in Typelapse from anywhere.
+ * request in Typelapse from anywhere, including from a studio already open:
+ * the hash changing on /app starts the same flow.
+ *
+ * An import replaces the project, so when the open one has work to lose (code
+ * edits, layers, media, audio) it asks once before fetching anything. It asks
+ * only after the open project's stored layers are on screen, or a project with
+ * layers would look empty at the moment of the question.
  *
  * Renders nothing at all when the page was opened normally.
  */
 export function ImportIntentBoot() {
 	const [intent, setIntent] = useState<ImportIntent | null>(null);
+	/** True while the intent waits on a confirm, because importing would discard work. */
+	const [asking, setAsking] = useState(false);
 	const { loading, error, progress, run, reset } = useSourceImport();
+	const questionId = useId();
+
+	const begin = useCallback(
+		async (taken: ImportIntent) => {
+			reset();
+			setAsking(false);
+			setIntent(taken);
+			await whenStudioCompositionReady();
+			if (hasStudioWorkToLose()) {
+				setAsking(true);
+				return;
+			}
+			void run(taken.source, taken.playMode);
+		},
+		[reset, run],
+	);
 
 	useEffect(() => {
 		// takeImportIntent consumes: StrictMode's second mount finds nothing, so
 		// the pull request is fetched once.
-		const taken = takeImportIntent();
-		if (!taken) {
-			return;
-		}
-		setIntent(taken);
-		void run(taken.source, taken.playMode);
-	}, [run]);
+		const take = () => {
+			const taken = takeImportIntent();
+			if (taken) {
+				void begin(taken);
+			}
+		};
+		take();
+		window.addEventListener("hashchange", take);
+		return () => window.removeEventListener("hashchange", take);
+	}, [begin]);
 
 	if (!intent) {
 		return null;
+	}
+
+	if (asking) {
+		const kind = classifySource(intent.source.trim());
+		return (
+			<div
+				role="alertdialog"
+				aria-labelledby={questionId}
+				className="fixed inset-x-0 top-3 z-[60] flex justify-center px-4"
+			>
+				<ConfirmDiscard
+					messageId={questionId}
+					message={importReplaceQuestion(kind)}
+					confirmLabel={importConfirmLabel(kind)}
+					onCancel={() => {
+						setAsking(false);
+						setIntent(null);
+					}}
+					onConfirm={() => {
+						setAsking(false);
+						void run(intent.source, intent.playMode);
+					}}
+					className="w-full max-w-sm shadow-[0_16px_40px_-12px_rgb(0_0_0/0.28)]"
+				/>
+			</div>
+		);
 	}
 
 	const message = error ?? describe(intent, progress);

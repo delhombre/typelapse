@@ -443,8 +443,27 @@
 
 /* Neighbouring utility buttons already share a 40px island. Extend the target
    vertically only so invisible hit areas never overlap left-to-right. */
-.studio-camera-root .sc-utilities button.hit-ext::after {
+.studio-camera-root .sc-utilities button.hit-ext::after,
+.studio-camera-root .sc-history button.hit-ext::after {
 	inset: -4px 0;
+}
+
+.studio-camera-root .sc-history {
+	gap: 1px;
+	padding-inline: 3px;
+}
+
+/* The shared extension is a 44px square centred on a 32px glyph: Redo's would
+   cover the right edge of Undo. Each target stays its own 32x40 column. */
+.studio-camera-root .sc-history button.hit-ext::after {
+	width: auto;
+	height: auto;
+	transform: none;
+}
+
+.studio-camera-root .sc-history button:disabled {
+	opacity: 0.32;
+	pointer-events: none;
 }
 
 .sc-island-trigger {
@@ -3288,9 +3307,12 @@
 	box-shadow: 0 0 0 2px rgb(255 213 11 / 0.42);
 }
 
+/* The code starts under the number and duration row (top 6px, 8px type), not
+   behind it: at 12px the first line ran through both labels. Its edges line up
+   with theirs. */
 .studio-timeline-code {
 	position: absolute;
-	inset: 12px 10px 10px;
+	inset: 22px 7px 10px;
 	overflow: hidden;
 	color: inherit;
 	font-family: var(--font-mono);
@@ -3631,4 +3653,56 @@
 	.studio-timeline-resize:focus-visible::before {
 		transform: none;
 	}
+}
+
+/* A file dragged over the studio: the whole paper becomes the target, quietly,
+   under the notices. Pointer events pass through; the window owns the drop. */
+.studio-camera-root .sc-drop-veil {
+	position: fixed;
+	inset: 10px;
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1.5px dashed rgb(47 128 255 / 0.75);
+	border-radius: 22px;
+	background: rgb(47 128 255 / 0.05);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 140ms ease-out;
+}
+
+.studio-camera-root .sc-drop-veil[data-active] {
+	opacity: 1;
+}
+
+.studio-camera-root .sc-drop-veil p {
+	padding: 8px 14px;
+	border-radius: 12px;
+	background: var(--camera-paper);
+	box-shadow: var(--camera-surface-shadow);
+	color: var(--camera-ink);
+	font-size: 13px;
+	font-weight: 560;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.studio-camera-root .sc-drop-veil {
+		transition: none;
+	}
+}
+
+/* Media chips carry file names now; a long one ends in an ellipsis and its
+   tooltip holds the whole name. */
+.studio-camera-root .sc-layer-pill span {
+	max-width: 132px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* A media choice waits while the files already chosen are being added. */
+.sc-source-choice:disabled {
+	opacity: 0.5;
+	pointer-events: none;
 }

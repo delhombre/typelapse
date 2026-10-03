@@ -1,6 +1,7 @@
 import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { PreviewIsland } from "@/presentation/components/controls/preview-island";
-import { motion } from "motion/react";
+import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
+import { motion, useReducedMotion } from "motion/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
@@ -22,6 +23,24 @@ const MID = 0.55;
 const FULL = 0.94;
 const SNAP_POINTS: (number | string)[] = [PEEK, MID, FULL];
 
+// The drawer's own settle curve, so the instrument lands with the sheet.
+const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+
+/**
+ * Where the instrument floats for a sheet stop: on the sheet's top edge at the
+ * peek and the scenes stop, so it never sits over a scene row, and back at the
+ * bottom of the screen over the full editor, whose top edge is under the chips.
+ */
+function dockLine(snap: number | string | null): string {
+	if (snap === MID) {
+		return `${MID * 100}dvh`;
+	}
+	if (snap === FULL) {
+		return "max(12px, env(safe-area-inset-bottom))";
+	}
+	return PEEK;
+}
+
 /**
  * The scene, folded to one column.
  *
@@ -41,6 +60,10 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const [sheetRaised, setSheetRaised] = useState(false);
 	const isPeek = snap === PEEK;
 	const rootRef = useKeptAudible();
+	const reduce = useReducedMotion() === true;
+	// The frame keeps the room above the instrument. Over the full editor it
+	// keeps the scenes stop's room rather than refitting to a frame nobody sees.
+	const stageLine = isPeek ? PEEK : `${MID * 100}dvh`;
 
 	return (
 		<main className="studio-root sc-root sc-root-mobile" ref={rootRef}>
@@ -50,9 +73,13 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			    rather than being covered by what it is being adjusted against. */}
 			<div
 				className="sc-stage-slot"
-				style={{ paddingBottom: `calc(${PEEK} + ${sheetRaised ? 460 : 116}px)` }}
+				style={{ paddingBottom: `calc(${stageLine} + ${sheetRaised ? 460 : 116}px)` }}
 			>
-				<div className="sc-stage">{preview}</div>
+				{/* The frame is the video's own shape here too: a phone used to get
+				    the bare card, so a 16:9 export previewed as a wide strip. */}
+				<StudioVideoModeProvider active>
+					<div className="sc-stage">{preview}</div>
+				</StudioVideoModeProvider>
 			</div>
 
 			{/* One row rather than two corners: at 390 the corners meet in the middle,
@@ -69,8 +96,15 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				<StudioAccountIsland />
 			</div>
 
-			{/* The instrument floats above the sheet, on the sheet's own peek line. */}
-			<div className="sc-dock-slot" style={{ bottom: PEEK }}>
+			{/* The instrument floats above the sheet, on the sheet's own top edge. */}
+			<div
+				className="sc-dock-slot"
+				style={{
+					bottom: PEEK,
+					transform: `translateY(calc(${PEEK} - ${dockLine(snap)}))`,
+					transition: reduce ? undefined : `transform 500ms ${SHEET_EASE}`,
+				}}
+			>
 				<div className="sc-dock">
 					<ExportStatus />
 					<PreviewIsland onSheetRaisedChange={setSheetRaised} />
@@ -99,7 +133,13 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 							className={`min-h-0 flex-1 ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
 						>
 							<motion.div
-								className="flex flex-col gap-6 px-5 pt-2 pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+								// Over the full editor the instrument sits at the bottom of the
+								// screen: the end of the sheet scrolls clear of it.
+								className={`flex flex-col gap-6 px-5 pt-2 ${
+									snap === FULL
+										? "pb-[calc(5rem+env(safe-area-inset-bottom))]"
+										: "pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+								}`}
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 								transition={{ duration: 0.2 }}

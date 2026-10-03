@@ -133,20 +133,41 @@ describe("chapterSnapshots", () => {
 		expect(out[0]?.label).toBe(`1/1 · ${"a".repeat(59)}…`);
 	});
 
-	it("keeps a deletion-only later chapter so the k/N numbering still holds", () => {
-		// A commit that deletes a file normalizes to a lone "Before" frame (its empty
-		// "After" is dropped). Slicing that away would empty the chapter while N still
-		// counts it, so its k/N heading vanishes. It must be kept and reheaded instead.
+	it("keeps a deletion-only later chapter whole: the file it removes, then the removal", () => {
+		// The before frame of a deletion is the deleted file, which no earlier
+		// chapter established, so it is kept and reheaded rather than dropped.
 		const deleteFile = nl(["--- a/gone.ts", "+++ /dev/null", "@@ -1,2 +0,0 @@", "-a", "-b"]);
 		const out = chapterSnapshots([
 			{ title: "seed", diffText: editDiff("a.ts", "const x = 1;", "const x = 2;") },
 			{ title: "remove gone", diffText: deleteFile },
 		]);
 
-		expect(out.map((s) => s.label)).toEqual(["1/2 · seed", "After", "2/2 · remove gone"]);
-		const deletion = out.at(-1);
+		expect(out.map((s) => s.label)).toEqual([
+			"1/2 · seed",
+			"After",
+			"2/2 · remove gone",
+			"gone.ts removed",
+		]);
+		const deletion = out.at(-2);
 		expect(deletion?.code).toContain("a");
 		expect(deletion?.code).toContain("b");
+	});
+
+	it("skips a commit that only touches the final newline instead of failing the pull request", () => {
+		const newlineOnly = nl([
+			"--- a/a.ts",
+			"+++ b/a.ts",
+			"@@ -1 +1 @@",
+			"-const x = 2;",
+			"\\ No newline at end of file",
+			"+const x = 2;",
+		]);
+		const out = chapterSnapshots([
+			{ title: "seed", diffText: editDiff("a.ts", "const x = 1;", "const x = 2;") },
+			{ title: "add newline", diffText: newlineOnly },
+		]);
+
+		expect(out.map((s) => s.label)).toEqual(["1/1 · seed", "After"]);
 	});
 
 	it("does not over-drop a later chapter that is a brand-new file (it has no before frame)", () => {

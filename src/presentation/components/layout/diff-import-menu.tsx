@@ -1,9 +1,11 @@
+import { classifySource } from "@/application/import/classify-source";
+import { importConfirmLabel, importReplaceQuestion } from "@/application/import/import-wording";
 import { resolvePrUrl } from "@/application/import/pr-url";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { type ImportPlayMode, useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { hasStudioWorkToLose } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
@@ -123,9 +125,9 @@ export function DiffImportMenu({
 		if (text.trim() === "" || loading) {
 			return;
 		}
-		// Applying replaces the whole studio: work the user authored since the
-		// last load is asked about first, like the template gallery always did.
-		if (useSnippetStore.getState().hasUnsavedEdits()) {
+		// Applying replaces the whole project: code edits, layers, media and audio
+		// are asked about first, like opening a file.
+		if (hasStudioWorkToLose()) {
 			setConfirming(true);
 			return;
 		}
@@ -198,8 +200,8 @@ export function DiffImportMenu({
 						)}
 						{confirming ? (
 							<ConfirmDiscard
-								message={`Replace what you have with this ${prRef ? "pull request" : "diff"}?`}
-								confirmLabel="Import the diff"
+								message={importReplaceQuestion(classifySource(text.trim()))}
+								confirmLabel={importConfirmLabel(classifySource(text.trim()))}
 								onCancel={() => setConfirming(false)}
 								onConfirm={() => void performImport()}
 							/>

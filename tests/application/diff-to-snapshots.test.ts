@@ -212,4 +212,73 @@ describe("diffToSnapshots", () => {
 			expect(snapshot.code).not.toContain("⋯");
 		}
 	});
+
+	it("refuses a diff whose only change is the final newline, in one sentence", () => {
+		const diff = nl([
+			"diff --git a/src/greet.ts b/src/greet.ts",
+			"--- a/src/greet.ts",
+			"+++ b/src/greet.ts",
+			"@@ -1,3 +1,3 @@",
+			" function greet(name) {",
+			"   return name;",
+			"-}",
+			"\\ No newline at end of file",
+			"+}",
+		]);
+
+		expect(() => diffToSnapshots(diff)).toThrow(
+			"This diff only changes the newline at the end of the file: there is nothing to animate.",
+		);
+	});
+
+	it("refuses a diff that only changes line endings", () => {
+		const diff = [
+			"--- a/a.ts",
+			"+++ b/a.ts",
+			"@@ -1 +1 @@",
+			"-const a = 1;\r",
+			"+const a = 1;",
+			"",
+		].join("\n");
+
+		expect(() => diffToSnapshots(diff)).toThrow(
+			"This diff only changes line endings: there is nothing to animate.",
+		);
+	});
+
+	it("tells a deleted file as two scenes: the file as it was, then the frame it left", () => {
+		const diff = nl([
+			"diff --git a/src/legacy.ts b/src/legacy.ts",
+			"deleted file mode 100644",
+			"index 1234567..0000000",
+			"--- a/src/legacy.ts",
+			"+++ /dev/null",
+			"@@ -1,3 +0,0 @@",
+			"-export function legacy() {",
+			"-  return 1;",
+			"-}",
+		]);
+
+		const result = diffToSnapshots(diff);
+
+		expect(result.snapshots).toEqual([
+			{ code: nl(["export function legacy() {", "  return 1;", "}"]), label: "Before" },
+			{ code: "\u22ef", label: "src/legacy.ts removed" },
+		]);
+		expect(result.path).toBe("src/legacy.ts");
+	});
+
+	it("says how many files a delete-only diff removed", () => {
+		const removal = (path: string, line: string) => [
+			`--- a/${path}`,
+			"+++ /dev/null",
+			"@@ -1 +0,0 @@",
+			`-${line}`,
+		];
+		const result = diffToSnapshots(
+			nl([...removal("a.ts", "const a = 1;"), ...removal("b.ts", "const b = 2;")]),
+		);
+
+		expect(result.snapshots.at(-1)).toEqual({ code: "\u22ef", label: "2 files removed" });
+	});
 });

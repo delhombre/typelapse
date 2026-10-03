@@ -105,3 +105,37 @@ export function removeLocalProject(library: LocalProjectLibrary, id: string): Lo
 	const activeId = library.activeId === id ? (projects[0]?.id ?? null) : library.activeId;
 	return { version: 1, activeId, projects };
 }
+
+const UNTITLED = "Untitled";
+
+/**
+ * The name a new project starts with: the first of "Untitled", "Untitled 2",
+ * "Untitled 3" no project on the device already uses. Three projects all
+ * called Untitled made the library menu three identical lines.
+ */
+export function nextUntitledTitle(titles: readonly string[]): string {
+	const taken = new Set(titles.map((title) => title.trim().toLowerCase()));
+	if (!taken.has(UNTITLED.toLowerCase())) {
+		return UNTITLED;
+	}
+	let n = 2;
+	while (taken.has(`${UNTITLED} ${n}`.toLowerCase())) {
+		n += 1;
+	}
+	return `${UNTITLED} ${n}`;
+}
+
+/**
+ * The library menu's line for each title, in order: a title repeated by an
+ * older project (or chosen twice) gets "(2)", "(3)" there, so no two lines,
+ * and no two "Open …" names, read the same. The project keeps its own name.
+ */
+export function distinctProjectLabels(titles: readonly string[]): string[] {
+	const seen = new Map<string, number>();
+	return titles.map((title) => {
+		const key = title.trim().toLowerCase();
+		const count = (seen.get(key) ?? 0) + 1;
+		seen.set(key, count);
+		return count === 1 ? title : `${title} (${count})`;
+	});
+}

@@ -28,9 +28,9 @@
  * The module is pure: it composes sibling diff modules and has no framework deps.
  */
 
-import { diffToSnapshots } from "./diff-to-snapshots";
+import { changesOnlyLineEndings, diffToSnapshots } from "./diff-to-snapshots";
 import { parseUnifiedDiff } from "./parse-unified-diff";
-import type { CodeSnapshot, DiffToSnapshotsOptions } from "./types";
+import type { CodeSnapshot, DiffToSnapshotsOptions, DiffToSnapshotsResult } from "./types";
 import { isLockfile } from "./windowing";
 
 /** One commit's worth of change: its subject line and its raw unified diff. */
@@ -57,6 +57,12 @@ function truncateSubject(subject: string): string {
 	return `${trimmed.slice(0, SUBJECT_MAX_LENGTH - 1).trimEnd()}…`;
 }
 
+function pick(
+	result: DiffToSnapshotsResult,
+): Pick<DiffToSnapshotsResult, "snapshots" | "removesOnly"> {
+	return { snapshots: result.snapshots, removesOnly: result.removesOnly };
+}
+
 /** The `k/N · subject` heading that opens chapter `position` of `total`. */
 function chapterHeading(position: number, total: number, subject: string): string {
 	return `${position}/${total} ${HEADING_SEPARATOR} ${truncateSubject(subject)}`;
@@ -70,9 +76,12 @@ function chapterHeading(position: number, total: number, subject: string): strin
  */
 function hasRealChanges(diffText: string): boolean {
 	const parsed = parseUnifiedDiff(diffText);
-	return parsed.files.some(
+	const real = parsed.files.filter(
 		(file) => !isLockfile(file.newPath ?? file.oldPath) && file.hunks.length > 0,
 	);
+	// A commit that only fixes the final newline is refused on its own; inside
+	// a pull request it is skipped like lockfile churn, not allowed to fail it.
+	return real.length > 0 && !changesOnlyLineEndings(real);
 }
 
 /**
@@ -89,7 +98,7 @@ export function chapterSnapshots(
 		.filter((chapter) => hasRealChanges(chapter.diffText))
 		.map((chapter) => ({
 			title: chapter.title,
-			snapshots: diffToSnapshots(chapter.diffText, options).snapshots,
+			...pick(diffToSnapshots(chapter.diffText, options)),
 		}));
 
 	const total = kept.length;
@@ -103,7 +112,14 @@ export function chapterSnapshots(
 		// But a deletion/emptying commit normalizes to a LONE "Before" frame: that
 		// frame IS the whole chapter, so keep it (the length guard) and let it be
 		// reheaded below like any first frame, or the counted chapter would vanish.
-		if (position > 1 && frames.length > 1 && frames[0]?.label === BEFORE_LABEL) {
+		// A deletion's before frame is the file it removes, which no earlier
+		// chapter showed: it stays.
+		if (
+			position > 1 &&
+			!chapter.removesOnly &&
+			frames.length > 1 &&
+			frames[0]?.label === BEFORE_LABEL
+		) {
 			frames = frames.slice(1);
 		}
 		const heading = chapterHeading(position, total, chapter.title);

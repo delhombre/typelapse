@@ -240,7 +240,8 @@ export function StepBuilder() {
 										onCommit={(durationMs) => updateStepDuration(step.id, durationMs)}
 										aria-label={`Scene ${index + 1} duration in seconds`}
 										onClick={(e) => e.stopPropagation()}
-										className="w-12 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums text-neutral-600 transition-[border-color,background-color] duration-150 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
+										// 16px under a finger: iOS zooms the page into any smaller field.
+										className="w-12 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums pointer-coarse:w-14 pointer-coarse:text-base text-neutral-600 transition-[border-color,background-color] duration-150 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
 									/>
 								</StudioTooltip>
 								<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">

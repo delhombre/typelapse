@@ -1,5 +1,9 @@
 import { resolveBackgroundCss } from "@/application/backgrounds/mesh-gradient";
-import type { LocalProjectRecord } from "@/application/project/local-project-library";
+import {
+	type LocalProjectRecord,
+	distinctProjectLabels,
+	nextUntitledTitle,
+} from "@/application/project/local-project-library";
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
@@ -85,6 +89,7 @@ export function ProjectChip() {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const reduce = useReducedMotion() === true;
+	const labels = distinctProjectLabels(library.projects.map((record) => record.project.title));
 
 	useEffect(() => subscribeLocalProjects(() => setLibrary(readLocalProjects())), []);
 
@@ -130,7 +135,14 @@ export function ProjectChip() {
 	);
 
 	const createProject = useCallback(() => {
-		void openLocalProject(() => createLocalProject(starterProjectPayload())).then((opened) => {
+		void openLocalProject(() =>
+			createLocalProject({
+				...starterProjectPayload(),
+				title: nextUntitledTitle(
+					readLocalProjects().projects.map((record) => record.project.title),
+				),
+			}),
+		).then((opened) => {
 			if (opened) {
 				feedback("commit");
 			}
@@ -198,14 +210,15 @@ export function ProjectChip() {
 							<span>{library.projects.length}</span>
 						</header>
 						<div className="sc-project-list">
-							{library.projects.map((project) => {
+							{library.projects.map((project, index) => {
 								const active = project.id === library.activeId;
+								const label = labels[index] ?? project.project.title;
 								return (
 									<button
 										key={project.id}
 										type="button"
 										role="menuitem"
-										aria-label={`Open ${project.project.title}`}
+										aria-label={`Open ${label}`}
 										data-active={active ? "" : undefined}
 										className="sc-project-row"
 										onClick={() => switchTo(project.id)}
@@ -216,7 +229,7 @@ export function ProjectChip() {
 											aria-hidden="true"
 										/>
 										<span className="sc-project-copy">
-											<strong>{project.project.title}</strong>
+											<strong>{label}</strong>
 											<small>{active ? "Open now" : "Saved on this device"}</small>
 										</span>
 										{active && <Check size={13} strokeWidth={1.8} aria-hidden="true" />}

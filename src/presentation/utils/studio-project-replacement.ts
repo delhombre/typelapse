@@ -11,6 +11,7 @@
  * away authored layers the snippet's own "unsaved edits" check cannot see.
  */
 
+import { pruneUnreferencedAssets } from "@/application/project/multimedia-authoring";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import {
 	adoptStoredSceneIds,
@@ -155,10 +156,21 @@ export async function restoreStudioProject(
 		restoreBlankStudioProject(projectId);
 		return;
 	}
-	const document = withProjectId(stored, projectId);
+	// History is empty after a load, so an asset no layer or cue references can
+	// never come back: drop it before any object URL is made for its bytes. The
+	// next autosave writes the document without it.
+	const document = pruneUnreferencedAssets(withProjectId(stored, projectId));
+	const leaving = useStudioCompositionStore.getState().value.project.assets;
 	await registerStoredMedia(document, isActive);
 	if (!isActive()) {
 		return;
+	}
+	// The project being left keeps no preview URL for media this one does not show.
+	const kept = new Set(document.project.assets.map((asset) => asset.id));
+	for (const asset of leaving) {
+		if (!kept.has(asset.id)) {
+			studioMediaRegistry.revoke(asset.id);
+		}
 	}
 	// The code was loaded from the project's spine, whose step ids need not be
 	// the ones the layers were saved under: re-key the stored scenes onto the
@@ -177,6 +189,21 @@ export function restoreBlankStudioProject(projectId: string): void {
 	loadStudioCompositionDocument(
 		createStudioCompositionDocument({ ...readStudioCompositionSnapshot(), projectId }),
 	);
+}
+
+/**
+ * An import (a pull request, a diff, a commit, a code link, a paste) replaces
+ * the project the way opening a file does: the code the snippet now holds and
+ * nothing else, under the open project's id. The old layers used to stay, and
+ * were cloned into every scene of the import; keeping them would be a feature
+ * to offer, not a default.
+ */
+export function replaceStudioCompositionWithCode(): void {
+	const leaving = useStudioCompositionStore.getState().value.project;
+	for (const asset of leaving.assets) {
+		studioMediaRegistry.revoke(asset.id);
+	}
+	restoreBlankStudioProject(leaving.id);
 }
 
 /** Store the open project's V2 document under its local project id. */

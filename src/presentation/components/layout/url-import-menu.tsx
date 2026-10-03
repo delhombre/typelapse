@@ -1,9 +1,11 @@
+import { classifySource } from "@/application/import/classify-source";
+import { importConfirmLabel, importReplaceQuestion } from "@/application/import/import-wording";
 import { routeUrlPaste } from "@/application/import/route-url-paste";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { hasStudioWorkToLose } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
@@ -112,9 +114,9 @@ export function UrlImportMenu({
 				changeOpen(false);
 				return;
 			case "open-here":
-				// Opening replaces the whole studio: edited work is asked about
+				// Opening replaces the whole project: work to lose is asked about
 				// first, before any fetch is spent on it.
-				if (useSnippetStore.getState().hasUnsavedEdits()) {
+				if (hasStudioWorkToLose()) {
 					setConfirming(true);
 					return;
 				}
@@ -183,8 +185,8 @@ export function UrlImportMenu({
 						)}
 						{confirming ? (
 							<ConfirmDiscard
-								message="Replace what you have with the fetched file?"
-								confirmLabel="Fetch it"
+								message={importReplaceQuestion(classifySource(url.trim()))}
+								confirmLabel={importConfirmLabel(classifySource(url.trim()))}
 								onCancel={() => setConfirming(false)}
 								onConfirm={() => void performOpen(url.trim())}
 							/>
