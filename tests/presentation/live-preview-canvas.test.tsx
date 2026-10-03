@@ -1,5 +1,6 @@
-import { previewCardPlacement } from "@/application/layout/canvas-fit";
+import { clipFades, previewCardPlacement } from "@/application/layout/canvas-fit";
 import { fitScale } from "@/application/layout/fit-scale";
+import { chromeBarHeight } from "@/application/layout/frame-metrics";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -198,6 +199,46 @@ describe("LivePreview on the export canvas", () => {
 			expect(el.style.transform).toBe("");
 		}
 		expect(grain[0]?.parentElement).toBe(box);
+	});
+
+	it("clips a line too long for the readable floor at the window, with the exporters' fade", async () => {
+		const longLine = {
+			frames: [{ lineCount: 1, tokens: [token("l", "x".repeat(10_000), 0, 0)] }],
+			transitions: [],
+		};
+		useSnippetStore.setState({ plan: longLine as unknown as MagicMovePlan, currentStepIndex: 0 });
+		const { container } = renderPreview();
+		const state = useSnippetStore.getState();
+		const placement = previewCardPlacement({
+			plan: longLine,
+			chrome: state.windowChrome,
+			fontSize: state.snippet.theme.fontSize,
+			padding: state.framePadding,
+			cardMargin: state.cardMargin,
+			showLineNumbers: state.showLineNumbers,
+			lineNumberStart: state.lineNumberStart,
+			hasCaption: false,
+			canvasWidth: 1920,
+			canvasHeight: 1080,
+			charWidthRatio: ADVANCE,
+			boxWidth: 1920 * fitScale(1920, 1080, AVAILABLE.width, AVAILABLE.height),
+		});
+		expect(placement.clip).toEqual({ right: true, bottom: false });
+		const [fade] = clipFades({
+			clip: placement.clip,
+			windowWidth: placement.windowWidth,
+			windowHeight: placement.windowHeight,
+			chromeHeight: chromeBarHeight(state.windowChrome, 1),
+			fontSize: state.snippet.theme.fontSize,
+		});
+		const windowEl = container.querySelector<HTMLElement>(".code-frame-glow");
+		expect(Number.parseFloat(windowEl?.style.maxHeight ?? "")).toBeCloseTo(
+			placement.windowHeight,
+			6,
+		);
+		const fadeEl = windowEl?.querySelector<HTMLElement>("[data-clip-fade='right']");
+		expect(Number.parseFloat(fadeEl?.style.width ?? "")).toBeCloseTo(fade?.width ?? Number.NaN, 6);
+		expect(Number.parseFloat(fadeEl?.style.top ?? "")).toBeCloseTo(fade?.y ?? Number.NaN, 6);
 	});
 
 	it("keeps the new mesh painted when the background changes", async () => {

@@ -4,13 +4,16 @@ import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gra
 import {
 	BASE_VIDEO_SCALE,
 	CANVAS_MARGIN,
+	clipFades,
 	fitCardToCanvas,
 	renderScaleFor,
 } from "../../src/application/layout/canvas-fit";
 import { advanceProbeFont, measureCharWidthRatio } from "../../src/application/layout/char-advance";
+import { watermarkPlacement } from "../../src/application/layout/watermark-placement";
 import {
 	FRAME_SECONDARY_ALPHA_HEX,
 	LINE_HEIGHT_RATIO,
+	chromeBarHeight,
 } from "../../src/application/layout/frame-metrics";
 import {
 	type LaidOutFrame,
@@ -26,6 +29,7 @@ import {
 } from "../../src/application/magic-move/focus-zoom";
 import { captionAt } from "../../src/application/captions/caption-timing";
 import { renderTyping, typedCharCount } from "../../src/application/magic-move/typewriter";
+import { ClipFades } from "../../src/presentation/components/preview/clip-fades";
 import { FrameChrome } from "../../src/presentation/components/preview/frame-chrome";
 import { GlowDecoration } from "../../src/presentation/components/preview/glow-decoration";
 import { GrainOverlay } from "../../src/presentation/components/preview/grain-overlay";
@@ -443,8 +447,12 @@ export function CenteredFrame({
 						</div>
 					)}
 					<div
+						data-code-window
 						style={{
+							position: "relative",
 							width: natural.width,
+							// At the readable floor the window stops growing and clips its code.
+							maxHeight: fit.clip ? fit.windowHeight : undefined,
 							background: theme.background,
 							borderRadius: radius,
 							overflow: "hidden",
@@ -458,6 +466,16 @@ export function CenteredFrame({
 							scale={videoScale}
 						/>
 						{children}
+						<ClipFades
+							background={theme.background}
+							fades={clipFades({
+								clip: fit.clip,
+								windowWidth: natural.width,
+								windowHeight: fit.windowHeight,
+								chromeHeight: chromeBarHeight(windowChrome, videoScale),
+								fontSize: theme.fontSize * videoScale,
+							})}
+						/>
 					</div>
 					{/* The caption band takes the window's width, like the reels bar above
 					    it. The column centres its children, so an unconstrained caption
@@ -509,13 +527,6 @@ function isColorDark(color: string): boolean {
 }
 
 /**
- * The watermark's geometry as authored against the reference tier (1080p), in
- * pixels. Kept verbatim from the fixed values it used to hard-code, so a 1080p
- * export is unchanged to the pixel: `REFERENCE_SHORT_EDGE` promises exactly that.
- */
-const WATERMARK_AT_REFERENCE = { bottom: 48, right: 56, fontSize: 22 };
-
-/**
  * The user's mark, bottom-right of the canvas.
  *
  * `scale` is the same `renderScaleFor` factor the card, the caption and the
@@ -533,15 +544,16 @@ export function WatermarkOverlay({
 	fontFamily,
 	scale,
 }: { text: string; color: string; fontFamily: string; scale: number }) {
-	const tier = scale / BASE_VIDEO_SCALE;
+	// One table for the three renderers (`watermark-placement`).
+	const placement = watermarkPlacement(scale);
 	return (
 		<div
 			style={{
 				position: "absolute",
-				bottom: WATERMARK_AT_REFERENCE.bottom * tier,
-				right: WATERMARK_AT_REFERENCE.right * tier,
+				bottom: placement.bottom,
+				right: placement.right,
 				fontFamily,
-				fontSize: WATERMARK_AT_REFERENCE.fontSize * tier,
+				fontSize: placement.fontSize,
 				color,
 			}}
 		>

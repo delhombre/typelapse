@@ -8,14 +8,26 @@ import {
 import { captionAt } from "@/application/captions/caption-timing";
 import { scriptFrameAt } from "@/application/export/video-script";
 import { focusLineSet } from "@/application/focus/line-ranges";
-import { previewCardPlacement } from "@/application/layout/canvas-fit";
+import {
+	BASE_VIDEO_SCALE,
+	type ClipFade,
+	clipFades,
+	previewCardPlacement,
+	renderScaleFor,
+} from "@/application/layout/canvas-fit";
 import { concentric } from "@/application/layout/concentric";
 import { fitScale } from "@/application/layout/fit-scale";
-import { FRAME_SECONDARY_ALPHA_HEX, LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
+import {
+	FRAME_SECONDARY_ALPHA_HEX,
+	LINE_HEIGHT_RATIO,
+	chromeBarHeight,
+} from "@/application/layout/frame-metrics";
+import { watermarkPlacement } from "@/application/layout/watermark-placement";
 import type { CubicBezier } from "@/application/magic-move/easing";
 import { renderStatic } from "@/application/magic-move/engine";
 import { NO_ZOOM, type ZoomTransform, zoomForFocus } from "@/application/magic-move/focus-zoom";
 import { studioCompositionTimeMs } from "@/application/project/studio-composition";
+import { primaryCodeOpacity as compiledCodeOpacity } from "@/application/render/composition-slots";
 import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import type { Theme } from "@/domain/entities/theme";
 import { useStudioVideoMode } from "@/presentation/contexts/studio-video-mode";
@@ -46,6 +58,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { ClipFades } from "./clip-fades";
 import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GlowDecoration } from "./glow-decoration";
 import { GrainOverlay } from "./grain-overlay";
@@ -189,6 +202,7 @@ export function LivePreview() {
 	const transitionEasing = useExportStore((s) => s.transitionEasing);
 	const transitionMs = useExportStore((s) => s.transitionMs);
 	const exportFps = useExportStore((s) => s.fps);
+	const loop = useExportStore((s) => s.loop);
 	const composition = useStudioCompositionStore();
 	const selectAuthoredAudio = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
 	const compositionDocument = useMemo(() => composition.toDocument(), [composition]);
@@ -198,8 +212,8 @@ export function LivePreview() {
 	const hasCompositionAudio = compositionDocument.project.audioCues.length > 0;
 	const hasComposition = hasCompositionLayers || hasCompositionAudio;
 	const compositionTimeline = useMemo(
-		() => compileSceneTimeline({ document: compositionDocument, fps: exportFps }),
-		[compositionDocument, exportFps],
+		() => compileSceneTimeline({ document: compositionDocument, fps: exportFps, loop }),
+		[compositionDocument, exportFps, loop],
 	);
 	// Playing or scrubbed, the composition follows the canonical clock, which
 	// runs past the last scene while an audio cue is still sounding.
@@ -214,10 +228,8 @@ export function LivePreview() {
 	const compositionFrame = compositionTimeline.frameAt(
 		Math.round((compositionTimeMs / 1_000) * exportFps),
 	);
-	const primaryCodeOpacity =
-		compositionDocument.project.scenes[currentStepIndex]?.blocks.find(
-			(block) => block.kind === "code" && block.continuityKey === "primary-code",
-		)?.opacity ?? 1;
+	// The compiled frame's card opacity, the number the painter fades the card by.
+	const primaryCodeOpacity = compiledCodeOpacity(compositionFrame);
 	// Social-preview view state (ephemeral): drives a faithful aspect-canvas
 	// preview painted OUTSIDE the export target, so it never reaches the PNG
 	// capture or the render payload.
@@ -302,6 +314,20 @@ export function LivePreview() {
 			boxHeight,
 			boxScale,
 			windowWidth: placement.windowWidth,
+			// At the readable floor the window stops growing and clips its code,
+			// with the exporters' fades, at editor size.
+			clip: placement.clip
+				? {
+						maxHeight: placement.windowHeight,
+						fades: clipFades({
+							clip: placement.clip,
+							windowWidth: placement.windowWidth,
+							windowHeight: placement.windowHeight,
+							chromeHeight: chromeBarHeight(windowChrome, 1),
+							fontSize: snippet.theme.fontSize,
+						}),
+					}
+				: null,
 			cardScale: placement.cardScale,
 			radius: socialCanvasRadius(boxWidth, boxHeight),
 		};
@@ -487,7 +513,12 @@ export function LivePreview() {
 						<ReelsProgress style={progressStyle} segments={segments} progress={reelsProgress} />
 					</div>
 				)}
-				<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
+				<FrameShell
+					theme={snippet.theme}
+					title={snippet.title}
+					chrome={windowChrome}
+					clip={aspectCanvas?.clip ?? null}
+				>
 					{/* Focus zoom pushes the code toward the spotlighted band. Playback
 							    drives every frame, so there is no CSS transition: the FrameShell
 							    body clips the overflow. The zoom wrapper carries the window's own
@@ -519,7 +550,9 @@ export function LivePreview() {
 					/>
 				)}
 
-				{watermark && (
+				{/* On the export canvas the mark sits in the canvas corner instead, where
+				    both exporters draw it (below). */}
+				{watermark && !aspectCanvasActive && (
 					<div className="mt-2 text-right">
 						<span
 							className="font-mono text-[11px]"
@@ -643,6 +676,15 @@ export function LivePreview() {
 								/>
 							</div>
 						) : null}
+						{watermark ? (
+							<CanvasWatermark
+								text={watermark}
+								color={getWatermarkColor(background, snippet.theme.foreground)}
+								fontFamily={snippet.theme.fontFamily}
+								scale={renderScaleFor(exportWidth, exportHeight, BASE_VIDEO_SCALE)}
+								boxScale={aspectCanvas.boxScale}
+							/>
+						) : null}
 						{activeSocialPlatform && (
 							<SocialPreviewOverlay
 								platform={activeSocialPlatform}
@@ -664,25 +706,72 @@ export function LivePreview() {
 	);
 }
 
+/**
+ * The user's mark at the canvas corner, from the table both exporters read, at
+ * the box's share of the canvas. It used to sit under the window, inside the
+ * card, which also pushed the centred card up by its own height.
+ *
+ * Laid out at the export's own size and scaled down as one picture, like the
+ * card: set at the box's ten-odd pixels, the browser would round the font's
+ * ascent and descent at that size and the line would land a pixel off the file.
+ */
+function CanvasWatermark({
+	text,
+	color,
+	fontFamily,
+	scale,
+	boxScale,
+}: { text: string; color: string; fontFamily: string; scale: number; boxScale: number }) {
+	const placement = watermarkPlacement(scale);
+	return (
+		<span
+			aria-hidden="true"
+			style={{
+				position: "absolute",
+				zIndex: 3,
+				right: placement.right * boxScale,
+				bottom: placement.bottom * boxScale,
+				fontFamily,
+				fontSize: placement.fontSize,
+				lineHeight: "normal",
+				whiteSpace: "nowrap",
+				color,
+				pointerEvents: "none",
+				transform: `scale(${boxScale})`,
+				transformOrigin: "100% 100%",
+			}}
+		>
+			{text}
+		</span>
+	);
+}
+
 /** Themed card wrapping the animated code, topped by the shared window chrome. */
 function FrameShell({
 	theme,
 	title,
 	chrome,
+	clip,
 	children,
 }: {
 	theme: Theme;
 	title: string;
 	chrome: WindowChrome;
+	clip: { maxHeight: number; fades: ClipFade[] } | null;
 	children: ReactNode;
 }) {
 	return (
 		<div
-			className="code-frame-glow w-full overflow-hidden"
-			style={{ background: theme.background, borderRadius: theme.borderRadius }}
+			className="code-frame-glow relative w-full overflow-hidden"
+			style={{
+				background: theme.background,
+				borderRadius: theme.borderRadius,
+				maxHeight: clip?.maxHeight,
+			}}
 		>
 			<FrameChrome chrome={chrome} title={title} foreground={theme.foreground} />
 			{children}
+			{clip ? <ClipFades fades={clip.fades} background={theme.background} /> : null}
 		</div>
 	);
 }

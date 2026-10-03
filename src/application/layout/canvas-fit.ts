@@ -1,5 +1,10 @@
 import { fitScale } from "./fit-scale";
-import { type ChromeVariant, frameNaturalSize } from "./frame-metrics";
+import {
+	type ChromeVariant,
+	LINE_HEIGHT_RATIO,
+	captionBlockHeight,
+	frameNaturalSize,
+} from "./frame-metrics";
 
 /**
  * Where the code card lands inside the export canvas: pure and dependency-free.
@@ -28,6 +33,60 @@ export const BASE_VIDEO_SCALE = 2.2;
 
 /** Safe-area margin kept on each side of the canvas the card is fit into. */
 export const CANVAS_MARGIN = 0.05;
+
+/**
+ * The smallest code text a card is drawn at: 8 px on a canvas whose short edge is
+ * `REFERENCE_SHORT_EDGE`, growing with the tier like everything else (16 px at
+ * 4K). Without it the fit shrank a 10,000-character line or a 3,000-line file
+ * until the card was a dot. Below the floor the card stops shrinking and the
+ * window clips what does not fit, with a fade on the clipped edge
+ * (`clipFades`). A card whose fit stays above the floor is drawn as before.
+ */
+export const MIN_TEXT_PX = 8;
+
+/**
+ * The tallest shipped canvas, long edge over short edge (9:16 and 16:9 in
+ * `render-config`'s `ASPECT_RATIOS`), and the narrowest advance a monospace code
+ * font measures (JetBrains Mono and its peers measure 0.6).
+ */
+const LONGEST_EDGE_RATIO = 16 / 9;
+const NARROWEST_CHAR_WIDTH_RATIO = 0.5;
+/** Rows and columns past what the floor can show still glide into view through a
+ *  morph, so the window keeps half as much again below and to the right. */
+const WINDOW_MARGIN = 1.5;
+const FLOOR_SAFE_LONG_EDGE = LONGEST_EDGE_RATIO * REFERENCE_SHORT_EDGE * (1 - 2 * CANVAS_MARGIN);
+
+/**
+ * The most rows a card can show at the floor on any shipped canvas, with the
+ * margin: the magic-move plan lays out no line past it, so a 3,000-line file
+ * costs what a 200-line one does. Every renderer reads the same windowed plan,
+ * so the server, the painter and the preview draw the same frames.
+ */
+export const VISIBLE_ROW_LIMIT = Math.ceil(
+	(WINDOW_MARGIN * FLOOR_SAFE_LONG_EDGE) / (MIN_TEXT_PX * LINE_HEIGHT_RATIO),
+);
+
+/** The most columns a card can show at the floor, with the margin. */
+export const VISIBLE_COL_LIMIT = Math.ceil(
+	(WINDOW_MARGIN * FLOOR_SAFE_LONG_EDGE) / (MIN_TEXT_PX * NARROWEST_CHAR_WIDTH_RATIO),
+);
+
+/**
+ * The fit scale below which this card's code would draw under `MIN_TEXT_PX`.
+ * Never above 1: the fit never enlarges, so a huge type size has nothing to floor.
+ */
+export function readableFitFloor(
+	fontSize: number,
+	scale: number,
+	canvasWidth: number,
+	canvasHeight: number,
+): number {
+	const shortEdge = Math.min(canvasWidth, canvasHeight);
+	if (fontSize <= 0 || scale <= 0 || shortEdge <= 0) {
+		return 0;
+	}
+	return Math.min(1, (MIN_TEXT_PX * shortEdge) / (REFERENCE_SHORT_EDGE * fontSize * scale));
+}
 
 /**
  * The upscale factor a canvas of this size should draw the card at.
@@ -102,9 +161,20 @@ export interface CardCanvasFitInput {
 	charWidthRatio: number;
 }
 
+/** Which edges of the window cut its code off, at the readable floor. */
+export interface CardClip {
+	right: boolean;
+	bottom: boolean;
+}
+
 export interface CardCanvasFit {
-	/** Natural (already-scaled) size of the window + caption unit. */
+	/** Size of the window + caption unit as drawn (already scaled): the natural
+	 *  size, cut to what fits the canvas at the readable floor. */
 	natural: { width: number; height: number };
+	/** The window alone: `natural.height` less the caption band under it. */
+	windowHeight: number;
+	/** The edges the window clips at the floor, or null when everything fits. */
+	clip: CardClip | null;
 	/** Fit factor of the padded card into the safe-area canvas. */
 	scale: number;
 	/** Padded card's fraction of the canvas width, in (0, 1]. */
@@ -134,20 +204,92 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 		charWidthRatio: input.charWidthRatio,
 	});
 	const cardPadding = input.cardMargin * input.scale;
-	const paddedWidth = natural.width + 2 * cardPadding;
-	const paddedHeight = natural.height + 2 * cardPadding;
-	const scale = fitScale(
-		paddedWidth,
-		paddedHeight,
-		input.canvasWidth * (1 - 2 * input.canvasMargin),
-		input.canvasHeight * (1 - 2 * input.canvasMargin),
+	const safeWidth = input.canvasWidth * (1 - 2 * input.canvasMargin);
+	const safeHeight = input.canvasHeight * (1 - 2 * input.canvasMargin);
+	const fitted = fitScale(
+		natural.width + 2 * cardPadding,
+		natural.height + 2 * cardPadding,
+		safeWidth,
+		safeHeight,
 	);
+	const floor = readableFitFloor(
+		input.fontSize,
+		input.scale,
+		input.canvasWidth,
+		input.canvasHeight,
+	);
+	const scale = Math.max(fitted, floor);
+	const drawn =
+		scale > fitted
+			? {
+					width: Math.min(natural.width, safeWidth / scale - 2 * cardPadding),
+					height: Math.min(natural.height, safeHeight / scale - 2 * cardPadding),
+				}
+			: natural;
+	const clip =
+		drawn === natural
+			? null
+			: { right: drawn.width < natural.width, bottom: drawn.height < natural.height };
 	return {
-		natural,
+		natural: drawn,
+		windowHeight: drawn.height - captionBlockHeight(input.hasCaption, input.scale),
+		clip,
 		scale,
-		widthFraction: (paddedWidth * scale) / input.canvasWidth,
-		heightFraction: (paddedHeight * scale) / input.canvasHeight,
+		widthFraction: ((drawn.width + 2 * cardPadding) * scale) / input.canvasWidth,
+		heightFraction: ((drawn.height + 2 * cardPadding) * scale) / input.canvasHeight,
 	};
+}
+
+/** One fade laid over a clipped edge, in the window's own px. */
+export interface ClipFade {
+	edge: "right" | "bottom";
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+/** How deep each fade reaches into the window, in font sizes. */
+const CLIP_FADE_EMS = { right: 4, bottom: 2.5 } as const;
+
+/**
+ * The fades over a clipped window: a gradient from the window's own background,
+ * transparent, to opaque at the cut, so clipped code trails off instead of being
+ * guillotined mid-glyph. The right fade covers the code body under the chrome
+ * bar; the bottom fade spans the window. All three renderers lay these rects.
+ */
+export function clipFades(input: {
+	clip: CardClip | null;
+	windowWidth: number;
+	windowHeight: number;
+	chromeHeight: number;
+	fontSize: number;
+}): ClipFade[] {
+	const { clip, windowWidth, windowHeight, chromeHeight, fontSize } = input;
+	const fades: ClipFade[] = [];
+	if (clip?.right) {
+		const width = Math.min(windowWidth, CLIP_FADE_EMS.right * fontSize);
+		fades.push({
+			edge: "right",
+			x: windowWidth - width,
+			y: chromeHeight,
+			width,
+			height: windowHeight - chromeHeight,
+		});
+	}
+	if (clip?.bottom) {
+		const height = Math.min(windowHeight - chromeHeight, CLIP_FADE_EMS.bottom * fontSize);
+		fades.push({ edge: "bottom", x: 0, y: windowHeight - height, width: windowWidth, height });
+	}
+	return fades;
+}
+
+/** The fade's two colour stops: the window background, transparent then opaque.
+ *  Same hue at both ends, so CSS (premultiplied) and canvas gradients agree. */
+export function clipFadeStops(background: string): [string, string] {
+	return /^#[0-9a-f]{6}$/i.test(background)
+		? [`${background}00`, background]
+		: ["transparent", background];
 }
 
 export interface PreviewCardPlacementInput
@@ -159,6 +301,10 @@ export interface PreviewCardPlacementInput
 export interface PreviewCardPlacement {
 	/** The window's width at editor size (unscaled px), before `cardScale`. */
 	windowWidth: number;
+	/** The window's height at editor size: the most it may grow before it clips. */
+	windowHeight: number;
+	/** The edges the window clips at the readable floor, or null. */
+	clip: CardClip | null;
 	/** Box px per editor px: the one transform that puts the card in the box. */
 	cardScale: number;
 }
@@ -178,6 +324,8 @@ export function previewCardPlacement(input: PreviewCardPlacementInput): PreviewC
 	const fit = fitCardToCanvas({ ...input, scale: unit, canvasMargin: CANVAS_MARGIN });
 	return {
 		windowWidth: fit.natural.width / unit,
+		windowHeight: fit.windowHeight / unit,
+		clip: fit.clip,
 		cardScale: (unit * fit.scale * input.boxWidth) / input.canvasWidth,
 	};
 }

@@ -28,6 +28,16 @@ export const CHROME_TEXT_LINE_HEIGHT = 1.35;
 const CAPTION_BLOCK = 14 + 20;
 
 /**
+ * Height the caption band takes under the window, scaled for the target: the
+ * part of the card + caption unit that is not the window. The painter bakes no
+ * caption yet but has to budget it, or its card is larger and lower than the
+ * one both DOM renderers centre.
+ */
+export function captionBlockHeight(hasCaption: boolean, scale: number): number {
+	return hasCaption ? CAPTION_BLOCK * scale : 0;
+}
+
+/**
  * The chrome bar's font stack, which is *not* the theme's.
  *
  * `FrameChrome` sets its title and its glyphs in the app's own mono regardless
@@ -194,7 +204,7 @@ export function frameNaturalSize(input: FrameNaturalSizeInput): { width: number;
 
 	// Height: chrome bar + code area (padding top/bottom + one row per line) + caption.
 	const codeAreaHeight = 2 * padding + maxLines * lineHeight;
-	const captionHeight = hasCaption ? CAPTION_BLOCK * scale : 0;
+	const captionHeight = captionBlockHeight(hasCaption, scale);
 	const height = chromeBarHeight(chrome, scale) + codeAreaHeight + captionHeight;
 
 	// Width: padding + gutter (widest rendered line number) + widest code line.
