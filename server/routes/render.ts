@@ -24,6 +24,7 @@ import {
 } from "../../src/application/magic-move/easing";
 import { resolveShikiLanguage, resolveShikiTheme } from "../../src/infrastructure/highlighting/shiki-registry";
 import { buildServerMagicMovePlan } from "../remotion/magic-move-plan";
+import { gifFilterOverride, outputSettingsFor, safeFormat } from "../remotion/output-settings";
 import type { RenderInput, RenderRequestBody, StepData } from "../remotion/types";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -92,17 +93,10 @@ getHighlighter().catch(console.error);
    remote resource (SSRF). Legitimate payloads already fall inside every range, so
    behavior for them is unchanged. */
 
-/** Output formats we accept; also the ONLY strings ever put into the temp path. */
-const RENDER_FORMATS = ["mp4", "webm", "gif"] as const;
-type SafeFormat = (typeof RENDER_FORMATS)[number];
-
-const CODECS: Record<SafeFormat, "h264" | "vp8" | "gif"> = { mp4: "h264", webm: "vp8", gif: "gif" };
-const CRFS: Record<SafeFormat, number | undefined> = { mp4: 18, webm: 20, gif: undefined };
-const MIME_TYPES: Record<SafeFormat, string> = {
-	mp4: "video/mp4",
-	webm: "video/webm",
-	gif: "image/gif",
-};
+/* The format table, the codec/quality knobs and the GIF budget live in
+   `../remotion/output-settings`: they are the same decision the on-device
+   exporter makes, and keeping them in one pure module is what stops the two
+   render paths from drifting. */
 
 const FPS_CHOICES = [24, 30, 60] as const;
 const MIN_STEP_DURATION_MS = 100;
@@ -138,11 +132,6 @@ function clampFps(value: unknown): number {
 	);
 }
 
-/** Whitelist the format at the trust boundary; never interpolate the raw field. */
-function safeFormat(value: unknown): SafeFormat {
-	return RENDER_FORMATS.includes(value as SafeFormat) ? (value as SafeFormat) : "mp4";
-}
-
 renderRoute.post(
 	"/render",
 	bodyLimit({
@@ -176,10 +165,15 @@ renderRoute.post(
 			return c.json({ error: `Too many steps (max ${MAX_STEPS})` }, 400);
 		}
 
-		// Clamp every untrusted numeric before it reaches renderMedia.
-		const width = clampNumber(body.width, MIN_RENDER_DIMENSION, MAX_RENDER_DIMENSION, 1920);
-		const height = clampNumber(body.height, MIN_RENDER_DIMENSION, MAX_RENDER_DIMENSION, 1080);
-		const fps = clampFps(body.fps);
+		// Clamp every untrusted numeric before it reaches renderMedia, then let the
+		// format have the last word on size and rate: a GIF asked for at 1080p60
+		// comes back at 960 and 20, because that is what the format can spend its
+		// bytes on. `output` is what actually gets rendered, from here on.
+		const askedWidth = clampNumber(body.width, MIN_RENDER_DIMENSION, MAX_RENDER_DIMENSION, 1920);
+		const askedHeight = clampNumber(body.height, MIN_RENDER_DIMENSION, MAX_RENDER_DIMENSION, 1080);
+		const askedFps = clampFps(body.fps);
+		const output = outputSettingsFor(safeFormat(body.format), askedWidth, askedHeight, askedFps);
+		const { width, height, fps } = output;
 		const transitionMs = clampNumber(
 			body.transitionMs,
 			MIN_TRANSITION_MS,
@@ -195,7 +189,7 @@ renderRoute.post(
 			MAX_CARD_MARGIN,
 			DEFAULT_CARD_MARGIN,
 		);
-		const fmt = safeFormat(body.format);
+		const fmt = output.format;
 		// Clamp each step's hold; the code / focus / caption pass through untouched.
 		const clampedSteps: StepData[] = steps.map((step) => ({
 			...step,
@@ -301,13 +295,17 @@ renderRoute.post(
 					durationInFrames: totalFrames,
 				},
 				serveUrl: bundleLocation,
-				codec: CODECS[fmt],
+				codec: output.codec,
 				outputLocation: outputPath,
 				inputProps: { input },
-				crf: CRFS[fmt],
-				pixelFormat: fmt === "gif" ? undefined : "yuv420p",
-				imageFormat: "jpeg",
-				jpegQuality: 95,
+				crf: output.crf,
+				pixelFormat: output.pixelFormat,
+				imageFormat: output.imageFormat,
+				jpegQuality: output.jpegQuality,
+				// Only a GIF's palette pass is rewritten; every other codec keeps the
+				// arguments Remotion built.
+				ffmpegOverride:
+					output.format === "gif" ? ({ args }) => gifFilterOverride(args) : undefined,
 			});
 
 			const fileBuffer = fs.readFileSync(outputPath);
@@ -315,7 +313,7 @@ renderRoute.post(
 
 			return new Response(fileBuffer, {
 				headers: {
-					"Content-Type": MIME_TYPES[fmt],
+					"Content-Type": output.mimeType,
 					"Content-Disposition": `attachment; filename="${title.replace(/[^a-zA-Z0-9-_]/g, "_")}.${fmt}"`,
 				},
 			});

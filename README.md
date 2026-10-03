@@ -15,6 +15,12 @@ Typelapse has two honest deployment profiles:
 - **Hosted:** private projects and media, Better Auth sessions, Stripe billing
   and queued background rendering.
 
+<p align="center">
+	<img src="docs/demo.gif" width="720" height="540" alt="Typelapse rendering its own demo: a snippet morphs token by token, with a spotlight, captions and a typewriter intro" />
+</p>
+
+<p align="center"><sub>Rendered by Typelapse itself, from a project committed next to it: <code>pnpm demo:render</code> replays <a href="docs/demo.project.json"><code>docs/demo.project.json</code></a> through <code>POST /api/render</code>.</sub></p>
+
 ## Try the on-device studio
 
 ```bash

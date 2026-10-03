@@ -412,6 +412,9 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					bytes: blob.size,
 					target: "server",
 					elapsedMs: performance.now() - startedAt,
+					// The server caps a GIF's size and rate exactly as the worker does,
+					// so it owes the user the same sentence about it.
+					note: withPeriod(gifNote(resolved.config)),
 				},
 			});
 			feedback("success");
@@ -814,18 +817,9 @@ function deviceNote(
 	if (transparency) {
 		notes.push(transparency);
 	}
-	if (config.format === "gif") {
-		const gif = gifDimensions(config.width, config.height);
-		const fps = gifSafeFps(config.fps);
-		const concessions = [
-			// The rate is asked of the same function the worker uses, so the note
-			// cannot drift from what the file actually gets.
-			fps < config.fps ? `${fps} fps (not ${config.fps}, so the pixels win)` : null,
-			gif.scaled ? `${gif.width}×${gif.height}` : null,
-		].filter(Boolean);
-		if (concessions.length > 0) {
-			notes.push(`GIF: ${concessions.join(", ")}`);
-		}
+	const gif = gifNote(config);
+	if (gif) {
+		notes.push(gif);
 	}
 	if (sound) {
 		notes.push("no audio track on this device yet — render on the server for sound");
@@ -835,4 +829,32 @@ function deviceNote(
 	}
 
 	return notes.length > 0 ? `${notes.join(". ")}.` : undefined;
+}
+
+/**
+ * The concessions the GIF format imposes, said out loud — wherever the render
+ * happened.
+ *
+ * Both renderers now cap a GIF's size and rate (the worker via `gifDimensions`
+ * and `gifSafeFps`, the server via the same two functions in
+ * `server/remotion/output-settings`), so the sentence belongs to the format, not
+ * to a target. Asking the same functions the encoders ask is what keeps the note
+ * from drifting from the file.
+ */
+/** A note reads as a sentence, or is absent; never an empty string. */
+function withPeriod(note: string | null): string | undefined {
+	return note ? `${note}.` : undefined;
+}
+
+function gifNote(config: RenderConfig): string | null {
+	if (config.format !== "gif") {
+		return null;
+	}
+	const gif = gifDimensions(config.width, config.height);
+	const fps = gifSafeFps(config.fps);
+	const concessions = [
+		fps < config.fps ? `${fps} fps (not ${config.fps}, so the pixels win)` : null,
+		gif.scaled ? `${gif.width}×${gif.height}` : null,
+	].filter(Boolean);
+	return concessions.length > 0 ? `GIF: ${concessions.join(", ")}` : null;
 }

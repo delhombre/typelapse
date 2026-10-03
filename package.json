@@ -12,6 +12,7 @@
 		"worker:render": "tsx --env-file-if-exists=.env server/workers/hosted-render.entrypoint.ts",
 		"build": "tsc && tsc -p server/tsconfig.json && vite build",
 		"preview": "vite preview",
+		"demo:render": "tsx scripts/render-demo.mjs",
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"lint": "biome check .",
