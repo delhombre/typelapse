@@ -18,6 +18,7 @@ import type { HostedProjectReferenceStore } from "@/infrastructure/project/brows
 import type { BrowserHostedProjectSyncRuntime } from "@/infrastructure/project/browser-hosted-project-sync.runtime";
 import type { StudioCloudProjectState } from "@/presentation/components/multimedia/studio-account-control";
 import type { ClientAuthStatus } from "@/presentation/stores/auth.store";
+import type { CloudSaveResult } from "@/presentation/stores/hosted-render-jobs.store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface StudioCloudRuntime {
@@ -102,7 +103,12 @@ export function useStudioCloudProject({
 	readonly authStatus: ClientAuthStatus;
 	readonly document: ProjectDocumentV2;
 	readonly runtime: StudioCloudRuntime | null;
-}): { readonly cloudProjectState: StudioCloudProjectState; readonly saveToCloud: () => void } {
+}): {
+	readonly cloudProjectState: StudioCloudProjectState;
+	readonly saveToCloud: () => void;
+	/** The same save, answering with the canonical revision a cloud render needs. */
+	readonly saveRevision: () => Promise<CloudSaveResult>;
+} {
 	const [syncState, setSyncState] = useState<HostedProjectSyncState>({ kind: "disconnected" });
 	const [copy, setCopy] = useState<CloudCopy | null>(null);
 	const coordinator = useRef<BrowserHostedProjectSyncRuntime | null>(null);
@@ -175,16 +181,18 @@ export function useStudioCloudProject({
 		return stop;
 	}, [accountId, remember, runtime, start, stop]);
 
-	const saveToCloud = useCallback(async () => {
+	const saveToCloud = useCallback(async (): Promise<CloudSaveResult> => {
 		const live = sessionRef.current;
-		if (!runtime || !live) return;
+		if (!runtime || !live) {
+			return { kind: "failed", message: "Sign in to save this project to the cloud." };
+		}
 		const local = documentRef.current;
 		let active = coordinator.current;
 		let current = copyRef.current;
 		try {
 			if (!active || !current) {
 				active = start();
-				if (!active) return;
+				if (!active) return { kind: "failed", message: failure(null).message };
 				setSyncState({ kind: "connecting" });
 				const referenced = ignoreReference.current
 					? null
@@ -239,11 +247,15 @@ export function useStudioCloudProject({
 				projectId: result.project.id,
 				revision: result.project.revision,
 			});
+			return { kind: "saved", projectId: result.project.id, revision: result.project.revision };
 		} catch (error) {
 			const state = active?.getState();
-			setSyncState(state?.kind === "error" ? state : { kind: "error", error: failure(error) });
+			const settled =
+				state?.kind === "error" ? state : { kind: "error" as const, error: failure(error) };
+			setSyncState(settled);
 			// A failed coordinator refuses further writes; the next attempt reconnects.
 			stop();
+			return { kind: "failed", message: settled.error.message };
 		}
 	}, [remember, runtime, start, stop]);
 
@@ -267,5 +279,5 @@ export function useStudioCloudProject({
 		return view && canonicalJson(view) === copy.fingerprint ? "synced" : "unsaved";
 	})();
 
-	return { cloudProjectState, saveToCloud: () => void saveToCloud() };
+	return { cloudProjectState, saveToCloud: () => void saveToCloud(), saveRevision: saveToCloud };
 }

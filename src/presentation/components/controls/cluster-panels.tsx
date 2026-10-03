@@ -21,6 +21,7 @@ import {
 } from "@/presentation/stores/studio-composition.store";
 import { useEffect } from "react";
 import { Camera } from "reicon-react";
+import { useCloudRenderCta, useCloudTarget } from "./cloud-render";
 import {
 	CHROME_PRESETS,
 	PADDING_PRESETS,
@@ -402,6 +403,8 @@ function ExportCluster() {
 	const fps = useExportStore((s) => s.fps);
 	const setFps = useExportStore((s) => s.setFps);
 	const canRender = useCanRender();
+	const cloudTarget = useCloudTarget();
+	const cloudCta = useCloudRenderCta(target);
 
 	useEffect(() => {
 		if (deviceSupported === null) {
@@ -466,6 +469,7 @@ function ExportCluster() {
 							label: "Server",
 							title: "Renders with Remotion on the Typelapse API server, which has to be running.",
 						},
+						...(cloudTarget ? [cloudTarget] : []),
 					]}
 					value={target}
 					onSelect={setTarget}
@@ -490,11 +494,11 @@ function ExportCluster() {
 						trigger("light");
 						void exportVideo();
 					}}
-					disabled={isExporting || !canRender}
+					disabled={isExporting || !canRender || cloudCta.busy}
 					title={canRender ? undefined : NOTHING_TO_RENDER}
 					className="si-cta si-cluster-cta"
 				>
-					{isExporting ? "Rendering…" : `Render · ${current.aspect}`}
+					{isExporting ? "Rendering…" : (cloudCta.label ?? `Render · ${current.aspect}`)}
 				</button>
 			</ClusterGroup>
 		</>

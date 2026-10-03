@@ -17,6 +17,7 @@ import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect, useState } from "react";
 import { Camera, ChevronLeft, Sliders } from "reicon-react";
+import { useCloudRenderCta, useCloudTarget } from "./cloud-render";
 import { type ClusterId, FPS_OPTIONS, NOTHING_TO_RENDER, useCanRender } from "./cluster-panels";
 import {
 	CHROME_PRESETS,
@@ -484,6 +485,8 @@ function ExportMode() {
 	const fps = useExportStore((state) => state.fps);
 	const setFps = useExportStore((state) => state.setFps);
 	const canRender = useCanRender();
+	const cloudTarget = useCloudTarget();
+	const cloudCta = useCloudRenderCta(target);
 	const current = presetFor(width, height) ?? FALLBACK_PRESET;
 
 	useEffect(() => {
@@ -544,6 +547,7 @@ function ExportMode() {
 						disabled: deviceSupported === false,
 					},
 					{ value: "server" as const, label: "Server" },
+					...(cloudTarget ? [cloudTarget] : []),
 				]}
 				value={target}
 				onSelect={setTarget}
@@ -566,14 +570,14 @@ function ExportMode() {
 					trigger("light");
 					void exportVideo();
 				}}
-				disabled={isExporting || !canRender}
+				disabled={isExporting || !canRender || cloudCta.busy}
 				// The same reason the cluster panel gives: a disabled button with no
 				// word on it reads as broken.
 				title={canRender ? undefined : NOTHING_TO_RENDER}
 				aria-label={exportCtaLabel({ format, width, height })}
 				className="si-cta si-mode-cta"
 			>
-				{isExporting ? "Rendering…" : "Render"}
+				{isExporting ? "Rendering…" : (cloudCta.label ?? "Render")}
 			</button>
 		</>
 	);

@@ -8,6 +8,7 @@ import {
 	useStudioCloudProject,
 } from "@/presentation/hooks/use-studio-cloud-project";
 import { useAuthStore } from "@/presentation/stores/auth.store";
+import { useHostedRenderJobsStore } from "@/presentation/stores/hosted-render-jobs.store";
 import { usePlanStore } from "@/presentation/stores/plan.store";
 import { useStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
 import { studioLocalLibrary } from "@/presentation/studio-media-runtime";
@@ -62,11 +63,18 @@ function HostedAccountIsland({
 	const value = compositionStore((state) => state.value);
 	const document = useMemo(() => serializeProjectDocument(value), [value]);
 	const runtime = cloudRuntime === undefined ? defaultCloudRuntime() : cloudRuntime;
-	const { cloudProjectState, saveToCloud } = useStudioCloudProject({
+	const { cloudProjectState, saveToCloud, saveRevision } = useStudioCloudProject({
 		authStatus,
 		document,
 		runtime,
 	});
+	// A cloud render renders the canonical revision, so it saves through this
+	// same cloud copy rather than a second one of its own.
+	useEffect(
+		() =>
+			runtime ? useHostedRenderJobsStore.getState().connectCloudSave(saveRevision) : undefined,
+		[runtime, saveRevision],
+	);
 	const {
 		plan,
 		catalog,

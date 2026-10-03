@@ -11,7 +11,6 @@ import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config
 import type { Snippet } from "@/domain/entities/snippet";
 import { browserCaptureLibrary } from "@/infrastructure/captures/browser-capture-library";
 import { BrowserDownloadAdapter } from "@/infrastructure/export/browser-download.adapter";
-import { CloudRenderAdapter } from "@/infrastructure/export/cloud-render.adapter";
 import { gifDimensions } from "@/infrastructure/export/gif-quality";
 import { gifSafeFps } from "@/infrastructure/export/gif-timing";
 import { evenDimensions } from "@/infrastructure/export/video-encoding";
@@ -24,6 +23,7 @@ import { create } from "zustand";
 // Type-only: the render request contract lives with the other render DTOs. This
 // import is erased at build time, so no server code enters the client bundle.
 import type { RenderRequestBody } from "../../../server/remotion/types";
+import { useHostedRenderJobsStore } from "./hosted-render-jobs.store";
 import { usePlanStore } from "./plan.store";
 import { useSnippetStore } from "./snippet.store";
 import { useSocialPreviewStore } from "./social-preview.store";
@@ -45,9 +45,11 @@ export interface ExportProgress {
  * `device` is the default wherever the browser can encode: nothing is uploaded,
  * nothing is queued, and there is no server to pay for. `server` is an explicit
  * alternative for browsers without WebCodecs: selecting it is the consent to
- * upload a project for remote rendering.
+ * upload a project for remote rendering. `cloud` exists only in a hosted build
+ * for a signed-in account: it saves the canonical revision and queues a hosted
+ * render job (`hosted-render-jobs.store`).
  */
-export type ExportTarget = "device" | "server";
+export type ExportTarget = "device" | "server" | "cloud";
 
 /**
  * How the last export ended. A render that finishes with no visible trace is a
@@ -129,24 +131,8 @@ export const EXPORT_DEFAULTS = {
 } as const satisfies Partial<ExportState>;
 
 const exporter = new BrowserDownloadAdapter();
-const cloudExporter = new CloudRenderAdapter();
 
 const API_BASE = "/api";
-
-/**
- * Hosted rendering is gated off during rollout: the /api/cloud/* backend is a
- * stub. While the app runs on Plan.local (which never targets the cloud)
- * export always goes through the local server.
- * Flip this on in dev to exercise the cloud path:
- * localStorage.setItem("typelapse:cloud", "on").
- */
-function isCloudExportEnabled(): boolean {
-	try {
-		return localStorage.getItem("typelapse:cloud") === "on";
-	} catch {
-		return false;
-	}
-}
 
 /**
  * The in-flight render's abort handle. It lives outside the store because it is
@@ -270,6 +256,13 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				? `${even.width}×${even.height} (not ${width}×${height}: video encoders need even sizes)`
 				: null;
 
+		if (get().target === "cloud") {
+			// The server clamps nothing silently: it refuses a size past the plan in
+			// its own sentence, so the cloud gets the size that was asked for.
+			await useHostedRenderJobsStore.getState().submit({ format, ...even, fps, loop });
+			return;
+		}
+
 		const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 		const startedAt = performance.now();
 		const studioComposition = await import("./studio-composition.store");
@@ -371,34 +364,6 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				fontSize: theme.fontSize,
 				borderRadius: theme.borderRadius,
 			};
-
-			// Hosted render path (Pro/Team). The backend is a stub today and gated
-			// off, and Plan.local never targets the cloud, so this branch stays
-			// dormant in the local app.
-			if (resolved.target === "cloud" && isCloudExportEnabled()) {
-				set({
-					progress: { phase: "rendering", message: "Rendering on our servers…", ratio: null },
-				});
-				const job = await cloudExporter.submitRender({
-					title: snippet.title,
-					language: snippet.language,
-					theme: themePayload,
-					steps: snippet.steps.map((s) => ({ code: s.code, duration: s.duration })),
-					background,
-					framePadding,
-					config: resolved.config,
-					watermark: resolved.watermark,
-				});
-				set({
-					isExporting: false,
-					progress: null,
-					outcome: {
-						kind: "failed",
-						message: job.message ?? "Hosted rendering is rolling out soon, your job was queued.",
-					},
-				});
-				return;
-			}
 
 			const body: RenderRequestBody = {
 				title: snippet.title,

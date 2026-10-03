@@ -2,6 +2,7 @@ import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Check } from "reicon-react";
+import { useCloudStatusView } from "./cloud-render";
 
 /**
  * What the export is doing, and what it did.
@@ -30,6 +31,8 @@ export function ExportStatus() {
 	const outcome = useExportStore((s) => s.outcome);
 	const dismissOutcome = useExportStore((s) => s.dismissOutcome);
 	const cancelExport = useExportStore((s) => s.cancelExport);
+	// A cloud render outlives the page; this device's export, when there is one, speaks first.
+	const cloud = useCloudStatusView();
 	const reduce = useReducedMotion() === true;
 
 	const enter = reduce ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 };
@@ -107,6 +110,49 @@ export function ExportStatus() {
 					>
 						<span aria-hidden="true">×</span>
 					</button>
+				</motion.div>
+			)}
+
+			{!progress && !outcome && cloud && (
+				<motion.div
+					key={cloud.key}
+					initial={enter}
+					animate={settled}
+					exit={leave}
+					transition={transition}
+					role={cloud.kind === "problem" ? "alert" : "status"}
+					aria-live={cloud.kind === "problem" ? "assertive" : "polite"}
+					data-testid="cloud-render-status"
+					className="si-status"
+					data-tone={cloud.kind === "problem" ? "failed" : undefined}
+				>
+					{cloud.kind === "progress" ? (
+						// The server reports a phase, never a fraction: a third of a bar,
+						// like the server path, rather than a number nobody measured.
+						<div aria-hidden="true" className="si-status-track">
+							<div className="si-status-fill" style={{ width: "33%" }} />
+						</div>
+					) : cloud.kind === "note" ? null : (
+						<span aria-hidden="true" className="si-status-mark">
+							{cloud.kind === "done" ? <CheckIcon /> : "!"}
+						</span>
+					)}
+					<span className="si-status-text si-status-message">{cloud.text}</span>
+					{cloud.action && (
+						<button type="button" onClick={cloud.action.run} className="si-button">
+							<span className="si-seg-label">{cloud.action.label}</span>
+						</button>
+					)}
+					{cloud.dismiss && (
+						<button
+							type="button"
+							onClick={cloud.dismiss}
+							aria-label="Dismiss cloud render status"
+							className="si-button"
+						>
+							<span aria-hidden="true">×</span>
+						</button>
+					)}
 				</motion.div>
 			)}
 		</AnimatePresence>
