@@ -24,6 +24,7 @@ const INPUTS = [
 	"studio-url",
 	"comment",
 	"github-token",
+	"fail-on-render-error",
 ];
 
 /** The block of one top-level key, up to the next top-level key. */

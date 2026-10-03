@@ -20,10 +20,6 @@ jobs:
     name: Render the pull request
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # A demo, not a gate: a pull request GitHub cannot serve as a diff (this
-    # repository's own large ones) still gets its comment, and never blocks a
-    # merge. The action itself keeps failing the job for the people who use it.
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v7
@@ -32,3 +28,7 @@ jobs:
         with:
           # Set the repository variable once a studio is deployed; empty links a local one.
           studio-url: ${{ vars.TYPELAPSE_STUDIO_URL }}
+          # A demo, not a gate: a pull request GitHub cannot serve as a diff
+          # (this repository's own large ones) still gets its comment and the
+          # check stays green. The action fails the job by default elsewhere.
+          fail-on-render-error: "false"

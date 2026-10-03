@@ -30,6 +30,9 @@ inputs:
   github-token:
     description: Reads the pull request and writes the comment. The workflow's own token is enough.
     default: ${{ github.token }}
+  fail-on-render-error:
+    description: true fails the job when the render fails, after the comment says why; false keeps the job green and leaves the comment as the only signal, for a demo or a non-blocking check.
+    default: "true"
 
 outputs:
   path:
@@ -196,7 +199,7 @@ runs:
           }
 
     - name: Fail when the render failed
-      if: always() && steps.render.outcome == 'success' && steps.render.outputs.exit-code != '0'
+      if: always() && steps.render.outcome == 'success' && steps.render.outputs.exit-code != '0' && inputs.fail-on-render-error == 'true'
       shell: bash
       env:
         TYPELAPSE_EXIT: ${{ steps.render.outputs.exit-code }}

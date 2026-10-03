@@ -93,7 +93,9 @@ Inputs, all optional: `source` (defaults to the pull request that triggered the
 run; a commit URL works on a push or a release), `format`, `size`, `fps` and
 `theme` (the CLI's flags), `studio-url` (the studio the link opens; empty links
 a local one at `http://localhost:5173/app`), `comment` (`false` writes the job
-summary only) and `github-token`. Outputs: `path`, `studio-url`,
+summary only), `github-token` and `fail-on-render-error` (`false` keeps the job
+green when the render fails and leaves the comment as the only signal, for a
+demo or a non-blocking check). Outputs: `path`, `studio-url`,
 `artifact-url` and `exit-code`. A pull request from a fork runs with a read-only
 token, so its link lands in the job summary instead of a comment. This
 repository runs the action on its own pull requests
