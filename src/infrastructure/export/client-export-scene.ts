@@ -97,10 +97,29 @@ export function scriptFor(job: ClientExportJob): VideoScript {
 	});
 }
 
+/** One video layer's source time at one export frame. */
+export interface VideoFrameRequest {
+	blockId: string;
+	assetId: string;
+	frame: number;
+	/** The source time the preview seeks its `<video>` to, in seconds. */
+	seconds: number;
+}
+
 /** The layers of each frame, and how many frames the compiled timeline runs. */
 export interface CompositionPlan {
 	totalFrames: number;
-	layersAt(frame: number): Omit<LayeredFrame, "scratch">;
+	/** @param videoFrames This frame's decoded picture of each video layer, by block id. */
+	layersAt(
+		frame: number,
+		videoFrames?: ReadonlyMap<string, PaintImage>,
+	): Omit<LayeredFrame, "scratch">;
+	/**
+	 * Every video frame the first `frames` export frames show, in frame order:
+	 * the whole schedule is known before the first decode, which is what lets the
+	 * decoder read each packet once instead of seeking per frame.
+	 */
+	videoRequests(frames: number): VideoFrameRequest[];
 }
 
 /**
@@ -121,9 +140,42 @@ export function compositionPlanFor(
 	);
 	return {
 		totalFrames: timeline.totalFrames,
-		layersAt: (frame) =>
-			layeredFrameAt(composition.document, timeline.frameAt(frame), images, output.width),
+		layersAt: (frame, videoFrames) =>
+			layeredFrameAt(
+				composition.document,
+				timeline.frameAt(frame),
+				images,
+				output.width,
+				videoFrames,
+			),
+		videoRequests: (frames) => {
+			const requests: VideoFrameRequest[] = [];
+			for (let frame = 0; frame < frames; frame++) {
+				for (const layer of timeline.frameAt(frame).layers) {
+					if (layer.kind === "video") {
+						requests.push({
+							blockId: layer.blockId,
+							assetId: layer.assetId,
+							frame,
+							seconds: toMediaClock(layer.sourceTimeMs),
+						});
+					}
+				}
+			}
+			return requests;
+		},
 	};
+}
+
+/**
+ * Milliseconds as seconds on the browser's media clock, which counts whole
+ * microseconds. `(t - sceneStart) * rate + trimIn` in floating point can land a
+ * hair under a frame boundary (1.0999999 for 1.1) and pick the frame before the
+ * one the preview's `<video>` shows; rounding to the microsecond, as the
+ * browser does with `currentTime`, settles it the same way.
+ */
+function toMediaClock(ms: number): number {
+	return Math.round(ms * 1_000) / 1_000_000;
 }
 
 /** Every font stack a text layer names, once each, for the worker to load. */

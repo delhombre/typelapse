@@ -22,13 +22,24 @@ export interface ClientExportImage {
 }
 
 /**
+ * One video a layer shows, as its file. A `Blob` clones by reference, so the
+ * bytes are not copied; the worker demuxes and decodes them itself.
+ */
+export interface ClientExportVideo {
+	assetId: string;
+	blob: Blob;
+}
+
+/**
  * A studio project's layers: the V2 document the scene compiler reads (plain
- * data, it clones) and the images its layers show, decoded in the tab from the
- * local asset store. The document never carries bytes; the bitmaps do.
+ * data, it clones), the images its layers show, decoded in the tab from the
+ * local asset store, and the files of its videos. The document never carries
+ * bytes; the bitmaps and blobs do.
  */
 export interface ClientExportComposition {
 	document: ProjectDocumentV2;
 	images: ClientExportImage[];
+	videos: ClientExportVideo[];
 }
 
 export interface ClientExportJob {

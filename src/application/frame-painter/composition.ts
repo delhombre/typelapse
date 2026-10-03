@@ -22,12 +22,16 @@ import type { PaintImage } from "./paint-context";
  *   here is left out, which the caller prevents by refusing the export first.
  * @param canvasWidth The export canvas's width, which the project canvas is
  *   scaled to as one surface, as the preview scales it into its aspect box.
+ * @param videoFrames This frame's decoded picture of each video layer, by block
+ *   id: the source frame at the layer's `sourceTimeMs`, which is where the
+ *   preview seeks its `<video>`. A video layer without one is left out.
  */
 export function layeredFrameAt(
 	document: ProjectDocumentV2,
 	frame: SceneTimelineFrame,
 	images: ReadonlyMap<string, PaintImage>,
 	canvasWidth: number,
+	videoFrames: ReadonlyMap<string, PaintImage> = new Map(),
 ): Omit<LayeredFrame, "scratch"> {
 	const under: PaintLayer[] = [];
 	const over: PaintLayer[] = [];
@@ -37,7 +41,7 @@ export function layeredFrameAt(
 		if (layer.kind === "code") {
 			continue;
 		}
-		const painted = paintLayerFor(document, layer, images);
+		const painted = paintLayerFor(document, layer, images, videoFrames);
 		if (!painted) {
 			continue;
 		}
@@ -56,6 +60,7 @@ function paintLayerFor(
 	document: ProjectDocumentV2,
 	layer: Exclude<ResolvedSceneLayer, { kind: "code" }>,
 	images: ReadonlyMap<string, PaintImage>,
+	videoFrames: ReadonlyMap<string, PaintImage>,
 ): PaintLayer | null {
 	const { canvas } = document.project;
 	const box: PaintBox = {
@@ -73,13 +78,11 @@ function paintLayerFor(
 			visual: projectTextLayerVisual(layer),
 		};
 	}
-	if (layer.kind === "video") {
-		// The export refuses a project with a video layer before painting anything.
-		return null;
-	}
 	const asset = document.project.assets.find((candidate) => candidate.id === layer.assetId);
-	const image = images.get(layer.assetId);
-	if (!asset || asset.kind !== "image" || !image || box.width <= 0 || box.height <= 0) {
+	// A video frame is drawn exactly as an image is: the same fit, focal point and
+	// rounded clip the preview gives its `<video>` and its `<img>`.
+	const image = layer.kind === "video" ? videoFrames.get(layer.blockId) : images.get(layer.assetId);
+	if (!asset || asset.kind !== layer.kind || !image || box.width <= 0 || box.height <= 0) {
 		return null;
 	}
 	const container = { x: 0, y: 0, width: box.width, height: box.height };

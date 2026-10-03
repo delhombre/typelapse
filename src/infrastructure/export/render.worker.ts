@@ -28,6 +28,7 @@ import { decodeBackdropImage } from "./backdrop-image";
 import type { ClientExportEvent, ClientExportJob } from "./client-export-job";
 import { compositionPlanFor, sceneFor, scriptFor, textFontStacks } from "./client-export-scene";
 import { firstEncodableRung, qualityOf } from "./codec-probe";
+import { openCompositionVideos } from "./composition-videos";
 import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
 import { gifSafeFps } from "./gif-timing";
@@ -134,19 +135,30 @@ async function run(job: ClientExportJob): Promise<void> {
 	const scratchCtx = scratchCanvas?.getContext("2d") ?? null;
 	const scratch =
 		scratchCanvas && scratchCtx ? { ctx: scratchCtx, image: scratchCanvas } : undefined;
+	// Video layers are decoded here, on the schedule the compiler gives every
+	// frame; a codec this browser cannot decode refuses now, before frame one.
+	const videos =
+		composition && job.composition
+			? await openCompositionVideos(
+					job.composition.document,
+					job.composition.videos,
+					composition.videoRequests(script.totalFrames),
+				)
+			: null;
 
-	const painter = (frame: number) => {
+	const painter = async (frame: number) => {
+		const videoFrames = videos ? await videos.framesAt(frame) : undefined;
 		paintFrame(
 			ctx,
 			scene,
 			codeScript.frameAt(frame),
-			composition ? { ...composition.layersAt(frame), scratch } : undefined,
+			composition ? { ...composition.layersAt(frame, videoFrames), scratch } : undefined,
 		);
 	};
 
-	const result =
+	const encoded =
 		encoding.container === "gif"
-			? await encodeGif({
+			? encodeGif({
 					canvas,
 					ctx,
 					script,
@@ -155,7 +167,7 @@ async function run(job: ClientExportJob): Promise<void> {
 					report,
 					transparent: transparency.keepAlpha,
 				})
-			: await encodeVideo({
+			: encodeVideo({
 					canvas,
 					script,
 					fps,
@@ -164,6 +176,7 @@ async function run(job: ClientExportJob): Promise<void> {
 					paint: painter,
 					alpha: transparency.encodeAlpha,
 				});
+	const result = await encoded.finally(() => videos?.close());
 
 	post(
 		{
@@ -196,7 +209,8 @@ interface EncodeInput {
 	container: "mp4" | "webm" | "gif";
 	/** The rung the probe settled on. Null only where there is no encoder at all. */
 	rung: CodecRung | null;
-	paint: (frame: number) => void;
+	/** Async where a frame waits on its video layers' decoded pictures. */
+	paint: (frame: number) => Promise<void>;
 	/** Carry the canvas's alpha into the packets, where the codec can. */
 	alpha: boolean;
 }
@@ -240,7 +254,7 @@ async function encodeVideo(
 	let paintMs = 0;
 	for (let frame = 0; frame < script.totalFrames; frame++) {
 		const before = performance.now();
-		paint(frame);
+		await paint(frame);
 		paintMs += performance.now() - before;
 		// Awaiting each frame respects the encoder's backpressure: without it a
 		// long video queues every frame at once and the worker runs out of memory

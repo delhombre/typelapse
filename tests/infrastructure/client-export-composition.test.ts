@@ -132,7 +132,7 @@ describe("compositionPlanFor", () => {
 
 	it("lays out each frame from the scene compiler, scaled to the export canvas", () => {
 		const plan = compositionPlanFor(
-			{ document: DOCUMENT, images },
+			{ document: DOCUMENT, images, videos: [] },
 			{ width: 960, fps: 30, loop: false },
 		);
 		const first = plan.layersAt(0);
@@ -145,11 +145,105 @@ describe("compositionPlanFor", () => {
 
 	it("runs as long as the compiled timeline", () => {
 		const plan = compositionPlanFor(
-			{ document: DOCUMENT, images },
+			{ document: DOCUMENT, images, videos: [] },
 			{ width: 1920, fps: 60, loop: false },
 		);
 		// Two one-second scenes and one 650 ms transition.
 		expect(plan.totalFrames).toBe(Math.round(2.65 * 60));
+	});
+});
+
+const CLIP = {
+	id: "asset-clip",
+	kind: "video" as const,
+	fileName: "counter.mp4",
+	mimeType: "video/mp4",
+	byteSize: 10,
+	checksum: "c".repeat(64),
+	width: 1920,
+	height: 1080,
+	durationMs: 5000,
+};
+
+/** Scene 1 holds a clip trimmed to 1.0 s..3.0 s at 1.5x: 1.33 s of play in a 2 s scene. */
+const VIDEO_DOCUMENT: ProjectDocumentV2 = {
+	schemaVersion: 2,
+	project: {
+		...DOCUMENT.project,
+		assets: [CLIP],
+		scenes: [
+			{
+				id: "v",
+				durationMs: 2000,
+				blocks: [
+					{
+						id: "clip",
+						kind: "video",
+						assetId: "asset-clip",
+						fit: "cover",
+						focalPoint: { x: 0.6, y: 0.5 },
+						borderRadius: 32,
+						trim: { startMs: 1000, endMs: 3000 },
+						playbackRate: 1.5,
+						muted: true,
+						opacity: 1,
+						placement: { x: 0.1, y: 0.1, width: 0.5, height: 0.8 },
+					},
+				],
+			},
+			{ id: "c", durationMs: 1000, blocks: [code("c::code")] },
+		],
+	},
+};
+
+describe("compositionPlanFor with a video layer", () => {
+	const plan = compositionPlanFor(
+		{ document: VIDEO_DOCUMENT, images: [], videos: [] },
+		{ width: 1920, fps: 60, loop: false },
+	);
+
+	it("asks for the source time the preview seeks to, held at the trim's end", () => {
+		const requests = plan.videoRequests(plan.totalFrames);
+		const at = (frame: number) => requests.find((request) => request.frame === frame);
+		// (t - sceneStart) * rate + trimIn, in seconds.
+		expect(at(0)).toEqual({ blockId: "clip", assetId: "asset-clip", frame: 0, seconds: 1 });
+		expect(at(40)?.seconds).toBe(2);
+		expect(at(7)?.seconds).toBe(1.175);
+		// Past 1.33 s of scene time the clip has played to its trim-out and holds.
+		expect(at(100)?.seconds).toBe(3);
+		expect(at(119)?.seconds).toBe(3);
+		// The code scene shows no clip.
+		expect(at(120)).toBeUndefined();
+		expect(requests.map((request) => request.frame)).toEqual(
+			Array.from({ length: 120 }, (_, frame) => frame),
+		);
+	});
+
+	it("draws the decoded frame like an image: the focal crop, the rounded box", () => {
+		const frame = { label: "frame 30" };
+		const layers = plan.layersAt(0, new Map([["clip", frame]]));
+		expect(layers.under).toEqual([]);
+		expect(layers.over).toHaveLength(1);
+		const [clip] = layers.over;
+		expect(clip).toMatchObject({
+			kind: "image",
+			image: frame,
+			radius: 32,
+			opacity: 1,
+			box: { x: 192, y: 108, width: 960, height: 864 },
+		});
+		// Cover scales 1920x1080 to 1536x864, a 1200 px wide crop of the source
+		// centred on x = 1152 (60 %): it starts at 552 source px, -441.6 in the box.
+		expect(clip?.kind === "image" && clip.media).toEqual({
+			x: expect.closeTo(-441.6, 5),
+			y: 0,
+			width: 1536,
+			height: 864,
+		});
+	});
+
+	it("leaves a clip out of a frame it has no decoded picture for", () => {
+		expect(plan.layersAt(0).over).toEqual([]);
 	});
 });
 

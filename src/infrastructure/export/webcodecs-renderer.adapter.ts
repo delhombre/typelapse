@@ -40,6 +40,7 @@ import {
 import { sceneFor, scriptFor } from "./client-export-scene";
 import { firstEncodableRung } from "./codec-probe";
 import { decodeCompositionImages } from "./composition-images";
+import { loadCompositionVideos } from "./composition-videos";
 import { encodingFor, evenDimensions } from "./video-encoding";
 
 /**
@@ -64,8 +65,8 @@ export interface ClientScenery {
 	/** Whether any scene has a caption, which the card budgets room for. */
 	hasCaption?: boolean;
 	/**
-	 * A studio project's text and image layers: the V2 document, and the store
-	 * its images' bytes are read from on this device.
+	 * A studio project's layers: the V2 document, and the store its images' and
+	 * videos' bytes are read from on this device.
 	 */
 	composition?: {
 		document: ProjectDocumentV2;
@@ -245,6 +246,10 @@ export class WebCodecsRendererAdapter implements RendererPort {
 				? {
 						document: scenery.composition.document,
 						images: await decodeCompositionImages(
+							scenery.composition.document,
+							scenery.composition.library,
+						),
+						videos: await loadCompositionVideos(
 							scenery.composition.document,
 							scenery.composition.library,
 						),
