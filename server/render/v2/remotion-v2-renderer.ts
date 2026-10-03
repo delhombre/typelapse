@@ -13,8 +13,15 @@ import type {
 	HostedMultimediaRendererPort,
 	HostedRenderTemporaryArtifact,
 } from "../../../src/application/render/process-hosted-render-job";
-import { compileSceneTimeline } from "../../../src/application/render/scene-timeline";
-import { SERVER_VIDEO_COLOR_SPACE, videoColorOverride } from "../../remotion/output-settings";
+import {
+	compileSceneTimeline,
+	hasAudibleMedia,
+} from "../../../src/application/render/scene-timeline";
+import {
+	JPEG_QUALITY,
+	SERVER_VIDEO_COLOR_SPACE,
+	videoColorOverride,
+} from "../../remotion/output-settings";
 import type { RemotionV2CompositionInput } from "../../remotion/v2/types";
 
 export interface HostedRenderAssetMaterializerPort {
@@ -82,6 +89,7 @@ export interface RemotionV2RuntimeApiPort {
 			readonly args: string[];
 		}) => string[];
 		readonly imageFormat: "jpeg";
+		readonly jpegQuality: number;
 		readonly overwrite: true;
 		readonly muted: boolean;
 		readonly cancelSignal: RemotionCancelSignal;
@@ -168,6 +176,7 @@ export function createRemotionV2Runtime(
 					colorSpace: SERVER_VIDEO_COLOR_SPACE,
 					ffmpegOverride: ({ args }) => videoColorOverride(args),
 					imageFormat: "jpeg",
+					jpegQuality: JPEG_QUALITY,
 					overwrite: true,
 					muted: !input.includeAudio,
 					cancelSignal,
@@ -303,14 +312,13 @@ export function createHostedRemotionV2Renderer(input: {
 				if (document.project.id !== renderInput.projectId) {
 					throw new Error("Hosted render project identity does not match its V2 snapshot");
 				}
+				const includeAudio = renderInput.options.includeAudio && hasAudibleMedia(document);
+				const loop = renderInput.options.loop === true;
 				const byId = new Map(document.project.assets.map((asset) => [asset.id, asset]));
 				const assetSources: { assetId: string; publicPath: string }[] = [];
 				const publicNames = new Map<string, string>();
 				await mkdir(assetsDir, { recursive: true });
-				for (const [index, assetId] of referencedAssetIds(
-					document,
-					renderInput.options.includeAudio,
-				).entries()) {
+				for (const [index, assetId] of referencedAssetIds(document, includeAudio).entries()) {
 					const asset = byId.get(assetId);
 					if (!asset) {
 						throw new Error(`Hosted render references missing asset '${assetId}'`);
@@ -335,11 +343,12 @@ export function createHostedRemotionV2Renderer(input: {
 					publicNames.set(assetId, publicName);
 				}
 
-				const timeline = compileSceneTimeline({ document, fps: renderInput.options.fps });
+				const timeline = compileSceneTimeline({ document, fps: renderInput.options.fps, loop });
 				const compositionInput: RemotionV2CompositionInput = {
 					document: sanitizedRenderDocument(document, publicNames),
 					assetSources,
-					includeAudio: renderInput.options.includeAudio,
+					includeAudio,
+					loop,
 				};
 				const inputProps = { input: compositionInput } as const;
 				const serveUrl = await runtime.bundle({
@@ -366,7 +375,7 @@ export function createHostedRemotionV2Renderer(input: {
 					height: renderInput.options.height,
 					fps: renderInput.options.fps,
 					durationInFrames: timeline.totalFrames,
-					includeAudio: renderInput.options.includeAudio,
+					includeAudio,
 					signal: renderInput.signal,
 				});
 				renderInput.signal.throwIfAborted();

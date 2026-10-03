@@ -7,4 +7,6 @@ export interface RemotionV2CompositionInput {
 		readonly publicPath: string;
 	}[];
 	readonly includeAudio: boolean;
+	/** Loop on: the file ends on the morph from the last scene back to the first. */
+	readonly loop?: boolean;
 }

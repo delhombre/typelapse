@@ -1,7 +1,7 @@
 import type { PlatformCycle } from "@/presentation/landing/iphone-showcase";
 import { IphoneShowcase } from "@/presentation/landing/iphone-showcase";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { type Mock, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 /* The hand's feedback is the thing under test, so it is a spy rather than the
    real motor: `web-haptics` feature-detects and would no-op in jsdom, which
@@ -55,7 +55,7 @@ afterEach(() => {
 	hapticSpy.mockClear();
 });
 
-const cycleWith = (step: ReturnType<typeof vi.fn>): PlatformCycle => ({
+const cycleWith = (step: Mock<(direction: 1 | -1) => void>): PlatformCycle => ({
 	index: 0,
 	platform: "reels",
 	direction: 1,

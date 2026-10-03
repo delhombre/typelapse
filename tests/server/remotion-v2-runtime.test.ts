@@ -60,6 +60,9 @@ describe("Remotion V2 runtime", () => {
 			},
 			muted: false,
 			colorSpace: "bt709",
+			// V1 captures at 95 too: Remotion's default 80 softens the text the file sells.
+			imageFormat: "jpeg",
+			jpegQuality: 95,
 		});
 		expect(
 			// The callback assigns it, which TypeScript's narrowing cannot see.

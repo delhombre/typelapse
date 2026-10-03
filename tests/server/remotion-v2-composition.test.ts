@@ -229,6 +229,46 @@ describe("Remotion V2 composition", () => {
 		});
 	});
 
+	it("ends a looping file on the first scene arriving", () => {
+		const base = imageAndTextDocument();
+		const title = base.project.scenes[0]?.blocks.find((block) => block.kind === "text");
+		if (!title) {
+			throw new Error("fixture lost its title");
+		}
+		const composition = compileV2RemotionComposition({
+			input: {
+				document: {
+					...base,
+					project: {
+						...base.project,
+						assets: [],
+						scenes: [
+							{
+								id: "scene-1",
+								durationMs: 1_000,
+								transitionOut: { kind: "magic-move", durationMs: 650 },
+								blocks: [{ ...title, id: "first" }],
+							},
+							{ id: "scene-2", durationMs: 1_000, blocks: [{ ...title, id: "second" }] },
+						],
+					},
+				},
+				assetSources: [],
+				includeAudio: false,
+				loop: true,
+			},
+			fps: 30,
+			width: 1920,
+			height: 1080,
+			resolvePublicAsset: (publicPath) => `bundle://${publicPath}`,
+		});
+
+		expect(composition.totalFrames).toBe(99);
+		const last = composition.frameAt(98).layers;
+		expect(last.map((layer) => layer.blockId)).toEqual(["second", "first"]);
+		expect(last[1]?.opacity).toBeGreaterThan(0.99 * (title.opacity ?? 1));
+	});
+
 	it("compiles an audio-only document into a trimmed deterministic track", () => {
 		const composition = compileV2RemotionComposition({
 			input: {

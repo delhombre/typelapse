@@ -148,6 +148,9 @@ export const createCloudRoute = (
 				result.ceiling === "concurrentRenders" ? 429 : 402,
 			);
 		}
+		if (result.outcome === "resolution-limit") {
+			return c.json({ error: result.message, code: "resolution-limit" }, 402);
+		}
 		if (result.outcome === "project-not-found") {
 			return c.json({ error: "Project not found" }, 404);
 		}

@@ -1,3 +1,4 @@
+import { appendsLoopMorph } from "../export/video-script";
 import { easeInOutQuart } from "../magic-move/engine";
 import type {
 	AudioCuePayload,
@@ -107,13 +108,18 @@ interface TransitionSegment {
 	readonly kind: "transition";
 	readonly transitionKind: "crossfade" | "magic-move";
 	readonly sceneIndex: number;
+	/** The next scene, or the first one for the loop morph. */
+	readonly targetIndex: number;
 	readonly startMs: number;
 	readonly endMs: number;
 }
 
 type VisualSegment = HoldSegment | TransitionSegment;
 
-function buildVisualSegments(scenes: readonly ScenePayload[]): VisualSegment[] {
+function buildVisualSegments(
+	scenes: readonly ScenePayload[],
+	loopMs: number | null,
+): VisualSegment[] {
 	const segments: VisualSegment[] = [];
 	let cursor = 0;
 	for (let index = 0; index < scenes.length; index += 1) {
@@ -148,10 +154,23 @@ function buildVisualSegments(scenes: readonly ScenePayload[]): VisualSegment[] {
 			kind: "transition",
 			transitionKind: transition.kind,
 			sceneIndex: index,
+			targetIndex: index + 1,
 			startMs: cursor,
 			endMs: cursor + transition.durationMs,
 		});
 		cursor += transition.durationMs;
+	}
+	// The same morph the code-only file appends (`video-script.ts`), so the last
+	// frame is the first scene again and the file plays as a seamless loop.
+	if (loopMs !== null && loopMs > 0) {
+		segments.push({
+			kind: "transition",
+			transitionKind: "magic-move",
+			sceneIndex: scenes.length - 1,
+			targetIndex: 0,
+			startMs: cursor,
+			endMs: cursor + loopMs,
+		});
 	}
 	return segments;
 }
@@ -200,7 +219,7 @@ function sceneContributions(
 		};
 	}
 
-	const next = scenes[segment.sceneIndex + 1];
+	const next = scenes[segment.targetIndex];
 	if (!next) {
 		return {
 			scenes: [{ sceneId: scene.id, localTimeMs: scene.durationMs, opacity: 1 }],
@@ -429,6 +448,20 @@ function audioDurationMs(cues: readonly AudioCuePayload[]): number {
 }
 
 /**
+ * Whether the file has anything to hear: an audio cue, or a video layer that is
+ * not muted. Without one a server render writes no audio track at all, since a
+ * silent AAC stream still lengthens the file past the device export.
+ */
+export function hasAudibleMedia(document: ProjectDocumentV2): boolean {
+	return (
+		document.project.audioCues.length > 0 ||
+		document.project.scenes.some((scene) =>
+			scene.blocks.some((block) => block.kind === "video" && !block.muted),
+		)
+	);
+}
+
+/**
  * Compile the authored scene model into deterministic frame data. The result
  * contains no URLs, DOM nodes or decoded bytes: every renderer resolves the
  * same layer order, transition weights, media source time and audio envelope.
@@ -436,9 +469,12 @@ function audioDurationMs(cues: readonly AudioCuePayload[]): number {
 export function compileSceneTimeline({
 	document,
 	fps,
+	loop = false,
 }: {
 	readonly document: ProjectDocumentV2;
 	readonly fps: number;
+	/** Loop on: the last scene morphs back to the first for the project's transition. */
+	readonly loop?: boolean;
 }): SceneTimeline {
 	if (!Number.isSafeInteger(fps) || fps <= 0) {
 		throw new Error("Render fps must be a positive integer");
@@ -448,7 +484,10 @@ export function compileSceneTimeline({
 		throw new Error("Expected a V2 project document");
 	}
 	const project = parsed.document.project;
-	const segments = buildVisualSegments(project.scenes);
+	const segments = buildVisualSegments(
+		project.scenes,
+		appendsLoopMorph(loop, project.scenes.length) ? project.settings.transitionMs : null,
+	);
 	const durationMs = Math.max(visualDurationMs(segments), audioDurationMs(project.audioCues));
 	const totalFrames = Math.max(1, Math.round((durationMs / 1_000) * fps));
 

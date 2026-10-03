@@ -164,6 +164,21 @@ describe("hosted render entitlement", () => {
 		});
 	});
 
+	it("refuses a size past the plan's rectangle with the sentence that names it", async () => {
+		const message =
+			"Creator renders up to 3840×2160 in either orientation, and 3840×3840 is larger";
+		const route = createCloudRoute({
+			auth: signedInAs("acc_1"),
+			subscriptions: on(Plan.pro()),
+			renderJobs: { ...renderJobs, submit: async () => ({ outcome: "resolution-limit", message }) },
+		});
+
+		const response = await hostedApp(route).request(renderRequest({ cookie: "session=valid" }));
+
+		expect(response.status).toBe(402);
+		expect(await response.json()).toEqual({ error: message, code: "resolution-limit" });
+	});
+
 	it("accepts a signed-in account whose plan includes hosted rendering", async () => {
 		const route = createCloudRoute({
 			auth: signedInAs("acc_1"),

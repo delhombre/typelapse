@@ -237,4 +237,59 @@ describe("compileSceneTimeline", () => {
 			localTimeMs: 1_000,
 		});
 	});
+	describe("with Loop on", () => {
+		const twoScenes = () =>
+			documentWith({
+				scenes: [
+					{
+						id: "scene-1",
+						durationMs: 1_000,
+						transitionOut: { kind: "magic-move", durationMs: 650 },
+						blocks: [{ ...TEXT_BLOCK, id: "text-1", continuityKey: "title" }],
+					},
+					{
+						id: "scene-2",
+						durationMs: 1_000,
+						blocks: [
+							{
+								...TEXT_BLOCK,
+								id: "text-2",
+								continuityKey: "title",
+								placement: { x: 0.2, y: 0.5, width: 0.6, height: 0.25 },
+							},
+						],
+					},
+				],
+			});
+
+		it("morphs the last scene back to the first for the project's transition", () => {
+			const timeline = compileSceneTimeline({ document: twoScenes(), fps: 30, loop: true });
+
+			expect(timeline.durationMs).toBe(1_000 + 650 + 1_000 + 650);
+			expect(timeline.totalFrames).toBe(99);
+			// Halfway through the loop morph both scenes share the frame.
+			const midLoop = timeline.frameAt(Math.round((2_975 / 1_000) * 30));
+			expect(midLoop.transition).toMatchObject({
+				kind: "magic-move",
+				fromSceneId: "scene-2",
+				toSceneId: "scene-1",
+			});
+			expect(midLoop.scenes.map((scene) => scene.sceneId)).toEqual(["scene-2", "scene-1"]);
+			// The last frame is the first scene arriving, so the file loops seamlessly.
+			const last = timeline.frameAt(timeline.totalFrames - 1);
+			expect(last.transition?.toSceneId).toBe("scene-1");
+			expect(last.scenes.at(-1)).toMatchObject({ sceneId: "scene-1" });
+			expect(last.scenes.at(-1)?.opacity).toBeGreaterThan(0.99);
+		});
+
+		it("leaves Loop off, and a single scene, exactly as they were", () => {
+			expect(compileSceneTimeline({ document: twoScenes(), fps: 30 }).durationMs).toBe(2_650);
+			const single = documentWith({
+				scenes: [{ id: "scene-1", durationMs: 1_000, blocks: [TEXT_BLOCK] }],
+			});
+			expect(compileSceneTimeline({ document: single, fps: 30, loop: true }).durationMs).toBe(
+				1_000,
+			);
+		});
+	});
 });

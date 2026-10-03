@@ -161,7 +161,11 @@ export function compileV2RemotionComposition(input: {
 	readonly height: number;
 	readonly resolvePublicAsset: (publicPath: string) => string;
 }): V2RemotionCompositionPlan {
-	const timeline = compileSceneTimeline({ document: input.input.document, fps: input.fps });
+	const timeline = compileSceneTimeline({
+		document: input.input.document,
+		fps: input.fps,
+		loop: input.input.loop === true,
+	});
 	const assets = new Map(input.input.document.project.assets.map((asset) => [asset.id, asset]));
 	const sources = new Map(
 		input.input.assetSources.map((source) => [

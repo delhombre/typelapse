@@ -19,16 +19,16 @@ const DOCUMENT = migrateV1ToV2({
 });
 const NOW = new Date("2026-08-30T20:00:00.000Z");
 
-function projectPort(): ProjectDocumentRepositoryPort {
+function projectPort(document = DOCUMENT): ProjectDocumentRepositoryPort {
 	return {
 		listByOwner: async () => [],
 		findOwnedById: async (ownerId, id) =>
-			ownerId === "owner-1" && id === DOCUMENT.project.id
+			ownerId === "owner-1" && id === document.project.id
 				? {
 						id,
 						ownerId,
 						revision: 4,
-						document: DOCUMENT,
+						document,
 						createdAt: NOW,
 						updatedAt: NOW,
 					}
@@ -86,12 +86,12 @@ class MemoryJobs implements RenderJobRepositoryPort {
 	}
 }
 
-function service(input: { missing?: readonly string[] } = {}) {
+function service(input: { missing?: readonly string[]; document?: typeof DOCUMENT } = {}) {
 	const jobs = new MemoryJobs();
 	return {
 		jobs,
 		service: createHostedRenderJobService({
-			projects: projectPort(),
+			projects: projectPort(input.document),
 			assets: { missingReadyAssetIds: async () => input.missing ?? [] },
 			jobs,
 			compilerVersion: "compiler-v2",
@@ -223,8 +223,73 @@ describe("hosted render job service", () => {
 		).resolves.toEqual({ outcome: "plan-limit", ceiling: "concurrentRenders", used: 3 });
 	});
 
+	it("refuses a size larger than the plan's rectangle and names the rectangle", async () => {
+		const { service: hosted, jobs } = service();
+
+		const result = await hosted.submit({
+			ownerId: "owner-1",
+			projectId: DOCUMENT.project.id,
+			revision: 4,
+			renderOptions: { ...OPTIONS, width: 3840, height: 3840 },
+			plan: Plan.pro(),
+			now: NOW,
+		});
+
+		expect(result).toMatchObject({ outcome: "resolution-limit" });
+		expect(result.outcome === "resolution-limit" && result.message).toContain("3840×2160");
+		expect(result.outcome === "resolution-limit" && result.message).toContain("Creator");
+		expect(jobs.lastInput).toBeNull();
+		// The portrait twin of the 4K preset is the same entitlement.
+		await expect(
+			hosted.submit({
+				ownerId: "owner-1",
+				projectId: DOCUMENT.project.id,
+				revision: 4,
+				renderOptions: { ...OPTIONS, width: 2160, height: 3840 },
+				plan: Plan.pro(),
+				now: NOW,
+			}),
+		).resolves.toMatchObject({ outcome: "accepted" });
+	});
+
+	it("measures a looping render with its loop morph and hashes the loop apart", async () => {
+		const twoScenes = migrateV1ToV2({
+			title: "Loop",
+			code: "const b = 2;",
+			language: "typescript",
+			themeName: "midnight",
+			background: "mesh:solar",
+			transitionMs: 650,
+			steps: [
+				{ code: "const a = 1;", duration: 1000 },
+				{ code: "const b = 2;", duration: 1000 },
+			],
+		});
+		const { service: hosted, jobs } = service({ document: twoScenes });
+
+		await hosted.submit({
+			ownerId: "owner-1",
+			projectId: twoScenes.project.id,
+			revision: 4,
+			renderOptions: { ...OPTIONS, loop: true },
+			plan: Plan.pro(),
+			now: NOW,
+		});
+
+		expect(jobs.lastInput).toMatchObject({
+			durationMs: 1000 + 650 + 1000 + 650,
+			renderOptionsHash: "hash:mp4:1920:1080:60:1:loop",
+		});
+	});
+
 	it("strictly parses bounded server render options", () => {
 		expect(parseHostedRenderOptions(OPTIONS)).toEqual(OPTIONS);
+		expect(parseHostedRenderOptions({ ...OPTIONS, loop: true })).toEqual({
+			...OPTIONS,
+			loop: true,
+		});
+		expect(parseHostedRenderOptions({ ...OPTIONS, loop: false })).toEqual(OPTIONS);
+		expect(() => parseHostedRenderOptions({ ...OPTIONS, loop: "yes" })).toThrow("loop");
 		expect(() => parseHostedRenderOptions({ ...OPTIONS, width: 9999 })).toThrow("dimensions");
 		expect(() => parseHostedRenderOptions({ ...OPTIONS, format: "gif" })).toThrow("format");
 	});

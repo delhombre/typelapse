@@ -1,4 +1,5 @@
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
+import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import { Asset } from "@/domain/entities/asset";
 import { AudioCue } from "@/domain/entities/audio-cue";
 import { Snippet } from "@/domain/entities/snippet";
@@ -108,15 +109,31 @@ describe("the studio playback clock", () => {
 		expect(state.playbackElapsedMs).toBeCloseTo(3000);
 	});
 
-	it("leaves the loop out where the export leaves it out: the multimedia route", () => {
+	it("plays the loop morph on a multimedia project too, as the server file does", () => {
 		scenes(1000, 1000);
 		audioCue(1000);
 		useExportStore.setState({ loop: true });
+		const file = compileSceneTimeline({
+			document: useStudioCompositionStore.getState().toDocument(),
+			fps: 30,
+			loop: true,
+		});
 
 		useSnippetStore.getState().seekPlayback(1);
 
 		const state = useSnippetStore.getState();
-		expect(state.playback?.phase).toBe("hold");
-		expect(state.playbackElapsedMs).toBe(2650);
+		expect(state.playback?.phase).toBe("loop");
+		expect(state.playbackElapsedMs).toBe(3300);
+		expect(file.durationMs).toBe(3300);
+	});
+
+	it("still runs to an audio tail longer than the loop", () => {
+		scenes(1000, 1000);
+		audioCue(10_000);
+		useExportStore.setState({ loop: true });
+
+		useSnippetStore.getState().seekPlayback(1);
+
+		expect(useSnippetStore.getState().playbackElapsedMs).toBe(10_000);
 	});
 });

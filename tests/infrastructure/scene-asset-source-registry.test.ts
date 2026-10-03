@@ -1,11 +1,11 @@
 import type { SceneAssetSourceLease } from "@/application/assets/scene-asset-source.port";
 import { createSceneAssetSourceRegistry } from "@/infrastructure/assets/scene-asset-source.registry";
-import { describe, expect, it, vi } from "vitest";
+import { type Mock, describe, expect, it, vi } from "vitest";
 
 function lease(
 	assetId: string,
 	src: string,
-): SceneAssetSourceLease & { release: ReturnType<typeof vi.fn> } {
+): SceneAssetSourceLease & { release: Mock<() => void> } {
 	return {
 		source: { assetId, src },
 		release: vi.fn(),

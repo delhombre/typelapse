@@ -175,9 +175,11 @@ describe("hosted Remotion V2 renderer", () => {
 		expect(rendered[0]?.inputProps).toMatchObject({
 			input: {
 				assetSources: [{ assetId: "image-1", publicPath: "assets/asset-0.png" }],
-				includeAudio: true,
+				// An image and a title make no sound, so the file carries no silent track.
+				includeAudio: false,
 			},
 		});
+		expect(rendered[0]?.includeAudio).toBe(false);
 		expect(JSON.stringify(rendered[0]?.inputProps)).not.toContain("attacker.invalid");
 		expect(artifact).toEqual({
 			temporaryId: expect.stringMatching(/\/output\.mp4$/),
@@ -188,6 +190,68 @@ describe("hosted Remotion V2 renderer", () => {
 
 		await renderer.cleanup(artifact);
 		await expect(access(path.dirname(artifact.temporaryId))).rejects.toThrow();
+	});
+
+	it("renders the loop morph and keeps sound only where the project has some", async () => {
+		const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), "typelapse-v2-test-"));
+		temporaryRoots.push(temporaryRoot);
+		const rendered: Parameters<RemotionV2RuntimePort["renderMedia"]>[0][] = [];
+		const renderer = createHostedRemotionV2Renderer({
+			assets: { materializePrivateAsset: async () => undefined },
+			runtime: {
+				bundle: async () => "http://remotion.invalid/job-bundle",
+				selectComposition: async () => ({ id: "TypelapseV2" }),
+				async renderMedia(input) {
+					rendered.push(input);
+					await writeFile(input.outputPath, OUTPUT_BYTES);
+				},
+			},
+			temporaryRoot,
+		});
+		const title = imageAndTextDocument().project.scenes[0]?.blocks[1];
+		if (!title) {
+			throw new Error("fixture lost its title");
+		}
+		const document: ProjectDocumentV2 = {
+			...imageAndTextDocument(),
+			project: {
+				...imageAndTextDocument().project,
+				assets: [],
+				scenes: [
+					{
+						id: "scene-1",
+						durationMs: 1_000,
+						transitionOut: { kind: "magic-move", durationMs: 650 },
+						blocks: [title],
+					},
+					{ id: "scene-2", durationMs: 1_000, blocks: [{ ...title, id: "title-2" }] },
+				],
+			},
+		};
+
+		const artifact = await renderer.render({
+			jobId: "job-loop",
+			ownerId: "owner-1",
+			projectId: "project-1",
+			revision: 1,
+			document,
+			options: {
+				format: "mp4",
+				width: 1920,
+				height: 1080,
+				fps: 30,
+				includeAudio: true,
+				loop: true,
+			},
+			compilerVersion: "compiler-v2",
+			signal: new AbortController().signal,
+		});
+
+		// 1 s + 650 ms morph + 1 s + the 650 ms loop morph back to scene 1, at 30 fps.
+		expect(rendered[0]?.durationInFrames).toBe(99);
+		expect(rendered[0]?.includeAudio).toBe(false);
+		expect(rendered[0]?.inputProps.input).toMatchObject({ loop: true, includeAudio: false });
+		await renderer.cleanup(artifact);
 	});
 
 	it("aborts the runtime and removes partial private workspaces", async () => {

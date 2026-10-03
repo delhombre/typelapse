@@ -44,8 +44,8 @@ const MIME_TYPES: Record<SafeFormat, string> = {
 	gif: "image/gif",
 };
 
-/** Quality of the JPEG intermediate the video formats capture each frame as. */
-const JPEG_QUALITY = 95;
+/** Quality of the JPEG intermediate the video formats capture each frame as, V1 and V2. */
+export const JPEG_QUALITY = 95;
 
 /**
  * The colour space every server video is encoded in. Remotion's default leaves

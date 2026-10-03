@@ -1,9 +1,9 @@
 import { isRenderDimension } from "../../domain/entities/render-config";
 import type { Plan } from "../../domain/value-objects/plan";
 import { renderPeriodStart } from "../billing/plan-allowance";
-import { hydrateProjectDocument } from "../project/hydrate-project-document";
 import type { ProjectDocumentV2 } from "../project/project-document";
 import type { ProjectDocumentRepositoryPort } from "../project/project-document-repository.port";
+import { compileSceneTimeline } from "./scene-timeline";
 
 export type HostedRenderStatus = "queued" | "running" | "succeeded" | "failed" | "canceled";
 export type HostedRenderFormat = "mp4" | "webm";
@@ -14,6 +14,8 @@ export interface HostedRenderOptions {
 	readonly height: number;
 	readonly fps: 24 | 30 | 60;
 	readonly includeAudio: boolean;
+	/** Loop on: the file ends on the morph back to the first scene. Absent means off. */
+	readonly loop?: boolean;
 }
 
 export interface HostedRenderJob {
@@ -90,6 +92,7 @@ export interface HostedRenderJobService {
 		| { readonly outcome: "project-not-found" }
 		| { readonly outcome: "revision-conflict"; readonly currentRevision: number }
 		| { readonly outcome: "assets-unavailable"; readonly assetIds: readonly string[] }
+		| { readonly outcome: "resolution-limit"; readonly message: string }
 	>;
 	status(ownerId: string, jobId: string): Promise<HostedRenderJob | null>;
 }
@@ -113,17 +116,24 @@ export function parseHostedRenderOptions(input: unknown): HostedRenderOptions {
 	if (typeof value.includeAudio !== "boolean") {
 		throw new Error("Hosted render includeAudio must be boolean");
 	}
+	if (value.loop !== undefined && typeof value.loop !== "boolean") {
+		throw new Error("Hosted render loop must be boolean");
+	}
 	return {
 		format: value.format as HostedRenderFormat,
 		width: value.width,
 		height: value.height,
 		fps: value.fps,
 		includeAudio: value.includeAudio,
+		// Written only when on, so a stored job from before the loop reads the same.
+		...(value.loop === true ? { loop: true } : {}),
 	};
 }
 
 function renderOptionsIdentity(value: HostedRenderOptions): string {
-	return [value.format, value.width, value.height, value.fps, value.includeAudio ? 1 : 0].join(":");
+	const identity = [value.format, value.width, value.height, value.fps, value.includeAudio ? 1 : 0];
+	// Appended only when on, so the jobs enqueued before the loop keep their hash.
+	return (value.loop ? [...identity, "loop"] : identity).join(":");
 }
 
 /** Canonical project revision to durable render job; client programs are never accepted. */
@@ -145,6 +155,16 @@ export function createHostedRenderJobService(input: {
 	} = input;
 	return {
 		async submit(request) {
+			// The size rule admits any even size up to 3840 on each axis; the plan sells a
+			// rectangle, so 3840x3840 is twice the pixels Creator's 4K pays for.
+			const { width, height } = request.renderOptions;
+			if (!request.plan.allowsResolution(width, height)) {
+				const { maxLongEdge, maxShortEdge } = request.plan.capabilities;
+				return {
+					outcome: "resolution-limit",
+					message: `${request.plan.label} renders up to ${maxLongEdge}×${maxShortEdge} in either orientation, and ${width}×${height} is larger`,
+				};
+			}
 			const project = await projects.findOwnedById(request.ownerId, request.projectId);
 			if (!project) {
 				return { outcome: "project-not-found" };
@@ -170,7 +190,11 @@ export function createHostedRenderJobService(input: {
 				renderOptions: request.renderOptions,
 				renderOptionsHash: hashOptions(renderOptionsIdentity(request.renderOptions)),
 				compilerVersion,
-				durationMs: hydrateProjectDocument(project.document).project.durationMs,
+				durationMs: compileSceneTimeline({
+					document: project.document,
+					fps: request.renderOptions.fps,
+					loop: request.renderOptions.loop === true,
+				}).durationMs,
 				quota: {
 					maxActiveRenders: request.plan.limitFor("concurrentRenders"),
 					maxRenderMsInPeriod: request.plan.limitFor("hostedRenderTime"),

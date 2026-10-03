@@ -1,5 +1,7 @@
 import { videoScript } from "@/application/export/video-script";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
+import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import {
 	buildStudioPlayback,
 	isPlayableProject,
@@ -96,6 +98,59 @@ describe("studio playback clock", () => {
 		});
 
 		expect(timeline.totalMs).toBe(exportedMs([1000, 2000], 1000, false));
+	});
+
+	it("counts the loop morph on a multimedia project like the file it renders", () => {
+		const document: ProjectDocumentV2 = {
+			schemaVersion: 2,
+			project: {
+				id: "loop-multimedia",
+				title: "Loop",
+				canvas: { width: 1920, height: 1080, background: "#111111" },
+				settings: { progressStyle: "none", transitionMs: 650, typewriter: false, focusZoom: false },
+				assets: [],
+				audioCues: [],
+				scenes: [
+					{
+						id: "scene-1",
+						durationMs: 1_000,
+						transitionOut: { kind: "magic-move", durationMs: 650 },
+						blocks: [],
+					},
+					{
+						id: "scene-2",
+						durationMs: 2_000,
+						blocks: [
+							{
+								id: "title",
+								kind: "text",
+								text: "Loop",
+								opacity: 1,
+								placement: { x: 0, y: 0, width: 1, height: 1 },
+								typography: {
+									fontFamily: "Inter",
+									fontSize: 72,
+									fontWeight: 700,
+									color: "#ffffff",
+									align: "center",
+								},
+							},
+						],
+					},
+				],
+			},
+		};
+		const file = compileSceneTimeline({ document, fps: 30, loop: true });
+		const timeline = buildStudioPlayback({
+			durations: [1_000, 2_000],
+			transitionMs: 650,
+			loop: true,
+			canonicalMs: file.durationMs,
+		});
+
+		expect(file.durationMs).toBe(4_300);
+		expect(timeline.totalMs).toBe(file.durationMs);
+		expect(timeline.segments.at(-1)).toMatchObject({ type: "loop", startMs: 3_650, endMs: 4_300 });
 	});
 
 	it("clamps a clock past either end onto the first and the last frame", () => {
