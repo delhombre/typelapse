@@ -241,3 +241,18 @@ Wave 6 closes the last four agent tickets: the plan window follows the focus
 (#104), the device export colour pipeline (#108), the phone return to code
 and the accessibility batch (#109, #110), playback re-renders and
 self-hosted Geist (#111).
+
+## Executed: wave 6, the last (2026-10-04)
+
+Four agents, five tickets, four commits, gates green (294 files, 2,310
+tests, lint, both type checks, build). Calls kept: the plan window sits
+eight rows above its anchor and a step with unchanged code keeps the
+previous window; the on-device colour drift was the missing grain, not the
+pipeline, and GIF stays grain-free; the phone sheet shows the desktop's
+layer row; Add source keeps role=menu with arrow keys; fonts are Google's
+subset files served from public/fonts with a measured metric fallback.
+
+Every agent ticket of the sprint is closed. Open on the board: #70, #77,
+#79, #65, #112 (owner), #71 (staging proof, blocked by #70), and the four
+P3 follow-ups filed from the last proofs (#113, #114 and the two from the
+sweep that remain in "Prêt pour un agent").
