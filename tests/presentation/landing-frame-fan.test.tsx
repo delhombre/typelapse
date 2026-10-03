@@ -19,3 +19,16 @@ describe("landing frame fan", () => {
 		expect(row.className).not.toContain("md:hidden");
 	});
 });
+
+describe("landing frame fan, phone row", () => {
+	it("names the scroll row it puts in the tab order", () => {
+		const { getByRole } = render(<FrameFan />);
+
+		// The row scrolls sideways with no arrows, so the keyboard reaches its
+		// cards by focusing the row itself. Chrome already makes it a tab stop,
+		// and a tab stop with no role and no name is announced as nothing.
+		const row = getByRole("region", { name: "Export ratios" });
+		expect(row.className).toContain("snap-x");
+		expect(row.tabIndex).toBe(0);
+	});
+});

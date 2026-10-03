@@ -1190,17 +1190,28 @@ html.dark:not([data-landing-theme]) {
    needs 44 in both axes, so on a coarse pointer every control grows to 36 and
    the gap to 8, and the half-gap extents above reach exactly 44 wide while the
    island's 6px of padding above and below make them 48 tall. The panels hold
-   eight controls, 364px of island at full size, so below that width the gap
-   gives first and then the controls, down to the mouse's own sizes at 320:
-   a smaller target beats a page that scrolls sideways. */
+   eight controls, 356px of island at full size, so below that width the gap
+   gives first and then the controls: a smaller target beats an island that
+   leaves its frame. The budget is `cqi`, the Instrument section's content box,
+   not `vw`: the island sits inside the section's 24px of padding, and a
+   viewport budget put the theme panel 14px past the frame on each side at 375.
+   The 44px it subtracts is the island's padding plus four pixels of slack. */
 @media (pointer: coarse) {
 	.landing-root .lp-island {
 		height: 48px;
 	}
 
 	.landing-root .lp-island-row {
-		--island-gap: clamp(4px, calc((100vw - 364px) / 7 + 8px), 8px);
-		--island-control: clamp(30px, calc((100vw - 56px) / 8), 36px);
+		--island-gap: clamp(4px, calc((100cqi - 356px) / 7 + 8px), 8px);
+		--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px);
+	}
+
+	/* The root row holds five items, not eight, so the gap the panels give up is
+	   still there for it: its ratio and CTA are about 178px whatever the controls
+	   do, which leaves room for the full 8px down to a 317px frame (a 365px
+	   phone), and its three controls keep targets of about 44px there. */
+	.landing-root .lp-island-row:has(> .lp-island-cta) {
+		--island-gap: clamp(4px, calc(15.625cqi - 41.5px), 8px);
 	}
 
 	.landing-root .lp-island-button,
@@ -1225,6 +1236,24 @@ html.dark:not([data-landing-theme]) {
 
 	.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
 		inset-inline-end: calc(var(--island-gap) / -2);
+	}
+
+	/* Below a 310px frame (a 358px phone) the controls are under the 32px a
+	   16px glyph and its 8px of padding need, and the root row, whose CTA and
+	   ratio do not shrink with them, is wider than the frame. The padding gives
+	   instead: 12px back across the row, which keeps it inside a 320px phone. */
+	@container (max-width: 310px) {
+		.landing-root .lp-island-button {
+			padding-inline: 6px;
+		}
+
+		.landing-root .lp-island-button-tight {
+			padding-inline: 0;
+		}
+
+		.landing-root .lp-island-cta {
+			padding-inline: 10px;
+		}
 	}
 }
 
@@ -1279,6 +1308,13 @@ html.dark:not([data-landing-theme]) {
 	.landing-root .lp-island-helper {
 		display: none;
 	}
+}
+
+/* The export fan's phone row runs edge to edge, so a ring drawn outside it
+   falls off both sides of the screen and only its top and bottom show. Drawn
+   inside, it frames the row the keyboard is about to scroll. */
+.landing-root .lp-fan-row:focus-visible {
+	outline-offset: -2px;
 }
 
 /* PR → timeline. One crop of the actual workflow rather than a diagram made of

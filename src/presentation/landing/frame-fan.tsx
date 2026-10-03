@@ -265,8 +265,18 @@ export function FrameFan() {
 
 			{/* Mobile: a plain scroll-snap row, no rotation. It deals itself in too —
 			    the reveal that used to wrap the whole component is gone, and the row
-			    is as much a set of cards as the fan is. */}
-			<div className="-mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+			    is as much a set of cards as the fan is. It has no arrows, so the
+			    keyboard scrolls it by focusing the row, which Chrome already makes a
+			    tab stop on its own; the role and name say what that stop is, and the
+			    explicit tabIndex gives Safari and Firefox the same stop. */}
+			<div
+				// biome-ignore lint/a11y/useSemanticElements: the scroller is a part of this section, not a section of the page
+				role="region"
+				aria-label="Export ratios"
+				// biome-ignore lint/a11y/noNoninteractiveTabindex: a scroller with no arrows is reached by focusing it
+				tabIndex={0}
+				className="lp-fan-row -mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+			>
 				{FAN.map((card) => (
 					<div
 						key={card.ratio}
