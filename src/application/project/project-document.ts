@@ -3,11 +3,13 @@ import { MAX_RENDER_DIMENSION, MIN_RENDER_DIMENSION } from "../../domain/entitie
 import { MAX_SCENE_CAPTION_LENGTH } from "../../domain/entities/scene";
 import { captionFromGeneratedLabel } from "../../domain/entities/step";
 import { type CubicBezier, isCubicBezier } from "../magic-move/easing";
-import type {
-	ProjectPayload,
-	ProjectProgressStyle,
-	ProjectTempoMs,
-	ProjectWindowChrome,
+import {
+	type ProjectFps,
+	type ProjectPayload,
+	type ProjectProgressStyle,
+	type ProjectTempoMs,
+	type ProjectWindowChrome,
+	isProjectFps,
 } from "./project-payload";
 
 export type ProjectDocumentV1 = ProjectPayload;
@@ -143,6 +145,7 @@ export interface ProjectDocumentV2 {
 			typewriter: boolean;
 			focusZoom: boolean;
 			watermark?: string;
+			fps?: ProjectFps;
 		};
 		assets: AssetMetadataPayload[];
 		audioCues: AudioCuePayload[];
@@ -393,6 +396,7 @@ function normalizeV1(input: Record<string, unknown>): ProjectDocumentV1 {
 		...(transitionEasing ? { transitionEasing } : {}),
 		width: bothDimensions ? width : 1920,
 		height: bothDimensions ? height : 1080,
+		...(isProjectFps(input.fps) ? { fps: input.fps } : {}),
 		...(typeof input.fontFamily === "string" && input.fontFamily.trim() !== ""
 			? { fontFamily: input.fontFamily }
 			: {}),
@@ -609,7 +613,15 @@ function validateBlock(block: unknown, assets: ReadonlyMap<string, AssetMetadata
 function validateSettings(value: Record<string, unknown>): void {
 	assertOnlyKeys(
 		value,
-		["progressStyle", "transitionMs", "transitionEasing", "typewriter", "focusZoom", "watermark"],
+		[
+			"progressStyle",
+			"transitionMs",
+			"transitionEasing",
+			"typewriter",
+			"focusZoom",
+			"watermark",
+			"fps",
+		],
 		"project settings",
 	);
 	if (
@@ -629,6 +641,9 @@ function validateSettings(value: Record<string, unknown>): void {
 	booleanValue(value.focusZoom, "Project focus zoom setting must be boolean");
 	if (value.watermark !== undefined && typeof value.watermark !== "string") {
 		throw new Error("Project watermark must be a string");
+	}
+	if (value.fps !== undefined && !isProjectFps(value.fps)) {
+		throw new Error("Unsupported frame rate");
 	}
 }
 

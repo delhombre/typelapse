@@ -11,30 +11,175 @@
  * away authored layers the snippet's own "unsaved edits" check cannot see.
  */
 
-import { createStudioCompositionDocument } from "@/application/project/studio-composition";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
+import {
+	adoptStoredSceneIds,
+	createStudioCompositionDocument,
+} from "@/application/project/studio-composition";
+import { openStudioDocument } from "@/application/project/studio-document";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	hasAuthoredMultimedia,
+	holdStudioPersistence,
+	loadStudioCompositionDocument,
 	readStudioCompositionSnapshot,
+	readStudioProjectDocument,
+	studioSceneIdAt,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
+import {
+	studioLocalLibrary,
+	studioMediaRegistry,
+	studioMediaSourceFactory,
+} from "@/presentation/studio-media-runtime";
 
 /** True when replacing the project would discard work: code edits or layers. */
 export function hasStudioWorkToLose(): boolean {
 	return useSnippetStore.getState().hasUnsavedEdits() || hasAuthoredMultimedia();
 }
 
+/** The project file "Export project file" writes: the V2 document, media by reference. */
+export function studioProjectFileJson(): string {
+	return JSON.stringify(readStudioProjectDocument(), null, 2);
+}
+
+function withProjectId(document: ProjectDocumentV2, id: string): ProjectDocumentV2 {
+	return document.project.id === id
+		? document
+		: { ...document, project: { ...document.project, id } };
+}
+
 /**
- * Load a project document into both stores. Throws a user-facing Error on an
- * unusable document before either store changes, because `importFromJson`
- * validates everything ahead of its first write.
+ * Give the preview a source for every asset whose bytes this browser holds.
+ * An asset without bytes (a file from another device, a cleared browser) is
+ * skipped and its layer shows its "Media unavailable" state.
+ */
+export async function registerStoredMedia(
+	document: ProjectDocumentV2,
+	isActive: () => boolean = () => true,
+): Promise<void> {
+	for (const asset of document.project.assets) {
+		if (studioMediaRegistry.resolve(asset.id)) {
+			continue;
+		}
+		let content: Awaited<ReturnType<typeof studioLocalLibrary.loadAsset>> = null;
+		try {
+			content = await studioLocalLibrary.loadAsset({
+				projectId: document.project.id,
+				assetId: asset.id,
+			});
+		} catch {
+			// One unreadable blob must not abort the whole restore: the layer then
+			// shows its missing-media state instead of the project vanishing.
+			content = null;
+		}
+		if (!isActive()) {
+			return;
+		}
+		if (!content || !(content.opaqueHandle instanceof Blob)) {
+			continue;
+		}
+		studioMediaRegistry.register(
+			studioMediaSourceFactory.create(
+				asset.id,
+				{
+					name: asset.fileName,
+					mimeType: asset.mimeType,
+					byteSize: asset.byteSize,
+					opaqueHandle: content.opaqueHandle,
+				},
+				{},
+			),
+		);
+	}
+}
+
+/**
+ * Load a project document (V2, or a legacy V1 file) into both stores, inside
+ * the project the studio has open: the file's own id is replaced, so opening a
+ * file never writes over another local project. Throws a user-facing Error on
+ * an unusable document before either store changes.
  */
 export function openStudioProjectDocument(json: string): void {
-	useSnippetStore.getState().importFromJson(json);
-	// Rebuilt from the snippet that was just loaded, so the two stores agree by
-	// construction. loadDocument also drops the composition's undo history: undo
-	// must not walk back into the project that was closed.
-	useStudioCompositionStore
-		.getState()
-		.loadDocument(createStudioCompositionDocument(readStudioCompositionSnapshot()));
+	let data: unknown;
+	try {
+		data = JSON.parse(json);
+	} catch {
+		throw new Error("Invalid JSON format");
+	}
+	const opened = openStudioDocument(data);
+	const document = withProjectId(
+		opened.document,
+		useStudioCompositionStore.getState().value.project.id,
+	);
+	const release = holdStudioPersistence();
+	try {
+		useSnippetStore.getState().importFromJson(json);
+		// The steps took the file's scene ids, so its layers land on them. A live
+		// code project shows one scene under the Studio's live id; re-keying adopts
+		// it. loadDocument also drops the composition's undo history: undo must not
+		// walk back into the project that was closed.
+		loadStudioCompositionDocument(adoptStoredSceneIds(document, readStudioCompositionSnapshot()));
+	} finally {
+		release();
+	}
+	void registerStoredMedia(document).catch(() => undefined);
+}
+
+/**
+ * The id the studio stored its one composition under before compositions were
+ * keyed by local project. Read once, at the first boot after that change.
+ */
+export const LEGACY_STUDIO_PROJECT_ID = "studio-project";
+
+/**
+ * Put one local project's stored layers, media and audio on the code the
+ * snippet already holds, under that project's id. A project with nothing
+ * stored gets a composition of its code alone, never the previous project's
+ * layers. `adoptLegacy` hands the old single composition to this project if it
+ * is still there; only the boot asks for it.
+ */
+export async function restoreStudioProject(
+	projectId: string,
+	isActive: () => boolean = () => true,
+	options: { readonly adoptLegacy?: boolean } = {},
+): Promise<void> {
+	let stored = await studioLocalLibrary.loadProject(projectId);
+	if (!stored && options.adoptLegacy && projectId !== LEGACY_STUDIO_PROJECT_ID) {
+		stored = await studioLocalLibrary.moveProject(LEGACY_STUDIO_PROJECT_ID, projectId);
+	}
+	if (!isActive()) {
+		return;
+	}
+	if (!stored) {
+		restoreBlankStudioProject(projectId);
+		return;
+	}
+	const document = withProjectId(stored, projectId);
+	await registerStoredMedia(document, isActive);
+	if (!isActive()) {
+		return;
+	}
+	// The code was loaded from the project's spine, whose step ids need not be
+	// the ones the layers were saved under: re-key the stored scenes onto the
+	// live ones by position and identical code before loading.
+	loadStudioCompositionDocument(adoptStoredSceneIds(document, readStudioCompositionSnapshot()));
+	// loadDocument resets selection to the first scene; follow the Studio's.
+	const sceneId = studioSceneIdAt(useSnippetStore.getState().currentStepIndex);
+	const composition = useStudioCompositionStore.getState();
+	if (composition.value.project.scenes.some((scene) => scene.id === sceneId)) {
+		composition.selectScene(sceneId);
+	}
+}
+
+/** A composition of the code the snippet holds and nothing else, under this id. */
+export function restoreBlankStudioProject(projectId: string): void {
+	loadStudioCompositionDocument(
+		createStudioCompositionDocument({ ...readStudioCompositionSnapshot(), projectId }),
+	);
+}
+
+/** Store the open project's V2 document under its local project id. */
+export async function saveStudioProject(): Promise<void> {
+	await studioLocalLibrary.saveProject(readStudioProjectDocument());
 }

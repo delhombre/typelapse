@@ -90,6 +90,41 @@ export class IndexedDbLocalProjectAdapter implements LocalProjectLibraryPort {
 		return canonicalDocument(stored.document);
 	}
 
+	/** One local project's composition, keyed by the local project id. */
+	async loadProject(projectId: string): Promise<ProjectDocumentV2 | null> {
+		const id = safeIdentifier(projectId, "Project id");
+		const stored = await (await this.database()).get("projects", id);
+		return stored ? canonicalDocument(stored.document) : null;
+	}
+
+	/**
+	 * Re-key a stored composition onto another project id, in one transaction,
+	 * and return it; null when there is nothing to move. The studio used to keep
+	 * one composition for every local project; this hands that draft to the
+	 * project open at the first boot after the fix, once.
+	 */
+	async moveProject(fromId: string, toId: string): Promise<ProjectDocumentV2 | null> {
+		const from = safeIdentifier(fromId, "Project id");
+		const to = safeIdentifier(toId, "Project id");
+		const transaction = (await this.database()).transaction("projects", "readwrite");
+		const store = transaction.objectStore("projects");
+		const stored = await store.get(from);
+		if (!stored) {
+			await transaction.done;
+			return null;
+		}
+		const document = canonicalDocument({
+			...stored.document,
+			project: { ...stored.document.project, id: to },
+		});
+		await store.put({ id: to, document, updatedAt: new Date().toISOString() });
+		if (from !== to) {
+			await store.delete(from);
+		}
+		await transaction.done;
+		return document;
+	}
+
 	async saveProject(input: ProjectDocumentV2): Promise<void> {
 		const document = canonicalDocument(input);
 		const transaction = (await this.database()).transaction(["projects", "settings"], "readwrite");
@@ -109,10 +144,13 @@ export class IndexedDbLocalProjectAdapter implements LocalProjectLibraryPort {
 		readonly projectId: string;
 		readonly assetId: string;
 	}): Promise<LocalAssetContent | null> {
-		const projectId = safeIdentifier(input.projectId, "Project id");
+		safeIdentifier(input.projectId, "Project id");
 		const assetId = safeIdentifier(input.assetId, "Asset id");
+		// Asset ids are minted once per import and the bytes are checked against
+		// the descriptor below, so the owner tag is bookkeeping, not a gate: a
+		// project file opened into another local project reads the same bytes.
 		const stored = await (await this.database()).get("assets", assetId);
-		if (!stored || stored.projectId !== projectId) return null;
+		if (!stored) return null;
 		if (
 			typeof stored.blob?.slice !== "function" ||
 			stored.blob.size !== stored.byteSize ||

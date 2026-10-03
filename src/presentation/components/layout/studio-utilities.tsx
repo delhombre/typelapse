@@ -1,12 +1,13 @@
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
 import { useInterfaceFeedbackStore } from "@/presentation/stores/interface-feedback.store";
 import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
-import { hasAuthoredMultimedia } from "@/presentation/stores/studio-composition.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { copyToClipboard, decodeShareLink, encodeShareLink } from "@/presentation/utils/share-link";
+import { studioProjectFileJson } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -19,7 +20,6 @@ import { Check, Download, Moon, MoreH, Share, Sun, VolumeHigh, VolumeMute } from
  */
 export function StudioUtilities({ compact = false }: { compact?: boolean } = {}) {
 	const { mode, toggle } = useThemeModeStore();
-	const exportToJson = useSnippetStore((s) => s.exportToJson);
 	const snippetTitle = useSnippetStore((s) => s.snippet.title);
 	const importFromJson = useSnippetStore((s) => s.importFromJson);
 	const interfaceFeedback = useInterfaceFeedbackStore((s) => s.enabled);
@@ -103,7 +103,7 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 	}, [toggle]);
 
 	const handleExport = useCallback(() => {
-		const json = exportToJson();
+		const json = studioProjectFileJson();
 		const blob = new Blob([json], { type: "application/json" });
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
@@ -112,17 +112,17 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 		a.click();
 		URL.revokeObjectURL(url);
 		feedback("commit");
-		// The project file is still the V1 code format: text, media and audio
-		// layers live only in this browser. Say so at the moment of saving, so the
-		// file is never mistaken for a complete backup (contract: an export that
-		// leaves media behind must carry an explicit warning).
-		if (hasAuthoredMultimedia()) {
-			notify("Saved the code scenes only.", {
+		// The file is the whole V2 project, but it names its media by reference and
+		// never carries the bytes. Say so at the moment of saving, so the file is
+		// never mistaken for a complete backup (contract: an export that leaves
+		// media behind must carry an explicit warning).
+		if ((JSON.parse(json) as ProjectDocumentV2).project.assets.length > 0) {
+			notify("Saved the project without its media files.", {
 				tone: "info",
-				detail: "Text, media and audio layers are not included in this file yet.",
+				detail: "Images, video and audio stay on this device and open as unavailable elsewhere.",
 			});
 		}
-	}, [exportToJson, snippetTitle]);
+	}, [snippetTitle]);
 
 	return (
 		<div ref={rootRef} className={`sc-chip sc-utilities ${compact ? "sc-utilities-compact" : ""}`}>

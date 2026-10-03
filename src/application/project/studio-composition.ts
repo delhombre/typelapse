@@ -10,7 +10,12 @@ import { Scene } from "../../domain/entities/scene";
 import type { CubicBezier } from "../magic-move/easing";
 import { hydrateProjectDocument } from "./hydrate-project-document";
 import { type ProjectDocumentV2, parseProjectDocument } from "./project-document";
-import type { ProjectProgressStyle, ProjectTempoMs, ProjectWindowChrome } from "./project-payload";
+import type {
+	ProjectFps,
+	ProjectProgressStyle,
+	ProjectTempoMs,
+	ProjectWindowChrome,
+} from "./project-payload";
 
 export const STUDIO_LIVE_SCENE_ID = "studio-live-scene";
 
@@ -42,6 +47,7 @@ export interface StudioCompositionSnapshot {
 	readonly focusZoom: boolean;
 	readonly progressStyle: ProjectProgressStyle;
 	readonly watermark: string;
+	readonly fps?: ProjectFps;
 	readonly scenes: readonly StudioCompositionSceneSnapshot[];
 }
 
@@ -347,6 +353,7 @@ export function createStudioCompositionDocument(
 				typewriter: snapshot.typewriter,
 				focusZoom: snapshot.focusZoom,
 				watermark: snapshot.watermark,
+				...(snapshot.fps ? { fps: snapshot.fps } : {}),
 			},
 			assets: [],
 			audioCues: [],

@@ -43,6 +43,7 @@ export function migrateV1ToV2(document: ProjectDocumentV1): ProjectDocumentV2 {
 				typewriter: source.typewriter ?? false,
 				focusZoom: source.focusZoom ?? false,
 				watermark: source.watermark ?? "",
+				...(source.fps ? { fps: source.fps } : {}),
 			},
 			assets: [],
 			audioCues: [],
@@ -135,6 +136,7 @@ export function projectV2ToV1(document: ProjectDocumentV2): ProjectDocumentV1 {
 			: {}),
 		width: document.project.canvas.width,
 		height: document.project.canvas.height,
+		...(document.project.settings.fps ? { fps: document.project.settings.fps } : {}),
 		steps: hadCapturedSteps
 			? document.project.scenes.map((scene, index) => {
 					const block = codeBlocks[index];

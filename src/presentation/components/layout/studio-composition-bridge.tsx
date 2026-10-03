@@ -1,74 +1,27 @@
-import {
-	STUDIO_LIVE_SCENE_ID,
-	adoptStoredSceneIds,
-} from "@/application/project/studio-composition";
+import { STUDIO_LIVE_SCENE_ID } from "@/application/project/studio-composition";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
-	readStudioCompositionSnapshot,
-	resynchronizeStudioCompositionStore,
-	studioSceneIdAt,
+	isStudioPersistenceHeld,
+	onStudioPersistenceRelease,
+	readStudioProjectDocument,
 	synchronizeStudioCompositionStore,
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
+import { studioLocalLibrary } from "@/presentation/studio-media-runtime";
+import { readLocalProjects } from "@/presentation/utils/local-project-storage";
 import {
-	studioLocalLibrary,
-	studioMediaRegistry,
-	studioMediaSourceFactory,
-} from "@/presentation/studio-media-runtime";
+	LEGACY_STUDIO_PROJECT_ID,
+	restoreStudioProject,
+} from "@/presentation/utils/studio-project-replacement";
 import { useEffect } from "react";
 
 const PERSIST_DELAY_MS = 240;
 
-async function restoreStoredComposition(isActive: () => boolean): Promise<void> {
-	const stored = await studioLocalLibrary.loadCurrent();
-	const current = useStudioCompositionStore.getState();
-	if (!isActive() || !stored || stored.project.id !== current.value.project.id) {
-		return;
-	}
-	for (const asset of stored.project.assets) {
-		let content: Awaited<ReturnType<typeof studioLocalLibrary.loadAsset>> = null;
-		try {
-			content = await studioLocalLibrary.loadAsset({
-				projectId: stored.project.id,
-				assetId: asset.id,
-			});
-		} catch {
-			// One unreadable blob must not abort the whole restore: the layer then
-			// shows its missing-media state instead of the project vanishing.
-			content = null;
-		}
-		if (!isActive()) {
-			return;
-		}
-		if (!content || !(content.opaqueHandle instanceof Blob)) {
-			continue;
-		}
-		studioMediaRegistry.register(
-			studioMediaSourceFactory.create(
-				asset.id,
-				{
-					name: asset.fileName,
-					mimeType: asset.mimeType,
-					byteSize: asset.byteSize,
-					opaqueHandle: content.opaqueHandle,
-				},
-				{},
-			),
-		);
-	}
-	// The draft restore minted fresh step ids, so the stored scenes are re-keyed
-	// before loading, and the reconcile is forced: the Studio snapshot did not
-	// change, which would otherwise skip it and leave the two stores disagreeing.
-	current.loadDocument(adoptStoredSceneIds(stored, readStudioCompositionSnapshot()));
-	resynchronizeStudioCompositionStore();
-	// loadDocument resets selection to the first scene; follow the Studio's.
-	const sceneId = studioSceneIdAt(useSnippetStore.getState().currentStepIndex);
-	const composition = useStudioCompositionStore.getState();
-	if (composition.value.project.scenes.some((scene) => scene.id === sceneId)) {
-		composition.selectScene(sceneId);
-	}
+/** The local project the studio opened on; the draft boot made sure there is one. */
+function bootProjectId(): string {
+	return readLocalProjects().activeId ?? LEGACY_STUDIO_PROJECT_ID;
 }
 
 /**
@@ -93,10 +46,12 @@ export function StudioCompositionBridge() {
 		let persistenceTimer: ReturnType<typeof setTimeout> | null = null;
 		let lastPersisted = "";
 		const persist = () => {
-			if (!restored || typeof indexedDB === "undefined") {
+			// Held while another project's layers are being put back on its code:
+			// the composition mixes two projects until that lands.
+			if (!restored || isStudioPersistenceHeld() || typeof indexedDB === "undefined") {
 				return;
 			}
-			const document = useStudioCompositionStore.getState().toDocument();
+			const document = readStudioProjectDocument();
 			const signature = JSON.stringify(document);
 			if (signature === lastPersisted) {
 				return;
@@ -110,8 +65,9 @@ export function StudioCompositionBridge() {
 			}, PERSIST_DELAY_MS);
 		};
 		const unsubscribeComposition = useStudioCompositionStore.subscribe(persist);
+		const unsubscribeRelease = onStudioPersistenceRelease(persist);
 		if (typeof indexedDB !== "undefined") {
-			void restoreStoredComposition(() => active)
+			void restoreStudioProject(bootProjectId(), () => active, { adoptLegacy: true })
 				.catch(() => undefined)
 				.then(() => {
 					if (!active) {
@@ -129,6 +85,7 @@ export function StudioCompositionBridge() {
 			unsubscribeSnippet();
 			unsubscribeExport();
 			unsubscribeComposition();
+			unsubscribeRelease();
 		};
 	}, []);
 

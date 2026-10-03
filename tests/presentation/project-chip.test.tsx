@@ -7,7 +7,7 @@ import {
 	ensureActiveLocalProject,
 	readLocalProjects,
 } from "@/presentation/utils/local-project-storage";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -45,7 +45,7 @@ describe("ProjectChip local-first menu", () => {
 		expect(screen.getByRole("menuitem", { name: /Open Alpha/ })).toBeTruthy();
 	});
 
-	it("switches projects through the same validated import path", () => {
+	it("switches projects through the same validated import path", async () => {
 		ensureActiveLocalProject(payload("Alpha"), { id: "alpha", now: 10 });
 		createLocalProject(payload("Beta"), { id: "beta", now: 20 });
 		activateLocalProject("alpha");
@@ -54,19 +54,19 @@ describe("ProjectChip local-first menu", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
 		fireEvent.click(screen.getByRole("menuitem", { name: /Open Beta/ }));
 
-		expect(useSnippetStore.getState().snippet.title).toBe("Beta");
+		await waitFor(() => expect(useSnippetStore.getState().snippet.title).toBe("Beta"));
 		expect(useSnippetStore.getState().snippet.code).toContain('"Beta"');
 		expect(readLocalProjects().activeId).toBe("beta");
 	});
 
-	it("creates a clean second project without losing the first one", () => {
+	it("creates a clean second project without losing the first one", async () => {
 		ensureActiveLocalProject(payload("Alpha"), { id: "alpha", now: 10 });
 		open(payload("Alpha"));
 
 		fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
 		fireEvent.click(screen.getByRole("menuitem", { name: "New project" }));
 
-		expect(useSnippetStore.getState().snippet.title).toBe("Untitled");
+		await waitFor(() => expect(useSnippetStore.getState().snippet.title).toBe("Untitled"));
 		expect(readLocalProjects().projects).toHaveLength(2);
 		expect(readLocalProjects().projects.some((project) => project.project.title === "Alpha")).toBe(
 			true,

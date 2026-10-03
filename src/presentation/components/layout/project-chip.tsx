@@ -1,8 +1,10 @@
 import { resolveBackgroundCss } from "@/application/backgrounds/mesh-gradient";
+import type { LocalProjectRecord } from "@/application/project/local-project-library";
 import { Logomark } from "@/presentation/components/ui/logomark";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { holdStudioPersistence } from "@/presentation/stores/studio-composition.store";
 import {
 	activateLocalProject,
 	createLocalProject,
@@ -12,10 +14,53 @@ import {
 	subscribeLocalProjects,
 } from "@/presentation/utils/local-project-storage";
 import { writeDraft } from "@/presentation/utils/studio-draft";
+import {
+	restoreBlankStudioProject,
+	restoreStudioProject,
+	saveStudioProject,
+} from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Check, ChevronDown } from "reicon-react";
+
+/**
+ * Leave the open project for another local one. The project being left is
+ * saved whole first (its code spine in the library, its V2 document with
+ * layers, media and audio in IndexedDB, under its own id), then the next one's
+ * code is loaded and its own stored layers are put back on it. Autosave is held
+ * for the whole swap, so the moment where the composition holds the next
+ * project's code and the previous project's layers is never written anywhere.
+ */
+async function openLocalProject(select: () => LocalProjectRecord | null): Promise<boolean> {
+	const release = holdStudioPersistence();
+	try {
+		saveActiveLocalProject(useSnippetStore.getState().toProjectPayload());
+		try {
+			await saveStudioProject();
+		} catch {
+			// Storage blocked or full: the code spine above is saved, and the switch
+			// must not trap the user in the current project.
+		}
+		const selected = select();
+		if (!selected) {
+			return false;
+		}
+		const json = JSON.stringify(selected.project);
+		useSnippetStore.getState().importFromJson(json);
+		writeDraft(json);
+		try {
+			await restoreStudioProject(selected.id);
+		} catch {
+			// Unreadable storage leaves the composition of the code alone, under the
+			// project's own id, rather than the previous project's layers.
+			restoreBlankStudioProject(selected.id);
+		}
+		return true;
+	} finally {
+		release();
+	}
+}
 
 /**
  * The project, top left, as a chip rather than a bar.
@@ -74,28 +119,22 @@ export function ProjectChip() {
 
 	const switchTo = useCallback(
 		(id: string) => {
-			saveActiveLocalProject(useSnippetStore.getState().toProjectPayload());
-			const selected = activateLocalProject(id);
-			if (!selected) {
-				return;
-			}
-			const json = JSON.stringify(selected.project);
-			useSnippetStore.getState().importFromJson(json);
-			writeDraft(json);
-			feedback("selection");
+			void openLocalProject(() => activateLocalProject(id)).then((opened) => {
+				if (opened) {
+					feedback("selection");
+				}
+			});
 			close();
 		},
 		[close],
 	);
 
 	const createProject = useCallback(() => {
-		saveActiveLocalProject(useSnippetStore.getState().toProjectPayload());
-		const project = starterProjectPayload();
-		createLocalProject(project);
-		const json = JSON.stringify(project);
-		useSnippetStore.getState().importFromJson(json);
-		writeDraft(json);
-		feedback("commit");
+		void openLocalProject(() => createLocalProject(starterProjectPayload())).then((opened) => {
+			if (opened) {
+				feedback("commit");
+			}
+		});
 		close();
 	}, [close]);
 

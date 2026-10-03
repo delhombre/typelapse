@@ -8,11 +8,13 @@ import {
 	readStudioCompositionSnapshot,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
+import { createLocalProject } from "@/presentation/utils/local-project-storage";
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const library = vi.hoisted(() => ({
-	loadCurrent: vi.fn(),
+	loadProject: vi.fn(),
+	moveProject: vi.fn(),
 	loadAsset: vi.fn(),
 	saveProject: vi.fn(),
 	saveAsset: vi.fn(),
@@ -68,7 +70,8 @@ describe("StudioCompositionBridge restore", () => {
 	beforeEach(() => {
 		vi.useFakeTimers();
 		Object.defineProperty(globalThis, "indexedDB", { value: {}, configurable: true });
-		library.loadCurrent.mockReset();
+		library.loadProject.mockReset();
+		library.moveProject.mockReset().mockResolvedValue(null);
 		library.loadAsset.mockReset();
 		library.saveProject.mockReset().mockResolvedValue(undefined);
 		useStudioCompositionStore
@@ -85,7 +88,7 @@ describe("StudioCompositionBridge restore", () => {
 	it("never saves the blank boot document before the stored project has been read", async () => {
 		const stored = storedProjectWithImage();
 		const pending = deferred<ProjectDocumentV2 | null>();
-		library.loadCurrent.mockReturnValue(pending.promise);
+		library.loadProject.mockReturnValue(pending.promise);
 		library.loadAsset.mockResolvedValue({
 			assetId: "stored-image",
 			mimeType: "image/png",
@@ -125,8 +128,37 @@ describe("StudioCompositionBridge restore", () => {
 		}
 	});
 
+	it("reads and writes the composition of the open local project, under its id", async () => {
+		createLocalProject(
+			{
+				title: "Alpha",
+				code: "const alpha = 1;",
+				language: "typescript",
+				themeName: "midnight",
+				background: "mesh:solar",
+				steps: [],
+			},
+			{ id: "alpha" },
+		);
+		library.loadProject.mockResolvedValue(null);
+
+		render(<StudioCompositionBridge />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1_000);
+		});
+
+		expect(library.loadProject).toHaveBeenCalledWith("alpha");
+		expect(library.moveProject).toHaveBeenCalledWith("studio-project", "alpha");
+		expect(useStudioCompositionStore.getState().value.project.id).toBe("alpha");
+		expect(library.saveProject).toHaveBeenCalled();
+		for (const [document] of library.saveProject.mock.calls) {
+			expect((document as ProjectDocumentV2).project.id).toBe("alpha");
+		}
+		window.localStorage.clear();
+	});
+
 	it("keeps the stored project when one asset's bytes can no longer be read", async () => {
-		library.loadCurrent.mockResolvedValue(storedProjectWithImage());
+		library.loadProject.mockResolvedValue(storedProjectWithImage());
 		library.loadAsset.mockRejectedValue(new Error("Local media content no longer matches"));
 
 		render(<StudioCompositionBridge />);

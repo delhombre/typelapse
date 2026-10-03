@@ -21,6 +21,13 @@ export type ProjectProgressStyle = "reels" | "bar" | "none";
 /** Morph tempo: how long each step-to-step transition takes, in milliseconds. */
 export type ProjectTempoMs = 400 | 650 | 1000;
 
+/** The frame rates the export panel offers. */
+export type ProjectFps = 24 | 30 | 60;
+
+export function isProjectFps(value: unknown): value is ProjectFps {
+	return value === 24 || value === 30 || value === 60;
+}
+
 export interface ProjectStepPayload {
 	code: string;
 	/** Hold on this step, in milliseconds. */
@@ -67,4 +74,6 @@ export interface ProjectPayload {
 	width?: number;
 	/** Export height in px. Applied only together with {@link ProjectPayload.width}. */
 	height?: number;
+	/** Export frame rate; absent in files saved before the panel offered one. */
+	fps?: ProjectFps;
 }
