@@ -14,6 +14,7 @@ import { ensureReadableTokenColor } from "../accessibility/token-contrast";
 import { VISIBLE_ROW_LIMIT } from "../layout/canvas-fit";
 import { type MagicMovePlan, type RawToken, frameLineCount, layoutFrame } from "./engine";
 import { layoutTypingTokens } from "./typewriter";
+import { planWindowRows } from "./window";
 
 /** A tokenized code with keys: the shape of shiki-magic-move's `KeyedTokensInfo`. */
 export interface KeyedSource {
@@ -28,20 +29,50 @@ export interface PlanKeyer<T extends KeyedSource> {
 }
 
 /**
- * The first `VISIBLE_ROW_LIMIT` lines of a code: everything a card can show at
- * the readable floor, plus the margin a morph glides through. Lines below never
- * reach a frame, so they are never tokenized. Highlighting runs top-down, so the
- * window highlights exactly as the full code does.
+ * `VISIBLE_ROW_LIMIT` lines of a code from row `firstRow`: everything a card can
+ * show at the readable floor, plus the margin a morph glides through, and the
+ * index of the window's first character in the code. Lines outside never reach a
+ * frame, so they are never tokenized. At the top the window highlights exactly
+ * as the full code does; a window further down starts the grammar afresh, which
+ * only shows inside a construct opened above it (a long block comment).
  */
-export function visibleSource(code: string): string {
-	let index = -1;
-	for (let line = 0; line < VISIBLE_ROW_LIMIT; line++) {
+export function visibleWindow(
+	code: string,
+	firstRow = 0,
+	rows = VISIBLE_ROW_LIMIT,
+): { code: string; start: number } {
+	let start = 0;
+	for (let row = 0; row < firstRow; row++) {
+		const index = code.indexOf("\n", start);
+		if (index === -1) {
+			break;
+		}
+		start = index + 1;
+	}
+	let index = start - 1;
+	for (let line = 0; line < rows; line++) {
 		index = code.indexOf("\n", index + 1);
 		if (index === -1) {
-			return code;
+			return { code: code.slice(start), start };
 		}
 	}
-	return code.slice(0, index);
+	return { code: code.slice(start, index), start };
+}
+
+/** The first `VISIBLE_ROW_LIMIT` lines of a code: the window at the top. */
+export function visibleSource(code: string): string {
+	return visibleWindow(code).code;
+}
+
+/** Laid-out tokens of a window, moved to the absolute rows of the full code. */
+function atRow<T extends { line: number }>(tokens: T[], firstRow: number): T[] {
+	if (firstRow === 0) {
+		return tokens;
+	}
+	for (const token of tokens) {
+		token.line += firstRow;
+	}
+	return tokens;
 }
 
 /**
@@ -49,14 +80,22 @@ export function visibleSource(code: string): string {
  * across frames, then lay them out with the pure engine. Each distinct code is
  * tokenized once; a morph syncs copies, because syncing rewrites keys and the
  * frames must keep their own.
+ *
+ * `focus` (each step's 1-indexed focused lines) is where a long file's window
+ * goes (`planWindowRows`). Tokens are laid out on the full code's rows, so a
+ * line two windows share sits on the same row in both and a morph between
+ * them only scrolls.
  */
 export function planMagicMove<T extends KeyedSource>(
 	codes: string[],
 	keyer: PlanKeyer<T>,
 	themeBackground: string,
 	loop = false,
+	focus: readonly (Iterable<number> | undefined)[] = [],
 ): MagicMovePlan {
-	const windowed = codes.map(visibleSource);
+	const rows = planWindowRows(codes, focus);
+	const windows = codes.map((code, i) => visibleWindow(code, rows[i]));
+	const windowed = windows.map((window) => window.code);
 	const tokenized = new Map<string, T>();
 	const tokenize = (code: string): T => {
 		let source = tokenized.get(code);
@@ -78,27 +117,54 @@ export function planMagicMove<T extends KeyedSource>(
 			color: token.color ? ensureReadableTokenColor(token.color, themeBackground) : token.color,
 			fontStyle: token.fontStyle,
 		}));
-	const morph = (fromCode: string, toCode: string): MagicMovePlan["transitions"][number] => {
+	// A morph lays both codes out over the union of the two windows, so a row
+	// both show stays on screen while the window scrolls past it instead of
+	// fading out as if it were deleted. Windows further apart than a window
+	// share nothing worth the extra rows, and morph on their own.
+	const morph = (fromIndex: number, toIndex: number): MagicMovePlan["transitions"][number] => {
+		const fromRow = rows[fromIndex] ?? 0;
+		const toRow = rows[toIndex] ?? 0;
+		const top = Math.min(fromRow, toRow);
+		const span = Math.max(fromRow, toRow) - top + VISIBLE_ROW_LIMIT;
+		const union = span <= 2 * VISIBLE_ROW_LIMIT;
+		const slice = (index: number) =>
+			union ? visibleWindow(codes[index] ?? "", top, span).code : (windowed[index] ?? "");
+		const fromCode = slice(fromIndex);
+		const toCode = slice(toIndex);
 		const { from, to } = keyer.sync(copy(tokenize(fromCode)), copy(tokenize(toCode)));
-		return { from: layoutFrame(fromCode, raw(from)), to: layoutFrame(toCode, raw(to)) };
+		return {
+			from: atRow(layoutFrame(fromCode, raw(from)), union ? top : fromRow),
+			to: atRow(layoutFrame(toCode, raw(to)), union ? top : toRow),
+		};
 	};
 
-	const frames: MagicMovePlan["frames"] = windowed.map((code) => ({
-		tokens: layoutFrame(code, raw(tokenize(code))),
-		lineCount: frameLineCount(code),
-	}));
+	const frames: MagicMovePlan["frames"] = windowed.map((code, i) => {
+		const firstRow = rows[i] ?? 0;
+		return {
+			tokens: atRow(layoutFrame(code, raw(tokenize(code))), firstRow),
+			lineCount: frameLineCount(code),
+			...(firstRow > 0 ? { firstRow } : {}),
+		};
+	});
 
 	const transitions: MagicMovePlan["transitions"] = [];
 	for (let i = 0; i < windowed.length - 1; i++) {
-		transitions.push(morph(windowed[i] ?? "", windowed[i + 1] ?? ""));
+		transitions.push(morph(i, i + 1));
 	}
 
 	const last = windowed.length - 1;
-	const loopTransition =
-		loop && windowed.length >= 2 ? morph(windowed[last] ?? "", windowed[0] ?? "") : undefined;
+	const loopTransition = loop && windowed.length >= 2 ? morph(last, 0) : undefined;
 
+	// The typewriter types the first step's window; its start indices are moved
+	// to the full code's, which is the source the reveal counts characters in.
 	const firstCode = windowed[0] ?? "";
-	const typing = layoutTypingTokens(firstCode, raw(tokenize(firstCode)));
+	const firstStart = windows[0]?.start ?? 0;
+	const typing = atRow(layoutTypingTokens(firstCode, raw(tokenize(firstCode))), rows[0] ?? 0);
+	if (firstStart > 0) {
+		for (const token of typing) {
+			token.startChar += firstStart;
+		}
+	}
 
 	return { frames, transitions, loopTransition, typing };
 }

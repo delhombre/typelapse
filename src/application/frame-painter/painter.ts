@@ -33,7 +33,7 @@ import {
 	chromeRowHeight,
 } from "../layout/frame-metrics";
 import { watermarkPlacement } from "../layout/watermark-placement";
-import { gutterLabels } from "../line-numbers/gutter";
+import { scrolledGutter } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
 import type { ZoomTransform } from "../magic-move/focus-zoom";
 import { canvasFont, colorWithAlpha } from "./font";
@@ -46,6 +46,8 @@ import { CssBaselines } from "./text";
 export interface FrameState {
 	/** Already-interpolated tokens, straight out of the magic-move engine. */
 	tokens: RenderToken[];
+	/** The code row at the window's top, fractional while it scrolls; absent is 0. */
+	firstRow?: number;
 	/** Row count of the code area, fractional through a morph. */
 	lineCount: number;
 	/** Stable number of gutter rows for the segment (avoids a flickering gutter). */
@@ -152,7 +154,7 @@ function paintCard(ctx: PaintContext, sized: FrameScene, state: FrameState): voi
 	clipBody(ctx, scene, state.lineCount);
 	applyZoom(ctx, scene, state);
 	clipCodeArea(ctx, scene, state.lineCount);
-	paintGutter(ctx, scene, state.lineNumberCount, baselines);
+	paintGutter(ctx, scene, state.lineNumberCount, state.firstRow ?? 0, baselines);
 	paintTokens(ctx, scene, state.tokens, baselines);
 	paintCaret(ctx, scene, state.cursor);
 	ctx.restore();
@@ -688,6 +690,7 @@ function paintGutter(
 	ctx: PaintContext,
 	scene: FrameScene,
 	lineNumberCount: number,
+	firstRow: number,
 	baselines: CssBaselines,
 ): void {
 	const { gutter, code, style } = scene;
@@ -698,11 +701,12 @@ function paintGutter(
 	ctx.textAlign = "right";
 	ctx.fillStyle = withHexAlpha(style.theme.foreground, FRAME_SECONDARY_ALPHA_HEX);
 	const rows = Math.max(1, Math.round(lineNumberCount));
-	for (const [row, label] of gutterLabels(style.lineNumberStart, rows).entries()) {
+	const { labels, shift } = scrolledGutter(style.lineNumberStart, rows, firstRow);
+	for (const [row, label] of labels.entries()) {
 		ctx.fillText(
 			label,
 			gutter.textRight,
-			baselines.at(code.y + (row + 0.5) * code.lineHeight, code.lineHeight),
+			baselines.at(code.y + (row - shift + 0.5) * code.lineHeight, code.lineHeight),
 		);
 	}
 }

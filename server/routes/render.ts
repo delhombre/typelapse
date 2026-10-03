@@ -255,6 +255,7 @@ renderRoute.post(
 				shikiTheme,
 				theme.background,
 				loop,
+				clampedSteps.map((s) => s.focus),
 			);
 
 			// Total duration = holds + a transition between each adjacent pair (+ the

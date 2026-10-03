@@ -4,7 +4,7 @@ import {
 	chapterSnapshots,
 	diffToSnapshots,
 } from "@/application/diff";
-import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import { focusLineSet, formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { DIFF_STEP_DURATION, capDiffSnapshots } from "@/application/import/diff-project";
 import { DEFAULT_TRANSITION_EASING, isCubicBezier } from "@/application/magic-move/easing";
 import { assertImportableCode } from "@/application/project/project-document";
@@ -628,6 +628,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			// The loop morph is planned whether or not Loop is on, so the toggle
 			// changes playback at once instead of waiting for a rebuild.
 			true,
+			// A long file's window follows each step's focus band.
+			snippet.steps.map((step) => focusLineSet(step.highlightRanges)),
 		);
 		const maxIndex = Math.max(0, plan.frames.length - 1);
 		set({
@@ -686,12 +688,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => {
-		// Focus is applied at render time (resolveView), so no plan rebuild needed.
+		// The dim is applied at render time, but the band also places a long
+		// file's plan window, so the plan is rebuilt (every code is cached).
 		const updated = replaceStep(get().snippet, stepId, (step) =>
 			step.with({ highlightRanges: ranges }),
 		);
 		if (updated) {
 			set({ snippet: updated });
+			get().rebuildPlan();
 		}
 	},
 

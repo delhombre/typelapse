@@ -33,8 +33,14 @@ function lerp(from: number, to: number, t: number): number {
  * origin sits at the vertical center of the focused band: focused lines are
  * 1-indexed, so the band spans grid rows `[minLine-1, maxLine)` and its center
  * row is `(minLine-1 + maxLine)/2`, expressed as a 0..1 ratio and clamped.
+ * `firstRow` is the row a long file's window starts on: the body then shows rows
+ * from there, so the centre is counted from it.
  */
-export function zoomForFocus(focus: Set<number> | undefined, lineCount: number): ZoomTransform {
+export function zoomForFocus(
+	focus: Set<number> | undefined,
+	lineCount: number,
+	firstRow = 0,
+): ZoomTransform {
 	if (!focus || focus.size === 0) {
 		return { scale: 1, originYRatio: 0.5 };
 	}
@@ -42,7 +48,7 @@ export function zoomForFocus(focus: Set<number> | undefined, lineCount: number):
 	const minLine = Math.min(...focused);
 	const maxLine = Math.max(...focused);
 	const lines = Math.max(1, lineCount);
-	const center = (minLine - 1 + maxLine) / 2 / lines;
+	const center = ((minLine - 1 + maxLine) / 2 - firstRow) / lines;
 	return { scale: ZOOM_SCALE, originYRatio: clamp01(center) };
 }
 

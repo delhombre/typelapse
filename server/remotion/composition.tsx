@@ -15,24 +15,9 @@ import {
 	LINE_HEIGHT_RATIO,
 	chromeBarHeight,
 } from "../../src/application/layout/frame-metrics";
-import {
-	type LaidOutFrame,
-	renderStatic,
-	renderTransition,
-} from "../../src/application/magic-move/engine";
-import { cubicBezierAt } from "../../src/application/magic-move/easing";
-import {
-	NO_ZOOM,
-	type ZoomTransform,
-	interpolateZoom,
-	zoomForFocus,
-} from "../../src/application/magic-move/focus-zoom";
+import { type ScriptFrame, scriptFrameAt } from "../../src/application/export/video-script";
+import { NO_ZOOM, type ZoomTransform } from "../../src/application/magic-move/focus-zoom";
 import { captionAt } from "../../src/application/captions/caption-timing";
-import {
-	renderTyping,
-	typedCharCount,
-	typingProgressAt,
-} from "../../src/application/magic-move/typewriter";
 import { ClipFades } from "../../src/presentation/components/preview/clip-fades";
 import { FrameChrome } from "../../src/presentation/components/preview/frame-chrome";
 import { GlowDecoration } from "../../src/presentation/components/preview/glow-decoration";
@@ -41,6 +26,7 @@ import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic
 import { ReelsProgress } from "../../src/presentation/components/preview/reels-progress";
 import { StepCaption } from "../../src/presentation/components/preview/step-caption";
 import { getWatermarkColor } from "../../src/presentation/utils/watermark-color";
+import { fontStylesheets } from "./font-files";
 import type { RenderInput, ThemeData } from "./types";
 
 // The base scale and the safe-area margin are the shared placement table's
@@ -63,15 +49,14 @@ function useFontLoaded(fontFamily: string, fontSize: number): number {
 	const [charWidthRatio, setCharWidthRatio] = useState(() => measureAdvance(fontFamily, fontSize));
 
 	useEffect(() => {
-		const fontName = fontFamily.split(",")[0]?.trim().replace(/'/g, "") ?? "JetBrains Mono";
-		const googleName = fontName.replace(/\s+/g, "+");
-		const monoUrl = `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;500;700&display=swap`;
 		// Inter powers the step captions (StepCaption), so load it alongside the mono font.
 		const interUrl = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap";
 
-		Promise.all([monoUrl, interUrl].map((url) => fetch(url).then((res) => res.text())))
-			.then((sheets) => {
-				for (const css of sheets) {
+		// The theme's family through the shared registry: the bundled copy of the
+		// file the preview loads, or Google's stylesheet for a picker font.
+		Promise.all([fontStylesheets(fontFamily), fetch(interUrl).then((res) => res.text())])
+			.then(([monoSheets, interSheet]) => {
+				for (const css of [...monoSheets, interSheet]) {
 					const style = document.createElement("style");
 					style.textContent = css;
 					document.head.appendChild(style);
@@ -161,7 +146,7 @@ export function CodeCard({ input }: { input: RenderInput }) {
 
 	const frame = useCurrentFrame();
 	const { fps, width, height, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, transitionEasing, loop, focusZoom, progressStyle } =
+	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, loop, focusZoom, progressStyle } =
 		input;
 
 	const segments = buildSegments(
@@ -178,9 +163,8 @@ export function CodeCard({ input }: { input: RenderInput }) {
 
 	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
-	const typingView = resolveTypingView(input, active, frame, focusSets[input.typingIndex ?? 0]);
-	const view = typingView ?? resolveView(plan, active, frame, focusSets, transitionEasing);
-	const cursor = typingView?.cursor ?? null;
+	const view = resolveView(input, active, frame, focusSets);
+	const cursor = view.cursor;
 	const wmColor = getWatermarkColor(background, theme.foreground);
 
 	// Per-step captions overlaid beneath the frame; same timing function as the preview.
@@ -238,21 +222,23 @@ export function CodeCard({ input }: { input: RenderInput }) {
 					lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
 					padding={framePadding * videoScale}
 					cursor={cursor}
+					firstRow={view.firstRow}
 				/>
 			</div>
 		</CenteredFrame>
 	);
 }
 
-interface FrameView {
-	tokens: ReturnType<typeof renderStatic>;
-	lineCount: number;
-	lineNumberCount: number;
-	/** Cinematic push-in for this frame; identity unless the step has a spotlight. */
-	zoom: ZoomTransform;
-}
+type FrameView = Omit<ScriptFrame, "progress" | "timeSeconds">;
 
-type TypingFrameView = FrameView & { cursor: { line: number; col: number } | null };
+const EMPTY_VIEW: FrameView = {
+	tokens: [],
+	firstRow: 0,
+	lineCount: 1,
+	lineNumberCount: 1,
+	cursor: null,
+	zoom: NO_ZOOM,
+};
 
 /**
  * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
@@ -272,85 +258,35 @@ function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): 
 }
 
 /**
- * Typewriter view over the typed step's hold, and the empty window before it,
- * when typewriter mode is on; else null.
+ * The card's content at this frame, from the walk the painter and the preview
+ * take (`video-script`): typewriter, morph, focus, push-in and a long file's
+ * window, so the three renderers draw one picture.
  */
-function resolveTypingView(
+function resolveView(
 	input: RenderInput,
 	active: Segment | undefined,
 	frame: number,
-	focus: Set<number> | undefined,
-): TypingFrameView | null {
-	if (!input.typewriter || !active || !input.plan.typing) {
-		return null;
-	}
-	const holdIndex = input.typingIndex ?? 0;
-	const span = active.endFrame - active.startFrame;
-	const t = span > 0 ? (frame - active.startFrame) / span : 1;
-	const p = typingProgressAt({ phase: active.type, index: active.index, t }, holdIndex);
-	if (p === null) {
-		return null;
-	}
-	const code = input.steps[holdIndex]?.code ?? "";
-	const reveal = typedCharCount(code.length, p);
-	const { tokens, cursor } = renderTyping(code, input.plan.typing, reveal);
-	const lineCount = input.plan.frames[holdIndex]?.lineCount ?? 1;
-	return { tokens, lineCount, lineNumberCount: lineCount, cursor, zoom: zoomForFocus(focus, lineCount) };
-}
-
-function resolveView(
-	plan: RenderInput["plan"],
-	active: Segment | undefined,
-	frame: number,
 	focusSets: (Set<number> | undefined)[],
-	transitionEasing: RenderInput["transitionEasing"],
 ): FrameView {
 	if (!active) {
-		return { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
+		return EMPTY_VIEW;
 	}
-	if (active.type === "transition" || active.type === "loop") {
-		const isLoop = active.type === "loop";
-		const transition = isLoop ? plan.loopTransition : plan.transitions[active.index];
-		const fromFrame = plan.frames[active.index];
-		const toFrame = isLoop ? plan.frames[0] : plan.frames[active.index + 1];
-		// A loop-back morph runs from the last step to the first.
-		const toIndex = isLoop ? 0 : active.index + 1;
-		if (transition && fromFrame && toFrame) {
-			const span = active.endFrame - active.startFrame;
-			const t = span > 0 ? (frame - active.startFrame) / span : 1;
-			const moveEase = (progress: number) => cubicBezierAt(transitionEasing, progress);
-			const eased = moveEase(Math.min(Math.max(t, 0), 1));
-			const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount);
-			const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount);
-			return {
-				tokens: renderTransition(
-					transition.from,
-					transition.to,
-					t,
-					{ moveEase },
-					focusSets[active.index],
-					focusSets[toIndex],
-				),
-				lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
-				lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
-				zoom: interpolateZoom(fromZoom, toZoom, t, moveEase),
-			};
-		}
-	}
-	const held = plan.frames[active.index] ?? plan.frames[0];
-	return staticView(held, focusSets[active.index]);
-}
-
-function staticView(held: LaidOutFrame | undefined, focus?: Set<number>): FrameView {
-	if (!held) {
-		return { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
-	}
-	return {
-		tokens: renderStatic(held.tokens, focus),
-		lineCount: held.lineCount,
-		lineNumberCount: held.lineCount,
-		zoom: zoomForFocus(focus, held.lineCount),
-	};
+	const span = active.endFrame - active.startFrame;
+	return scriptFrameAt(
+		{
+			plan: input.plan,
+			transitionEasing: input.transitionEasing,
+			typewriter: input.typewriter,
+			firstCode: input.steps[input.typingIndex ?? 0]?.code ?? "",
+			typingIndex: input.typingIndex,
+			focusSets,
+		},
+		{
+			phase: active.type,
+			index: active.index,
+			t: span > 0 ? (frame - active.startFrame) / span : 1,
+		},
+	);
 }
 
 /** Themed card with window chrome, centered and sized to fit the widest line. */

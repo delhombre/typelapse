@@ -17,6 +17,8 @@ export function buildServerMagicMovePlan(
 	shikiTheme: string,
 	themeBackground: string,
 	loop = false,
+	/** Each step's 1-indexed focused lines: where a long file's window goes. */
+	focus: readonly (Iterable<number> | undefined)[] = [],
 ): MagicMovePlan {
 	const options = { lang, theme: shikiTheme } as Parameters<typeof highlighter.codeToTokens>[1];
 	// Keep unchanged code stable across a morph; only edited tokens enter/leave.
@@ -29,5 +31,6 @@ export function buildServerMagicMovePlan(
 		},
 		themeBackground,
 		loop,
+		focus,
 	);
 }

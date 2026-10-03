@@ -31,6 +31,7 @@ import {
 	zoomForFocus,
 } from "../magic-move/focus-zoom";
 import { renderTyping, typedCharCount, typingProgressAt } from "../magic-move/typewriter";
+import { frameFirstRow, scrollRows } from "../magic-move/window";
 
 export interface VideoScriptInput {
 	plan: MagicMovePlan;
@@ -65,7 +66,13 @@ export interface ScriptSegment {
 
 /** Everything a painter needs for one frame, and nothing it has to compute. */
 export interface ScriptFrame {
+	/** Tokens on the rows of the window, whose top is `firstRow`. */
 	tokens: RenderToken[];
+	/**
+	 * The row of the code at the window's top: 0 unless a long file's window
+	 * moved down (`magic-move/window`), fractional while it scrolls in a morph.
+	 */
+	firstRow: number;
 	/** Rows the code area is clipped to; fractional through a morph. */
 	lineCount: number;
 	/** Rows the gutter shows; held at the taller frame so it cannot flicker. */
@@ -88,6 +95,7 @@ export interface VideoScript {
 
 const EMPTY: Omit<ScriptFrame, "progress" | "timeSeconds"> = {
 	tokens: [],
+	firstRow: 0,
 	lineCount: 1,
 	lineNumberCount: 1,
 	cursor: null,
@@ -231,13 +239,16 @@ function typingFrame(
 	}
 	const reveal = typedCharCount(input.firstCode.length, progress);
 	const { tokens, cursor } = renderTyping(input.firstCode, input.plan.typing, reveal);
-	const lineCount = input.plan.frames[holdIndex]?.lineCount ?? 1;
+	const held = input.plan.frames[holdIndex];
+	const lineCount = held?.lineCount ?? 1;
+	const firstRow = frameFirstRow(held);
 	return {
-		tokens,
+		tokens: scrollRows(tokens, firstRow),
+		firstRow,
 		lineCount,
 		lineNumberCount: lineCount,
-		cursor,
-		zoom: zoomForFocus(input.focusSets[holdIndex], lineCount),
+		cursor: cursor && firstRow > 0 ? { ...cursor, line: cursor.line - firstRow } : cursor,
+		zoom: zoomForFocus(input.focusSets[holdIndex], lineCount, firstRow),
 	};
 }
 
@@ -264,17 +275,25 @@ function morphFrame(
 	const easing = input.transitionEasing ?? DEFAULT_TRANSITION_EASING;
 	const moveEase = (progress: number) => cubicBezierAt(easing, progress);
 	const eased = moveEase(t);
-	const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount);
-	const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount);
+	const fromRow = frameFirstRow(fromFrame);
+	const toRow = frameFirstRow(toFrame);
+	// The window scrolls on the same curve the card grows and pushes in on.
+	const firstRow = fromRow + (toRow - fromRow) * eased;
+	const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount, fromRow);
+	const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount, toRow);
 	return {
-		tokens: renderTransition(
-			transition.from,
-			transition.to,
-			t,
-			{ moveEase },
-			focusSets[active.index],
-			focusSets[toIndex],
+		tokens: scrollRows(
+			renderTransition(
+				transition.from,
+				transition.to,
+				t,
+				{ moveEase },
+				focusSets[active.index],
+				focusSets[toIndex],
+			),
+			firstRow,
 		),
+		firstRow,
 		lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 		lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
 		cursor: null,
@@ -289,12 +308,14 @@ function heldFrame(
 	if (!held) {
 		return EMPTY;
 	}
+	const firstRow = frameFirstRow(held);
 	return {
-		tokens: renderStatic(held.tokens, focus),
+		tokens: scrollRows(renderStatic(held.tokens, focus), firstRow),
+		firstRow,
 		lineCount: held.lineCount,
 		lineNumberCount: held.lineCount,
 		cursor: null,
-		zoom: zoomForFocus(focus, held.lineCount),
+		zoom: zoomForFocus(focus, held.lineCount, firstRow),
 	};
 }
 

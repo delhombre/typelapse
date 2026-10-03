@@ -121,6 +121,7 @@ export async function buildCodeCardInput(input: {
 		shikiTheme,
 		theme.background,
 		input.loop,
+		steps.map((step) => step.focus),
 	);
 
 	return {

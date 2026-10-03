@@ -18,8 +18,8 @@ import {
 	type ClipFade,
 	type PlanExtent,
 	clipFades,
+	deepestRow,
 	fitCardToCanvas,
-	tallestFrame,
 } from "../layout/canvas-fit";
 import {
 	type ChromeVariant,
@@ -235,7 +235,7 @@ function gutterColumnWidth(input: FrameSceneInput, charWidth: number, fontSize: 
 	if (!input.showLineNumbers) {
 		return 0;
 	}
-	const lastLine = Math.max(1, Math.floor(input.lineNumberStart)) + tallestFrame(input.plan) - 1;
+	const lastLine = Math.max(1, Math.floor(input.lineNumberStart)) + deepestRow(input.plan) - 1;
 	const digits = Math.max(2, String(lastLine).length);
 	return Math.max((digits + 1) * charWidth, digits * charWidth + fontSize);
 }

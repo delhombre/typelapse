@@ -70,4 +70,21 @@ describe("buildMagicMovePlan", () => {
 		expect(plan).toEqual(referencePlan([A, edited], true));
 		spy.mockRestore();
 	});
+
+	it("places a long file's window on the focus band it is given", () => {
+		const long = Array.from({ length: 3_000 }, (_, i) => `const line${i + 1} = ${i + 1};`);
+		const edited = long.map((line, i) => (i === 1407 ? "const line1408 = 'edited';" : line));
+		const plan = buildMagicMovePlan(
+			highlighter,
+			[long.join("\n"), edited.join("\n")],
+			"typescript",
+			"midnight",
+			BG,
+			false,
+			[new Set([1400, 1401, 1402]), undefined],
+		);
+		expect(plan.frames[0]?.firstRow).toBe(1391);
+		const row1408 = plan.frames[1]?.tokens.filter((token) => token.line === 1407);
+		expect(row1408?.map((token) => token.content).join("")).toContain("'edited'");
+	});
 });

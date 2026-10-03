@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { FRAME_SECONDARY_ALPHA_HEX } from "../../../application/layout/frame-metrics";
-import { gutterLabels } from "../../../application/line-numbers/gutter";
+import { scrolledGutter } from "../../../application/line-numbers/gutter";
 import type { RenderToken } from "../../../application/magic-move/engine";
 
 interface MagicMoveCanvasProps {
@@ -21,6 +21,11 @@ interface MagicMoveCanvasProps {
 	padding: number;
 	/** Typewriter caret position (line/col), or null to hide it. */
 	cursor?: { line: number; col: number } | null;
+	/**
+	 * The code row at the window's top (a long file's moved window), fractional
+	 * while it scrolls. Tokens arrive on the window's rows; the gutter counts from it.
+	 */
+	firstRow?: number;
 }
 
 /**
@@ -42,6 +47,7 @@ export function MagicMoveCanvas({
 	lineNumberColor,
 	padding,
 	cursor,
+	firstRow = 0,
 }: MagicMoveCanvasProps) {
 	const lineHeight = fontSize * lineHeightRatio;
 	const gutterRows = Math.max(1, Math.round(lineNumberCount ?? lineCount));
@@ -49,7 +55,7 @@ export function MagicMoveCanvas({
 	// Display-only gutter labels. Focus / highlight ranges stay relative to the
 	// snippet's own lines (line 1 = first line) regardless of lineNumberStart, so
 	// the gutter offset must never be fed back into focus math.
-	const labels = gutterLabels(lineNumberStart, gutterRows);
+	const { labels, shift } = scrolledGutter(lineNumberStart, gutterRows, firstRow);
 	const gutterDigits = Math.max(2, labels[labels.length - 1]?.length ?? 2);
 
 	return (
@@ -75,6 +81,7 @@ export function MagicMoveCanvas({
 							color: lineNumberColor ?? `${color}${FRAME_SECONDARY_ALPHA_HEX}`,
 							paddingRight: fontSize,
 							minWidth: `${gutterDigits + 1}ch`,
+							transform: shift > 0 ? `translateY(${-shift * lineHeight}px)` : undefined,
 						}}
 					>
 						{labels.map((label, i) => (

@@ -50,6 +50,11 @@ export interface RenderToken {
 export interface LaidOutFrame {
 	tokens: LaidOutToken[];
 	lineCount: number;
+	/**
+	 * The row the plan window starts on, when a long file's window has moved off
+	 * the top (`window.ts`). Token lines stay absolute; absent means row 0.
+	 */
+	firstRow?: number;
 }
 
 /** A morph between two adjacent frames with keys synced so shared tokens glide. */

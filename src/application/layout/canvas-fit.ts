@@ -112,7 +112,7 @@ export function renderScaleFor(
 
 /** Minimal structural shape of a laid-out plan needed to size the card. */
 export interface PlanExtent {
-	frames: { lineCount: number; tokens: { col: number; content: string }[] }[];
+	frames: { lineCount: number; tokens: { col: number; content: string }[]; firstRow?: number }[];
 }
 
 /** Widest line across every frame, in characters (col + token length). */
@@ -131,6 +131,19 @@ export function tallestFrame(plan: PlanExtent): number {
 	let max = 1;
 	for (const frame of plan.frames) {
 		max = Math.max(max, frame.lineCount);
+	}
+	return max;
+}
+
+/**
+ * One past the deepest row any frame shows: its window's first row plus its
+ * rows. What the gutter's digits are sized for; `tallestFrame` for a file whose
+ * window never moves off the top.
+ */
+export function deepestRow(plan: PlanExtent): number {
+	let max = 1;
+	for (const frame of plan.frames) {
+		max = Math.max(max, (frame.firstRow ?? 0) + frame.lineCount);
 	}
 	return max;
 }
@@ -198,7 +211,8 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 		fontSize: input.fontSize * input.scale,
 		padding: input.padding * input.scale,
 		showLineNumbers: input.showLineNumbers,
-		lineNumberStart: input.lineNumberStart,
+		// The gutter is as wide as the deepest label a moved window shows.
+		lineNumberStart: input.lineNumberStart + deepestRow(input.plan) - tallestFrame(input.plan),
 		hasCaption: input.hasCaption,
 		scale: input.scale,
 		charWidthRatio: input.charWidthRatio,
