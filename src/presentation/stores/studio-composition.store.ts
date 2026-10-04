@@ -265,7 +265,10 @@ export function hasAuthoredMultimedia(
 // bridge already reconciles on every Studio change, and the timeline calls
 // this while rendering.
 registerPlaybackComposition(() => {
-	const document = useStudioCompositionStore.getState().toDocument();
+	const document = studioDocumentOf(
+		useStudioCompositionStore.getState().value,
+		useSnippetStore.getState().snippet.code,
+	);
 	return {
 		durationMs: compileSceneTimeline({
 			document,

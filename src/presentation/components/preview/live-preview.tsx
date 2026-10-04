@@ -47,6 +47,7 @@ import {
 	useSocialPreviewStore,
 } from "@/presentation/stores/social-preview.store";
 import {
+	studioDocumentOf,
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
@@ -231,7 +232,13 @@ export function LivePreview() {
 	const loop = useExportStore((s) => s.loop);
 	const composition = useStudioCompositionStore();
 	const selectAuthoredAudio = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
-	const compositionDocument = useMemo(() => composition.toDocument(), [composition]);
+	// The document every export renders: the raw composition keeps the render
+	// settings it was loaded with, and the loop morph lasts the current tempo.
+	// A settings change reconciles the composition, so its value changes with it.
+	const compositionDocument = useMemo(
+		() => studioDocumentOf(composition.value, snippet.code),
+		[composition.value, snippet.code],
+	);
 	// A blank scene counts: only the composed canvas fades the card off it.
 	const hasCompositionLayers = compositionDocument.project.scenes.some(
 		(scene) => scene.blocks.some((block) => block.kind !== "code") || !hasCodeCard(scene),
