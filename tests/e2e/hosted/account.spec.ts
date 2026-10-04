@@ -48,21 +48,19 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 		await expect.poll(async () => (await storedScenes(page)).length).toBe(1);
 		await page.reload();
 		const again = await openAccountPanel(page, account);
-		// The island still knows this project's cloud copy: it offers to update it,
-		// not to make a second one.
-		await expect(again.getByRole("button", { name: "Save changes" })).toBeVisible();
+		// The island still knows this project's cloud copy, so it does not offer
+		// to make a second one.
+		await expect(again.getByText("Cloud copy saved", { exact: true })).toBeVisible();
 		await expect(again.getByText(freeSentence(1), { exact: true })).toBeVisible();
 		expect(await cloudProjectCount(account.email)).toBe(1);
 	});
 
-	// Known bug, found by this journey (2026-10-04): with no edit at all, the
-	// reloaded document differs from the saved one in `project.id` (the
-	// in-memory id becomes the local library's `project_<uuid>`) and in
-	// `legacySource.hadCapturedSteps` (false becomes true), so the island says
-	// "Cloud copy out of date". `test.fail` keeps the nightly green while it is
-	// open and turns red the day it is fixed, so this marker gets removed.
-	test("a reload with no edit still reads Cloud copy saved", async ({ page }) => {
-		test.fail();
+	// Found by this journey (#127): the island compared the raw composition,
+	// whose settings and live code stay as loaded, with the saved document, so a
+	// reload with no edit read "Cloud copy out of date".
+	test("a reload with no edit still reads Cloud copy saved, and writes nothing", async ({
+		page,
+	}) => {
 		const account = newAccount("drift");
 		await openStudio(page);
 		await page.getByRole("button", { name: "Add scene" }).click();
@@ -72,10 +70,19 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 		await expect(panel.getByText("Cloud copy saved", { exact: true })).toBeVisible();
 		await expect.poll(async () => (await storedScenes(page)).length).toBe(1);
 
+		const writesAfterReload: string[] = [];
+		page.on("request", (request) => {
+			const { pathname } = new URL(request.url());
+			if (request.method() !== "GET" && /^\/api\/(projects|assets)\b/.test(pathname)) {
+				writesAfterReload.push(`${request.method()} ${pathname}`);
+			}
+		});
 		await page.reload();
 		const again = await openAccountPanel(page, account);
 		await expect(again.getByText("Cloud copy saved", { exact: true })).toBeVisible({
 			timeout: 5_000,
 		});
+		await expect(again.getByRole("button", { name: "Save changes" })).toHaveCount(0);
+		expect(writesAfterReload).toEqual([]);
 	});
 });

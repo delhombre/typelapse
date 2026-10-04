@@ -52,9 +52,10 @@ sign-up helpers. Better Auth allows three sign-ups per ten seconds per client,
 and behind the preview every journey is one client, so the helpers wait out a
 429 instead of failing.
 
-## Known bug, pinned by `test.fail`
+## Reload with no edit (#127)
 
-"a reload with no edit still reads Cloud copy saved" fails today: after a
-reload the local document differs from the saved one in `project.id` and
-`legacySource.hadCapturedSteps`, so the island says "Cloud copy out of date".
-The test turns red when the bug is fixed; then drop its `test.fail()`.
+"a reload with no edit still reads Cloud copy saved, and writes nothing" was
+pinned by `test.fail` until #127: the island fingerprinted the raw
+composition, whose settings and live code stay as they were loaded, while a
+reload rebuilds the saved document. It now fingerprints the document the
+Studio saves, and the test asserts no project or asset write after the reload.
