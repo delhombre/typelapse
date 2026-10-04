@@ -63,6 +63,56 @@ export function fitMorphFontSize({
 	return Math.min(max, Math.floor((available / widthPerPx) * 4) / 4);
 }
 
+/** A fitted size and the room it was fitted to. */
+export interface MorphFit {
+	room: number;
+	size: number;
+}
+
+const FIT_STEP = 0.25;
+
+/**
+ * One layout pass of the fit: the size to draw next, or `fit` itself once it
+ * has come to rest.
+ *
+ * The size is estimated once per room, from the code's width at its designed
+ * size, then only ever stepped down while the drawn code is still wider than
+ * the room. Chromium on Linux snaps `ch` to whole pixels, so the drawn width is
+ * not proportional to the font size: estimated again from whatever size had
+ * just been drawn, the fit found a new answer every pass and the section's
+ * height stepped between three values every frame (#125). A size that only
+ * goes down for a given room cannot cycle.
+ */
+export function refitMorphFont({
+	fit,
+	room,
+	designedWidth,
+	drawnWidth,
+	max,
+}: {
+	fit: MorphFit | undefined;
+	room: number;
+	designedWidth: number;
+	drawnWidth: number;
+	max: number;
+}): MorphFit {
+	if (!fit || fit.room !== room) {
+		return {
+			room,
+			size: fitMorphFontSize({
+				available: room,
+				naturalWidth: designedWidth,
+				naturalSize: max,
+				max,
+			}),
+		};
+	}
+	if (drawnWidth > room && fit.size > FIT_STEP) {
+		return { room, size: fit.size - FIT_STEP };
+	}
+	return fit;
+}
+
 /** Feature a: the signature magic-move, shown running. */
 export function MagicMoveSection() {
 	return (
@@ -79,15 +129,21 @@ export function MagicMoveSection() {
 function LiveMorph() {
 	const [playing, setPlaying] = useState(false);
 	const frame = useRef<HTMLDivElement>(null);
-	const [fontSize, setFontSize] = useState(MORPH_FONT);
+	const [room, setRoom] = useState(0);
+	/* Unset while the code is drawn at its designed size: that is the only
+	   size its width is measured at. */
+	const [fit, setFit] = useState<MorphFit>();
+	const designedWidth = useRef(0);
+	const fontSize = fit?.size ?? MORPH_FONT;
 
 	/* Sized the way the Instrument's window already is on a phone: the whole
-	   demo scales to its frame rather than showing part of it. Measured before
-	   paint so the first frame is already the fitted one, again whenever the
-	   room changes, and once the mono has loaded, since `ch` changes with it.
-	   The room is the column the demo sits in, not the frame: the frame hugs
-	   its code, so measured on itself a shrunk font shrank the frame, and a
-	   phone turned to landscape kept the small size it had no reason to keep. */
+	   demo scales to its frame rather than showing part of it. The room is the
+	   column the demo sits in, not the frame: the frame hugs its code, so
+	   measured on itself a shrunk font shrank the frame, and a phone turned to
+	   landscape kept the small size it had no reason to keep. Only its width
+	   counts: its height follows the font, and a refit on every height change
+	   is what kept the fit from settling (#125). Once the mono has loaded the
+	   code is measured again, since `ch` changes with it. */
 	useLayoutEffect(() => {
 		const node = frame.current;
 		const column = node?.parentElement?.parentElement;
@@ -99,29 +155,38 @@ function LiveMorph() {
 			const style = getComputedStyle(el);
 			return Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
 		};
-		const fit = () => {
-			const code = node.firstElementChild as HTMLElement | null;
-			if (!alive || !code) {
-				return;
-			}
-			setFontSize(
-				fitMorphFontSize({
-					available: column.clientWidth - horizontalPadding(column) - horizontalPadding(node),
-					naturalWidth: code.offsetWidth,
-					naturalSize: Number.parseFloat(getComputedStyle(code).fontSize),
-					max: MORPH_FONT,
-				}),
-			);
-		};
-		fit();
-		const observer = new ResizeObserver(fit);
+		const measure = () =>
+			setRoom(column.clientWidth - horizontalPadding(column) - horizontalPadding(node));
+		measure();
+		const observer = new ResizeObserver(measure);
 		observer.observe(column);
-		document.fonts?.ready.then(fit);
+		document.fonts?.ready.then(() => alive && setFit(undefined));
 		return () => {
 			alive = false;
 			observer.disconnect();
 		};
 	}, []);
+
+	/* Before paint, so the first frame is already the fitted one. */
+	useLayoutEffect(() => {
+		const code = frame.current?.firstElementChild as HTMLElement | null;
+		if (!code || room <= 0) {
+			return;
+		}
+		if (!fit) {
+			designedWidth.current = code.offsetWidth;
+		}
+		const next = refitMorphFont({
+			fit,
+			room,
+			designedWidth: designedWidth.current,
+			drawnWidth: code.offsetWidth,
+			max: MORPH_FONT,
+		});
+		if (next !== fit) {
+			setFit(next);
+		}
+	}, [fit, room]);
 
 	useEffect(() => {
 		if (!playing) {
