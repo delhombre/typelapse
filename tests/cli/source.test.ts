@@ -207,8 +207,8 @@ describe("resolveSource on a release", () => {
 		["GitHub rate limit hit: try again later", /GITHUB_TOKEN/],
 		["GitHub will not compare a range this large: pass a smaller range", /pass a smaller range/],
 		[
-			"This release spans 31 commits, more than the 30 a video chapters: pass a smaller range",
-			/31 commits.*pass a smaller range/,
+			"v0.1.0 is the first tag and its history runs past 30 commits, with no tag before it to compare with: pass a compare link",
+			/first tag.*pass a compare link/,
 		],
 		["These commits contain no changes to animate", /no changes to animate/],
 	])("says '%s' as one CLI sentence with exit code 3", async (thrown, said) => {

@@ -20,6 +20,8 @@ import type { StudioCloudRuntime } from "@/presentation/hooks/use-studio-cloud-p
 import { createAuthStore, useAuthStore } from "@/presentation/stores/auth.store";
 import { createPlanStore } from "@/presentation/stores/plan.store";
 import { createProjectStore } from "@/presentation/stores/project.store";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { studioDocumentOf } from "@/presentation/stores/studio-composition.store";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -264,7 +266,11 @@ describe("StudioAccountIsland", () => {
 	it("reopens the cloud copy saved earlier, keeps local work, and uploads nothing until asked", async () => {
 		const { api, runtime, saved } = cloudRuntime();
 		saved.set("usr_1", "project_cloud");
-		const cloudDocument = localDocument();
+		// What the island uploaded then: the document the Studio saves.
+		const cloudDocument = studioDocumentOf(
+			createProjectStore(localDocument()).getState().value,
+			useSnippetStore.getState().snippet.code,
+		);
 		vi.mocked(api.load).mockResolvedValue(
 			record(
 				4,

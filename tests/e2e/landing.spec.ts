@@ -24,26 +24,6 @@ function isFloating(element: Element): boolean {
 	return false;
 }
 
-/**
- * Click the link where it is drawn, after checking nothing covers its centre.
- * Playwright's own click also waits for the element to hold still for two
- * frames, which the bottom of the landing never does on Linux Chromium (see
- * "the page comes to rest" below): that defect has its own test, and this one
- * keeps asking only where each link goes.
- */
-async function clickWhereDrawn(page: Page, link: Locator): Promise<void> {
-	const box = await link.boundingBox();
-	if (!box) throw new Error("the link has no box");
-	const x = box.x + box.width / 2;
-	const y = box.y + box.height / 2;
-	const hit = await link.evaluate(
-		(element, point) => element.contains(document.elementFromPoint(point.x, point.y)),
-		{ x, y },
-	);
-	expect(hit, "something covers the link").toBe(true);
-	await page.mouse.click(x, y);
-}
-
 const HERO = /^Typelapse\. Code videos as sharp as their preview/;
 
 test.describe(
@@ -72,7 +52,8 @@ test.describe(
 			for (let index = 0; index < count; index++) {
 				await page.goto("/");
 				await reach(page, ctas.nth(index));
-				await clickWhereDrawn(page, ctas.nth(index));
+				// Playwright clicks once the link has held still for two frames.
+				await ctas.nth(index).click();
 				await expect(page).toHaveURL(/\/app(?:[#?].*)?$/);
 				await expect(
 					page.getByRole("heading", { level: 1, name: "Typelapse studio" }),
@@ -127,9 +108,9 @@ test.describe(
 test.describe("Landing: the page comes to rest once it has loaded", () => {
 	test("nothing keeps resizing the page after load", async ({ page }) => {
 		// Held still, so only a layout that cannot settle can move. Found by the
-		// smoke job under act: on Linux Chromium the magic-move section's font fit
-		// (magic-move-section.tsx) never converges, the section's height steps
-		// between three values every frame and the page below it shakes.
+		// smoke job under act (#125): on Linux Chromium the magic-move section's
+		// font fit (magic-move-section.tsx) never converged, the section's height
+		// stepped between three values every frame and the page below it shook.
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await page.goto("/");
 		await page.evaluate(() => document.fonts.ready);

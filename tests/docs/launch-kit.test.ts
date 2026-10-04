@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseProjectDocument } from "@/application/project/project-document";
 import { describe, expect, it } from "vitest";
@@ -8,11 +8,17 @@ import { describe, expect, it } from "vitest";
  * The launch kit (viability D6 step 5) makes public claims, so the claims are
  * pinned to what the repository measures, and the clip to the file the CLI
  * renders.
+ *
+ * The posts and the checklist move to the owner's notes on opening day, so a
+ * check whose file is gone is skipped rather than failed: the move is a pure
+ * file move, with no edit to this test.
  */
 
 const DIR = resolve(__dirname, "../../docs/launch");
 const read = (name: string) => readFileSync(resolve(DIR, name), "utf8");
-const DOCS = ["product-hunt.md", "x-thread.md", "assets.md", "checklist.md"];
+const present = (name: string) => existsSync(resolve(DIR, name));
+const DOCS = ["product-hunt.md", "x-thread.md", "assets.md", "checklist.md"].filter(present);
+const POSTS = ["product-hunt.md", "x-thread.md"].filter(present);
 const SHARPNESS = JSON.parse(
 	readFileSync(resolve(__dirname, "../../docs/sharpness/sharpness.json"), "utf8"),
 ) as { files: { label: string; psnr: number }[] };
@@ -50,20 +56,20 @@ describe("the launch kit", () => {
 		}
 	});
 
-	it("gives Product Hunt a tagline under 60 characters", () => {
+	it.skipIf(!present("product-hunt.md"))("gives Product Hunt a tagline under 60 characters", () => {
 		const tagline = read("product-hunt.md").match(/## Tagline[^\n]*\n\n([^\n]+)/)?.[1] ?? "";
 		expect(tagline.length).toBeGreaterThan(0);
 		expect(tagline.length).toBeLessThan(60);
 	});
 
-	it("quotes the sharpness numbers the manifest measured", () => {
-		for (const name of ["product-hunt.md", "x-thread.md"]) {
+	it.skipIf(POSTS.length === 0)("quotes the sharpness numbers the manifest measured", () => {
+		for (const name of POSTS) {
 			expect(read(name), name).toContain(`${psnr("AV1 4:4:4")} dB`);
 			expect(read(name), name).toContain(`${psnr("H.264 4:2:0")} dB`);
 		}
 	});
 
-	it("threads six posts that each fit in one post on X", () => {
+	it.skipIf(!present("x-thread.md"))("threads six posts that each fit in one post on X", () => {
 		const thread = posts();
 		expect(thread).toHaveLength(6);
 		for (const post of thread) {

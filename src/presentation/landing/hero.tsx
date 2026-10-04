@@ -1,4 +1,5 @@
 import { classifySource } from "@/application/import/classify-source";
+import { routeUrlPaste } from "@/application/import/route-url-paste";
 import { trigger } from "@/presentation/haptics";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
@@ -52,11 +53,12 @@ const EXAMPLES = [
  * Which pastille the field's contents belong under, for the kinds we can be
  * certain of. `snippet` is the classifier's fallback rather than a finding, so
  * it never moves the pastille: it would drag it back on every keystroke of a
- * URL half typed.
+ * URL half typed. A commit, a release and a compare are GitHub changes like a
+ * pull request, so they sit under its pastille.
  */
 function modeForContent(value: string): Mode | null {
 	const kind = classifySource(value);
-	if (kind === "pr" || kind === "commit") {
+	if (kind === "pr" || kind === "commit" || kind === "release" || kind === "compare") {
 		return "pull request";
 	}
 	if (kind === "diff") {
@@ -65,10 +67,13 @@ function modeForContent(value: string): Mode | null {
 	return null;
 }
 
-/** A URL never needs a newline, so Enter can mean "go" while it holds one. */
+/**
+ * A URL never needs a newline, so Enter can mean "go" while it holds one. The
+ * links are the ones the studio's own URL import opens, asked of the same
+ * policy, so a kind the studio learns the hero learns with it.
+ */
 function entersSubmit(value: string): boolean {
-	const kind = classifySource(value);
-	return kind === "empty" || kind === "pr" || kind === "commit" || kind === "code-url";
+	return classifySource(value) === "empty" || routeUrlPaste(value) !== "refuse";
 }
 
 export function Hero() {

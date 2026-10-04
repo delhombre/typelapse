@@ -1,6 +1,8 @@
 import { formatLineRanges } from "@/application/focus/line-ranges";
+import type { HydratedProjectDocument } from "@/application/project/hydrate-project-document";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { isProjectFps } from "@/application/project/project-payload";
+import { serializeProjectDocument } from "@/application/project/serialize-project-document";
 import {
 	STUDIO_LIVE_SCENE_ID,
 	type StudioCompositionSnapshot,
@@ -155,10 +157,27 @@ export function readStudioProjectDocument(): ProjectDocumentV2 {
 	// Whoever saves must not depend on a subscriber having already mirrored the
 	// last Studio edit; the signature guard makes this free when it has.
 	synchronizeStudioCompositionStore();
-	return studioProjectDocument(
-		useStudioCompositionStore.getState().toDocument(),
-		readStudioCompositionSnapshot(),
+	return studioDocumentOf(
+		useStudioCompositionStore.getState().value,
 		useSnippetStore.getState().snippet.code,
+	);
+}
+
+/**
+ * The project document a composition stands for, without reconciling it first.
+ * The composition keeps the settings and live code it was loaded with, so a
+ * reader that compares documents (the cloud copy) must take this one: the raw
+ * composition differs from the saved document, and a reload with no edit
+ * would read as a change.
+ */
+export function studioDocumentOf(
+	composition: HydratedProjectDocument,
+	liveCode: string,
+): ProjectDocumentV2 {
+	return studioProjectDocument(
+		serializeProjectDocument(composition),
+		readStudioCompositionSnapshot(),
+		liveCode,
 	);
 }
 

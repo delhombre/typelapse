@@ -1,5 +1,6 @@
 # Every journey, every night and on demand: the smoke subset runs on each pull
-# request (ci.yml), this runs the rest, including the ones that reach GitHub.
+# request (ci.yml), this runs the rest, including the ones that reach GitHub,
+# and the hosted journeys against PostgreSQL, MinIO and the real render worker.
 name: E2E nightly
 
 on:
@@ -55,4 +56,89 @@ jobs:
           path: |
             test-results/e2e/
             playwright-report/
+          retention-days: 14
+
+  hosted:
+    name: Hosted journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # The runner reaches a service on localhost through its published port; the
+    # port is the one playwright.config.ts and services.sh default to.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: typelapse
+          POSTGRES_DB: typelapse
+        ports:
+          - 54381:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d typelapse"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      # vite build with Monaco peaks near 4.5 GB; Node's default heap dies first.
+      NODE_OPTIONS: --max-old-space-size=6144
+      E2E_HOSTED_STATE: /tmp/typelapse-e2e-hosted
+      E2E_HOSTED_OUT_DIR: /tmp/typelapse-e2e-hosted-dist
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Not a service container: a service takes no command (MinIO needs
+      # `server`), and it starts before any step could make the certificate the
+      # R2 adapter's https-only rule needs. services.sh makes a self-signed one
+      # and starts MinIO behind it; Node trusts it through NODE_EXTRA_CA_CERTS.
+      - name: MinIO over TLS
+        run: tests/e2e/hosted/services.sh minio
+
+      - name: Migrations and bucket
+        env:
+          NODE_EXTRA_CA_CERTS: /tmp/typelapse-e2e-hosted/certs/public.crt
+        run: pnpm exec tsx tests/e2e/hosted/prepare.ts
+
+      - name: Hosted build
+        env:
+          VITE_TYPELAPSE_DEPLOYMENT_MODE: hosted
+        run: pnpm exec vite build --outDir "$E2E_HOSTED_OUT_DIR" --emptyOutDir --logLevel warn
+
+      # Playwright starts the API (prepare.ts again, a no-op now), the render
+      # worker and the preview of the build above, and stops them at the end.
+      - name: Hosted journeys
+        env:
+          E2E_SKIP_BUILD: "1"
+        run: pnpm e2e:hosted
+
+      - name: MinIO log
+        if: failure()
+        run: docker logs typelapse-e2e-minio > minio.log 2>&1 || true
+
+      - name: Upload traces, videos and logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-hosted-${{ github.run_id }}
+          path: |
+            test-results/e2e-hosted/
+            playwright-report/
+            minio.log
           retention-days: 14

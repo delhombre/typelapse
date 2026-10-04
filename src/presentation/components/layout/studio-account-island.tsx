@@ -1,4 +1,3 @@
-import { serializeProjectDocument } from "@/application/project/serialize-project-document";
 import { createSceneAssetSourceRegistry } from "@/infrastructure/assets/scene-asset-source.registry";
 import { BrowserHostedProjectReferenceStore } from "@/infrastructure/project/browser-hosted-project-reference";
 import { createBrowserHostedProjectSyncRuntime } from "@/infrastructure/project/browser-hosted-project-sync.runtime";
@@ -10,7 +9,11 @@ import {
 import { useAuthStore } from "@/presentation/stores/auth.store";
 import { useHostedRenderJobsStore } from "@/presentation/stores/hosted-render-jobs.store";
 import { usePlanStore } from "@/presentation/stores/plan.store";
-import { useStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	studioDocumentOf,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { studioLocalLibrary } from "@/presentation/studio-media-runtime";
 import { useEffect, useMemo } from "react";
 import "./studio-account-island.css";
@@ -61,7 +64,10 @@ function HostedAccountIsland({
 }: StudioAccountIslandProps) {
 	const authStatus = authStore((state) => state.status);
 	const value = compositionStore((state) => state.value);
-	const document = useMemo(() => serializeProjectDocument(value), [value]);
+	const liveCode = useSnippetStore((state) => state.snippet.code);
+	// The document the Studio saves, not the raw composition: the cloud copy is
+	// compared with what a reload rebuilds, render settings and live code included.
+	const document = useMemo(() => studioDocumentOf(value, liveCode), [value, liveCode]);
 	const runtime = cloudRuntime === undefined ? defaultCloudRuntime() : cloudRuntime;
 	const { cloudProjectState, saveToCloud, saveRevision } = useStudioCloudProject({
 		authStatus,

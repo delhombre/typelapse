@@ -144,7 +144,14 @@ async function render(options: RenderOptions, io: CliIO): Promise<void> {
 		// so --theme still means what it means for a pull request.
 		const document = withReleaseCard(migrateV1ToV2(project), source.card);
 		const studioUrl = studioBase ? () => studioLink(source, project, studioBase) : null;
-		await renderLayered(document, source.arg, { ...options, theme: undefined }, io, studioUrl);
+		await renderLayered(
+			document,
+			source.arg,
+			{ ...options, theme: undefined },
+			io,
+			studioUrl,
+			source.notice,
+		);
 		return;
 	}
 	const settings: RenderSettings = {
@@ -183,6 +190,7 @@ async function renderLayered(
 	options: RenderOptions,
 	io: CliIO,
 	studioUrl: (() => string) | null = null,
+	notice?: string,
 ): Promise<void> {
 	if (options.format === "gif") {
 		throw new CliError("A project with text layers renders as mp4 or webm, not gif", EXIT_USAGE);
@@ -212,16 +220,21 @@ async function renderLayered(
 		`Rendering ${arg} as ${options.format}, ${renderOptions.width}x${renderOptions.height} at ${renderOptions.fps} fps…`,
 	);
 	const bytes = await renderOrFail(() => io.renderLayered(document, renderOptions));
-	await deliver(path, bytes, options, io, studioUrl);
+	await deliver(path, bytes, options, io, studioUrl, notice);
 }
 
-/** Write the file, read it back, and say what it is: the same result for every source. */
+/**
+ * Write the file, read it back, and say what it is: the same result for every
+ * source. The source's notice rides in the JSON line, which the Action's
+ * comment is built from.
+ */
 async function deliver(
 	path: string,
 	bytes: Uint8Array,
 	options: RenderOptions,
 	io: CliIO,
 	studioLinkFor: (() => string) | null,
+	notice?: string,
 ): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
 	await writeFile(path, bytes);
@@ -246,6 +259,7 @@ async function deliver(
 				bytes: bytes.length,
 				...measured,
 				...(studioUrl ? { studioUrl } : {}),
+				...(notice ? { notice } : {}),
 			}),
 		);
 	} else {

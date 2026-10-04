@@ -25,6 +25,8 @@ export type CliResult =
 			durationMs: number;
 			codec: string;
 			studioUrl?: string;
+			/** How the source was shown when it is not the usual way: "46 commits, shown as one change". */
+			notice?: string;
 	  }
 	| { ok: false; exitCode: number; error: string };
 
@@ -67,6 +69,9 @@ export function commentBody({ result, artifactUrl, runUrl, sha }: CommentInput):
 		: `[${name} is in this run's artifacts](${runUrl})`;
 
 	const lines = [COMMENT_MARKER, `### Typelapse video${at}`, "", `${download}: ${facts}.`];
+	if (result.notice) {
+		lines.push("", `${result.notice.replace(/\.$/, "")}.`);
+	}
 	if (result.studioUrl) {
 		const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(result.studioUrl)
 			? " It opens in a local studio, so run `pnpm dev` in a Typelapse checkout first."

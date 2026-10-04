@@ -33,20 +33,27 @@ function commit(sha: string, message: string, parents = 1) {
 const json = (body: unknown, status = 200) =>
 	new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-/** Route each GitHub URL to a response; anything unrouted is a 404 and is recorded. */
-function github(routes: Record<string, () => Response>) {
+/**
+ * Route each GitHub URL to a response; anything unrouted is a 404 and is
+ * recorded. A route gets the Accept header, since a compare is asked for as
+ * JSON or as a diff at the same URL.
+ */
+function github(routes: Record<string, (accept: string) => Response>) {
 	const calls: string[] = [];
 	vi.stubGlobal(
 		"fetch",
-		vi.fn(async (input: RequestInfo | URL) => {
+		vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);
-			calls.push(url);
+			const accept = new Headers(init?.headers).get("Accept") ?? "";
+			calls.push(accept.endsWith(".diff") ? `${url} (diff)` : url);
 			const route = routes[url];
-			return route ? route() : json({ message: "Not Found" }, 404);
+			return route ? route(accept) : json({ message: "Not Found" }, 404);
 		}),
 	);
 	return calls;
 }
+
+const asDiff = (accept: string) => accept.endsWith(".diff");
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -177,14 +184,70 @@ describe("fetchReleaseChapters", () => {
 		);
 	});
 
-	it("asks for a smaller range past the commits a walkthrough can chapter", async () => {
+	it("plays a release past 30 commits as one change behind its card, and says so", async () => {
+		const commits = [
+			...Array.from({ length: 45 }, (_, index) => commit(`c${index}abcdef`, "Work")),
+			commit("mmm2222", "Merge pull request #9", 2),
+		];
+		const calls = github({
+			[`${API}/releases/tags/v1.2.0`]: () => json({ name: "Faster imports", body: "" }),
+			[`${API}/tags?per_page=100&page=1`]: () => json([{ name: "v1.2.0" }, { name: "v1.1.0" }]),
+			[`${API}/compare/v1.1.0...v1.2.0`]: (accept) =>
+				asDiff(accept) ? new Response(diffFor("whole")) : json({ total_commits: 46, commits }),
+		});
+
+		const walkthrough = await fetchReleaseChapters(RELEASE);
+
+		expect(walkthrough.card).toEqual({ title: "Faster imports" });
+		// Untitled: the range plays as one change, not as a chapter of one.
+		expect(walkthrough.chapters).toEqual([{ title: "", diffText: diffFor("whole") }]);
+		// GitHub's own count, the one the release page shows.
+		expect(walkthrough.notice).toBe("46 commits, shown as one change");
+		expect(calls).toContain(`${API}/compare/v1.1.0...v1.2.0 (diff)`);
+		expect(calls.some((url) => url.startsWith(`${API}/commits/`))).toBe(false);
+	});
+
+	it("plays a compare link past 30 commits as one change too", async () => {
+		// GitHub lists 250 commits of a range at most; the rest only count.
+		const commits = Array.from({ length: 250 }, (_, index) => commit(`c${index}abcdef`, "Work"));
+		github({
+			[`${API}/compare/v1.0.0...main`]: (accept) =>
+				asDiff(accept) ? new Response(diffFor("whole")) : json({ total_commits: 612, commits }),
+		});
+
+		const walkthrough = await fetchReleaseChapters({
+			owner: "o",
+			repo: "r",
+			base: "v1.0.0",
+			head: "main",
+		});
+
+		expect(walkthrough.chapters).toEqual([{ title: "", diffText: diffFor("whole") }]);
+		expect(walkthrough.notice).toBe("612 commits, shown as one change");
+	});
+
+	it("asks for a smaller range when GitHub will not serve the whole change", async () => {
 		const commits = Array.from({ length: 31 }, (_, index) => commit(`c${index}abcdef`, "Work"));
 		github({
 			[`${API}/tags?per_page=100&page=1`]: () => json([{ name: "v1.2.0" }, { name: "v1.1.0" }]),
-			[`${API}/compare/v1.1.0...v1.2.0`]: () => json({ total_commits: 31, commits }),
+			[`${API}/compare/v1.1.0...v1.2.0`]: (accept) =>
+				asDiff(accept)
+					? json({ message: "diff too large" }, 406)
+					: json({ total_commits: 31, commits }),
 		});
 		await expect(fetchReleaseChapters(RELEASE)).rejects.toThrow(
-			"This release spans 31 commits, more than the 30 a video chapters: pass a smaller range",
+			"GitHub will not compare a range this large: pass a smaller range",
+		);
+	});
+
+	it("asks for a compare link when the first tag's history runs past 30 commits", async () => {
+		const history = Array.from({ length: 31 }, (_, index) => commit(`c${index}abcdef`, "Work"));
+		github({
+			[`${API}/tags?per_page=100&page=1`]: () => json([{ name: "v1.2.0" }]),
+			[`${API}/commits?sha=v1.2.0&per_page=31`]: () => json(history),
+		});
+		await expect(fetchReleaseChapters(RELEASE)).rejects.toThrow(
+			"v1.2.0 is the first tag and its history runs past 30 commits, with no tag before it to compare with: pass a compare link",
 		);
 	});
 });
