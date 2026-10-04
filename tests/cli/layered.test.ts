@@ -31,6 +31,7 @@ function io(overrides: Partial<CliIO> = {}): CliIO {
 		readStdin: async () => "",
 		fetchPr: async () => Promise.reject(new Error("unused")),
 		fetchCommit: async () => Promise.reject(new Error("unused")),
+		fetchRelease: async () => Promise.reject(new Error("unused")),
 		render: vi.fn(async () => BYTES),
 		renderLayered: vi.fn(async () => BYTES),
 		measure: vi.fn(async () => ({

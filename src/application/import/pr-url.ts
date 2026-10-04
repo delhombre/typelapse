@@ -1,7 +1,8 @@
 /**
  * Pure resolvers mapping a pasted GitHub URL to the coordinates of a change to
- * animate: a pull request (`{owner, repo, number}`) or a single commit
- * (`{owner, repo, sha}`). No network here: the infrastructure adapter
+ * animate: a pull request (`{owner, repo, number}`), a single commit
+ * (`{owner, repo, sha}`), a release (`{owner, repo, tag}`) or a compare range
+ * (`{owner, repo, base, head}`). No network here: the infrastructure adapter
  * (`import/pr-import`) turns these refs into a fetched diff + title. This mirrors
  * the value-map style of the sibling `code-url` resolver.
  */
@@ -84,4 +85,71 @@ export function resolveCommitUrl(input: string): CommitRef | null {
 		return null;
 	}
 	return { owner, repo, sha };
+}
+
+/** A GitHub release, or a bare tag shown on the release page: repo coordinates + tag. */
+export interface ReleaseRef {
+	owner: string;
+	repo: string;
+	tag: string;
+}
+
+/** A range between two refs (tags, branches or shas), as a compare page names it. */
+export interface CompareRef {
+	owner: string;
+	repo: string;
+	base: string;
+	head: string;
+}
+
+/** A path segment as GitHub means it: `v1.0%2Bbuild` is the tag `v1.0+build`. */
+function decodeSegment(segment: string): string {
+	try {
+		return decodeURIComponent(segment);
+	} catch {
+		return segment;
+	}
+}
+
+/**
+ * Resolve `github.com/{owner}/{repo}/releases/tag/{tag}` (the page a release
+ * event's `html_url` points at) to a {@link ReleaseRef}. A tag may hold a slash
+ * (`release/2.0`), so everything after `tag/` is the tag. The releases list and
+ * the `latest` alias name no tag and resolve to null.
+ */
+export function resolveReleaseUrl(input: string): ReleaseRef | null {
+	const segments = githubSegments(input);
+	if (!segments) {
+		return null;
+	}
+	const [owner, repo, kind, sub, ...rest] = segments;
+	if (!owner || !repo || kind !== "releases" || sub !== "tag" || rest.length === 0) {
+		return null;
+	}
+	return { owner, repo, tag: rest.map(decodeSegment).join("/") };
+}
+
+/**
+ * Resolve `github.com/{owner}/{repo}/compare/{base}...{head}` (or the two-dot
+ * form) to a {@link CompareRef}. Both sides are required: a compare against the
+ * default branch alone names no range a release could be.
+ */
+export function resolveCompareUrl(input: string): CompareRef | null {
+	const segments = githubSegments(input);
+	if (!segments) {
+		return null;
+	}
+	const [owner, repo, kind, ...rest] = segments;
+	if (!owner || !repo || kind !== "compare" || rest.length === 0) {
+		return null;
+	}
+	const range = rest.map(decodeSegment).join("/");
+	const separator = range.includes("...") ? "..." : "..";
+	const at = range.indexOf(separator);
+	const base = range.slice(0, at);
+	const head = range.slice(at + separator.length);
+	if (at <= 0 || head === "") {
+		return null;
+	}
+	return { owner, repo, base, head };
 }

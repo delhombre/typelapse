@@ -57,6 +57,11 @@ describe("classifySource", () => {
 		expect(classifySource("https://github.com/o/r/commit/abc1234")).toBe("commit");
 	});
 
+	it("calls a release page a release and a compare page a compare", () => {
+		expect(classifySource("https://github.com/o/r/releases/tag/v1.2.0")).toBe("release");
+		expect(classifySource("github.com/o/r/compare/v1.1.0...v1.2.0")).toBe("compare");
+	});
+
 	it("calls a gist url a code-url", () => {
 		expect(classifySource("https://gist.github.com/user/abc123")).toBe("code-url");
 	});

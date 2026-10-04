@@ -1,5 +1,5 @@
 /**
- * `typelapse render <pr-url|commit-url|diff-file|project.json>`: the studio's
+ * `typelapse render <pr-url|commit-url|release-url|diff-file|project.json>`: the studio's
  * server export without the studio. Local, no account, the same route and the
  * same defaults, so the file is the one the export panel would have made.
  *
@@ -10,10 +10,13 @@
 
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { withReleaseCard } from "@/application/import/release-project";
+import { migrateV1ToV2 } from "@/application/project/migrate-v1-project";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import type { HostedRenderOptions } from "@/application/render/hosted-render-job";
 import { fetchCommitDiff, fetchPrWalkthrough } from "@/infrastructure/import/pr-import";
+import { fetchReleaseChapters } from "@/infrastructure/import/release-import";
 import { outputSettingsFor } from "../server/remotion/output-settings";
 import { type CliFormat, type RenderOptions, parseCliArgs } from "./args";
 import { CliError, EXIT_RENDER, EXIT_USAGE, type FailureCode } from "./errors";
@@ -59,6 +62,10 @@ Usage:
 Source:
   https://github.com/<owner>/<repo>/pull/<n>     a pull request (whole change)
   https://github.com/<owner>/<repo>/commit/<sha> a commit
+  https://github.com/<owner>/<repo>/releases/tag/<tag>
+                                                 a release, from the tag before it, by commit
+  https://github.com/<owner>/<repo>/compare/<a>...<b>
+                                                 a range, by commit
   change.diff                                    a unified diff file (- reads stdin)
   project.json                                   a project exported from the studio
 
@@ -123,6 +130,23 @@ async function render(options: RenderOptions, io: CliIO): Promise<void> {
 		size: options.size,
 		fps: options.fps,
 	});
+	if (source.card) {
+		if (options.format === "gif") {
+			throw new CliError(
+				"A release opens on a title card, so it renders as mp4 or webm, not gif",
+				EXIT_USAGE,
+			);
+		}
+		if (source.notice) {
+			io.stderr(`typelapse: ${source.notice}`);
+		}
+		// The theme is the code card's, applied before the title card joins it,
+		// so --theme still means what it means for a pull request.
+		const document = withReleaseCard(migrateV1ToV2(project), source.card);
+		const studioUrl = studioBase ? () => studioLink(source, project, studioBase) : null;
+		await renderLayered(document, source.arg, { ...options, theme: undefined }, io, studioUrl);
+		return;
+	}
 	const settings: RenderSettings = {
 		format: options.format,
 		// The export panel's default, for a project saved before it recorded a rate.
@@ -158,6 +182,7 @@ async function renderLayered(
 	arg: string,
 	options: RenderOptions,
 	io: CliIO,
+	studioUrl: (() => string) | null = null,
 ): Promise<void> {
 	if (options.format === "gif") {
 		throw new CliError("A project with text layers renders as mp4 or webm, not gif", EXIT_USAGE);
@@ -168,7 +193,7 @@ async function renderLayered(
 			EXIT_USAGE,
 		);
 	}
-	if (options.open) {
+	if (options.open && !studioUrl) {
 		io.stderr(
 			"typelapse: a project with text layers opens in the studio with Open project file, so there is no link to print",
 		);
@@ -187,7 +212,7 @@ async function renderLayered(
 		`Rendering ${arg} as ${options.format}, ${renderOptions.width}x${renderOptions.height} at ${renderOptions.fps} fps…`,
 	);
 	const bytes = await renderOrFail(() => io.renderLayered(document, renderOptions));
-	await deliver(path, bytes, options, io, null);
+	await deliver(path, bytes, options, io, studioUrl);
 }
 
 /** Write the file, read it back, and say what it is: the same result for every source. */
@@ -330,6 +355,7 @@ export function defaultIO(): CliIO {
 		readStdin,
 		fetchPr: fetchPrWalkthrough,
 		fetchCommit: fetchCommitDiff,
+		fetchRelease: fetchReleaseChapters,
 		render: renderProject,
 		renderLayered: renderLayeredDocument,
 		measure: measureVideo,

@@ -23,6 +23,11 @@ describe("routeUrlPaste", () => {
 		).toBe("open-here");
 	});
 
+	it("opens a release or a compare itself: it always plays by commit", () => {
+		expect(routeUrlPaste("https://github.com/o/r/releases/tag/v1.2.0")).toBe("open-here");
+		expect(routeUrlPaste("https://github.com/o/r/compare/v1.1.0...v1.2.0")).toBe("open-here");
+	});
+
 	it("opens a file or a gist itself, as it always did", () => {
 		expect(routeUrlPaste("https://github.com/honojs/hono/blob/main/src/utils/url.ts")).toBe(
 			"open-here",

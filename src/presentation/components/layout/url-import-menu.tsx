@@ -124,7 +124,9 @@ export function UrlImportMenu({
 				await performOpen(trimmed);
 				return;
 			default:
-				setRefusal("Unsupported URL: paste a gist, a GitHub file, a commit or a pull request link");
+				setRefusal(
+					"Unsupported URL: paste a gist, a GitHub file, a commit, a pull request or a release link",
+				);
 		}
 	}
 
@@ -180,7 +182,7 @@ export function UrlImportMenu({
 								</button>
 								<div>
 									<strong>Paste a link</strong>
-									<span>Gist, GitHub file, commit or pull request</span>
+									<span>Gist, GitHub file, commit, pull request or release</span>
 								</div>
 							</div>
 						)}

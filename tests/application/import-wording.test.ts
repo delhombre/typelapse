@@ -8,6 +8,8 @@ describe("import wording", () => {
 		expect(importConfirmLabel("commit")).toBe("Import the commit");
 		expect(importConfirmLabel("code-url")).toBe("Import the file");
 		expect(importConfirmLabel("snippet")).toBe("Import the code");
+		expect(importConfirmLabel("release")).toBe("Import the release");
+		expect(importConfirmLabel("compare")).toBe("Import the comparison");
 	});
 
 	it("asks one question that names it too", () => {

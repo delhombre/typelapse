@@ -21,8 +21,11 @@ export function routeUrlPaste(input: string): UrlPasteRoute {
 		case "pr":
 			return "hand-off";
 		// No play mode to choose, so this control finishes them itself, along the
-		// one import path the hero and the diff dialog also walk.
+		// one import path the hero and the diff dialog also walk. A release or a
+		// compare always plays by commit: its whole change is a changelog, not a story.
 		case "commit":
+		case "release":
+		case "compare":
 		case "code-url":
 			return "open-here";
 		// A raw diff, a stray paste, an empty field: not a link. A single-line

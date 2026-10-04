@@ -3,6 +3,8 @@ import type { SourceKind } from "./classify-source";
 const SUBJECTS: Record<Exclude<SourceKind, "empty">, string> = {
 	pr: "pull request",
 	commit: "commit",
+	release: "release",
+	compare: "comparison",
 	diff: "diff",
 	"code-url": "file",
 	snippet: "code",

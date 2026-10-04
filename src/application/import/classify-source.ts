@@ -14,10 +14,18 @@
  */
 
 import { resolveCodeUrl } from "./code-url";
-import { resolveCommitUrl, resolvePrUrl } from "./pr-url";
+import { resolveCommitUrl, resolveCompareUrl, resolvePrUrl, resolveReleaseUrl } from "./pr-url";
 
-/** The five things a paste can be, plus the absence of one. */
-export type SourceKind = "empty" | "pr" | "commit" | "code-url" | "diff" | "snippet";
+/** The seven things a paste can be, plus the absence of one. */
+export type SourceKind =
+	| "empty"
+	| "pr"
+	| "commit"
+	| "release"
+	| "compare"
+	| "code-url"
+	| "diff"
+	| "snippet";
 
 /** `diff --git a/x b/x` — git's own header, the least ambiguous marker there is. */
 const GIT_HEADER = /^diff --git /m;
@@ -75,6 +83,12 @@ export function classifySource(input: string): SourceKind {
 	}
 	if (resolveCommitUrl(trimmed)) {
 		return "commit";
+	}
+	if (resolveReleaseUrl(trimmed)) {
+		return "release";
+	}
+	if (resolveCompareUrl(trimmed)) {
+		return "compare";
 	}
 	if (resolveCodeUrl(trimmed)) {
 		return "code-url";

@@ -130,3 +130,23 @@ export function chapterSnapshots(
 
 	return out;
 }
+
+/**
+ * The Shiki language for a chaptered import: the first chapter whose primary file
+ * has a recognizable extension. Reuses diffToSnapshots' own inference so chapters
+ * tag their language exactly as a single-diff import would; a lockfiles-only or
+ * unparseable chapter carries none, so the next one is tried.
+ */
+export function chapterLanguage(chapters: DiffChapter[]): string | undefined {
+	for (const chapter of chapters) {
+		try {
+			const { language } = diffToSnapshots(chapter.diffText);
+			if (language) {
+				return language;
+			}
+		} catch {
+			// No usable diff in this chapter: its language is undecidable, try the next.
+		}
+	}
+	return undefined;
+}
