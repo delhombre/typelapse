@@ -1,63 +1,116 @@
-import type { BillingPort, CheckoutSession } from "@/domain/ports/billing.port";
+import type {
+	BillingCadence,
+	BillingCatalog,
+	BillingPort,
+	BillingPortalSession,
+	CheckoutSession,
+} from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
 
-const STORAGE_KEY = "typelapse:plan";
-
-function readTier(): string {
-	try {
-		return localStorage.getItem(STORAGE_KEY) ?? "free";
-	} catch {
-		return "free";
-	}
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function writeTier(tier: "free" | "pro"): void {
-	try {
-		localStorage.setItem(STORAGE_KEY, tier);
-	} catch {
-		// non-persistent environments (SSR, private mode): ignore
+async function responseBody(response: Response): Promise<Record<string, unknown>> {
+	const body = await response.json().catch(() => null);
+	if (!response.ok) {
+		const message =
+			isRecord(body) && typeof body.error === "string" ? body.error : "Billing failed";
+		throw new Error(message);
 	}
+	if (!isRecord(body)) {
+		throw new Error("Billing returned an invalid response");
+	}
+	return body;
 }
 
-/**
- * Placeholder Stripe billing adapter.
- *
- * Production flow:
- *   1. `startCheckout()` -> `POST /api/billing/checkout` creates a Stripe
- *      Checkout Session; the browser is redirected to `session.url`.
- *   2. Stripe fires `checkout.session.completed` -> `POST /api/billing/webhook`
- *      flips the customer to Pro server-side.
- *   3. `getCurrentPlan()` reads the plan from the authenticated session.
- *
- * Until that infra exists this adapter persists the tier in localStorage and
- * simulates a completed checkout, so the gating can be exercised end-to-end
- * without real payments. Everything payment-related is intentionally stubbed.
- */
+function secureRedirect(value: unknown): string {
+	if (typeof value !== "string") {
+		throw new Error("Billing did not return a secure redirect URL");
+	}
+	let url: URL;
+	try {
+		url = new URL(value);
+	} catch {
+		throw new Error("Billing did not return a secure redirect URL");
+	}
+	if (url.protocol !== "https:") {
+		throw new Error("Billing did not return a secure redirect URL");
+	}
+	return url.toString();
+}
+
+function billingPrice(value: unknown): { currency: string; unitAmount: number } | undefined {
+	if (!isRecord(value)) return undefined;
+	if (
+		typeof value.currency !== "string" ||
+		!/^[A-Z]{3}$/.test(value.currency) ||
+		typeof value.unitAmount !== "number" ||
+		!Number.isSafeInteger(value.unitAmount) ||
+		value.unitAmount <= 0
+	) {
+		throw new Error("Billing returned an invalid price");
+	}
+	return { currency: value.currency, unitAmount: value.unitAmount };
+}
+
+/** Browser adapter for the server-authoritative Stripe integration. */
 export class StripeBillingAdapter implements BillingPort {
-	async getCurrentPlan(): Promise<Plan> {
-		return Plan.fromTier(readTier());
-	}
+	// The default wraps fetch rather than storing it: called as `this.fetcher(...)`
+	// a bare window.fetch throws "Illegal invocation" in every browser.
+	constructor(private readonly fetcher: typeof fetch = (input, init) => fetch(input, init)) {}
 
-	async startCheckout(): Promise<CheckoutSession> {
-		let session: CheckoutSession = { url: "#", sessionId: "placeholder" };
-		try {
-			const res = await fetch("/api/billing/checkout", { method: "POST" });
-			if (res.ok) {
-				const data = (await res.json()) as Partial<CheckoutSession>;
-				session = {
-					url: data.url ?? "#",
-					sessionId: data.sessionId ?? "placeholder",
-				};
-			}
-		} catch {
-			// server stub unavailable: still simulate the upgrade below
+	async getCatalog(): Promise<BillingCatalog> {
+		const response = await this.fetcher("/api/billing/catalog", { credentials: "include" });
+		const body = await responseBody(response);
+		if (!isRecord(body.creator)) {
+			throw new Error("Billing returned an invalid catalog");
 		}
-		// Placeholder: no real Stripe redirect/webhook yet, so complete locally.
-		writeTier("pro");
-		return session;
+		const monthly = billingPrice(body.creator.monthly);
+		const annual = billingPrice(body.creator.annual);
+		if (!monthly && !annual) {
+			throw new Error("Billing returned an empty catalog");
+		}
+		return { creator: { ...(monthly ? { monthly } : {}), ...(annual ? { annual } : {}) } };
 	}
 
-	async cancelSubscription(): Promise<void> {
-		writeTier("free");
+	async getCurrentPlan(): Promise<Plan> {
+		const response = await this.fetcher("/api/billing/plan", { credentials: "include" });
+		const body = await responseBody(response);
+		const tier = isRecord(body.plan) ? body.plan.tier : undefined;
+		return tier === "creator" ? Plan.pro() : Plan.free();
+	}
+
+	async getAllowance(): Promise<string> {
+		const response = await this.fetcher("/api/billing/allowance", { credentials: "include" });
+		const body = await responseBody(response);
+		const sentence = isRecord(body.allowance) ? body.allowance.sentence : undefined;
+		if (typeof sentence !== "string" || !sentence.trim()) {
+			throw new Error("Billing returned an invalid allowance");
+		}
+		return sentence;
+	}
+
+	async startCheckout(cadence: BillingCadence): Promise<CheckoutSession> {
+		const response = await this.fetcher("/api/billing/checkout", {
+			method: "POST",
+			credentials: "include",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ cadence }),
+		});
+		const body = await responseBody(response);
+		if (typeof body.sessionId !== "string") {
+			throw new Error("Billing returned an invalid Checkout session");
+		}
+		return { url: secureRedirect(body.url), sessionId: body.sessionId };
+	}
+
+	async openPortal(): Promise<BillingPortalSession> {
+		const response = await this.fetcher("/api/billing/portal", {
+			method: "POST",
+			credentials: "include",
+		});
+		const body = await responseBody(response);
+		return { url: secureRedirect(body.url) };
 	}
 }

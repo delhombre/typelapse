@@ -56,4 +56,18 @@ describe("useSourceImport preserves the paste", () => {
 		expect(imported).toBe(false);
 		expect(useSnippetStore.getState().snippet.code).toBe(before);
 	});
+
+	it("refuses a link nothing can read instead of importing the URL as code", async () => {
+		const { result } = renderHook(() => useSourceImport());
+		const before = useSnippetStore.getState().snippet.code;
+
+		let imported: boolean | undefined;
+		await act(async () => {
+			imported = await result.current.run("https://gitlab.com/a/b/-/merge_requests/1");
+		});
+
+		expect(imported).toBe(false);
+		expect(result.current.error).toContain("That link is none of them");
+		expect(useSnippetStore.getState().snippet.code).toBe(before);
+	});
 });

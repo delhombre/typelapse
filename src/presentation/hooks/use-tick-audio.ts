@@ -3,9 +3,9 @@ import {
 	encodeWavBase64,
 	renderTickTrack,
 } from "@/application/audio/tick-synth";
-import { buildTimeline } from "@/application/magic-move/timeline";
+import { typingHoldIndex } from "@/application/magic-move/typewriter";
 import { useExportStore } from "@/presentation/stores/export.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { studioPlaybackTimeline, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect } from "react";
 
 type AudioContextCtor = typeof AudioContext;
@@ -18,6 +18,18 @@ function getAudioContextCtor(): AudioContextCtor | undefined {
 		window.AudioContext ??
 		(window as unknown as { webkitAudioContext?: AudioContextCtor }).webkitAudioContext
 	);
+}
+
+/** Keep a resumed preview track aligned with the exact frame held by the scrubber. */
+export function previewAudioOffsetSeconds(
+	playbackProgress: number,
+	totalMs: number,
+	decodeMs: number,
+	bufferDurationSeconds: number,
+): number {
+	const progress = Math.min(Math.max(playbackProgress, 0), 1);
+	const requested = (progress * Math.max(totalMs, 0) + Math.max(decodeMs, 0)) / 1000;
+	return Math.min(Math.max(requested, 0), Math.max(bufferDurationSeconds, 0));
 }
 
 /**
@@ -43,18 +55,23 @@ export function useTickAudio(): void {
 
 		// Read inputs fresh at play start: the exact numbers the export route uses.
 		const { steps } = useSnippetStore.getState().snippet;
-		if (steps.length < 2) {
+		const timeline = studioPlaybackTimeline();
+		if (steps.length === 0 || !timeline) {
 			return;
 		}
 		const { transitionMs, typewriter } = useExportStore.getState();
 		const holds = steps.map((s) => s.duration);
+		const typewriterHoldIndex = typingHoldIndex(steps.map((s) => s.code));
 		const events = collectTickEvents({
 			typewriter,
-			firstCodeLength: steps[0]?.code.length ?? 0,
+			firstCodeLength: steps[typewriterHoldIndex]?.code.length ?? 0,
 			holds,
 			transitionMs,
+			typewriterHoldIndex,
 		});
-		const totalMs = buildTimeline(holds, transitionMs).totalMs;
+		// The playhead's own total, so a resumed track lands on the held frame.
+		const totalMs = timeline.totalMs;
+		const startProgress = useSnippetStore.getState().playbackProgress;
 		const dataUrl = encodeWavBase64(renderTickTrack(events, totalMs), 44100);
 
 		const ctx = new Ctor();
@@ -73,8 +90,14 @@ export function useTickAudio(): void {
 				source = ctx.createBufferSource();
 				source.buffer = audioBuffer;
 				source.connect(ctx.destination);
-				// Skip the time spent decoding so the audio tracks the visual playback.
-				const offset = Math.min((performance.now() - startedAt) / 1000, audioBuffer.duration);
+				// Start at the held timeline frame, then skip decode time so sound and
+				// motion resume together instead of replaying ticks from the beginning.
+				const offset = previewAudioOffsetSeconds(
+					startProgress,
+					totalMs,
+					performance.now() - startedAt,
+					audioBuffer.duration,
+				);
 				source.start(0, Math.max(0, offset));
 			})
 			.catch(() => undefined);

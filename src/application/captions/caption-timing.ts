@@ -8,10 +8,10 @@
  * contributes nothing (opacity 0 for its whole span).
  */
 
-/** Where playback sits, as far as captions care: a held step or a morph. */
+/** Where playback sits, as far as captions care: a held step, a morph, or the loop morph. */
 export interface CaptionPlayback {
-	phase: "hold" | "transition";
-	/** Held step, or the "from" step of the active transition. */
+	phase: "hold" | "transition" | "loop";
+	/** Held step, or the "from" step of the active transition (the last step for the loop). */
 	index: number;
 	/** Local progress within a transition (0..1); ignored while holding. */
 	t: number;
@@ -43,7 +43,8 @@ export function captionAt(
 	}
 
 	const from = annotations[index] ?? "";
-	const to = annotations[index + 1] ?? "";
+	// The loop morphs the last step back to the first, so its caption does too.
+	const to = annotations[phase === "loop" ? 0 : index + 1] ?? "";
 	const progress = clamp01(t);
 
 	// First 40%: the outgoing caption fades out.

@@ -7,6 +7,11 @@ const FORMAT_NAMES: Record<RenderFormat, string> = {
 	gif: "GIF",
 };
 
+/** A format as it writes its own name: "MP4", "WebM", "GIF". */
+export function formatName(format: RenderFormat): string {
+	return FORMAT_NAMES[format];
+}
+
 /**
  * What the one filled shape in the island says.
  *
@@ -39,4 +44,22 @@ export function exportCtaDetail(config: {
 	const name = FORMAT_NAMES[config.format];
 	const preset = presetFor(config.width, config.height);
 	return preset ? `${name} · ${preset.tier}` : name;
+}
+
+/**
+ * What the finished file's codec is called, where that is not a foregone
+ * conclusion.
+ *
+ * MP4 is H.264, and will be H.264 for as long as MP4's job is to open anywhere
+ * on anything: saying so adds a word and no information. WebM's codec is chosen
+ * off a ladder at run time — AV1 with whole chroma where the browser has it, and
+ * VP9 or VP8 where it does not — and the difference between the top rung and the
+ * bottom one is most of the file's quality. A ladder that falls back without
+ * saying so is indistinguishable, from the outside, from one that never worked.
+ */
+export function exportCodecNote(format: RenderFormat, codecLabel: string | null): string | null {
+	if (format !== "webm" || !codecLabel) {
+		return null;
+	}
+	return `${FORMAT_NAMES[format]} · ${codecLabel}`;
 }

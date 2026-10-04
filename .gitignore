@@ -21,3 +21,10 @@ CLAUDE.md
 
 # Local-only Lapse tooling: a licence-gated package that must not gate anyone else
 .lapse/
+
+# Codex local config (holds MCP API keys)
+.codex/
+
+# `pnpm demo:render --mp4` writes this to eyeball the GIF against a lossless
+# reference. Only the GIF is an asset; the reference is scratch.
+docs/demo.mp4

@@ -1,4 +1,8 @@
-import { classifySource, looksLikeUnifiedDiff } from "@/application/import/classify-source";
+import {
+	classifySource,
+	isBareLink,
+	looksLikeUnifiedDiff,
+} from "@/application/import/classify-source";
 import { describe, expect, it } from "vitest";
 
 describe("looksLikeUnifiedDiff", () => {
@@ -80,5 +84,23 @@ describe("classifySource", () => {
 
 	it("treats a multi-line code paste as a snippet, not a diff", () => {
 		expect(classifySource("function a() {\n\treturn 1;\n}")).toBe("snippet");
+	});
+});
+
+describe("isBareLink", () => {
+	// A link no resolver claims falls through to "snippet"; this is what stops the
+	// studio from importing the URL itself as code.
+	it("recognises links the resolvers do not read", () => {
+		expect(isBareLink("https://github.com/octocat/Hello-World/pull/abc")).toBe(true);
+		expect(isBareLink("https://gitlab.com/a/b/-/merge_requests/1")).toBe(true);
+		expect(isBareLink("  github.com/octocat  ")).toBe(true);
+		expect(isBareLink("www.example.com/file.ts")).toBe(true);
+	});
+
+	it("leaves code alone, including one-liners that contain a dot and a slash", () => {
+		expect(isBareLink("Math.PI/2")).toBe(false);
+		expect(isBareLink("total.value / count")).toBe(false);
+		expect(isBareLink('fetch("https://example.com")')).toBe(false);
+		expect(isBareLink("// see https://example.com\nconst a = 1;")).toBe(false);
 	});
 });

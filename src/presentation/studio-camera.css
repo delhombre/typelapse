@@ -1,0 +1,3799 @@
+/*
+ * Scene Table — the ui.camera-inspired desktop studio.
+ *
+ * The reference contributes hierarchy and interaction grammar: an object-first
+ * stage, one instrument rail, and a persistent film timeline. Typelapse keeps
+ * its own vocabulary, brand colour and code-video controls.
+ */
+
+.studio-camera-root {
+	--camera-header: 80px;
+	--camera-timeline-height: 218px;
+	--camera-timeline-bottom: 16px;
+	--camera-rail-bottom: 246px;
+	--camera-accent: #2f80ff;
+	--camera-amber: #ffd50b;
+	--camera-coral: #ef5b43;
+	--camera-focus: #1d1d20;
+	--camera-ink: #1d1d20;
+	--camera-line: rgb(29 29 32 / 0.05);
+	/* Slightly darker than the reference's muted ink so 11px labels still pass
+	   AA on the near-white paper instead of missing the threshold by 0.07. */
+	--camera-muted: #74717a;
+	--camera-pill: #f1f2f4;
+	--camera-paper: #f9fafc;
+	--camera-control-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 3px 9px rgb(15 23 42 / 0.024);
+	--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024);
+	--camera-dark-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 5px 16px rgb(0 0 0 / 0.07);
+	isolation: isolate;
+	background: var(--camera-paper);
+	color: var(--camera-ink);
+	/* Open Runde is part of ui.camera's identity. We keep our own assets and use
+	   the platform's rounded UI face first, with Geist as the portable fallback. */
+	font-family: ui-rounded, "SF Pro Rounded", var(--font-sans);
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Reicon is drawn on a consistent 24px grid. Keeping every glyph as a block
+   prevents baseline whitespace from making the islands look one pixel low. */
+.studio-camera-root .reicon {
+	display: block;
+	flex: none;
+}
+
+.dark .studio-camera-root {
+	--camera-line: rgb(255 255 255 / 0.08);
+	--camera-muted: #a09da6;
+	--camera-pill: #242428;
+	--camera-paper: #101114;
+	--camera-focus: #f5f5f7;
+	background: var(--camera-paper);
+}
+
+/* ui.camera's helpers are tiny floating labels, not browser-native `title`
+   bubbles: fixed through a portal, collision-aware through Radix, and visually
+   part of the same rounded instrument material as the rest of the studio. */
+.studio-tooltip {
+	z-index: 200;
+	display: inline-flex;
+	height: 24px;
+	align-items: center;
+	justify-content: center;
+	padding: 0 10px;
+	border: 1px solid rgb(29 29 32 / 0.09);
+	border-radius: 999px;
+	background: #f1f2f4;
+	box-shadow: 0 6px 18px rgb(18 18 20 / 0.16);
+	color: #252329;
+	font-family: ui-rounded, "SF Pro Rounded", var(--font-sans);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1;
+	letter-spacing: -0.01em;
+	pointer-events: none;
+	transform-origin: var(--radix-tooltip-content-transform-origin);
+	user-select: none;
+	white-space: nowrap;
+}
+
+.dark .studio-tooltip {
+	border-color: rgb(255 255 255 / 0.1);
+	background: #292a2f;
+	box-shadow: 0 7px 20px rgb(0 0 0 / 0.32);
+	color: #f5f5f7;
+}
+
+.studio-tooltip[data-state="instant-open"][data-side="top"],
+.studio-tooltip[data-state="delayed-open"][data-side="top"] {
+	animation: studio-tooltip-in-top 110ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-tooltip[data-state="instant-open"][data-side="bottom"],
+.studio-tooltip[data-state="delayed-open"][data-side="bottom"] {
+	animation: studio-tooltip-in-bottom 110ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-tooltip[data-state="instant-open"][data-side="left"],
+.studio-tooltip[data-state="delayed-open"][data-side="left"] {
+	animation: studio-tooltip-in-left 110ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-tooltip[data-state="instant-open"][data-side="right"],
+.studio-tooltip[data-state="delayed-open"][data-side="right"] {
+	animation: studio-tooltip-in-right 110ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.studio-tooltip[data-state="closed"][data-side="top"] {
+	animation: studio-tooltip-out-top 75ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.studio-tooltip[data-state="closed"][data-side="bottom"] {
+	animation: studio-tooltip-out-bottom 75ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.studio-tooltip[data-state="closed"][data-side="left"] {
+	animation: studio-tooltip-out-left 75ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+.studio-tooltip[data-state="closed"][data-side="right"] {
+	animation: studio-tooltip-out-right 75ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes studio-tooltip-in-top {
+	from {
+		opacity: 0;
+		transform: translateY(3px) scale(0.91);
+	}
+}
+
+@keyframes studio-tooltip-in-bottom {
+	from {
+		opacity: 0;
+		transform: translateY(-3px) scale(0.91);
+	}
+}
+
+@keyframes studio-tooltip-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(3px) scale(0.91);
+	}
+}
+
+@keyframes studio-tooltip-in-right {
+	from {
+		opacity: 0;
+		transform: translateX(-3px) scale(0.91);
+	}
+}
+
+@keyframes studio-tooltip-out-top {
+	to {
+		opacity: 0;
+		transform: translateY(2px) scale(0.96);
+	}
+}
+
+@keyframes studio-tooltip-out-bottom {
+	to {
+		opacity: 0;
+		transform: translateY(-2px) scale(0.96);
+	}
+}
+
+@keyframes studio-tooltip-out-left {
+	to {
+		opacity: 0;
+		transform: translateX(2px) scale(0.96);
+	}
+}
+
+@keyframes studio-tooltip-out-right {
+	to {
+		opacity: 0;
+		transform: translateX(-2px) scale(0.96);
+	}
+}
+
+.studio-camera-header {
+	position: absolute;
+	inset: 0 0 auto;
+	z-index: 30;
+	height: var(--camera-header);
+	border: 0;
+	background: transparent;
+}
+
+.studio-camera-root .sc-corner {
+	top: 20px;
+}
+
+.studio-camera-root .sc-corner-left {
+	left: 22px;
+}
+
+.studio-camera-root .sc-corner-right {
+	right: 22px;
+}
+
+.studio-camera-root .sc-island-group {
+	display: flex;
+	height: 40px;
+	align-items: center;
+	gap: 8px;
+}
+
+.studio-camera-root .sc-chip {
+	height: 40px;
+	padding-inline: 3px;
+	border: 1px solid var(--camera-line);
+	border-radius: 20px;
+	background: #fff;
+	box-shadow: var(--camera-surface-shadow);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
+.dark .studio-camera-root .sc-chip {
+	background: #1b1c20;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 5px 18px rgb(0 0 0 / 0.18);
+}
+
+.studio-camera-root .sc-brand {
+	position: relative;
+	width: 30px;
+	height: 30px;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--camera-muted);
+}
+
+/* The glyph stays optically small while the link gets a 40px desktop target. */
+.studio-camera-root .sc-brand::after {
+	content: "";
+	position: absolute;
+	inset: -5px;
+}
+
+.studio-camera-root .sc-project {
+	gap: 2px;
+	padding-right: 12px;
+}
+
+.sc-project-root {
+	position: relative;
+}
+
+.studio-camera-root .sc-title {
+	height: 30px;
+	padding-inline: 3px;
+	color: var(--camera-ink);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: -0.012em;
+}
+
+.dark .studio-camera-root .sc-title {
+	color: #f5f5f7;
+}
+
+.studio-camera-root .sc-steps {
+	padding-right: 0;
+	color: var(--camera-muted);
+	font-size: 10.5px;
+}
+
+.sc-project-trigger {
+	display: inline-flex;
+	width: 24px;
+	height: 30px;
+	align-items: center;
+	justify-content: center;
+	margin-right: -7px;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--camera-muted);
+}
+
+.sc-project-trigger svg {
+	transition: transform 160ms var(--ease-out);
+}
+
+.sc-project-trigger:focus-visible,
+.sc-project-menu button:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+.sc-project-menu {
+	position: absolute;
+	top: calc(100% + 10px);
+	left: 0;
+	z-index: 80;
+	width: 310px;
+	overflow: hidden;
+	border: 1px solid #e5e5e8;
+	border-radius: 18px;
+	background: rgb(255 255 255 / 0.98);
+	box-shadow: 0 14px 42px rgb(20 20 24 / 0.1);
+	color: var(--camera-ink);
+	-webkit-backdrop-filter: blur(18px) saturate(1.05);
+	backdrop-filter: blur(18px) saturate(1.05);
+}
+
+.dark .sc-project-menu {
+	border-color: rgb(255 255 255 / 0.09);
+	background: rgb(29 29 32 / 0.97);
+	box-shadow: 0 18px 48px rgb(0 0 0 / 0.35);
+	color: #f5f5f7;
+}
+
+.sc-project-menu-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	padding: 14px 14px 10px;
+	border-bottom: 1px solid var(--camera-line);
+}
+
+.sc-project-menu-head div {
+	display: grid;
+	gap: 2px;
+}
+
+.sc-project-menu-head div > span {
+	font-size: 12px;
+	font-weight: 680;
+	letter-spacing: -0.015em;
+}
+
+.sc-project-menu-head small {
+	color: var(--camera-muted);
+	font-size: 10.5px;
+	font-weight: 450;
+}
+
+.sc-project-menu-head > span {
+	display: inline-flex;
+	min-width: 22px;
+	height: 22px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 999px;
+	background: var(--camera-pill);
+	color: var(--camera-muted);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+}
+
+.sc-project-list {
+	display: grid;
+	gap: 3px;
+	max-height: 240px;
+	overflow-y: auto;
+	padding: 7px;
+}
+
+.sc-project-row,
+.sc-project-new {
+	display: flex;
+	width: 100%;
+	align-items: center;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	text-align: left;
+}
+
+.sc-project-row {
+	gap: 10px;
+	min-height: 54px;
+	padding: 6px 9px 6px 7px;
+	border-radius: 12px;
+}
+
+.sc-project-row[data-active] {
+	background: var(--camera-pill);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-project-row:hover,
+	.sc-project-new:hover {
+		background: var(--camera-pill);
+	}
+}
+
+.sc-project-thumb {
+	width: 54px;
+	height: 36px;
+	flex: none;
+	border: 1px solid rgb(29 29 32 / 0.08);
+	border-radius: 8px;
+	box-shadow: inset 0 1px rgb(255 255 255 / 0.2), 0 1px 2px rgb(20 20 24 / 0.06);
+}
+
+.sc-project-copy {
+	display: grid;
+	min-width: 0;
+	flex: 1;
+	gap: 2px;
+}
+
+.sc-project-copy strong {
+	overflow: hidden;
+	font-size: 11.5px;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sc-project-copy small {
+	color: var(--camera-muted);
+	font-size: 10.5px;
+}
+
+.sc-project-row > svg {
+	flex: none;
+	color: var(--camera-accent);
+}
+
+.sc-project-new {
+	height: 42px;
+	gap: 8px;
+	padding: 0 14px;
+	border-top: 1px solid var(--camera-line);
+	font-size: 11.5px;
+	font-weight: 620;
+}
+
+.sc-project-new span {
+	font-size: 18px;
+	font-weight: 350;
+	line-height: 1;
+}
+
+.studio-camera-root .sc-utilities {
+	gap: 1px;
+	padding-inline: 3px;
+}
+
+/* Neighbouring utility buttons already share a 40px island. Extend the target
+   vertically only so invisible hit areas never overlap left-to-right. */
+.studio-camera-root .sc-utilities button.hit-ext::after,
+.studio-camera-root .sc-history button.hit-ext::after {
+	inset: -4px 0;
+}
+
+.studio-camera-root .sc-history {
+	gap: 1px;
+	padding-inline: 3px;
+}
+
+/* The shared extension is a 44px square centred on a 32px glyph: Redo's would
+   cover the right edge of Undo. Each target stays its own 32x40 column. */
+.studio-camera-root .sc-history button.hit-ext::after {
+	width: auto;
+	height: auto;
+	transform: none;
+}
+
+.studio-camera-root .sc-history button:disabled {
+	opacity: 0.32;
+	pointer-events: none;
+}
+
+.sc-island-trigger {
+	display: inline-flex;
+	height: 40px;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	padding: 0 15px;
+	border: 1px solid var(--camera-line);
+	border-radius: 20px;
+	background: #fff;
+	box-shadow: var(--camera-surface-shadow);
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: 11.5px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+
+.dark .sc-island-trigger {
+	background: #1b1c20;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 5px 18px rgb(0 0 0 / 0.18);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-island-trigger:hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+
+	.dark .sc-island-trigger:hover {
+		color: #f5f5f7;
+	}
+}
+
+.sc-island-trigger:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+.sc-island-trigger[aria-expanded="true"] {
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+}
+
+.sc-source-root {
+	position: relative;
+}
+
+.sc-source-menu,
+.sc-source-form-popover {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 0;
+	z-index: 50;
+	width: 278px;
+	overflow: hidden;
+	border: 1px solid #e5e5e8;
+	border-radius: 18px;
+	background: #fff;
+	box-shadow: 0 14px 42px rgb(20 20 24 / 0.1);
+	color: #1d1d20;
+}
+
+.dark .sc-source-menu,
+.dark .sc-source-form-popover {
+	border-color: rgb(255 255 255 / 0.09);
+	background: #1b1c20;
+	box-shadow: 0 18px 48px rgb(0 0 0 / 0.4);
+	color: #f5f5f7;
+}
+
+.sc-source-menu > header {
+	display: grid;
+	gap: 2px;
+	padding: 14px 14px 11px;
+	border-bottom: 1px solid var(--camera-line);
+}
+
+.sc-source-menu > header strong {
+	font-size: 12px;
+	font-weight: 670;
+	letter-spacing: -0.012em;
+}
+
+.sc-source-menu > header span {
+	color: var(--camera-muted);
+	font-size: 10.5px;
+}
+
+.sc-source-choice {
+	display: grid;
+	width: calc(100% - 8px);
+	height: 52px;
+	grid-template-columns: 34px minmax(0, 1fr) 14px;
+	align-items: center;
+	gap: 9px;
+	margin: 4px;
+	padding: 0 10px 0 7px;
+	border: 0;
+	border-radius: 14px;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	text-align: left;
+	transition: background-color 150ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.sc-source-choice + .sc-source-choice {
+	margin-top: 0;
+}
+
+.sc-source-choice:active {
+	transform: scale(0.985);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-source-choice:hover {
+		background: #f1f2f4;
+	}
+
+	.dark .sc-source-choice:hover {
+		background: rgb(255 255 255 / 0.07);
+	}
+}
+
+.sc-source-choice:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: -2px;
+}
+
+.sc-source-choice-icon {
+	display: inline-flex;
+	width: 34px;
+	height: 34px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 11px;
+	background: #f1f2f4;
+	color: #55535b;
+	box-shadow: inset 0 0 0 1px rgb(29 29 32 / 0.025);
+}
+
+.dark .sc-source-choice-icon {
+	background: rgb(255 255 255 / 0.07);
+	color: #c7c5cc;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+.sc-source-choice > span:nth-child(2) {
+	display: grid;
+	min-width: 0;
+	gap: 2px;
+}
+
+.sc-source-choice strong {
+	font-size: 11.5px;
+	font-weight: 630;
+	letter-spacing: -0.008em;
+}
+
+.sc-source-choice small {
+	color: var(--camera-muted);
+	font-size: 10px;
+}
+
+.sc-source-choice > svg {
+	color: var(--camera-muted);
+}
+
+.sc-source-form-popover {
+	right: auto;
+	margin-top: 0;
+	padding: 9px;
+	border-color: #e5e5e8;
+	border-radius: 18px;
+}
+
+.sc-source-form-popover[aria-label="Import a git diff"] {
+	width: 384px;
+}
+
+.sc-source-view-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 2px 2px 9px;
+}
+
+.sc-source-view-head > button {
+	display: inline-flex;
+	width: 30px;
+	height: 30px;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	padding: 0;
+	border: 0;
+	border-radius: 10px;
+	background: #f1f2f4;
+	color: #55535b;
+}
+
+.dark .sc-source-view-head > button {
+	background: rgb(255 255 255 / 0.07);
+	color: #c7c5cc;
+}
+
+.sc-source-view-head > div {
+	display: grid;
+	gap: 1px;
+}
+
+.sc-source-view-head strong {
+	font-size: 11.5px;
+	font-weight: 650;
+}
+
+.sc-source-view-head span {
+	color: var(--camera-muted);
+	font-size: 9.5px;
+}
+
+/* ─────────────────────────── Bottom sheets ─────────────────────────── */
+
+.studio-sheet-dialog {
+	width: 100%;
+	max-width: none;
+	height: 100%;
+	max-height: none;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	overflow: hidden;
+}
+
+.studio-sheet-dialog::backdrop {
+	background: transparent;
+}
+
+.studio-sheet-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 90;
+	width: 100%;
+	height: 100%;
+	padding: 0;
+	border: 0;
+	background: rgb(27 27 30 / 0.38);
+	-webkit-backdrop-filter: blur(2px);
+	backdrop-filter: blur(2px);
+}
+
+.studio-sheet-panel {
+	position: fixed;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 91;
+	display: flex;
+	min-height: min(420px, 62vh);
+	max-height: 74vh;
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid rgb(29 29 32 / 0.06);
+	border-bottom: 0;
+	border-radius: 24px 24px 0 0;
+	background: #f9fafc;
+	box-shadow: 0 -18px 48px rgb(18 18 20 / 0.18);
+	color: #1d1d20;
+	outline: none;
+	transform-origin: center bottom;
+	will-change: transform;
+}
+
+.dark .studio-sheet-panel {
+	border-color: rgb(255 255 255 / 0.08);
+	background: #151517;
+	box-shadow: 0 -22px 56px rgb(0 0 0 / 0.42);
+	color: #f5f5f7;
+}
+
+.studio-sheet-grip {
+	width: 42px;
+	height: 5px;
+	flex: none;
+	margin: 12px auto 4px;
+	border-radius: 999px;
+	background: rgb(116 113 122 / 0.22);
+}
+
+.studio-sheet-header {
+	display: flex;
+	min-height: 68px;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 24px;
+	padding: 10px 28px 16px;
+	border-bottom: 1px solid rgb(29 29 32 / 0.06);
+}
+
+.dark .studio-sheet-header {
+	border-color: rgb(255 255 255 / 0.08);
+}
+
+.studio-sheet-header h2 {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 680;
+	letter-spacing: -0.018em;
+}
+
+.studio-sheet-header p {
+	margin: 3px 0 0;
+	color: #74717a;
+	font-size: 11px;
+}
+
+.dark .studio-sheet-header p {
+	color: #a09da6;
+}
+
+.studio-sheet-header > button {
+	display: inline-flex;
+	width: 34px;
+	height: 34px;
+	align-items: center;
+	justify-content: center;
+	margin: -2px -5px 0 0;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: rgb(29 29 32 / 0.045);
+	color: #74717a;
+}
+
+.dark .studio-sheet-header > button {
+	background: rgb(255 255 255 / 0.07);
+	color: #aaa8b0;
+}
+
+.studio-sheet-header > button:focus-visible,
+.capture-card button:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+
+.capture-library-empty {
+	display: flex;
+	min-height: 280px;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	flex-direction: column;
+	color: #74717a;
+	text-align: center;
+}
+
+.capture-library-empty-icon {
+	display: inline-flex;
+	width: 52px;
+	height: 52px;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 13px;
+	border-radius: 17px;
+	background: rgb(29 29 32 / 0.05);
+	box-shadow: inset 0 0 0 1px rgb(29 29 32 / 0.025);
+}
+
+.dark .capture-library-empty-icon {
+	background: rgb(255 255 255 / 0.07);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+.capture-library-empty strong {
+	color: #1d1d20;
+	font-size: 13px;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+}
+
+.dark .capture-library-empty strong {
+	color: #f5f5f7;
+}
+
+.capture-library-empty p {
+	max-width: 320px;
+	margin: 5px 0 0;
+	font-size: 11px;
+}
+
+.capture-library-spinner {
+	width: 24px;
+	height: 24px;
+	margin-bottom: 12px;
+	border: 2px solid rgb(116 113 122 / 0.18);
+	border-top-color: #74717a;
+	border-radius: 999px;
+	animation: capture-library-spin 0.8s linear infinite;
+}
+
+@keyframes capture-library-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.capture-library-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+	gap: 12px;
+	overflow-y: auto;
+	padding: 18px 28px 28px;
+}
+
+.capture-card {
+	overflow: hidden;
+	border: 1px solid rgb(29 29 32 / 0.07);
+	border-radius: 16px;
+	background: #fff;
+	box-shadow: 0 1px 2px rgb(20 20 24 / 0.03);
+}
+
+.dark .capture-card {
+	border-color: rgb(255 255 255 / 0.08);
+	background: #1d1d20;
+}
+
+.capture-card-preview {
+	position: relative;
+	display: flex;
+	height: 164px;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	background: #f1f2f4;
+}
+
+.dark .capture-card-preview {
+	background: #101114;
+}
+
+.capture-card-preview img,
+.capture-card-preview video {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.capture-card-format {
+	position: absolute;
+	top: 10px;
+	right: 10px;
+	padding: 3px 6px;
+	border-radius: 7px;
+	background: rgb(21 21 23 / 0.72);
+	color: #fff;
+	font-size: 8.5px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+}
+
+.capture-card footer {
+	display: flex;
+	height: 58px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 0 11px 0 13px;
+}
+
+.capture-card footer > div {
+	display: grid;
+	min-width: 0;
+	gap: 2px;
+}
+
+.capture-card footer strong {
+	overflow: hidden;
+	font-size: 11.5px;
+	font-weight: 650;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.capture-card footer span {
+	color: #74717a;
+	font-size: 10px;
+}
+
+.capture-card footer button {
+	display: inline-flex;
+	width: 34px;
+	height: 34px;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	padding: 0;
+	border: 0;
+	border-radius: 11px;
+	background: #f1f2f4;
+	color: #55535b;
+}
+
+.dark .capture-card footer button {
+	background: rgb(255 255 255 / 0.07);
+	color: #c7c5cc;
+}
+
+.capture-card footer button:disabled {
+	opacity: 0.45;
+}
+
+.showcase-grid {
+	display: grid;
+	min-height: 0;
+	align-items: start;
+	align-content: start;
+	flex: 1;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	grid-auto-rows: max-content;
+	gap: 12px;
+	overflow-y: auto;
+	padding: 16px 18px 30px;
+	scrollbar-gutter: stable;
+}
+
+.showcase-card {
+	display: flex;
+	min-width: 0;
+	flex-direction: column;
+	overflow: hidden;
+	padding: 0;
+	border: 1px solid rgb(29 29 32 / 0.075);
+	border-radius: 18px;
+	background: #fff;
+	box-shadow: 0 1px 2px rgb(20 20 24 / 0.025);
+	color: #1d1d20;
+	font-family: inherit;
+	text-align: left;
+	transform-origin: center bottom;
+	transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.dark .showcase-card {
+	border-color: rgb(255 255 255 / 0.08);
+	background: #1d1d20;
+	color: #f5f5f7;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.showcase-card:hover {
+		border-color: rgb(29 29 32 / 0.13);
+		box-shadow: 0 1px 2px rgb(20 20 24 / 0.035), 0 12px 28px rgb(20 20 24 / 0.07);
+	}
+
+	.dark .showcase-card:hover {
+		border-color: rgb(255 255 255 / 0.15);
+		box-shadow: 0 12px 30px rgb(0 0 0 / 0.3);
+	}
+}
+
+.showcase-card:focus-visible {
+	outline: 2px solid #1d1d20;
+	outline-offset: 3px;
+}
+
+.dark .showcase-card:focus-visible {
+	outline-color: #f5f5f7;
+}
+
+.showcase-artwork {
+	position: relative;
+	isolation: isolate;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	overflow: hidden;
+	padding: 0;
+	aspect-ratio: 16 / 9;
+	border-radius: 17px 17px 13px 13px;
+	background: #eef0f3;
+}
+
+.dark .showcase-artwork {
+	background: #232428;
+}
+
+.showcase-video-canvas {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	width: 100%;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	border: 0;
+	border-radius: inherit;
+	box-shadow: none;
+	transform: translateZ(0);
+	transition: transform 220ms var(--ease-out), filter 220ms var(--ease-out);
+}
+
+.showcase-artwork[data-orientation="landscape"] .showcase-video-canvas {
+	width: 100%;
+}
+
+.showcase-artwork[data-orientation="portrait"] {
+	height: auto;
+	padding: 20px;
+	background: radial-gradient(circle at 50% 42%, rgb(255 255 255 / 0.11), transparent 44%), #1b1c20;
+}
+
+.showcase-artwork[data-orientation="portrait"] .showcase-video-canvas {
+	width: auto;
+	height: 100%;
+	max-width: 78%;
+	border: 1px solid rgb(255 255 255 / 0.14);
+	border-radius: 16px;
+	box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.48), 0 34px 56px -28px rgb(0 0 0 / 0.42);
+}
+
+.showcase-artwork[data-active] .showcase-video-canvas {
+	filter: saturate(1.04) contrast(1.015);
+	transform: scale(1.006);
+}
+
+.showcase-real-frame {
+	position: relative;
+	z-index: 2;
+	display: flex;
+	width: 82%;
+	height: 63%;
+	min-height: 0;
+	flex-direction: column;
+	overflow: hidden;
+	border: 1px solid color-mix(in srgb, var(--showcase-theme-fg) 9%, transparent);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 14px 30px -14px rgb(0 0 0 / 0.65), inset 0 1px
+		rgb(255 255 255 / 0.045);
+}
+
+.showcase-artwork[data-orientation="portrait"] .showcase-real-frame {
+	width: 84%;
+	height: 46%;
+}
+
+.showcase-code-viewport {
+	position: relative;
+	min-height: 0;
+	flex: 1;
+	overflow: hidden;
+}
+
+.showcase-static-code,
+.showcase-live-layer {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+}
+
+.showcase-static-code pre,
+.showcase-static-code .shiki {
+	margin: 0;
+	background: transparent !important;
+	color: inherit;
+	font: inherit;
+	line-height: inherit;
+}
+
+.showcase-static-code code {
+	display: block;
+	counter-reset: showcase-line;
+	font: inherit;
+	line-height: inherit;
+}
+
+.showcase-static-code .line {
+	display: block;
+	min-height: 1lh;
+	white-space: pre;
+}
+
+.showcase-static-code[data-line-numbers] .line {
+	position: relative;
+	padding-left: 4ch;
+}
+
+.showcase-static-code[data-line-numbers] .line::before {
+	position: absolute;
+	left: 0;
+	width: 2.5ch;
+	counter-increment: showcase-line;
+	color: color-mix(in srgb, currentColor 28%, transparent);
+	content: counter(showcase-line, decimal-leading-zero);
+	text-align: right;
+}
+
+.showcase-live-layer {
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 120ms var(--ease-out);
+}
+
+.showcase-live-layer:has(.showcase-live-code[data-looping-ready]) {
+	opacity: 1;
+}
+
+.showcase-live-code {
+	position: relative;
+	min-height: 100%;
+}
+
+.showcase-safe-zone {
+	position: absolute;
+	z-index: 3;
+	inset: 10% 8%;
+	border: 1px dashed rgb(255 255 255 / 0.2);
+	border-radius: 11px;
+	pointer-events: none;
+}
+
+.showcase-card footer {
+	display: flex;
+	min-height: 64px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 12px 14px 13px;
+}
+
+.showcase-card-copy {
+	display: grid;
+	min-width: 0;
+	gap: 4px;
+}
+
+.showcase-card footer strong {
+	overflow: hidden;
+	font-size: 12px;
+	font-weight: 660;
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.showcase-card-feature {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	color: #85828b;
+	font-family: var(--font-mono);
+	font-size: 8.5px;
+	letter-spacing: 0.025em;
+	line-height: 1;
+}
+
+.showcase-motion-dot {
+	width: 4px;
+	height: 4px;
+	flex: none;
+	border-radius: 999px;
+	background: #bbb8c0;
+	transition: background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.showcase-motion-dot[data-active] {
+	background: #ff5148;
+	box-shadow: 0 0 0 2px rgb(255 81 72 / 0.14);
+}
+
+.showcase-card-action {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: #74717a;
+	font-size: 10px;
+	font-weight: 620;
+	opacity: 0.62;
+	transition: color 150ms var(--ease-out), opacity 150ms var(--ease-out), transform 150ms
+		var(--ease-out);
+}
+
+.showcase-card-action svg {
+	transition: transform 180ms var(--ease-out);
+}
+
+/* A tap must not leave the arrow nudged: hover only where a pointer hovers. */
+.showcase-card:focus-visible .showcase-card-action {
+	color: #1d1d20;
+	opacity: 1;
+}
+
+.showcase-card:focus-visible .showcase-card-action svg {
+	transform: translate(1px, -1px);
+}
+
+.dark .showcase-card:focus-visible .showcase-card-action {
+	color: #f5f5f7;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.showcase-card:hover .showcase-card-action {
+		color: #1d1d20;
+		opacity: 1;
+	}
+
+	.showcase-card:hover .showcase-card-action svg {
+		transform: translate(1px, -1px);
+	}
+
+	.dark .showcase-card:hover .showcase-card-action {
+		color: #f5f5f7;
+	}
+}
+
+.dark .showcase-card-feature,
+.dark .showcase-card-action {
+	color: #a09da6;
+}
+
+.dark .showcase-motion-dot {
+	background: #625f68;
+}
+
+.dark .showcase-motion-dot[data-active] {
+	background: #ff625a;
+	box-shadow: 0 0 0 2px rgb(255 98 90 / 0.16);
+}
+
+.showcase-confirm {
+	display: grid;
+	width: min(940px, calc(100% - 56px));
+	grid-template-columns: minmax(380px, 1.25fr) minmax(260px, 0.75fr);
+	align-items: center;
+	gap: 34px;
+	margin: auto;
+	padding: 26px 0 34px;
+}
+
+.showcase-confirm .showcase-artwork {
+	border-radius: 20px;
+	box-shadow: 0 18px 44px rgb(20 20 24 / 0.11);
+}
+
+.showcase-confirm .showcase-artwork[data-orientation="landscape"] .showcase-video-canvas {
+	width: 100%;
+	border-radius: 20px;
+}
+
+.showcase-confirm .showcase-artwork[data-orientation="portrait"] {
+	height: 380px;
+}
+
+.showcase-confirm h3 {
+	margin: 0;
+	font-size: 18px;
+	font-weight: 700;
+	letter-spacing: -0.025em;
+}
+
+.showcase-confirm > div > p {
+	margin: 6px 0 0;
+	color: #74717a;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+@media (max-width: 960px) {
+	.showcase-confirm {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 720px) {
+	.showcase-grid {
+		grid-template-columns: 1fr;
+		gap: 11px;
+		padding: 12px 12px 28px;
+	}
+
+	.showcase-card-action {
+		opacity: 1;
+	}
+
+	.showcase-confirm {
+		width: calc(100% - 28px);
+		gap: 22px;
+	}
+
+	.showcase-confirm .showcase-artwork[data-orientation="portrait"] {
+		height: 360px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.studio-sheet-panel,
+	.studio-sheet-backdrop,
+	.showcase-video-canvas,
+	.showcase-live-layer,
+	.showcase-card-action,
+	.showcase-card-action svg,
+	.showcase-motion-dot {
+		transition: none;
+	}
+}
+
+.studio-camera-root .sc-glyph-button {
+	width: 32px;
+	height: 32px;
+	border-radius: 16px;
+	color: var(--camera-muted);
+}
+
+.studio-camera-root .sc-utilities button.hit-ext {
+	width: 32px;
+	height: 32px;
+	border-radius: 16px;
+}
+
+.studio-camera-root .sc-glyph-button-active {
+	background: rgb(29 29 32 / 0.055);
+	color: var(--camera-ink);
+}
+
+.dark .studio-camera-root .sc-glyph-button-active {
+	background: rgb(255 255 255 / 0.08);
+	color: #f5f5f7;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-camera-root .sc-glyph-button:hover {
+		background: var(--camera-pill);
+		color: #252329;
+	}
+
+	.dark .studio-camera-root .sc-glyph-button:hover {
+		color: #f5f5f7;
+	}
+}
+
+.studio-camera-mode {
+	position: absolute;
+	top: 20px;
+	left: 50%;
+	display: grid;
+	height: 40px;
+	grid-template-columns: 1fr 1fr;
+	min-width: 0;
+	margin: 0;
+	padding: 3px;
+	border: 1px solid var(--camera-line);
+	border-radius: 20px;
+	background: #fff;
+	box-shadow: var(--camera-surface-shadow);
+	transform: translateX(-50%);
+}
+
+.dark .studio-camera-mode {
+	background: #1b1c20;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 5px 18px rgb(0 0 0 / 0.18);
+}
+
+.studio-camera-mode button {
+	position: relative;
+	min-width: 74px;
+	height: 32px;
+	padding: 0 16px;
+	border: 0;
+	border-radius: 16px;
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: 11.5px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	transition: color 150ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+/* The visible segment is 32px tall; its target borrows the unused 4px above
+   and below without entering its neighbour's horizontal territory. */
+.studio-camera-mode button::after {
+	content: "";
+	position: absolute;
+	inset: -4px 0;
+}
+
+.studio-camera-mode button[aria-pressed="true"] {
+	color: #fff;
+	font-weight: 600;
+}
+
+.dark .studio-camera-mode button[aria-pressed="true"] {
+	color: #171716;
+}
+
+.studio-camera-mode-plate {
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	border-radius: 16px;
+	background: #1d1d20;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.16), 0 4px 10px rgb(0 0 0 / 0.11);
+	pointer-events: none;
+}
+
+.dark .studio-camera-mode-plate {
+	background: #f4f4f0;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.32);
+}
+
+.studio-camera-mode-label {
+	position: relative;
+	z-index: 1;
+}
+
+.studio-camera-mode button:active {
+	transform: scale(0.96);
+}
+
+.studio-camera-mode button:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+/* The stage owns all space between the utility header and the scene table. */
+.studio-camera-root .sc-stage-slot {
+	inset: var(--camera-header) 0
+		calc(var(--camera-timeline-height) + var(--camera-timeline-bottom) + 8px);
+	padding: 18px 44px 72px;
+}
+
+.studio-camera-root .sc-stage {
+	transform-origin: center center;
+}
+
+/* Edit is a dedicated work surface. The mode switch is its discoverable door, so the
+   old vertical CODE tab would be a duplicate control and stays out of the scene. */
+.studio-camera-root .sc-card-slot {
+	top: calc(var(--camera-header) + 8px);
+	bottom: calc(var(--camera-timeline-height) + var(--camera-timeline-bottom) + 18px);
+	left: 18px;
+	width: calc(var(--sc-card-width) - 28px);
+}
+
+.studio-camera-root .sc-card {
+	border: 1px solid var(--camera-line);
+	border-radius: 20px;
+	background: #fff;
+	box-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 8px 28px rgb(15 23 42 / 0.045);
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
+.dark .studio-camera-root .sc-card {
+	background: #1b1c20;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.24), 0 10px 32px rgb(0 0 0 / 0.2);
+}
+
+.studio-camera-root .sc-tab {
+	display: none;
+}
+
+/* Multimedia appears as a capability of the accepted Studio, never as another
+   shell. These controls only mount after the first authored layer, leaving the
+   code-only composition byte-for-byte visually unchanged. */
+.studio-camera-root .sc-source-divider {
+	height: 1px;
+	margin: 5px 12px;
+	border: 0;
+	background: var(--camera-line);
+}
+
+.studio-camera-root .sc-layer-header-title {
+	color: var(--camera-muted);
+	font-size: 11.5px;
+	font-weight: 520;
+}
+
+/* Code keeps the accepted 5173 proportions. A selected authored layer turns
+   the lower half into navigation only, so its editor gets the room that the
+   code-only Focus/Caption fields normally own. */
+.studio-camera-root .sc-card[data-editor-kind="layer"] .sc-card-editor {
+	padding-bottom: 8px;
+}
+
+.studio-camera-root .sc-card[data-editor-kind="layer"] .sc-card-steps {
+	gap: 8px;
+	padding: 10px 12px 12px;
+}
+
+/* The layer inspector also lives in the phone's sheet, which vaul portals to
+   the body, outside this root: each rule names both places. */
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor {
+	display: flex;
+	min-height: 0;
+	height: 100%;
+	flex: 1 1 auto;
+	flex-direction: column;
+	gap: 12px;
+	overflow: auto;
+	padding: 2px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head > span {
+	display: flex;
+	align-items: center;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head {
+	justify-content: space-between;
+	gap: 10px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head > span {
+	min-width: 0;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head small,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field > span,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head > span {
+	color: var(--camera-muted);
+	font-size: 9px;
+	font-weight: 650;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head strong {
+	max-width: 210px;
+	overflow: hidden;
+	color: var(--camera-ink);
+	font-size: 12px;
+	font-weight: 650;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button {
+	display: inline-flex;
+	width: 28px;
+	height: 28px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--camera-muted);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 120ms
+		var(--ease-out);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button:active,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:active:not(:disabled) {
+	transform: scale(0.94);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button:hover,
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:hover:not(:disabled) {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:disabled {
+	opacity: 0.28;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field {
+	display: grid;
+	min-width: 0;
+	gap: 6px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field-grow {
+	min-height: 106px;
+	flex: 0 0 118px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field input[type="number"],
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field select {
+	width: 100%;
+	border: 1px solid var(--camera-line);
+	border-radius: 10px;
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+	font: inherit;
+	font-size: 11px;
+	outline: none;
+	transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea {
+	min-height: 112px;
+	height: 100%;
+	resize: none;
+	padding: 10px;
+	line-height: 1.5;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field input[type="number"],
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field select {
+	height: 34px;
+	padding: 0 9px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea:focus,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field input:focus,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field select:focus {
+	border-color: rgb(49 130 246 / 0.58);
+	box-shadow: 0 0 0 3px rgb(49 130 246 / 0.1);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 9px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout {
+	display: grid;
+	gap: 7px;
+	padding: 8px;
+	border: 1px solid var(--camera-line);
+	border-radius: 13px;
+	background: color-mix(in srgb, var(--camera-pill) 72%, transparent);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header {
+	display: flex;
+	height: 24px;
+	align-items: center;
+	justify-content: space-between;
+	color: var(--camera-muted);
+	font-size: 9px;
+	font-weight: 650;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header > div {
+	display: flex;
+	gap: 1px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button {
+	display: inline-flex;
+	width: 24px;
+	height: 24px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--camera-muted);
+	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out), transform 100ms
+		var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:hover:not(:disabled) {
+		background: var(--camera-paper);
+		color: var(--camera-ink);
+	}
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:active:not(:disabled) {
+	transform: scale(0.92);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:disabled {
+	opacity: 0.26;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-presets {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 2px;
+	padding: 3px;
+	border-radius: 10px;
+	background: color-mix(in srgb, var(--camera-line) 55%, transparent);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button {
+	height: 28px;
+	padding: 0 5px;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--camera-muted);
+	font: inherit;
+	font-size: 9.5px;
+	font-weight: 590;
+	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out), transform 100ms
+		var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:hover {
+		background: var(--camera-paper);
+		box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+		color: var(--camera-ink);
+	}
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:active {
+	transform: scale(0.96);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 4px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid label {
+	display: grid;
+	height: 30px;
+	grid-template-columns: 13px minmax(0, 1fr) 8px;
+	align-items: center;
+	padding: 0 4px;
+	border: 1px solid var(--camera-line);
+	border-radius: 9px;
+	background: var(--camera-paper);
+	color: var(--camera-muted);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid label:focus-within {
+	border-color: rgb(49 130 246 / 0.58);
+	box-shadow: 0 0 0 2px rgb(49 130 246 / 0.08);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid span,
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid small {
+	font-size: 8px;
+	font-weight: 650;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid input {
+	min-width: 0;
+	height: 27px;
+	padding: 0 2px;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--camera-ink);
+	font: 550 9.5px / 1 var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-color input {
+	width: 100%;
+	height: 34px;
+	padding: 4px;
+	border: 1px solid var(--camera-line);
+	border-radius: 10px;
+	background: var(--camera-pill);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-check {
+	grid-template-columns: 1fr auto;
+	align-items: end;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-check input {
+	width: 34px;
+	height: 34px;
+	margin: 0;
+	accent-color: var(--camera-focus);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-range input {
+	width: 100%;
+	accent-color: var(--camera-focus);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary {
+	display: grid;
+	grid-template-columns: 8px 1fr auto;
+	align-items: center;
+	gap: 8px;
+	padding: 10px;
+	border: 1px solid var(--camera-line);
+	border-radius: 12px;
+	background: var(--camera-pill);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary > span {
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	background: #7c5cff;
+	box-shadow: 0 0 0 4px rgb(124 92 255 / 0.1);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary strong {
+	font-size: 11px;
+	font-weight: 630;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary small {
+	color: var(--camera-muted);
+	font-size: 9.5px;
+}
+
+/* Under a finger every field types at 16px: iOS zooms the page into anything
+   smaller, and the zoom stays after the keyboard closes. */
+@media (pointer: coarse) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea,
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-field input[type="number"],
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-field select,
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid input {
+		font-size: 16px;
+	}
+}
+
+/* The row also lives in the phone's sheet, as the way back to the code once a
+   layer is selected there; vaul portals the sheet out of this root. */
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip {
+	display: grid;
+	gap: 7px;
+	padding: 8px;
+	border: 1px solid var(--camera-line);
+	border-radius: 13px;
+	background: color-mix(in srgb, var(--camera-pill) 72%, transparent);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head {
+	display: flex;
+	height: 20px;
+	align-items: center;
+	justify-content: space-between;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head > div {
+	display: flex;
+	gap: 1px;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pills {
+	display: flex;
+	gap: 5px;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pills::-webkit-scrollbar {
+	display: none;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill {
+	display: inline-flex;
+	height: 29px;
+	flex: none;
+	align-items: center;
+	gap: 5px;
+	padding: 0 9px;
+	border: 1px solid transparent;
+	border-radius: 10px;
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: 10px;
+	font-weight: 560;
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-selected] {
+	border-color: var(--camera-line);
+	background: #fff;
+	box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+	color: var(--camera-ink);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-muted] {
+	opacity: 0.46;
+}
+
+.dark :is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-selected] {
+	background: rgb(255 255 255 / 0.09);
+	box-shadow: none;
+}
+
+/* Under a finger a chip is a 44px target: at 29px the row in the sheet was the
+   one way back to the code, and the easiest thing on the screen to miss. */
+@media (pointer: coarse) {
+	.sc-sheet .sc-layer-pill {
+		height: 44px;
+		padding: 0 12px;
+		font-size: 12px;
+	}
+
+	/* The eye beside "Layers" too: the head grows to hold a full target. */
+	.sc-sheet .sc-layer-strip-head {
+		height: 44px;
+	}
+
+	.sc-sheet .sc-layer-strip-head button {
+		width: 44px;
+		height: 44px;
+	}
+}
+
+/* The phone's stage draws the same layer surface: these rules name its root
+   too, or the surface scales about its centre and lands off the stage. */
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-surface-host {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform-origin: top left;
+	pointer-events: none;
+}
+
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-surface-host[data-slot="under-code"] {
+	z-index: 0;
+}
+
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-surface-host[data-slot="over-code"] {
+	z-index: 2;
+}
+
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-layer-surface {
+	position: relative;
+	isolation: isolate;
+	pointer-events: none;
+}
+
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-layer {
+	display: block;
+	padding: 0;
+	overflow: hidden;
+	border: 0;
+	background: transparent;
+	font: inherit;
+	text-align: inherit;
+	pointer-events: auto;
+	transition: outline-color 150ms var(--ease-out);
+}
+
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-layer[data-selected] {
+	outline: 4px solid var(--camera-focus);
+	outline-offset: -4px;
+}
+
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-layer:focus-visible {
+	outline: 4px solid var(--camera-focus);
+	outline-offset: -4px;
+}
+
+:is(.studio-camera-root, .sc-root-mobile) .sc-composition-missing {
+	display: grid;
+	width: 100%;
+	height: 100%;
+	place-items: center;
+	border: 1px dashed rgb(127 127 127 / 0.3);
+	background: rgb(127 127 127 / 0.08);
+	color: rgb(127 127 127 / 0.85);
+	font-size: 18px;
+}
+
+/* The rail sits against the lower edge of the video, while transport lives one
+   layer below in the timeline. */
+.studio-camera-root .sc-dock-slot {
+	bottom: var(--camera-rail-bottom);
+	padding: 0 20px;
+}
+
+.studio-camera-root .sc-dock {
+	max-width: calc(100vw - 40px);
+}
+
+.studio-camera-root .si-dock {
+	padding: 0;
+}
+
+.studio-camera-root .si-island {
+	height: 42px;
+	padding: 3px;
+	border: 1px solid rgb(255 255 255 / 0.1);
+	border-radius: 999px;
+	background: #151517;
+	box-shadow: var(--camera-dark-shadow);
+}
+
+.studio-camera-root .si-row {
+	--island-gap: 2px;
+}
+
+.studio-camera-root .si-button {
+	min-width: 38px;
+	height: 34px;
+	padding: 0 9px;
+	color: #9d9ba3;
+	font-size: 11px;
+	font-weight: 500;
+}
+
+.studio-camera-root .si-button::after {
+	inset: -3px calc(var(--island-gap, 2px) / -2);
+}
+
+.studio-camera-root .si-row > .si-button:first-child::after {
+	inset-inline-start: -3px;
+}
+
+.studio-camera-root .si-row > .si-button:last-child::after {
+	inset-inline-end: -3px;
+}
+
+.studio-camera-root .si-cta {
+	height: 34px;
+	margin-left: 3px;
+	padding: 0 16px;
+	background: var(--camera-amber);
+	color: #181713;
+	font-size: 11px;
+	font-weight: 680;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-camera-root .si-cta:hover:not(:disabled):not([aria-disabled="true"]):not([data-open]) {
+		background: #ffd326;
+	}
+}
+
+.studio-camera-root .si-dock-timeline .si-cta-detail {
+	display: none;
+}
+
+.studio-camera-root .si-dock-timeline .si-rail-aspect {
+	gap: 7px;
+	color: #b7b5bd;
+}
+
+/* A setting is a focused state of the rail, not a second product floating at
+   the right edge. The row may become wider than the root toolbar, but it keeps
+   the exact same centre line as the preview and becomes horizontally
+   scrollable only when the available scene genuinely runs out. */
+.studio-camera-root .si-mode-row {
+	max-width: calc(100vw - 64px);
+	overflow-x: auto;
+	overflow-y: hidden;
+	overscroll-behavior-inline: contain;
+	scrollbar-width: none;
+}
+
+.studio-camera-root[data-editor-open] .si-mode-row {
+	max-width: calc(100vw - var(--sc-card-width) - 64px);
+}
+
+.studio-camera-root .si-mode-row::-webkit-scrollbar {
+	display: none;
+}
+
+.studio-camera-root .si-mode-back {
+	padding-inline: 9px;
+}
+
+.studio-camera-root .si-mode-title {
+	flex: none;
+	padding-inline: 5px 4px;
+	color: #f4f4f5;
+	font-size: 11px;
+	font-weight: 650;
+	letter-spacing: -0.012em;
+}
+
+.studio-camera-root .si-mode-seam {
+	width: 1px;
+	height: 16px;
+	flex: none;
+	margin-inline: 4px;
+	background: rgb(255 255 255 / 0.09);
+}
+
+/* ui.camera marks truth with a warm instrument colour, not a white slab. The
+   plate stays in the DOM for the shared-layout spring, but becomes a quiet
+   illuminated well behind the label. */
+.studio-camera-root .si-dock-timeline .si-button[data-selected] {
+	color: var(--camera-amber);
+	background: transparent;
+}
+
+.studio-camera-root .si-dock-timeline .si-button[data-selected] .si-plate {
+	inset: 2px;
+	background: rgb(255 213 11 / 0.1);
+	box-shadow: inset 0 0 0 1px rgb(255 213 11 / 0.14);
+}
+
+.studio-camera-root .si-dock-timeline .si-toggle[aria-pressed="true"] {
+	background: rgb(255 255 255 / 0.07);
+	color: var(--camera-amber);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-camera-root .si-dock-timeline .si-button[data-selected]:hover:not(:disabled) {
+		color: #ffe35c;
+		background: transparent;
+	}
+
+	.studio-camera-root .si-dock-timeline .si-button[data-selected]:hover:not(:disabled) .si-plate {
+		background: rgb(255 213 11 / 0.15);
+	}
+}
+
+.studio-camera-root .si-mode-row .si-cluster-field,
+.studio-camera-root .si-mode-row .si-seg,
+.studio-camera-root .si-mode-row .si-swatch-well {
+	flex: none;
+}
+
+.studio-camera-root .si-mode-row .si-swatch-button {
+	min-width: 38px;
+	padding-inline: 4px;
+}
+
+.studio-camera-root .si-mode-row .si-plate-soft {
+	inset: 2px;
+	background: rgb(255 213 11 / 0.08);
+	box-shadow: inset 0 0 0 1px rgb(255 213 11 / 0.2);
+}
+
+.studio-camera-root .si-mode-door {
+	gap: 6px;
+	color: #aaa8b0;
+}
+
+.studio-camera-root .si-mode-swatch {
+	display: block;
+	width: 16px;
+	height: 16px;
+	border-radius: 6px;
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18), 0 1px 2px rgb(0 0 0 / 0.28);
+}
+
+.studio-camera-root .si-aspect-choice {
+	min-width: 51px;
+	gap: 6px;
+}
+
+.studio-camera-root .si-mode-cta {
+	margin-left: 2px;
+}
+
+.studio-camera-root .si-rail-slider {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	gap: 6px;
+	cursor: ew-resize;
+}
+
+.studio-camera-root .si-rail-range {
+	width: 86px;
+	height: 24px;
+	margin: 0;
+	padding: 0;
+	appearance: none;
+	background: transparent;
+	cursor: ew-resize;
+}
+
+.studio-camera-root .si-rail-range::-webkit-slider-runnable-track {
+	height: 3px;
+	border-radius: 999px;
+	background: linear-gradient(90deg, rgb(255 213 11 / 0.72), rgb(255 255 255 / 0.16));
+}
+
+.studio-camera-root .si-rail-range::-webkit-slider-thumb {
+	width: 14px;
+	height: 14px;
+	margin-top: -5.5px;
+	appearance: none;
+	border: 3px solid #151517;
+	border-radius: 999px;
+	background: #fff;
+	box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25), 0 2px 6px rgb(0 0 0 / 0.32);
+}
+
+.studio-camera-root .si-rail-range::-moz-range-track {
+	height: 3px;
+	border-radius: 999px;
+	background: linear-gradient(90deg, rgb(255 213 11 / 0.72), rgb(255 255 255 / 0.16));
+}
+
+.studio-camera-root .si-rail-range::-moz-range-thumb {
+	width: 8px;
+	height: 8px;
+	border: 3px solid #151517;
+	border-radius: 999px;
+	background: #f2f2ee;
+	box-shadow: 0 0 0 1px rgb(255 255 255 / 0.3), 0 2px 6px rgb(0 0 0 / 0.4);
+}
+
+.studio-camera-root .si-rail-range:focus-visible {
+	outline: 2px solid #f2f2ee;
+	outline-offset: 2px;
+}
+
+.studio-camera-root .si-rail-value {
+	width: 20px;
+	color: #f2f2ee;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+
+.studio-camera-root .si-mode-row .si-eyebrow {
+	padding-right: 2px;
+	color: #74727b;
+	font-size: 10px;
+	font-weight: 500;
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.studio-camera-root .si-at-glyph {
+	display: inline-flex;
+	width: 16px;
+	height: 16px;
+	align-items: center;
+	justify-content: center;
+	border-radius: 6px;
+	background: rgb(255 255 255 / 0.08);
+	color: #d8d7dc;
+	font-size: 10px;
+	font-weight: 650;
+}
+
+.studio-camera-root .si-input {
+	height: 28px;
+	border-radius: 10px;
+	background: rgb(255 255 255 / 0.075);
+	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.09);
+	font-size: 11px;
+}
+
+/* iOS zooms into a field under 16px; the island's fields open on phones too. */
+@media (pointer: coarse) {
+	.studio-camera-root .si-input {
+		font-size: 16px;
+	}
+}
+
+.studio-camera-root .si-input:focus {
+	background: rgb(255 255 255 / 0.11);
+	box-shadow: inset 0 0 0 1px rgb(255 213 11 / 0.32);
+}
+
+/* ───────────────────────────── Timeline ───────────────────────────── */
+
+.sc-timeline-slot {
+	position: absolute;
+	right: 16px;
+	bottom: var(--camera-timeline-bottom);
+	left: 16px;
+	z-index: 18;
+	height: var(--camera-timeline-height);
+}
+
+.studio-timeline {
+	display: grid;
+	height: 100%;
+	grid-template-rows: 56px minmax(0, 1fr);
+	overflow: hidden;
+	border: 1px solid var(--camera-line);
+	border-radius: 20px;
+	background: #fff;
+	box-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 8px 28px rgb(15 23 42 / 0.04);
+	color: var(--camera-ink);
+	isolation: isolate;
+}
+
+.dark .studio-timeline {
+	background: #1b1c20;
+	color: #efefeb;
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.24), 0 10px 32px rgb(0 0 0 / 0.2);
+}
+
+.studio-timeline-transport {
+	position: relative;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+	align-items: center;
+	gap: 12px;
+	padding: 0 12px;
+	border-bottom: 1px solid var(--camera-line);
+}
+
+.studio-timeline-context-rail {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	justify-self: stretch;
+	gap: 8px;
+	overflow: hidden;
+}
+
+.studio-scene-context {
+	display: flex;
+	min-width: 0;
+	max-width: 520px;
+	height: 44px;
+	align-items: center;
+	justify-self: start;
+	gap: 5px;
+	white-space: nowrap;
+}
+
+.studio-scene-undo,
+.scene-list-undo {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	border: 1px solid rgb(29 29 32 / 0.08);
+	background: rgb(125 125 120 / 0.055);
+	color: var(--camera-ink);
+}
+
+.studio-scene-undo {
+	width: fit-content;
+	max-width: 360px;
+	height: 44px;
+	justify-self: start;
+	gap: 7px;
+	padding: 4px 4px 4px 6px;
+	border-radius: 14px;
+}
+
+.studio-scene-undo-minimal {
+	width: auto;
+	height: 40px;
+	flex: none;
+	padding: 3px;
+	border-color: transparent;
+	background: transparent;
+}
+
+.studio-scene-undo-minimal button {
+	min-width: 70px;
+	height: 34px;
+}
+
+.scene-list-undo {
+	width: 100%;
+	min-height: 44px;
+	gap: 8px;
+	padding: 5px 5px 5px 7px;
+	border-radius: 14px;
+}
+
+.dark .studio-scene-undo,
+.dark .scene-list-undo {
+	border-color: rgb(255 255 255 / 0.09);
+	background: rgb(255 255 255 / 0.055);
+	color: #efefeb;
+}
+
+.scene-deletion-mark {
+	display: inline-flex;
+	width: 30px;
+	height: 30px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border-radius: 10px;
+	background: rgb(220 53 69 / 0.075);
+	color: #b82b39;
+}
+
+.dark .scene-deletion-mark {
+	background: rgb(255 93 108 / 0.1);
+	color: #ff8b97;
+}
+
+.scene-deletion-copy {
+	min-width: 0;
+	flex: 1;
+	overflow: hidden;
+	font-size: 11px;
+	font-weight: 590;
+	letter-spacing: -0.01em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.studio-scene-undo button,
+.scene-list-undo button {
+	display: inline-flex;
+	min-width: 66px;
+	height: 34px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 10px;
+	background: #fff;
+	box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+	color: var(--camera-ink);
+	font-family: inherit;
+	font-size: 10px;
+	font-weight: 650;
+	transition: background-color 130ms var(--ease-out), box-shadow 130ms var(--ease-out), color 130ms
+		var(--ease-out);
+}
+
+.dark .studio-scene-undo button,
+.dark .scene-list-undo button {
+	background: rgb(255 255 255 / 0.1);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+	color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-scene-undo button:hover,
+	.scene-list-undo button:hover {
+		background: #f7f7f6;
+		box-shadow: 0 1px 2px rgb(15 23 42 / 0.1), 0 4px 10px rgb(15 23 42 / 0.055);
+	}
+
+	.dark .studio-scene-undo button:hover,
+	.dark .scene-list-undo button:hover {
+		background: rgb(255 255 255 / 0.15);
+	}
+}
+
+.studio-scene-thumbnail {
+	position: relative;
+	display: block;
+	width: 44px;
+	height: 32px;
+	flex: none;
+	overflow: hidden;
+	border: 1px solid rgb(29 29 32 / 0.08);
+	border-radius: 9px;
+	background: #f4f5f7;
+}
+
+.dark .studio-scene-thumbnail {
+	border-color: rgb(255 255 255 / 0.09);
+	background: #242529;
+}
+
+.studio-scene-thumbnail .studio-timeline-code {
+	inset: 7px 6px 5px;
+	font-size: 2.4px;
+	opacity: 0.72;
+}
+
+.studio-scene-context strong {
+	min-width: 50px;
+	overflow: hidden;
+	color: var(--camera-ink);
+	font-size: 11px;
+	font-weight: 630;
+	letter-spacing: -0.01em;
+	text-overflow: ellipsis;
+}
+
+.dark .studio-scene-context strong {
+	color: #efefeb;
+}
+
+.studio-scene-duration {
+	display: inline-flex;
+	height: 32px;
+	align-items: center;
+	gap: 1px;
+	padding: 0 7px;
+	border: 1px solid rgb(29 29 32 / 0.08);
+	border-radius: 10px;
+	background: rgb(125 125 120 / 0.055);
+	color: var(--camera-muted);
+	font-family: var(--font-mono);
+	font-size: 9px;
+	font-variant-numeric: tabular-nums;
+	transition: border-color 130ms var(--ease-out), background-color 130ms var(--ease-out);
+}
+
+.dark .studio-scene-duration {
+	border-color: rgb(255 255 255 / 0.09);
+	background: rgb(255 255 255 / 0.055);
+}
+
+.studio-scene-duration:focus-within {
+	border-color: rgb(29 29 32 / 0.3);
+	background: #fff;
+}
+
+.dark .studio-scene-duration:focus-within {
+	border-color: rgb(255 255 255 / 0.3);
+	background: rgb(255 255 255 / 0.08);
+}
+
+.studio-scene-duration input {
+	width: 29px;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	color: var(--camera-ink);
+	font: inherit;
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+
+.dark .studio-scene-duration input {
+	color: #efefeb;
+}
+
+.studio-scene-duration input::-webkit-inner-spin-button,
+.studio-scene-duration input::-webkit-outer-spin-button {
+	margin: 0;
+	appearance: none;
+}
+
+.studio-scene-context button {
+	display: inline-flex;
+	min-width: 40px;
+	height: 40px;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 12px;
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: 10px;
+	font-weight: 570;
+	transition: background-color 130ms var(--ease-out), color 130ms var(--ease-out), transform 100ms
+		var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-scene-context button:hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+
+	.dark .studio-scene-context button:hover {
+		background: rgb(255 255 255 / 0.08);
+		color: #fff;
+	}
+
+	.studio-scene-context .studio-scene-delete:hover {
+		background: rgb(220 53 69 / 0.08);
+		color: #c62e3d;
+	}
+
+	.dark .studio-scene-context .studio-scene-delete:hover {
+		background: rgb(255 93 108 / 0.11);
+		color: #ff8b97;
+	}
+}
+
+.studio-scene-context button:active {
+	transform: scale(0.96);
+}
+
+.studio-easing-anchor {
+	position: relative;
+	display: flex;
+	height: 40px;
+	flex: none;
+	align-items: center;
+}
+
+.studio-easing-anchor > button[data-active] {
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+}
+
+.dark .studio-easing-anchor > button[data-active] {
+	background: rgb(255 255 255 / 0.09);
+	color: #fff;
+}
+
+.studio-easing-editor {
+	position: fixed;
+	z-index: 80;
+	display: grid;
+	width: 336px;
+	gap: 10px;
+	padding: 12px;
+	border: 1px solid rgb(29 29 32 / 0.09);
+	border-radius: 20px;
+	background: rgb(250 250 251 / 0.96);
+	box-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 20px 54px rgb(15 23 42 / 0.16);
+	color: var(--camera-ink);
+	transform-origin: 84px 100%;
+	backdrop-filter: blur(20px) saturate(1.15);
+}
+
+.dark .studio-easing-editor {
+	border-color: rgb(255 255 255 / 0.1);
+	background: rgb(31 32 36 / 0.96);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 22px 58px rgb(0 0 0 / 0.45);
+	color: #f4f4f1;
+}
+
+.studio-easing-heading {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	padding: 1px 2px 0;
+}
+
+.studio-easing-heading strong {
+	min-width: 0;
+	color: inherit;
+	font-size: 11px;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+}
+
+.studio-easing-heading span {
+	color: var(--camera-muted);
+	font-size: 9px;
+	font-weight: 540;
+}
+
+.studio-easing-chart {
+	display: block;
+	width: 100%;
+	height: 154px;
+	overflow: visible;
+	touch-action: none;
+}
+
+.studio-easing-grid rect {
+	fill: #fff;
+	stroke: rgb(29 29 32 / 0.09);
+	stroke-width: 1;
+}
+
+.studio-easing-grid path {
+	fill: none;
+	stroke: rgb(29 29 32 / 0.07);
+	stroke-width: 1;
+}
+
+.dark .studio-easing-grid rect {
+	fill: rgb(255 255 255 / 0.035);
+	stroke: rgb(255 255 255 / 0.1);
+}
+
+.dark .studio-easing-grid path {
+	stroke: rgb(255 255 255 / 0.075);
+}
+
+.studio-easing-guide {
+	fill: none;
+	stroke: var(--camera-accent);
+	stroke-dasharray: 5 5;
+	stroke-width: 2;
+}
+
+.studio-easing-curve {
+	fill: none;
+	stroke: var(--camera-ink);
+	stroke-linecap: round;
+	stroke-width: 3;
+}
+
+.dark .studio-easing-curve {
+	stroke: #f4f4f1;
+}
+
+.studio-easing-handle {
+	fill: var(--camera-accent);
+	stroke: #fff;
+	stroke-width: 3;
+	cursor: grab;
+}
+
+.studio-easing-handle:active {
+	cursor: grabbing;
+}
+
+.dark .studio-easing-handle {
+	stroke: #1f2024;
+}
+
+.studio-easing-values {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.studio-easing-values input {
+	width: 100%;
+	height: 34px;
+	padding: 0 6px;
+	border: 1px solid rgb(29 29 32 / 0.08);
+	border-radius: 10px;
+	outline: 0;
+	background: rgb(125 125 120 / 0.065);
+	color: var(--camera-ink);
+	font-family: var(--font-mono);
+	font-size: 10px;
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+	transition: border-color 120ms var(--ease-out), background-color 120ms var(--ease-out), box-shadow
+		120ms var(--ease-out);
+}
+
+.studio-easing-values input:focus {
+	border-color: rgb(47 128 255 / 0.42);
+	background: #fff;
+	box-shadow: 0 0 0 3px rgb(47 128 255 / 0.1);
+}
+
+.dark .studio-easing-values input {
+	border-color: rgb(255 255 255 / 0.09);
+	background: rgb(255 255 255 / 0.055);
+	color: #f4f4f1;
+}
+
+.dark .studio-easing-values input:focus {
+	border-color: rgb(85 153 255 / 0.56);
+	background: rgb(255 255 255 / 0.085);
+}
+
+.studio-easing-values input::-webkit-inner-spin-button,
+.studio-easing-values input::-webkit-outer-spin-button {
+	margin: 0;
+	appearance: none;
+}
+
+.studio-easing-presets-label {
+	padding: 1px 2px 0;
+	color: var(--camera-muted);
+	font-size: 8px;
+	font-weight: 680;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+.studio-easing-presets {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 7px;
+}
+
+.studio-easing-editor .studio-easing-presets button {
+	display: grid;
+	width: 100%;
+	height: 72px;
+	min-width: 0;
+	grid-template-rows: 46px auto;
+	place-items: center;
+	gap: 1px;
+	padding: 4px 5px 5px;
+	border: 1px solid rgb(29 29 32 / 0.08);
+	border-radius: 12px;
+	background: #fff;
+	color: var(--camera-muted);
+	font-size: 9px;
+	font-weight: 570;
+	transition: border-color 120ms var(--ease-out), background-color 120ms var(--ease-out), color
+		120ms var(--ease-out), transform 100ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-easing-editor .studio-easing-presets button:hover {
+		border-color: rgb(29 29 32 / 0.15);
+		background: #fff;
+		color: var(--camera-ink);
+	}
+}
+
+.studio-easing-editor .studio-easing-presets button[data-active] {
+	border-color: var(--camera-accent);
+	background: var(--camera-accent);
+	color: #fff;
+}
+
+.dark .studio-easing-editor .studio-easing-presets button {
+	border-color: rgb(255 255 255 / 0.09);
+	background: rgb(255 255 255 / 0.045);
+	color: #aaaab0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.dark .studio-easing-editor .studio-easing-presets button:hover {
+		border-color: rgb(255 255 255 / 0.17);
+		background: rgb(255 255 255 / 0.075);
+		color: #fff;
+	}
+}
+
+.dark .studio-easing-editor .studio-easing-presets button[data-active] {
+	border-color: var(--camera-accent);
+	background: var(--camera-accent);
+	color: #fff;
+}
+
+.studio-easing-presets svg {
+	display: block;
+	width: 100%;
+	height: 44px;
+	overflow: visible;
+}
+
+.studio-easing-presets svg path {
+	fill: none;
+	stroke: currentColor;
+	stroke-linecap: round;
+	stroke-width: 1.6;
+}
+
+.studio-easing-presets svg circle {
+	fill: var(--camera-accent);
+}
+
+.studio-easing-presets button[data-active] svg circle {
+	fill: #fff;
+}
+
+.studio-scene-separator {
+	width: 1px;
+	height: 20px;
+	margin: 0 1px;
+	background: var(--camera-line);
+}
+
+.studio-scene-context-empty {
+	justify-self: start;
+	color: var(--camera-muted);
+	font-size: 10px;
+}
+
+.studio-transition-context {
+	display: flex;
+	min-width: 0;
+	max-width: 560px;
+	height: 44px;
+	align-items: center;
+	justify-self: start;
+	gap: 8px;
+}
+
+.studio-transition-mark {
+	display: inline-flex;
+	width: 32px;
+	height: 32px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid rgb(29 29 32 / 0.08);
+	border-radius: 10px;
+	background: rgb(255 213 11 / 0.12);
+	color: #8b7200;
+}
+
+.dark .studio-transition-mark {
+	border-color: rgb(255 255 255 / 0.09);
+	background: rgb(255 213 11 / 0.14);
+	color: #ffe36a;
+}
+
+.studio-transition-copy {
+	display: grid;
+	min-width: 78px;
+	gap: 1px;
+}
+
+.studio-transition-copy strong {
+	color: var(--camera-ink);
+	font-size: 10px;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+}
+
+.dark .studio-transition-copy strong {
+	color: #efefeb;
+}
+
+.studio-transition-copy > span {
+	color: var(--camera-muted);
+	font-size: 8px;
+}
+
+.studio-transition-tempos {
+	display: inline-flex;
+	min-width: 0;
+	height: 36px;
+	align-items: center;
+	gap: 2px;
+	margin: 0;
+	padding: 3px;
+	border: 1px solid rgb(29 29 32 / 0.07);
+	border-radius: 12px;
+	background: rgb(125 125 120 / 0.06);
+}
+
+.dark .studio-transition-tempos {
+	border-color: rgb(255 255 255 / 0.08);
+	background: rgb(255 255 255 / 0.055);
+}
+
+.studio-transition-tempos button {
+	display: inline-flex;
+	min-width: 72px;
+	height: 28px;
+	align-items: baseline;
+	justify-content: center;
+	gap: 4px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: 9px;
+	background: transparent;
+	color: #6b6870;
+	font-family: inherit;
+	font-size: 9px;
+	font-weight: 580;
+	transition: background-color 130ms var(--ease-out), box-shadow 130ms var(--ease-out), color 130ms
+		var(--ease-out), transform 100ms var(--ease-out);
+}
+
+.dark .studio-transition-tempos button {
+	color: #aaa7b0;
+}
+
+.studio-transition-tempos button small {
+	font-family: var(--font-mono);
+	font-size: 8px;
+	font-variant-numeric: tabular-nums;
+	opacity: 0.66;
+}
+
+.studio-transition-tempos button[data-active] {
+	background: #fff;
+	box-shadow: 0 1px 2px rgb(15 23 42 / 0.09), 0 3px 8px rgb(15 23 42 / 0.045);
+	color: var(--camera-ink);
+}
+
+.dark .studio-transition-tempos button[data-active] {
+	background: rgb(255 255 255 / 0.12);
+	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+	color: #fff;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-transition-tempos button:not([data-active]):hover,
+	.studio-transition-close:hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+
+	.dark .studio-transition-tempos button:not([data-active]):hover,
+	.dark .studio-transition-close:hover {
+		background: rgb(255 255 255 / 0.08);
+		color: #fff;
+	}
+}
+
+.studio-transition-tempos button:active,
+.studio-transition-close:active {
+	transform: scale(0.96);
+}
+
+.studio-transition-close {
+	display: inline-flex;
+	width: 36px;
+	height: 36px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 11px;
+	background: transparent;
+	color: var(--camera-muted);
+	transition: background-color 130ms var(--ease-out), color 130ms var(--ease-out), transform 100ms
+		var(--ease-out);
+}
+
+.studio-timeline-time {
+	display: inline-flex;
+	align-items: center;
+	justify-self: end;
+	gap: 5px;
+	color: var(--camera-muted);
+}
+
+.studio-timeline-clock,
+.studio-timeline-total {
+	color: var(--camera-muted);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+}
+
+.studio-timeline-clock {
+	min-width: 61px;
+	text-align: right;
+}
+
+.studio-timeline-actions {
+	display: flex;
+	align-items: center;
+	gap: 3px;
+}
+
+.studio-timeline-actions button {
+	display: inline-flex;
+	width: 42px;
+	height: 42px;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--camera-muted);
+	transition: background-color 130ms var(--ease-out), color 130ms var(--ease-out), transform 110ms
+		var(--ease-out);
+}
+
+.dark .studio-timeline-actions button {
+	color: #a2a29d;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-timeline-actions button:not(:disabled):hover {
+		background: var(--camera-pill);
+		color: currentColor;
+	}
+
+	.dark .studio-timeline-actions button:not(:disabled):hover {
+		background: rgb(255 255 255 / 0.08);
+		color: #fff;
+	}
+}
+
+.studio-timeline-actions button:disabled {
+	opacity: 0.32;
+}
+
+.studio-timeline-actions .studio-timeline-play {
+	color: var(--camera-ink);
+}
+
+.dark .studio-timeline-actions .studio-timeline-play {
+	color: #f7f7f2;
+}
+
+.studio-timeline-actions button:focus-visible,
+.studio-scene-context button:focus-visible,
+.studio-scene-undo button:focus-visible,
+.scene-list-undo button:focus-visible,
+.studio-easing-editor button:focus-visible,
+.studio-easing-values input:focus-visible,
+.studio-scene-duration:focus-within,
+.studio-transition-tempos button:focus-visible,
+.studio-transition-close:focus-visible,
+.studio-timeline-transition:focus-visible,
+.studio-timeline-add:focus-visible,
+.studio-timeline-clip-face:focus-visible,
+.studio-timeline-resize:focus-visible,
+.studio-timeline-scrubber:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+@media (max-width: 1240px) {
+	.studio-scene-action-label {
+		display: none;
+	}
+
+	.studio-scene-context button {
+		padding-inline: 0;
+	}
+}
+
+.studio-timeline-scroll {
+	min-height: 0;
+	overflow-x: auto;
+	overflow-y: hidden;
+	overscroll-behavior-inline: contain;
+	scrollbar-width: thin;
+	scrollbar-color: rgb(120 120 116 / 0.32) transparent;
+}
+
+.studio-timeline-scroll::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+.studio-timeline-scroll::-webkit-scrollbar-thumb {
+	border-radius: 4px;
+	background: rgb(120 120 116 / 0.32);
+}
+
+.studio-timeline-track {
+	position: relative;
+	width: max(100%, var(--timeline-track-width));
+	height: 100%;
+	min-width: 100%;
+}
+
+.studio-timeline-clips {
+	position: absolute;
+	inset: 0 0 34px;
+	border-bottom: 1px solid var(--camera-line);
+}
+
+.studio-timeline-transition {
+	position: absolute;
+	top: 8px;
+	bottom: 8px;
+	z-index: 9;
+	display: grid;
+	min-width: 36px;
+	place-items: center;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: #8a8983;
+	cursor: pointer;
+}
+
+.studio-timeline-transition::before {
+	content: "";
+	position: absolute;
+	right: 3px;
+	left: 3px;
+	height: 1px;
+	background: rgb(29 29 32 / 0.12);
+}
+
+.dark .studio-timeline-transition::before {
+	background: rgb(255 255 255 / 0.14);
+}
+
+.studio-timeline-transition > span {
+	position: relative;
+	display: inline-flex;
+	width: 28px;
+	height: 28px;
+	align-items: center;
+	justify-content: center;
+	border: 1px solid rgb(29 29 32 / 0.09);
+	border-radius: 999px;
+	background: #fff;
+	box-shadow: 0 2px 7px rgb(15 23 42 / 0.07);
+	transition: border-color 130ms var(--ease-out), background-color 130ms var(--ease-out), color
+		130ms var(--ease-out), transform 110ms var(--ease-out);
+}
+
+.dark .studio-timeline-transition > span {
+	border-color: rgb(255 255 255 / 0.1);
+	background: #242529;
+	box-shadow: 0 2px 7px rgb(0 0 0 / 0.2);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-timeline-transition:hover > span {
+		border-color: rgb(29 29 32 / 0.2);
+		color: var(--camera-ink);
+		transform: scale(1.04);
+	}
+
+	.dark .studio-timeline-transition:hover > span {
+		border-color: rgb(255 255 255 / 0.23);
+		color: #fff;
+	}
+}
+
+.studio-timeline-transition:active > span {
+	transform: scale(0.97);
+}
+
+.studio-timeline-transition[data-active] > span {
+	border-color: rgb(255 213 11 / 0.7);
+	background: #ffda16;
+	box-shadow: 0 0 0 2px rgb(255 213 11 / 0.2), 0 3px 9px rgb(15 23 42 / 0.09);
+	color: #211b00;
+}
+
+/* The loop band marks where the file morphs back; it is not a control, so it
+   keeps the morph's look without its pointer, hover or press. */
+.studio-timeline-transition[data-loop] {
+	cursor: default;
+	pointer-events: none;
+}
+
+.studio-timeline-clip {
+	position: absolute;
+	top: 8px;
+	bottom: 8px;
+	min-width: 62px;
+	padding: 0 2px;
+	transition: opacity 100ms var(--ease-out);
+}
+
+.studio-timeline-clip::after {
+	content: "";
+	position: absolute;
+	top: 5px;
+	bottom: 5px;
+	z-index: 12;
+	width: 3px;
+	border-radius: 999px;
+	background: var(--camera-amber);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--camera-paper) 88%, transparent);
+	opacity: 0;
+	transform: scaleY(0.72);
+	transition: opacity 90ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.studio-timeline-clip[data-drop-edge="before"]::after {
+	left: -1px;
+}
+
+.studio-timeline-clip[data-drop-edge="after"]::after {
+	right: -1px;
+}
+
+.studio-timeline-clip[data-drop-edge]::after {
+	opacity: 1;
+	transform: scaleY(1);
+}
+
+.studio-timeline-clip-drag-surface {
+	width: 100%;
+	height: 100%;
+}
+
+.studio-timeline-clip-face {
+	position: relative;
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	padding: 0;
+	border: 1px solid rgb(29 29 32 / 0.055);
+	border-radius: 12px;
+	background: #f4f5f7;
+	color: #30302d;
+	cursor: grab;
+	text-align: left;
+	transition: border-color 100ms var(--ease-out), background-color 100ms var(--ease-out), box-shadow
+		120ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.studio-timeline-clip[data-dragged] {
+	z-index: 11;
+	opacity: 0.72;
+}
+
+.studio-timeline-clip[data-dragged] .studio-timeline-clip-face {
+	box-shadow: 0 8px 20px rgb(15 23 42 / 0.12);
+	cursor: grabbing;
+	transform: scale(1.015);
+}
+
+.studio-timeline-clip[data-drop-target] .studio-timeline-clip-face {
+	border-color: rgb(255 213 11 / 0.58);
+	background: color-mix(in srgb, #f4f5f7 88%, var(--camera-amber));
+}
+
+.dark .studio-timeline-clip-face {
+	border-color: rgb(255 255 255 / 0.08);
+	background: #232321;
+	color: #e8e8e3;
+}
+
+.dark .studio-timeline-clip[data-drop-target] .studio-timeline-clip-face {
+	background: color-mix(in srgb, #232321 88%, var(--camera-amber));
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-timeline-clip-face:hover {
+		border-color: rgb(25 25 23 / 0.18);
+	}
+
+	.dark .studio-timeline-clip-face:hover {
+		border-color: rgb(255 255 255 / 0.18);
+	}
+}
+
+.studio-timeline-clip[data-selected] .studio-timeline-clip-face {
+	border-color: var(--camera-amber);
+	box-shadow: 0 0 0 2px rgb(255 213 11 / 0.78), 0 4px 14px rgb(15 23 42 / 0.06);
+}
+
+.studio-timeline-clip[data-resizing] .studio-timeline-clip-face {
+	border-color: var(--camera-amber);
+	box-shadow: 0 0 0 2px rgb(255 213 11 / 0.42);
+}
+
+/* The code starts under the number and duration row (top 6px, 8px type), not
+   behind it: at 12px the first line ran through both labels. Its edges line up
+   with theirs. */
+.studio-timeline-code {
+	position: absolute;
+	inset: 22px 7px 10px;
+	overflow: hidden;
+	color: inherit;
+	font-family: var(--font-mono);
+	font-size: 4px;
+	font-weight: 500;
+	line-height: 1.45;
+	opacity: 0.78;
+	pointer-events: none;
+	white-space: pre;
+}
+
+.studio-timeline-clip-number,
+.studio-timeline-clip-duration {
+	position: absolute;
+	z-index: 1;
+	top: 6px;
+	color: #64645f;
+	font-family: var(--font-mono);
+	font-size: 8px;
+	font-variant-numeric: tabular-nums;
+}
+
+.dark .studio-timeline-clip-number,
+.dark .studio-timeline-clip-duration {
+	color: #aaa9a3;
+}
+
+.studio-timeline-clip-number {
+	left: 7px;
+}
+
+.studio-timeline-clip-duration {
+	right: 7px;
+}
+
+.studio-timeline-layer-marks {
+	position: absolute;
+	bottom: 6px;
+	left: 7px;
+	z-index: 2;
+	display: inline-flex;
+	height: 16px;
+	align-items: center;
+	gap: 1px;
+	padding: 0 4px;
+	border: 1px solid rgb(255 255 255 / 0.12);
+	border-radius: 999px;
+	background: rgb(20 20 19 / 0.74);
+	box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
+	color: rgb(255 255 255 / 0.8);
+	-webkit-backdrop-filter: blur(8px);
+	backdrop-filter: blur(8px);
+	pointer-events: none;
+}
+
+.studio-timeline-layer-marks > span {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.studio-timeline-layer-marks > span[data-kind="audio"] {
+	color: #a694ff;
+}
+
+.studio-timeline-resize {
+	position: absolute;
+	top: 12px;
+	right: -12px;
+	bottom: 12px;
+	z-index: 5;
+	width: 24px;
+	border-radius: 999px;
+	cursor: ew-resize;
+	touch-action: none;
+}
+
+.studio-timeline-resize::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 3px;
+	height: 28px;
+	border-radius: 999px;
+	background: var(--camera-amber);
+	box-shadow: 0 0 0 2px color-mix(in srgb, var(--camera-paper) 88%, transparent);
+	transform: translate(-50%, -50%);
+	transition: box-shadow 120ms var(--ease-out), transform 100ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-timeline-resize:hover::before {
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--camera-paper) 82%, transparent);
+		transform: translate(-50%, -50%) scaleX(1.66);
+	}
+}
+
+.studio-timeline-clip[data-resizing] .studio-timeline-resize::before,
+.studio-timeline-resize:focus-visible::before {
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--camera-paper) 82%, transparent);
+	transform: translate(-50%, -50%) scaleX(1.66);
+}
+
+.studio-timeline-adds {
+	position: absolute;
+	top: 14px;
+	display: flex;
+	width: 126px;
+	height: calc(100% - 28px);
+	margin-left: 10px;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.studio-timeline-add {
+	min-height: 0;
+	flex: 1 1 auto;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 7px;
+	padding: 0 14px;
+	border: 1px dashed rgb(29 29 32 / 0.16);
+	border-radius: 12px;
+	background: #fbfbfc;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: 11px;
+	font-weight: 570;
+	transition: border-color 130ms var(--ease-out), background-color 130ms var(--ease-out), color
+		130ms var(--ease-out), transform 100ms var(--ease-out);
+}
+
+.dark .studio-timeline-add {
+	border-color: rgb(255 255 255 / 0.18);
+	background: rgb(255 255 255 / 0.04);
+	color: #aaa9a3;
+}
+
+/* Blank is the quieter of the two, as it is beside Capture in the scene list:
+   no dashed outline until the pointer is on it, and 44px, a finger's floor. */
+.studio-timeline-add[data-blank] {
+	height: 44px;
+	flex: none;
+	border-color: transparent;
+	background: transparent;
+}
+
+.dark .studio-timeline-add[data-blank] {
+	border-color: transparent;
+	background: transparent;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-timeline-add:hover {
+		border-color: rgb(80 80 76 / 0.45);
+		background: rgb(125 125 120 / 0.09);
+		color: #343431;
+	}
+
+	.dark .studio-timeline-add:hover {
+		border-color: rgb(255 255 255 / 0.32);
+		background: rgb(255 255 255 / 0.08);
+		color: #fff;
+	}
+}
+
+.studio-timeline-add:active {
+	transform: scale(0.96);
+}
+
+/* A triangle is mathematically centred before it looks centred. */
+.studio-timeline-play-glyph {
+	transform: translateX(1px);
+}
+
+.studio-timeline-ruler {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 34px;
+	background-image: repeating-linear-gradient(
+		to right,
+		transparent 0,
+		transparent 24px,
+		var(--camera-line) 25px
+	);
+	background-size: var(--timeline-second-width) 100%;
+}
+
+.studio-timeline-tick {
+	position: absolute;
+	top: 8px;
+	color: var(--camera-muted);
+	font-family: var(--font-mono);
+	font-size: 8px;
+	font-variant-numeric: tabular-nums;
+	transform: translateX(5px);
+}
+
+.studio-timeline-tick[data-end] {
+	transform: translateX(calc(-100% - 5px));
+}
+
+.studio-timeline-tick::before {
+	content: "";
+	position: absolute;
+	top: -8px;
+	left: -5px;
+	width: 1px;
+	height: 7px;
+	background: var(--camera-line);
+}
+
+.studio-timeline-scrubber {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	cursor: ew-resize;
+	opacity: 0;
+}
+
+.studio-timeline-playhead {
+	position: absolute;
+	z-index: 8;
+	top: 0;
+	right: 0;
+	bottom: -34px;
+	left: 0;
+	pointer-events: none;
+	transform: translate3d(var(--timeline-progress-shift), 0, 0);
+	will-change: transform;
+}
+
+.studio-timeline-playhead-line {
+	position: absolute;
+	top: 0;
+	right: -1px;
+	bottom: 0;
+	width: 2px;
+	background: var(--camera-coral);
+}
+
+.studio-timeline-playhead-line::before {
+	content: "";
+	position: absolute;
+	top: -1px;
+	left: 50%;
+	width: 9px;
+	height: 9px;
+	border-radius: 2px 2px 5px 5px;
+	background: var(--camera-coral);
+	transform: translate(-50%, -35%) rotate(45deg);
+}
+
+.studio-timeline-bubble {
+	position: absolute;
+	z-index: 9;
+	right: 0;
+	bottom: 7px;
+	padding: 4px 7px;
+	border-radius: 999px;
+	background: #1d1d1b;
+	color: #fff;
+	font-family: var(--font-mono);
+	font-size: 9px;
+	font-variant-numeric: tabular-nums;
+	pointer-events: none;
+	transform: translateX(50%);
+}
+
+.studio-timeline-playhead[data-edge="start"] .studio-timeline-bubble {
+	transform: translateX(calc(100% + 5px));
+}
+
+.studio-timeline-playhead[data-edge="end"] .studio-timeline-bubble {
+	transform: translateX(-5px);
+}
+
+.dark .studio-timeline-bubble {
+	background: #f3f3ef;
+	color: #1d1d1b;
+}
+
+@media (max-width: 1180px) {
+	.studio-camera-root {
+		--camera-timeline-height: 206px;
+		--camera-rail-bottom: 234px;
+	}
+
+	.studio-camera-root .si-dock-timeline .si-label {
+		display: none;
+	}
+
+	.studio-camera-root .si-button {
+		padding-inline: 10px;
+	}
+
+	.studio-camera-root .sc-stage-slot {
+		padding-inline: 28px;
+	}
+}
+
+@media (max-height: 760px) {
+	.studio-camera-root {
+		--camera-timeline-height: 190px;
+		--camera-rail-bottom: 218px;
+	}
+
+	.studio-camera-root .sc-stage-slot {
+		padding-top: 10px;
+		padding-bottom: 60px;
+	}
+
+	.studio-camera-root .sc-card-slot {
+		top: calc(var(--camera-header) + 10px);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.studio-tooltip {
+		animation: none;
+	}
+
+	.studio-scene-context,
+	.studio-transition-context {
+		animation: none;
+	}
+
+	.studio-camera-mode button,
+	.studio-timeline-actions button,
+	.studio-transition-tempos button,
+	.studio-transition-close,
+	.studio-timeline-transition > span,
+	.studio-timeline-clip,
+	.studio-timeline-clip::after,
+	.studio-timeline-clip-face,
+	.studio-timeline-resize::before,
+	.studio-timeline-add {
+		transition: none;
+	}
+
+	.studio-camera-mode button:active,
+	.studio-timeline-actions button:active:not(:disabled),
+	.studio-transition-tempos button:active,
+	.studio-transition-close:active,
+	.studio-timeline-transition:active > span,
+	.studio-timeline-clip-face:active,
+	.studio-timeline-add:active {
+		transform: none;
+	}
+
+	.studio-timeline-clip[data-dragged] .studio-timeline-clip-face,
+	.studio-timeline-resize:hover::before,
+	.studio-timeline-clip[data-resizing] .studio-timeline-resize::before,
+	.studio-timeline-resize:focus-visible::before {
+		transform: none;
+	}
+}
+
+/* A file dragged over the studio: the whole paper becomes the target, quietly,
+   under the notices. Pointer events pass through; the window owns the drop. */
+.studio-camera-root .sc-drop-veil {
+	position: fixed;
+	inset: 10px;
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1.5px dashed rgb(47 128 255 / 0.75);
+	border-radius: 22px;
+	background: rgb(47 128 255 / 0.05);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 140ms ease-out;
+}
+
+.studio-camera-root .sc-drop-veil[data-active] {
+	opacity: 1;
+}
+
+.studio-camera-root .sc-drop-veil p {
+	padding: 8px 14px;
+	border-radius: 12px;
+	background: var(--camera-paper);
+	box-shadow: var(--camera-surface-shadow);
+	color: var(--camera-ink);
+	font-size: 13px;
+	font-weight: 560;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.studio-camera-root .sc-drop-veil {
+		transition: none;
+	}
+}
+
+/* Media chips carry file names now; a long one ends in an ellipsis and its
+   tooltip holds the whole name. */
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill span {
+	max-width: 132px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* A media choice waits while the files already chosen are being added. */
+.sc-source-choice:disabled {
+	opacity: 0.5;
+	pointer-events: none;
+}

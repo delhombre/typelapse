@@ -78,4 +78,6 @@ export interface DiffToSnapshotsResult {
 	path?: string;
 	/** How many files the diff touched. */
 	fileCount: number;
+	/** True when every file was deleted: the snapshots end on the removal frame. */
+	removesOnly: boolean;
 }

@@ -1,60 +1,224 @@
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import {
+	outputExpiredRefusal,
+	planLimitRefusal,
+} from "../../src/application/billing/plan-allowance";
+import {
+	type HostedRenderJob,
+	type HostedRenderJobService,
+	parseHostedRenderOptions,
+} from "../../src/application/render/hosted-render-job";
+import type {
+	HostedRenderDownload,
+	HostedRenderDownloadService,
+} from "../../src/application/render/hosted-render-download";
+import type { Plan } from "../../src/domain/value-objects/plan";
 import {
 	type HostedRenderDeps,
 	defaultHostedRenderDeps,
-	requireHostedRenderEntitlement,
+	requireHostedAccount,
 } from "../auth/hosted-render-guard";
 
-interface CloudRenderBody {
-	steps?: unknown[];
+const MAX_RENDER_REQUEST_BYTES = 32 * 1024;
+
+interface CloudRouteEnv {
+	Variables: {
+		accountId: string;
+		plan: Plan;
+	};
 }
 
-/**
- * Hosted render: the render itself is still a STUB.
- *
- * The production implementation enqueues the job on a render queue processed by
- * a fleet of Remotion workers, uploads the result to object storage, and
- * returns a signed download URL once done.
- *
- * The entitlement check, however, is real: every route here is behind
- * {@link requireHostedRenderEntitlement}, which resolves the caller's plan from
- * their session. Ports are injected rather than imported so that a deployment
- * chooses its auth provider and a test can supply its own.
- */
-export const createCloudRoute = (deps: HostedRenderDeps = defaultHostedRenderDeps) => {
-	const cloudRoute = new Hono();
+export interface CloudRouteDeps extends HostedRenderDeps {
+	readonly renderJobs?: HostedRenderJobService;
+	readonly renderDownloads?: HostedRenderDownloadService;
+	readonly now?: () => Date;
+}
 
-	cloudRoute.use("*", requireHostedRenderEntitlement(deps));
+/** A paid plan keeps every output; a downgraded one keeps them for its grace period. */
+async function keepsOutput(
+	deps: CloudRouteDeps,
+	c: Context<CloudRouteEnv>,
+	job: HostedRenderJob,
+	now: Date,
+): Promise<boolean> {
+	const plan = c.get("plan");
+	if (plan.capabilities.allowsCloudExport) {
+		return true;
+	}
+	const downgradedAt = (await deps.subscriptions.downgradedAt?.(c.get("accountId"))) ?? null;
+	return plan.keepsHostedOutput({
+		completedAt: job.completedAt ?? job.createdAt,
+		downgradedAt,
+		now,
+	});
+}
+
+async function downloadResponse(
+	deps: CloudRouteDeps,
+	ownerId: string,
+	jobId: string,
+): Promise<
+	| { readonly outcome: "ready"; readonly download: HostedRenderDownload }
+	| { readonly outcome: "not-ready" }
+	| { readonly outcome: "not-found" }
+	| { readonly outcome: "unavailable" }
+> {
+	if (!deps.renderDownloads) {
+		return { outcome: "unavailable" };
+	}
+	try {
+		return await deps.renderDownloads.open(ownerId, jobId);
+	} catch {
+		return { outcome: "unavailable" };
+	}
+}
+
+function renderJobBody(value: unknown): {
+	readonly projectId: string;
+	readonly revision: number;
+	readonly renderOptions: ReturnType<typeof parseHostedRenderOptions>;
+} {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) {
+		throw new Error("Hosted render request must be an object");
+	}
+	const input = value as Record<string, unknown>;
+	if (typeof input.projectId !== "string" || !input.projectId.trim()) {
+		throw new Error("Hosted render projectId is required");
+	}
+	if (
+		typeof input.revision !== "number" ||
+		!Number.isSafeInteger(input.revision) ||
+		input.revision < 1
+	) {
+		throw new Error("Hosted render revision must be a positive integer");
+	}
+	return {
+		projectId: input.projectId,
+		revision: input.revision,
+		renderOptions: parseHostedRenderOptions(input.renderOptions),
+	};
+}
+
+/** Entitled, canonical-revision cloud rendering. */
+export const createCloudRoute = (
+	deps: CloudRouteDeps = { ...defaultHostedRenderDeps },
+): Hono<CloudRouteEnv> => {
+	const cloudRoute = new Hono<CloudRouteEnv>();
+	const now = deps.now ?? (() => new Date());
+
+	cloudRoute.use("*", requireHostedAccount(deps));
+	cloudRoute.use(
+		"/render",
+		bodyLimit({
+			maxSize: MAX_RENDER_REQUEST_BYTES,
+			onError: (c) => c.json({ error: "Hosted render request is too large" }, 413),
+		}),
+	);
 
 	cloudRoute.post("/render", async (c) => {
-		const body = (await c.req.json().catch(() => null)) as CloudRenderBody | null;
-		if (!body || !Array.isArray(body.steps) || body.steps.length < 2) {
-			return c.json({ error: "At least 2 steps required" }, 400);
+		const plan = c.get("plan");
+		if (!plan.capabilities.allowsCloudExport) {
+			return c.json(planLimitRefusal(plan, "hostedRenderTime", 0), 402);
 		}
-
-		const jobId = `job_${Date.now().toString(36)}`;
-		return c.json(
-			{
-				jobId,
-				status: "queued",
-				message: "Hosted rendering is being provisioned, this endpoint is a stub.",
-			},
-			202,
-		);
+		if (!deps.renderJobs) {
+			return c.json({ error: "Hosted rendering is not configured" }, 503);
+		}
+		let body: ReturnType<typeof renderJobBody>;
+		try {
+			body = renderJobBody(await c.req.json());
+		} catch (error) {
+			return c.json(
+				{ error: error instanceof Error ? error.message : "Invalid hosted render request" },
+				400,
+			);
+		}
+		const result = await deps.renderJobs.submit({
+			ownerId: c.get("accountId"),
+			projectId: body.projectId,
+			revision: body.revision,
+			renderOptions: body.renderOptions,
+			plan,
+			now: now(),
+		});
+		if (result.outcome === "plan-limit") {
+			// Too many jobs at once clears by itself, so it is a retry, not an upgrade.
+			return c.json(
+				planLimitRefusal(plan, result.ceiling, result.used),
+				result.ceiling === "concurrentRenders" ? 429 : 402,
+			);
+		}
+		if (result.outcome === "resolution-limit") {
+			return c.json({ error: result.message, code: "resolution-limit" }, 402);
+		}
+		if (result.outcome === "project-not-found") {
+			return c.json({ error: "Project not found" }, 404);
+		}
+		if (result.outcome === "revision-conflict") {
+			return c.json(
+				{ error: "Project revision conflict", currentRevision: result.currentRevision },
+				409,
+			);
+		}
+		if (result.outcome === "assets-unavailable") {
+			return c.json(
+				{ error: "Project assets are not ready", assetIds: result.assetIds },
+				409,
+			);
+		}
+		return c.json({ job: result.job }, 202);
 	});
 
-	/** Job status: STUB. Always reports "queued" until workers are attached. */
-	cloudRoute.get("/jobs/:id", (c) => {
+	cloudRoute.get("/jobs/:id", async (c) => {
+		if (!deps.renderJobs) {
+			return c.json({ error: "Hosted rendering is not configured" }, 503);
+		}
+		const job = await deps.renderJobs.status(c.get("accountId"), c.req.param("id"));
+		if (!job) {
+			return c.json({ error: "Render job not found" }, 404);
+		}
+		if (job.status !== "succeeded" || !deps.renderDownloads) {
+			return c.json({ job });
+		}
+		if (!(await keepsOutput(deps, c, job, now()))) {
+			return c.json({ job });
+		}
+		const result = await downloadResponse(deps, c.get("accountId"), job.id);
+		if (result.outcome !== "ready") {
+			return c.json({ error: "Render output is temporarily unavailable" }, 503);
+		}
+		c.header("Cache-Control", "no-store");
+		return c.json({ job, download: result.download });
+	});
+
+	cloudRoute.get("/jobs/:id/download", async (c) => {
+		if (!deps.renderJobs || !deps.renderDownloads) {
+			return c.json({ error: "Hosted rendering is not configured" }, 503);
+		}
 		const jobId = c.req.param("id");
-		return c.json({
-			jobId,
-			status: "queued",
-			message: "Stub: no render worker is attached yet.",
-		});
+		const job = await deps.renderJobs.status(c.get("accountId"), jobId);
+		if (!job) {
+			return c.json({ error: "Render job not found" }, 404);
+		}
+		if (job.status === "succeeded" && !(await keepsOutput(deps, c, job, now()))) {
+			return c.json(outputExpiredRefusal(c.get("plan")), 402);
+		}
+		const result = await downloadResponse(deps, c.get("accountId"), jobId);
+		if (result.outcome === "not-found") {
+			return c.json({ error: "Render job not found" }, 404);
+		}
+		if (result.outcome === "not-ready") {
+			return c.json({ error: "Render output is not ready" }, 409);
+		}
+		if (result.outcome === "unavailable") {
+			return c.json({ error: "Render output is temporarily unavailable" }, 503);
+		}
+		c.header("Cache-Control", "no-store");
+		return c.json({ download: result.download });
 	});
 
 	return cloudRoute;
 };
 
-/** The route as mounted by the server, with no auth provider wired yet. */
+/** Fail-closed route used when hosted dependencies are absent. */
 export const cloudRoute = createCloudRoute();

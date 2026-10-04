@@ -17,6 +17,14 @@ interface ThemeToggleProps {
  * the appeal; but it inverts against *every* backdrop, and the one this passes
  * over most is the primary's own mesh, where difference turns a white glyph
  * blue. Ink reads 12:1 on that mesh already. Two states, not a filter.
+ *
+ * It only floats where the page leaves it a gutter. The content column is
+ * 1024px wide, so below 1024 + 2 x 56px its corner is body text, and a fixed
+ * glyph rode over a heading or a code line at every scroll offset on a phone.
+ * A scrim or a filled disc would still cover that text, and the nav island is
+ * absent for the whole hero, so there it belongs to the top of the page and
+ * scrolls away with it: a theme is picked once a visit, and the OS preference
+ * has already picked it for most visitors.
  */
 /** The strip it floats in: 20 of top offset and 36 of button. */
 const TOGGLE_BAND = 56;
@@ -30,7 +38,7 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
 			type="button"
 			onClick={onToggle}
 			aria-label={`Switch to ${next} theme`}
-			className={`hit-ext fixed top-5 right-5 z-50 flex size-9 items-center justify-center rounded-full transition-colors duration-300 ease-[var(--ease-out)] ${
+			className={`hit-ext absolute top-5 right-[max(1.25rem,env(safe-area-inset-right))] z-50 min-[1136px]:fixed flex size-9 items-center justify-center rounded-full transition-colors duration-300 ease-[var(--ease-out)] ${
 				onDark
 					? "text-paper/75 hover:bg-paper/10 hover:text-paper"
 					: "text-ink/70 hover:bg-ink/6 hover:text-ink"

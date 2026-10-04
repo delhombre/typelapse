@@ -13,3 +13,19 @@ export function gutterLabels(start: number, count: number): string[] {
 	const rows = Math.max(0, Math.floor(count));
 	return Array.from({ length: rows }, (_, i) => String(safeStart + i).padStart(2, "0"));
 }
+
+/**
+ * The gutter of a window whose top is `firstRow` (`magic-move/window`),
+ * fractional through a morph: labels from the row at the top, one more when a
+ * row is cut by it, and `shift`, how far that row sits above the top, in rows.
+ * At row 0 it is `gutterLabels` as it always was.
+ */
+export function scrolledGutter(
+	start: number,
+	count: number,
+	firstRow: number,
+): { labels: string[]; shift: number } {
+	const top = Math.floor(firstRow);
+	const shift = firstRow - top;
+	return { labels: gutterLabels(start + top, count + (shift > 0 ? 1 : 0)), shift };
+}

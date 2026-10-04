@@ -1,67 +1,110 @@
-import type { BillingPort } from "@/domain/ports/billing.port";
+import type { BillingCadence, BillingCatalog, BillingPort } from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
 import { StripeBillingAdapter } from "@/infrastructure/billing/stripe-billing.adapter";
 import { create } from "zustand";
 
-const billing: BillingPort = new StripeBillingAdapter();
+export type ClientDeploymentMode = "local" | "hosted";
 
-interface PlanState {
+export interface PlanState {
 	plan: Plan;
+	catalog: BillingCatalog | null;
+	billingAvailable: boolean;
+	/** The server's allowance sentence, shown verbatim; null when it has none. */
+	allowance: string | null;
+	cadence: BillingCadence;
 	isUpgrading: boolean;
 	error: string | null;
+	selectCadence(cadence: BillingCadence): void;
+	/** Signed out, only the public catalog is read: plan and allowance need an account. */
+	refresh(options?: { readonly signedIn?: boolean }): Promise<void>;
+	upgrade(cadence?: BillingCadence): Promise<void>;
+	manageBilling(): Promise<void>;
+}
 
-	/** Load the persisted plan (hosted build only, see note below). */
-	refresh: () => Promise<void>;
-	/** Upgrade to Pro via the billing adapter (Stripe placeholder). */
-	upgrade: () => Promise<void>;
-	/** Return to Free, cancels the (placeholder) subscription. */
-	downgrade: () => Promise<void>;
+export interface PlanStoreOptions {
+	readonly deploymentMode: ClientDeploymentMode;
+	readonly billing?: BillingPort;
+	readonly navigate?: (url: string) => void;
+}
+
+function browserNavigate(url: string): void {
+	window.location.assign(url);
 }
 
 /**
- * Plan state for the app.
- *
- * The local OSS build runs on Plan.local() (everything unlocked) and never
- * calls refresh(), so nothing is ever gated: the export machinery reads this
- * plan and every entitlement check is a pass-through no-op. The refresh /
- * upgrade / downgrade actions and the billing adapter exist for the hosted
- * (cloud) build, where the plan becomes server-authoritative. The billing UI
- * (src/presentation/components/billing) ships unmounted today, pending the
- * hosted build that wires it in.
+ * Deployment and entitlement are intentionally separate. A local build is
+ * fully unlocked and never calls Stripe; a hosted build starts Free and trusts
+ * only the server projection after session refresh.
  */
-export const usePlanStore = create<PlanState>((set) => ({
-	plan: Plan.local(),
-	isUpgrading: false,
-	error: null,
+export function createPlanStore({
+	deploymentMode,
+	billing = new StripeBillingAdapter(),
+	navigate = browserNavigate,
+}: PlanStoreOptions) {
+	return create<PlanState>((set, get) => ({
+		plan: deploymentMode === "local" ? Plan.local() : Plan.free(),
+		catalog: null,
+		billingAvailable: false,
+		allowance: null,
+		cadence: "monthly",
+		isUpgrading: false,
+		error: null,
+		selectCadence: (cadence) => set({ cadence }),
 
-	refresh: async () => {
-		try {
-			const plan = await billing.getCurrentPlan();
-			set({ plan });
-		} catch {
-			set({ plan: Plan.free() });
-		}
-	},
-
-	upgrade: async () => {
-		set({ isUpgrading: true, error: null });
-		try {
-			// Production: redirect the browser to the returned Stripe Checkout URL.
-			// Placeholder: the adapter completes checkout synchronously.
-			await billing.startCheckout();
-			const plan = await billing.getCurrentPlan();
-			set({ plan, isUpgrading: false });
-		} catch (err) {
+		refresh: async ({ signedIn = true } = {}) => {
+			if (deploymentMode === "local") {
+				set({ plan: Plan.local(), error: null });
+				return;
+			}
+			const [catalog, plan, allowance] = await Promise.allSettled([
+				billing.getCatalog(),
+				signedIn ? billing.getCurrentPlan() : Promise.resolve(Plan.free()),
+				signedIn ? (billing.getAllowance?.() ?? Promise.resolve(null)) : Promise.resolve(null),
+			]);
 			set({
-				isUpgrading: false,
-				error: err instanceof Error ? err.message : "Upgrade failed",
+				catalog: catalog.status === "fulfilled" ? catalog.value : null,
+				billingAvailable: catalog.status === "fulfilled",
+				plan: plan.status === "fulfilled" ? plan.value : Plan.free(),
+				allowance: allowance.status === "fulfilled" ? allowance.value : null,
+				error: null,
 			});
-		}
-	},
+		},
 
-	downgrade: async () => {
-		await billing.cancelSubscription();
-		const plan = await billing.getCurrentPlan();
-		set({ plan });
-	},
-}));
+		upgrade: async (cadence) => {
+			if (deploymentMode === "local") {
+				set({ error: "Cloud billing is not part of this local deployment." });
+				return;
+			}
+			set({ isUpgrading: true, error: null });
+			try {
+				const checkout = await billing.startCheckout(cadence ?? get().cadence);
+				set({ isUpgrading: false });
+				navigate(checkout.url);
+			} catch (error) {
+				set({
+					isUpgrading: false,
+					error: error instanceof Error ? error.message : "Upgrade failed",
+				});
+			}
+		},
+
+		manageBilling: async () => {
+			if (deploymentMode === "local") {
+				set({ error: "Cloud billing is not part of this local deployment." });
+				return;
+			}
+			set({ error: null });
+			try {
+				const portal = await billing.openPortal();
+				navigate(portal.url);
+			} catch (error) {
+				set({ error: error instanceof Error ? error.message : "Billing portal failed" });
+			}
+		},
+	}));
+}
+
+const deploymentMode: ClientDeploymentMode =
+	import.meta.env.VITE_TYPELAPSE_DEPLOYMENT_MODE === "hosted" ? "hosted" : "local";
+
+export const usePlanStore = createPlanStore({ deploymentMode });

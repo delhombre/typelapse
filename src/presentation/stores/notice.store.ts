@@ -1,12 +1,14 @@
 import { create } from "zustand";
 
 /**
- * The studio's one feedback surface.
+ * The studio's exceptional feedback surface.
  *
  * Until now the only feedback the studio gave was export-only; everything else
  * either worked silently or died in the console. A notice is the small honest
- * middle: it names what happened, waits politely, and leaves on its own. It is
- * never a dialog — anything that needs an answer belongs in a confirm, not here.
+ * middle: it names what happened, waits politely, and leaves on its own. Direct
+ * manipulation owns feedback beside the changed object; this store is for
+ * failures that have no stable local surface. It is never a dialog — anything
+ * that needs an answer belongs in a confirm, not here.
  */
 
 export type NoticeTone = "info" | "error";
@@ -18,11 +20,19 @@ export interface StudioNotice {
 	/** Machine text (a filename, a size), rendered in mono beside the prose. */
 	detail?: string;
 	tone: NoticeTone;
+	/** One exceptional recovery path (for example retry). Direct Undo stays local. */
+	action?: NoticeAction;
+}
+
+export interface NoticeAction {
+	label: string;
+	onSelect: () => void;
 }
 
 export interface NotifyOptions {
 	detail?: string;
 	tone?: NoticeTone;
+	action?: NoticeAction;
 	/** How long the notice dwells before dismissing itself. */
 	durationMs?: number;
 }
@@ -52,6 +62,7 @@ export const useNoticeStore = create<NoticeState>((set, get) => ({
 			message,
 			tone: options?.tone ?? "info",
 			...(options?.detail !== undefined ? { detail: options.detail } : {}),
+			...(options?.action !== undefined ? { action: options.action } : {}),
 		};
 		set({ notices: [...get().notices, notice] });
 		timers.set(

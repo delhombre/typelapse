@@ -37,6 +37,11 @@ export interface PaintContext {
 	 * a fraction of a pixel per character wider rather than not at all.
 	 */
 	letterSpacing?: string;
+	/**
+	 * How hard a scaled image is filtered. Optional for the same reason as the
+	 * tracking: a context without it still draws the image, a little softer.
+	 */
+	imageSmoothingQuality?: string;
 
 	save(): void;
 	restore(): void;
@@ -59,7 +64,16 @@ export interface PaintContext {
 	 */
 	clearRect(x: number, y: number, w: number, h: number): void;
 	fillText(text: string, x: number, y: number): void;
-	measureText(text: string): { width: number };
+	/**
+	 * The font's bounding box is optional because a test double has no font: the
+	 * painter needs it to put a baseline where CSS does (see `text.ts`), and falls
+	 * back to the em box's middle without it.
+	 */
+	measureText(text: string): {
+		width: number;
+		fontBoundingBoxAscent?: number;
+		fontBoundingBoxDescent?: number;
+	};
 	drawImage(image: PaintImage, dx: number, dy: number, dw: number, dh: number): void;
 
 	createLinearGradient(x0: number, y0: number, x1: number, y1: number): PaintGradient;

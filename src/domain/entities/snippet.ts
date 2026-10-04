@@ -2,6 +2,31 @@ import { RenderConfig } from "./render-config";
 import type { Step } from "./step";
 import { Theme } from "./theme";
 
+/**
+ * The codes the magic move morphs between, one per scene: the live code before
+ * any capture, each scene's code after. A blank scene (empty code) has no card,
+ * so it holds the nearest scene's code (the next one, else the one before):
+ * the card then fades in or out where it stands instead of growing out of an
+ * empty window. Pure, so every renderer that lays out a plan (the studio, the
+ * server's card) holds the same code on the same blank scene.
+ */
+export function morphCodes(sceneCodes: readonly string[], liveCode: string): string[] {
+	if (sceneCodes.length === 0) {
+		return [liveCode];
+	}
+	const codes = [...sceneCodes];
+	let next = "";
+	for (let index = codes.length - 1; index >= 0; index -= 1) {
+		next = codes[index] || next;
+		codes[index] = next;
+	}
+	let previous = liveCode;
+	return codes.map((code) => {
+		previous = code || previous;
+		return previous;
+	});
+}
+
 export interface SnippetCreateProps {
 	title: string;
 	code: string;
@@ -55,10 +80,30 @@ export class Snippet {
 		});
 	}
 
+	/** The codes the magic move morphs between, one per scene ({@link morphCodes}). */
+	morphCodes(): string[] {
+		return morphCodes(
+			this.steps.map((step) => step.code),
+			this.code,
+		);
+	}
+
 	addStep(step: Step): Snippet {
 		return new Snippet({
 			...this,
 			steps: [...this.steps, step],
+		});
+	}
+
+	insertStep(step: Step, index: number): Snippet {
+		if (!Number.isInteger(index) || index < 0 || index > this.steps.length) {
+			throw new Error("Step insertion index must sit inside the timeline");
+		}
+		const steps = [...this.steps];
+		steps.splice(index, 0, step);
+		return new Snippet({
+			...this,
+			steps,
 		});
 	}
 

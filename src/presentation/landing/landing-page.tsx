@@ -5,10 +5,11 @@ import { ExportSection } from "./export-section";
 import { Hero } from "./hero";
 import { MagicMoveSection } from "./magic-move-section";
 import { Nav } from "./nav";
-import { InkButton, LogoLockup, Reveal } from "./primitives";
+import { InkButton, LandingIntroProvider, LogoLockup, Reveal } from "./primitives";
+import { SharpnessSection } from "./sharpness-section";
 import { SocialSection } from "./social-section";
 import { ThemeToggle } from "./theme-toggle";
-import { CONTAINER, GITHUB_URL, HAIRLINE, SECTION_PY } from "./tokens";
+import { CONTAINER, HAIRLINE, SECTION_PY } from "./tokens";
 import { useLandingTheme } from "./use-landing-theme";
 
 /**
@@ -25,33 +26,33 @@ export function LandingPage() {
 	const [theme, toggleTheme] = useLandingTheme();
 
 	return (
-		<div
-			className="landing-root relative flex min-h-dvh flex-col bg-paper text-ink antialiased"
-			data-theme={theme}
-		>
-			<Nav />
-			<ThemeToggle theme={theme} onToggle={toggleTheme} />
-			<main className="flex-1">
-				{/* The page deliberately opens with the product's own field rather than a
-				    headline, so its heading outline started at h2 and it had no title at
-				    all for anyone arriving by screen reader or landmark list. The name
-				    the page is missing is said here instead of drawn: the design keeps
-				    its opening, the document gets its one h1. */}
-				<h1 className="sr-only">Typelapse: turn a code change into a video</h1>
-				<Hero />
-				{/* The order follows the visitor's own workflow — bring a change in,
+		<LandingIntroProvider>
+			<div
+				className="landing-root relative flex min-h-dvh flex-col bg-paper text-ink antialiased"
+				data-theme={theme}
+			>
+				<Nav />
+				<ThemeToggle theme={theme} onToggle={toggleTheme} />
+				<main className="flex-1">
+					<Hero />
+					{/* The order follows the visitor's own workflow — bring a change in,
 				    watch it become motion, check where it lands, ship it — and each
 				    section is a numbered step of the same story rather than an
 				    independent feature card. */}
-				<DiffSection />
-				<MagicMoveSection />
-				<SocialSection />
-				<ExportSection />
-				<CapabilityLedger />
-				<Cta />
-			</main>
-			<Footer />
-		</div>
+					<DiffSection />
+					<MagicMoveSection />
+					<SocialSection />
+					<ExportSection />
+					{/* The proof under the step that makes the file: the same frame out of
+					    two of its formats, measured, so "preview matches export" is a
+					    number on the page rather than a promise in the hero. */}
+					<SharpnessSection />
+					<CapabilityLedger />
+					<Cta />
+				</main>
+				<Footer />
+			</div>
+		</LandingIntroProvider>
 	);
 }
 
@@ -69,7 +70,7 @@ function Cta() {
 						Open the studio
 					</InkButton>
 				</div>
-				<p className="lp-micro mt-5">No sign-up. Runs in your browser.</p>
+				<p className="lp-micro mt-5">Start without an account. Render locally by default.</p>
 			</Reveal>
 		</section>
 	);
@@ -94,14 +95,6 @@ function Footer() {
 					>
 						Studio
 					</Link>
-					<a
-						href={GITHUB_URL}
-						target="_blank"
-						rel="noreferrer"
-						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
-					>
-						GitHub
-					</a>
 				</div>
 			</div>
 		</footer>

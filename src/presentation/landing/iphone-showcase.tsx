@@ -8,8 +8,6 @@ import { motion, useReducedMotion } from "motion/react";
 import {
 	type CSSProperties,
 	type PointerEvent as ReactPointerEvent,
-	useCallback,
-	useEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -19,15 +17,15 @@ import { screenPlacement } from "./screen-switch";
 import { StaticFrame } from "./static-frame";
 
 /**
- * The hero of the social section: a realistic iPhone whose screen auto-cycles
- * through TikTok, Reels and Shorts feeds, each showing one of our code exports.
+ * The hero of the social section: a realistic iPhone whose screen switches
+ * between social feeds when the visitor picks a platform or swipes the device.
  * Switching apps slides horizontally — the current app leaves to the left while the
  * next enters from the right, the way you swipe between apps, not the vertical feed
  * scroll that would read as the next video in the same app — while the bezel and
  * Dynamic Island stay put. Every feed is mounted for the life of the page and
  * only its transform changes, so a switch composites layers that were already
  * rastered instead of painting a new screen mid-spring (see `ScreenSwitcher`).
- * Reduced motion drops the cycle and float for one feed.
+ * Reduced motion keeps the selected feed and drops travel between platforms.
  */
 
 interface ScreenConfig {
@@ -93,9 +91,6 @@ export const SCREEN_CONFIGS = [
     so a chip's position and a screen's position are the same fact. */
 export const CYCLE_PLATFORMS: readonly SocialPlatform[] = SCREEN_CONFIGS.map((c) => c.platform);
 
-/** How long each feed holds before swiping to the next. */
-const HOLD_MS = 3600;
-
 /* The iOS home-bar app switch, rebuilt from what the gesture actually does.
    The screen was cross-sliding like a web carousel, which reads as one filmstrip
    scrolling past a window. Three things separate the device's gesture from that,
@@ -128,11 +123,6 @@ export interface CycleControls {
 	/** Go straight to a platform, the way the chip row asks for it. The row is a
 	    spatial map of the cycle, so a chip further along arrives from that side. */
 	select: (index: number) => void;
-	/** A pointer is on the screen: the timer must not move under it. */
-	hold: () => void;
-	/** Let go. The next automatic move is a whole hold away, never the remainder
-	    of the one the visitor interrupted. */
-	release: () => void;
 }
 
 export interface PlatformCycle {
@@ -144,62 +134,17 @@ export interface PlatformCycle {
 }
 
 /**
- * Drive the cycle index on a timed loop. Reduced motion pins it to the first
- * config (a static feed) and never starts the interval. The active platform is
- * derived from the returned index, so the chips and the screen share one source.
- *
- * `active` is whether anyone can see it. The interval used to run from mount,
- * which meant the ring had already turned several times before the section came
- * up the page — a visitor's first sight of the phone was whatever platform the
- * clock happened to be on, mid-swipe as often as not. Held until the section
- * arrives, the first thing they see is the first screen, at rest. It is also
- * simply work nobody was watching: a timer, five composited layers and a spring,
- * for a section three scrolls away.
- *
- * Frozen rather than reset on the way out. Coming back to the feed you left is
- * the honest behaviour; only the first arrival is composed, and it is composed
- * because the index cannot have moved before then.
- *
- * The hand outranks the clock: while a pointer is down the timer is stopped, and
- * letting go starts a whole new hold rather than resuming a spent one.
+ * One selected platform shared by the chip row and phone. There is deliberately
+ * no timer: the page demonstrates motion when someone asks for it.
  */
-export function usePlatformCycle(active = true): PlatformCycle {
-	const reduce = useReducedMotion();
+export function usePlatformCycle(): PlatformCycle {
 	const [index, setIndex] = useState(0);
 	const [direction, setDirection] = useState<1 | -1>(1);
-	const timer = useRef<number | null>(null);
 	/* `select` has to know where the cycle is standing to work out which side the
 	   next screen comes in from, and it must do that without making the controls
 	   object a new one on every turn of the ring. */
 	const indexRef = useRef(index);
 	indexRef.current = index;
-
-	const stop = useCallback(() => {
-		if (timer.current !== null) {
-			window.clearInterval(timer.current);
-			timer.current = null;
-		}
-	}, []);
-
-	/* Always a fresh interval, never a resumed one. Restarting is the whole point
-	   of the function: a hold that has already run 3.3s must not fire 300ms after
-	   the visitor's own swipe, which would read as the page arguing with them. */
-	const start = useCallback(() => {
-		stop();
-		timer.current = window.setInterval(() => {
-			setDirection(1);
-			setIndex((i) => (i + 1) % SCREEN_CONFIGS.length);
-		}, HOLD_MS);
-	}, [stop]);
-
-	useEffect(() => {
-		if (reduce || !active) {
-			stop();
-			return;
-		}
-		start();
-		return stop;
-	}, [reduce, active, start, stop]);
 
 	const controls = useMemo<CycleControls>(
 		() => ({
@@ -217,21 +162,9 @@ export function usePlatformCycle(active = true): PlatformCycle {
 				}
 				setDirection(target > from ? 1 : -1);
 				setIndex(target);
-				// A pick is the hand speaking, and the hand outranks the clock: the
-				// remainder of the hold it interrupted must not fire moments later and
-				// carry the feed off the platform that was just asked for.
-				if (!reduce && active) {
-					start();
-				}
-			},
-			hold: stop,
-			release: () => {
-				if (!reduce && active) {
-					start();
-				}
 			},
 		}),
-		[start, stop, reduce, active],
+		[],
 	);
 
 	return {
@@ -343,21 +276,6 @@ function ScreenSwitcher({ activeIndex, direction }: { activeIndex: number; direc
 	);
 }
 
-/* The float, written as transforms for the same reason the switch is: a
-   keyframed `y` is composed every frame, a keyframed `transform` is a property
-   the browser can animate on its own. Held at rest rather than paused when the
-   section is away — an infinite repeat that nobody can see is the clearest case
-   of work for no one. */
-const FLOAT_KEYFRAMES = {
-	transform: ["translateY(0px)", "translateY(-6px)", "translateY(0px)"],
-};
-const FLOAT_REST = { transform: "translateY(0px)" };
-const FLOAT_TRANSITION = {
-	duration: 5,
-	ease: "easeInOut",
-	repeat: Number.POSITIVE_INFINITY,
-} as const;
-
 /* A flick is a statement of intent, not a measurement: past this speed the
    distance stops mattering, because a fast short push is exactly how someone
    says "next" without meaning to travel. Pixels per millisecond. */
@@ -385,8 +303,6 @@ interface DragState {
 interface IphoneShowcaseProps {
 	/** The cycle this is a view of: index, direction and the controls the hand needs. */
 	cycle: PlatformCycle;
-	/** Whether the section is on screen: the float only breathes for someone. */
-	active?: boolean;
 	className?: string;
 }
 
@@ -400,7 +316,7 @@ interface IphoneShowcaseProps {
  * the timer drive the same machine and a released swipe settles on the same
  * spring an automatic one does.
  */
-export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneShowcaseProps) {
+export function IphoneShowcase({ cycle, className = "" }: IphoneShowcaseProps) {
 	const reduce = useReducedMotion();
 	const { index: activeIndex, direction, controls } = cycle;
 	const config: ScreenConfig = SCREEN_CONFIGS[activeIndex] ?? SCREEN_CONFIGS[0];
@@ -441,7 +357,6 @@ export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneS
 		/* Catch it where it is: putting a hand on a moving ring stops it, rather
 		   than letting it coast to rest underneath. */
 		setOffset(currentOffset());
-		controls.hold();
 	};
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -485,7 +400,6 @@ export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneS
 			event.currentTarget.releasePointerCapture(event.pointerId);
 		}
 		setOffset(0);
-		controls.release();
 		return state;
 	};
 
@@ -544,28 +458,12 @@ export function IphoneShowcase({ cycle, active = true, className = "" }: IphoneS
 
 	const device = (
 		<DeviceFrame
-			ariaLabel="An iPhone cycling through TikTok, Instagram Reels and YouTube Shorts feeds showing Typelapse code snippets"
+			ariaLabel="An interactive iPhone preview of social feeds showing a Typelapse code video"
 			className={className}
 		>
 			{screen}
 		</DeviceFrame>
 	);
 
-	if (reduce) {
-		return device;
-	}
-
-	// A slow, gentle float so the device reads as held in space rather than
-	// pasted onto the section. Slow enough that it is never the thing you look
-	// at: the screen is.
-	return (
-		<motion.div
-			className="w-full"
-			style={{ display: "flex", justifyContent: "center" }}
-			animate={active ? FLOAT_KEYFRAMES : FLOAT_REST}
-			transition={active ? FLOAT_TRANSITION : INSTANT_TRANSITION}
-		>
-			{device}
-		</motion.div>
-	);
+	return <div className="flex w-full justify-center">{device}</div>;
 }

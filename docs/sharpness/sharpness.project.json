@@ -1,0 +1,31 @@
+{
+	"title": "render.ts",
+	"code": "export async function render(pr: PullRequest) {\n  const { files } = await gh.pulls.get({ owner, repo, pull_number: 1247 });\n  return morph(files.map((f) => tokenize(f.patch, \"tsx\")), { fps: 60 });\n}",
+	"language": "typescript",
+	"themeName": "midnight",
+	"fontFamily": "JetBrains Mono, monospace",
+	"borderRadius": 12,
+	"background": "mesh:solar",
+	"windowChrome": "macos",
+	"showLineNumbers": true,
+	"lineNumberStart": 1,
+	"framePadding": 24,
+	"cardMargin": 32,
+	"watermark": "",
+	"steps": [
+		{
+			"code": "export async function render(pr: PullRequest) {\n  const { files } = await gh.pulls.get({ owner, repo, pull_number: 1247 });\n  return morph(files.map((f) => tokenize(f.patch, \"tsx\")), { fps: 60 });\n}",
+			"duration": 600
+		},
+		{
+			"code": "export async function render(pr: PullRequest) {\n  const { files } = await gh.pulls.get({ owner, repo, pull_number: 1247 });\n  return morph(files.map((f) => tokenize(f.patch, \"tsx\")), { fps: 60 });\n}",
+			"duration": 600
+		}
+	],
+	"progressStyle": "none",
+	"typewriter": false,
+	"focusZoom": false,
+	"transitionMs": 400,
+	"width": 1920,
+	"height": 1080
+}

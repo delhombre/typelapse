@@ -1,3 +1,4 @@
+import { memo } from "react";
 // Relative, like every other component the Remotion composition pulls in: that
 // bundle resolves no path alias.
 import {
@@ -13,7 +14,19 @@ import {
  * in the browser preview and in Remotion's headless Chrome so the exported
  * video matches.
  */
-export function GrainOverlay({ opacity = GRAIN_OPACITY }: { opacity?: number }) {
+function GrainOverlayView({
+	opacity = GRAIN_OPACITY,
+	scale = 1,
+}: {
+	opacity?: number;
+	/**
+	 * Display px per canvas px, for a surface drawn smaller than the canvas. The
+	 * tile is sized by it rather than by a transformed wrapper: `soft-light` only
+	 * blends inside its stacking context, and under a transform it paints as a
+	 * flat veil instead of texture.
+	 */
+	scale?: number;
+}) {
 	return (
 		<div
 			aria-hidden="true"
@@ -25,10 +38,13 @@ export function GrainOverlay({ opacity = GRAIN_OPACITY }: { opacity?: number }) 
 				borderRadius: "inherit",
 				pointerEvents: "none",
 				backgroundImage: `url("${GRAIN_TILE_URL}")`,
-				backgroundSize: `${GRAIN_TILE_SIZE}px ${GRAIN_TILE_SIZE}px`,
+				backgroundSize: `${GRAIN_TILE_SIZE * scale}px ${GRAIN_TILE_SIZE * scale}px`,
 				opacity,
 				mixBlendMode: "soft-light",
 			}}
 		/>
 	);
 }
+
+// Memoized: its props hold still while the preview repaints on every playback tick.
+export const GrainOverlay = memo(GrainOverlayView);

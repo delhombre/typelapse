@@ -2,27 +2,40 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Self-hosted so the mono is not a third-party round trip. Only the two weights
-   actually used are loaded, and font-synthesis is off, so a missing weight
-   surfaces as an obvious regression instead of a fabricated bold. */
+/* Geist, Ioskeley Mono and JetBrains Mono are self-hosted: their @font-face
+   rules come from the font registry (src/application/fonts/code-fonts.ts),
+   installed by main.tsx, so the document, the render worker and the server
+   composition register the same files at the same weights.
+
+   Geist swaps in over Arial resized to Geist's metrics, so the text keeps its
+   width and its lines while the file lands. Measured with canvas measureText:
+   Geist runs 1.0069 times Arial's advance at 400, 1.0286 at 500, and against
+   Arial Bold 0.9907 at 600 and 1.011 at 700; ascent 1.005em, descent 0.295em,
+   no line gap. Each face takes the midpoint of the two weights it stands in
+   for, and the overrides are the metrics divided by that size-adjust.
+   Liberation Sans is Arial's metric twin where Arial is absent. */
 @font-face {
-	font-family: "Ioskeley Mono";
-	src: url("/fonts/IoskeleyMono-Regular.woff2") format("woff2");
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
+	font-family: "Geist Fallback";
+	src: local("Arial"), local("ArialMT"), local("Liberation Sans");
+	font-weight: 100 500;
+	size-adjust: 101.77%;
+	ascent-override: 98.75%;
+	descent-override: 28.99%;
+	line-gap-override: 0%;
 }
 
 @font-face {
-	font-family: "Ioskeley Mono";
-	src: url("/fonts/IoskeleyMono-SemiBold.woff2") format("woff2");
-	font-weight: 600;
-	font-style: normal;
-	font-display: swap;
+	font-family: "Geist Fallback";
+	src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");
+	font-weight: 600 900;
+	size-adjust: 100.08%;
+	ascent-override: 100.42%;
+	descent-override: 29.48%;
+	line-gap-override: 0%;
 }
 
 @theme {
-	--font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+	--font-sans: "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
 	--font-mono: "Ioskeley Mono", ui-monospace, SFMono-Regular, monospace;
 
 	/* The brand's primary: every filled action in the product wears it, on the
@@ -61,6 +74,21 @@
 html {
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
+	/* No font inflation in landscape, and no grey flash on tap: every control
+	   carries its own pressed state. */
+	-webkit-text-size-adjust: 100%;
+	-webkit-tap-highlight-color: transparent;
+}
+
+/* No double-tap-zoom wait on a control, and a long press does not select its
+   label. Content stays selectable. */
+:where(button, a, input, select, textarea, [role="button"]) {
+	touch-action: manipulation;
+}
+
+:where(button, [role="button"]) {
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 /* Set while the landing is mounted. The landing element paints itself, but not
@@ -85,6 +113,9 @@ html[data-landing-theme="dark"] {
 html:not([data-landing-theme]) {
 	background: #fafaf9;
 	color-scheme: light;
+	/* The studio is a fixed shell: a drag on the stage must not rubber-band the
+	   page or pull to refresh. The landing scrolls, so it keeps both. */
+	overscroll-behavior: none;
 }
 
 html.dark:not([data-landing-theme]) {
@@ -92,9 +123,22 @@ html.dark:not([data-landing-theme]) {
 	color-scheme: dark;
 }
 
-* {
+/* The document keeps its platform-native scrollbar. Only compact, contained
+   work surfaces get the quieter 8px treatment; changing every scrollbar made
+   the marketing page itself feel like an embedded panel. */
+:where(.sc-card-steps-body, .studio-root .si-sheet) {
 	scrollbar-width: thin;
 	scrollbar-color: color-mix(in oklch, currentColor 18%, transparent) transparent;
+}
+
+:where(.sc-card-steps-body, .studio-root .si-sheet)::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+:where(.sc-card-steps-body, .studio-root .si-sheet)::-webkit-scrollbar-thumb {
+	border-radius: 4px;
+	background: color-mix(in oklch, currentColor 18%, transparent);
 }
 
 ::selection {
@@ -118,6 +162,14 @@ html.dark:not([data-landing-theme]) {
    no keyboard, marking something there is nothing to do to. Everything inside it
    keeps its ring, which is where the ring means something. */
 [data-vaul-drawer]:focus-visible {
+	outline: none;
+}
+
+/* Native <dialog> sends programmatic focus to the gallery panel so its first
+   Tab lands inside the modal. The panel itself is not actionable, therefore a
+   focus ring around the whole surface is misleading; every control inside it
+   keeps the global keyboard ring. */
+[data-template-gallery]:focus-visible {
 	outline: none;
 }
 
@@ -230,11 +282,22 @@ html.dark:not([data-landing-theme]) {
 	background: var(--color-paper);
 }
 
+/* The page's side gutters. index.html sets viewport-fit=cover, so a phone in
+   landscape draws the page under its notch; each gutter is at least the inset
+   on its side, and full-bleed bands still paint edge to edge. A container sets
+   --lp-gutter to widen it (2rem from `sm`). */
+.landing-root .lp-gutter {
+	padding-right: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px));
+	padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
+}
+
 /* The landing's dark theme. Every `.lp-*` class and every Tailwind
    `text-ink` / `text-ash` / `bg-paper` reads these three vars, so remapping
    them here flips the whole page without touching a single section.
-   Warm, not a neutral slate: the warmth is the brand. */
-.landing-root[data-theme="dark"] {
+   Warm, not a neutral slate: the warmth is the brand. The 404 and the route
+   error boundary read the same three, under the studio's `.dark`. */
+.landing-root[data-theme="dark"],
+.dark .route-state {
 	--color-paper: #121110;
 	--color-ink: #f5f3ef;
 	--color-ash: #a8a39a;
@@ -373,7 +436,11 @@ html.dark:not([data-landing-theme]) {
    carries the voice. The name takes the ink and the weight; the rest stays
    ash, so there is one thing to land on and one to read after. */
 .landing-root .lp-hero-lead {
-	max-width: 52ch;
+	/* 52ch of Geist, whose zero is 0.663em. Written in em because ch follows the
+	   face on screen: while Geist loads, the fallback's narrower zero made the
+	   measure 86px shorter, the lead took a line more, and the hero jumped when
+	   Geist landed. */
+	max-width: calc(52 * 0.663em);
 	font-size: 17px;
 	line-height: 26px;
 	letter-spacing: -0.01em;
@@ -444,7 +511,8 @@ html.dark:not([data-landing-theme]) {
    hairline is a pixel off its edge, and below it there is no gap but the field:
    offset outwards the ring crossed all three, including the one edge nothing is
    allowed to cross. */
-.landing-root .lp-mode:focus-visible {
+.landing-root .lp-mode:focus-visible,
+.landing-root .lp-mode:has(input:focus-visible) {
 	outline: 2px solid var(--color-accent);
 	outline-offset: -2px;
 }
@@ -477,6 +545,51 @@ html.dark:not([data-landing-theme]) {
 	border-radius: 0 calc(var(--cap-r) + 1px) calc(var(--cap-r) + 1px) calc(var(--mode-r) + 1px);
 	box-shadow: inset 0 0 0 1px var(--edge);
 	pointer-events: none;
+}
+
+/* Focus takes the ring's own layer and pixel, in the accent every other focus
+   ring on the page uses, two pixels wide so it reads as a state and not as a
+   darker hairline. Where the pastilles come down onto the field they cover it,
+   as they cover the hairline: the block and the field are one object, and the
+   ring traces the part of it you type into. The block caret was the only sign
+   of focus before, and it stands down the moment there is text. */
+.landing-root .lp-field:has(textarea:focus-visible)::before {
+	box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+/* iOS zooms the page into any field under 16px and does not zoom back out, so a
+   tap on the hero left the visitor on a cropped, drifted page. A finger gets
+   the 16px; the caret, sized in em, follows. */
+@media (pointer: coarse) {
+	.landing-root .lp-field {
+		font-size: 16px;
+	}
+
+	/* The two other targets in the field's block are short of a thumb. A
+	   pastille is 35px tall and the lead sits 22px above it with nothing in
+	   between, so it reaches 9px up into that margin and no further. */
+	.landing-root .lp-mode {
+		position: relative;
+	}
+
+	.landing-root .lp-mode::after {
+		content: "";
+		position: absolute;
+		inset: -9px 0 0;
+	}
+
+	/* The button is 40px in a 52px field; the 6px above, below and to its right
+	   are field that answered to nobody but the textarea's focus. Its left stays
+	   where it is, against the text you are typing. */
+	.landing-root .lp-field-cta {
+		position: relative;
+	}
+
+	.landing-root .lp-field-cta::after {
+		content: "";
+		position: absolute;
+		inset: -6px -6px -6px 0;
+	}
 }
 
 /* Sized to its content so the caret can stand at the end of the text instead of
@@ -824,8 +937,15 @@ html.dark:not([data-landing-theme]) {
 	--helper-lane: 34px;
 }
 
+/* And no taller than its width can use. The frame is fitted to the stage on
+   both axes, so past `width × ratio` the height only adds empty paper: at 375 the
+   viewport rule gave 352px to a 184px frame, a 130px band above and below the
+   Instrument. `cqi` is the Instrument section's content box, the stage's width. */
 .landing-root .lp-stage {
-	height: clamp(232px, calc(100svh - var(--hero-chrome)), var(--stage-max));
+	height: min(
+		clamp(232px, calc(100svh - var(--hero-chrome)), var(--stage-max)),
+		calc(100cqi * var(--stage-ratio) + var(--helper-lane))
+	);
 	/* The frame is centred in what is left above the lane, so the strip the
 	   helper opens into is always empty whatever the ratio. The observer that
 	   scales the frame reads the content box, so it respects this for free. */
@@ -1112,6 +1232,77 @@ html.dark:not([data-landing-theme]) {
 	transform: scale(0.98);
 }
 
+/* A finger, not a cursor. The 35px pitch above is a mouse's target; a thumb
+   needs 44 in both axes, so on a coarse pointer every control grows to 36 and
+   the gap to 8, and the half-gap extents above reach exactly 44 wide while the
+   island's 6px of padding above and below make them 48 tall. The panels hold
+   eight controls, 356px of island at full size, so below that width the gap
+   gives first and then the controls: a smaller target beats an island that
+   leaves its frame. The budget is `cqi`, the Instrument section's content box,
+   not `vw`: the island sits inside the section's 24px of padding, and a
+   viewport budget put the theme panel 14px past the frame on each side at 375.
+   The 44px it subtracts is the island's padding plus four pixels of slack. */
+@media (pointer: coarse) {
+	.landing-root .lp-island {
+		height: 48px;
+	}
+
+	.landing-root .lp-island-row {
+		--island-gap: clamp(4px, calc((100cqi - 356px) / 7 + 8px), 8px);
+		--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px);
+	}
+
+	/* The root row holds five items, not eight, so the gap the panels give up is
+	   still there for it: its ratio and CTA are about 178px whatever the controls
+	   do, which leaves room for the full 8px down to a 317px frame (a 365px
+	   phone), and its three controls keep targets of about 44px there. */
+	.landing-root .lp-island-row:has(> .lp-island-cta) {
+		--island-gap: clamp(4px, calc(15.625cqi - 41.5px), 8px);
+	}
+
+	.landing-root .lp-island-button,
+	.landing-root .lp-island-button-tight {
+		min-width: var(--island-control);
+		height: var(--island-control);
+	}
+
+	.landing-root .lp-island-cta {
+		height: var(--island-control);
+	}
+
+	.landing-root .lp-island-button::after {
+		inset-block: -6px;
+	}
+
+	/* The CTA's 3px margin sits on top of the gap, so it takes that much more
+	   of the seam than the control before it does. */
+	.landing-root .lp-island-row > .lp-island-cta::after {
+		inset: -6px -6px -6px calc(var(--island-gap) / -2 - 3px);
+	}
+
+	.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
+		inset-inline-end: calc(var(--island-gap) / -2);
+	}
+
+	/* Below a 310px frame (a 358px phone) the controls are under the 32px a
+	   16px glyph and its 8px of padding need, and the root row, whose CTA and
+	   ratio do not shrink with them, is wider than the frame. The padding gives
+	   instead: 12px back across the row, which keeps it inside a 320px phone. */
+	@container (max-width: 310px) {
+		.landing-root .lp-island-button {
+			padding-inline: 6px;
+		}
+
+		.landing-root .lp-island-button-tight {
+			padding-inline: 0;
+		}
+
+		.landing-root .lp-island-cta {
+			padding-inline: 10px;
+		}
+	}
+}
+
 /* The island's helper.
    Same fill and same pill radius as the island itself, which is what makes it
    read as part of the instrument rather than as a browser tooltip: 11px at
@@ -1165,26 +1356,377 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* The export fan's phone row runs edge to edge, so a ring drawn outside it
+   falls off both sides of the screen and only its top and bottom show. Drawn
+   inside, it frames the row the keyboard is about to scroll. */
+.landing-root .lp-fan-row:focus-visible {
+	outline-offset: -2px;
+}
+
+/* PR → timeline. One crop of the actual workflow rather than a diagram made of
+   nested cards: the preview and its timeline belong to the same object. */
+.landing-root .lp-import-shot {
+	width: min(100%, 540px);
+	overflow: hidden;
+	border: 1px solid var(--color-hairline);
+	border-radius: 24px;
+	background: var(--color-surface);
+	box-shadow: 0 28px 64px -46px rgb(28 27 25 / 0.46), inset 0 1px 0 rgb(255 255 255 / 0.55);
+	user-select: none;
+}
+
+.landing-root[data-theme="dark"] .lp-import-shot {
+	box-shadow: 0 28px 68px -42px rgb(0 0 0 / 0.76), inset 0 1px 0 rgb(255 255 255 / 0.05);
+}
+
+.landing-root .lp-import-preview {
+	position: relative;
+	min-height: 318px;
+	overflow: hidden;
+	padding: 18px;
+	background: radial-gradient(circle at 22% 18%, rgb(255 221 82 / 0.96) 0, transparent 34%),
+		radial-gradient(circle at 76% 73%, rgb(244 75 50 / 0.92) 0, transparent 40%),
+		linear-gradient(138deg, #57460d 0%, #d48613 46%, #3a1715 100%);
+}
+
+.landing-root .lp-import-preview::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	background: linear-gradient(180deg, rgb(12 11 14 / 0.03), rgb(12 11 14 / 0.24));
+}
+
+.landing-root .lp-import-source-island {
+	position: relative;
+	z-index: 3;
+	display: flex;
+	width: fit-content;
+	max-width: 100%;
+	height: 40px;
+	align-items: center;
+	gap: 8px;
+	padding: 0 6px 0 7px;
+	border: 1px solid rgb(255 255 255 / 0.42);
+	border-radius: 999px;
+	background: rgb(250 249 246 / 0.92);
+	box-shadow: 0 10px 28px -15px rgb(31 18 5 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.8);
+	color: #1c1b19;
+	backdrop-filter: blur(16px) saturate(1.15);
+}
+
+.landing-root .lp-import-git-mark {
+	display: grid;
+	width: 28px;
+	height: 28px;
+	flex: none;
+	place-items: center;
+	border-radius: 999px;
+	background: rgb(28 27 25 / 0.07);
+}
+
+.landing-root .lp-import-source-copy {
+	display: grid;
+	min-width: 68px;
+	line-height: 1.05;
+}
+
+.landing-root .lp-import-source-copy strong {
+	font-size: 11px;
+	font-weight: 650;
+	letter-spacing: -0.015em;
+}
+
+.landing-root .lp-import-source-copy small {
+	margin-top: 3px;
+	font-family: var(--font-mono);
+	font-size: 8px;
+	color: #77736d;
+}
+
+.landing-root .lp-import-origin {
+	display: inline-flex;
+	height: 28px;
+	align-items: center;
+	gap: 5px;
+	border-radius: 999px;
+	padding: 0 9px;
+	background: #1c1b19;
+	font-size: 9px;
+	font-weight: 590;
+	white-space: nowrap;
+	color: #f7f5f1;
+}
+
+.landing-root .lp-import-origin svg {
+	color: #f5c400;
+}
+
+.landing-root .lp-import-frame-wrap {
+	position: relative;
+	z-index: 1;
+	display: flex;
+	justify-content: center;
+	margin-top: 18px;
+}
+
+.landing-root .lp-import-render {
+	width: 78%;
+	height: 176px;
+}
+
+.landing-root .lp-import-ready {
+	position: absolute;
+	z-index: 3;
+	right: 16px;
+	bottom: 14px;
+	display: grid;
+	grid-template-columns: 28px auto;
+	grid-template-rows: auto auto;
+	column-gap: 8px;
+	align-items: center;
+	border: 1px solid rgb(255 255 255 / 0.09);
+	border-radius: 13px;
+	padding: 8px 11px 8px 8px;
+	background: rgb(20 19 19 / 0.9);
+	box-shadow: 0 12px 30px -15px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.06);
+	backdrop-filter: blur(14px);
+}
+
+.landing-root .lp-import-ready > span {
+	display: grid;
+	width: 28px;
+	height: 28px;
+	grid-row: 1 / 3;
+	place-items: center;
+	border-radius: 9px;
+	background: rgb(245 196 0 / 0.14);
+	color: #f5c400;
+}
+
+.landing-root .lp-import-ready strong {
+	font-size: 10px;
+	font-weight: 620;
+	color: #fff;
+}
+
+.landing-root .lp-import-ready small {
+	margin-top: 2px;
+	font-size: 7.5px;
+	color: rgb(255 255 255 / 0.56);
+}
+
+.landing-root .lp-import-timeline {
+	position: relative;
+	padding: 0 11px;
+	border-top: 1px solid var(--color-hairline);
+	background: var(--color-surface);
+}
+
+.landing-root .lp-import-transport {
+	display: grid;
+	height: 40px;
+	grid-template-columns: 1fr auto 1fr;
+	align-items: center;
+	font-family: var(--font-mono);
+	font-size: 8px;
+	font-variant-numeric: tabular-nums;
+	color: var(--color-ash);
+}
+
+.landing-root .lp-import-transport > div {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	color: var(--color-ink);
+}
+
+.landing-root .lp-import-transport > span:last-child {
+	justify-self: end;
+}
+
+.landing-root .lp-import-play {
+	display: grid;
+	width: 25px;
+	height: 25px;
+	place-items: center;
+	border-radius: 999px;
+	background: #1c1b19;
+	color: #fff;
+}
+
+.landing-root[data-theme="dark"] .lp-import-play {
+	background: #f7f5f1;
+	color: #1c1b19;
+}
+
+.landing-root .lp-import-track {
+	position: relative;
+	display: grid;
+	grid-template-columns: 0.95fr 1.18fr 1.35fr 62px;
+	gap: 5px;
+}
+
+.landing-root .lp-import-scene,
+.landing-root .lp-import-add-scene {
+	position: relative;
+	min-width: 0;
+	height: 88px;
+	overflow: hidden;
+	border: 1px solid var(--color-hairline);
+	border-radius: 9px;
+	background: color-mix(in oklch, var(--color-ink) 2.5%, var(--color-surface));
+}
+
+.landing-root .lp-import-scene[data-selected] {
+	border-color: var(--color-primary);
+	box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.landing-root .lp-import-thumb {
+	height: 65px;
+	margin: 4px;
+	overflow: hidden;
+	border-radius: 5px;
+	background: linear-gradient(145deg, #a18411, #d86b1c 56%, #2b1514);
+}
+
+.landing-root .lp-import-thumb[data-tone="ember"] {
+	background: linear-gradient(145deg, #771d3e, #ee5526 52%, #35121b);
+}
+
+.landing-root .lp-import-thumb[data-tone="aurora"] {
+	background: linear-gradient(145deg, #3d228a, #9f2a7c 54%, #20123c);
+}
+
+.landing-root .lp-import-thumb-window {
+	position: relative;
+	top: 50%;
+	left: 50%;
+	width: 78%;
+	height: 38px;
+	transform: translate(-50%, -50%);
+	overflow: hidden;
+	border-radius: 4px;
+	background: #111318;
+	box-shadow: 0 5px 12px rgb(0 0 0 / 0.28);
+}
+
+.landing-root .lp-import-thumb-dots {
+	position: absolute;
+	top: 5px;
+	left: 6px;
+	width: 3px;
+	height: 3px;
+	border-radius: 50%;
+	background: #ff5f57;
+	box-shadow: 5px 0 #febc2e, 10px 0 #28c840;
+}
+
+.landing-root .lp-import-thumb-window code {
+	position: absolute;
+	top: 18px;
+	left: 7px;
+	max-width: calc(100% - 12px);
+	overflow: hidden;
+	font-family: var(--font-mono);
+	font-size: 4.7px;
+	line-height: 1;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: #d9a7ec;
+}
+
+.landing-root .lp-import-scene-number,
+.landing-root .lp-import-scene-duration {
+	position: absolute;
+	bottom: 4px;
+	font-family: var(--font-mono);
+	font-size: 7px;
+	font-variant-numeric: tabular-nums;
+	color: var(--color-ash);
+}
+
+.landing-root .lp-import-scene-number {
+	left: 6px;
+}
+
+.landing-root .lp-import-scene-duration {
+	right: 6px;
+}
+
+.landing-root .lp-import-add-scene {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	border-style: dashed;
+	font-size: 7.5px;
+	font-weight: 560;
+	color: var(--color-ash);
+}
+
+.landing-root .lp-import-track-playhead {
+	position: absolute;
+	z-index: 5;
+	top: -2px;
+	bottom: -4px;
+	left: 36%;
+	width: 1px;
+	background: #ff5f57;
+	pointer-events: none;
+}
+
+.landing-root .lp-import-track-playhead::before {
+	content: "";
+	position: absolute;
+	top: -3px;
+	left: -2px;
+	width: 5px;
+	height: 5px;
+	border-radius: 50%;
+	background: #ff5f57;
+}
+
+.landing-root .lp-import-ruler {
+	display: flex;
+	height: 17px;
+	align-items: flex-start;
+	justify-content: space-between;
+	margin: 7px -11px 0;
+	padding: 0 12px;
+	border-top: 1px solid var(--color-hairline);
+}
+
+.landing-root .lp-import-ruler span {
+	width: 1px;
+	height: 4px;
+	background: var(--color-hairline);
+}
+
+.landing-root .lp-import-ruler span[data-major] {
+	height: 8px;
+	background: color-mix(in oklch, var(--color-ash) 45%, transparent);
+}
+
 /* The magic-move section's frame. No window chrome and no title bar: the
    Instrument above already carries the product's furniture, and repeating it
    here would make the page look like two screenshots of the same app rather
    than one object and one detail of it. */
 /* The code inside states its own width in `ch`, and the longest line of the demo
-   is 50 characters wide: about 460px at this size, in a column that is 342px at
-   390. Centred, the overflow split itself evenly and ate a character off BOTH
-   ends, and being wider than the viewport it dragged the whole document
-   sideways.
-
-   `safe center` is the whole fix for the first half: centred while it fits, and
-   the moment it does not, alignment falls back to the start so nothing is put
-   out of reach. Shrinking to fit was the alternative and it is not one: 50
-   characters inside 286px of content box is a 9px font, which is not a demo of
-   anything. It keeps its size and scrolls. */
+   is 50 characters wide: about 460px at 15px, in a column that is 327px at 375.
+   It once kept that size and scrolled, which hid the right-hand 188px at 375,
+   where the lines that morph in end, and made the frame a tab stop with nothing
+   to do in it. LiveMorph now sizes the font to the content box, the way the
+   Instrument's window scales on a phone, so nothing overflows: `hidden` rather
+   than `auto` keeps it from ever being a scroller, and `safe center` stays as
+   the guard for the frame before the font is measured. */
 .landing-root .lp-morph-frame {
 	display: flex;
 	justify-content: safe center;
 	max-width: 100%;
-	overflow-x: auto;
+	overflow: hidden;
 	padding: 30px 28px;
 	border-radius: 16px;
 	background: #1f2229;
@@ -1197,6 +1739,119 @@ html.dark:not([data-landing-theme]) {
    the cut into a scroll. */
 .landing-root .lp-morph-frame > * {
 	flex: none;
+}
+
+/* On a phone the padding is the code's room: 10px less on each side is a
+   half-pixel more of font. */
+@media (max-width: 479px) {
+	.landing-root .lp-morph-frame {
+		padding: 22px 18px;
+	}
+}
+
+.landing-root .lp-morph-demo {
+	display: flex;
+	max-width: 100%;
+	flex-direction: column;
+	align-items: flex-end;
+}
+
+.landing-root .lp-demo-replay {
+	display: inline-flex;
+	height: 36px;
+	align-items: center;
+	gap: 7px;
+	margin-top: 11px;
+	padding: 0 13px;
+	border: 1px solid var(--color-hairline);
+	border-radius: 999px;
+	background: var(--color-surface);
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--color-ink);
+	transition: background-color 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-demo-replay:hover {
+		background: color-mix(in oklch, var(--color-ink) 5%, var(--color-surface));
+	}
+}
+
+.landing-root .lp-demo-replay:active {
+	transform: scale(0.97);
+}
+
+@media (max-width: 520px) {
+	.landing-root .lp-import-shot {
+		border-radius: 20px;
+	}
+
+	.landing-root .lp-import-preview {
+		min-height: 274px;
+		padding: 12px;
+	}
+
+	.landing-root .lp-import-source-island {
+		height: 38px;
+		gap: 6px;
+	}
+
+	.landing-root .lp-import-origin {
+		padding: 0 8px;
+		font-size: 8px;
+	}
+
+	.landing-root .lp-import-frame-wrap {
+		margin-top: 13px;
+	}
+
+	.landing-root .lp-import-render {
+		width: 88%;
+		height: 148px;
+	}
+
+	.landing-root .lp-import-ready {
+		right: 10px;
+		bottom: 10px;
+		padding: 7px 9px 7px 7px;
+	}
+
+	.landing-root .lp-import-ready small {
+		display: none;
+	}
+
+	.landing-root .lp-import-ready > span {
+		grid-row: auto;
+	}
+
+	.landing-root .lp-import-track {
+		grid-template-columns: 0.9fr 1.1fr 1.2fr 50px;
+		gap: 4px;
+	}
+
+	.landing-root .lp-import-scene,
+	.landing-root .lp-import-add-scene {
+		height: 74px;
+	}
+
+	.landing-root .lp-import-thumb {
+		height: 53px;
+		margin: 3px;
+	}
+
+	.landing-root .lp-import-thumb-window {
+		height: 31px;
+	}
+
+	.landing-root .lp-import-thumb-window code {
+		top: 16px;
+		font-size: 3.8px;
+	}
+
+	.landing-root .lp-import-add-scene span {
+		display: none;
+	}
 }
 
 /* Extended hit area for compact studio controls: the visual stays small, the
@@ -1773,6 +2428,17 @@ html.dark:not([data-landing-theme]) {
 	gap: 5px;
 }
 
+/* A sentence under a row, on a line of its own, saying why something in the
+   row cannot be chosen. */
+.studio-root .si-cluster-note {
+	flex-basis: 100%;
+	margin: 0;
+	padding: 0 2px;
+	color: var(--dock-dim);
+	font-size: 11.5px;
+	line-height: 16px;
+}
+
 .studio-root .si-cluster-field {
 	display: inline-flex;
 	align-items: center;
@@ -1869,6 +2535,14 @@ html.dark:not([data-landing-theme]) {
 	transition: background-color 150ms var(--ease-out);
 }
 
+/* iOS zooms into a field under 16px and never zooms back; the island floats on
+   the phone shell. */
+@media (pointer: coarse) {
+	.studio-root .si-input {
+		font-size: 16px;
+	}
+}
+
 .studio-root .si-input::placeholder {
 	color: var(--dock-dim);
 }
@@ -1905,11 +2579,16 @@ html.dark:not([data-landing-theme]) {
 		var(--ease-out);
 }
 
-.studio-root .si-cta:active:not(:disabled) {
-	transform: scale(0.96);
+/* Only for people who have not asked for less motion: the reduced-motion rule
+   above comes earlier in the file and lost to this one on order alone. */
+@media (prefers-reduced-motion: no-preference) {
+	.studio-root .si-cta:active:not(:disabled):not([aria-disabled="true"]) {
+		transform: scale(0.96);
+	}
 }
 
-.studio-root .si-cta:disabled {
+.studio-root .si-cta:disabled,
+.studio-root .si-cta[aria-disabled="true"] {
 	cursor: default;
 	opacity: 0.55;
 }
@@ -1927,7 +2606,7 @@ html.dark:not([data-landing-theme]) {
    control that had just opened the sheet — two filled shapes in a zone whose
    one rule is that there is only ever one. */
 @media (hover: hover) and (pointer: fine) {
-	.studio-root .si-cta:hover:not(:disabled):not([data-open]) {
+	.studio-root .si-cta:hover:not(:disabled):not([aria-disabled="true"]):not([data-open]) {
 		background: var(--color-primary-hover);
 	}
 
@@ -1938,6 +2617,20 @@ html.dark:not([data-landing-theme]) {
 
 .studio-root .si-cluster-cta {
 	margin-left: auto;
+}
+
+/* RenderCtaLabel: every label in one cell, so the widest sets the width. */
+.studio-root .si-cta-labels {
+	display: inline-grid;
+}
+
+.studio-root .si-cta-labels > * {
+	grid-area: 1 / 1;
+	text-align: center;
+}
+
+.studio-root .si-cta-labels > [aria-hidden] {
+	visibility: hidden;
 }
 
 /* At 390 the island is the whole width of the phone and the detail is the first
@@ -2061,7 +2754,33 @@ html.dark:not([data-landing-theme]) {
 /* The phone's slot states its own bottom inline, since the sheet's peek is a
    number the drawer owns rather than a constant this file could name. */
 .sc-root-mobile .sc-stage-slot {
-	padding: 68px 8px 0;
+	padding: 68px max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
+}
+
+/* The sheet is portaled to the body, out of the root's reach: it takes the
+   same tokens so the layer inspector inside it reads as it does on a desktop. */
+.sc-root-mobile,
+.sc-sheet {
+	--camera-focus: #1d1d20;
+	--camera-ink: #1d1d20;
+	--camera-line: rgb(29 29 32 / 0.06);
+	--camera-muted: #74717a;
+	--camera-pill: #f1f2f4;
+	--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024);
+}
+
+.dark .sc-root-mobile,
+.dark .sc-sheet {
+	--camera-focus: #f5f5f7;
+	--camera-ink: #f5f5f7;
+	--camera-line: rgb(255 255 255 / 0.08);
+	--camera-muted: #a09da6;
+	--camera-pill: #242428;
+}
+
+.sc-root .reicon {
+	display: block;
+	flex: none;
 }
 
 .sc-stage-arrival,
@@ -2118,18 +2837,27 @@ html.dark:not([data-landing-theme]) {
 /* At 390 the two corners meet in the middle, so they stop being corners and
    become a row: the utilities keep their width, and the project chip is the one
    that gives, down to its brand and whatever is left of its name. */
+/* viewport-fit=cover puts a landscape phone's notch over the page: each edge
+   keeps at least the inset on its side, here and on the stage, the dock and the
+   top-row popovers. */
 .sc-corner-row {
 	position: absolute;
 	top: 10px;
-	right: 10px;
-	left: 10px;
+	right: max(10px, env(safe-area-inset-right, 0px));
+	left: max(10px, env(safe-area-inset-left, 0px));
 	z-index: 30;
 	display: flex;
 	align-items: center;
 	gap: 8px;
 }
 
+.sc-corner-row > .sc-project-root {
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
 .sc-corner-row .sc-project {
+	width: 100%;
 	max-width: none;
 	min-width: 0;
 	flex: 1 1 auto;
@@ -2139,10 +2867,210 @@ html.dark:not([data-landing-theme]) {
 	flex: none;
 }
 
+/* On a phone the three public destinations become one compact island. The
+   controls retain separate accessible names while their repeated text drops;
+   the parent carries the one material and the 4px concentric inset. */
+.sc-chip.sc-mobile-resources {
+	flex: none;
+	gap: 1px;
+	padding-inline: 3px;
+	/* A filtered ancestor becomes the containing block of fixed descendants.
+	   Source uses a viewport-width mobile menu, so this small island stays
+	   opaque instead of trapping that menu inside its own 98px pill. */
+	background: #fff;
+	-webkit-backdrop-filter: none;
+	backdrop-filter: none;
+}
+
+.dark .sc-chip.sc-mobile-resources {
+	background: #1b1c20;
+}
+
+.sc-mobile-resources .sc-source-root {
+	display: flex;
+}
+
+.sc-mobile-resources .sc-island-trigger {
+	width: 30px;
+	height: 30px;
+	gap: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var(--r-control);
+	background: transparent;
+	box-shadow: none;
+	color: var(--color-neutral-500);
+}
+
+.dark .sc-mobile-resources .sc-island-trigger {
+	background: transparent;
+	box-shadow: none;
+	color: var(--color-neutral-400);
+}
+
+.sc-mobile-resources .sc-island-trigger > span {
+	display: none;
+}
+
+.sc-mobile-resources .sc-island-trigger[aria-expanded="true"] {
+	background: rgb(28 27 25 / 0.06);
+}
+
+.dark .sc-mobile-resources .sc-island-trigger[aria-expanded="true"] {
+	background: rgb(255 255 255 / 0.08);
+}
+
+/* A top-row source form should use the phone's safe page margins, not inherit
+   the 278px desktop popover that would fall off either side of its tiny icon. */
+.sc-root-mobile .sc-source-menu,
+.sc-root-mobile .sc-source-form-popover,
+.sc-root-mobile .sc-source-form-popover[aria-label="Import a git diff"] {
+	position: fixed;
+	top: 58px;
+	right: max(10px, env(safe-area-inset-right, 0px));
+	left: max(10px, env(safe-area-inset-left, 0px));
+	width: auto;
+	margin: 0;
+	z-index: 80;
+}
+
+.sc-root-mobile .sc-project-menu {
+	width: min(310px, calc(100vw - 20px));
+}
+
+/* Undo and redo on a phone: the desktop pair, beside the project it belongs to.
+   Two glyphs at a 31px pitch, so each target is its own 31x40 column rather
+   than a 44px square that would fire its neighbour. */
+.sc-corner-row .sc-history {
+	flex: none;
+	gap: 1px;
+	padding-inline: 3px;
+}
+
+.sc-corner-row .sc-history button.hit-ext::after {
+	width: auto;
+	height: auto;
+	transform: none;
+	inset: -5px 0;
+}
+
+.sc-corner-row .sc-history button:disabled {
+	opacity: 0.32;
+	pointer-events: none;
+}
+
+/* A file dragged over a tablet in portrait: the same quiet veil as the desktop,
+   over the sheet and under the menus and notices. Pointer events pass through;
+   the window owns the drop. */
+.sc-root-mobile .sc-drop-veil {
+	position: fixed;
+	inset: max(10px, env(safe-area-inset-top, 0px)) 10px max(10px, env(safe-area-inset-bottom, 0px));
+	z-index: 60;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 1.5px dashed rgb(47 128 255 / 0.75);
+	border-radius: 22px;
+	background: rgb(47 128 255 / 0.05);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 140ms ease-out;
+}
+
+.sc-root-mobile .sc-drop-veil[data-active] {
+	opacity: 1;
+}
+
+.sc-root-mobile .sc-drop-veil p {
+	padding: 8px 14px;
+	border-radius: 12px;
+	background: #fff;
+	box-shadow: var(--camera-surface-shadow);
+	color: var(--camera-ink);
+	font-size: 13px;
+	font-weight: 560;
+}
+
+.dark .sc-root-mobile .sc-drop-veil p {
+	background: #1b1c20;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sc-root-mobile .sc-drop-veil {
+		transition: none;
+	}
+}
+
+.sc-utilities {
+	position: relative;
+}
+
+.sc-utilities-compact {
+	padding-inline: 3px;
+}
+
+.sc-utility-overflow-menu {
+	position: absolute;
+	top: calc(100% + 8px);
+	right: 0;
+	z-index: 80;
+	display: grid;
+	width: 210px;
+	overflow: hidden;
+	padding: 5px;
+	border: 1px solid #e5e5e8;
+	border-radius: 18px;
+	background: rgb(255 255 255 / 0.98);
+	box-shadow: 0 14px 42px rgb(20 20 24 / 0.1);
+	color: #1d1d20;
+	-webkit-backdrop-filter: blur(18px) saturate(1.05);
+	backdrop-filter: blur(18px) saturate(1.05);
+}
+
+.dark .sc-utility-overflow-menu {
+	border-color: rgb(255 255 255 / 0.09);
+	background: rgb(29 29 32 / 0.97);
+	box-shadow: 0 18px 48px rgb(0 0 0 / 0.35);
+	color: #f5f5f7;
+}
+
+.sc-utility-overflow-menu button {
+	display: flex;
+	height: 42px;
+	align-items: center;
+	gap: 10px;
+	padding: 0 11px;
+	border: 0;
+	border-radius: 12px;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	font-size: 11.5px;
+	font-weight: 590;
+	text-align: left;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-utility-overflow-menu button:hover {
+		background: var(--camera-pill);
+	}
+}
+
+.sc-utility-overflow-menu button:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: -2px;
+}
+
 /* The count is what the row drops first: the step list is one drag away and
    says the same thing at greater length. */
 @media (max-width: 639px) {
 	.sc-steps {
+		display: none;
+	}
+}
+
+@media (max-width: 359px) {
+	.sc-corner-row .sc-title {
 		display: none;
 	}
 }
@@ -2237,6 +3165,13 @@ html.dark:not([data-landing-theme]) {
 	.sc-title {
 		width: auto;
 		field-sizing: content;
+	}
+}
+
+/* A touch focuses the name, and iOS zooms the page into any field under 16px. */
+@media (pointer: coarse) {
+	.sc-title {
+		font-size: 16px;
 	}
 }
 
@@ -2453,7 +3388,7 @@ html.dark:not([data-landing-theme]) {
 
 .sc-card-steps {
 	display: flex;
-	max-height: 46%;
+	max-height: none;
 	flex: none;
 	flex-direction: column;
 	gap: 10px;
@@ -2461,14 +3396,11 @@ html.dark:not([data-landing-theme]) {
 	border-top: 1px solid var(--sc-hairline);
 }
 
-/* The card's steps area is the one scroller here. Contained, because the paper
-   behind it does not scroll at all: without it a flick that reaches the end of
-   the list hands the rest of the gesture to the document, and the document
-   answers with the rubber band of a page that has nowhere to go. */
+/* Desktop owns ordering in the film timeline. This area is therefore a compact
+   selected-scene inspector, not a second scrollable list competing with it. */
 .sc-card-steps-body {
 	min-height: 0;
-	overflow-y: auto;
-	overscroll-behavior: contain;
+	overflow: visible;
 }
 
 /* At 40 steps the list ran off the card's bottom edge mid-row, and macOS hides
@@ -2562,7 +3494,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 .sc-root-mobile .sc-dock-slot {
-	padding: 0 8px;
+	padding: 0 max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
 }
 
 .sc-dock-arrival {
@@ -2583,6 +3515,7 @@ html.dark:not([data-landing-theme]) {
 /* ─────────────────────────── The phone's sheet ─────────────────────────── */
 
 .sc-sheet {
+	--camera-paper: #f9fafc;
 	position: fixed;
 	right: 0;
 	bottom: 0;
@@ -2601,5 +3534,6 @@ html.dark:not([data-landing-theme]) {
 }
 
 .dark .sc-sheet {
+	--camera-paper: #101114;
 	background: color-mix(in oklch, var(--color-neutral-950) 88%, transparent);
 }

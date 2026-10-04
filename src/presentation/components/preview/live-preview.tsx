@@ -6,22 +6,39 @@ import {
 	resolveBackgroundCss,
 } from "@/application/backgrounds/mesh-gradient";
 import { captionAt } from "@/application/captions/caption-timing";
+import { scriptFrameAt } from "@/application/export/video-script";
 import { focusLineSet } from "@/application/focus/line-ranges";
-import { fitCardToCanvas, renderScaleFor } from "@/application/layout/canvas-fit";
+import {
+	BASE_VIDEO_SCALE,
+	type ClipFade,
+	clipFades,
+	previewCardPlacement,
+	renderScaleFor,
+} from "@/application/layout/canvas-fit";
 import { concentric } from "@/application/layout/concentric";
 import { fitScale } from "@/application/layout/fit-scale";
-import { LINE_HEIGHT_RATIO } from "@/application/layout/frame-metrics";
-import { easeInOutCubic, renderStatic, renderTransition } from "@/application/magic-move/engine";
 import {
-	NO_ZOOM,
-	type ZoomTransform,
-	interpolateZoom,
-	zoomForFocus,
-} from "@/application/magic-move/focus-zoom";
-import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
+	FRAME_SECONDARY_ALPHA_HEX,
+	LINE_HEIGHT_RATIO,
+	chromeBarHeight,
+} from "@/application/layout/frame-metrics";
+import { watermarkPlacement } from "@/application/layout/watermark-placement";
+import type { CubicBezier } from "@/application/magic-move/easing";
+import { renderStatic } from "@/application/magic-move/engine";
+import { NO_ZOOM, type ZoomTransform, zoomForFocus } from "@/application/magic-move/focus-zoom";
+import { typingHoldIndex } from "@/application/magic-move/typewriter";
+import { frameFirstRow, scrollRows } from "@/application/magic-move/window";
+import { studioCompositionTimeMs } from "@/application/project/studio-composition";
+import {
+	primaryCodeOpacity as compiledCodeOpacity,
+	hasCodeCard,
+} from "@/application/render/composition-slots";
+import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import type { Theme } from "@/domain/entities/theme";
+import { useStudioVideoMode } from "@/presentation/contexts/studio-video-mode";
 import { useResizeObserverNode } from "@/presentation/hooks/use-resize-observer";
 import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
+import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -29,6 +46,10 @@ import {
 	resolveSocialPlatform,
 	useSocialPreviewStore,
 } from "@/presentation/stores/social-preview.store";
+import {
+	useStudioCompositionSelectionStore,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { motion } from "motion/react";
 import {
@@ -42,12 +63,17 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { ClipFades } from "./clip-fades";
 import { FrameChrome, type WindowChrome } from "./frame-chrome";
+import { GlowDecoration } from "./glow-decoration";
 import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
 import { SocialPreviewOverlay } from "./social-preview-overlay";
 import { StepCaption } from "./step-caption";
+import { StudioCompositionAudio, StudioCompositionLayers } from "./studio-composition-layers";
+import { useCharWidthRatio } from "./use-char-width-ratio";
 
 /** Pre-paint background for the node: mesh base color, image cover CSS, or none. */
 function staticBackground(
@@ -65,58 +91,49 @@ function staticBackground(
 }
 
 /**
- * Paint the background straight on the DOM node (no re-render). Mesh presets
- * animate via rAF; an uploaded image is painted once: feeding a giant data URL
- * through motion's `animate` would be wasteful, so it is set imperatively here.
+ * Paint the background straight on the DOM node. A mesh preset is painted at
+ * `timeSeconds`, the timeline's own time, exactly as the composition paints it at
+ * `frame / fps` and the painter at the script's time: paused, the mesh holds; a
+ * scrub lands on the same drift the exported frame has. It used to run on its
+ * own wall clock, so no paused frame ever matched a timestamp. An uploaded image
+ * is painted once: feeding a giant data URL through motion's `animate` would be
+ * wasteful, so it is set imperatively here.
  */
-function useDynamicBackground(ref: RefObject<HTMLDivElement | null>, background: string) {
-	useEffect(() => {
-		// Image: paint the cover CSS once and clear it on change/unmount. This runs
-		// after render + the previous cleanup, so it also restores the image if a
-		// mesh cleanup happened to clear the node on the same commit.
-		if (isImageBackground(background)) {
-			if (ref.current) {
-				ref.current.style.background = resolveBackgroundCss(background, 0);
-			}
-			return () => {
-				if (ref.current) {
-					ref.current.style.background = "";
-				}
-			};
-		}
-		const preset = parseMeshBackground(background);
-		if (!preset) {
+function useDynamicBackground(
+	ref: RefObject<HTMLDivElement | null>,
+	background: string,
+	timeSeconds: number,
+) {
+	// Both painters are layout effects: React runs every layout cleanup before
+	// any layout setup in a commit, so switching between an image and a mesh never
+	// lets one's cleanup wipe what the other just painted.
+	useLayoutEffect(() => {
+		const el = ref.current;
+		if (!el || !isImageBackground(background)) {
 			return;
 		}
-		// Respect reduced motion: paint a single static frame, don't oscillate.
-		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		if (reduced) {
-			if (ref.current) {
-				ref.current.style.background = meshGradientCss(preset, 0);
-			}
-			return () => {
-				if (ref.current) {
-					ref.current.style.background = "";
-				}
-			};
-		}
-		let raf = 0;
-		const start = performance.now();
-		const tick = () => {
-			const el = ref.current;
-			if (el) {
-				el.style.background = meshGradientCss(preset, (performance.now() - start) / 1000);
-			}
-			raf = requestAnimationFrame(tick);
-		};
-		raf = requestAnimationFrame(tick);
+		// Image: paint the cover CSS once and clear it on change/unmount.
+		el.style.background = resolveBackgroundCss(background, 0);
 		return () => {
-			cancelAnimationFrame(raf);
-			if (ref.current) {
-				ref.current.style.background = "";
-			}
+			el.style.background = "";
 		};
 	}, [background, ref]);
+
+	// The mesh repaints whenever the timeline moves, and only then. Reduced
+	// motion keeps the first frame on screen: the preference is about what moves
+	// in front of the viewer, and the export is not on screen.
+	useLayoutEffect(() => {
+		const el = ref.current;
+		const preset = parseMeshBackground(background);
+		if (!el || !preset) {
+			return;
+		}
+		const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+		el.style.background = meshGradientCss(preset, reduced ? 0 : timeSeconds);
+		return () => {
+			el.style.background = "";
+		};
+	}, [background, ref, timeSeconds]);
 }
 
 /** Content box (padding excluded) of an element, read live: the fallback used on
@@ -160,15 +177,13 @@ function contentBox(el: HTMLElement): { width: number; height: number } {
  */
 const STAGE_CARD_MAX_RADIUS = 20;
 
-const SOCIAL_BASE_VIDEO_SCALE = 2.2;
-const SOCIAL_CANVAS_MARGIN = 0.05;
-
 /** Gentle phone-screen rounding for the social aspect box, proportional and capped. */
 function socialCanvasRadius(width: number, height: number): number {
 	return Math.round(Math.min(28, Math.min(width, height) * 0.05));
 }
 
 export function LivePreview() {
+	const videoMode = useStudioVideoMode();
 	const {
 		snippet,
 		plan,
@@ -177,6 +192,7 @@ export function LivePreview() {
 		isPlaying,
 		playback,
 		playbackProgress,
+		playbackElapsedMs,
 		background,
 		windowChrome,
 		showLineNumbers,
@@ -184,11 +200,63 @@ export function LivePreview() {
 		framePadding,
 		cardMargin,
 		watermark,
-	} = useSnippetStore();
+		// Only what the preview reads: the clock fields repaint it every frame, and
+		// nothing else in the store should.
+	} = useSnippetStore(
+		useShallow((s) => ({
+			snippet: s.snippet,
+			plan: s.plan,
+			isBuilding: s.isBuilding,
+			currentStepIndex: s.currentStepIndex,
+			isPlaying: s.isPlaying,
+			playback: s.playback,
+			playbackProgress: s.playbackProgress,
+			playbackElapsedMs: s.playbackElapsedMs,
+			background: s.background,
+			windowChrome: s.windowChrome,
+			showLineNumbers: s.showLineNumbers,
+			lineNumberStart: s.lineNumberStart,
+			framePadding: s.framePadding,
+			cardMargin: s.cardMargin,
+			watermark: s.watermark,
+		})),
+	);
 
 	const progressStyle = useExportStore((s) => s.progressStyle);
 	const typewriter = useExportStore((s) => s.typewriter);
 	const focusZoom = useExportStore((s) => s.focusZoom);
+	const transitionEasing = useExportStore((s) => s.transitionEasing);
+	const transitionMs = useExportStore((s) => s.transitionMs);
+	const exportFps = useExportStore((s) => s.fps);
+	const loop = useExportStore((s) => s.loop);
+	const composition = useStudioCompositionStore();
+	const selectAuthoredAudio = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
+	const compositionDocument = useMemo(() => composition.toDocument(), [composition]);
+	// A blank scene counts: only the composed canvas fades the card off it.
+	const hasCompositionLayers = compositionDocument.project.scenes.some(
+		(scene) => scene.blocks.some((block) => block.kind !== "code") || !hasCodeCard(scene),
+	);
+	const hasCompositionAudio = compositionDocument.project.audioCues.length > 0;
+	const hasComposition = hasCompositionLayers || hasCompositionAudio;
+	const compositionTimeline = useMemo(
+		() => compileSceneTimeline({ document: compositionDocument, fps: exportFps, loop }),
+		[compositionDocument, exportFps, loop],
+	);
+	// Playing or scrubbed, the composition follows the canonical clock, which
+	// runs past the last scene while an audio cue is still sounding.
+	const compositionTimeMs = playback
+		? playbackElapsedMs
+		: studioCompositionTimeMs(
+				compositionDocument.project.scenes,
+				transitionMs,
+				currentStepIndex,
+				null,
+			);
+	const compositionFrame = compositionTimeline.frameAt(
+		Math.round((compositionTimeMs / 1_000) * exportFps),
+	);
+	// The compiled frame's card opacity, the number the painter fades the card by.
+	const primaryCodeOpacity = compiledCodeOpacity(compositionFrame);
 	// Social-preview view state (ephemeral): drives a faithful aspect-canvas
 	// preview painted OUTSIDE the export target, so it never reaches the PNG
 	// capture or the render payload.
@@ -219,7 +287,6 @@ export function LivePreview() {
 	const containerEntry = useResizeObserverNode(containerNode);
 	const cardEntry = useResizeObserverNode(cardNode);
 	const [fitScaleValue, setFitScaleValue] = useState(1);
-	const [cardNatural, setCardNatural] = useState<{ width: number; height: number } | null>(null);
 
 	// Reconcile the social platform against the export aspect (null when off, or
 	// when the aspect has no immersive platform, e.g. 16:9).
@@ -229,6 +296,7 @@ export function LivePreview() {
 		exportWidth,
 		exportHeight,
 	);
+	const aspectCanvasEnabled = videoMode || activeSocialPlatform !== null || hasComposition;
 
 	// Social mode swaps the fit-to-viewport code window for a faithful miniature of
 	// the EXPORT ASPECT CANVAS: an aspect box fit into the viewport, filled with the
@@ -238,14 +306,23 @@ export function LivePreview() {
 	const availWidth = containerEntry?.contentRect.width;
 	const availHeight = containerEntry?.contentRect.height;
 	const hasCaptionText = snippet.steps.some((s) => (s.annotation ?? "") !== "");
-	const socialCanvas = useMemo(() => {
-		if (!activeSocialPlatform || !plan || plan.frames.length === 0 || !cardNatural) {
+	const charWidthRatio = useCharWidthRatio(snippet.theme.fontFamily, snippet.theme.fontSize);
+	const aspectCanvas = useMemo(() => {
+		if (!aspectCanvasEnabled || !plan || plan.frames.length === 0) {
 			return null;
 		}
 		if (!availWidth || !availHeight || availWidth <= 0 || availHeight <= 0) {
 			return null;
 		}
-		const fit = fitCardToCanvas({
+		if (!Number.isFinite(charWidthRatio)) {
+			return null;
+		}
+		const boxScale = fitScale(exportWidth, exportHeight, availWidth, availHeight);
+		const boxWidth = exportWidth * boxScale;
+		const boxHeight = exportHeight * boxScale;
+		// The exporters' card, from the same placement table: the window at their
+		// width laid out at editor size, and one transform to their text scale.
+		const placement = previewCardPlacement({
 			plan,
 			chrome: windowChrome,
 			fontSize: snippet.theme.fontSize,
@@ -254,27 +331,39 @@ export function LivePreview() {
 			showLineNumbers,
 			lineNumberStart,
 			hasCaption: hasCaptionText,
-			scale: renderScaleFor(exportWidth, exportHeight, SOCIAL_BASE_VIDEO_SCALE),
 			canvasWidth: exportWidth,
 			canvasHeight: exportHeight,
-			canvasMargin: SOCIAL_CANVAS_MARGIN,
+			charWidthRatio,
+			boxWidth,
 		});
-		const boxScale = fitScale(exportWidth, exportHeight, availWidth, availHeight);
-		const boxWidth = exportWidth * boxScale;
-		const boxHeight = exportHeight * boxScale;
-		// Fit the window's real (fixed-width) footprint into the same padded-card slot
-		// the video reserves for it: widthFraction x heightFraction of the canvas.
-		const cardScale = Math.min(
-			(fit.widthFraction * boxWidth) / cardNatural.width,
-			(fit.heightFraction * boxHeight) / cardNatural.height,
-		);
-		return { boxWidth, boxHeight, cardScale, radius: socialCanvasRadius(boxWidth, boxHeight) };
+		return {
+			boxWidth,
+			boxHeight,
+			boxScale,
+			windowWidth: placement.windowWidth,
+			// At the readable floor the window stops growing and clips its code,
+			// with the exporters' fades, at editor size.
+			clip: placement.clip
+				? {
+						maxHeight: placement.windowHeight,
+						fades: clipFades({
+							clip: placement.clip,
+							windowWidth: placement.windowWidth,
+							windowHeight: placement.windowHeight,
+							chromeHeight: chromeBarHeight(windowChrome, 1),
+							fontSize: snippet.theme.fontSize,
+						}),
+					}
+				: null,
+			cardScale: placement.cardScale,
+			radius: socialCanvasRadius(boxWidth, boxHeight),
+		};
 	}, [
-		activeSocialPlatform,
+		aspectCanvasEnabled,
 		plan,
-		cardNatural,
 		availWidth,
 		availHeight,
+		charWidthRatio,
 		windowChrome,
 		snippet.theme.fontSize,
 		framePadding,
@@ -285,13 +374,18 @@ export function LivePreview() {
 		exportWidth,
 		exportHeight,
 	]);
-	const socialActive = socialCanvas !== null;
+	const aspectCanvasActive = aspectCanvas !== null;
 
 	// In social mode the window's mesh margin goes transparent and the mesh moves to
 	// the aspect box, so the window sits opaque over one continuous canvas (seamless
 	// margins), exactly like the export's full-bleed background AbsoluteFill.
-	useDynamicBackground(previewRef, socialActive ? "transparent" : background);
-	useDynamicBackground(boxRef, socialActive ? background : "transparent");
+	const timelineSeconds = compositionTimeMs / 1_000;
+	useDynamicBackground(
+		previewRef,
+		aspectCanvasActive ? "transparent" : background,
+		timelineSeconds,
+	);
+	useDynamicBackground(boxRef, aspectCanvasActive ? background : "transparent", timelineSeconds);
 	// Play the synthesized tick track during preview playback (same rendered WAV the
 	// export bakes in), so the preview sounds identical to the video.
 	useTickAudio();
@@ -301,9 +395,9 @@ export function LivePreview() {
 	// is disarmed separately by ResponsiveShell's own unmount cleanup.
 	useEffect(() => () => useSnippetStore.getState().pause(), []);
 
-	// Fit-to-viewport for the plain (non-social) code window, plus the card's natural
-	// footprint the social placement centers in its aspect box. Both read the same
-	// pre-transform measurement, so social scaling never feeds back into it.
+	// Fit-to-viewport for the plain (non-canvas) code window, from the card's
+	// pre-transform measurement. The aspect canvas does not read it: its card is
+	// placed by the shared table, not by what the DOM happened to lay out.
 	//
 	// The content-shape deps (plan, padding, chrome, gutter) are not read below:
 	// they re-run this measure right after the DOM they shape has been committed,
@@ -322,11 +416,6 @@ export function LivePreview() {
 		const naturalW = cardSize?.inlineSize ?? cardNode.offsetWidth;
 		const naturalH = cardSize?.blockSize ?? cardNode.offsetHeight;
 		setFitScaleValue(fitScale(naturalW, naturalH, box.width, box.height));
-		setCardNatural((prev) =>
-			prev && prev.width === naturalW && prev.height === naturalH
-				? prev
-				: { width: naturalW, height: naturalH },
-		);
 	}, [
 		containerEntry,
 		cardEntry,
@@ -341,7 +430,7 @@ export function LivePreview() {
 	]);
 
 	const segments = snippet.steps.length;
-	const reelsProgress = isPlaying
+	const reelsProgress = playback
 		? playbackProgress
 		: (Math.min(currentStepIndex, Math.max(segments - 1, 0)) + 1) / Math.max(segments, 1);
 
@@ -353,29 +442,29 @@ export function LivePreview() {
 		return <EmptyState building />;
 	}
 
-	const firstCode = snippet.steps[0]?.code ?? snippet.code;
+	// A title card first is typed past: the first scene with code is typed.
+	const typingIndex = typingHoldIndex(snippet.steps.map((s) => s.code));
+	const firstCode = snippet.steps[typingIndex]?.code ?? snippet.code;
 	// Per-step spotlight, applied at render time (no re-tokenize when focus edits).
 	const focusSets = snippet.steps.map((s) => focusLineSet(s.highlightRanges));
 	const view = resolveView(
 		plan,
 		playback,
-		isPlaying,
 		currentStepIndex,
-		typewriter,
-		firstCode,
+		{ typewriter, firstCode, typingIndex },
 		focusSets,
+		transitionEasing,
 	);
 
 	// Per-step captions overlaid beneath the frame; timing is shared with the video.
 	const annotations = snippet.steps.map((s) => s.annotation ?? "");
 	const hasCaptions = annotations.some((a) => a !== "");
-	const caption =
-		isPlaying && playback
-			? captionAt({ phase: playback.phase, index: playback.index, t: playback.t }, annotations)
-			: {
-					text: annotations[currentStepIndex] ?? "",
-					opacity: annotations[currentStepIndex] ? 1 : 0,
-				};
+	const caption = playback
+		? captionAt({ phase: playback.phase, index: playback.index, t: playback.t }, annotations)
+		: {
+				text: annotations[currentStepIndex] ?? "",
+				opacity: annotations[currentStepIndex] ? 1 : 0,
+			};
 
 	const isTransparent = background === "transparent";
 	// A ceiling on the growth, never a licence to invert: at the widest margin and
@@ -392,12 +481,12 @@ export function LivePreview() {
 	// In social mode the window's mesh margin goes transparent so the aspect box's
 	// canvas shows through as one continuous mesh; everywhere else the card paints
 	// its own background exactly as before, so Social off stays byte-identical.
-	const cardPaintsMesh = isMesh && !socialActive;
-	const cardPaintsImage = isImage && !socialActive;
+	const cardPaintsMesh = isMesh && !aspectCanvasActive;
+	const cardPaintsImage = isImage && !aspectCanvasActive;
 	const cardBackgroundAnimate =
 		cardPaintsMesh || cardPaintsImage
 			? undefined
-			: { background: isTransparent || socialActive ? "transparent" : background };
+			: { background: isTransparent || aspectCanvasActive ? "transparent" : background };
 
 	// The single code card: one source of truth for playback AND the PNG capture,
 	// reparented between the plain fit-to-viewport wrapper and the social aspect box.
@@ -405,22 +494,41 @@ export function LivePreview() {
 		<motion.div
 			ref={attachCard}
 			data-export-target
-			className={`relative w-[42rem] ${isPlaying && !isTransparent && !socialActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
+			className={`relative ${aspectCanvas ? "" : "w-[42rem]"} ${isPlaying && !isTransparent && !aspectCanvasActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
 			animate={cardBackgroundAnimate}
 			transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
 			style={{
 				opacity: isBuilding ? 0.85 : 1,
 				padding: isTransparent ? 0 : cardMargin,
+				// On the export canvas the window is exactly as wide as the exporters
+				// draw it (at editor size; the wrapper scales it). Elsewhere the card
+				// keeps the studio's fixed 42rem.
+				width: aspectCanvas
+					? aspectCanvas.windowWidth + 2 * (isTransparent ? 0 : cardMargin)
+					: undefined,
 				// Concentric law: the outer corner follows the window's radius plus the
 				// margin, so a square window (radius 0) yields a square card.
 				borderRadius: cardRadius,
 				// Mesh + image are painted imperatively by useDynamicBackground; this is
 				// the pre-paint fallback so there is no flash. In social mode the mesh
 				// lives on the box, so the card's own margin stays clear.
-				background: socialActive ? undefined : staticBackground(background, isMesh, isImage),
+				background: aspectCanvasActive ? undefined : staticBackground(background, isMesh, isImage),
+			}}
+			onClick={() => {
+				if (!hasComposition) {
+					return;
+				}
+				const sceneId = compositionDocument.project.scenes[currentStepIndex]?.id;
+				if (sceneId) {
+					composition.selectBlock(sceneId, null);
+					selectAuthoredAudio(null);
+				}
 			}}
 		>
-			{!isTransparent && <GrainOverlay />}
+			{/* On the export canvas the grain lies on the whole canvas, under the card,
+			    as both exporters bake it; on the card alone it read as a rounded plate
+			    over the margin that no exported frame contains. */}
+			{!isTransparent && !aspectCanvasActive && <GrainOverlay />}
 
 			{/* One content column. The reels bar, the window, the caption and the
 						    watermark all live in this z-10 box, so the progress bar lines up
@@ -433,7 +541,12 @@ export function LivePreview() {
 						<ReelsProgress style={progressStyle} segments={segments} progress={reelsProgress} />
 					</div>
 				)}
-				<FrameShell theme={snippet.theme} title={snippet.title} chrome={windowChrome}>
+				<FrameShell
+					theme={snippet.theme}
+					title={snippet.title}
+					chrome={windowChrome}
+					clip={aspectCanvas?.clip ?? null}
+				>
 					{/* Focus zoom pushes the code toward the spotlighted band. Playback
 							    drives every frame, so there is no CSS transition: the FrameShell
 							    body clips the overflow. The zoom wrapper carries the window's own
@@ -450,9 +563,10 @@ export function LivePreview() {
 							color={snippet.theme.foreground}
 							showLineNumbers={showLineNumbers}
 							lineNumberStart={lineNumberStart}
-							lineNumberColor={`${snippet.theme.foreground}26`}
+							lineNumberColor={`${snippet.theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
 							padding={framePadding}
 							cursor={view.cursor}
+							firstRow={view.firstRow}
 						/>
 					</div>
 				</FrameShell>
@@ -465,7 +579,9 @@ export function LivePreview() {
 					/>
 				)}
 
-				{watermark && (
+				{/* On the export canvas the mark sits in the canvas corner instead, where
+				    both exporters draw it (below). */}
+				{watermark && !aspectCanvasActive && (
 					<div className="mt-2 text-right">
 						<span
 							className="font-mono text-[11px]"
@@ -486,11 +602,14 @@ export function LivePreview() {
 	// free to be the picture and only the picture.
 	return (
 		<div className="flex h-full flex-col">
+			{hasCompositionAudio ? (
+				<StudioCompositionAudio frame={compositionFrame} playing={isPlaying} />
+			) : null}
 			<div
 				ref={setContainerNode}
 				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
 			>
-				{socialCanvas && activeSocialPlatform ? (
+				{aspectCanvas ? (
 					// Faithful aspect-canvas preview: the export's mesh box with the code
 					// window centered at the video's true fraction, and the chrome + guides
 					// over the FULL canvas. The overlay is a SIBLING of [data-export-target]
@@ -498,11 +617,12 @@ export function LivePreview() {
 					// see it.
 					<motion.div
 						ref={boxRef}
+						layout
 						className="relative shrink-0 overflow-hidden"
 						style={{
-							width: socialCanvas.boxWidth,
-							height: socialCanvas.boxHeight,
-							borderRadius: socialCanvas.radius,
+							width: aspectCanvas.boxWidth,
+							height: aspectCanvas.boxHeight,
+							borderRadius: aspectCanvas.radius,
 							background: staticBackground(background, isMesh, isImage),
 						}}
 						animate={
@@ -510,22 +630,99 @@ export function LivePreview() {
 								? undefined
 								: { background: isTransparent ? "transparent" : background }
 						}
-						transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+						transition={{
+							layout: springs.default,
+							background: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
+						}}
 					>
+						{/* The exporters' canvas texture, the glow and the grain they lay over
+						    the background under the card, at the box's share of the canvas. */}
+						{!isTransparent ? <GlowDecoration scale={aspectCanvas.boxScale} /> : null}
+						{!isTransparent ? <GrainOverlay scale={aspectCanvas.boxScale} /> : null}
+						{hasCompositionLayers ? (
+							<div
+								className="sc-composition-surface-host"
+								data-slot="under-code"
+								style={{
+									width: compositionDocument.project.canvas.width,
+									height: compositionDocument.project.canvas.height,
+									transform: `scale(${aspectCanvas.boxWidth / compositionDocument.project.canvas.width})`,
+								}}
+							>
+								<StudioCompositionLayers
+									document={compositionDocument}
+									frame={compositionFrame}
+									fps={exportFps}
+									slot="under-code"
+									playing={isPlaying}
+									selectedBlockId={composition.selectedBlockId}
+									onSelectLayer={(sceneId, blockId) => {
+										composition.selectBlock(sceneId, blockId);
+										selectAuthoredAudio(null);
+										const index = snippet.steps.findIndex((step) => step.id === sceneId);
+										if (index >= 0) {
+											useSnippetStore.getState().setCurrentStepIndex(index);
+										}
+									}}
+								/>
+							</div>
+						) : null}
 						<div
 							className="absolute top-1/2 left-1/2"
 							style={{
-								transform: `translate(-50%, -50%) scale(${socialCanvas.cardScale})`,
+								zIndex: 1,
+								opacity: primaryCodeOpacity,
+								pointerEvents: primaryCodeOpacity === 0 ? "none" : undefined,
+								transform: `translate(-50%, -50%) scale(${aspectCanvas.cardScale})`,
 								transformOrigin: "center center",
 							}}
 						>
 							{cardElement}
 						</div>
-						<SocialPreviewOverlay
-							platform={activeSocialPlatform}
-							showGuides={socialShowGuides}
-							radius={socialCanvas.radius}
-						/>
+						{hasCompositionLayers ? (
+							<div
+								className="sc-composition-surface-host"
+								data-slot="over-code"
+								style={{
+									width: compositionDocument.project.canvas.width,
+									height: compositionDocument.project.canvas.height,
+									transform: `scale(${aspectCanvas.boxWidth / compositionDocument.project.canvas.width})`,
+								}}
+							>
+								<StudioCompositionLayers
+									document={compositionDocument}
+									frame={compositionFrame}
+									fps={exportFps}
+									slot="over-code"
+									playing={isPlaying}
+									selectedBlockId={composition.selectedBlockId}
+									onSelectLayer={(sceneId, blockId) => {
+										composition.selectBlock(sceneId, blockId);
+										selectAuthoredAudio(null);
+										const index = snippet.steps.findIndex((step) => step.id === sceneId);
+										if (index >= 0) {
+											useSnippetStore.getState().setCurrentStepIndex(index);
+										}
+									}}
+								/>
+							</div>
+						) : null}
+						{watermark ? (
+							<CanvasWatermark
+								text={watermark}
+								color={getWatermarkColor(background, snippet.theme.foreground)}
+								fontFamily={snippet.theme.fontFamily}
+								scale={renderScaleFor(exportWidth, exportHeight, BASE_VIDEO_SCALE)}
+								boxScale={aspectCanvas.boxScale}
+							/>
+						) : null}
+						{activeSocialPlatform && (
+							<SocialPreviewOverlay
+								platform={activeSocialPlatform}
+								showGuides={socialShowGuides}
+								radius={aspectCanvas.radius}
+							/>
+						)}
 					</motion.div>
 				) : (
 					<div
@@ -540,31 +737,80 @@ export function LivePreview() {
 	);
 }
 
+/**
+ * The user's mark at the canvas corner, from the table both exporters read, at
+ * the box's share of the canvas. It used to sit under the window, inside the
+ * card, which also pushed the centred card up by its own height.
+ *
+ * Laid out at the export's own size and scaled down as one picture, like the
+ * card: set at the box's ten-odd pixels, the browser would round the font's
+ * ascent and descent at that size and the line would land a pixel off the file.
+ */
+function CanvasWatermark({
+	text,
+	color,
+	fontFamily,
+	scale,
+	boxScale,
+}: { text: string; color: string; fontFamily: string; scale: number; boxScale: number }) {
+	const placement = watermarkPlacement(scale);
+	return (
+		<span
+			aria-hidden="true"
+			style={{
+				position: "absolute",
+				zIndex: 3,
+				right: placement.right * boxScale,
+				bottom: placement.bottom * boxScale,
+				fontFamily,
+				fontSize: placement.fontSize,
+				lineHeight: "normal",
+				whiteSpace: "nowrap",
+				color,
+				pointerEvents: "none",
+				transform: `scale(${boxScale})`,
+				transformOrigin: "100% 100%",
+			}}
+		>
+			{text}
+		</span>
+	);
+}
+
 /** Themed card wrapping the animated code, topped by the shared window chrome. */
 function FrameShell({
 	theme,
 	title,
 	chrome,
+	clip,
 	children,
 }: {
 	theme: Theme;
 	title: string;
 	chrome: WindowChrome;
+	clip: { maxHeight: number; fades: ClipFade[] } | null;
 	children: ReactNode;
 }) {
 	return (
 		<div
-			className="code-frame-glow w-full overflow-hidden"
-			style={{ background: theme.background, borderRadius: theme.borderRadius }}
+			className="code-frame-glow relative w-full overflow-hidden"
+			style={{
+				background: theme.background,
+				borderRadius: theme.borderRadius,
+				maxHeight: clip?.maxHeight,
+			}}
 		>
 			<FrameChrome chrome={chrome} title={title} foreground={theme.foreground} />
 			{children}
+			{clip ? <ClipFades fades={clip.fades} background={theme.background} /> : null}
 		</div>
 	);
 }
 
 interface FrameView {
 	tokens: ReturnType<typeof renderStatic>;
+	/** The code row at the window's top; 0 unless a long file's window moved. */
+	firstRow: number;
 	lineCount: number;
 	lineNumberCount: number;
 	cursor?: { line: number; col: number } | null;
@@ -572,7 +818,13 @@ interface FrameView {
 	zoom: ZoomTransform;
 }
 
-const EMPTY_VIEW: FrameView = { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
+const EMPTY_VIEW: FrameView = {
+	tokens: [],
+	firstRow: 0,
+	lineCount: 1,
+	lineNumberCount: 1,
+	zoom: NO_ZOOM,
+};
 
 /**
  * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
@@ -596,49 +848,15 @@ function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): 
 function resolveView(
 	plan: NonNullable<ReturnType<typeof useSnippetStore.getState>["plan"]>,
 	playback: PlaybackState | null,
-	isPlaying: boolean,
 	currentStepIndex: number,
-	typewriter: boolean,
-	firstCode: string,
+	typing: { typewriter: boolean; firstCode: string; typingIndex: number },
 	focusSets: (Set<number> | undefined)[],
+	transitionEasing: CubicBezier,
 ): FrameView {
-	if (isPlaying && playback) {
-		if (typewriter && playback.phase === "hold" && playback.index === 0 && plan.typing) {
-			const reveal = typedCharCount(firstCode.length, playback.t);
-			const { tokens, cursor } = renderTyping(firstCode, plan.typing, reveal);
-			const lineCount = plan.frames[0]?.lineCount ?? 1;
-			return {
-				tokens,
-				lineCount,
-				lineNumberCount: lineCount,
-				cursor,
-				zoom: zoomForFocus(focusSets[0], lineCount),
-			};
-		}
-		if (playback.phase === "transition") {
-			const transition = plan.transitions[playback.index];
-			const fromFrame = plan.frames[playback.index];
-			const toFrame = plan.frames[playback.index + 1];
-			if (transition && fromFrame && toFrame) {
-				const eased = easeInOutCubic(playback.t);
-				const fromZoom = zoomForFocus(focusSets[playback.index], fromFrame.lineCount);
-				const toZoom = zoomForFocus(focusSets[playback.index + 1], toFrame.lineCount);
-				return {
-					tokens: renderTransition(
-						transition.from,
-						transition.to,
-						playback.t,
-						{},
-						focusSets[playback.index],
-						focusSets[playback.index + 1],
-					),
-					lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
-					lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
-					zoom: interpolateZoom(fromZoom, toZoom, playback.t, easeInOutCubic),
-				};
-			}
-		}
-		return staticView(plan.frames[playback.index] ?? plan.frames[0], focusSets[playback.index]);
+	if (playback && plan.frames[playback.index]) {
+		// The same walk the exported file takes, so a morph and the loop morph
+		// look the same in both.
+		return scriptFrameAt({ plan, ...typing, focusSets, transitionEasing }, playback);
 	}
 
 	const index = Math.min(Math.max(currentStepIndex, 0), plan.frames.length - 1);
@@ -646,23 +864,27 @@ function resolveView(
 }
 
 function staticView(
-	frame: { tokens: Parameters<typeof renderStatic>[0]; lineCount: number } | undefined,
+	frame:
+		| { tokens: Parameters<typeof renderStatic>[0]; lineCount: number; firstRow?: number }
+		| undefined,
 	focus?: Set<number>,
 ): FrameView {
 	if (!frame) {
 		return EMPTY_VIEW;
 	}
+	const firstRow = frameFirstRow(frame);
 	return {
-		tokens: renderStatic(frame.tokens, focus),
+		tokens: scrollRows(renderStatic(frame.tokens, focus), firstRow),
+		firstRow,
 		lineCount: frame.lineCount,
 		lineNumberCount: frame.lineCount,
-		zoom: zoomForFocus(focus, frame.lineCount),
+		zoom: zoomForFocus(focus, frame.lineCount, firstRow),
 	};
 }
 
 function EmptyState({ building = false }: { building?: boolean }) {
 	return (
-		<div className="flex h-full flex-col items-center justify-center gap-3 text-neutral-400">
+		<div className="flex h-full flex-col items-center justify-center gap-3 text-neutral-500 dark:text-neutral-400">
 			<svg
 				width="48"
 				height="48"

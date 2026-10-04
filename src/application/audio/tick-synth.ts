@@ -22,8 +22,8 @@ export interface TickEventOptions {
 	holds: number[];
 	/** Morph duration between steps in ms. */
 	transitionMs: number;
-	/** Which hold the typewriter reveal plays over. Always the first today. */
-	typewriterHoldIndex?: 0;
+	/** Which hold the typewriter reveal plays over (`typingHoldIndex`). */
+	typewriterHoldIndex?: number;
 }
 
 /**
@@ -38,11 +38,16 @@ export function collectTickEvents(opts: TickEventOptions): TickEvent[] {
 
 	if (typewriter && firstCodeLength > 0) {
 		const holdMs = Math.max(0, holds[typewriterHoldIndex] ?? 0);
+		// The typed hold starts after every hold and morph before it.
+		let holdStartMs = 0;
+		for (let i = 0; i < typewriterHoldIndex; i++) {
+			holdStartMs += Math.max(0, holds[i] ?? 0) + transitionMs;
+		}
 		// typedCharCount reveals the c-th char once progress passes
 		// TYPE_COMPLETE_AT*(c-1)/length, so that is the tick's onset.
 		for (let c = 1; c <= firstCodeLength; c++) {
 			const onset = (TYPE_COMPLETE_AT * (c - 1)) / firstCodeLength;
-			events.push({ timeMs: onset * holdMs, kind: "key" });
+			events.push({ timeMs: holdStartMs + onset * holdMs, kind: "key" });
 		}
 	}
 

@@ -1,50 +1,86 @@
+import { resolveBackgroundCss } from "@/application/backgrounds/mesh-gradient";
+import { focusLineSet, parseLineRanges } from "@/application/focus/line-ranges";
 import { TEMPLATE_CATALOG, type TemplateDefinition } from "@/application/templates/catalog";
+import { Theme } from "@/domain/entities/theme";
+import { FrameChrome, isWindowChrome } from "@/presentation/components/preview/frame-chrome";
+import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
+import { LoopingFrames } from "@/presentation/components/preview/looping-frames";
+import { StaticCodePoster } from "@/presentation/components/preview/static-code-poster";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
-import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { StudioBottomSheet } from "@/presentation/components/ui/studio-bottom-sheet";
+import { feedback } from "@/presentation/haptics";
+import { springs } from "@/presentation/motion";
+import {
+	hasStudioWorkToLose,
+	openStudioProjectDocument,
+} from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, memo, useCallback, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, ChevronLeft, Grid, X } from "reicon-react";
 
-/**
- * The template gallery: six curated projects, one click from the studio.
- *
- * No account, no server, no trial. A card loads through the same path a saved
- * file takes, so what a visitor gets is exactly what an export would produce.
- *
- * Clicking a card while the studio holds the user's own work asks first, in
- * place: a browser `confirm()` would break the surface the whole app is built
- * to feel like.
- */
+const SHOWCASE_THEMES: Record<string, () => Theme> = {
+	midnight: Theme.midnight,
+	aurora: Theme.aurora,
+	frost: Theme.frost,
+	dracula: Theme.dracula,
+	"one-dark": Theme.oneDark,
+	catppuccin: Theme.catppuccin,
+	nord: Theme.nord,
+};
+
+const SHOWCASE_FEATURES: Record<string, string> = {
+	"react-hook": "Magic move",
+	"n-plus-one": "Code review",
+	"typewriter-debounce": "Typewriter",
+	"rate-limiter-walkthrough": "Focus tour",
+	"batch-the-query": "Social cut",
+	"grow-a-test-suite": "Progressive build",
+};
+
+const SHOWCASE_MESH_TIMES: Record<string, number> = {
+	"react-hook": 1.2,
+	"n-plus-one": 4.6,
+	"typewriter-debounce": 7.4,
+	"rate-limiter-walkthrough": 9.1,
+	"batch-the-query": 12.8,
+	"grow-a-test-suite": 16.2,
+};
+
+/** The drawer owns its first 300ms; syntax enrichment begins after it settles. */
+const POSTER_HIGHLIGHT_DELAY_MS = 420;
+const POSTER_HIGHLIGHT_STAGGER_MS = 110;
+
+/** Six real starter projects presented as inspiration, then opened for editing. */
 export function TemplateGallery() {
 	const [open, setOpen] = useState(false);
-	/** The template waiting on a confirm, because loading it would discard edits. */
 	const [pending, setPending] = useState<TemplateDefinition | null>(null);
-	const importFromJson = useSnippetStore((s) => s.importFromJson);
+	const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
-	const dialogRef = useRef<HTMLDialogElement>(null);
-	const panelRef = useRef<HTMLDivElement>(null);
-	const reduce = useReducedMotion();
+	const reduce = useReducedMotion() === true;
 
 	const close = useCallback(() => {
 		setOpen(false);
 		setPending(null);
-		// Hand focus back where it came from, so a keyboard user is not dropped
-		// at the top of the document.
+		setActivePreviewId(null);
 		triggerRef.current?.focus();
+	}, []);
+	const changeActivePreview = useCallback((id: string | null) => {
+		setActivePreviewId(id);
 	}, []);
 
 	const load = useCallback(
 		(template: TemplateDefinition) => {
-			importFromJson(JSON.stringify(template.project));
+			openStudioProjectDocument(JSON.stringify(template.project));
+			feedback("commit");
 			close();
 		},
-		[importFromJson, close],
+		[close],
 	);
 
-	/** Load now, or ask first when there is work to lose. */
 	const choose = useCallback(
 		(template: TemplateDefinition) => {
-			if (useSnippetStore.getState().hasUnsavedEdits()) {
+			if (hasStudioWorkToLose()) {
+				setActivePreviewId(null);
 				setPending(template);
 				return;
 			}
@@ -53,255 +89,292 @@ export function TemplateGallery() {
 		[load],
 	);
 
-	// showModal, not an `open` attribute: it puts the gallery in the top layer,
-	// traps Tab inside it and makes the studio behind genuinely inert, none of
-	// which a div with role="dialog" can do honestly.
-	useEffect(() => {
-		if (!open) {
-			return;
-		}
-		dialogRef.current?.showModal();
-		// showModal focuses the first focusable child, which is the backdrop.
-		// Put the caret on the panel instead, so Tab starts at the first card.
-		panelRef.current?.focus();
-	}, [open]);
-
-	/** Native Escape: back out one level at a time, the confirm before the gallery. */
-	const handleCancel = useCallback(
-		(e: React.SyntheticEvent) => {
-			// Always ours to handle: letting the browser close the dialog outright
-			// would skip both the exit animation and the pending confirm.
-			e.preventDefault();
-			if (pending) {
-				setPending(null);
-				return;
-			}
-			close();
-		},
-		[pending, close],
-	);
+	const dismiss = pending ? () => setPending(null) : close;
 
 	return (
 		<>
 			<motion.button
 				ref={triggerRef}
 				type="button"
-				onClick={() => setOpen(true)}
-				whileTap={{ scale: 0.96 }}
+				onClick={() => {
+					feedback("selection");
+					setOpen(true);
+				}}
+				whileTap={{ scale: 0.97 }}
 				transition={springs.snappy}
 				aria-haspopup="dialog"
 				aria-expanded={open}
-				// The label is on the button, not left to the icon's <title>: below
-				// `sm` the visible word is hidden and the name would otherwise depend
-				// on the viewport.
-				aria-label="Templates"
-				className={`flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-medium transition-colors ${
-					open
-						? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-						: "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-				}`}
+				aria-label="Showcase"
+				className="sc-island-trigger sc-showcase-trigger"
 			>
-				<GridIcon />
-				<span className="hidden sm:inline">Templates</span>
+				<Grid size={13} strokeWidth={1.65} aria-hidden="true" />
+				<span>Showcase</span>
 			</motion.button>
 
-			{/* Sized to the viewport with a transparent native backdrop: the animated
-			    one below is ours, so it can fade with the panel. */}
-			<dialog
-				ref={dialogRef}
-				onCancel={handleCancel}
-				aria-labelledby="template-gallery-title"
-				className="m-0 h-full max-h-full w-full max-w-full bg-transparent p-0 backdrop:bg-transparent"
+			<StudioBottomSheet
+				open={open}
+				onClose={dismiss}
+				labelledBy="showcase-title"
+				className="showcase-sheet"
 			>
-				<AnimatePresence onExitComplete={() => dialogRef.current?.close()}>
-					{open && (
-						<>
-							<motion.button
-								type="button"
-								aria-label="Close templates"
-								onClick={close}
-								initial={{ opacity: 0 }}
-								animate={{ opacity: 1 }}
-								exit={{ opacity: 0 }}
-								transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-								className="fixed inset-0 z-50 cursor-default bg-neutral-950/40 backdrop-blur-[2px]"
-							/>
-							<div className="pointer-events-none fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
-								<motion.div
-									ref={panelRef}
-									tabIndex={-1}
-									data-template-gallery
-									// Materialize, don't just fade: blur, scale and offset settle together
-									// so the surface reads as a material arriving from somewhere. Opacity
-									// alone reads as a rectangle being switched on, because nothing about
-									// it says the panel was ever anywhere else.
-									initial={
-										reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8, filter: "blur(4px)" }
-									}
-									animate={
-										reduce ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }
-									}
-									exit={
-										reduce ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 4, filter: "blur(4px)" }
-									}
-									transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-									className="pointer-events-auto my-auto w-full max-w-3xl rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] outline-none sm:p-6 dark:border-neutral-800 dark:bg-neutral-900"
-								>
-									<div className="flex items-start justify-between gap-4">
-										<div>
-											<h2
-												id="template-gallery-title"
-												className="text-[15px] font-semibold tracking-tight text-neutral-900 dark:text-neutral-50"
-											>
-												Templates
-											</h2>
-											<p className="mt-0.5 text-[12px] text-neutral-500 dark:text-neutral-400">
-												Pick one and it opens in the studio. No account, nothing to install.
-											</p>
-										</div>
-										<button
-											type="button"
-											onClick={close}
-											aria-label="Close"
-											className="-mr-1 -mt-1 flex size-8 shrink-0 items-center justify-center rounded-xl text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-100"
-										>
-											<CloseIcon />
-										</button>
-									</div>
+				<header className="studio-sheet-header">
+					<div>
+						<h2 id="showcase-title">Showcase</h2>
+						<p>Six real Typelapse projects. Explore the motion, then make one yours.</p>
+					</div>
+					<button
+						type="button"
+						onClick={dismiss}
+						aria-label={pending ? "Back to showcase" : "Close showcase"}
+					>
+						{pending ? (
+							<ChevronLeft size={14} strokeWidth={1.7} aria-hidden="true" />
+						) : (
+							<X size={14} strokeWidth={1.7} aria-hidden="true" />
+						)}
+					</button>
+				</header>
 
-									<AnimatePresence mode="wait" initial={false}>
-										{pending ? (
-											<ConfirmDiscard
-												key="confirm"
-												message={`Replace what you have with “${pending.name}”?`}
-												confirmLabel="Load template"
-												onCancel={() => setPending(null)}
-												onConfirm={() => load(pending)}
-												className="mt-5"
-											/>
-										) : (
-											<motion.div
-												key="grid"
-												initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
-												animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
-												exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
-												transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
-											>
-												<motion.div
-													variants={{
-														visible: {
-															transition: { staggerChildren: reduce ? 0 : STAGGER_DELAY },
-														},
-													}}
-													initial="hidden"
-													animate="visible"
-													className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
-												>
-													{TEMPLATE_CATALOG.map((template) => (
-														<TemplateCard
-															key={template.id}
-															template={template}
-															reduce={reduce === true}
-															onSelect={() => choose(template)}
-														/>
-													))}
-												</motion.div>
-											</motion.div>
-										)}
-									</AnimatePresence>
-								</motion.div>
+				<AnimatePresence mode="wait" initial={false}>
+					{pending ? (
+						<motion.div
+							key="confirm"
+							className="showcase-confirm"
+							initial={reduce ? { opacity: 0 } : { opacity: 0, y: 8 }}
+							animate={{ opacity: 1, y: 0 }}
+							exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
+						>
+							<TemplateArtwork
+								template={pending}
+								large
+								active={!reduce}
+								activated={!reduce}
+								reduce={reduce}
+							/>
+							<div>
+								<h3>{pending.name}</h3>
+								<p>{pending.description}</p>
+								<ConfirmDiscard
+									message={`Replace what you have with “${pending.name}”?`}
+									confirmLabel="Open example"
+									onCancel={() => setPending(null)}
+									onConfirm={() => load(pending)}
+									className="mt-5"
+								/>
 							</div>
-						</>
+						</motion.div>
+					) : (
+						<motion.div key="grid" className="showcase-grid" initial={false} exit={{ opacity: 0 }}>
+							{TEMPLATE_CATALOG.map((template, index) => (
+								<TemplateCard
+									key={template.id}
+									template={template}
+									reduce={reduce}
+									active={activePreviewId === template.id}
+									highlightDelayMs={POSTER_HIGHLIGHT_DELAY_MS + index * POSTER_HIGHLIGHT_STAGGER_MS}
+									onPreviewChange={changeActivePreview}
+									onSelect={choose}
+								/>
+							))}
+						</motion.div>
 					)}
 				</AnimatePresence>
-			</dialog>
+			</StudioBottomSheet>
 		</>
 	);
 }
 
-function TemplateCard({
+const TemplateCard = memo(function TemplateCard({
 	template,
 	reduce,
+	active,
+	highlightDelayMs,
+	onPreviewChange,
 	onSelect,
 }: {
 	template: TemplateDefinition;
 	reduce: boolean;
-	onSelect: () => void;
+	active: boolean;
+	highlightDelayMs: number;
+	onPreviewChange: (id: string | null) => void;
+	onSelect: (template: TemplateDefinition) => void;
 }) {
+	const activate = () => {
+		if (reduce) {
+			return;
+		}
+		onPreviewChange(template.id);
+	};
+	const deactivate = () => onPreviewChange(null);
+
 	return (
 		<motion.button
 			type="button"
-			onClick={onSelect}
+			aria-label={`Open Showcase project ${template.name}`}
+			onClick={() => onSelect(template)}
+			onPointerEnter={activate}
+			onPointerLeave={deactivate}
+			onFocus={activate}
+			onBlur={deactivate}
 			data-template-id={template.id}
-			variants={reduce ? { hidden: { opacity: 0 }, visible: { opacity: 1 } } : mountVariants}
-			transition={springs.default}
-			whileHover={reduce ? undefined : { y: -2 }}
-			whileTap={{ scale: 0.98 }}
-			className="flex h-full flex-col gap-2 rounded-xl border border-neutral-200/80 bg-neutral-50/60 p-3.5 text-left transition-colors hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-950/40 dark:hover:border-neutral-700 dark:hover:bg-neutral-950/70"
+			data-preview-active={active ? "" : undefined}
+			initial={false}
+			whileTap={{ scale: 0.985 }}
+			className="showcase-card"
 		>
-			<div className="flex items-start justify-between gap-2">
-				<span className="text-[13px] font-semibold leading-snug text-neutral-900 dark:text-neutral-50">
-					{template.name}
-				</span>
-				{/* 11px is the studio's type floor, and resting text is neutral-500
-				    light / neutral-400 dark — the role, not a per-site choice. */}
-				<span className="mt-px shrink-0 font-mono text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-					{template.language}
-				</span>
-			</div>
-			<p className="text-[11.5px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-				{template.description}
-			</p>
-			<div className="mt-auto flex flex-wrap gap-1 pt-1">
-				{template.tags.map((tag) => (
-					<span
-						key={tag}
-						className="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400"
-					>
-						{tag}
+			<TemplateArtwork
+				template={template}
+				active={active && !reduce}
+				activated={active && !reduce}
+				reduce={reduce}
+				highlightDelayMs={highlightDelayMs}
+			/>
+			<footer>
+				<div className="showcase-card-copy">
+					<strong>{template.name}</strong>
+					<span className="showcase-card-feature">
+						<span
+							className="showcase-motion-dot"
+							data-active={active ? "" : undefined}
+							aria-hidden="true"
+						/>
+						{SHOWCASE_FEATURES[template.id] ?? "Magic move"}
+						<span aria-hidden="true">·</span>
+						{template.project.steps.length.toString().padStart(2, "0")} scenes
 					</span>
-				))}
-			</div>
+				</div>
+				<span className="showcase-card-action" aria-hidden="true">
+					Open
+					<ArrowUpRight size={12} strokeWidth={1.7} />
+				</span>
+				<span className="sr-only">{template.description}</span>
+			</footer>
 		</motion.button>
 	);
-}
+});
 
-function GridIcon() {
-	return (
-		<svg
-			width="13"
-			height="13"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-			role="img"
-		>
-			<title>Templates</title>
-			<rect x="3" y="3" width="7" height="7" rx="1.5" />
-			<rect x="14" y="3" width="7" height="7" rx="1.5" />
-			<rect x="14" y="14" width="7" height="7" rx="1.5" />
-			<rect x="3" y="14" width="7" height="7" rx="1.5" />
-		</svg>
+function TemplateArtwork({
+	template,
+	large = false,
+	active = false,
+	activated = false,
+	reduce = false,
+	highlightDelayMs = 0,
+}: {
+	template: TemplateDefinition;
+	large?: boolean;
+	active?: boolean;
+	activated?: boolean;
+	reduce?: boolean;
+	highlightDelayMs?: number;
+}) {
+	const theme = useMemo(
+		() => (SHOWCASE_THEMES[template.project.themeName] ?? Theme.aurora)(),
+		[template.project.themeName],
 	);
-}
+	const frames = useMemo(() => {
+		const steps = template.project.steps.map((step) => step.code);
+		return steps.length > 0 ? steps : [template.project.code];
+	}, [template.project.code, template.project.steps]);
+	const holds = useMemo(
+		() => [...template.project.steps.map((step) => step.duration), 900],
+		[template.project.steps],
+	);
+	const focusSets = useMemo(
+		() =>
+			template.project.steps.map((step) => {
+				const ranges = parseLineRanges(step.focus ?? "");
+				return ranges && ranges.length > 0 ? focusLineSet(ranges) : undefined;
+			}),
+		[template.project.steps],
+	);
+	const ratio = (template.project.width ?? 1920) / (template.project.height ?? 1080);
+	const portrait = ratio < 0.8;
+	const chrome = isWindowChrome(template.project.windowChrome)
+		? template.project.windowChrome
+		: "macos";
+	const style = {
+		"--showcase-theme-bg": theme.background,
+		"--showcase-theme-fg": theme.foreground,
+	} as CSSProperties;
+	const fontSize = large ? (portrait ? 5.2 : 8.8) : portrait ? 4.1 : 7.2;
+	const previewPadding = large ? (portrait ? 5 : 10) : portrait ? 4 : 8;
+	const posterCode = frames[frames.length - 1] ?? template.project.code;
 
-function CloseIcon() {
 	return (
-		<svg
-			width="14"
-			height="14"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="1.75"
-			strokeLinecap="round"
-			role="img"
+		<div
+			className="showcase-artwork"
+			data-large={large ? "" : undefined}
+			data-active={active ? "" : undefined}
+			data-orientation={portrait ? "portrait" : "landscape"}
+			data-feature={template.id}
+			style={style}
 		>
-			<title>Close</title>
-			<path d="M18 6L6 18M6 6l12 12" />
-		</svg>
+			<div
+				className="showcase-video-canvas"
+				role="img"
+				aria-label={`Real Typelapse preview of ${template.name}`}
+				style={{
+					aspectRatio: `${ratio}`,
+					background: resolveBackgroundCss(
+						template.project.background,
+						SHOWCASE_MESH_TIMES[template.id] ?? 0,
+					),
+				}}
+			>
+				<GrainOverlay />
+
+				<div
+					className="showcase-real-frame"
+					style={{
+						background: theme.background,
+						color: theme.foreground,
+						borderRadius: Math.max(5, (template.project.borderRadius ?? theme.borderRadius) * 0.68),
+					}}
+				>
+					<FrameChrome
+						chrome={chrome}
+						title={template.project.title}
+						foreground={theme.foreground}
+						scale={large ? 0.72 : 0.56}
+					/>
+					<div className="showcase-code-viewport">
+						<StaticCodePoster
+							code={posterCode}
+							language={template.project.language}
+							themeName={template.project.themeName}
+							theme={theme}
+							fontSize={fontSize}
+							lineHeightRatio={1.55}
+							padding={previewPadding}
+							lineNumbers={template.project.showLineNumbers}
+							highlightDelayMs={highlightDelayMs}
+						/>
+						{activated && (
+							<div className="showcase-live-layer" aria-hidden="true">
+								<LoopingFrames
+									frames={frames}
+									holds={holds}
+									theme={theme}
+									language={template.project.language}
+									fontSize={fontSize}
+									lineHeightRatio={1.55}
+									padding={previewPadding}
+									lineNumbers={template.project.showLineNumbers}
+									playing={active && !reduce}
+									transitionMs={template.project.transitionMs}
+									typewriter={template.project.typewriter}
+									focusSets={focusSets}
+									className="showcase-live-code"
+									ariaHidden
+								/>
+							</div>
+						)}
+					</div>
+				</div>
+
+				{portrait && <span className="showcase-safe-zone" aria-hidden="true" />}
+			</div>
+		</div>
 	);
 }

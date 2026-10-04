@@ -1,5 +1,6 @@
 import { exportCtaLabel } from "@/application/export/export-label";
 import { FONT_PRESETS } from "@/application/fonts/code-fonts";
+import { isPlayableProject } from "@/application/studio-timeline/playback";
 import {
 	ASPECT_LABELS,
 	type AspectLabel,
@@ -10,10 +11,17 @@ import {
 	presetFor,
 } from "@/domain/entities/render-config";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
+import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
-import { useExportStore } from "@/presentation/stores/export.store";
+import { serverRenderOffered, useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	hasAuthoredMultimedia,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { useEffect } from "react";
+import { Camera } from "reicon-react";
+import { RENDER_BUSY_LABELS, useCloudRenderCta, useCloudTarget } from "./cloud-render";
 import {
 	CHROME_PRESETS,
 	PADDING_PRESETS,
@@ -54,10 +62,6 @@ export const CLUSTERS: { id: ClusterId; label: string }[] = [
 	{ id: "motion", label: "Motion" },
 	{ id: "export", label: "Export" },
 ];
-
-// The default face, fetched once at module load exactly as the old strip did:
-// the picker has to be able to show what it offers before anything is chosen.
-loadGoogleFont("JetBrains+Mono");
 
 /**
  * What the shape and size chips fall back to when the stored dimensions match
@@ -216,21 +220,22 @@ function AspectOption({
 	const box = ratio >= 1 ? { width: 17, height: 17 / ratio } : { width: 15 * ratio, height: 15 };
 
 	return (
-		<button
-			type="button"
-			aria-pressed={selected}
-			aria-label={`Aspect ratio ${aspect}`}
-			title={title}
-			onClick={() => {
-				trigger("selection");
-				onSelect();
-			}}
-			className="si-button si-seg-option"
-			{...(selected ? { "data-selected": "" } : {})}
-		>
-			{selected && <span className="si-plate si-plate-soft" />}
-			<span className="si-frame" style={box} aria-hidden="true" />
-		</button>
+		<StudioTooltip content={title}>
+			<button
+				type="button"
+				aria-pressed={selected}
+				aria-label={`Aspect ratio ${aspect}`}
+				onClick={() => {
+					trigger("selection");
+					onSelect();
+				}}
+				className="si-button si-seg-option"
+				{...(selected ? { "data-selected": "" } : {})}
+			>
+				{selected && <span className="si-plate si-plate-soft" />}
+				<span className="si-frame" style={box} aria-hidden="true" />
+			</button>
+		</StudioTooltip>
 	);
 }
 
@@ -337,7 +342,7 @@ function MotionCluster() {
 				<IslandToggle
 					pressed={typewriter}
 					label="Type"
-					title="Type the first step out character by character"
+					title="Type the first scene out character by character"
 					onToggle={() => setTypewriter(!typewriter)}
 				/>
 				<IslandToggle
@@ -355,7 +360,7 @@ function MotionCluster() {
 				<IslandToggle
 					pressed={loop}
 					label="Loop"
-					title="The last step morphs back to the first"
+					title="The last scene morphs back to the first"
 					onToggle={() => setLoop(!loop)}
 				/>
 			</ClusterGroup>
@@ -391,7 +396,11 @@ function ExportCluster() {
 	const isExporting = useExportStore((s) => s.isExporting);
 	const exportVideo = useExportStore((s) => s.exportVideo);
 	const exportPng = useExportStore((s) => s.exportPng);
-	const hasSteps = useSnippetStore((s) => s.snippet.steps.length >= 2);
+	const fps = useExportStore((s) => s.fps);
+	const setFps = useExportStore((s) => s.setFps);
+	const canRender = useCanRender();
+	const cloudTarget = useCloudTarget();
+	const cloudCta = useCloudRenderCta(target);
 
 	useEffect(() => {
 		if (deviceSupported === null) {
@@ -428,6 +437,13 @@ function ExportCluster() {
 						setResolution(dims.width, dims.height);
 					}}
 				/>
+				<IslandSegmented
+					group="fps"
+					eyebrow="FPS"
+					options={FPS_OPTIONS}
+					value={fps}
+					onSelect={setFps}
+				/>
 			</ClusterGroup>
 
 			<ClusterGroup>
@@ -440,15 +456,21 @@ function ExportCluster() {
 							label: "This device",
 							title:
 								deviceSupported === false
-									? "This browser has no encoder for the selected format and size."
+									? DEVICE_CANNOT_ENCODE
 									: "Renders in this tab. Nothing is uploaded, and no server has to be running.",
 							disabled: deviceSupported === false,
 						},
-						{
-							value: "server" as const,
-							label: "Server",
-							title: "Renders with Remotion on the Typelapse API server, which has to be running.",
-						},
+						...(serverRenderOffered()
+							? [
+									{
+										value: "server" as const,
+										label: "Server",
+										title:
+											"Renders with Remotion on the Typelapse API server, which has to be running.",
+									},
+								]
+							: []),
+						...(cloudTarget ? [cloudTarget] : []),
 					]}
 					value={target}
 					onSelect={setTarget}
@@ -470,18 +492,69 @@ function ExportCluster() {
 				<button
 					type="button"
 					onClick={() => {
+						if (isExporting || cloudCta.busy) return;
 						trigger("light");
 						void exportVideo();
 					}}
-					disabled={isExporting || !hasSteps}
-					title={hasSteps ? undefined : "A video needs at least two steps."}
+					// Busy, it stays focusable: a disabled button drops a keyboard user's
+					// focus to the page the moment they press it.
+					disabled={!canRender}
+					aria-disabled={isExporting || cloudCta.busy || undefined}
+					title={canRender ? undefined : NOTHING_TO_RENDER}
 					className="si-cta si-cluster-cta"
 				>
-					{isExporting ? "Rendering…" : `Render · ${current.aspect}`}
+					<RenderCtaLabel
+						idle={`Render · ${current.aspect}`}
+						shown={isExporting ? "Rendering…" : (cloudCta.label ?? `Render · ${current.aspect}`)}
+					/>
 				</button>
+				{/* A tooltip never shows on a phone, and a disabled button is not
+				    reached by a screen reader: the reason it is greyed is on the page. */}
+				{deviceSupported === false ? (
+					<p className="si-cluster-note">{DEVICE_CANNOT_ENCODE}</p>
+				) : null}
 			</ClusterGroup>
 		</>
 	);
+}
+
+/**
+ * The Render button's words, every one it can say stacked in one grid cell and
+ * only the current one visible. The button is as wide as its longest label from
+ * the start, so pressing it does not resize the island, which springs its width
+ * off this row and would slide every control beside it. The hidden ones are
+ * aria-hidden, so the button's name is the word on screen.
+ */
+export function RenderCtaLabel({ idle, shown }: { idle: string; shown: string }) {
+	const labels = [...new Set([idle, ...RENDER_BUSY_LABELS, "Rendering…", shown])];
+	return (
+		<span className="si-cta-labels">
+			{labels.map((label) => (
+				<span key={label} aria-hidden={label === shown ? undefined : true}>
+					{label}
+				</span>
+			))}
+		</span>
+	);
+}
+
+/** The rates a file can be rendered at; the project file carries the choice. */
+export const FPS_OPTIONS = [24, 30, 60].map((rate) => ({
+	value: rate,
+	label: String(rate),
+	title: `${rate} frames per second`,
+}));
+
+export const NOTHING_TO_RENDER = "A video needs at least one scene.";
+
+/** Why "This device" is greyed: WebCodecs said no to the chosen format and size. */
+export const DEVICE_CANNOT_ENCODE = "This browser cannot encode this format at this size.";
+
+/** D3: Render is on from one scene, and for authored media such as audio alone. */
+export function useCanRender(): boolean {
+	const sceneCount = useSnippetStore((s) => s.snippet.steps.length);
+	const project = useStudioCompositionStore((s) => s.value.project);
+	return isPlayableProject(sceneCount, hasAuthoredMultimedia(project));
 }
 
 /** What the island's one filled shape says when nothing is open. */
@@ -493,19 +566,5 @@ export function useExportCtaLabel(): string {
 }
 
 function CameraGlyph() {
-	return (
-		<svg
-			width="11"
-			height="11"
-			viewBox="0 0 24 24"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="2"
-			aria-hidden="true"
-		>
-			<rect x="3" y="3" width="18" height="18" rx="3" />
-			<circle cx="8.5" cy="8.5" r="1.5" />
-			<path d="M21 15l-5-5L5 21" />
-		</svg>
-	);
+	return <Camera size={11} strokeWidth={2} aria-hidden="true" />;
 }

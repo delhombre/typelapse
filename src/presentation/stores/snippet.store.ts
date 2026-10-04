@@ -4,10 +4,26 @@ import {
 	chapterSnapshots,
 	diffToSnapshots,
 } from "@/application/diff";
-import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
-import { buildTimeline, locate } from "@/application/magic-move/timeline";
+import { focusLineSet, formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import { DIFF_STEP_DURATION, capDiffSnapshots } from "@/application/import/diff-project";
+import { DEFAULT_TRANSITION_EASING, isCubicBezier } from "@/application/magic-move/easing";
+import { assertImportableCode } from "@/application/project/project-document";
 import { type ProjectContent, contentFingerprint } from "@/application/project/project-fingerprint";
-import type { ProjectPayload, ProjectStepPayload } from "@/application/project/project-payload";
+import {
+	type ProjectPayload,
+	type ProjectStepPayload,
+	isProjectFps,
+} from "@/application/project/project-payload";
+import { openStudioDocument } from "@/application/project/studio-document";
+import {
+	type StudioPlaybackPhase,
+	type StudioPlaybackPosition,
+	type StudioPlaybackTimeline,
+	buildStudioPlayback,
+	isPlayableProject,
+	locateStudioPlayback,
+	visibleSceneIndex,
+} from "@/application/studio-timeline/playback";
 import { MAX_RENDER_DIMENSION, MIN_RENDER_DIMENSION } from "@/domain/entities/render-config";
 import { Snippet } from "@/domain/entities/snippet";
 import { Step, captionFromGeneratedLabel } from "@/domain/entities/step";
@@ -19,14 +35,14 @@ import {
 	buildMagicMovePlan,
 } from "@/infrastructure/highlighting/magic-move-keyer";
 import { resolveShikiLanguage } from "@/infrastructure/highlighting/shiki-registry";
-import { type WindowChrome, isWindowChrome } from "@/presentation/components/preview/frame-chrome";
+import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import type { Highlighter } from "shiki";
 import { create } from "zustand";
 import { EXPORT_DEFAULTS, useExportStore } from "./export.store";
 
-/** Where playback currently sits: holding on a step, or morphing between two. */
+/** Where playback currently sits: holding on a step, morphing between two, or looping back. */
 export interface PlaybackState {
-	phase: "hold" | "transition";
+	phase: StudioPlaybackPhase;
 	index: number;
 	t: number;
 }
@@ -43,6 +59,8 @@ interface SnippetState {
 	isPlaying: boolean;
 	isPreparing: boolean;
 	playbackProgress: number;
+	/** The canonical clock; meaningful while `playback` is not null. */
+	playbackElapsedMs: number;
 	playback: PlaybackState | null;
 
 	// Background
@@ -87,6 +105,9 @@ interface SnippetState {
 
 	// Step management
 	captureStep: (duration?: number) => void;
+	/** Append a scene without code (a title card) and select it. */
+	addBlankScene: () => void;
+	duplicateStep: (stepId: string) => void;
 	removeStep: (stepId: string) => void;
 	updateStepDuration: (stepId: string, duration: number) => void;
 	/** Set the spotlight lines for a step. Applied at render time: no re-tokenize. */
@@ -104,6 +125,8 @@ interface SnippetState {
 
 	// Playback
 	setCurrentStepIndex: (index: number) => void;
+	/** Hold an exact WYSIWYG frame while the timeline scrubber is being moved. */
+	seekPlayback: (progress: number) => void;
 	play: () => void;
 	pause: () => void;
 
@@ -159,31 +182,8 @@ let recordTimerId: ReturnType<typeof setTimeout> | null = null;
 /** A pause this long after the last keystroke captures a step while recording. */
 const RECORD_DEBOUNCE_MS = 1500;
 
-/** Per-step hold applied to each step generated from a diff. */
-const DIFF_STEP_DURATION = 1200;
-
-/** Upper bound on diff-generated steps so a pathological diff can't explode playback. */
-const MAX_DIFF_STEPS = 40;
-
-/** Selectable mesh margins (px) around the code window; the UI offers exactly these. */
-const CARD_MARGINS = [16, 24, 32, 48, 64] as const;
-
 /** Default mesh margin, and the fallback for absent or invalid serialized input. */
 const DEFAULT_CARD_MARGIN = 32;
-
-/**
- * Snap an untrusted margin to the nearest valid preset. Defensive against
- * hand-edited JSON and share links: a non-numeric value falls back to the
- * default, an out-of-set value clamps to the closest allowed margin.
- */
-function normalizeCardMargin(value: unknown): number {
-	if (typeof value !== "number" || !Number.isFinite(value)) {
-		return DEFAULT_CARD_MARGIN;
-	}
-	return CARD_MARGINS.reduce((best, margin) =>
-		Math.abs(margin - value) < Math.abs(best - value) ? margin : best,
-	);
-}
 
 /**
  * True for a plausible pixel dimension. Guards the aspect against hand-edited
@@ -212,9 +212,10 @@ function isDimension(value: unknown): value is number {
  * template and then any other one would leave the second typing itself, and no
  * file would ever be reproducible from its own contents.
  */
-function applyExportSettings(obj: Record<string, unknown>): void {
+function applyExportSettings(obj: ProjectPayload): void {
 	const ex = useExportStore.getState();
-	const { transitionMs, typewriter, focusZoom, progressStyle, width, height } = obj;
+	const { transitionMs, transitionEasing, typewriter, focusZoom, progressStyle, width, height } =
+		obj;
 	// Both or neither: a half-specified aspect would silently distort the export.
 	if (isDimension(width) && isDimension(height)) {
 		ex.setResolution(width, height);
@@ -223,11 +224,15 @@ function applyExportSettings(obj: Record<string, unknown>): void {
 	}
 	const isTempo = transitionMs === 400 || transitionMs === 650 || transitionMs === 1000;
 	ex.setTransitionMs(isTempo ? transitionMs : EXPORT_DEFAULTS.transitionMs);
+	ex.setTransitionEasing(
+		isCubicBezier(transitionEasing) ? transitionEasing : DEFAULT_TRANSITION_EASING,
+	);
 	ex.setTypewriter(typewriter === true);
 	ex.setFocusZoom(focusZoom === true);
 	const isProgress =
 		progressStyle === "reels" || progressStyle === "bar" || progressStyle === "none";
 	ex.setProgressStyle(isProgress ? progressStyle : EXPORT_DEFAULTS.progressStyle);
+	ex.setFps(isProjectFps(obj.fps) ? obj.fps : EXPORT_DEFAULTS.fps);
 }
 
 export function setHighlighter(highlighter: HighlighterPort) {
@@ -304,6 +309,55 @@ function cancelRaf() {
 	}
 }
 
+/** What the composition adds to the scene plan, as far as the playback clock cares. */
+export interface PlaybackComposition {
+	/** `compileSceneTimeline`'s duration: the scenes plus the audio tail. */
+	durationMs: number;
+	/** Authored media make a project playable without a captured scene (audio alone). */
+	hasAuthoredMedia: boolean;
+}
+
+let readPlaybackComposition: () => PlaybackComposition = () => ({
+	durationMs: 0,
+	hasAuthoredMedia: false,
+});
+
+/**
+ * The composition store registers its reader here. It imports this store, so
+ * importing it back would be a cycle that runs its initialiser too early.
+ */
+export function registerPlaybackComposition(read: () => PlaybackComposition): void {
+	readPlaybackComposition = read;
+}
+
+/**
+ * The timeline the preview plays, built from the inputs the export reads, or
+ * null when the project is not a video yet (no scene and no authored media).
+ */
+export function studioPlaybackTimeline(): StudioPlaybackTimeline | null {
+	const { steps } = useSnippetStore.getState().snippet;
+	const composition = readPlaybackComposition();
+	if (!isPlayableProject(steps.length, composition.hasAuthoredMedia)) {
+		return null;
+	}
+	const { transitionMs, loop } = useExportStore.getState();
+	return buildStudioPlayback({
+		durations: steps.map((step) => step.duration),
+		transitionMs,
+		loop,
+		canonicalMs: composition.durationMs,
+	});
+}
+
+function playbackFields(position: StudioPlaybackPosition, sceneCount: number) {
+	return {
+		playback: { phase: position.phase, index: position.index, t: position.t },
+		playbackProgress: position.progress,
+		playbackElapsedMs: position.elapsedMs,
+		currentStepIndex: visibleSceneIndex(position, sceneCount),
+	};
+}
+
 function clearRecordTimer() {
 	if (recordTimerId !== null) {
 		clearTimeout(recordTimerId);
@@ -322,25 +376,6 @@ function isCapturable(snippet: Snippet): boolean {
 	}
 	const lastStep = snippet.steps[snippet.steps.length - 1];
 	return !lastStep || lastStep.code !== snippet.code;
-}
-
-/** The codes the plan animates over: the captured steps, or the live code. */
-function effectiveCodes(snippet: Snippet): string[] {
-	return snippet.steps.length > 0 ? snippet.steps.map((s) => s.code) : [snippet.code];
-}
-
-/**
- * Cap diff snapshots at {@link MAX_DIFF_STEPS}, always keeping the final "after"
- * frame so the walkthrough still ends on the complete change (only pathologically
- * large diffs are ever trimmed).
- */
-function capSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
-	if (snapshots.length <= MAX_DIFF_STEPS) {
-		return snapshots;
-	}
-	const last = snapshots[snapshots.length - 1];
-	const head = snapshots.slice(0, MAX_DIFF_STEPS - 1);
-	return last ? [...head, last] : head;
 }
 
 /**
@@ -405,7 +440,7 @@ function buildDiffSnippet(
 	snapshots: CodeSnapshot[],
 	meta: { title?: string; language?: string },
 ): Snippet {
-	const staged = capSnapshots(snapshots);
+	const staged = capDiffSnapshots(snapshots);
 	// Open on the "before" state (first frame); playback morphs forward to "after".
 	const beforeCode = staged[0]?.code ?? base.code;
 	let rebuilt = Snippet.create({
@@ -472,6 +507,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	isPlaying: false,
 	isPreparing: false,
 	playbackProgress: 0,
+	playbackElapsedMs: 0,
 	playback: null,
 	isRecording: false,
 	background: "mesh:solar",
@@ -529,7 +565,13 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	setCode: (code: string) => {
-		set({ snippet: rebuildSnippet(get().snippet, { code }) });
+		cancelRaf();
+		set({
+			snippet: rebuildSnippet(get().snippet, { code }),
+			isPlaying: false,
+			isPreparing: false,
+			playback: null,
+		});
 		get().rebuildPlan();
 		// While recording, each keystroke re-arms the debounce; a pause captures a step.
 		if (get().isRecording) {
@@ -579,9 +621,15 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		}
 		const plan = buildMagicMovePlan(
 			rawShikiHighlighter,
-			effectiveCodes(snippet),
+			snippet.morphCodes(),
 			snippet.language,
 			snippet.theme.name,
+			snippet.theme.background,
+			// The loop morph is planned whether or not Loop is on, so the toggle
+			// changes playback at once instead of waiting for a rebuild.
+			true,
+			// A long file's window follows each step's focus band.
+			snippet.steps.map((step) => focusLineSet(step.highlightRanges)),
 		);
 		const maxIndex = Math.max(0, plan.frames.length - 1);
 		set({
@@ -595,6 +643,32 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		const { snippet } = get();
 		const step = Step.create({ code: snippet.code, duration });
 		set({ snippet: snippet.addStep(step), currentStepIndex: snippet.steps.length });
+		get().rebuildPlan();
+	},
+
+	addBlankScene: () => {
+		const { snippet } = get();
+		set({
+			snippet: snippet.addStep(Step.create({ code: "" })),
+			currentStepIndex: snippet.steps.length,
+		});
+		get().rebuildPlan();
+	},
+
+	duplicateStep: (stepId: string) => {
+		const { snippet } = get();
+		const index = snippet.steps.findIndex((step) => step.id === stepId);
+		const source = snippet.steps[index];
+		if (!source) {
+			return;
+		}
+		const copy = Step.create({
+			code: source.code,
+			duration: source.duration,
+			highlightRanges: [...source.highlightRanges],
+			annotation: source.annotation,
+		});
+		set({ snippet: snippet.insertStep(copy, index + 1), currentStepIndex: index + 1 });
 		get().rebuildPlan();
 	},
 
@@ -614,12 +688,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	updateStepFocus: (stepId: string, ranges: HighlightRange[]) => {
-		// Focus is applied at render time (resolveView), so no plan rebuild needed.
+		// The dim is applied at render time, but the band also places a long
+		// file's plan window, so the plan is rebuilt (every code is cached).
 		const updated = replaceStep(get().snippet, stepId, (step) =>
 			step.with({ highlightRanges: ranges }),
 		);
 		if (updated) {
 			set({ snippet: updated });
+			get().rebuildPlan();
 		}
 	},
 
@@ -660,14 +736,31 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	setCurrentStepIndex: (index: number) => {
-		set({ currentStepIndex: index });
+		set({ currentStepIndex: index, playback: null });
+	},
+
+	seekPlayback: (progress: number) => {
+		cancelRaf();
+		const timeline = studioPlaybackTimeline();
+		if (!timeline) {
+			set({ isPlaying: false, isPreparing: false, playback: null, playbackProgress: 0 });
+			return;
+		}
+		const safeProgress = Math.min(Math.max(progress, 0), 1);
+		set({
+			isPlaying: false,
+			isPreparing: false,
+			...playbackFields(
+				locateStudioPlayback(timeline, safeProgress * timeline.totalMs),
+				get().snippet.steps.length,
+			),
+		});
 	},
 
 	play: async () => {
 		// Recording and playback are mutually exclusive; stopping flushes a trailing step.
 		get().stopRecording();
-		const { snippet } = get();
-		if (snippet.steps.length < 2) {
+		if (!studioPlaybackTimeline()) {
 			return;
 		}
 		cancelRaf();
@@ -677,38 +770,41 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			await get().rebuildPlan();
 		}
 
-		// Read the morph tempo from the export store so the preview and the exported
-		// video share one timing source (WYSIWYG).
-		const transitionMs = useExportStore.getState().transitionMs;
-		const timeline = buildTimeline(
-			snippet.steps.map((s) => s.duration),
-			transitionMs,
+		// One clock for the preview and the file: the scene plan, the loop morph
+		// where the export adds it, and the audio tail (WYSIWYG).
+		const timeline = studioPlaybackTimeline();
+		if (!timeline) {
+			set({ isPreparing: false });
+			return;
+		}
+		const sceneCount = get().snippet.steps.length;
+		const state = get();
+		const selectedHold = timeline.segments.find(
+			(segment) => segment.type === "hold" && segment.index === state.currentStepIndex,
 		);
+		const resumesExactFrame = state.playback !== null && state.playbackProgress < 1;
+		const startElapsedMs = resumesExactFrame
+			? Math.min(Math.max(state.playbackProgress, 0), 1) * timeline.totalMs
+			: (selectedHold?.startMs ?? 0);
 		const start = performance.now();
 
-		set({ isPreparing: false, isPlaying: true, currentStepIndex: 0, playbackProgress: 0 });
+		set({
+			isPreparing: false,
+			isPlaying: true,
+			...playbackFields(locateStudioPlayback(timeline, startElapsedMs), sceneCount),
+		});
 
 		const tick = () => {
 			if (!get().isPlaying) {
 				return;
 			}
-			const elapsed = performance.now() - start;
-			const pos = locate(timeline, elapsed);
-			const activeIndex = pos.phase === "transition" && pos.t >= 0.5 ? pos.index + 1 : pos.index;
-
+			const elapsed = startElapsedMs + performance.now() - start;
+			const finished = elapsed >= timeline.totalMs;
 			set({
-				playback: { phase: pos.phase, index: pos.index, t: pos.t },
-				currentStepIndex: activeIndex,
-				playbackProgress: pos.progress,
+				...playbackFields(locateStudioPlayback(timeline, elapsed), sceneCount),
+				...(finished ? { isPlaying: false } : {}),
 			});
-
-			if (elapsed >= timeline.totalMs) {
-				set({
-					isPlaying: false,
-					playback: null,
-					currentStepIndex: snippet.steps.length - 1,
-					playbackProgress: 1,
-				});
+			if (finished) {
 				rafId = null;
 				return;
 			}
@@ -720,22 +816,34 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 	pause: () => {
 		cancelRaf();
-		set({ isPlaying: false, isPreparing: false, playback: null });
+		set({ isPlaying: false, isPreparing: false });
 	},
 
 	toProjectPayload: () => {
 		// The export store owns aspect / tempo / typewriter / zoom / progress style;
 		// pull them in so a single JSON file captures the ENTIRE studio state.
-		const { transitionMs, typewriter, focusZoom, progressStyle, width, height } =
-			useExportStore.getState();
+		const {
+			transitionMs,
+			transitionEasing,
+			typewriter,
+			focusZoom,
+			progressStyle,
+			width,
+			height,
+			fps,
+		} = useExportStore.getState();
 		return {
 			...contentOf(get()),
 			progressStyle,
 			typewriter,
 			focusZoom,
 			transitionMs,
+			transitionEasing,
 			width,
 			height,
+			// Absent means the default, so a project that never chose a rate keeps
+			// the file it always had.
+			...(isProjectFps(fps) && fps !== EXPORT_DEFAULTS.fps ? { fps } : {}),
 		};
 	},
 
@@ -749,24 +857,12 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			throw new Error("Invalid JSON format");
 		}
 
-		if (typeof data !== "object" || data === null) {
-			throw new Error("JSON must be an object");
-		}
-
-		const obj = data as Record<string, unknown>;
-
-		if (typeof obj.title !== "string" || !obj.title.trim()) {
-			throw new Error("Missing or invalid 'title'");
-		}
-		if (typeof obj.code !== "string" || !obj.code.trim()) {
-			throw new Error("Missing or invalid 'code'");
-		}
-		if (typeof obj.language !== "string" || !obj.language.trim()) {
-			throw new Error("Missing or invalid 'language'");
-		}
-		if (typeof obj.themeName !== "string") {
-			throw new Error("Missing or invalid 'themeName'");
-		}
+		// A V2 file (layers, media, audio) or a legacy V1 file, read into the code
+		// spine this store owns. The V2 aggregate is validated in there, before any
+		// set(), so a file the composition would refuse never replaces the snippet
+		// first and then fails halfway. Steps take their scene ids: the same file
+		// always opens with the same ids, and the layers above a scene stay on it.
+		const obj = openStudioDocument(data).spine;
 
 		const themeFactories: Record<string, () => Theme> = {
 			midnight: Theme.midnight,
@@ -782,56 +878,56 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			throw new Error(`Unknown theme '${obj.themeName}'`);
 		}
 
+		const factoryTheme = themeFactory();
+		const fontFamily =
+			typeof obj.fontFamily === "string" && obj.fontFamily.trim().length > 0
+				? obj.fontFamily
+				: factoryTheme.fontFamily;
+		const borderRadius =
+			typeof obj.borderRadius === "number" &&
+			Number.isFinite(obj.borderRadius) &&
+			obj.borderRadius >= 0 &&
+			obj.borderRadius <= 64
+				? obj.borderRadius
+				: factoryTheme.borderRadius;
+		const restoredTheme = Theme.create({
+			name: factoryTheme.name,
+			background: factoryTheme.background,
+			foreground: factoryTheme.foreground,
+			fontFamily,
+			fontSize: factoryTheme.fontSize,
+			padding: factoryTheme.padding,
+			borderRadius,
+		});
+
 		let snippet = Snippet.create({
 			title: obj.title,
 			code: obj.code,
 			language: obj.language,
-			theme: themeFactory(),
+			theme: restoredTheme,
 		});
 
-		if (Array.isArray(obj.steps)) {
-			for (const rawStep of obj.steps) {
-				if (typeof rawStep !== "object" || rawStep === null) {
-					throw new Error("Each step must be an object");
-				}
-				const s = rawStep as Record<string, unknown>;
-				if (typeof s.code !== "string" || !s.code.trim()) {
-					throw new Error("Each step must have a non-empty 'code'");
-				}
-				const duration = typeof s.duration === "number" ? s.duration : undefined;
-				// Defensive: unknown/invalid focus strings degrade to "no focus".
-				let highlightRanges: HighlightRange[] = [];
-				if (typeof s.focus === "string") {
-					highlightRanges = parseLineRanges(s.focus) ?? [];
-				}
-				// Defensive: a stored caption is data, not live input. A project saved
-				// under an older bound (or hand-edited JSON) must still open, so an
-				// over-long caption is shortened instead of failing the whole import.
-				const annotation =
-					typeof s.caption === "string" ? captionFromGeneratedLabel(s.caption) : undefined;
-				snippet = snippet.addStep(
-					Step.create({ code: s.code, duration, highlightRanges, annotation }),
-				);
-			}
+		for (const step of obj.steps) {
+			// Invalid focus strings remain cosmetic and degrade to no focus.
+			const highlightRanges = step.focus ? (parseLineRanges(step.focus) ?? []) : [];
+			snippet = snippet.addStep(
+				Step.create({
+					id: step.id,
+					code: step.code,
+					duration: step.duration,
+					highlightRanges,
+					annotation: step.caption,
+				}),
+			);
 		}
 
-		const background = typeof obj.background === "string" ? obj.background : get().background;
-		// Defensive: unknown/missing chrome degrades to the default macOS chrome.
-		const windowChrome = isWindowChrome(obj.windowChrome) ? obj.windowChrome : "macos";
-		// Defensive: line-number settings default to on / start at 1 when absent.
-		const showLineNumbers = typeof obj.showLineNumbers === "boolean" ? obj.showLineNumbers : true;
-		const lineNumberStart =
-			typeof obj.lineNumberStart === "number" && obj.lineNumberStart >= 1
-				? Math.floor(obj.lineNumberStart)
-				: 1;
-		// Defensive: absent or out-of-set margins snap to a valid preset (default 32).
-		const cardMargin = normalizeCardMargin(obj.cardMargin);
-		// Defensive: absent/invalid framePadding and watermark fall back to defaults.
-		const framePadding =
-			typeof obj.framePadding === "number" && Number.isFinite(obj.framePadding)
-				? obj.framePadding
-				: 24;
-		const watermark = typeof obj.watermark === "string" ? obj.watermark : "";
+		const background = obj.background;
+		const windowChrome = obj.windowChrome ?? "macos";
+		const showLineNumbers = obj.showLineNumbers ?? true;
+		const lineNumberStart = obj.lineNumberStart ?? 1;
+		const cardMargin = obj.cardMargin ?? DEFAULT_CARD_MARGIN;
+		const framePadding = obj.framePadding ?? 24;
+		const watermark = obj.watermark ?? "";
 
 		cancelRaf();
 		clearRecordTimer();
@@ -883,6 +979,9 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		if (code.trim() === "") {
 			throw new Error("Paste some code first.");
 		}
+		// Same bound as a project file: a 40,000-line paste froze the tab for
+		// minutes, and the autosaved draft froze it again on every reload.
+		assertImportableCode(code);
 		const current = get().snippet;
 		// Built from scratch rather than through rebuildSnippet, which carries the
 		// existing steps over: dropping them is the entire point of an import.

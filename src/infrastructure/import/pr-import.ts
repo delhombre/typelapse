@@ -40,12 +40,30 @@ const JSON_ACCEPT = "application/vnd.github+json";
 /** Map a non-OK response to a short, user-facing message. */
 function errorForStatus(status: number, notFound: string): Error {
 	if (status === 404) {
-		return new Error(notFound);
+		// GitHub answers 404, not 403, for a repository the visitor cannot see.
+		return new Error(`${notFound} (or the repository is private)`);
 	}
 	if (status === 403 || status === 429) {
 		return new Error("GitHub rate limit hit: paste the diff instead");
 	}
+	if (status === 406) {
+		// GitHub refuses to render very large diffs as text.
+		return new Error("GitHub will not serve a diff this large: paste a smaller diff instead");
+	}
 	return new Error("Could not fetch the change");
+}
+
+/**
+ * A 200 with an empty body is a real answer: a merge commit, or a pull request
+ * whose commits cancel out. Said here, because the diff parser would otherwise
+ * ask the user to "paste a diff first" after they pasted a link. Chapter mode
+ * does not use it: an empty commit there is one skipped chapter, not a failure.
+ */
+function requireChanges(diffText: string): string {
+	if (diffText.trim() === "") {
+		throw new Error("This change has no file differences to animate");
+	}
+	return diffText;
 }
 
 /**
@@ -70,6 +88,11 @@ async function requestGitHub<T>(
 	} catch (err) {
 		if (err instanceof DOMException && err.name === "AbortError") {
 			throw new Error("Request timed out");
+		}
+		// fetch rejects with a bare TypeError ("Failed to fetch") when the network
+		// or CORS fails: the browser's wording means nothing to the user.
+		if (err instanceof TypeError) {
+			throw new Error("Could not reach GitHub: check your connection, or paste the diff instead");
 		}
 		throw err instanceof Error ? err : new Error("Could not fetch the change");
 	} finally {
@@ -134,7 +157,7 @@ async function fetchPrTitle(ref: PrRef): Promise<string> {
  */
 export async function fetchPrWalkthrough(ref: PrRef): Promise<Walkthrough> {
 	const [diffText, title] = await Promise.all([
-		fetchDiff(prApiUrl(ref), "PR not found"),
+		fetchDiff(prApiUrl(ref), "PR not found").then(requireChanges),
 		fetchPrTitle(ref),
 	]);
 	return { diffText, title };
@@ -147,7 +170,7 @@ export async function fetchPrWalkthrough(ref: PrRef): Promise<Walkthrough> {
 export async function fetchCommitDiff(ref: CommitRef): Promise<Walkthrough> {
 	const url = commitApiUrl(ref.owner, ref.repo, ref.sha);
 	const [diffText, json] = await Promise.all([
-		fetchDiff(url, "Commit not found"),
+		fetchDiff(url, "Commit not found").then(requireChanges),
 		fetchJson<{ commit?: { message?: string } }>(url),
 	]);
 	const firstLine = json?.commit?.message?.split("\n")[0]?.trim();

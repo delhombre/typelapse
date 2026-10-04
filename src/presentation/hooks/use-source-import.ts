@@ -1,4 +1,4 @@
-import { classifySource } from "@/application/import/classify-source";
+import { classifySource, isBareLink } from "@/application/import/classify-source";
 import { resolveCommitUrl, resolvePrUrl } from "@/application/import/pr-url";
 import { languageFromPath } from "@/application/language/language-from-filename";
 import {
@@ -8,7 +8,11 @@ import {
 	fetchPrWalkthrough,
 } from "@/infrastructure/import/pr-import";
 import { importCodeFromUrl } from "@/infrastructure/import/url-import";
+import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { holdStudioPersistence } from "@/presentation/stores/studio-composition.store";
+import { whenStudioCompositionReady } from "@/presentation/utils/studio-composition-ready";
+import { replaceStudioCompositionWithCode } from "@/presentation/utils/studio-project-replacement";
 import { useCallback, useRef, useState } from "react";
 
 /** How a pull request is played: one squashed change, or a chapter per commit. */
@@ -45,6 +49,10 @@ export interface SourceImport {
  * What each kind becomes is deliberately not uniform: a PR or a commit becomes a
  * stepped walkthrough, a code URL or a paste becomes a single frame you can then
  * build steps from. That is the existing behaviour of the studio's menus, kept.
+ *
+ * Whatever it is, it replaces the project like opening a file: the layers, the
+ * media and the audio of the project it lands on go, and so does its undo
+ * history. Asking first is the caller's job, before `run`.
  */
 export function useSourceImport(): SourceImport {
 	const [loading, setLoading] = useState(false);
@@ -96,7 +104,7 @@ export function useSourceImport(): SourceImport {
 						setProgress({ done, total }),
 					);
 					// importChapters sets the title itself.
-					store.importChapters(chapters, { title });
+					await replaceProject(() => store.importChapters(chapters, { title }));
 				} else {
 					await applyWalkthrough(() => fetchPrWalkthrough(ref));
 				}
@@ -114,17 +122,25 @@ export function useSourceImport(): SourceImport {
 
 			if (kind === "code-url") {
 				const imported = await importCodeFromUrl(trimmed);
-				store.importSnippet(imported.code, {
-					title: imported.title,
-					language: imported.language,
-				});
+				await replaceProject(() =>
+					store.importSnippet(imported.code, {
+						title: imported.title,
+						language: imported.language,
+					}),
+				);
 				return true;
 			}
 
 			if (kind === "diff") {
-				// Synchronous, and throws a user-facing message on unusable input.
-				store.importDiff(trimmed);
+				// Throws a user-facing message on unusable input, before anything changes.
+				await replaceProject(() => store.importDiff(trimmed));
 				return true;
+			}
+
+			if (isBareLink(trimmed)) {
+				throw new Error(
+					"Typelapse can read GitHub pull requests, commits and files, gists and raw code links. That link is none of them.",
+				);
 			}
 
 			// The raw paste, not the trimmed one: a leading blank line, a body
@@ -132,7 +148,9 @@ export function useSourceImport(): SourceImport {
 			// newline every well-formed file ends with are all content. Nothing
 			// downstream restores them — Snippet.create trims only to check for
 			// emptiness, and the editor is bound straight to the stored code.
-			store.importSnippet(source, { language: languageFromPath(store.snippet.title) });
+			await replaceProject(() =>
+				store.importSnippet(source, { language: languageFromPath(store.snippet.title) }),
+			);
 			return true;
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Could not import that.");
@@ -145,11 +163,32 @@ export function useSourceImport(): SourceImport {
 
 		async function applyWalkthrough(fetcher: () => Promise<Walkthrough>) {
 			const { diffText, title } = await fetcher();
-			store.importDiff(diffText);
-			// The PR / commit title overrides the filename title importDiff inferred.
-			store.setTitle(title);
+			await replaceProject(() => {
+				store.importDiff(diffText);
+				// The PR / commit title overrides the filename title importDiff inferred.
+				store.setTitle(title);
+			});
 		}
 	}, []);
 
 	return { loading, error, progress, run, reset };
+}
+
+/**
+ * Apply an import as a project replacement. It waits for the open project's
+ * stored composition to be on screen first: an import that landed during the
+ * boot restore was undone by it, the stored layers loaded over the new code.
+ * Autosave is held while the code and the composition disagree, then the undo
+ * history starts again from the imported project.
+ */
+async function replaceProject(apply: () => void): Promise<void> {
+	await whenStudioCompositionReady();
+	const release = holdStudioPersistence();
+	try {
+		apply();
+		replaceStudioCompositionWithCode();
+	} finally {
+		release();
+	}
+	studioHistory.reset();
 }

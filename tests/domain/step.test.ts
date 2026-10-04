@@ -73,9 +73,22 @@ describe("Step", () => {
 		expect(step.annotation).toBe("Declare variable");
 	});
 
-	it("rejects empty code", () => {
-		expect(() => Step.create({ code: "" })).toThrow();
-		expect(() => Step.create({ code: "   " })).toThrow();
+	it("takes empty code as a blank step, whose scene has no code card", () => {
+		const blank = Step.create({ code: "", annotation: "Launch day" });
+		expect(blank.code).toBe("");
+		expect(blank.hasCode).toBe(false);
+		expect(blank.annotation).toBe("Launch day");
+		// Whitespace draws nothing either: it is the same blank step, not a card
+		// with no text in it.
+		expect(Step.create({ code: "  \n " }).code).toBe("");
+		expect(Step.create({ code: "x" }).hasCode).toBe(true);
+	});
+
+	it("keeps a blank step blank through an edit", () => {
+		const blank = Step.create({ code: "" });
+		const edited = blank.with({ duration: 2500 });
+		expect(edited.id).toBe(blank.id);
+		expect(edited.hasCode).toBe(false);
 	});
 
 	it("rejects non-positive duration", () => {
@@ -144,7 +157,7 @@ describe("Step.with", () => {
 	});
 
 	it("validates like create", () => {
-		expect(() => base.with({ code: "  " })).toThrow();
+		expect(base.with({ code: "  " }).hasCode).toBe(false);
 		expect(() => base.with({ duration: 0 })).toThrow();
 	});
 });

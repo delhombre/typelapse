@@ -22,7 +22,8 @@ export interface GifEncodeInput {
 	ctx: OffscreenCanvasRenderingContext2D;
 	script: VideoScript;
 	fps: number;
-	paint: (frame: number) => void;
+	/** Async where a frame waits on its video layers' decoded pictures. */
+	paint: (frame: number) => Promise<void>;
 	report: (completedFrames: number, totalFrames: number) => void;
 	/** Keep the frame's alpha as the format's one transparent colour. */
 	transparent: boolean;
@@ -56,7 +57,7 @@ export async function encodeGif(input: GifEncodeInput): Promise<GifEncodeResult>
 
 	for (let frame = 0; frame < script.totalFrames; frame++) {
 		const before = performance.now();
-		paint(frame);
+		await paint(frame);
 		paintMs += performance.now() - before;
 
 		const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);

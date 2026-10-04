@@ -288,6 +288,33 @@ describe("paintFrame", () => {
 		expect(clip).toContain(`,${round(scene.code.lineHeight)})`);
 	});
 
+	it("cuts the window to the frame's own rows and keeps the card centred, as the DOM does", () => {
+		// The fit is held at the tallest frame, but the window is as tall as the
+		// frame being shown: both DOM renderers size it from its content and centre
+		// the column. A one-row frame of a two-row plan loses one line of height,
+		// and the card moves down by half of it so its centre stays put.
+		const tall = frameScene({
+			...SCENE_INPUT,
+			plan: {
+				frames: [
+					{ lineCount: 1, tokens: [{ col: 0, content: "const" }] },
+					{ lineCount: 2, tokens: [{ col: 0, content: "let" }] },
+				],
+			},
+		});
+		const ctx = new RecordingContext();
+		paintFrame(ctx, tall, { tokens: [token()], lineCount: 1, lineNumberCount: 1, timeSeconds: 0 });
+		const line = tall.code.lineHeight;
+		expect(ctx.commands).toContain(
+			`translate(${round(tall.card.originX)},${round(tall.card.originY + (line * tall.card.scale) / 2)})`,
+		);
+		expect(ctx.commands).toContain(
+			`roundRect(${round(tall.window.x)},${round(tall.window.y)},${round(tall.window.width)},${round(
+				tall.window.height - line,
+			)},${round(tall.window.radius)})`,
+		);
+	});
+
 	it("is deterministic: the same time paints the same commands, twice", () => {
 		expect(paint(1.5).commands).toEqual(paint(1.5).commands);
 	});

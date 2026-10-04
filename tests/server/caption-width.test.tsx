@@ -56,6 +56,7 @@ function renderCard(caption: React.ReactNode) {
 			// measured at the scale a real render of this canvas would use rather
 			// than at an invented one.
 			videoScale={renderScaleFor(1080, 1920, BASE_VIDEO_SCALE)}
+			charWidthRatio={0.6}
 			caption={caption}
 		>
 			<div data-testid="code" />

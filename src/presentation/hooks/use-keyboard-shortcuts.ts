@@ -1,3 +1,5 @@
+import { feedback } from "@/presentation/haptics";
+import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	allowsSingleKeyShortcut,
@@ -29,6 +31,18 @@ export function areShortcutsSuppressed(): boolean {
 	return isModalOpen() || isEditableEventTarget({ target: document.activeElement });
 }
 
+/** Cmd+Z undoes; Shift+Cmd+Z and Ctrl+Y redo (Ctrl on other systems). */
+function historyChord(e: KeyboardEvent): "undo" | "redo" | null {
+	if (!(e.metaKey || e.ctrlKey) || e.altKey) {
+		return null;
+	}
+	const key = e.key.toLowerCase();
+	if (key === "z") {
+		return e.shiftKey ? "redo" : "undo";
+	}
+	return key === "y" && e.ctrlKey && !e.shiftKey ? "redo" : null;
+}
+
 export function useKeyboardShortcuts(): void {
 	useEffect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
@@ -46,6 +60,21 @@ export function useKeyboardShortcuts(): void {
 			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
 				e.preventDefault();
 				store.captureStep();
+				return;
+			}
+
+			// The project history. Inside a text surface the chord is that surface's
+			// own undo: a number field steps back its digits, and Monaco keeps the
+			// code buffer's history, which the project then records as one edit.
+			const chord = historyChord(e);
+			if (chord) {
+				if (isEditableEventTarget(e)) {
+					return;
+				}
+				e.preventDefault();
+				if (chord === "undo" ? studioHistory.undo() : studioHistory.redo()) {
+					feedback("commit");
+				}
 				return;
 			}
 

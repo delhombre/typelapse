@@ -1,6 +1,7 @@
 /** Shared types between the server and the Remotion composition. */
 
 import type { MagicMovePlan } from "../../src/application/magic-move/engine";
+import type { CubicBezier } from "../../src/application/magic-move/easing";
 import type { RenderFormat } from "../../src/domain/entities/render-config";
 import type { WindowChrome } from "../../src/presentation/components/preview/frame-chrome";
 import type { ProgressStyle } from "../../src/presentation/components/preview/reels-progress";
@@ -43,10 +44,14 @@ export interface RenderInput {
 	plan: MagicMovePlan;
 	/** Morph duration between steps, in milliseconds. */
 	transitionMs: number;
+	/** CSS-compatible curve used by positional morphs, frame size and focus zoom. */
+	transitionEasing: CubicBezier;
 	/** Append a transition from the last step back to the first for seamless looping. */
 	loop: boolean;
 	/** Type the first step out character by character before the animation. */
 	typewriter: boolean;
+	/** The step the typewriter types: the first with a card (`typingHoldIndex`). Absent = 0. */
+	typingIndex?: number;
 	/** Cinematic push-in toward each step's spotlighted lines. */
 	focusZoom: boolean;
 	/** Progress indicator style baked over the video. */
@@ -89,5 +94,6 @@ export interface RenderRequestBody {
 	sound: boolean;
 	progressStyle: ProgressStyle;
 	transitionMs: number;
+	transitionEasing: CubicBezier;
 	watermark?: string;
 }

@@ -54,6 +54,7 @@ describe("fitCardToCanvas", () => {
 		hasCaption: false,
 		scale: 2.2,
 		canvasMargin: 0.05,
+		charWidthRatio: 0.6,
 	};
 
 	it("mirrors frameNaturalSize + fitScale of the padded card (single source of truth)", () => {
@@ -71,6 +72,7 @@ describe("fitCardToCanvas", () => {
 			lineNumberStart: 1,
 			hasCaption: false,
 			scale: 2.2,
+			charWidthRatio: 0.6,
 		});
 		const cardPadding = 32 * 2.2;
 		const paddedW = natural.width + 2 * cardPadding;
@@ -148,6 +150,7 @@ describe("framing is resolution-independent", () => {
 		lineNumberStart: 1,
 		hasCaption: false,
 		canvasMargin: 0.05,
+		charWidthRatio: 0.6,
 	};
 
 	const fitAt = (canvasWidth: number, canvasHeight: number) =>

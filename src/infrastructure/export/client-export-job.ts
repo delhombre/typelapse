@@ -10,15 +10,46 @@
 
 import type { SceneProgress, SceneTheme, SceneWatermark } from "@/application/frame-painter/scene";
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
+import type { CubicBezier } from "@/application/magic-move/easing";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { RenderFormat } from "@/domain/entities/render-config";
+
+/** One decoded image a layer shows, transferred to the worker rather than copied. */
+export interface ClientExportImage {
+	assetId: string;
+	bitmap: ImageBitmap;
+}
+
+/**
+ * One video a layer shows, as its file. A `Blob` clones by reference, so the
+ * bytes are not copied; the worker demuxes and decodes them itself.
+ */
+export interface ClientExportVideo {
+	assetId: string;
+	blob: Blob;
+}
+
+/**
+ * A studio project's layers: the V2 document the scene compiler reads (plain
+ * data, it clones), the images its layers show, decoded in the tab from the
+ * local asset store, and the files of its videos. The document never carries
+ * bytes; the bitmaps and blobs do.
+ */
+export interface ClientExportComposition {
+	document: ProjectDocumentV2;
+	images: ClientExportImage[];
+	videos: ClientExportVideo[];
+}
 
 export interface ClientExportJob {
 	plan: MagicMovePlan;
 	/** Hold duration of each step, in milliseconds. */
 	durations: number[];
-	/** The first step's source, which the typewriter reveals a prefix of. */
+	/** The typed scene's source, which the typewriter reveals a prefix of. */
 	firstCode: string;
+	/** The scene the typewriter types: the first with code (`typingHoldIndex`). */
+	typingIndex?: number;
 	/** Per-step spotlight as 1-indexed line numbers; an empty array is no spotlight. */
 	focus: number[][];
 
@@ -27,6 +58,7 @@ export interface ClientExportJob {
 	fps: number;
 	format: RenderFormat;
 	transitionMs: number;
+	transitionEasing: CubicBezier;
 	loop: boolean;
 	typewriter: boolean;
 	focusZoom: boolean;
@@ -41,6 +73,15 @@ export interface ClientExportJob {
 	lineNumberStart: number;
 	progress: SceneProgress | null;
 	watermark: SceneWatermark | null;
+	/** Whether any scene has a caption, which the card budgets room for. */
+	hasCaption?: boolean;
+	/** The text and image layers around the card; absent for code alone. */
+	composition?: ClientExportComposition | null;
+	/**
+	 * The film-grain tile, rasterised in the tab (see `grain-tile.ts`) and
+	 * transferred: the worker cannot turn the SVG into pixels itself.
+	 */
+	grain?: ImageBitmap | null;
 
 	/**
 	 * The advance the *document* resolved, for drift reporting only. The worker
@@ -64,7 +105,18 @@ export interface ClientExportMeasurements {
 	charWidthRatio: number;
 	/** How far that is from the document's: the WYSIWYG canary. */
 	charWidthDrift: number;
+	/** The codec string the encoder was actually configured with. */
 	codec: string;
+	/**
+	 * What that rung is called out loud — "AV1 4:4:4", "VP9", "H.264".
+	 *
+	 * WebM's codec is a ladder, and a ladder that falls back silently is a ladder
+	 * that lies: a file the user believes is AV1 and is really VP8 is a different
+	 * file. Null only where nothing was encoded (GIF).
+	 */
+	codecLabel: string | null;
+	/** What the file's chroma planes actually are, which is where text lives or dies. */
+	chroma: "4:4:4" | "4:2:0" | null;
 	/** What became of a background of `None` in this container. */
 	transparency: "opaque" | "carried" | "flattened";
 	/** What the finished file is not, having been asked for; null when it is. */

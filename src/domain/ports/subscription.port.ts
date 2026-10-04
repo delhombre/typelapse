@@ -20,4 +20,12 @@ export interface SubscriptionPort {
 	 * subscription: absence of a subscription is a known answer, not an error.
 	 */
 	planFor(accountId: AccountId): Promise<Plan>;
+
+	/**
+	 * When the account last lost a paid plan, or null when it never had one or
+	 * still has one. Past hosted outputs stay downloadable for a grace period
+	 * that starts here. Optional: an implementation without billing history has
+	 * no downgrade to report.
+	 */
+	downgradedAt?(accountId: AccountId): Promise<Date | null>;
 }

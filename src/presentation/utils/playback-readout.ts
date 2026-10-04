@@ -86,7 +86,19 @@ export function showsDots(totalSteps: number, budget: number = MAX_DOTS): boolea
 
 /** A 6px dot carries no text, so its position is its whole accessible name. */
 export function stepDotLabel(index: number, totalSteps: number): string {
-	return `Step ${index + 1} of ${totalSteps}`;
+	return `Scene ${index + 1} of ${totalSteps}`;
+}
+
+/**
+ * `00:02.6`: the transport clock and the duration beside it. Both use this, so
+ * the end of the run reads the same number as the total.
+ */
+export function formatPlaybackClock(milliseconds: number): string {
+	const safe = Math.max(milliseconds, 0);
+	const minutes = Math.floor(safe / 60_000);
+	const seconds = Math.floor((safe % 60_000) / 1000);
+	const tenths = Math.floor((safe % 1000) / 100);
+	return `${pad(minutes)}:${pad(seconds)}.${tenths}`;
 }
 
 function clamp01(value: number): number {

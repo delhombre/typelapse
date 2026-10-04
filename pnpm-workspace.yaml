@@ -49,3 +49,6 @@ overrides:
   esbuild@<0.24.3: ^0.25.12 # via drizzle-kit > @esbuild-kit/esm-loader
   fast-uri: ^3.1.5 # via remotion > webpack > schema-utils > ajv
   '@babel/core': ^7.29.1 # via @vitejs/plugin-react, build-time only
+
+patchedDependencies:
+  vaul@1.1.2: patches/vaul@1.1.2.patch

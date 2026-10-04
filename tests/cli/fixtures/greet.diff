@@ -1,0 +1,11 @@
+diff --git a/src/greet.ts b/src/greet.ts
+--- a/src/greet.ts
++++ b/src/greet.ts
+@@ -1,5 +1,6 @@
+ export function greet(name: string) {
+-  return "Hello " + name;
++  const trimmed = name.trim();
++  return `Hello, ${trimmed}!`;
+ }
+ 
+ console.log(greet("Typelapse"));

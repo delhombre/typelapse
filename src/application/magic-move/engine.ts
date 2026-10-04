@@ -12,6 +12,8 @@
  * a fixed line-height per row, so no DOM measurement is ever required.
  */
 
+import { VISIBLE_COL_LIMIT } from "../layout/canvas-fit";
+
 /** A highlighted token before layout: `offset` is its index into the frame code. */
 export interface RawToken {
 	key: string;
@@ -48,6 +50,11 @@ export interface RenderToken {
 export interface LaidOutFrame {
 	tokens: LaidOutToken[];
 	lineCount: number;
+	/**
+	 * The row the plan window starts on, when a long file's window has moved off
+	 * the top (`window.ts`). Token lines stay absolute; absent means row 0.
+	 */
+	firstRow?: number;
 }
 
 /** A morph between two adjacent frames with keys synced so shared tokens glide. */
@@ -128,7 +135,7 @@ export type FocusSpec = Set<number> | undefined;
  * only presence, so the reader still perceives the shape of the surrounding code
  * instead of a grey slab. 0.25 is the point where, on the dark themes we ship,
  * the unfocused lines stop competing for attention while staying legible enough
- * to give the highlighted band its context — mute them further and the frame
+ * to give the highlighted band its context; mute them further and the frame
  * reads as a crop; lighter and the emphasis stops landing.
  *
  * Verified against an exported frame: a muted line measures 0.254 of the same
@@ -179,7 +186,9 @@ function lerp(from: number, to: number, t: number): number {
 /**
  * Place tokens on the monospace grid by walking the source once, tracking the
  * visual column (tabs advance to the next tab stop). Whitespace-only tokens are
- * dropped: they never paint and only add nodes to animate.
+ * dropped: they never paint and only add nodes to animate. So are tokens that
+ * start past `VISIBLE_COL_LIMIT`: no canvas can show them at the readable floor,
+ * and a 10,000-character line would otherwise animate thousands of them.
  */
 export function layoutFrame(code: string, tokens: RawToken[], tabSize = 2): LaidOutToken[] {
 	const positions = buildPositionIndex(code, tabSize);
@@ -190,7 +199,7 @@ export function layoutFrame(code: string, tokens: RawToken[], tabSize = 2): Laid
 			continue;
 		}
 		const pos = positions[clampIndex(token.offset, positions.length)];
-		if (!pos) {
+		if (!pos || pos.col >= VISIBLE_COL_LIMIT) {
 			continue;
 		}
 		result.push({

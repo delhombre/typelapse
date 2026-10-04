@@ -45,6 +45,23 @@ export function looksLikeUnifiedDiff(input: string): boolean {
 }
 
 /**
+ * One token that names a web address: an http(s) scheme, `www.`, or a bare
+ * code-host path. Deliberately narrow, so a one-line expression such as
+ * `Math.PI/2` is still a snippet.
+ */
+const BARE_LINK =
+	/^(?:https?:\/\/|www\.)\S+$|^(?:[a-z0-9-]+\.)*(?:github|gitlab|bitbucket)\.(?:com|org)\/\S*$/i;
+
+/**
+ * Whether a paste is a link and nothing else. A link no resolver claimed is a
+ * mistyped pull request or a host Typelapse cannot read, never code: falling
+ * through to "snippet" used to replace the studio with the URL as its code.
+ */
+export function isBareLink(input: string): boolean {
+	return BARE_LINK.test(input.trim());
+}
+
+/**
  * Read a pasted string as one of the {@link SourceKind}s. Never throws and never
  * fetches: the caller decides what to do with the answer.
  */

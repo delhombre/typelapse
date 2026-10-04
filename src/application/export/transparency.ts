@@ -13,9 +13,12 @@
  *
  *  - GIF carries transparency as one bit per pixel. Real, and lossy in a way
  *    worth naming: a rounded corner comes out stepped rather than soft.
- *  - WebM can carry it, as VP9 alpha side data, *if the browser's encoder will
+ *  - WebM can carry it, as codec alpha side data, *if the browser's encoder will
  *    do it*. This one will not: `isConfigSupported` refuses `alpha: "keep"` for
- *    VP9, VP8 and H.264 alike, so it has to be asked at run time.
+ *    AV1, VP9, VP8 and H.264 alike, so it has to be asked at run time — and it
+ *    is asked of every rung of the WebM ladder before one is picked, so a
+ *    transparent export gets whichever codec would actually keep the channel
+ *    rather than whichever is best at everything else.
  *  - MP4 cannot, ever. H.264 has no alpha channel.
  *
  * Where it cannot be carried the frame is flattened deliberately — an opaque
@@ -67,9 +70,13 @@ export function transparencyPlan(input: TransparencyInput): TransparencyPlan {
 		keepAlpha: false,
 		encodeAlpha: false,
 		outcome: "flattened",
+		// GIF is the one format named as the way out, because it is the only one
+		// that keeps the channel everywhere: the server's WebM is captured as JPEG
+		// and encoded 4:2:0, so it flattens too, and this browser's WebM just said
+		// it would not carry alpha either.
 		note:
 			input.format === "webm"
-				? "this browser's VP9 encoder will not carry an alpha channel, so the transparent background was flattened to black — a GIF keeps it, and so does the server render"
-				: "MP4 (H.264) has no alpha channel, so the transparent background was flattened to black — export WebM or GIF to keep it",
+				? "no WebM encoder on this browser will carry an alpha channel, so the transparent background was flattened to black. Export GIF to keep it"
+				: "MP4 (H.264) has no alpha channel, so the transparent background was flattened to black. Export GIF to keep it",
 	};
 }

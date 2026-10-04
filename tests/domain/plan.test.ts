@@ -52,7 +52,7 @@ describe("Plan", () => {
 		it("labels each tier", () => {
 			expect(Plan.local().label).toBe("Local");
 			expect(Plan.free().label).toBe("Free");
-			expect(Plan.pro().label).toBe("Pro");
+			expect(Plan.pro().label).toBe("Creator");
 			expect(Plan.team(3).label).toBe("Team");
 		});
 	});
@@ -190,6 +190,68 @@ describe("Plan", () => {
 			expect(Plan.free().allowsDuration(120_000)).toBe(false);
 			expect(Plan.pro().allowsDuration(120_000)).toBe(true);
 			expect(Plan.local().allowsDuration(60 * 60_000)).toBe(true);
+		});
+	});
+
+	describe("hosted quotas (decision log 2026-10-03-viability D4)", () => {
+		const MB = 1024 * 1024;
+		const DAY_MS = 24 * 60 * 60 * 1000;
+
+		it("free gets a little sync and no hosted renders", () => {
+			const free = Plan.free();
+			expect(free.limitFor("cloudProjects")).toBe(3);
+			expect(free.limitFor("mediaBytes")).toBe(100 * MB);
+			expect(free.limitFor("hostedRenderTime")).toBe(0);
+			expect(free.limitFor("concurrentRenders")).toBe(0);
+		});
+
+		it("creator gets 100 projects, 5 GB, 60 minutes of output a month and 3 concurrent jobs", () => {
+			const creator = Plan.pro();
+			expect(creator.limitFor("cloudProjects")).toBe(100);
+			expect(creator.limitFor("mediaBytes")).toBe(5 * 1024 * MB);
+			expect(creator.limitFor("hostedRenderTime")).toBe(60 * 60_000);
+			expect(creator.limitFor("concurrentRenders")).toBe(3);
+			expect(Plan.team(4).limitFor("cloudProjects")).toBe(100);
+		});
+
+		it("names Creator as the plan that lifts every free ceiling, and nothing above Creator", () => {
+			for (const ceiling of [
+				"cloudProjects",
+				"mediaBytes",
+				"hostedRenderTime",
+				"concurrentRenders",
+			] as const) {
+				expect(Plan.free().upgradeFor(ceiling)?.tier).toBe("pro");
+				expect(Plan.pro().upgradeFor(ceiling)).toBeNull();
+			}
+		});
+
+		it("local runs nothing on our servers, so it has no hosted ceilings to hit", () => {
+			expect(Plan.local().limitFor("cloudProjects")).toBe(Number.POSITIVE_INFINITY);
+			expect(Plan.local().upgradeFor("cloudProjects")).toBeNull();
+		});
+
+		it("keeps a past hosted output downloadable for 30 days after it stopped being covered", () => {
+			const now = new Date("2026-10-03T12:00:00.000Z");
+			const daysAgo = (days: number) => new Date(now.getTime() - days * DAY_MS);
+			const free = Plan.free();
+
+			expect(free.keepsHostedOutput({ completedAt: daysAgo(29), downgradedAt: null, now })).toBe(
+				true,
+			);
+			expect(free.keepsHostedOutput({ completedAt: daysAgo(31), downgradedAt: null, now })).toBe(
+				false,
+			);
+			// An old file rendered while paying stays 30 days from the downgrade itself.
+			expect(
+				free.keepsHostedOutput({ completedAt: daysAgo(90), downgradedAt: daysAgo(10), now }),
+			).toBe(true);
+			expect(
+				free.keepsHostedOutput({ completedAt: daysAgo(90), downgradedAt: daysAgo(31), now }),
+			).toBe(false);
+			expect(
+				Plan.pro().keepsHostedOutput({ completedAt: daysAgo(400), downgradedAt: null, now }),
+			).toBe(true);
 		});
 	});
 

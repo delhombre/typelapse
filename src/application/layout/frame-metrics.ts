@@ -20,14 +20,22 @@ export type ChromeVariant = "macos" | "browser" | "terminal" | "none";
 
 /** Row height as a multiple of font size: matches `MagicMoveCanvas`. */
 export const LINE_HEIGHT_RATIO = 1.6;
-/** Monospace advance as a fraction of the font size: matches the video width math. */
-export const CHAR_WIDTH_RATIO = 0.62;
 
-/** Intrinsic line box of chrome-bar text (no explicit line-height); slight
- *  over-estimate so the fit leaves a hair of margin rather than cropping. */
+/** Line height of chrome-bar text: `FrameChrome` sets it explicitly, so the bar
+ *  both DOM renderers lay out is exactly as tall as `chromeBarHeight` says. */
 export const CHROME_TEXT_LINE_HEIGHT = 1.35;
 /** StepCaption footprint below the card: marginTop 14 + reserved minHeight 20. */
 const CAPTION_BLOCK = 14 + 20;
+
+/**
+ * Height the caption band takes under the window, scaled for the target: the
+ * part of the card + caption unit that is not the window. The painter bakes no
+ * caption yet but has to budget it, or its card is larger and lower than the
+ * one both DOM renderers centre.
+ */
+export function captionBlockHeight(hasCaption: boolean, scale: number): number {
+	return hasCaption ? CAPTION_BLOCK * scale : 0;
+}
 
 /**
  * The chrome bar's font stack, which is *not* the theme's.
@@ -37,6 +45,13 @@ const CAPTION_BLOCK = 14 + 20;
  * the same stack — and the renderer has to load it alongside the theme's font.
  */
 export const CHROME_FONT_STACK = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
+
+/**
+ * Secondary text remains quieter than code while passing 4.5:1 after it is
+ * composited onto every built-in theme. Hex alpha keeps DOM, Remotion and the
+ * canvas painter on the exact same tint.
+ */
+export const FRAME_SECONDARY_ALPHA_HEX = "cc";
 
 /**
  * Every number and tint the three chrome bars are built from, in unscaled px.
@@ -54,7 +69,7 @@ export const CHROME_STYLE = {
 	/** The hairline every bar closes with. */
 	borderAlpha: "0f",
 	border: 1,
-	titleAlpha: "59",
+	titleAlpha: FRAME_SECONDARY_ALPHA_HEX,
 	macos: {
 		padX: 16,
 		padY: 12,
@@ -159,11 +174,12 @@ export interface FrameNaturalSizeInput {
 	/** Upscale factor: chrome bar and caption block scale with it. */
 	scale: number;
 	/**
-	 * Monospace advance as a fraction of the font size, when the target can
-	 * measure its own resolved font (a canvas can: `measureText("0").width`).
-	 * Defaults to `CHAR_WIDTH_RATIO`, the nominal value a DOM renderer assumes.
+	 * Monospace advance as a fraction of the font size, measured in the font the
+	 * target paints with (`measureCharWidthRatio`). There is no default: the
+	 * nominal 0.62 the server once assumed sized its window 36 px wider than the
+	 * glyphs inside it at 1080p.
 	 */
-	charWidthRatio?: number;
+	charWidthRatio: number;
 }
 
 /**
@@ -183,12 +199,12 @@ export function frameNaturalSize(input: FrameNaturalSizeInput): { width: number;
 		scale,
 	} = input;
 	const maxLines = Math.max(1, input.maxLines);
-	const charRatio = input.charWidthRatio ?? CHAR_WIDTH_RATIO;
+	const charRatio = input.charWidthRatio;
 	const lineHeight = fontSize * LINE_HEIGHT_RATIO;
 
 	// Height: chrome bar + code area (padding top/bottom + one row per line) + caption.
 	const codeAreaHeight = 2 * padding + maxLines * lineHeight;
-	const captionHeight = hasCaption ? CAPTION_BLOCK * scale : 0;
+	const captionHeight = captionBlockHeight(hasCaption, scale);
 	const height = chromeBarHeight(chrome, scale) + codeAreaHeight + captionHeight;
 
 	// Width: padding + gutter (widest rendered line number) + widest code line.

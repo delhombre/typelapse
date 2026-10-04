@@ -1,65 +1,84 @@
 import React, { useEffect, useState } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, useCurrentFrame, useVideoConfig } from "remotion";
 import { resolveBackgroundCss } from "../../src/application/backgrounds/mesh-gradient";
-import { fitCardToCanvas, renderScaleFor } from "../../src/application/layout/canvas-fit";
-import { LINE_HEIGHT_RATIO } from "../../src/application/layout/frame-metrics";
 import {
-	type LaidOutFrame,
-	easeInOutCubic,
-	renderStatic,
-	renderTransition,
-} from "../../src/application/magic-move/engine";
+	BASE_VIDEO_SCALE,
+	CANVAS_MARGIN,
+	clipFades,
+	fitCardToCanvas,
+	renderScaleFor,
+} from "../../src/application/layout/canvas-fit";
+import { advanceProbeFont, measureCharWidthRatio } from "../../src/application/layout/char-advance";
+import { watermarkPlacement } from "../../src/application/layout/watermark-placement";
 import {
-	NO_ZOOM,
-	type ZoomTransform,
-	interpolateZoom,
-	zoomForFocus,
-} from "../../src/application/magic-move/focus-zoom";
+	FRAME_SECONDARY_ALPHA_HEX,
+	LINE_HEIGHT_RATIO,
+	chromeBarHeight,
+} from "../../src/application/layout/frame-metrics";
+import { type ScriptFrame, scriptFrameAt } from "../../src/application/export/video-script";
+import { NO_ZOOM, type ZoomTransform } from "../../src/application/magic-move/focus-zoom";
 import { captionAt } from "../../src/application/captions/caption-timing";
-import { renderTyping, typedCharCount } from "../../src/application/magic-move/typewriter";
+import { ClipFades } from "../../src/presentation/components/preview/clip-fades";
 import { FrameChrome } from "../../src/presentation/components/preview/frame-chrome";
+import { GlowDecoration } from "../../src/presentation/components/preview/glow-decoration";
 import { GrainOverlay } from "../../src/presentation/components/preview/grain-overlay";
 import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic-move-canvas";
 import { ReelsProgress } from "../../src/presentation/components/preview/reels-progress";
 import { StepCaption } from "../../src/presentation/components/preview/step-caption";
 import { getWatermarkColor } from "../../src/presentation/utils/watermark-color";
+import { fontStylesheets } from "./font-files";
 import type { RenderInput, ThemeData } from "./types";
 
-/**
- * Upscale factor from the 14px editor preview to crisp text at the reference
- * 1080p tier. Higher tiers multiply it by their share of that short edge (see
- * `renderScaleFor`), so 4K draws the same shot with twice the pixels rather
- * than the same card marooned in a bigger background.
- */
-export const BASE_VIDEO_SCALE = 2.2;
-/** Safe-area margin on each side of the canvas the card is fit into. */
-const CANVAS_MARGIN = 0.05;
+// The base scale and the safe-area margin are the shared placement table's
+// (application/layout/canvas-fit), read by the preview and the painter too.
+export { BASE_VIDEO_SCALE };
 
-function useFontLoaded(fontFamily: string) {
+/** Advance ÷ size of the theme font as this page resolves it, or of its fallback. */
+function measureAdvance(fontFamily: string, fontSize: number): number {
+	const ctx = document.createElement("canvas").getContext("2d");
+	return ctx ? measureCharWidthRatio(ctx, fontFamily, fontSize) : Number.NaN;
+}
+
+/**
+ * Load the fonts, then measure the theme font's advance: the card is sized on
+ * the same advance the `ch`-placed glyphs land on, measured the way the preview
+ * and the painter measure theirs. The frame is held until both are done.
+ */
+function useFontLoaded(fontFamily: string, fontSize: number): number {
 	const [handle] = useState(() => delayRender(`Loading fonts: ${fontFamily}`));
+	const [charWidthRatio, setCharWidthRatio] = useState(() => measureAdvance(fontFamily, fontSize));
 
 	useEffect(() => {
-		const fontName = fontFamily.split(",")[0]?.trim().replace(/'/g, "") ?? "JetBrains Mono";
-		const googleName = fontName.replace(/\s+/g, "+");
-		const monoUrl = `https://fonts.googleapis.com/css2?family=${googleName}:wght@400;500;700&display=swap`;
 		// Inter powers the step captions (StepCaption), so load it alongside the mono font.
 		const interUrl = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap";
 
-		Promise.all([monoUrl, interUrl].map((url) => fetch(url).then((res) => res.text())))
-			.then((sheets) => {
-				for (const css of sheets) {
+		// The theme's family through the shared registry: the bundled copy of the
+		// file the preview loads, or Google's stylesheet for a picker font.
+		Promise.all([fontStylesheets(fontFamily), fetch(interUrl).then((res) => res.text())])
+			.then(([monoSheets, interSheet]) => {
+				for (const css of [...monoSheets, interSheet]) {
 					const style = document.createElement("style");
 					style.textContent = css;
 					document.head.appendChild(style);
 				}
-				return document.fonts.ready;
+				// A face that no element has asked for yet is not loading, so `ready`
+				// alone would let the probe measure the fallback.
+				return document.fonts.load(advanceProbeFont(fontFamily, fontSize), "0");
 			})
-			.then(() => continueRender(handle))
+			.then(() => document.fonts.ready)
+			.then(() => {
+				setCharWidthRatio(measureAdvance(fontFamily, fontSize));
+				continueRender(handle);
+			})
 			.catch((err) => {
 				console.error("Font loading failed:", err);
+				// The fallback is what the glyphs will be set in, so it is what to size on.
+				setCharWidthRatio(measureAdvance(fontFamily, fontSize));
 				continueRender(handle);
 			});
-	}, [handle, fontFamily]);
+	}, [handle, fontFamily, fontSize]);
+
+	return charWidthRatio;
 }
 
 interface Segment {
@@ -91,11 +110,43 @@ function buildSegments(durationsMs: number[], transitionMs: number, fps: number,
 }
 
 export function TypelapseComposition({ input }: { input: RenderInput }) {
-	useFontLoaded(input.theme.fontFamily);
+	const frame = useCurrentFrame();
+	const { fps, width, height } = useVideoConfig();
+	const { theme, background, watermark, audioDataUrl } = input;
+	const videoScale = renderScaleFor(width, height, BASE_VIDEO_SCALE);
+	const isTransparent = background === "transparent";
+	const backgroundCss = isTransparent ? "transparent" : resolveBackgroundCss(background, frame / fps);
+
+	return (
+		<AbsoluteFill style={{ background: backgroundCss }}>
+			{/* Synthesized tick track, mounted at frame 0 so it spans the whole video. */}
+			{audioDataUrl && <Audio src={audioDataUrl} />}
+			{!isTransparent && <GlowDecoration />}
+			{!isTransparent && <GrainOverlay />}
+			<CodeCard input={input} />
+			{watermark && (
+				<WatermarkOverlay
+					text={watermark}
+					color={getWatermarkColor(background, theme.foreground)}
+					fontFamily={theme.fontFamily}
+					scale={videoScale}
+				/>
+			)}
+		</AbsoluteFill>
+	);
+}
+
+/**
+ * The card at this frame: magic move, typewriter, focus zoom, reels bar and
+ * caption, centred by the shared fit. Exported for the multimedia composition,
+ * which lays a project's text and image layers under and over this same card.
+ */
+export function CodeCard({ input }: { input: RenderInput }) {
+	const charWidthRatio = useFontLoaded(input.theme.fontFamily, input.theme.fontSize);
 
 	const frame = useCurrentFrame();
 	const { fps, width, height, durationInFrames } = useVideoConfig();
-	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, loop, typewriter, focusZoom, progressStyle, watermark, audioDataUrl } =
+	const { plan, steps, theme, title, background, windowChrome, showLineNumbers, lineNumberStart, framePadding, cardMargin, transitionMs, loop, focusZoom, progressStyle } =
 		input;
 
 	const segments = buildSegments(
@@ -110,14 +161,11 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	// framing is identical at every resolution tier and only the fidelity changes.
 	const videoScale = renderScaleFor(width, height, BASE_VIDEO_SCALE);
 
-	const isTransparent = background === "transparent";
 	// Per-step spotlight: mirror the preview's render-time focus so the export matches.
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
-	const typingView = resolveTypingView(input, active, frame, focusSets[0]);
-	const view = typingView ?? resolveView(plan, active, frame, focusSets);
-	const cursor = typingView?.cursor ?? null;
+	const view = resolveView(input, active, frame, focusSets);
+	const cursor = view.cursor;
 	const wmColor = getWatermarkColor(background, theme.foreground);
-	const backgroundCss = isTransparent ? "transparent" : resolveBackgroundCss(background, frame / fps);
 
 	// Per-step captions overlaid beneath the frame; same timing function as the preview.
 	const annotations = steps.map((s) => s.caption ?? "");
@@ -125,83 +173,72 @@ export function TypelapseComposition({ input }: { input: RenderInput }) {
 	const caption = captionForSegment(active, frame, annotations);
 
 	return (
-		<AbsoluteFill style={{ background: backgroundCss }}>
-			{/* Synthesized tick track, mounted at frame 0 so it spans the whole video. */}
-			{audioDataUrl && <Audio src={audioDataUrl} />}
-			{!isTransparent && <GlowDecoration />}
-			{!isTransparent && <GrainOverlay />}
-			<CenteredFrame
-				plan={plan}
-				theme={theme}
-				title={title}
-				windowChrome={windowChrome}
-				showLineNumbers={showLineNumbers}
-				lineNumberStart={lineNumberStart}
-				framePadding={framePadding}
-				cardMargin={cardMargin}
-				canvasWidth={width}
-				canvasHeight={height}
-				videoScale={videoScale}
-				reels={
-					steps.length >= 2 ? (
-						<ReelsProgress
-							style={progressStyle}
-							segments={steps.length}
-							progress={frame / Math.max(1, durationInFrames)}
-							scale={videoScale}
-						/>
-					) : null
-				}
-				caption={
-					hasCaptions ? (
-						<StepCaption
-							text={caption.text}
-							opacity={caption.opacity}
-							color={wmColor}
-							scale={videoScale}
-						/>
-					) : null
-				}
-			>
-				{/* Focus zoom: identical transform to the preview so the video matches. */}
-				<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * videoScale)}>
-					<MagicMoveCanvas
-						tokens={view.tokens}
-						lineCount={view.lineCount}
-						lineNumberCount={view.lineNumberCount}
-						fontSize={theme.fontSize * videoScale}
-						lineHeightRatio={LINE_HEIGHT_RATIO}
-						fontFamily={theme.fontFamily}
-						color={theme.foreground}
-						showLineNumbers={showLineNumbers}
-						lineNumberStart={lineNumberStart}
-						lineNumberColor={`${theme.foreground}30`}
-						padding={framePadding * videoScale}
-						cursor={cursor}
+		<CenteredFrame
+			plan={plan}
+			theme={theme}
+			title={title}
+			windowChrome={windowChrome}
+			showLineNumbers={showLineNumbers}
+			lineNumberStart={lineNumberStart}
+			framePadding={framePadding}
+			cardMargin={cardMargin}
+			canvasWidth={width}
+			canvasHeight={height}
+			videoScale={videoScale}
+			charWidthRatio={charWidthRatio}
+			reels={
+				steps.length >= 2 ? (
+					<ReelsProgress
+						style={progressStyle}
+						segments={steps.length}
+						progress={frame / Math.max(1, durationInFrames)}
+						scale={videoScale}
 					/>
-				</div>
-			</CenteredFrame>
-			{watermark && (
-				<WatermarkOverlay
-					text={watermark}
-					color={wmColor}
+				) : null
+			}
+			caption={
+				hasCaptions ? (
+					<StepCaption
+						text={caption.text}
+						opacity={caption.opacity}
+						color={wmColor}
+						scale={videoScale}
+					/>
+				) : null
+			}
+		>
+			{/* Focus zoom: identical transform to the preview so the video matches. */}
+			<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * videoScale)}>
+				<MagicMoveCanvas
+					tokens={view.tokens}
+					lineCount={view.lineCount}
+					lineNumberCount={view.lineNumberCount}
+					fontSize={theme.fontSize * videoScale}
+					lineHeightRatio={LINE_HEIGHT_RATIO}
 					fontFamily={theme.fontFamily}
-					scale={videoScale}
+					color={theme.foreground}
+					showLineNumbers={showLineNumbers}
+					lineNumberStart={lineNumberStart}
+					lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
+					padding={framePadding * videoScale}
+					cursor={cursor}
+					firstRow={view.firstRow}
 				/>
-			)}
-		</AbsoluteFill>
+			</div>
+		</CenteredFrame>
 	);
 }
 
-interface FrameView {
-	tokens: ReturnType<typeof renderStatic>;
-	lineCount: number;
-	lineNumberCount: number;
-	/** Cinematic push-in for this frame; identity unless the step has a spotlight. */
-	zoom: ZoomTransform;
-}
+type FrameView = Omit<ScriptFrame, "progress" | "timeSeconds">;
 
-type TypingFrameView = FrameView & { cursor: { line: number; col: number } | null };
+const EMPTY_VIEW: FrameView = {
+	tokens: [],
+	firstRow: 0,
+	lineCount: 1,
+	lineNumberCount: 1,
+	cursor: null,
+	zoom: NO_ZOOM,
+};
 
 /**
  * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
@@ -220,76 +257,36 @@ function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): 
 	};
 }
 
-/** Typewriter view for the first hold when typewriter mode is on, else null. */
-function resolveTypingView(
-	input: RenderInput,
-	active: Segment | undefined,
-	frame: number,
-	focus: Set<number> | undefined,
-): TypingFrameView | null {
-	if (!input.typewriter || !active || active.type !== "hold" || active.index !== 0 || !input.plan.typing) {
-		return null;
-	}
-	const code = input.steps[0]?.code ?? "";
-	const span = active.endFrame - active.startFrame;
-	const p = span > 0 ? (frame - active.startFrame) / span : 1;
-	const reveal = typedCharCount(code.length, p);
-	const { tokens, cursor } = renderTyping(code, input.plan.typing, reveal);
-	const lineCount = input.plan.frames[0]?.lineCount ?? 1;
-	return { tokens, lineCount, lineNumberCount: lineCount, cursor, zoom: zoomForFocus(focus, lineCount) };
-}
-
+/**
+ * The card's content at this frame, from the walk the painter and the preview
+ * take (`video-script`): typewriter, morph, focus, push-in and a long file's
+ * window, so the three renderers draw one picture.
+ */
 function resolveView(
-	plan: RenderInput["plan"],
+	input: RenderInput,
 	active: Segment | undefined,
 	frame: number,
 	focusSets: (Set<number> | undefined)[],
 ): FrameView {
 	if (!active) {
-		return { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
+		return EMPTY_VIEW;
 	}
-	if (active.type === "transition" || active.type === "loop") {
-		const isLoop = active.type === "loop";
-		const transition = isLoop ? plan.loopTransition : plan.transitions[active.index];
-		const fromFrame = plan.frames[active.index];
-		const toFrame = isLoop ? plan.frames[0] : plan.frames[active.index + 1];
-		// A loop-back morph runs from the last step to the first.
-		const toIndex = isLoop ? 0 : active.index + 1;
-		if (transition && fromFrame && toFrame) {
-			const span = active.endFrame - active.startFrame;
-			const t = span > 0 ? (frame - active.startFrame) / span : 1;
-			const eased = easeInOutCubic(Math.min(Math.max(t, 0), 1));
-			const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount);
-			const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount);
-			return {
-				tokens: renderTransition(
-					transition.from,
-					transition.to,
-					t,
-					{},
-					focusSets[active.index],
-					focusSets[toIndex],
-				),
-				lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
-				lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
-				zoom: interpolateZoom(fromZoom, toZoom, t, easeInOutCubic),
-			};
-		}
-	}
-	const held = plan.frames[active.index] ?? plan.frames[0];
-	return staticView(held, focusSets[active.index]);
-}
-
-function staticView(held: LaidOutFrame | undefined, focus?: Set<number>): FrameView {
-	if (!held) {
-		return { tokens: [], lineCount: 1, lineNumberCount: 1, zoom: NO_ZOOM };
-	}
-	return {
-		tokens: renderStatic(held.tokens, focus),
-		lineCount: held.lineCount,
-		lineNumberCount: held.lineCount,
-		zoom: zoomForFocus(focus, held.lineCount),
-	};
+	const span = active.endFrame - active.startFrame;
+	return scriptFrameAt(
+		{
+			plan: input.plan,
+			transitionEasing: input.transitionEasing,
+			typewriter: input.typewriter,
+			firstCode: input.steps[input.typingIndex ?? 0]?.code ?? "",
+			typingIndex: input.typingIndex,
+			focusSets,
+		},
+		{
+			phase: active.type,
+			index: active.index,
+			t: span > 0 ? (frame - active.startFrame) / span : 1,
+		},
+	);
 }
 
 /** Themed card with window chrome, centered and sized to fit the widest line. */
@@ -310,6 +307,7 @@ export function CenteredFrame({
 	canvasWidth,
 	canvasHeight,
 	videoScale,
+	charWidthRatio,
 	reels,
 	caption,
 	children,
@@ -326,6 +324,8 @@ export function CenteredFrame({
 	canvasHeight: number;
 	/** Upscale factor for this canvas, from `renderScaleFor`. */
 	videoScale: number;
+	/** The theme font's measured advance ÷ size (`measureCharWidthRatio`). */
+	charWidthRatio: number;
 	reels?: React.ReactNode;
 	caption?: React.ReactNode;
 	children: React.ReactNode;
@@ -352,6 +352,7 @@ export function CenteredFrame({
 		canvasWidth,
 		canvasHeight,
 		canvasMargin: CANVAS_MARGIN,
+		charWidthRatio,
 	});
 	const natural = fit.natural;
 	const scale = fit.scale;
@@ -410,8 +411,12 @@ export function CenteredFrame({
 						</div>
 					)}
 					<div
+						data-code-window
 						style={{
+							position: "relative",
 							width: natural.width,
+							// At the readable floor the window stops growing and clips its code.
+							maxHeight: fit.clip ? fit.windowHeight : undefined,
 							background: theme.background,
 							borderRadius: radius,
 							overflow: "hidden",
@@ -425,6 +430,16 @@ export function CenteredFrame({
 							scale={videoScale}
 						/>
 						{children}
+						<ClipFades
+							background={theme.background}
+							fades={clipFades({
+								clip: fit.clip,
+								windowWidth: natural.width,
+								windowHeight: fit.windowHeight,
+								chromeHeight: chromeBarHeight(windowChrome, videoScale),
+								fontSize: theme.fontSize * videoScale,
+							})}
+						/>
 					</div>
 					{/* The caption band takes the window's width, like the reels bar above
 					    it. The column centres its children, so an unconstrained caption
@@ -476,13 +491,6 @@ function isColorDark(color: string): boolean {
 }
 
 /**
- * The watermark's geometry as authored against the reference tier (1080p), in
- * pixels. Kept verbatim from the fixed values it used to hard-code, so a 1080p
- * export is unchanged to the pixel: `REFERENCE_SHORT_EDGE` promises exactly that.
- */
-const WATERMARK_AT_REFERENCE = { bottom: 48, right: 56, fontSize: 22 };
-
-/**
  * The user's mark, bottom-right of the canvas.
  *
  * `scale` is the same `renderScaleFor` factor the card, the caption and the
@@ -500,44 +508,20 @@ export function WatermarkOverlay({
 	fontFamily,
 	scale,
 }: { text: string; color: string; fontFamily: string; scale: number }) {
-	const tier = scale / BASE_VIDEO_SCALE;
+	// One table for the three renderers (`watermark-placement`).
+	const placement = watermarkPlacement(scale);
 	return (
 		<div
 			style={{
 				position: "absolute",
-				bottom: WATERMARK_AT_REFERENCE.bottom * tier,
-				right: WATERMARK_AT_REFERENCE.right * tier,
+				bottom: placement.bottom,
+				right: placement.right,
 				fontFamily,
-				fontSize: WATERMARK_AT_REFERENCE.fontSize * tier,
+				fontSize: placement.fontSize,
 				color,
 			}}
 		>
 			{text}
-		</div>
-	);
-}
-
-function GlowDecoration() {
-	return (
-		<div
-			style={{
-				position: "absolute",
-				inset: 0,
-				display: "flex",
-				alignItems: "center",
-				justifyContent: "center",
-				pointerEvents: "none",
-			}}
-		>
-			<div
-				style={{
-					width: "70%",
-					height: "60%",
-					borderRadius: 28,
-					background: "radial-gradient(closest-side, rgba(255,255,255,0.05), transparent)",
-					filter: "blur(48px)",
-				}}
-			/>
 		</div>
 	);
 }

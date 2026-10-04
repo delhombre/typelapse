@@ -15,11 +15,15 @@
 
 import { wantsTransparency } from "@/application/export/transparency";
 import { focusLineSet } from "@/application/focus/line-ranges";
-import { canvasFont } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
 import type { SceneProgress, SceneWatermark } from "@/application/frame-painter/scene";
+import { advanceProbeFont, measureCharWidthRatio } from "@/application/layout/char-advance";
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
+import type { CubicBezier } from "@/application/magic-move/easing";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
+import { typingHoldIndex } from "@/application/magic-move/typewriter";
+import type { LocalProjectLibraryPort } from "@/application/project/local-project-library.port";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { RenderConfig, RenderFormat } from "@/domain/entities/render-config";
 import type { Snippet } from "@/domain/entities/snippet";
 import type {
@@ -34,7 +38,11 @@ import {
 	type ClientExportMeasurements,
 	ClientExportUnsupportedError,
 } from "./client-export-job";
-import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
+import { sceneFor, scriptFor } from "./client-export-scene";
+import { firstEncodableRung } from "./codec-probe";
+import { decodeCompositionImages } from "./composition-images";
+import { loadCompositionVideos } from "./composition-videos";
+import { grainTileOf, rasterizeGrainTile } from "./grain-tile";
 import { encodingFor, evenDimensions } from "./video-encoding";
 
 /**
@@ -50,11 +58,22 @@ export interface ClientScenery {
 	showLineNumbers: boolean;
 	lineNumberStart: number;
 	transitionMs: number;
+	transitionEasing: CubicBezier;
 	loop: boolean;
 	typewriter: boolean;
 	focusZoom: boolean;
 	progress: SceneProgress | null;
 	watermark: SceneWatermark | null;
+	/** Whether any scene has a caption, which the card budgets room for. */
+	hasCaption?: boolean;
+	/**
+	 * A studio project's layers: the V2 document, and the store its images' and
+	 * videos' bytes are read from on this device.
+	 */
+	composition?: {
+		document: ProjectDocumentV2;
+		library: Pick<LocalProjectLibraryPort, "loadAsset">;
+	} | null;
 }
 
 /**
@@ -78,21 +97,9 @@ export async function isClientExportSupported(
 	if (encoding.container === "gif") {
 		return true;
 	}
-	if (typeof VideoEncoder === "undefined") {
-		return false;
-	}
-	for (const codec of encoding.probeCodecs) {
-		const support = await VideoEncoder.isConfigSupported({
-			codec,
-			width: w,
-			height: h,
-			framerate: fps,
-		});
-		if (support.supported) {
-			return true;
-		}
-	}
-	return false;
+	// The same seam the worker uses, so the panel cannot offer a path the render
+	// will then refuse: one ladder, one probe, one answer.
+	return (await firstEncodableRung(encoding.ladder, { width: w, height: h, fps })) !== null;
 }
 
 export class WebCodecsRendererAdapter implements RendererPort {
@@ -121,7 +128,7 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			throw new ClientExportUnsupportedError("This browser gave us no 2D context to paint into.");
 		}
 		const scene = sceneFor({ ...job, width, height }, job.documentCharWidthRatio, {
-			grain: null,
+			grain: grainTileOf(job.grain, "png"),
 			backdropImage: await decodeBackdropImage(job.background),
 		});
 		paintFrame(ctx, scene, scriptFor(job).frameAt(0));
@@ -196,16 +203,21 @@ export class WebCodecsRendererAdapter implements RendererPort {
 				);
 			};
 
-			worker.postMessage(job);
+			// The bitmaps move to the worker rather than being copied: a photo decoded
+			// at its full size is the largest thing a job carries.
+			const bitmaps = job.composition?.images.map((image) => image.bitmap) ?? [];
+			worker.postMessage(job, job.grain ? [...bitmaps, job.grain] : bitmaps);
 		});
 	}
 
 	private async buildJob(snippet: Snippet, config: RenderConfig): Promise<ClientExportJob> {
 		const scenery = this.scenery;
+		const typingIndex = typingHoldIndex(snippet.steps.map((step) => step.code));
 		return {
 			plan: scenery.plan,
 			durations: snippet.steps.map((step) => step.duration),
-			firstCode: snippet.steps[0]?.code ?? snippet.code,
+			firstCode: snippet.steps[typingIndex]?.code ?? snippet.code,
+			typingIndex,
 			focus: snippet.steps.map((step) => [...focusLineSet(step.highlightRanges)]),
 
 			width: config.width,
@@ -213,6 +225,7 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			fps: config.fps,
 			format: config.format,
 			transitionMs: scenery.transitionMs,
+			transitionEasing: scenery.transitionEasing,
 			loop: scenery.loop,
 			typewriter: scenery.typewriter,
 			focusZoom: scenery.focusZoom,
@@ -233,6 +246,21 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			lineNumberStart: scenery.lineNumberStart,
 			progress: scenery.progress,
 			watermark: scenery.watermark,
+			hasCaption: scenery.hasCaption ?? false,
+			composition: scenery.composition
+				? {
+						document: scenery.composition.document,
+						images: await decodeCompositionImages(
+							scenery.composition.document,
+							scenery.composition.library,
+						),
+						videos: await loadCompositionVideos(
+							scenery.composition.document,
+							scenery.composition.library,
+						),
+					}
+				: null,
+			grain: await rasterizeGrainTile(),
 
 			documentCharWidthRatio: await measureDocumentAdvance(
 				snippet.theme.fontFamily,
@@ -251,20 +279,17 @@ export class WebCodecsRendererAdapter implements RendererPort {
  * video is off the preview, and we would rather know that than not.
  */
 async function measureDocumentAdvance(fontFamily: string, fontSize: number): Promise<number> {
-	const size = fontSize * VIDEO_SCALE;
-	const font = canvasFont(size, fontFamily);
 	try {
-		await document.fonts.load(font, "0");
+		await document.fonts.load(advanceProbeFont(fontFamily, fontSize), "0");
 	} catch {
 		// A family the document does not know is not an error: the fallback is
 		// exactly what the preview would use too.
 	}
 	const ctx = document.createElement("canvas").getContext("2d");
 	if (!ctx) {
-		return 0.62;
+		throw new Error("This browser gave the page no 2D context to measure the font with.");
 	}
-	ctx.font = font;
-	return ctx.measureText("0").width / size;
+	return measureCharWidthRatio(ctx, fontFamily, fontSize);
 }
 
 function progressOf(

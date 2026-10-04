@@ -4,8 +4,9 @@
  * Produces a CSS `background` string for a given preset and time `t` (seconds).
  * Colored blobs drift along looping sine paths, giving the flowing "liquid"
  * backdrop that premium code-video tools use. The exact same function drives the
- * browser preview (via rAF) and the exported video (via Remotion's frame count),
- * so the motion reads identically in both.
+ * browser preview, the exported video and the painter, and all three feed it the
+ * timeline's own time (never a wall clock), so a paused or scrubbed preview shows
+ * the drift the exported frame at that timestamp has.
  */
 
 interface Blob {
@@ -170,7 +171,10 @@ export function isImageBackground(background: string): boolean {
  * fails. Default-deny: only these known-safe forms pass.
  *  - `mesh:<id>` and `transparent`: no resource reference at all.
  *  - a solid hex color.
- *  - a CSS gradient that contains no `url(` (so it cannot reference a URL).
+ *  - a CSS gradient with no `url(`, no quote and no backslash. A gradient can
+ *    still name a resource without `url(`: `image-set("http://...")` takes a
+ *    quoted string, and a CSS escape (`\75 rl(`) spells `url(` without the
+ *    letters. Neither needs to appear in a colour stop, so both are refused.
  *  - `image:data:image/...`: an inline data URL only (see parseImageBackground).
  * Anything else, notably a raw `url(...)` or an `image:` with a non-data scheme,
  * is rejected.
@@ -189,7 +193,7 @@ export function isSafeBackground(background: string): boolean {
 		return parseImageBackground(background) !== null;
 	}
 	if (/gradient\(/i.test(background)) {
-		return !/url\(/i.test(background);
+		return !/url\(|["'\\]/i.test(background);
 	}
 	return false;
 }

@@ -1,4 +1,4 @@
-import { videoScript } from "@/application/export/video-script";
+import { scriptFrameAt, videoScript } from "@/application/export/video-script";
 import {
 	DIM_OPACITY,
 	type LaidOutToken,
@@ -96,9 +96,17 @@ describe("videoScript frames", () => {
 		// Halfway through the 20-frame transition that starts at frame 30.
 		const frame = script.frameAt(40);
 
-		// easeInOutCubic(0.5) = 0.5, so 2 + (4 - 2) * 0.5 = 3.
+		// The symmetric default curve crosses its midpoint at 0.5.
 		expect(frame.lineCount).toBeCloseTo(3, 6);
 		expect(frame.lineNumberCount).toBe(4);
+	});
+
+	it("applies the chosen Bézier to exported morph geometry", () => {
+		const linear = videoScript({ ...BASE, transitionEasing: [0, 0, 1, 1] }).frameAt(35);
+		const smooth = videoScript({ ...BASE, transitionEasing: [0.22, 1, 0.36, 1] }).frameAt(35);
+
+		expect(linear.lineCount).toBeCloseTo(2.5, 4);
+		expect(smooth.lineCount).toBeGreaterThan(linear.lineCount + 0.5);
 	});
 
 	it("clamps past the end to the last frame rather than falling off the timeline", () => {
@@ -204,5 +212,33 @@ describe("videoScript determinism", () => {
 		const script = videoScript(BASE);
 
 		expect(script.frameAt(37)).toEqual(script.frameAt(37));
+	});
+});
+
+describe("the frame at a playback position, shared with the preview", () => {
+	const LOOPING = {
+		...BASE,
+		loop: true,
+		plan: { ...PLAN, loopTransition: { from: FRAME_B.tokens, to: FRAME_A.tokens } },
+	};
+
+	it("paints the loop morph the file paints at the same point", () => {
+		const script = videoScript(LOOPING);
+		const loop = script.segments.find((segment) => segment.type === "loop");
+		if (!loop) {
+			throw new Error("The script must loop");
+		}
+		const middle = loop.startFrame + (loop.endFrame - loop.startFrame) / 2;
+		const { progress: _p, timeSeconds: _s, ...fromFile } = script.frameAt(middle);
+
+		expect(scriptFrameAt(LOOPING, { phase: "loop", index: 1, t: 0.5 })).toEqual(fromFile);
+	});
+
+	it("lands the loop on the first scene", () => {
+		const landed = scriptFrameAt(LOOPING, { phase: "loop", index: 1, t: 1 });
+
+		expect(landed.lineCount).toBe(FRAME_A.lineCount);
+		const visible = landed.tokens.filter((token) => token.opacity > 0);
+		expect(visible.map((token) => token.key)).toEqual(["a"]);
 	});
 });

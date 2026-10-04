@@ -1,5 +1,5 @@
-import Editor, { type Monaco, type OnMount } from "@monaco-editor/react";
-import { useCallback, useEffect, useRef } from "react";
+import type { Monaco, OnMount } from "@monaco-editor/react";
+import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 
 import { monacoLanguage } from "@/presentation/components/editor/monaco-language";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -18,6 +18,16 @@ const MONACO_PATHS: Record<string, string> = {
 	javascript: "snippet.jsx",
 };
 
+// Monaco comes from the app's bundle, not a CDN, and only once the editor is on
+// screen: the import configures the loader before the first editor mounts.
+const Editor = lazy(() => import("@/presentation/components/editor/monaco-runtime"));
+
+const EDITOR_LOADING = (
+	<div className="flex h-full items-center justify-center">
+		<span className="font-mono text-[11px] text-neutral-400">Loading editor…</span>
+	</div>
+);
+
 // Monaco theme that mirrors the preview snippet theme
 const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg: string }> = {
 	midnight: { base: "vs-dark", bg: "#0d1117", fg: "#e6edf3" },
@@ -30,7 +40,10 @@ const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg
 };
 
 export function CodeEditor() {
-	const { snippet, setCode, syncEditorTheme } = useSnippetStore();
+	// Field by field: the whole store changes on every playback tick.
+	const snippet = useSnippetStore((s) => s.snippet);
+	const setCode = useSnippetStore((s) => s.setCode);
+	const syncEditorTheme = useSnippetStore((s) => s.syncEditorTheme);
 	const isDark = useThemeModeStore((s) => s.mode === "dark");
 	const monacoRef = useRef<Monaco | null>(null);
 	const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -210,58 +223,56 @@ export function CodeEditor() {
 				title="⌥Z: toggle word wrap"
 				className="min-h-[220px] flex-1 overflow-hidden rounded-xl border border-neutral-200/70 lg:min-h-0 dark:border-neutral-800"
 			>
-				<Editor
-					value={snippet.code}
-					language={editorLanguage}
-					path={editorPath}
-					theme={editorTheme}
-					onChange={handleChange}
-					beforeMount={handleBeforeMount}
-					onMount={handleMount}
-					options={{
-						fixedOverflowWidgets: true,
-						minimap: { enabled: false },
-						fontSize: 13,
-						fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-						fontLigatures: true,
-						lineNumbers: "on",
-						lineNumbersMinChars: 3,
-						renderLineHighlight: "none",
-						scrollBeyondLastLine: false,
-						padding: { top: 12, bottom: 12 },
-						overviewRulerLanes: 0,
-						hideCursorInOverviewRuler: true,
-						overviewRulerBorder: false,
-						scrollbar: {
-							vertical: "auto",
-							horizontal: "auto",
-							verticalScrollbarSize: 6,
-							horizontalScrollbarSize: 6,
-						},
-						wordWrap: "off",
-						tabSize: 2,
-						autoIndent: "full",
-						formatOnPaste: true,
-						formatOnType: true,
-						suggestOnTriggerCharacters: true,
-						quickSuggestions: true,
-						bracketPairColorization: { enabled: true },
-						autoClosingBrackets: "always",
-						autoClosingQuotes: "always",
-						guides: { indentation: true, bracketPairs: true },
-						smoothScrolling: true,
-						cursorBlinking: "smooth",
-						cursorSmoothCaretAnimation: "on",
-						contextmenu: true,
-						folding: true,
-						matchBrackets: "always",
-					}}
-					loading={
-						<div className="flex h-full items-center justify-center">
-							<span className="font-mono text-[11px] text-neutral-400">Loading editor…</span>
-						</div>
-					}
-				/>
+				<Suspense fallback={EDITOR_LOADING}>
+					<Editor
+						value={snippet.code}
+						language={editorLanguage}
+						path={editorPath}
+						theme={editorTheme}
+						onChange={handleChange}
+						beforeMount={handleBeforeMount}
+						onMount={handleMount}
+						options={{
+							fixedOverflowWidgets: true,
+							minimap: { enabled: false },
+							fontSize: 13,
+							fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+							fontLigatures: true,
+							lineNumbers: "on",
+							lineNumbersMinChars: 3,
+							renderLineHighlight: "none",
+							scrollBeyondLastLine: false,
+							padding: { top: 12, bottom: 12 },
+							overviewRulerLanes: 0,
+							hideCursorInOverviewRuler: true,
+							overviewRulerBorder: false,
+							scrollbar: {
+								vertical: "auto",
+								horizontal: "auto",
+								verticalScrollbarSize: 6,
+								horizontalScrollbarSize: 6,
+							},
+							wordWrap: "off",
+							tabSize: 2,
+							autoIndent: "full",
+							formatOnPaste: true,
+							formatOnType: true,
+							suggestOnTriggerCharacters: true,
+							quickSuggestions: true,
+							bracketPairColorization: { enabled: true },
+							autoClosingBrackets: "always",
+							autoClosingQuotes: "always",
+							guides: { indentation: true, bracketPairs: true },
+							smoothScrolling: true,
+							cursorBlinking: "smooth",
+							cursorSmoothCaretAnimation: "on",
+							contextmenu: true,
+							folding: true,
+							matchBrackets: "always",
+						}}
+						loading={EDITOR_LOADING}
+					/>
+				</Suspense>
 			</div>
 		</div>
 	);

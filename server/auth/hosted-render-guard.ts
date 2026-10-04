@@ -1,5 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
-import { authorizeHostedRender } from "../../src/application/auth/authorize-hosted-render";
+import { authenticateAccount } from "../../src/application/auth/authenticate-account";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
 import type { SubscriptionPort } from "../../src/domain/ports/subscription.port";
 import { Plan } from "../../src/domain/value-objects/plan";
@@ -47,41 +47,25 @@ const credentialFrom = (c: Context): string | null => {
 };
 
 /**
- * Gate a route on hosted-render entitlement.
+ * Identify the caller of a hosted route and resolve their plan on the server.
  *
- * The two refusals are kept distinct all the way to the status code: 401 says
- * we do not know who you are, 402 says we do and your plan does not cover this.
- * Collapsing them would tell a paying user to sign in again, and an anonymous
- * one to upgrade an account they do not have.
+ * Authentication only: entitlement is decided per action, because a free
+ * account may still read its jobs and download outputs within the grace period
+ * while it may not start a render. 401 says we do not know who you are; the
+ * routes answer 402 when we do and the plan does not cover the action.
  */
-export const requireHostedRenderEntitlement = (
-	deps: HostedRenderDeps,
-): MiddlewareHandler => {
+export const requireHostedAccount = (deps: HostedRenderDeps): MiddlewareHandler => {
 	return async (c, next) => {
-		const decision = await authorizeHostedRender({
+		const accountId = await authenticateAccount({
 			credential: credentialFrom(c),
 			auth: deps.auth,
-			subscriptions: deps.subscriptions,
 			now: new Date(),
 		});
-
-		if (decision.outcome === "unauthenticated") {
+		if (!accountId) {
 			return c.json({ error: "Sign in to render on Typelapse's servers" }, 401);
 		}
-
-		if (decision.outcome === "forbidden") {
-			return c.json(
-				{
-					error: "Hosted rendering is not included in your plan",
-					plan: decision.plan.tier,
-				},
-				402,
-			);
-		}
-
-		c.set("accountId", decision.accountId);
-		c.set("plan", decision.plan);
-
+		c.set("accountId", accountId);
+		c.set("plan", await deps.subscriptions.planFor(accountId));
 		await next();
 	};
 };

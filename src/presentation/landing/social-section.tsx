@@ -1,6 +1,5 @@
 import { PLATFORM_LABELS } from "@/application/social/safe-zones";
 import type { SocialPlatform } from "@/application/social/safe-zones";
-import { useInViewPlayback } from "@/presentation/hooks/use-in-view-playback";
 import { CYCLE_PLATFORMS, IphoneShowcase, usePlatformCycle } from "./iphone-showcase";
 import { Eyebrow, Reveal } from "./primitives";
 import { CONTAINER, SECTION_PY } from "./tokens";
@@ -8,19 +7,13 @@ import { CONTAINER, SECTION_PY } from "./tokens";
 /**
  * Feature c: the social preview, given the one dark, full-bleed section so the
  * device pops. Copy on the left, a large hero shot of the phone on the right
- * whose screen auto-cycles through real-looking TikTok / Reels / Shorts feeds of
- * our code. The platform chips below the copy double as a live cycle indicator:
- * the chip for the feed currently on screen brightens, the rest dim.
+ * whose screen can be switched or swiped through faithful TikTok / Reels /
+ * Shorts feeds of our code. The platform chips are both picker and indicator.
  */
 export function SocialSection() {
-	/* One observer for both halves of the exhibit. The chips are an indicator of
-	   the cycle and the cycle drives the screen, so if the phone is not being
-	   watched neither of them has anything to say — and they must agree about
-	   when that is, or a chip would light for a feed that never swiped. */
-	const { ref: stageRef, inView } = useInViewPlayback<HTMLDivElement>();
-	/* The whole cycle, not just what it is showing: the phone is draggable, so it
-	   needs the handles to move the cycle as well as to read it. */
-	const cycle = usePlatformCycle(inView);
+	/* The whole picker, not just what it is showing: chips and swipe move the
+	   same ring. Nothing advances without the visitor asking it to. */
+	const cycle = usePlatformCycle();
 	const platform = cycle.platform;
 
 	return (
@@ -45,11 +38,8 @@ export function SocialSection() {
 							the real safe zones. You see what a caption or an action rail would cover before you
 							ever leave the studio.
 						</p>
-						{/* The row is read off the cycle, not alongside it, and now it
-						    drives the cycle too: it already looked like a set of controls,
-						    and a chip that looks pressable and is not is worse than no
-						    chip. Selecting is also the only way in without a pointer,
-						    since the phone answers a swipe and nothing else. */}
+						{/* The row and the phone drive the same selected platform. Nothing
+						    moves unless a chip, key press or swipe asks it to. */}
 						<div className="mt-8 flex flex-wrap gap-2">
 							{CYCLE_PLATFORMS.map((p, i) => (
 								<PlatformChip
@@ -63,7 +53,7 @@ export function SocialSection() {
 					</Reveal>
 
 					<Reveal delay={0.1} className="flex items-center justify-center">
-						<div ref={stageRef} className="relative flex w-full items-center justify-center">
+						<div className="relative flex w-full items-center justify-center">
 							{/* A second, tighter glow hugging the device for extra product-shot depth. */}
 							<div
 								aria-hidden
@@ -73,7 +63,7 @@ export function SocialSection() {
 										"radial-gradient(40% 38% at 50% 46%, oklch(1 0 0 / 0.06), transparent 72%)",
 								}}
 							/>
-							<IphoneShowcase cycle={cycle} active={inView} className="relative z-10" />
+							<IphoneShowcase cycle={cycle} className="relative z-10" />
 						</div>
 					</Reveal>
 				</div>

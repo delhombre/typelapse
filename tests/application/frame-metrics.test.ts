@@ -1,10 +1,12 @@
 import {
-	CHAR_WIDTH_RATIO,
 	LINE_HEIGHT_RATIO,
 	chromeBarHeight,
 	frameNaturalSize,
 } from "@/application/layout/frame-metrics";
 import { describe, expect, it } from "vitest";
+
+/** Any measured advance will do; this one keeps the arithmetic in the comments. */
+const CHAR_WIDTH_RATIO = 0.62;
 
 describe("chromeBarHeight", () => {
 	it("is zero when there is no chrome", () => {
@@ -39,6 +41,7 @@ describe("frameNaturalSize", () => {
 		lineNumberStart: 1,
 		hasCaption: false,
 		scale: 1,
+		charWidthRatio: CHAR_WIDTH_RATIO,
 	};
 
 	it("computes width and height from the deterministic grid math", () => {
@@ -50,17 +53,10 @@ describe("frameNaturalSize", () => {
 	});
 
 	it("honours a measured advance when the target can measure its own font", () => {
-		// A canvas can measure the resolved font instead of assuming 0.62, and the
-		// window has to be sized on the same advance the glyphs are painted with.
+		// The window has to be sized on the same advance the glyphs are painted with.
 		const measured = frameNaturalSize({ ...base, charWidthRatio: 0.5 });
 		expect(measured.width).toBeCloseTo(40 + 12 * 10 * 0.5, 5);
 		expect(measured.height).toBeCloseTo(frameNaturalSize(base).height, 5);
-	});
-
-	it("falls back to the nominal advance when none is measured", () => {
-		expect(frameNaturalSize({ ...base, charWidthRatio: undefined })).toEqual(
-			frameNaturalSize(base),
-		);
 	});
 
 	it("widens for the line-number gutter", () => {

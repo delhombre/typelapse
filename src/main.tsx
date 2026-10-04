@@ -1,51 +1,12 @@
 import "@/app.css";
-import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
-import { CodeEditor } from "@/presentation/components/editor/code-editor";
-import { StepBuilder } from "@/presentation/components/editor/step-builder";
-import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
-import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
-import { StudioPersistence } from "@/presentation/components/layout/studio-persistence";
-import { LivePreview } from "@/presentation/components/preview/live-preview";
-import { NoticeHost } from "@/presentation/components/ui/notice-host";
-import { LandingPage } from "@/presentation/landing/landing-page";
-import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
-import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import { AppRoutes } from "@/app-routes";
+import { installSelfHostedFonts } from "@/presentation/utils/self-hosted-fonts";
 import { MotionConfig } from "motion/react";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 
-setHighlighter(shikiAdapter);
-
-// Initialize theme mode from system preference (the /app route respects this;
-// the landing forces its own dark palette).
-const initialMode = useThemeModeStore.getState().mode;
-document.documentElement.classList.toggle("dark", initialMode === "dark");
-
-// Build the initial magic-move plan (retried once the highlighter is ready).
-useSnippetStore.getState().rebuildPlan();
-
-function Studio() {
-	return (
-		<>
-			{/* Restores last session's draft, autosaves this one, guards unload.
-			    Reads the arrival hash at render, so it stays correct whatever order
-			    the boot effects fire in: a deep link or share link wins over the
-			    draft, because whoever opened one asked for what it carries. */}
-			<StudioPersistence />
-			{/* Loads whatever the landing hero was pasted, when the studio was opened
-			    from it. Renders nothing on a normal visit. */}
-			<ImportIntentBoot />
-			{/* The studio's one feedback surface: import errors, refused uploads. */}
-			<NoticeHost />
-			<ResponsiveShell
-				editor={<CodeEditor />}
-				stepBuilder={<StepBuilder />}
-				preview={<LivePreview />}
-			/>
-		</>
-	);
-}
+installSelfHostedFonts();
 
 const root = document.getElementById("root");
 if (!root) {
@@ -63,10 +24,7 @@ createRoot(root).render(
 		    variants keep them; this is the net under everything else. */}
 		<MotionConfig reducedMotion="user">
 			<BrowserRouter>
-				<Routes>
-					<Route path="/" element={<LandingPage />} />
-					<Route path="/app" element={<Studio />} />
-				</Routes>
+				<AppRoutes />
 			</BrowserRouter>
 		</MotionConfig>
 	</StrictMode>,

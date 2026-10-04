@@ -1,12 +1,13 @@
 import { DiffImportMenu } from "@/presentation/components/layout/diff-import-menu";
-import { StudioUtilities } from "@/presentation/components/layout/studio-utilities";
+import { StudioSourceHub } from "@/presentation/components/layout/studio-source-hub";
 import { UrlImportMenu } from "@/presentation/components/layout/url-import-menu";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { useStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -173,7 +174,7 @@ describe("UrlImportMenu guard", () => {
 		expect(fetchSpy).not.toHaveBeenCalled();
 
 		// Confirming hands over to the ordinary fetch path.
-		fireEvent.click(screen.getByRole("button", { name: "Fetch it" }));
+		fireEvent.click(screen.getByRole("button", { name: "Import the file" }));
 		await waitFor(() => {
 			expect(fetchSpy).toHaveBeenCalled();
 		});
@@ -181,13 +182,22 @@ describe("UrlImportMenu guard", () => {
 	});
 });
 
-describe("StudioUtilities JSON import guard", () => {
+describe("StudioSourceHub import guard", () => {
+	function LocationProbe() {
+		return <output aria-label="Current route">{useLocation().pathname}</output>;
+	}
+
 	function renderNav() {
 		return render(
 			<MemoryRouter>
-				<StudioUtilities />
+				<StudioSourceHub />
+				<LocationProbe />
 			</MemoryRouter>,
 		);
+	}
+
+	function openSourceMenu(): void {
+		fireEvent.click(screen.getByRole("button", { name: "Add source" }));
 	}
 
 	function chooseFile(container: HTMLElement, file: File): void {
@@ -205,11 +215,53 @@ describe("StudioUtilities JSON import guard", () => {
 		steps: [],
 	});
 
+	it("adds a text layer inside the code studio instead of navigating to another shell", async () => {
+		makePristine();
+		renderNav();
+		const composition = useStudioCompositionStore.getState();
+		const sceneId = composition.selectedSceneId;
+		if (!sceneId) {
+			throw new Error("The Studio composition must select a scene");
+		}
+		const before = composition.value.project.scenes.find((scene) => scene.id === sceneId)?.blocks
+			.length;
+
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Add text" }));
+
+		await waitFor(() => {
+			expect(screen.getByLabelText("Current route").textContent).toBe("/");
+			expect(
+				useStudioCompositionStore
+					.getState()
+					.value.project.scenes.find((scene) => scene.id === sceneId)?.blocks.length,
+			).toBe((before ?? 0) + 1);
+		});
+	});
+
+	it("switches between the two import popovers in one press", async () => {
+		makePristine();
+		renderNav();
+
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Import from URL" }));
+		expect(screen.getByRole("dialog", { name: "Import from URL" })).toBeTruthy();
+
+		fireEvent.click(screen.getByRole("button", { name: "Add source" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "Import a git diff" }));
+		expect(screen.getByRole("dialog", { name: "Import a git diff" })).toBeTruthy();
+		await waitFor(() => {
+			expect(screen.queryByRole("dialog", { name: "Import from URL" })).toBeNull();
+		});
+	});
+
 	it("asks before an opened file replaces edited work", async () => {
 		makeDirty();
 		const codeBefore = useSnippetStore.getState().snippet.code;
 		const { container } = renderNav();
 
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(container, new File([OPENED_PROJECT], "opened.json", { type: "application/json" }));
 
 		expect(await screen.findByText(/Replace what you have/)).toBeTruthy();
@@ -225,6 +277,8 @@ describe("StudioUtilities JSON import guard", () => {
 		makeDirty();
 		const { container } = renderNav();
 
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(container, new File([OPENED_PROJECT], "opened.json", { type: "application/json" }));
 		const question = await screen.findByText(/Replace what you have/);
 
@@ -243,6 +297,8 @@ describe("StudioUtilities JSON import guard", () => {
 		makePristine();
 		const { container } = renderNav();
 
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(
 			container,
 			new File([OPENED_PROJECT.replace("opened.ts", "direct.ts")], "direct.json", {
@@ -260,6 +316,8 @@ describe("StudioUtilities JSON import guard", () => {
 		makePristine();
 		const { container } = renderNav();
 
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(container, new File(["{broken"], "broken.json", { type: "application/json" }));
 
 		await waitFor(() => {

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { createCloudRoute, cloudRoute } from "../../server/routes/cloud";
+import type { HostedRenderJobService } from "../../src/application/render/hosted-render-job";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
 import type { SubscriptionPort } from "../../src/domain/ports/subscription.port";
 import { Plan } from "../../src/domain/value-objects/plan";
@@ -11,7 +12,17 @@ const renderRequest = (headers: Record<string, string>) => {
 	return new Request("http://localhost/api/cloud/render", {
 		method: "POST",
 		headers: { "content-type": "application/json", ...headers },
-		body: JSON.stringify({ steps: [{ code: "a" }, { code: "b" }] }),
+	body: JSON.stringify({
+		projectId: "project-1",
+		revision: 4,
+		renderOptions: {
+			format: "mp4",
+			width: 1920,
+			height: 1080,
+			fps: 60,
+			includeAudio: true,
+		},
+	}),
 	});
 };
 
@@ -23,6 +34,31 @@ const signedInAs = (accountId: string): AuthPort => ({
 });
 
 const on = (plan: Plan): SubscriptionPort => ({ planFor: async () => plan });
+
+const renderJobs: HostedRenderJobService = {
+	submit: async () => ({
+		outcome: "accepted",
+		job: {
+			id: "job_1",
+			projectId: "project-1",
+			revision: 4,
+			status: "queued",
+			createdAt: new Date(),
+			completedAt: null,
+		},
+	}),
+	status: async (_ownerId, jobId) =>
+		jobId === "job_1"
+			? {
+					id: jobId,
+					projectId: "project-1",
+					revision: 4,
+					status: "queued",
+					createdAt: new Date(),
+					completedAt: null,
+				}
+			: null,
+};
 
 describe("hosted render authentication", () => {
 	it("refuses a request that claims a plan but carries no session", async () => {
@@ -68,12 +104,86 @@ describe("hosted render entitlement", () => {
 		);
 
 		expect(response.status).toBe(402);
+		expect(await response.json()).toEqual({
+			error: "Hosted renders come with Creator",
+			code: "plan-limit",
+			ceiling: "hostedRenderTime",
+			limit: 0,
+			used: 0,
+			plan: "free",
+			upgradeTo: "creator",
+		});
+	});
+
+	it("passes the server-resolved plan to the job service and refuses past the monthly minutes", async () => {
+		let seenPlan: Plan | null = null;
+		const route = createCloudRoute({
+			auth: signedInAs("acc_1"),
+			subscriptions: on(Plan.pro()),
+			renderJobs: {
+				...renderJobs,
+				submit: async (input) => {
+					seenPlan = input.plan;
+					return { outcome: "plan-limit", ceiling: "hostedRenderTime", used: 3_590_000 };
+				},
+			},
+		});
+
+		const response = await hostedApp(route).request(renderRequest({ cookie: "session=valid" }));
+
+		expect((seenPlan as Plan | null)?.tier).toBe("pro");
+		expect(response.status).toBe(402);
+		expect(await response.json()).toMatchObject({
+			code: "plan-limit",
+			ceiling: "hostedRenderTime",
+			limit: 3_600_000,
+			used: 3_590_000,
+			plan: "creator",
+			upgradeTo: null,
+		});
+	});
+
+	it("asks a Creator account to wait when three jobs already run", async () => {
+		const route = createCloudRoute({
+			auth: signedInAs("acc_1"),
+			subscriptions: on(Plan.pro()),
+			renderJobs: {
+				...renderJobs,
+				submit: async () => ({ outcome: "plan-limit", ceiling: "concurrentRenders", used: 3 }),
+			},
+		});
+
+		const response = await hostedApp(route).request(renderRequest({ cookie: "session=valid" }));
+
+		expect(response.status).toBe(429);
+		expect(await response.json()).toMatchObject({
+			ceiling: "concurrentRenders",
+			limit: 3,
+			used: 3,
+			upgradeTo: null,
+		});
+	});
+
+	it("refuses a size past the plan's rectangle with the sentence that names it", async () => {
+		const message =
+			"Creator renders up to 3840×2160 in either orientation, and 3840×3840 is larger";
+		const route = createCloudRoute({
+			auth: signedInAs("acc_1"),
+			subscriptions: on(Plan.pro()),
+			renderJobs: { ...renderJobs, submit: async () => ({ outcome: "resolution-limit", message }) },
+		});
+
+		const response = await hostedApp(route).request(renderRequest({ cookie: "session=valid" }));
+
+		expect(response.status).toBe(402);
+		expect(await response.json()).toEqual({ error: message, code: "resolution-limit" });
 	});
 
 	it("accepts a signed-in account whose plan includes hosted rendering", async () => {
 		const route = createCloudRoute({
 			auth: signedInAs("acc_1"),
 			subscriptions: on(Plan.pro()),
+			renderJobs,
 		});
 
 		const response = await hostedApp(route).request(
@@ -87,13 +197,14 @@ describe("hosted render entitlement", () => {
 		const route = createCloudRoute({
 			auth: signedInAs("acc_1"),
 			subscriptions: on(Plan.pro()),
+			renderJobs,
 		});
 
 		const response = await hostedApp(route).request(
 			new Request("http://localhost/api/cloud/render", {
 				method: "POST",
 				headers: { "content-type": "application/json", cookie: "session=valid" },
-				body: JSON.stringify({ steps: [{ code: "only one" }] }),
+				body: JSON.stringify({ projectId: "project-1", revision: 4 }),
 			}),
 		);
 
@@ -110,6 +221,7 @@ describe("hosted render entitlement", () => {
 				},
 			},
 			subscriptions: on(Plan.pro()),
+			renderJobs,
 		});
 
 		const response = await hostedApp(route).request(

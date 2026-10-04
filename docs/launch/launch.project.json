@@ -1,0 +1,153 @@
+{
+	"schemaVersion": 2,
+	"project": {
+		"id": "legacy-project-0qsg0ze",
+		"title": "Typelapse launch",
+		"canvas": {
+			"width": 1920,
+			"height": 1080,
+			"background": "mesh:solar"
+		},
+		"settings": {
+			"progressStyle": "none",
+			"transitionMs": 650,
+			"transitionEasing": [0.42, 0, 0.58, 1],
+			"typewriter": false,
+			"focusZoom": false,
+			"watermark": "",
+			"fps": 60
+		},
+		"assets": [],
+		"audioCues": [],
+		"scenes": [
+			{
+				"id": "legacy-project-0qsg0ze-scene-1",
+				"durationMs": 3600,
+				"blocks": [
+					{
+						"id": "launch-title",
+						"opacity": 1,
+						"placement": {
+							"x": 0.12,
+							"y": 0.35,
+							"width": 0.76,
+							"height": 0.3
+						},
+						"kind": "text",
+						"text": "Sharp code videos from a pull request",
+						"typography": {
+							"fontFamily": "Geist, ui-sans-serif, system-ui, sans-serif",
+							"fontSize": 88,
+							"fontWeight": 650,
+							"color": "#fffaf0",
+							"align": "center"
+						}
+					}
+				],
+				"transitionOut": {
+					"kind": "magic-move",
+					"durationMs": 650
+				}
+			},
+			{
+				"id": "legacy-project-0qsg0ze-scene-2",
+				"durationMs": 3000,
+				"blocks": [
+					{
+						"id": "legacy-project-0qsg0ze-scene-2-code",
+						"opacity": 1,
+						"placement": {
+							"x": 0,
+							"y": 0,
+							"width": 1,
+							"height": 1
+						},
+						"continuityKey": "primary-code",
+						"kind": "code",
+						"code": "export type ExportTarget = \"device\" | \"server\" | \"cloud\";\n",
+						"language": "typescript",
+						"themeName": "midnight",
+						"fontFamily": "JetBrains Mono, monospace",
+						"borderRadius": 12,
+						"chrome": "macos",
+						"showLineNumbers": true,
+						"lineNumberStart": 1,
+						"framePadding": 24,
+						"cardMargin": 32
+					}
+				],
+				"caption": "Paste a pull request",
+				"transitionOut": {
+					"kind": "magic-move",
+					"durationMs": 650
+				}
+			},
+			{
+				"id": "legacy-project-0qsg0ze-scene-3",
+				"durationMs": 4800,
+				"blocks": [
+					{
+						"id": "legacy-project-0qsg0ze-scene-3-code",
+						"opacity": 1,
+						"placement": {
+							"x": 0,
+							"y": 0,
+							"width": 1,
+							"height": 1
+						},
+						"continuityKey": "primary-code",
+						"kind": "code",
+						"code": "export type ExportTarget = \"device\" | \"server\" | \"cloud\";\n\n/**\n * Server is the local Remotion routes, and a hosted build does not mount them.\n */\nexport function serverRenderOffered(): boolean {\n  return !isHostedBuild();\n}\n",
+						"language": "typescript",
+						"themeName": "midnight",
+						"fontFamily": "JetBrains Mono, monospace",
+						"borderRadius": 12,
+						"chrome": "macos",
+						"showLineNumbers": true,
+						"lineNumberStart": 1,
+						"framePadding": 24,
+						"cardMargin": 32
+					}
+				],
+				"caption": "It becomes the scenes",
+				"transitionOut": {
+					"kind": "magic-move",
+					"durationMs": 650
+				}
+			},
+			{
+				"id": "legacy-project-0qsg0ze-scene-4",
+				"durationMs": 6650,
+				"blocks": [
+					{
+						"id": "legacy-project-0qsg0ze-scene-4-code",
+						"opacity": 1,
+						"placement": {
+							"x": 0,
+							"y": 0,
+							"width": 1,
+							"height": 1
+						},
+						"continuityKey": "primary-code",
+						"kind": "code",
+						"code": "function webmLadder(width: number, height: number, fps: number) {\n  return [\n    { codec: av1(1, width, height, fps), chroma: \"4:4:4\" }, // 42.81 dB\n    { codec: av1(0, width, height, fps), chroma: \"4:2:0\" },\n    { codec: \"vp09.00.41.08\", chroma: \"4:2:0\" },\n    { codec: \"vp8\", chroma: \"4:2:0\" },\n  ];\n}",
+						"language": "typescript",
+						"themeName": "midnight",
+						"fontFamily": "JetBrains Mono, monospace",
+						"borderRadius": 12,
+						"chrome": "macos",
+						"showLineNumbers": true,
+						"lineNumberStart": 1,
+						"framePadding": 24,
+						"cardMargin": 32
+					}
+				],
+				"caption": "Export on your device, AV1 4:4:4"
+			}
+		],
+		"legacySource": {
+			"liveCode": "export type ExportTarget = \"device\" | \"server\" | \"cloud\";\n",
+			"hadCapturedSteps": true
+		}
+	}
+}

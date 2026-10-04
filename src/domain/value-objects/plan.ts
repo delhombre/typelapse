@@ -17,6 +17,16 @@ export type PlanTier = "local" | "free" | "pro" | "team";
 /** Discrete branding watermark stamped on every free-tier export. */
 export const BRANDING_WATERMARK = "Made with Typelapse";
 
+const MEBIBYTE = 1024 * 1024;
+const MINUTE_MS = 60_000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
+
+/**
+ * A server-side ceiling a hosted account can hit. Each maps to one capability
+ * below, so a refusal can name the ceiling, its value and the plan that lifts it.
+ */
+export type PlanCeiling = "cloudProjects" | "mediaBytes" | "hostedRenderTime" | "concurrentRenders";
+
 export interface PlanCapabilities {
 	/**
 	 * Largest export dimension in pixels, on whichever axis is the longer one.
@@ -50,6 +60,20 @@ export interface PlanCapabilities {
 	readonly priorityQueue: boolean;
 	/** Member seats the tier grants (per-seat team billing). */
 	readonly seats: number;
+	/** Projects the account may keep in Typelapse Cloud. */
+	readonly maxCloudProjects: number;
+	/** Bytes of private media the account may store, across all its projects. */
+	readonly maxMediaBytes: number;
+	/** Milliseconds of hosted render output per calendar month (UTC). */
+	readonly hostedRenderMsPerMonth: number;
+	/** Hosted render jobs that may be queued or running at once. */
+	readonly maxConcurrentRenders: number;
+	/**
+	 * How long a past hosted output stays downloadable once the plan no longer
+	 * includes hosted rendering. A user who paid for a file owns the file, so a
+	 * downgrade starts a grace period instead of deleting access.
+	 */
+	readonly hostedOutputGraceMs: number;
 }
 
 /**
@@ -67,8 +91,16 @@ const LOCAL: PlanCapabilities = {
 	allowsCloudExport: false,
 	priorityQueue: false,
 	seats: 1,
+	// Nothing runs on our servers in the local build, so no hosted ceiling applies.
+	maxCloudProjects: Number.POSITIVE_INFINITY,
+	maxMediaBytes: Number.POSITIVE_INFINITY,
+	hostedRenderMsPerMonth: Number.POSITIVE_INFINITY,
+	maxConcurrentRenders: Number.POSITIVE_INFINITY,
+	hostedOutputGraceMs: Number.POSITIVE_INFINITY,
 };
 
+// The hosted ceilings are decision log 2026-10-03-viability D4: free exists so
+// cloud save and the PR-by-URL flow can be tried; a render is paid compute.
 const FREE: PlanCapabilities = {
 	maxLongEdge: 1920,
 	maxShortEdge: 1080,
@@ -79,6 +111,11 @@ const FREE: PlanCapabilities = {
 	allowsCloudExport: false,
 	priorityQueue: false,
 	seats: 1,
+	maxCloudProjects: 3,
+	maxMediaBytes: 100 * MEBIBYTE,
+	hostedRenderMsPerMonth: 0,
+	maxConcurrentRenders: 0,
+	hostedOutputGraceMs: 30 * DAY_MS,
 };
 
 const PRO: PlanCapabilities = {
@@ -91,12 +128,24 @@ const PRO: PlanCapabilities = {
 	allowsCloudExport: true,
 	priorityQueue: true,
 	seats: 1,
+	maxCloudProjects: 100,
+	maxMediaBytes: 5 * 1024 * MEBIBYTE,
+	hostedRenderMsPerMonth: 60 * MINUTE_MS,
+	maxConcurrentRenders: 3,
+	hostedOutputGraceMs: Number.POSITIVE_INFINITY,
+};
+
+const CEILING_CAPABILITY: Record<PlanCeiling, keyof PlanCapabilities> = {
+	cloudProjects: "maxCloudProjects",
+	mediaBytes: "maxMediaBytes",
+	hostedRenderTime: "hostedRenderMsPerMonth",
+	concurrentRenders: "maxConcurrentRenders",
 };
 
 const TIER_LABELS: Record<PlanTier, string> = {
 	local: "Local",
 	free: "Free",
-	pro: "Pro",
+	pro: "Creator",
 	team: "Team",
 };
 
@@ -152,7 +201,7 @@ export class Plan {
 	 * explicitly with its seat count (org billing), never from a bare string.
 	 */
 	static fromTier(tier: string): Plan {
-		if (tier === "pro") {
+		if (tier === "pro" || tier === "creator") {
 			return Plan.pro();
 		}
 		if (tier === "local") {
@@ -234,6 +283,41 @@ export class Plan {
 		}
 		const trimmed = userWatermark.trim();
 		return trimmed.length > 0 ? trimmed : undefined;
+	}
+
+	/** The plan's value for a hosted ceiling (milliseconds, bytes or a count). */
+	limitFor(ceiling: PlanCeiling): number {
+		return this.capabilities[CEILING_CAPABILITY[ceiling]] as number;
+	}
+
+	/**
+	 * The plan a refusal should point to, or null when no plan lifts the ceiling.
+	 * Only an unpaid hosted tier has somewhere to go: Creator is the top of the
+	 * single-seat ladder, and local has no hosted ceilings at all.
+	 */
+	upgradeFor(ceiling: PlanCeiling): Plan | null {
+		if (this.tier !== "free") {
+			return null;
+		}
+		const creator = Plan.pro();
+		return creator.limitFor(ceiling) > this.limitFor(ceiling) ? creator : null;
+	}
+
+	/**
+	 * Whether a past hosted output may still be downloaded. The grace period runs
+	 * from whichever came last, the render or the downgrade, so a job that
+	 * finished after the downgrade still gets its full 30 days.
+	 */
+	keepsHostedOutput(input: {
+		readonly completedAt: Date;
+		readonly downgradedAt: Date | null;
+		readonly now: Date;
+	}): boolean {
+		if (this.capabilities.allowsCloudExport) {
+			return true;
+		}
+		const anchor = Math.max(input.completedAt.getTime(), input.downgradedAt?.getTime() ?? 0);
+		return input.now.getTime() - anchor < this.capabilities.hostedOutputGraceMs;
 	}
 
 	/** Resize the team immutably: same tier, new seat count. */

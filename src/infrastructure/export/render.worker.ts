@@ -16,29 +16,22 @@
  * rather than assumed away.
  */
 
-import { GRAIN_OPACITY, GRAIN_TILE_SIZE, GRAIN_TILE_URL } from "@/application/backgrounds/grain";
-import { transparencyPlan } from "@/application/export/transparency";
+import { transparencyPlan, wantsTransparency } from "@/application/export/transparency";
 import { advanceDriftMessage } from "@/application/fonts/font-fidelity";
-import { canvasFont } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
-import type { GrainTile } from "@/application/frame-painter/scene";
+import { measureCharWidthRatio } from "@/application/layout/char-advance";
 import { CHROME_FONT_STACK } from "@/application/layout/frame-metrics";
-import {
-	BufferTarget,
-	CanvasSource,
-	Mp4OutputFormat,
-	Output,
-	Quality,
-	WebMOutputFormat,
-	canEncodeVideo,
-} from "mediabunny";
+import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, WebMOutputFormat } from "mediabunny";
 import { decodeBackdropImage } from "./backdrop-image";
 import type { ClientExportEvent, ClientExportJob } from "./client-export-job";
-import { VIDEO_SCALE, sceneFor, scriptFor } from "./client-export-scene";
+import { compositionPlanFor, sceneFor, scriptFor, textFontStacks } from "./client-export-scene";
+import { firstEncodableRung, qualityOf } from "./codec-probe";
+import { openCompositionVideos } from "./composition-videos";
 import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
 import { gifSafeFps } from "./gif-timing";
-import { encodingFor, encodingQuality, evenDimensions } from "./video-encoding";
+import { grainTileOf } from "./grain-tile";
+import { type CodecRung, encodingFor, evenDimensions } from "./video-encoding";
 import { loadExportFonts } from "./worker-fonts";
 
 /** Report progress this often. Every frame would cost more than it tells. */
@@ -63,6 +56,27 @@ async function run(job: ClientExportJob): Promise<void> {
 			? gifDimensions(job.width, job.height)
 			: evenDimensions(job.width, job.height);
 
+	// Which codec this browser will actually give us, decided before anything is
+	// painted so a refusal costs one sentence rather than a render.
+	//
+	// A transparent export asks the ladder twice: first for a rung that will
+	// carry the alpha channel, and then — when none will — for the best rung
+	// regardless, with the plan below saying what the file lost. The order
+	// matters. Asking the other way round would pick AV1, discover it drops
+	// alpha, and flatten a background VP9 could have kept.
+	const alphaRung = wantsTransparency(job.background)
+		? await firstEncodableRung(encoding.ladder, { width, height, fps: job.fps, alpha: "keep" })
+		: null;
+	const rung =
+		alphaRung ?? (await firstEncodableRung(encoding.ladder, { width, height, fps: job.fps }));
+	if (encoding.ladder.length > 0 && !rung) {
+		throw new Error(
+			typeof VideoEncoder === "undefined"
+				? "This browser has no WebCodecs VideoEncoder."
+				: `This browser refused every ${encoding.container.toUpperCase()} codec at ${width}×${height} at ${job.fps} fps.`,
+		);
+	}
+
 	// A background of `None` needs a canvas that can actually hold nothing, and
 	// everything else is better off without one: on an opaque context a GIF's
 	// pixel read-back is a copy rather than a composite. What the file can carry
@@ -70,7 +84,7 @@ async function run(job: ClientExportJob): Promise<void> {
 	const transparency = transparencyPlan({
 		format: job.format,
 		background: job.background,
-		encoderKeepsAlpha: await encoderKeepsAlpha(encoding, width, height, job.fps),
+		encoderKeepsAlpha: alphaRung !== null,
 	});
 
 	const canvas = new OffscreenCanvas(width, height);
@@ -83,7 +97,12 @@ async function run(job: ClientExportJob): Promise<void> {
 	// what the format can deliver is what keeps the duration exact.
 	const fps = encoding.container === "gif" ? gifSafeFps(job.fps) : job.fps;
 
-	const charWidthRatio = await measureAdvance(ctx, job.theme.fontFamily, job.theme.fontSize);
+	const charWidthRatio = await measureAdvance(
+		ctx,
+		job.theme.fontFamily,
+		job.theme.fontSize,
+		job.composition ? textFontStacks(job.composition.document) : [],
+	);
 	// The net under the font loading: two scopes that resolved the same family to
 	// different metrics would put the video out of line with the preview, and a
 	// video that is quietly off is worse than an export that says why it stopped.
@@ -97,18 +116,48 @@ async function run(job: ClientExportJob): Promise<void> {
 	}
 
 	const scene = sceneFor({ ...job, width, height }, charWidthRatio, {
-		grain: await decodeGrain(),
+		grain: grainTileOf(job.grain, encoding.container),
 		backdropImage: await decodeBackdropImage(job.background),
 	});
-	const script = scriptFor({ ...job, fps });
+	const codeScript = scriptFor({ ...job, fps });
+	// A studio project's text and image layers come from the scene compiler the
+	// preview reads, at the file's own rate. Its timeline can outrun the code's
+	// (an audio cue past the last scene), and the code then holds its last frame.
+	const composition = job.composition
+		? compositionPlanFor(job.composition, { width, fps, loop: job.loop })
+		: null;
+	const script = composition
+		? { ...codeScript, totalFrames: Math.max(codeScript.totalFrames, composition.totalFrames) }
+		: codeScript;
+	// Where a translucent card is painted whole before it is faded as one picture.
+	const scratchCanvas = composition ? new OffscreenCanvas(width, height) : null;
+	const scratchCtx = scratchCanvas?.getContext("2d") ?? null;
+	const scratch =
+		scratchCanvas && scratchCtx ? { ctx: scratchCtx, image: scratchCanvas } : undefined;
+	// Video layers are decoded here, on the schedule the compiler gives every
+	// frame; a codec this browser cannot decode refuses now, before frame one.
+	const videos =
+		composition && job.composition
+			? await openCompositionVideos(
+					job.composition.document,
+					job.composition.videos,
+					composition.videoRequests(script.totalFrames),
+				)
+			: null;
 
-	const painter = (frame: number) => {
-		paintFrame(ctx, scene, script.frameAt(frame));
+	const painter = async (frame: number) => {
+		const videoFrames = videos ? await videos.framesAt(frame) : undefined;
+		paintFrame(
+			ctx,
+			scene,
+			codeScript.frameAt(frame),
+			composition ? { ...composition.layersAt(frame, videoFrames), scratch } : undefined,
+		);
 	};
 
-	const result =
+	const encoded =
 		encoding.container === "gif"
-			? await encodeGif({
+			? encodeGif({
 					canvas,
 					ctx,
 					script,
@@ -117,14 +166,16 @@ async function run(job: ClientExportJob): Promise<void> {
 					report,
 					transparent: transparency.keepAlpha,
 				})
-			: await encodeVideo({
+			: encodeVideo({
 					canvas,
 					script,
 					fps,
-					encoding,
+					container: encoding.container,
+					rung,
 					paint: painter,
 					alpha: transparency.encodeAlpha,
 				});
+	const result = await encoded.finally(() => videos?.close());
 
 	post(
 		{
@@ -140,6 +191,8 @@ async function run(job: ClientExportJob): Promise<void> {
 				charWidthRatio,
 				charWidthDrift: Math.abs(charWidthRatio - job.documentCharWidthRatio),
 				codec: result.codec,
+				codecLabel: rung?.label ?? null,
+				chroma: rung?.chroma ?? null,
 				transparency: transparency.outcome,
 				transparencyNote: transparency.note,
 			},
@@ -152,75 +205,41 @@ interface EncodeInput {
 	canvas: OffscreenCanvas;
 	script: ReturnType<typeof scriptFor>;
 	fps: number;
-	encoding: ReturnType<typeof encodingFor>;
-	paint: (frame: number) => void;
+	container: "mp4" | "webm" | "gif";
+	/** The rung the probe settled on. Null only where there is no encoder at all. */
+	rung: CodecRung | null;
+	/** Async where a frame waits on its video layers' decoded pictures. */
+	paint: (frame: number) => Promise<void>;
 	/** Carry the canvas's alpha into the packets, where the codec can. */
 	alpha: boolean;
 }
 
-/**
- * Whether this browser will encode alpha for the codec at hand.
- *
- * Asked rather than assumed: VP9 is specified to carry alpha as packet side
- * data, and whether a given build actually does is a property of the machine.
- */
-async function encoderKeepsAlpha(
-	encoding: ReturnType<typeof encodingFor>,
-	width: number,
-	height: number,
-	fps: number,
-): Promise<boolean> {
-	if (!encoding.codec || typeof VideoEncoder === "undefined") {
-		return false;
-	}
-	for (const codec of encoding.probeCodecs) {
-		try {
-			const support = await VideoEncoder.isConfigSupported({
-				codec,
-				width,
-				height,
-				framerate: fps,
-				alpha: "keep",
-			});
-			if (support.supported) {
-				return true;
-			}
-		} catch {
-			// A build that will not even consider the configuration is a no.
-		}
-	}
-	return false;
-}
-
-/** H.264 or VP9 through WebCodecs, muxed by mediabunny. */
+/** The rung the probe chose, through WebCodecs, muxed by mediabunny. */
 async function encodeVideo(
 	input: EncodeInput,
 ): Promise<{ buffer: ArrayBuffer; paintMs: number; codec: string }> {
-	const { canvas, script, fps, encoding, paint, alpha } = input;
-	if (!encoding.codec) {
-		throw new Error(`No client-side encoder for ${encoding.container}.`);
+	const { canvas, script, fps, container, rung, paint, alpha } = input;
+	if (!rung) {
+		throw new Error(`No client-side encoder for ${container}.`);
 	}
-	await probe(encoding, canvas.width, canvas.height, fps);
-	const quality = encodingQuality(encoding.codec, canvas.width, canvas.height, fps);
 
 	const output = new Output({
-		format: encoding.container === "webm" ? new WebMOutputFormat() : new Mp4OutputFormat(),
+		format: container === "webm" ? new WebMOutputFormat() : new Mp4OutputFormat(),
 		target: new BufferTarget(),
 	});
-	// What the encoder is actually handed, reported rather than assumed: the
-	// probe above only establishes that *something* will encode, and mediabunny
-	// builds its own codec string from the codec name, so the profile and level
-	// in the file are its decision and not the probe's.
+	// What the encoder is actually handed, reported rather than assumed. The
+	// string is pinned by `fullCodecString` — left to itself mediabunny builds
+	// one from the codec name, which would quietly drop AV1 back to Profile 0 and
+	// give away the 4:4:4 chroma the whole ladder exists for — and this callback
+	// is how we find out if that ever stops being true.
 	let encoded: string | null = null;
 	const source = new CanvasSource(canvas, {
-		codec: encoding.codec,
+		codec: rung.codec,
+		fullCodecString: rung.codecString,
 		// A quantizer where the browser honours one (VP9), a budget where it does
-		// not (AVC). Passing both lets mediabunny offer constant quality first and
-		// fall back to the budget on a build that refuses it.
-		bitrate:
-			quality.quantizer === null
-				? new Quality({ bitrate: quality.bitrate })
-				: new Quality({ quantizer: quality.quantizer, bitrate: quality.bitrate }),
+		// not. Passing both lets mediabunny offer constant quality first and fall
+		// back to the budget on a build that refuses it.
+		bitrate: qualityOf(rung, { width: canvas.width, height: canvas.height, fps }),
 		onEncoderConfig: (config) => {
 			encoded = config.codec;
 		},
@@ -234,7 +253,7 @@ async function encodeVideo(
 	let paintMs = 0;
 	for (let frame = 0; frame < script.totalFrames; frame++) {
 		const before = performance.now();
-		paint(frame);
+		await paint(frame);
 		paintMs += performance.now() - before;
 		// Awaiting each frame respects the encoder's backpressure: without it a
 		// long video queues every frame at once and the worker runs out of memory
@@ -248,36 +267,7 @@ async function encodeVideo(
 	if (!buffer) {
 		throw new Error("The muxer finalized without producing a buffer.");
 	}
-	return { buffer, paintMs, codec: encoded ?? encoding.codec };
-}
-
-/**
- * Ask WebCodecs before handing anything to the muxer, so an unsupported
- * configuration produces one clear sentence rather than a failure three layers
- * down. Each candidate profile is tried in turn: baseline is the safest ask,
- * but it thins out above 1080p where high is what hardware actually implements.
- */
-async function probe(
-	encoding: ReturnType<typeof encodingFor>,
-	width: number,
-	height: number,
-	fps: number,
-): Promise<string> {
-	if (typeof VideoEncoder === "undefined") {
-		throw new Error("This browser has no WebCodecs VideoEncoder.");
-	}
-	for (const codec of encoding.probeCodecs) {
-		const support = await VideoEncoder.isConfigSupported({ codec, width, height, framerate: fps });
-		if (support.supported) {
-			return codec;
-		}
-	}
-	if (encoding.codec && !(await canEncodeVideo(encoding.codec, { width, height }))) {
-		throw new Error(`This browser has no usable ${encoding.codec.toUpperCase()} encoder.`);
-	}
-	throw new Error(
-		`This browser refused ${encoding.container.toUpperCase()} at ${width}×${height} at ${fps} fps.`,
-	);
+	return { buffer, paintMs, codec: encoded ?? rung.codecString };
 }
 
 /**
@@ -294,26 +284,17 @@ async function measureAdvance(
 	ctx: OffscreenCanvasRenderingContext2D,
 	fontFamily: string,
 	fontSize: number,
+	textStacks: string[],
 ): Promise<number> {
 	// The chrome bar is set in the app's own mono whatever the code is set in, so
-	// it is a second family this scope has to have before it paints anything.
-	await loadExportFonts(scope.fonts, fontFamily, CHROME_FONT_STACK);
-	const size = fontSize * VIDEO_SCALE;
-	ctx.font = canvasFont(size, fontFamily);
-	return ctx.measureText("0").width / size;
-}
-
-/** Decode the shared grain tile once, ready to be tiled by the painter. */
-async function decodeGrain(): Promise<GrainTile | null> {
-	try {
-		const response = await fetch(GRAIN_TILE_URL);
-		const image = await createImageBitmap(await response.blob());
-		return { image, size: GRAIN_TILE_SIZE, opacity: GRAIN_OPACITY };
-	} catch {
-		// The grain is texture, not information: a frame without it is still a
-		// frame, so this must never be what fails an export.
-		return null;
-	}
+	// it is a second family this scope has to have before it paints anything; a
+	// text layer's face (Geist) is a third. FontFace works in a Chromium worker,
+	// so the faces are loaded here rather than pre-rasterized in the tab: text
+	// rasterized at one size and scaled would not be the preview's glyphs.
+	await loadExportFonts(scope.fonts, fontFamily, CHROME_FONT_STACK, ...textStacks);
+	// The same probe the document and the server take, at the same size, so the
+	// three answers are comparable and the card is sized on this scope's glyphs.
+	return measureCharWidthRatio(ctx, fontFamily, fontSize);
 }
 
 function report(completedFrames: number, totalFrames: number): void {

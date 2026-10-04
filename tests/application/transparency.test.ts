@@ -61,6 +61,18 @@ describe("transparencyPlan: a background of None", () => {
 		expect(result.note).toMatch(/this browser/i);
 	});
 
+	it("only points at a way out that actually keeps the channel", () => {
+		// The server's WebM is captured as JPEG and encoded 4:2:0, so sending a
+		// transparent export there to keep its alpha would flatten it all the same.
+		// GIF is the one format that carries it on every path.
+		for (const format of ["mp4", "webm"] as const) {
+			const note = plan(format, "transparent", false).note ?? "";
+			expect(note, format).not.toMatch(/server/i);
+			expect(note, format).toMatch(/GIF/);
+			expect(note, format).not.toContain("\u2014");
+		}
+	});
+
 	it("never asks a canvas to keep an alpha the file cannot hold", () => {
 		// Painting transparent onto a canvas whose encoder discards alpha is the
 		// worst of both: the cost of the composite and a black frame anyway.
