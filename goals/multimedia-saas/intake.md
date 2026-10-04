@@ -44,7 +44,7 @@ quality of `ui.camera` adapted to Typelapse.
 
 - Branch: `codex/multimedia-saas`
 - Base: `06d247bf8d642b74b40c93e1844e3730509bff88`
-- Worktree: `/private/tmp/typelapse-multimedia-saas`
+- Worktree: a temporary worktree outside the repository
 - Sensors: 1,027 tests green; client typecheck green; production build green.
 - Existing hosted state: Better Auth is server-only; billing and cloud render
   are explicit stubs; only auth tables exist in Postgres.

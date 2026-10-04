@@ -12,12 +12,9 @@ import { existsSync, mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
-// Playwright is not a dependency of this project and should not become one for a
-// dev-only script, so it is borrowed from wherever it already exists.
+// The project's own @playwright/test by default; PLAYWRIGHT_CORE points at another install.
 const require = createRequire(import.meta.url);
-const PLAYWRIGHT =
-	process.env.PLAYWRIGHT_CORE ??
-	"/Users/brunodogbase/.npm/_npx/218f5d799962bf90/node_modules/playwright-core";
+const PLAYWRIGHT = process.env.PLAYWRIGHT_CORE ?? "@playwright/test";
 const { chromium } = require(PLAYWRIGHT);
 
 const OUT = resolve(process.argv[2] ?? "/tmp/typelapse-landing");
@@ -26,9 +23,8 @@ const URL_ = process.env.LANDING_URL ?? "http://localhost:5173/";
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({
-	executablePath:
-		process.env.CHROMIUM_BIN ??
-		"/Users/brunodogbase/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+	// Unset means Playwright's own downloaded browser (`pnpm exec playwright install chromium`).
+	executablePath: process.env.CHROMIUM_BIN,
 });
 
 const page = await browser.newPage({

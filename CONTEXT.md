@@ -89,11 +89,19 @@ or it does not land.
 - **Rung**: one codec candidate on a ladder, with its codec string and chroma.
 - **Server render**: `POST /api/render` (V1) and the local multimedia render
   route (V2 with multipart assets), local deployment mode only.
-- **Headless render**: `typelapse render <pr-url|commit-url|diff|project.json>`
+- **Headless render**: `typelapse render <pr-url|commit-url|release-url|diff|project.json>`
   (`cli/`), the server render driven in process with the studio's defaults.
   A PR becomes the project the studio's own import would build
   (`application/import/diff-project`). Engine for the GitHub Action and the
   agent skill; exit codes 0, 2 (arguments), 3 (source), 4 (render).
+- **Changelog video**: what a release link (`/releases/tag/<tag>`) or a
+  compare link (`/compare/<a>...<b>`) becomes, in the CLI, the Action and the
+  studio's link import. The range runs from the previous tag in the
+  repository's tag order (or from the first commit) to the tag, chaptered by
+  commit like a multi-commit pull request, merges left out; it opens on the
+  **release card**, a blank scene with the release title as a text layer and
+  the body's opening line under it when that is one short sentence
+  (`application/import/release-project`).
 - **Hosted render job**: a queued, leased, fenced job on a canonical revision,
   entitlement-gated, with expiring result access.
 - **Where**: the export panel's choice of machine. **Device** (WebCodecs in
@@ -135,6 +143,11 @@ or it does not land.
 - **Grace period**: how long past hosted outputs stay downloadable once the
   plan no longer covers hosted rendering (30 days from the later of the render
   and the downgrade).
+- **Public render page**: `/v/<id>`, the API's own HTML page for a succeeded
+  Cloud render whose owner turned its public flag on (every render starts
+  private). It lives while the owner's plan keeps the output; anything else is
+  the same 404. Its video and poster addresses re-sign a one-hour object URL on
+  each request, so making it private takes effect at once.
 - **The rule that settles pricing edge cases**: what runs on the user's
   machine is free and stays free; what runs on our servers is paid.
 
