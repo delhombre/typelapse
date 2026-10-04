@@ -1,6 +1,7 @@
 import { Hero } from "@/presentation/landing/hero";
+import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/presentation/landing/instrument", () => ({
@@ -13,6 +14,23 @@ function renderHero() {
 	return render(
 		<MemoryRouter>
 			<Hero />
+		</MemoryRouter>,
+	);
+}
+
+/** Where the studio would open, and with what: the path and the hash the hero sent. */
+function Studio() {
+	const location = useLocation();
+	return <output aria-label="Studio">{`${location.pathname}${location.hash}`}</output>;
+}
+
+function renderHeroWithStudio() {
+	return render(
+		<MemoryRouter>
+			<Routes>
+				<Route path="/" element={<Hero />} />
+				<Route path="/app" element={<Studio />} />
+			</Routes>
 		</MemoryRouter>,
 	);
 }
@@ -72,5 +90,27 @@ describe("landing hero", () => {
 
 		expect(field?.hasAttribute("data-empty")).toBe(false);
 		expect((input as HTMLTextAreaElement).style.caretColor).toBe("");
+	});
+
+	/* #124: a release or a compare link is a link like a pull request, so Enter
+	   carries it into the studio, which imports it the way its own URL import
+	   does, and the pastille stops calling it a snippet. */
+	it.each([
+		"https://github.com/honojs/hono/releases/tag/v4.6.0",
+		"https://github.com/honojs/hono/compare/v4.5.0...v4.6.0",
+	])("carries %s into the studio on Enter", (url) => {
+		renderHeroWithStudio();
+		fireEvent.click(screen.getByRole("radio", { name: "snippet" }));
+		const input = screen.getByRole("textbox", { name: /paste a snippet/i });
+
+		fireEvent.change(input, { target: { value: url } });
+		expect((screen.getByRole("radio", { name: "pull request" }) as HTMLInputElement).checked).toBe(
+			true,
+		);
+		fireEvent.keyDown(input, { key: "Enter" });
+
+		expect(screen.getByRole("status", { name: "Studio" }).textContent).toBe(
+			`/app${encodeImportIntent({ source: url })}`,
+		);
 	});
 });

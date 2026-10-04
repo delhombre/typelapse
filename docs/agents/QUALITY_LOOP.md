@@ -27,8 +27,8 @@ from the owning gate onwards.
 Read `CONTEXT.md`, the decision logs in `docs/decisions/` that touch the same
 area, `goals/multimedia-saas/contract.md` and `state.md`, and the ticket. When
 a fact is missing (a competitor's behaviour, a codec limit, a licence term),
-run the `research` skill or a sub-agent and cite what it found under
-`docs/research/`. Apply Pstack **Foundational Thinking** before writing logic:
+run the `research` skill or a sub-agent and cite what it found in the
+owner's notes, or under `docs/research/` when present. Apply Pstack **Foundational Thinking** before writing logic:
 core types, what concurrent actors share.
 
 **Pass:** the decision log opens with its three context lines, naming the

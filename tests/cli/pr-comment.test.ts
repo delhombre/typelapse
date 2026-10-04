@@ -69,6 +69,25 @@ describe("the Action's pull request comment", () => {
 		expect(body).toContain("pnpm dev");
 	});
 
+	it("says the CLI's notice under the video, as one sentence", () => {
+		const body = commentBody({
+			result: { ...OK, notice: "46 commits, shown as one change" },
+			artifactUrl: ARTIFACT,
+			runUrl: RUN,
+			sha: SHA,
+		});
+		const lines = body.split("\n");
+		const download = lines.findIndex((line) => line.startsWith("[Download"));
+
+		expect(lines.slice(download + 1, download + 3)).toEqual([
+			"",
+			"46 commits, shown as one change.",
+		]);
+		expect(commentBody({ result: OK, artifactUrl: ARTIFACT, runUrl: RUN })).not.toContain(
+			"shown as one change",
+		);
+	});
+
 	it("points at the run when the artifact link is missing, instead of a dead link", () => {
 		const body = commentBody({ result: OK, artifactUrl: "", runUrl: RUN, sha: SHA });
 

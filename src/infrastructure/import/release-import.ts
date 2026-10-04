@@ -4,6 +4,8 @@
  * repository's tag order, to its own tag; the first tag runs from the first
  * commit. Each commit's diff is then fetched one after another, as a chaptered
  * pull request is, through the same GitHub helpers and the same sentences.
+ * A range past what a video chapters plays as one change instead: the range's
+ * own diff, in a single untitled chapter, said in a notice.
  *
  * Merge commits are left out: a merge repeats the commits it brings in, which
  * the range already lists one by one.
@@ -21,11 +23,14 @@ import {
 	fetchJsonStrict,
 } from "./pr-import";
 
-/** A release split into one chapter per commit, plus what its title card says. */
+/**
+ * A release split into one chapter per commit, plus what its title card says.
+ * Past {@link MAX_CHAPTER_COMMITS} commits, one untitled chapter of the whole range.
+ */
 export interface ReleaseWalkthrough {
 	card: ReleaseCard;
 	chapters: DiffChapter[];
-	/** Said alongside a good import: the range is not the one a release usually is. */
+	/** Said alongside a good import: the range is not shown the way a release usually is. */
 	notice?: string;
 }
 
@@ -94,36 +99,46 @@ async function previousTag(ref: ReleaseRef): Promise<string | null> {
 	throw new Error(`${RELEASE_NOT_FOUND} (or the repository is private)`);
 }
 
-function tooMany(what: string, count: number | null): Error {
-	return new Error(
-		count === null
-			? `This ${what} spans more than ${MAX_CHAPTER_COMMITS} commits, the most a video chapters: pass a smaller range`
-			: `This ${what} spans ${count} commits, more than the ${MAX_CHAPTER_COMMITS} a video chapters: pass a smaller range`,
-	);
-}
-
 const isMerge = (commit: GitHubCommit) => (commit.parents?.length ?? 0) > 1;
 
-/** The commits from `base` to `head`, oldest first, merges left out. */
-async function rangeCommits(
+/** What a range plays as: its chapters, and the notice when it is not by commit. */
+type RangeWalkthrough = Pick<ReleaseWalkthrough, "chapters" | "notice">;
+
+/**
+ * The range from `base` to `head`, one chapter per commit, oldest first, merges
+ * left out. Past {@link MAX_CHAPTER_COMMITS} commits it is the range's own diff
+ * in one untitled chapter instead: a release workflow that failed here would
+ * leave the release with no video at all, and one request is gentler on the
+ * rate limit than thirty.
+ */
+async function rangeWalkthrough(
 	ref: { owner: string; repo: string },
 	base: string,
 	head: string,
 	what: string,
-): Promise<GitHubCommit[]> {
+	onProgress?: ChapterProgress,
+): Promise<RangeWalkthrough> {
+	const url = `${repoApi(ref)}/compare/${pathRef(base)}...${pathRef(head)}`;
+	const notFound = what === "release" ? RELEASE_NOT_FOUND : "Comparison not found";
 	const compare = await fetchJsonStrict<{ total_commits?: number; commits?: GitHubCommit[] }>(
-		`${repoApi(ref)}/compare/${pathRef(base)}...${pathRef(head)}`,
-		what === "release" ? RELEASE_NOT_FOUND : "Comparison not found",
+		url,
+		notFound,
 		TOO_LARGE,
 	);
 	const listed = compare.commits ?? [];
 	// GitHub lists at most 250 commits of a range; the rest only count.
 	const unlisted = Math.max(0, (compare.total_commits ?? 0) - listed.length);
 	const commits = listed.filter((commit) => !isMerge(commit));
-	if (commits.length + unlisted > MAX_CHAPTER_COMMITS) {
-		throw tooMany(what, commits.length + unlisted);
+	if (commits.length + unlisted <= MAX_CHAPTER_COMMITS) {
+		return { chapters: await chaptersOf(ref, commits, what, onProgress) };
 	}
-	return commits;
+	const diffText = await fetchDiff(url, notFound, TOO_LARGE);
+	// GitHub's own count, merges included: the number the release page shows.
+	const count = compare.total_commits ?? commits.length + unlisted;
+	return {
+		chapters: [{ title: "", diffText }],
+		notice: `${count} commits, shown as one change`,
+	};
 }
 
 /** Every commit up to `tag`, oldest first, merges left out: the first tag's range. */
@@ -132,9 +147,12 @@ async function historyCommits(ref: ReleaseRef): Promise<GitHubCommit[]> {
 		`${repoApi(ref)}/commits?sha=${encodeURIComponent(ref.tag)}&per_page=${MAX_CHAPTER_COMMITS + 1}`,
 		RELEASE_NOT_FOUND,
 	);
-	// A full page means the history goes on past it.
+	// A full page means the history goes on past it. With no tag before it there
+	// is no range to diff as one change, so the way out is a range of one's own.
 	if (listed.length > MAX_CHAPTER_COMMITS) {
-		throw tooMany("release", null);
+		throw new Error(
+			`${ref.tag} is the first tag and its history runs past ${MAX_CHAPTER_COMMITS} commits, with no tag before it to compare with: pass a compare link`,
+		);
 	}
 	return listed.filter((commit) => !isMerge(commit)).reverse();
 }
@@ -163,10 +181,11 @@ async function chaptersOf(
 }
 
 /**
- * A release or a compare range → its title card and one chapter per commit.
+ * A release or a compare range → its title card and one chapter per commit, or
+ * the whole range as one change past {@link MAX_CHAPTER_COMMITS} commits.
  * `onProgress` reports `commit k/N` while the diffs arrive. Every failure is
  * one sentence: missing or private, the rate limit, a range GitHub will not
- * compare, more commits than a video chapters.
+ * compare, a first tag with too long a history.
  */
 export async function fetchReleaseChapters(
 	ref: ReleaseRef | CompareRef,
@@ -174,10 +193,9 @@ export async function fetchReleaseChapters(
 ): Promise<ReleaseWalkthrough> {
 	try {
 		if (!isRelease(ref)) {
-			const commits = await rangeCommits(ref, ref.base, ref.head, "comparison");
 			return {
 				card: { title: `${ref.base}...${ref.head}` },
-				chapters: await chaptersOf(ref, commits, "comparison", onProgress),
+				...(await rangeWalkthrough(ref, ref.base, ref.head, "comparison", onProgress)),
 			};
 		}
 		// A bare tag has no release: the card falls back to the tag's own name.
@@ -185,18 +203,15 @@ export async function fetchReleaseChapters(
 			fetchJson<GitHubRelease>(`${repoApi(ref)}/releases/tags/${pathRef(ref.tag)}`),
 			previousTag(ref),
 		]);
-		const commits = previous
-			? await rangeCommits(ref, previous, ref.tag, "release")
-			: await historyCommits(ref);
 		const card = releaseCardText({ name: release?.name, tag: ref.tag, body: release?.body });
-		const chapters = await chaptersOf(ref, commits, "release", onProgress);
-		return previous
-			? { card, chapters }
-			: {
-					card,
-					chapters,
-					notice: `${ref.tag} is the first tag, so the video runs from the first commit`,
-				};
+		if (previous) {
+			return { card, ...(await rangeWalkthrough(ref, previous, ref.tag, "release", onProgress)) };
+		}
+		return {
+			card,
+			chapters: await chaptersOf(ref, await historyCommits(ref), "release", onProgress),
+			notice: `${ref.tag} is the first tag, so the video runs from the first commit`,
+		};
 	} catch (err) {
 		// The pull request's way out ("paste the diff") is no answer to a release.
 		if (err instanceof Error && err.message.startsWith("GitHub rate limit")) {

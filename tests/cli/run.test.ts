@@ -243,6 +243,10 @@ describe("typelapse render", () => {
 		expect(stderr).toContain(
 			"typelapse: v1.2.0 is the first tag, so the video runs from the first commit",
 		);
+		// The Action's comment is built from this line, so the notice travels in it.
+		expect(JSON.parse(stdout[0] ?? "").notice).toBe(
+			"v1.2.0 is the first tag, so the video runs from the first commit",
+		);
 	});
 
 	it("refuses a release as a GIF in one sentence, since a text layer needs the multimedia route", async () => {

@@ -114,8 +114,8 @@ async function requestGitHub<T>(
 }
 
 /** The raw unified diff for a resource; throws a mapped Error on any failure. */
-export function fetchDiff(url: string, notFound: string): Promise<string> {
-	return requestGitHub(url, DIFF_ACCEPT, notFound, (response) => response.text());
+export function fetchDiff(url: string, notFound: string, tooLarge?: string): Promise<string> {
+	return requestGitHub(url, DIFF_ACCEPT, notFound, (response) => response.text(), tooLarge);
 }
 
 /** JSON for a resource, strictly: throws a mapped Error on any failure. */

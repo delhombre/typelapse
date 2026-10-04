@@ -78,9 +78,8 @@ move lands through a pull request like any change.
       git rm -r docs/research docs/launch/product-hunt.md docs/launch/x-thread.md docs/launch/checklist.md
       ```
 
-      Then, in `tests/docs/launch-kit.test.ts`, delete the
-      `describe("the launch kit")` block and its helpers (`DOCS`, `SHARPNESS`,
-      `psnr`, `posts`); the clip project checks stay. In
+      `tests/docs/launch-kit.test.ts` skips the checks of the posts once they
+      are gone, so it needs no edit. In
       `docs/decisions/2026-10-03-viability.md` line 14, replace the link to
       `../research/2026-10-03-competitors-and-pricing.md` with "the competitor
       and pricing research (owner's notes)". Then:

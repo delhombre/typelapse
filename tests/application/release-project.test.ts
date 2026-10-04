@@ -1,4 +1,5 @@
 import { chapterSnapshots } from "@/application/diff/chapters";
+import { diffToSnapshots } from "@/application/diff/diff-to-snapshots";
 import {
 	RELEASE_CARD_MS,
 	releaseCardText,
@@ -109,6 +110,18 @@ describe("releaseProject", () => {
 		expect(releaseProject({ title: "Faster imports" }, CHAPTERS)).toEqual(
 			useSnippetStore.getState().toProjectPayload(),
 		);
+	});
+
+	it("plays an untitled chapter as one change, its frames keeping their own captions", () => {
+		const whole = editDiff("src/greet.ts", "const a = 1;", "const a = 2;");
+		const project = releaseProject({ title: "Faster imports" }, [{ title: "", diffText: whole }]);
+		const snapshots = diffToSnapshots(whole).snapshots;
+
+		expect(project.steps[0]).toEqual({ code: "", duration: RELEASE_CARD_MS });
+		expect(project.steps.slice(1).map((step) => step.caption)).toEqual(
+			snapshots.map((snapshot) => captionFromGeneratedLabel(snapshot.label)),
+		);
+		expect(project.steps.some((step) => step.caption?.startsWith("1/1"))).toBe(false);
 	});
 
 	it("refuses commits that carry nothing to animate", () => {

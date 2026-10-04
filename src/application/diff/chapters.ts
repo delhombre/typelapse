@@ -33,7 +33,11 @@ import { parseUnifiedDiff } from "./parse-unified-diff";
 import type { CodeSnapshot, DiffToSnapshotsOptions, DiffToSnapshotsResult } from "./types";
 import { isLockfile } from "./windowing";
 
-/** One commit's worth of change: its subject line and its raw unified diff. */
+/**
+ * One commit's worth of change: its subject line and its raw unified diff. An
+ * empty title is a whole change shown as one (a release past what a video
+ * chapters): its frames keep their own captions, with no `k/N` heading.
+ */
 export interface DiffChapter {
 	title: string;
 	diffText: string;
@@ -121,6 +125,10 @@ export function chapterSnapshots(
 			frames[0]?.label === BEFORE_LABEL
 		) {
 			frames = frames.slice(1);
+		}
+		if (chapter.title === "") {
+			out.push(...frames);
+			return;
 		}
 		const heading = chapterHeading(position, total, chapter.title);
 		frames.forEach((frame, frameIndex) => {
