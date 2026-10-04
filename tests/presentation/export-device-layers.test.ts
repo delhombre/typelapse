@@ -19,7 +19,7 @@ const { document, serverRender, deviceRender, scenery } = vi.hoisted(() => ({
 
 vi.mock("@/presentation/stores/studio-composition.store", () => ({
 	hasAuthoredMultimedia: () => true,
-	useStudioCompositionStore: { getState: () => ({ toDocument: () => document.current }) },
+	readStudioProjectDocument: () => document.current,
 }));
 vi.mock("@/infrastructure/export/local-multimedia-render-http.adapter", () => ({
 	LocalMultimediaRenderHttpAdapter: class {

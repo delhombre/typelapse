@@ -279,8 +279,10 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 		const startedAt = performance.now();
 		const studioComposition = await import("./studio-composition.store");
+		// The saved document, not the raw composition: the composition keeps the
+		// render settings it was loaded with (#129).
 		const authored = studioComposition.hasAuthoredMultimedia()
-			? studioComposition.useStudioCompositionStore.getState().toDocument()
+			? studioComposition.readStudioProjectDocument()
 			: null;
 		// Text and image layers paint on this device (autonomous sprint D2); only
 		// Server sends the media to the local Remotion route.
