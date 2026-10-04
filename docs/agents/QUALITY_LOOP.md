@@ -124,8 +124,14 @@ proven against a disposable PostgreSQL. Do not run the full `pnpm test` while
 another agent runs anything in the same worktree; the orchestrator runs the
 full suite, `pnpm build` and `pnpm lint` once, serially, before a commit.
 
+A journey that lands gets its spec: the proof you just ran by hand becomes a
+Playwright test in `tests/e2e/` (one file per product promise, the promise in
+its `describe`, waits on state and never on time, `@smoke` when it belongs in
+the pull-request subset), so it runs again on every push and every night.
+`pnpm e2e:smoke` and the touched spec are green before the report.
+
 **Pass:** the report names what was observed, with the command and the file,
-and what could not be verified and why.
+the spec that now replays it, and what could not be verified and why.
 
 ### 6 Ship
 

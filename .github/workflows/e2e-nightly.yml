@@ -1,0 +1,58 @@
+# Every journey, every night and on demand: the smoke subset runs on each pull
+# request (ci.yml), this runs the rest, including the ones that reach GitHub.
+name: E2E nightly
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-nightly
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    name: All journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Journeys
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+          # The real pull request journey authenticates its GitHub API calls
+          # with it; anonymous calls share 60 an hour with the whole runner.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pnpm e2e
+
+      - name: Upload traces and videos
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-nightly-${{ github.run_id }}
+          path: |
+            test-results/e2e/
+            playwright-report/
+          retention-days: 14
