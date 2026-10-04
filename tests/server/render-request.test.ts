@@ -72,6 +72,17 @@ describe("renderRequestProblem", () => {
 		expect(MAX_STEP_CODE_CHARS * steps.length).toBeGreaterThan(MAX_TOTAL_CODE_CHARS);
 		expect(renderRequestProblem(body({ steps }))).toMatch(/too long in total/);
 	});
+
+	it("words the size refusal as a sentence the export panel can show as is (#113)", () => {
+		const steps = [{ code: "a" }, { code: "x".repeat(60_000) }];
+		expect(renderRequestProblem(body({ steps }))).toBe(
+			"Scene 2's code is too long for the server: 60,000 characters, over the limit of 50,000.",
+		);
+		const many = Array.from({ length: 6 }, () => ({ code: "x".repeat(MAX_STEP_CODE_CHARS) }));
+		expect(renderRequestProblem(body({ steps: many }))).toBe(
+			"The scenes' code is too long in total for the server: 300,000 characters, over the limit of 250,000.",
+		);
+	});
 });
 
 describe("windowChromeOf / progressStyleOf", () => {
