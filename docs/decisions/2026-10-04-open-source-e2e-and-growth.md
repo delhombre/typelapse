@@ -162,3 +162,25 @@ tests in all three.
 (scrub, licence file, CONTRIBUTING, SECURITY, the checklist line) is
 prepared by agents; Bruno flips the visibility and tags v0.1.0 for the
 Action in the same hour.
+
+## Executed: waves 7 and 8 (2026-10-04)
+
+Nine agents, fourteen tickets, nine commits, two pull requests (#126
+merged, the next one open), gates green including both Playwright suites
+(302 files, 2,404 tests; 19 local specs; 6 hosted specs). Calls kept:
+
+- The public page is served by the API as static HTML so crawlers and people
+  get one document; media addresses are stable and redirect to a fresh
+  signed URL after re-checking the flag; a poster is rendered by the worker.
+- A release past 30 commits is one change with a notice; a first tag past
+  the cap still refuses.
+- The hosted E2E profile starts its own API, worker and preview; MinIO runs
+  over TLS with a generated certificate because the R2 adapter is not
+  loosened for tests; the Better Auth rate limit behind the preview proxy
+  is absorbed by retries in the helpers.
+- The landing fit only steps down for a given width, so it cannot loop.
+- tester.army/e2e stays a non-blocking exploratory tool pending a key.
+- The scrub found nothing secret; LICENSE is AGPL-3.0-only now in the file,
+  effective when the owner opens the repository.
+- Found by the suites and ticketed: #127 (cloud copy out of date after a
+  plain reload).
