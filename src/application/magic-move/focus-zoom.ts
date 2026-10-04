@@ -7,6 +7,13 @@
  * The transform is applied by the renderer as `scale(scale)` with
  * `transform-origin: 50% {originYRatio * 100%}`; this module only computes the
  * numbers, so it stays dependency-free and fully testable.
+ *
+ * One rule for the three renderers: the push-in scales the code inside the body
+ * box (everything under the chrome bar), and that box clips at its own, unscaled
+ * size. Pushed in, code is cut off under the bar, never drawn over it. The
+ * painter clips the body before it scales (`clipBody`, then `applyZoom`); both
+ * DOM renderers wrap the code in `FocusZoomBody`, whose clip is not the box that
+ * scales.
  */
 import { clamp01, easeInOutCubic } from "./engine";
 

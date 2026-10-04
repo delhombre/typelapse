@@ -7,7 +7,7 @@ branding:
 
 inputs:
   source:
-    description: What to render. Defaults to the pull request that triggered the run; a commit URL works on a push or a release.
+    description: What to render. Defaults to the pull request that triggered the run; on a release, pass github.event.release.html_url to render the release as a changelog video, and a commit URL works on a push.
     default: ${{ github.event.pull_request.html_url }}
   format:
     description: mp4, webm or gif.

@@ -53,7 +53,6 @@ import {
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
 import { motion } from "motion/react";
 import {
-	type CSSProperties,
 	type ReactNode,
 	type RefObject,
 	useCallback,
@@ -65,6 +64,7 @@ import {
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ClipFades } from "./clip-fades";
+import { FocusZoomBody } from "./focus-zoom-body";
 import { FrameChrome, type WindowChrome } from "./frame-chrome";
 import { GlowDecoration } from "./glow-decoration";
 import { GrainOverlay } from "./grain-overlay";
@@ -336,26 +336,31 @@ export function LivePreview() {
 			charWidthRatio,
 			boxWidth,
 		});
+		// The card is laid out at the composition's size, then shrunk into the
+		// box: CSS rounds each line's baseline at the size it lays out at (#114).
+		const layoutScale = placement.layoutScale;
 		return {
 			boxWidth,
 			boxHeight,
 			boxScale,
-			windowWidth: placement.windowWidth,
+			layoutScale,
+			windowWidth: placement.windowWidth * layoutScale,
 			// At the readable floor the window stops growing and clips its code,
-			// with the exporters' fades, at editor size.
+			// with the exporters' fades.
 			clip: placement.clip
 				? {
-						maxHeight: placement.windowHeight,
+						maxHeight: placement.windowHeight * layoutScale,
 						fades: clipFades({
 							clip: placement.clip,
-							windowWidth: placement.windowWidth,
-							windowHeight: placement.windowHeight,
-							chromeHeight: chromeBarHeight(windowChrome, 1),
-							fontSize: snippet.theme.fontSize,
+							windowWidth: placement.windowWidth * layoutScale,
+							windowHeight: placement.windowHeight * layoutScale,
+							chromeHeight: chromeBarHeight(windowChrome, layoutScale),
+							fontSize: snippet.theme.fontSize * layoutScale,
 						}),
 					}
 				: null,
-			cardScale: placement.cardScale,
+			// Box px per layout px.
+			cardScale: placement.cardScale / layoutScale,
 			radius: socialCanvasRadius(boxWidth, boxHeight),
 		};
 	}, [
@@ -467,6 +472,9 @@ export function LivePreview() {
 			};
 
 	const isTransparent = background === "transparent";
+	// The size the card is laid out at: the composition's on the export canvas,
+	// editor size on the plain fit-to-viewport card.
+	const layoutScale = aspectCanvas?.layoutScale ?? 1;
 	// A ceiling on the growth, never a licence to invert: at the widest margin and
 	// the roundest window the cap would have made the card's corner tighter than
 	// the corner it wraps, which is the one thing `concentric` already refuses to
@@ -499,16 +507,16 @@ export function LivePreview() {
 			transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
 			style={{
 				opacity: isBuilding ? 0.85 : 1,
-				padding: isTransparent ? 0 : cardMargin,
+				padding: isTransparent ? 0 : cardMargin * layoutScale,
 				// On the export canvas the window is exactly as wide as the exporters
-				// draw it (at editor size; the wrapper scales it). Elsewhere the card
+				// draw it (at their size; the wrapper shrinks it). Elsewhere the card
 				// keeps the studio's fixed 42rem.
 				width: aspectCanvas
-					? aspectCanvas.windowWidth + 2 * (isTransparent ? 0 : cardMargin)
+					? aspectCanvas.windowWidth + 2 * (isTransparent ? 0 : cardMargin * layoutScale)
 					: undefined,
 				// Concentric law: the outer corner follows the window's radius plus the
 				// margin, so a square window (radius 0) yields a square card.
-				borderRadius: cardRadius,
+				borderRadius: cardRadius * layoutScale,
 				// Mesh + image are painted imperatively by useDynamicBackground; this is
 				// the pre-paint fallback so there is no flash. In social mode the mesh
 				// lives on the box, so the card's own margin stays clear.
@@ -537,8 +545,16 @@ export function LivePreview() {
 						    the reels wrapper, caption and watermark span the same width. */}
 			<div className="relative z-10 w-full">
 				{!isTransparent && segments >= 2 && (
-					<div className="pointer-events-none absolute inset-x-0 z-20" style={{ top: -10 }}>
-						<ReelsProgress style={progressStyle} segments={segments} progress={reelsProgress} />
+					<div
+						className="pointer-events-none absolute inset-x-0 z-20"
+						style={{ top: -10 * layoutScale }}
+					>
+						<ReelsProgress
+							style={progressStyle}
+							segments={segments}
+							progress={reelsProgress}
+							scale={layoutScale}
+						/>
 					</div>
 				)}
 				<FrameShell
@@ -546,29 +562,32 @@ export function LivePreview() {
 					title={snippet.title}
 					chrome={windowChrome}
 					clip={aspectCanvas?.clip ?? null}
+					scale={layoutScale}
 				>
 					{/* Focus zoom pushes the code toward the spotlighted band. Playback
-							    drives every frame, so there is no CSS transition: the FrameShell
-							    body clips the overflow. The zoom wrapper carries the window's own
-							    border radius so a scaled (composited) layer never squares the
-							    corners. Same transform runs in the Remotion video. */}
-					<div style={zoomStyle(view.zoom, focusZoom, snippet.theme.borderRadius)}>
+							    drives every frame, so there is no CSS transition. The same
+							    component runs in the Remotion video. */}
+					<FocusZoomBody
+						zoom={view.zoom}
+						active={focusZoom}
+						borderRadius={snippet.theme.borderRadius * layoutScale}
+					>
 						<MagicMoveCanvas
 							tokens={view.tokens}
 							lineCount={view.lineCount}
 							lineNumberCount={view.lineNumberCount}
-							fontSize={snippet.theme.fontSize}
+							fontSize={snippet.theme.fontSize * layoutScale}
 							lineHeightRatio={LINE_HEIGHT_RATIO}
 							fontFamily={snippet.theme.fontFamily}
 							color={snippet.theme.foreground}
 							showLineNumbers={showLineNumbers}
 							lineNumberStart={lineNumberStart}
 							lineNumberColor={`${snippet.theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
-							padding={framePadding}
+							padding={framePadding * layoutScale}
 							cursor={view.cursor}
 							firstRow={view.firstRow}
 						/>
-					</div>
+					</FocusZoomBody>
 				</FrameShell>
 
 				{hasCaptions && (
@@ -576,6 +595,7 @@ export function LivePreview() {
 						text={caption.text}
 						opacity={caption.opacity}
 						color={getWatermarkColor(background, snippet.theme.foreground)}
+						scale={layoutScale}
 					/>
 				)}
 
@@ -617,6 +637,7 @@ export function LivePreview() {
 					// see it.
 					<motion.div
 						ref={boxRef}
+						data-testid="preview-frame"
 						layout
 						className="relative shrink-0 overflow-hidden"
 						style={{
@@ -783,12 +804,15 @@ function FrameShell({
 	title,
 	chrome,
 	clip,
+	scale,
 	children,
 }: {
 	theme: Theme;
 	title: string;
 	chrome: WindowChrome;
 	clip: { maxHeight: number; fades: ClipFade[] } | null;
+	/** The size the card is laid out at, in editor sizes. */
+	scale: number;
 	children: ReactNode;
 }) {
 	return (
@@ -796,11 +820,11 @@ function FrameShell({
 			className="code-frame-glow relative w-full overflow-hidden"
 			style={{
 				background: theme.background,
-				borderRadius: theme.borderRadius,
+				borderRadius: theme.borderRadius * scale,
 				maxHeight: clip?.maxHeight,
 			}}
 		>
-			<FrameChrome chrome={chrome} title={title} foreground={theme.foreground} />
+			<FrameChrome chrome={chrome} title={title} foreground={theme.foreground} scale={scale} />
 			{children}
 			{clip ? <ClipFades fades={clip.fades} background={theme.background} /> : null}
 		</div>
@@ -825,24 +849,6 @@ const EMPTY_VIEW: FrameView = {
 	lineNumberCount: 1,
 	zoom: NO_ZOOM,
 };
-
-/**
- * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
- * Carries the window's border radius (concentric law: the clip matches the radius
- * of the surface it sits in) so a scaled, composited layer never squares the
- * window's corners during a push-in.
- */
-function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): CSSProperties {
-	if (!active) {
-		return { overflow: "hidden", borderRadius };
-	}
-	return {
-		overflow: "hidden",
-		borderRadius,
-		transform: `scale(${zoom.scale})`,
-		transformOrigin: `50% ${zoom.originYRatio * 100}%`,
-	};
-}
 
 /** Pick the tokens to paint for the current playback position. */
 function resolveView(

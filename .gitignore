@@ -28,3 +28,7 @@ CLAUDE.md
 # `pnpm demo:render --mp4` writes this to eyeball the GIF against a lossless
 # reference. Only the GIF is an asset; the reference is scratch.
 docs/demo.mp4
+
+# Playwright journeys (tests/e2e): traces, videos and the HTML report of a run
+test-results/
+playwright-report/

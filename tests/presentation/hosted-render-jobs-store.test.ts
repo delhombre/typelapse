@@ -60,6 +60,7 @@ function client(
 				job: job("running"),
 			},
 		download: async () => ({ kind: "ready", download: DOWNLOAD }),
+		setPublic: async () => ({ kind: "unreachable" }),
 		...overrides,
 	};
 }

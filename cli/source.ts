@@ -3,7 +3,9 @@
  *
  * A pull request or a commit goes through the studio's own GitHub import
  * (`infrastructure/import/pr-import`, plain fetch, so it runs in Node as is) and
- * the studio's own diff-to-project step. A file is a project or a diff. The
+ * the studio's own diff-to-project step. A release or a compare range goes
+ * through the release import and becomes the chaptered project behind its
+ * title card. A file is a project or a diff. The
  * disk and the network are injected, so the decisions are tested without
  * either; `typelapse.ts` wires the real ones.
  */
@@ -13,10 +15,15 @@ import { looksLikeUnifiedDiff } from "@/application/import/classify-source";
 import { projectFromDiff } from "@/application/import/diff-project";
 import {
 	type CommitRef,
+	type CompareRef,
 	type PrRef,
+	type ReleaseRef,
 	resolveCommitUrl,
+	resolveCompareUrl,
 	resolvePrUrl,
+	resolveReleaseUrl,
 } from "@/application/import/pr-url";
+import { type ReleaseCard, releaseProject } from "@/application/import/release-project";
 import { projectV2ToV1 } from "@/application/project/migrate-v1-project";
 import {
 	type ProjectDocumentV2,
@@ -24,11 +31,15 @@ import {
 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import type { Walkthrough } from "@/infrastructure/import/pr-import";
+import type { ReleaseWalkthrough } from "@/infrastructure/import/release-import";
 import { THEMES } from "@/presentation/components/controls/control-presets";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { CliError, EXIT_SOURCE, EXIT_USAGE } from "./errors";
 
-export type SourceKind = "pr" | "commit" | "diff" | "project";
+export type SourceKind = "pr" | "commit" | "release" | "compare" | "diff" | "project";
+
+/** The sources read from GitHub, each named in the sentence that says it failed. */
+type RemoteKind = "pr" | "commit" | "release" | "compare";
 
 export type ResolvedSource =
 	| {
@@ -37,6 +48,10 @@ export type ResolvedSource =
 			/** Exactly what was passed, for the progress line and for a PR's studio link. */
 			arg: string;
 			layered?: undefined;
+			/** A release's title card, drawn on the project's blank first step. */
+			card?: ReleaseCard;
+			/** A line for the progress output: the range is not the usual one. */
+			notice?: string;
 	  }
 	| {
 			kind: "project";
@@ -57,6 +72,7 @@ export interface SourceDeps {
 	readStdin: () => Promise<string>;
 	fetchPr: (ref: PrRef) => Promise<Walkthrough>;
 	fetchCommit: (ref: CommitRef) => Promise<Walkthrough>;
+	fetchRelease: (ref: ReleaseRef | CompareRef) => Promise<ReleaseWalkthrough>;
 }
 
 /** Any http(s) address, or a host path someone typed without the scheme. */
@@ -71,9 +87,17 @@ export async function resolveSource(arg: string, deps: SourceDeps): Promise<Reso
 	if (commit) {
 		return fromGitHub(arg, "commit", () => deps.fetchCommit(commit));
 	}
+	const release = resolveReleaseUrl(arg);
+	if (release) {
+		return fromRelease(arg, "release", () => deps.fetchRelease(release));
+	}
+	const compare = resolveCompareUrl(arg);
+	if (compare) {
+		return fromRelease(arg, "compare", () => deps.fetchRelease(compare));
+	}
 	if (LINK.test(arg)) {
 		throw new CliError(
-			"Typelapse renders GitHub pull request and commit links, and that link is neither",
+			"Typelapse renders GitHub pull request, commit, release and compare links, and that link is none of them",
 			EXIT_USAGE,
 		);
 	}
@@ -155,17 +179,44 @@ async function fromGitHub(
 	}
 }
 
+async function fromRelease(
+	arg: string,
+	kind: "release" | "compare",
+	fetchRange: () => Promise<ReleaseWalkthrough>,
+): Promise<ResolvedSource> {
+	try {
+		const { card, chapters, notice } = await fetchRange();
+		const project = releaseProject(card, chapters);
+		return notice ? { kind, project, card, notice, arg } : { kind, project, card, arg };
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "";
+		throw new CliError(remoteSentence(message, kind), EXIT_SOURCE);
+	}
+}
+
+const SUBJECTS: Record<RemoteKind, string> = {
+	pr: "That pull request",
+	commit: "That commit",
+	release: "That release",
+	compare: "That comparison",
+};
+
 /**
  * The PR import speaks to someone in the studio ("paste the diff instead").
  * On a command line the way out is a token or a diff file, so say that.
  */
-function remoteSentence(message: string, kind: "pr" | "commit"): string {
-	const subject = kind === "pr" ? "That pull request" : "That commit";
+function remoteSentence(message: string, kind: RemoteKind): string {
+	const subject = SUBJECTS[kind];
 	if (/not found/i.test(message)) {
 		return `${subject} was not found, or its repository is private; set GITHUB_TOKEN to read a private one`;
 	}
 	if (/rate limit/i.test(message)) {
 		return "GitHub's rate limit was hit; set GITHUB_TOKEN, or pass the diff as a file";
+	}
+	// Before the diff-size reading below: a range too big to compare asks for a
+	// smaller range, which a diff file is not.
+	if (/will not compare/i.test(message)) {
+		return "GitHub will not compare a range this large; pass a smaller range as a compare link";
 	}
 	if (/large/i.test(message)) {
 		return "GitHub will not serve a diff this large; pass a smaller diff as a file";
@@ -225,8 +276,8 @@ export const DEFAULT_STUDIO_URL = "http://localhost:5173/app";
 /**
  * The studio link that opens what was rendered.
  *
- * A pull request or a commit is linked by its URL (`#import=`), the link the
- * landing page makes: short enough for a PR comment, and the studio fetches
+ * A pull request, a commit or a release is linked by its URL (`#import=`), the
+ * link the landing page makes: short enough for a PR comment, and the studio fetches
  * the change itself. The studio applies its own look on arrival, so `--theme`
  * and `--size` are not carried. A file is carried whole (`#share=`, the
  * studio's share-link format), overrides included, because there is nothing
@@ -239,7 +290,12 @@ export function studioLink(source: ResolvedSource, project: ProjectPayload, base
 	}
 	url.hash = "";
 	const studio = url.toString();
-	if (source.kind === "pr" || source.kind === "commit") {
+	if (
+		source.kind === "pr" ||
+		source.kind === "commit" ||
+		source.kind === "release" ||
+		source.kind === "compare"
+	) {
 		return `${studio}${encodeImportIntent({ source: source.arg })}`;
 	}
 	// The same bytes as the studio's encodeShareLink: base64 of the UTF-8 JSON.

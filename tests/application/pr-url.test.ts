@@ -1,4 +1,9 @@
-import { resolveCommitUrl, resolvePrUrl } from "@/application/import/pr-url";
+import {
+	resolveCommitUrl,
+	resolveCompareUrl,
+	resolvePrUrl,
+	resolveReleaseUrl,
+} from "@/application/import/pr-url";
 import { describe, expect, it } from "vitest";
 
 describe("resolvePrUrl", () => {
@@ -120,5 +125,59 @@ describe("resolveCommitUrl", () => {
 		expect(resolveCommitUrl("https://gist.github.com/o/abc123")).toBeNull();
 		expect(resolveCommitUrl("not a url at all")).toBeNull();
 		expect(resolveCommitUrl("")).toBeNull();
+	});
+});
+
+describe("resolveReleaseUrl", () => {
+	it("parses the release page a workflow's release event links", () => {
+		expect(
+			resolveReleaseUrl("https://github.com/sindresorhus/slugify/releases/tag/v2.2.1"),
+		).toEqual({ owner: "sindresorhus", repo: "slugify", tag: "v2.2.1" });
+	});
+
+	it("keeps a tag that holds a slash, and decodes an escaped one", () => {
+		expect(resolveReleaseUrl("github.com/o/r/releases/tag/release/2.0")?.tag).toBe("release/2.0");
+		expect(resolveReleaseUrl("https://github.com/o/r/releases/tag/v1.0%2Bbuild")?.tag).toBe(
+			"v1.0+build",
+		);
+	});
+
+	it("ignores a query or a fragment", () => {
+		expect(resolveReleaseUrl("https://github.com/o/r/releases/tag/v1?x=1#notes")?.tag).toBe("v1");
+	});
+
+	it("rejects the releases list, the latest alias and other pages", () => {
+		expect(resolveReleaseUrl("https://github.com/o/r/releases")).toBeNull();
+		expect(resolveReleaseUrl("https://github.com/o/r/releases/latest")).toBeNull();
+		expect(resolveReleaseUrl("https://github.com/o/r/releases/tag/")).toBeNull();
+		expect(resolveReleaseUrl("https://github.com/o/r/pull/4")).toBeNull();
+		expect(resolveReleaseUrl("https://gitlab.com/o/r/releases/tag/v1")).toBeNull();
+	});
+});
+
+describe("resolveCompareUrl", () => {
+	it("parses a three-dot compare between two tags", () => {
+		expect(resolveCompareUrl("https://github.com/o/r/compare/v1.0.0...v1.1.0")).toEqual({
+			owner: "o",
+			repo: "r",
+			base: "v1.0.0",
+			head: "v1.1.0",
+		});
+	});
+
+	it("takes the two-dot form and refs that hold a slash", () => {
+		expect(resolveCompareUrl("github.com/o/r/compare/main..feature/login")).toEqual({
+			owner: "o",
+			repo: "r",
+			base: "main",
+			head: "feature/login",
+		});
+	});
+
+	it("rejects a compare that names one side only", () => {
+		expect(resolveCompareUrl("https://github.com/o/r/compare/main")).toBeNull();
+		expect(resolveCompareUrl("https://github.com/o/r/compare/...v2")).toBeNull();
+		expect(resolveCompareUrl("https://github.com/o/r/compare/v1...")).toBeNull();
+		expect(resolveCompareUrl("https://github.com/o/r/compare")).toBeNull();
 	});
 });

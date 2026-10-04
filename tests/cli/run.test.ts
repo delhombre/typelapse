@@ -31,6 +31,11 @@ function io(overrides: Partial<CliIO> = {}): CliIO {
 		readStdin: async () => DIFF,
 		fetchPr: async () => ({ diffText: DIFF, title: "Trim the name" }),
 		fetchCommit: async () => ({ diffText: DIFF, title: "trim" }),
+		fetchRelease: async () => ({
+			card: { title: "Friendlier greetings" },
+			chapters: [{ title: "trim before greeting", diffText: DIFF }],
+			notice: "v1.2.0 is the first tag, so the video runs from the first commit",
+		}),
 		render: vi.fn(async () => BYTES),
 		renderLayered: vi.fn(async () => BYTES),
 		measure: vi.fn(async () => ({
@@ -195,6 +200,63 @@ describe("typelapse render", () => {
 			expect(stderr.at(-1)).toContain(result.error);
 		},
 	);
+
+	it("renders a release through the multimedia route, its title on the first scene", async () => {
+		const renderLayered = vi.fn(async (_document: unknown, _options: unknown) => BYTES);
+		const render = vi.fn(async () => BYTES);
+
+		const code = await runCli(
+			[
+				"render",
+				"https://github.com/o/r/releases/tag/v1.2.0",
+				"--json",
+				"--open",
+				"--theme",
+				"nord",
+				"--out",
+				join(dir, "release.mp4"),
+			],
+			io({ render, renderLayered }),
+		);
+
+		expect(code).toBe(0);
+		expect(render).not.toHaveBeenCalled();
+		const [document, options] = renderLayered.mock.calls[0] as unknown as [
+			{
+				project: {
+					title: string;
+					scenes: { blocks: { kind: string; text?: string; themeName?: string }[] }[];
+				};
+			},
+			{ format: string; width: number; height: number; fps: number },
+		];
+		const [card, ...chapters] = document.project.scenes;
+		expect(card?.blocks).toEqual([
+			expect.objectContaining({ kind: "text", text: "Friendlier greetings" }),
+		]);
+		// --theme reaches the code card: it is applied before the title card joins it.
+		expect(chapters.flatMap((scene) => scene.blocks).every((b) => b.themeName === "nord")).toBe(
+			true,
+		);
+		expect(options).toMatchObject({ format: "mp4", width: 1920, height: 1080, fps: 60 });
+		expect(JSON.parse(stdout[0] ?? "").studioUrl).toMatch(/#import=/);
+		expect(stderr).toContain(
+			"typelapse: v1.2.0 is the first tag, so the video runs from the first commit",
+		);
+	});
+
+	it("refuses a release as a GIF in one sentence, since a text layer needs the multimedia route", async () => {
+		const code = await runCli(
+			["render", "https://github.com/o/r/releases/tag/v1.2.0", "--format", "gif"],
+			io({ cwd: dir }),
+		);
+
+		expect(code).toBe(2);
+		expect(stderr.at(-1)).toBe(
+			"typelapse: A release opens on a title card, so it renders as mp4 or webm, not gif.",
+		);
+		expectOneSentence((stderr.at(-1) ?? "").replace(/^typelapse: /, ""));
+	});
 
 	it("prints usage on --help and exits 0", async () => {
 		const code = await runCli(["--help"], io());

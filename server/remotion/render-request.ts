@@ -27,6 +27,10 @@ export const MAX_TOTAL_CODE_CHARS = 250_000;
 
 const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
+function count(value: number): string {
+	return value.toLocaleString("en-US");
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -45,17 +49,22 @@ export function renderRequestProblem(body: unknown): string | null {
 		return `Too many steps (max ${MAX_STEPS})`;
 	}
 	let totalCode = 0;
-	for (const step of steps) {
+	for (const [index, step] of steps.entries()) {
 		if (!isRecord(step) || typeof step.code !== "string") {
 			return "Each step needs its code as a string";
 		}
+		// The studio shows these two sentences as they are, next to the offer to
+		// render on the device instead (#113), so they name the scene and both sizes.
 		if (step.code.length > MAX_STEP_CODE_CHARS) {
-			return `A step's code is too long (max ${MAX_STEP_CODE_CHARS} characters)`;
+			const limit = count(MAX_STEP_CODE_CHARS);
+			const size = `${count(step.code.length)} characters, over the limit of ${limit}`;
+			return `Scene ${index + 1}'s code is too long for the server: ${size}.`;
 		}
 		totalCode += step.code.length;
 	}
 	if (totalCode > MAX_TOTAL_CODE_CHARS) {
-		return `The steps' code is too long in total (max ${MAX_TOTAL_CODE_CHARS} characters)`;
+		const size = `${count(totalCode)} characters, over the limit of ${count(MAX_TOTAL_CODE_CHARS)}`;
+		return `The scenes' code is too long in total for the server: ${size}.`;
 	}
 	if (!isRecord(theme) || typeof theme.name !== "string" || typeof theme.fontFamily !== "string") {
 		return "A theme with a name and a font family is required";

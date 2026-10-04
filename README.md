@@ -45,8 +45,13 @@ pnpm typelapse render docs/demo.project.json --size 1280x720 --fps 30 --json
 git diff | pnpm typelapse render - --open
 ```
 
-The source is a pull request URL, a commit URL, a unified diff file (`-` reads
-stdin) or a project exported from the studio. A project with text layers and no
+The source is a pull request URL, a commit URL, a release URL
+(`/releases/tag/<tag>`) or a compare URL (`/compare/<a>...<b>`), a unified diff
+file (`-` reads stdin) or a project exported from the studio. A release renders
+as a changelog video: the range from the previous tag (or from the first
+commit, which stderr says) to its tag, one chapter per commit as a chaptered
+pull request plays, opening on the release title as a card. It needs MP4 or
+WebM, and at most 30 commits; pass a compare URL for a smaller range. A project with text layers and no
 media renders as MP4 or WebM through the same V2 composition as the studio's
 server export; the launch clip is one (`docs/launch/launch.project.json`). The CLI drives the same render
 route and the same defaults as the studio's export, on this machine and with no
@@ -89,8 +94,33 @@ the studio. Each push edits that comment instead of adding one. No secret is
 needed: the workflow's own token reads the pull request. Remotion's headless
 browser and the pnpm store are cached between runs.
 
+To render every release as a changelog video, run the same action on the
+release event and pass the release page as the source:
+
+```yaml
+# .github/workflows/render-release.yml
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: delhombre/typelapse@main
+        with:
+          source: ${{ github.event.release.html_url }}
+```
+
+The video lands as an artifact and the link in the job summary, since a
+release has no pull request to comment on.
+
 Inputs, all optional: `source` (defaults to the pull request that triggered the
-run; a commit URL works on a push or a release), `format`, `size`, `fps` and
+run; a release URL or a compare URL renders a changelog video, a commit URL
+works on a push), `format`, `size`, `fps` and
 `theme` (the CLI's flags), `studio-url` (the studio the link opens; empty links
 a local one at `http://localhost:5173/app`), `comment` (`false` writes the job
 summary only), `github-token` and `fail-on-render-error` (`false` keeps the job
@@ -239,6 +269,24 @@ pnpm lint
 pnpm build
 ```
 
+## Tests
+
+Unit and integration tests run with Vitest (`tests/**/*.test.ts`). The product's
+journeys run in a real Chromium with Playwright (`tests/e2e/*.spec.ts`), against
+one `vite build` served by `vite preview` on port 5271; exported files are checked
+with ffprobe and ffmpeg, which must be on your PATH.
+
+```bash
+pnpm e2e:smoke   # landing, authoring, imports, device MP4: every pull request
+pnpm e2e         # every journey, including a real GitHub pull request (nightly)
+E2E_SKIP_BUILD=1 pnpm e2e   # reuse the last build while iterating on a spec
+pnpm exec playwright show-trace test-results/e2e/<test>/trace.zip
+```
+
+A failing journey keeps its trace, video and screenshot under `test-results/e2e/`;
+CI uploads them as an artifact. Each spec names the promise it protects in its
+`describe`, and a journey that lands gets its spec (Quality loop, gate 5).
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+AGPL-3.0-only. See [LICENSE](LICENSE). Companies that cannot use AGPL code can ask for a commercial licence.

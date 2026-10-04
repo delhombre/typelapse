@@ -40,6 +40,10 @@ function deps(overrides: Partial<SourceDeps> = {}): SourceDeps {
 		readStdin: async () => DIFF,
 		fetchPr: vi.fn(async () => ({ diffText: DIFF, title: "Trim the name" })),
 		fetchCommit: vi.fn(async () => ({ diffText: DIFF, title: "trim before greeting" })),
+		fetchRelease: vi.fn(async () => ({
+			card: { title: "Friendlier greetings", subtitle: "The name is trimmed first." },
+			chapters: [{ title: "trim before greeting", diffText: DIFF }],
+		})),
 		...overrides,
 	};
 }
@@ -141,6 +145,100 @@ describe("resolveSource", () => {
 
 		expect(message).toMatch(said);
 		expect(message).not.toContain("paste");
+	});
+});
+
+describe("resolveSource on a release", () => {
+	const RELEASE_URL = "https://github.com/octocat/Hello-World/releases/tag/v1.2.0";
+
+	it("reads a release into its chaptered project, opening on a blank card step", async () => {
+		const io = deps();
+
+		const source = await resolveCode(RELEASE_URL, io);
+
+		expect(io.fetchRelease).toHaveBeenCalledWith({
+			owner: "octocat",
+			repo: "Hello-World",
+			tag: "v1.2.0",
+		});
+		expect(source.kind).toBe("release");
+		expect(source.card).toEqual({
+			title: "Friendlier greetings",
+			subtitle: "The name is trimmed first.",
+		});
+		expect(source.project.title).toBe("Friendlier greetings");
+		expect(source.project.steps[0]?.code).toBe("");
+		expect(source.project.steps[1]?.caption).toBe("1/1 · trim before greeting");
+	});
+
+	it("reads a compare link the same way", async () => {
+		const io = deps();
+
+		const source = await resolveCode("github.com/octocat/Hello-World/compare/v1.1.0...v1.2.0", io);
+
+		expect(io.fetchRelease).toHaveBeenCalledWith({
+			owner: "octocat",
+			repo: "Hello-World",
+			base: "v1.1.0",
+			head: "v1.2.0",
+		});
+		expect(source.kind).toBe("compare");
+	});
+
+	it("carries the first-tag notice to the progress line", async () => {
+		const io = deps({
+			fetchRelease: async () => ({
+				card: { title: "v0.1.0" },
+				chapters: [{ title: "Initial commit", diffText: DIFF }],
+				notice: "v0.1.0 is the first tag, so the video runs from the first commit",
+			}),
+		});
+
+		const source = await resolveCode(RELEASE_URL, io);
+
+		expect(source.notice).toBe("v0.1.0 is the first tag, so the video runs from the first commit");
+	});
+
+	it.each([
+		[
+			"Release not found (or the repository is private)",
+			/^That release was not found.*GITHUB_TOKEN/,
+		],
+		["GitHub rate limit hit: try again later", /GITHUB_TOKEN/],
+		["GitHub will not compare a range this large: pass a smaller range", /pass a smaller range/],
+		[
+			"This release spans 31 commits, more than the 30 a video chapters: pass a smaller range",
+			/31 commits.*pass a smaller range/,
+		],
+		["These commits contain no changes to animate", /no changes to animate/],
+	])("says '%s' as one CLI sentence with exit code 3", async (thrown, said) => {
+		const io = deps({ fetchRelease: async () => Promise.reject(new Error(thrown)) });
+
+		const message = await refusal(resolveSource(RELEASE_URL, io), 3);
+
+		expect(message).toMatch(said);
+		expect(message).not.toContain("paste");
+	});
+
+	it("says an empty release in one sentence too", async () => {
+		const io = deps({
+			fetchRelease: async () => ({ card: { title: "v1" }, chapters: [] }),
+		});
+
+		const message = await refusal(resolveSource(RELEASE_URL, io), 3);
+
+		expect(message).toMatch(/no changes to animate/);
+	});
+
+	it("links the studio to the release, which imports it the way the link import does", async () => {
+		const source = await resolveCode(RELEASE_URL, deps());
+
+		const link = studioLink(source, source.project, "http://localhost:5173/app");
+
+		const payload = link.split("#import=")[1] ?? "";
+		expect(JSON.parse(Buffer.from(payload, "base64").toString("utf8"))).toEqual({
+			source: RELEASE_URL,
+		});
 	});
 });
 

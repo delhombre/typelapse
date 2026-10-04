@@ -41,14 +41,18 @@ minimumReleaseAgeExclude:
 # because a direct dependency still resolves a vulnerable range; drop the entry
 # once that dependency ships a fixed range on its own.
 overrides:
-  dompurify: ^3.4.13 # via monaco-editor
+  dompurify: ^3.4.16 # via monaco-editor
   ws: ^8.21.3
   postcss: ^8.5.26
   picomatch: ^4.0.5
   esbuild@>=0.27.0: ^0.28.2
   esbuild@<0.24.3: ^0.25.12 # via drizzle-kit > @esbuild-kit/esm-loader
-  fast-uri: ^3.1.5 # via remotion > webpack > schema-utils > ajv
+  fast-uri: ^3.1.8 # via remotion > webpack > schema-utils > ajv
   '@babel/core': ^7.29.1 # via @vitejs/plugin-react, build-time only
+  browserslist: ^4.28.7 # via @babel/core and remotion > webpack
+  baseline-browser-mapping: ^2.11.0 # via browserslist
+  js-yaml: ^4.3.2 # via @remotion/cli > @svgr/core > cosmiconfig
+  postcss-selector-parser: ^7.1.3 # via @remotion/bundler > css-loader
 
 patchedDependencies:
   vaul@1.1.2: patches/vaul@1.1.2.patch

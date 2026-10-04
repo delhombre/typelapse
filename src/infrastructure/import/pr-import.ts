@@ -32,13 +32,25 @@ export type ChapterProgress = (done: number, total: number) => void;
 const TIMEOUT_MS = 10_000;
 
 /** More commits than this and chaptering is unwieldy: fall back to the whole change. */
-const MAX_CHAPTER_COMMITS = 30;
+export const MAX_CHAPTER_COMMITS = 30;
 
 const DIFF_ACCEPT = "application/vnd.github.diff";
 const JSON_ACCEPT = "application/vnd.github+json";
 
-/** Map a non-OK response to a short, user-facing message. */
-function errorForStatus(status: number, notFound: string): Error {
+/**
+ * The answers GitHub gives a compare it will not compute: 406 for a diff too
+ * big to render, 422 or a 5xx when generating it timed out.
+ */
+const TOO_LARGE_STATUSES = new Set([406, 422, 500, 502, 504]);
+
+/**
+ * Map a non-OK response to a short, user-facing message. `tooLarge` replaces
+ * the generic failure for the statuses GitHub uses when a range is too big.
+ */
+function errorForStatus(status: number, notFound: string, tooLarge?: string): Error {
+	if (tooLarge && TOO_LARGE_STATUSES.has(status)) {
+		return new Error(tooLarge);
+	}
 	if (status === 404) {
 		// GitHub answers 404, not 403, for a repository the visitor cannot see.
 		return new Error(`${notFound} (or the repository is private)`);
@@ -76,13 +88,14 @@ async function requestGitHub<T>(
 	accept: string,
 	notFound: string,
 	parse: (response: Response) => Promise<T>,
+	tooLarge?: string,
 ): Promise<T> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 	try {
 		const response = await fetch(url, { signal: controller.signal, headers: { Accept: accept } });
 		if (!response.ok) {
-			throw errorForStatus(response.status, notFound);
+			throw errorForStatus(response.status, notFound, tooLarge);
 		}
 		return await parse(response);
 	} catch (err) {
@@ -101,13 +114,19 @@ async function requestGitHub<T>(
 }
 
 /** The raw unified diff for a resource; throws a mapped Error on any failure. */
-function fetchDiff(url: string, notFound: string): Promise<string> {
+export function fetchDiff(url: string, notFound: string): Promise<string> {
 	return requestGitHub(url, DIFF_ACCEPT, notFound, (response) => response.text());
 }
 
 /** JSON for a resource, strictly: throws a mapped Error on any failure. */
-function fetchJsonStrict<T>(url: string, notFound: string): Promise<T> {
-	return requestGitHub(url, JSON_ACCEPT, notFound, (response) => response.json() as Promise<T>);
+export function fetchJsonStrict<T>(url: string, notFound: string, tooLarge?: string): Promise<T> {
+	return requestGitHub(
+		url,
+		JSON_ACCEPT,
+		notFound,
+		(response) => response.json() as Promise<T>,
+		tooLarge,
+	);
 }
 
 /**
@@ -115,7 +134,7 @@ function fetchJsonStrict<T>(url: string, notFound: string): Promise<T> {
  * otherwise-good import, so this swallows errors and non-OK responses and lets the
  * caller fall back.
  */
-async function fetchJson<T>(url: string): Promise<T | null> {
+export async function fetchJson<T>(url: string): Promise<T | null> {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 	try {
@@ -140,7 +159,7 @@ function prApiUrl(ref: PrRef): string {
 }
 
 /** The api.github.com URL for a single commit's resource. */
-function commitApiUrl(owner: string, repo: string, sha: string): string {
+export function commitApiUrl(owner: string, repo: string, sha: string): string {
 	return `https://api.github.com/repos/${owner}/${repo}/commits/${sha}`;
 }
 

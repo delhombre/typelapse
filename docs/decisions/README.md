@@ -56,3 +56,9 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-03 [canonical-card-width](2026-10-03-canonical-card-width.md): the
   card is sized on the measured advance through one placement table; the
   preview's plate and wall-clock mesh go.
+- 2026-10-04 [open-source-e2e-and-growth](2026-10-04-open-source-e2e-and-growth.md):
+  AGPL on launch day after a scrub; Playwright journeys in CI; tester.army as
+  a spike; public pages for Cloud renders and release-to-video.
+- 2026-10-04 [renderer-drifts-and-size-refusal](2026-10-04-renderer-drifts-and-size-refusal.md):
+  the push-in clips under the chrome bar in all three renderers; the preview
+  lays its card out at export size; a refused server render offers Device.

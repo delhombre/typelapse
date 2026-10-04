@@ -3,6 +3,7 @@ import type {
 	CloudExportPort,
 	CloudFailure,
 	CloudJobStatus,
+	CloudPublicPage,
 	CloudRenderJob,
 } from "@/domain/ports/cloud-export.port";
 
@@ -33,15 +34,24 @@ function parseDownload(value: unknown): CloudDownload | null {
 	};
 }
 
+function parsePage(value: unknown): CloudPublicPage | null {
+	if (!isRecord(value) || typeof value.public !== "boolean" || typeof value.url !== "string") {
+		return null;
+	}
+	return { public: value.public, url: value.url };
+}
+
 function parseJob(body: Record<string, unknown>): CloudRenderJob | null {
 	const job = body.job;
 	if (!isRecord(job) || typeof job.id !== "string" || !STATUSES.has(job.status as CloudJobStatus)) {
 		return null;
 	}
+	const page = parsePage(body.page);
 	return {
 		id: job.id,
 		status: job.status as CloudJobStatus,
 		download: parseDownload(body.download),
+		...(page ? { page } : {}),
 	};
 }
 
@@ -137,5 +147,17 @@ export class CloudRenderAdapter implements CloudExportPort {
 		if (answer.status !== 200) return this.refusal(answer.status, answer.body);
 		const download = parseDownload(answer.body.download);
 		return download ? { kind: "ready" as const, download } : UNREACHABLE;
+	}
+
+	async setPublic(jobId: string, value: boolean) {
+		const answer = await this.call(`/cloud/jobs/${encodeURIComponent(jobId)}/public`, {
+			method: "PUT",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ public: value }),
+		});
+		if (!answer) return UNREACHABLE;
+		if (answer.status !== 200) return this.refusal(answer.status, answer.body);
+		const page = parsePage(answer.body.page);
+		return page ? { kind: "ok" as const, page } : UNREACHABLE;
 	}
 }

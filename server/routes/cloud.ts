@@ -13,6 +13,10 @@ import type {
 	HostedRenderDownload,
 	HostedRenderDownloadService,
 } from "../../src/application/render/hosted-render-download";
+import {
+	type HostedRenderPageService,
+	publicRenderPageUrl,
+} from "../../src/application/render/hosted-render-page";
 import type { Plan } from "../../src/domain/value-objects/plan";
 import {
 	type HostedRenderDeps,
@@ -32,6 +36,10 @@ interface CloudRouteEnv {
 export interface CloudRouteDeps extends HostedRenderDeps {
 	readonly renderJobs?: HostedRenderJobService;
 	readonly renderDownloads?: HostedRenderDownloadService;
+	/** Public pages (`/v/<id>`); without them the owner sees no page control. */
+	readonly renderPages?: HostedRenderPageService;
+	/** The public origin a page address is written on. */
+	readonly appUrl?: string;
 	readonly now?: () => Date;
 }
 
@@ -106,6 +114,23 @@ export const createCloudRoute = (
 ): Hono<CloudRouteEnv> => {
 	const cloudRoute = new Hono<CloudRouteEnv>();
 	const now = deps.now ?? (() => new Date());
+	const pageUrl = (c: Context<CloudRouteEnv>, jobId: string) =>
+		publicRenderPageUrl(deps.appUrl ?? new URL(c.req.url).origin, jobId);
+
+	/**
+	 * The receipt's page control: a Creator owner can publish, and an owner whose
+	 * page is already up can always take it down. Anyone else has no control.
+	 */
+	const ownerPage = async (c: Context<CloudRouteEnv>, jobId: string) => {
+		if (!deps.renderPages) {
+			return null;
+		}
+		const isPublic = await deps.renderPages.isPublic(c.get("accountId"), jobId);
+		if (isPublic === null || (!isPublic && !c.get("plan").capabilities.allowsCloudExport)) {
+			return null;
+		}
+		return { public: isPublic, url: pageUrl(c, jobId) };
+	};
 
 	cloudRoute.use("*", requireHostedAccount(deps));
 	cloudRoute.use(
@@ -188,7 +213,37 @@ export const createCloudRoute = (
 			return c.json({ error: "Render output is temporarily unavailable" }, 503);
 		}
 		c.header("Cache-Control", "no-store");
-		return c.json({ job, download: result.download });
+		const page = await ownerPage(c, job.id);
+		return c.json({ job, download: result.download, ...(page ? { page } : {}) });
+	});
+
+	cloudRoute.put("/jobs/:id/public", async (c) => {
+		if (!deps.renderJobs || !deps.renderPages) {
+			return c.json({ error: "Public pages are not configured" }, 503);
+		}
+		const body: unknown = await c.req.json().catch(() => null);
+		const value =
+			typeof body === "object" && body !== null && "public" in body ? body.public : undefined;
+		if (typeof value !== "boolean") {
+			return c.json({ error: "Send { public: true } or { public: false }" }, 400);
+		}
+		const job = await deps.renderJobs.status(c.get("accountId"), c.req.param("id"));
+		if (!job) {
+			return c.json({ error: "Render job not found" }, 404);
+		}
+		if (job.status !== "succeeded") {
+			return c.json({ error: "Render output is not ready" }, 409);
+		}
+		// Taking a page down is always the owner's; putting one up is Creator's.
+		const plan = c.get("plan");
+		if (value && !plan.capabilities.allowsCloudExport) {
+			return c.json(planLimitRefusal(plan, "hostedRenderTime", 0), 402);
+		}
+		if (!(await deps.renderPages.setPublic(c.get("accountId"), job.id, value))) {
+			return c.json({ error: "Render job not found" }, 404);
+		}
+		c.header("Cache-Control", "no-store");
+		return c.json({ page: { public: value, url: pageUrl(c, job.id) } });
 	});
 
 	cloudRoute.get("/jobs/:id/download", async (c) => {

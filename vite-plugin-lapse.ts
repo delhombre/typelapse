@@ -8,14 +8,12 @@ import type { Plugin } from "vite";
  * Lapse ships from a private registry tied to a personal course licence. Putting
  * it in package.json would make `pnpm install` fail for everyone who does not
  * hold that licence, CI included, which is not an acceptable trade for a public
- * MIT repository. It therefore lives in `.lapse/`, its own gitignored install
+ * repository. It therefore lives in `.lapse/`, its own gitignored install
  * with its own manifest, which pnpm never prunes: a package that is merely
  * absent from the project manifest gets removed on the next install.
  *
- * Set it up with:
- *   mkdir -p .lapse && cd .lapse
- *   echo '@aiforui:registry=https://aiforui.dev/npm/' > .npmrc
- *   pnpm add @aiforui/lapse
+ * A licence holder sets it up by running the course's install steps inside
+ * `.lapse/`, so the registry scope lands in `.lapse/.npmrc` and never in the root.
  *
  * The injection goes through the HTML rather than the app entry because the
  * install module has to run before anything caches the clock. Motion caches

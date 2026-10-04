@@ -1,6 +1,8 @@
+import { RELEASE_CARD_MS, releaseProject } from "@/application/import/release-project";
 import { addTextLayer } from "@/application/project/multimedia-authoring";
 import { DiffImportMenu } from "@/presentation/components/layout/diff-import-menu";
 import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
+import { UrlImportMenu } from "@/presentation/components/layout/url-import-menu";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -85,6 +87,7 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
+	vi.unstubAllGlobals();
 	history.replaceState(null, "", "/");
 });
 
@@ -235,6 +238,102 @@ describe("an import link on an open studio", () => {
 
 		expect(screen.queryByText(/Replace what you have/)).toBeNull();
 		expect(useSnippetStore.getState().snippet.steps.length).toBe(0);
+		expect(textLayerCount()).toBe(1);
+	});
+});
+
+describe("a release link", () => {
+	const API = "https://api.github.com/repos/acme/app";
+	const RELEASE_URL = "https://github.com/acme/app/releases/tag/v1.2.0";
+	const SECOND_DIFF = VALID_DIFF.replace("`Hello, ${name}!`", "`Hi, ${name}!`").replace(
+		'"Hello " + name',
+		"`Hello, ${name}!`",
+	);
+
+	function stubGitHub(): string[] {
+		const calls: string[] = [];
+		const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
+		const routes: Record<string, () => Response> = {
+			[`${API}/releases/tags/v1.2.0`]: () =>
+				json({ name: "Friendlier greetings", tag_name: "v1.2.0", body: "Every name is welcome." }),
+			[`${API}/tags?per_page=100&page=1`]: () => json([{ name: "v1.2.0" }, { name: "v1.1.0" }]),
+			[`${API}/compare/v1.1.0...v1.2.0`]: () =>
+				json({
+					total_commits: 2,
+					commits: [
+						{ sha: "aaa1111", commit: { message: "Use a template" }, parents: [{}] },
+						{ sha: "bbb2222", commit: { message: "Say hi" }, parents: [{}] },
+					],
+				}),
+			[`${API}/commits/aaa1111`]: () => new Response(VALID_DIFF),
+			[`${API}/commits/bbb2222`]: () => new Response(SECOND_DIFF),
+		};
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (input: RequestInfo | URL) => {
+				const url = String(input);
+				calls.push(url);
+				return routes[url]?.() ?? json({ message: "Not Found" }, 404);
+			}),
+		);
+		return calls;
+	}
+
+	it("asks once over existing work, then lands the chaptered project behind its title card", async () => {
+		const calls = stubGitHub();
+		authorTextLayer();
+		const stop = studioHistory.start();
+		render(<UrlImportMenu />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Import from URL" }));
+		fireEvent.change(screen.getByLabelText("Gist or GitHub link"), {
+			target: { value: RELEASE_URL },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Fetch" }));
+
+		expect(screen.getByText("Replace what you have with this release?")).toBeTruthy();
+		// Nothing is fetched before the answer.
+		expect(calls).toEqual([]);
+		fireEvent.click(screen.getByRole("button", { name: "Import the release" }));
+
+		await waitFor(() =>
+			expect(useSnippetStore.getState().snippet.title).toBe("Friendlier greetings"),
+		);
+		const chapters = [
+			{ title: "Use a template", diffText: VALID_DIFF },
+			{ title: "Say hi", diffText: SECOND_DIFF },
+		];
+		const expected = releaseProject({ title: "Friendlier greetings" }, chapters).steps;
+		const steps = useSnippetStore.getState().snippet.steps;
+		expect(steps.map((step) => [step.code, step.duration, step.annotation])).toEqual(
+			expected.map((step) => [step.code, step.duration, step.caption]),
+		);
+		expect(steps[0]?.duration).toBe(RELEASE_CARD_MS);
+
+		const scenes = useStudioCompositionStore.getState().toDocument().project.scenes;
+		expect(
+			scenes[0]?.blocks.map((block) => (block.kind === "text" ? block.text : block.kind)),
+		).toEqual(["Friendlier greetings", "Every name is welcome."]);
+		// The old project's layer went with it; the card's two are the only text.
+		expect(textLayerCount()).toBe(2);
+		expect(studioHistory.canUndo()).toBe(false);
+		expect(screen.queryByText(/Replace what you have/)).toBeNull();
+		stop();
+	});
+
+	it("says a missing release in one sentence and keeps the project", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => new Response("{}", { status: 404 })),
+		);
+		authorTextLayer();
+		const { result } = renderHook(() => useSourceImport());
+
+		await act(async () => {
+			await result.current.run(RELEASE_URL);
+		});
+
+		expect(result.current.error).toBe("Release not found (or the repository is private)");
 		expect(textLayerCount()).toBe(1);
 	});
 });

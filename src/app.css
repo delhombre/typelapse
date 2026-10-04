@@ -2696,6 +2696,13 @@ html.dark:not([data-landing-theme]) {
 	color: inherit;
 }
 
+/* An action beside the sentence keeps its words on one line; the sentence is
+   the part that wraps. */
+.studio-root .si-status .si-button {
+	flex: none;
+	white-space: nowrap;
+}
+
 .studio-root .si-status-mark {
 	display: inline-flex;
 	flex: none;

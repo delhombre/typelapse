@@ -1,7 +1,14 @@
-import { clipFades, previewCardPlacement } from "@/application/layout/canvas-fit";
+import {
+	BASE_VIDEO_SCALE,
+	clipFades,
+	previewCardPlacement,
+	renderScaleFor,
+} from "@/application/layout/canvas-fit";
 import { fitScale } from "@/application/layout/fit-scale";
 import { chromeBarHeight } from "@/application/layout/frame-metrics";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
+import { ZOOM_SCALE } from "@/application/magic-move/focus-zoom";
+import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -171,14 +178,27 @@ describe("LivePreview on the export canvas", () => {
 			boxWidth,
 		});
 
+		// Laid out at the exporters' size (#114): CSS rounds a line's baseline to
+		// whole pixels of the size it lays out at, so a card laid out at editor size
+		// and scaled 2.2x put each row on a 2.2 px grid, up to 1.1 px off the export.
+		const unit = renderScaleFor(1920, 1080, BASE_VIDEO_SCALE);
 		const card = container.querySelector<HTMLElement>("[data-export-target]");
 		expect(Number.parseFloat(card?.style.width ?? "")).toBeCloseTo(
-			placement.windowWidth + 2 * state.cardMargin,
+			(placement.windowWidth + 2 * state.cardMargin) * unit,
 			6,
 		);
 		const transform = card?.parentElement?.style.transform ?? "";
 		const scale = Number.parseFloat(/scale\(([^)]+)\)/.exec(transform)?.[1] ?? "");
-		expect(scale).toBeCloseTo(placement.cardScale, 6);
+		expect(scale).toBeCloseTo(placement.cardScale / unit, 6);
+		// The code is set at the exporters' font size, so its line boxes round alike.
+		// The code body is the window's one element with a line height in px.
+		const code = Array.from(card?.querySelectorAll<HTMLElement>(".code-frame-glow div") ?? []).find(
+			(el) => el.style.lineHeight.endsWith("px"),
+		);
+		expect(Number.parseFloat(code?.style.fontSize ?? "")).toBeCloseTo(
+			state.snippet.theme.fontSize * unit,
+			6,
+		);
 	});
 
 	it("lays the grain over the whole canvas, never as a plate on the card", () => {
@@ -231,14 +251,45 @@ describe("LivePreview on the export canvas", () => {
 			chromeHeight: chromeBarHeight(state.windowChrome, 1),
 			fontSize: state.snippet.theme.fontSize,
 		});
+		const unit = renderScaleFor(1920, 1080, BASE_VIDEO_SCALE);
 		const windowEl = container.querySelector<HTMLElement>(".code-frame-glow");
 		expect(Number.parseFloat(windowEl?.style.maxHeight ?? "")).toBeCloseTo(
-			placement.windowHeight,
+			placement.windowHeight * unit,
 			6,
 		);
 		const fadeEl = windowEl?.querySelector<HTMLElement>("[data-clip-fade='right']");
-		expect(Number.parseFloat(fadeEl?.style.width ?? "")).toBeCloseTo(fade?.width ?? Number.NaN, 6);
-		expect(Number.parseFloat(fadeEl?.style.top ?? "")).toBeCloseTo(fade?.y ?? Number.NaN, 6);
+		expect(Number.parseFloat(fadeEl?.style.width ?? "")).toBeCloseTo(
+			(fade?.width ?? Number.NaN) * unit,
+			6,
+		);
+		expect(Number.parseFloat(fadeEl?.style.top ?? "")).toBeCloseTo(
+			(fade?.y ?? Number.NaN) * unit,
+			6,
+		);
+	});
+
+	it("pushes the code in under the chrome bar, never over it (#114)", async () => {
+		useExportStore.setState({ focusZoom: true });
+		// The plan is laid out by hand above; a focus edit must not rebuild it.
+		useSnippetStore.setState({ rebuildPlan: async () => {} });
+		const step = useSnippetStore.getState().snippet.steps[1];
+		if (!step) {
+			throw new Error("no second step");
+		}
+		useSnippetStore
+			.getState()
+			.updateStepFocus(step.id, [HighlightRange.create({ startLine: 2, endLine: 3 })]);
+		const { container } = renderPreview();
+		const scaled = Array.from(container.querySelectorAll<HTMLElement>("div")).find((el) =>
+			el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
+		);
+		expect(scaled, "a pushed-in body").toBeDefined();
+		// The box that scales does not clip: a clip that scales grows over the bar.
+		expect(scaled?.style.overflow).not.toBe("hidden");
+		const clip = scaled?.parentElement;
+		expect(clip?.style.overflow).toBe("hidden");
+		expect(clip?.style.transform).toBe("");
+		expect(clip?.parentElement?.classList.contains("code-frame-glow")).toBe(true);
 	});
 
 	it("keeps the new mesh painted when the background changes", async () => {

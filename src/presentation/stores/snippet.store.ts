@@ -1,6 +1,7 @@
 import {
 	type CodeSnapshot,
 	type DiffChapter,
+	chapterLanguage,
 	chapterSnapshots,
 	diffToSnapshots,
 } from "@/application/diff";
@@ -171,8 +172,12 @@ interface SnippetState {
 	 * (its own windowed staged sequence), played in order. Applies the SAME
 	 * MAX_DIFF_STEPS cap and caption wiring as {@link importDiff}. Throws when no
 	 * chapter carries changes, before any mutation, so the snippet stays intact.
+	 * `openingCardMs` opens on a blank step that long: a release's title card.
 	 */
-	importChapters: (chapters: DiffChapter[], meta: { title: string }) => void;
+	importChapters: (
+		chapters: DiffChapter[],
+		meta: { title: string; openingCardMs?: number },
+	) => void;
 }
 
 let rawShikiHighlighter: Highlighter | null = null;
@@ -438,7 +443,7 @@ const PLAYBACK_RESET = {
 function buildDiffSnippet(
 	base: Snippet,
 	snapshots: CodeSnapshot[],
-	meta: { title?: string; language?: string },
+	meta: { title?: string; language?: string; openingCardMs?: number },
 ): Snippet {
 	const staged = capDiffSnapshots(snapshots);
 	// Open on the "before" state (first frame); playback morphs forward to "after".
@@ -450,6 +455,9 @@ function buildDiffSnippet(
 		theme: base.theme,
 		renderConfig: base.renderConfig,
 	});
+	if (meta.openingCardMs !== undefined) {
+		rebuilt = rebuilt.addStep(Step.create({ code: "", duration: meta.openingCardMs }));
+	}
 	for (const snapshot of staged) {
 		// The snapshot's label ("Before" / a hunk heading / "After" / a "k/N · subject"
 		// chapter head) narrates the step, so it lands as the caption and the
@@ -462,26 +470,6 @@ function buildDiffSnippet(
 		);
 	}
 	return rebuilt;
-}
-
-/**
- * The Shiki language for a chaptered import: the first chapter whose primary file
- * has a recognizable extension. Reuses diffToSnapshots' own inference so chapters
- * tag their language exactly as a single-diff import would; a lockfiles-only or
- * unparseable chapter carries none, so we try the next.
- */
-function inferChapterLanguage(chapters: DiffChapter[]): string | undefined {
-	for (const chapter of chapters) {
-		try {
-			const { language } = diffToSnapshots(chapter.diffText);
-			if (language) {
-				return language;
-			}
-		} catch {
-			// No usable diff in this chapter: its language is undecidable, try the next.
-		}
-	}
-	return undefined;
 }
 
 async function ensureLanguageLoaded(language: string): Promise<void> {
@@ -1000,7 +988,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		get().rebuildPlan();
 	},
 
-	importChapters: (chapters: DiffChapter[], meta: { title: string }) => {
+	importChapters: (chapters: DiffChapter[], meta: { title: string; openingCardMs?: number }) => {
 		// chapterSnapshots skips lockfiles-only / empty chapters; if that leaves
 		// nothing to animate we throw before any set(), so a dead PR leaves the
 		// current snippet untouched, exactly like importDiff's contract.
@@ -1010,7 +998,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		}
 		const rebuilt = buildDiffSnippet(get().snippet, snapshots, {
 			title: meta.title,
-			language: inferChapterLanguage(chapters),
+			language: chapterLanguage(chapters),
+			openingCardMs: meta.openingCardMs,
 		});
 
 		cancelRaf();

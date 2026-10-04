@@ -74,7 +74,12 @@ export type ExportOutcome =
 			/** Anything the render wants said out loud, e.g. a GIF's capped rate. */
 			note?: string;
 	  }
-	| { kind: "failed"; message: string };
+	| {
+			kind: "failed";
+			message: string;
+			/** A machine the panel offers to render on instead, never switched to unasked. */
+			alternative?: "device";
+	  };
 
 /** Morph tempo: how long each step-to-step transition takes, in milliseconds. */
 export type TempoMs = 400 | 650 | 1000;
@@ -443,12 +448,17 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			});
 			feedback("success");
 		} catch (err) {
+			// The server's own sentence, and Device one press away when this browser
+			// can encode: a refusal for size is no reason to leave the user waiting
+			// or guessing (#113).
+			await get().probeDevice();
 			set({
 				isExporting: false,
 				progress: null,
 				outcome: {
 					kind: "failed",
 					message: err instanceof Error ? err.message : "The export failed.",
+					...(get().deviceSupported ? { alternative: "device" as const } : {}),
 				},
 			});
 			feedback("error");

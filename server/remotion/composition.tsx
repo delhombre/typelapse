@@ -16,9 +16,10 @@ import {
 	chromeBarHeight,
 } from "../../src/application/layout/frame-metrics";
 import { type ScriptFrame, scriptFrameAt } from "../../src/application/export/video-script";
-import { NO_ZOOM, type ZoomTransform } from "../../src/application/magic-move/focus-zoom";
+import { NO_ZOOM } from "../../src/application/magic-move/focus-zoom";
 import { captionAt } from "../../src/application/captions/caption-timing";
 import { ClipFades } from "../../src/presentation/components/preview/clip-fades";
+import { FocusZoomBody } from "../../src/presentation/components/preview/focus-zoom-body";
 import { FrameChrome } from "../../src/presentation/components/preview/frame-chrome";
 import { GlowDecoration } from "../../src/presentation/components/preview/glow-decoration";
 import { GrainOverlay } from "../../src/presentation/components/preview/grain-overlay";
@@ -207,8 +208,8 @@ export function CodeCard({ input }: { input: RenderInput }) {
 				) : null
 			}
 		>
-			{/* Focus zoom: identical transform to the preview so the video matches. */}
-			<div style={zoomStyle(view.zoom, focusZoom, theme.borderRadius * videoScale)}>
+			{/* Focus zoom: the preview's component, so the video matches. */}
+			<FocusZoomBody zoom={view.zoom} active={focusZoom} borderRadius={theme.borderRadius * videoScale}>
 				<MagicMoveCanvas
 					tokens={view.tokens}
 					lineCount={view.lineCount}
@@ -224,7 +225,7 @@ export function CodeCard({ input }: { input: RenderInput }) {
 					cursor={cursor}
 					firstRow={view.firstRow}
 				/>
-			</div>
+			</FocusZoomBody>
 		</CenteredFrame>
 	);
 }
@@ -239,23 +240,6 @@ const EMPTY_VIEW: FrameView = {
 	cursor: null,
 	zoom: NO_ZOOM,
 };
-
-/**
- * Transform for the zoom wrapper: overflow-clipped, scaled only when zoom is on.
- * Carries the window's border radius (concentric law) so a scaled, composited
- * layer never squares the window's corners: identical to the browser preview.
- */
-function zoomStyle(zoom: ZoomTransform, active: boolean, borderRadius: number): React.CSSProperties {
-	if (!active) {
-		return { overflow: "hidden", borderRadius };
-	}
-	return {
-		overflow: "hidden",
-		borderRadius,
-		transform: `scale(${zoom.scale})`,
-		transformOrigin: `50% ${zoom.originYRatio * 100}%`,
-	};
-}
 
 /**
  * The card's content at this frame, from the walk the painter and the preview

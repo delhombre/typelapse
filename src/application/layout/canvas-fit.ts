@@ -321,17 +321,27 @@ export interface PreviewCardPlacement {
 	clip: CardClip | null;
 	/** Box px per editor px: the one transform that puts the card in the box. */
 	cardScale: number;
+	/**
+	 * Editor px to the px the preview lays its card out at: the exporters' render
+	 * scale, the size the composition lays the card out at. The preview multiplies
+	 * its editor sizes by this and divides `cardScale` by it. CSS rounds a line's
+	 * ascent, descent and half-leading to whole CSS px of the size it lays out at
+	 * (16 px at 14 px type, 35 px at 30.8 px), so a card laid out at editor size
+	 * and scaled 2.2x put its rows on a 2.2 px grid, up to 1.1 px off (#114).
+	 */
+	layoutScale: number;
 }
 
 /**
  * How the DOM preview draws the exporters' card inside its aspect box.
  *
- * The preview lays the card out at editor size (14px type, unscaled padding and
- * margin), so it takes the exporters' window width divided by their render scale,
- * and one transform that carries editor px to box px: the render scale, the fit,
- * and the box's own share of the canvas. Laid out any other way (it used to be a
- * fixed 42rem card squeezed into the slot) the window and the type each come out
- * a different size from the export's.
+ * In editor px (14px type, unscaled padding and margin): the exporters' window
+ * width divided by their render scale, and one transform that carries editor px
+ * to box px: the render scale, the fit, and the box's own share of the canvas.
+ * The preview multiplies the first by `layoutScale` and divides the second by
+ * it, so it lays out at the composition's size. Laid out any other way (it used
+ * to be a fixed 42rem card squeezed into the slot) the window and the type each
+ * come out a different size from the export's.
  */
 export function previewCardPlacement(input: PreviewCardPlacementInput): PreviewCardPlacement {
 	const unit = renderScaleFor(input.canvasWidth, input.canvasHeight, BASE_VIDEO_SCALE);
@@ -341,5 +351,6 @@ export function previewCardPlacement(input: PreviewCardPlacementInput): PreviewC
 		windowHeight: fit.windowHeight / unit,
 		clip: fit.clip,
 		cardScale: (unit * fit.scale * input.boxWidth) / input.canvasWidth,
+		layoutScale: unit,
 	};
 }

@@ -9,9 +9,7 @@ import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
 const require = createRequire(import.meta.url);
-const PLAYWRIGHT =
-	process.env.PLAYWRIGHT_CORE ??
-	"/Users/brunodogbase/.npm/_npx/218f5d799962bf90/node_modules/playwright-core";
+const PLAYWRIGHT = process.env.PLAYWRIGHT_CORE ?? "@playwright/test";
 const { chromium } = require(PLAYWRIGHT);
 
 const OUT = resolve(process.argv[2] ?? "/tmp/typelapse-studio-details");
@@ -20,9 +18,8 @@ const URL_ = process.env.STUDIO_URL ?? "http://localhost:5205/app";
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({
-	executablePath:
-		process.env.CHROMIUM_BIN ??
-		"/Users/brunodogbase/Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell",
+	// Unset means Playwright's own downloaded browser (`pnpm exec playwright install chromium`).
+	executablePath: process.env.CHROMIUM_BIN,
 });
 
 const page = await browser.newPage({

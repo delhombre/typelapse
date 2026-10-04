@@ -43,6 +43,22 @@ export function capDiffSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
  */
 export function projectFromDiff(diffText: string, meta: { title?: string } = {}): ProjectPayload {
 	const { snapshots, language, path } = diffToSnapshots(diffText);
+	return projectFromSnapshots(snapshots, {
+		title: meta.title || path?.split("/").pop() || "Untitled",
+		language,
+	});
+}
+
+/**
+ * Staged snapshots → the project a fresh studio holds, capped and captioned the
+ * way the store's diff import builds it. `openingCardMs` puts a blank step
+ * first, the title card a release opens on (the store's `importChapters` takes
+ * the same option, and a test holds the two to the same file).
+ */
+export function projectFromSnapshots(
+	snapshots: CodeSnapshot[],
+	meta: { title: string; language?: string; openingCardMs?: number },
+): ProjectPayload {
 	const staged = capDiffSnapshots(snapshots);
 	const theme = Theme.midnight();
 	const steps = staged.map((snapshot) => {
@@ -51,10 +67,13 @@ export function projectFromDiff(diffText: string, meta: { title?: string } = {})
 			? { code: snapshot.code, duration: DIFF_STEP_DURATION, caption }
 			: { code: snapshot.code, duration: DIFF_STEP_DURATION };
 	});
+	if (meta.openingCardMs !== undefined) {
+		steps.unshift({ code: "", duration: meta.openingCardMs });
+	}
 	return {
-		title: meta.title || path?.split("/").pop() || "Untitled",
+		title: meta.title,
 		code: staged[0]?.code ?? "",
-		language: language ?? "typescript",
+		language: meta.language ?? "typescript",
 		themeName: theme.name,
 		fontFamily: theme.fontFamily,
 		borderRadius: theme.borderRadius,

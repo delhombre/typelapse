@@ -1,5 +1,15 @@
 import { classifySource, isBareLink } from "@/application/import/classify-source";
-import { resolveCommitUrl, resolvePrUrl } from "@/application/import/pr-url";
+import {
+	resolveCommitUrl,
+	resolveCompareUrl,
+	resolvePrUrl,
+	resolveReleaseUrl,
+} from "@/application/import/pr-url";
+import {
+	RELEASE_CARD_MS,
+	type ReleaseCard,
+	releaseCardLayers,
+} from "@/application/import/release-project";
 import { languageFromPath } from "@/application/language/language-from-filename";
 import {
 	type Walkthrough,
@@ -7,10 +17,14 @@ import {
 	fetchPrChapters,
 	fetchPrWalkthrough,
 } from "@/infrastructure/import/pr-import";
+import { fetchReleaseChapters } from "@/infrastructure/import/release-import";
 import { importCodeFromUrl } from "@/infrastructure/import/url-import";
 import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
-import { holdStudioPersistence } from "@/presentation/stores/studio-composition.store";
+import {
+	holdStudioPersistence,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
 import { whenStudioCompositionReady } from "@/presentation/utils/studio-composition-ready";
 import { replaceStudioCompositionWithCode } from "@/presentation/utils/studio-project-replacement";
 import { useCallback, useRef, useState } from "react";
@@ -120,6 +134,23 @@ export function useSourceImport(): SourceImport {
 				return true;
 			}
 
+			if (kind === "release" || kind === "compare") {
+				const ref = resolveReleaseUrl(trimmed) ?? resolveCompareUrl(trimmed);
+				if (!ref) {
+					throw new Error("That release link could not be read.");
+				}
+				// Always by commit: a release's whole change is a changelog, not a story.
+				const { card, chapters } = await fetchReleaseChapters(ref, (done, total) =>
+					setProgress({ done, total }),
+				);
+				await replaceProject(
+					() =>
+						store.importChapters(chapters, { title: card.title, openingCardMs: RELEASE_CARD_MS }),
+					() => placeReleaseCard(card),
+				);
+				return true;
+			}
+
 			if (kind === "code-url") {
 				const imported = await importCodeFromUrl(trimmed);
 				await replaceProject(() =>
@@ -139,7 +170,7 @@ export function useSourceImport(): SourceImport {
 
 			if (isBareLink(trimmed)) {
 				throw new Error(
-					"Typelapse can read GitHub pull requests, commits and files, gists and raw code links. That link is none of them.",
+					"Typelapse can read GitHub pull requests, commits, releases and files, gists and raw code links. That link is none of them.",
 				);
 			}
 
@@ -179,16 +210,34 @@ export function useSourceImport(): SourceImport {
  * stored composition to be on screen first: an import that landed during the
  * boot restore was undone by it, the stored layers loaded over the new code.
  * Autosave is held while the code and the composition disagree, then the undo
- * history starts again from the imported project.
+ * history starts again from the imported project. `layer` adds what the code
+ * alone does not carry (a release's title card) to the fresh composition,
+ * before the history starts, so an undo cannot peel it off.
  */
-async function replaceProject(apply: () => void): Promise<void> {
+async function replaceProject(apply: () => void, layer?: () => void): Promise<void> {
 	await whenStudioCompositionReady();
 	const release = holdStudioPersistence();
 	try {
 		apply();
 		replaceStudioCompositionWithCode();
+		layer?.();
 	} finally {
 		release();
 	}
 	studioHistory.reset();
+}
+
+/** The release's title and short line, as text layers on the blank scene it opens on. */
+function placeReleaseCard(card: ReleaseCard): void {
+	const composition = useStudioCompositionStore.getState();
+	const scene = composition.value.project.scenes[0];
+	if (!scene) {
+		return;
+	}
+	composition.synchronize((project) =>
+		releaseCardLayers(card, scene.id).reduce(
+			(next, layer) => next.addBlock(scene.id, layer),
+			project,
+		),
+	);
 }

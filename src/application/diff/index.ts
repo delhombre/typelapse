@@ -4,7 +4,7 @@ export {
 	budgetWalkthrough,
 } from "./budget";
 export type { BudgetedWalkthrough } from "./budget";
-export { chapterSnapshots } from "./chapters";
+export { chapterLanguage, chapterSnapshots } from "./chapters";
 export type { DiffChapter } from "./chapters";
 export { diffToSnapshots } from "./diff-to-snapshots";
 export { parseUnifiedDiff } from "./parse-unified-diff";

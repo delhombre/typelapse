@@ -36,6 +36,13 @@
       "when": 1791039064951,
       "tag": "0004_hosted_render_duration",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791105555339,
+      "tag": "0005_public_render_pages",
+      "breakpoints": true
     }
   ]
 }

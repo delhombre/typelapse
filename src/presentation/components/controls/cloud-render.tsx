@@ -68,11 +68,18 @@ export function useCloudRenderCta(target: ExportTarget): { busy: boolean; label:
 /** Every word the Render button can say while busy, the device render's included. */
 export const RENDER_BUSY_LABELS: readonly string[] = [...new Set(Object.values(BUSY_LABELS))];
 
+export interface CloudStatusAction {
+	readonly label: string;
+	readonly run: () => void;
+}
+
 export interface CloudStatusView {
 	readonly key: string;
 	readonly kind: "progress" | "note" | "done" | "problem";
 	readonly text: string;
-	readonly action?: { readonly label: string; readonly run: () => void };
+	readonly action?: CloudStatusAction;
+	/** The public page's controls, after the main action. */
+	readonly extra?: readonly CloudStatusAction[];
 	readonly dismiss?: () => void;
 }
 
@@ -100,6 +107,8 @@ export function useCloudStatusView(): CloudStatusView | null {
 	const allowance = useHostedRenderJobsStore((state) => state.allowance);
 	const resume = useHostedRenderJobsStore((state) => state.resume);
 	const download = useHostedRenderJobsStore((state) => state.download);
+	const copyPublicLink = useHostedRenderJobsStore((state) => state.copyPublicLink);
+	const makePrivate = useHostedRenderJobsStore((state) => state.makePrivate);
 	const dismiss = useHostedRenderJobsStore((state) => state.dismiss);
 	const billingAvailable = usePlanStore((state) => state.billingAvailable);
 	const upgrade = usePlanStore((state) => state.upgrade);
@@ -123,11 +132,21 @@ export function useCloudStatusView(): CloudStatusView | null {
 		case "succeeded": {
 			// Same shape as this device's receipt: what, how big, then anything to add.
 			const notice = phase.notice ? ` · ${phase.notice}` : "";
+			// The page exists only where the server lets this account switch it (Creator).
+			const extra: CloudStatusAction[] = !phase.page
+				? []
+				: phase.page.public
+					? [
+							{ label: "Copy link", run: () => void copyPublicLink() },
+							{ label: "Make private", run: () => void makePrivate() },
+						]
+					: [{ label: "Copy public link", run: () => void copyPublicLink() }];
 			return {
 				key: "cloud-done",
 				kind: "done",
 				text: `Rendered on Typelapse Cloud · ${megabytes(phase.download.byteSize)}${notice}`,
 				action: { label: "Download", run: () => void download() },
+				...(extra.length > 0 ? { extra } : {}),
 				dismiss,
 			};
 		}

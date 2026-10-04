@@ -20,6 +20,7 @@ describe("Remotion V2 runtime", () => {
 					});
 				});
 			},
+			renderStill: async () => undefined,
 		};
 		const runtime = createRemotionV2Runtime(api);
 		const abort = new AbortController();
