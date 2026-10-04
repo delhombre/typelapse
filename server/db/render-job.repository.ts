@@ -14,6 +14,10 @@ import type {
 	HostedRenderOutputRepositoryPort,
 } from "../../src/application/render/hosted-render-download";
 import type {
+	HostedRenderPageRepositoryPort,
+	PublishedRenderRecord,
+} from "../../src/application/render/hosted-render-page";
+import type {
 	RenderJobLease,
 	RenderJobQueuePort,
 } from "../../src/application/render/hosted-render-worker";
@@ -50,6 +54,20 @@ interface RawRenderOutputRow extends Record<string, unknown> {
 	readonly objectKey: string | null;
 	readonly mimeType: string | null;
 	readonly byteSize: number | string | null;
+}
+
+interface RawPublishedRenderRow extends Record<string, unknown> {
+	readonly jobId: string;
+	readonly ownerId: string;
+	readonly title: string | null;
+	readonly document: unknown;
+	readonly renderOptions: unknown;
+	readonly durationMs: number | string | null;
+	readonly completedAt: Date | string;
+	readonly objectKey: string;
+	readonly mimeType: string;
+	readonly byteSize: number | string;
+	readonly posterObjectKey: string | null;
 }
 
 const RENDER_STATUSES = new Set([
@@ -279,6 +297,86 @@ export function createRenderOutputRepository(
 	};
 }
 
+function publishedRenderFromRow(row: RawPublishedRenderRow): PublishedRenderRecord {
+	const byteSize = Number(row.byteSize);
+	if (!Number.isSafeInteger(byteSize) || byteSize <= 0) {
+		throw new Error("Hosted persistence returned an invalid render output size");
+	}
+	const durationMs = row.durationMs === null ? null : Number(row.durationMs);
+	const document = projectDocumentFromPersistence(row.document);
+	return {
+		jobId: row.jobId,
+		ownerId: row.ownerId,
+		title: row.title?.trim() || document.project.title,
+		document,
+		renderOptions: parseHostedRenderOptions(row.renderOptions),
+		durationMs: durationMs !== null && Number.isFinite(durationMs) ? durationMs : null,
+		completedAt: dateFromPersistence(row.completedAt, "render completion time"),
+		output: { objectKey: row.objectKey, mimeType: row.mimeType, byteSize },
+		posterObjectKey: row.posterObjectKey,
+	};
+}
+
+/**
+ * Public pages read by job id alone, and only what the owner switched on. The
+ * switch itself is owner-scoped like every other write on a render.
+ */
+export function createRenderPageRepository(db: CreatorDatabase): HostedRenderPageRepositoryPort {
+	return {
+		async findPublished(jobId) {
+			const rows = await executeRows<RawPublishedRenderRow>(
+				db,
+				sql`SELECT
+					job.id AS "jobId",
+					job.owner_id AS "ownerId",
+					job.project_document #>> '{project,title}' AS "title",
+					job.project_document AS "document",
+					job.render_options AS "renderOptions",
+					job.duration_ms AS "durationMs",
+					job.completed_at AS "completedAt",
+					job.output_object_key AS "objectKey",
+					job.output_mime_type AS "mimeType",
+					job.output_byte_size AS "byteSize",
+					job.output_poster_key AS "posterObjectKey"
+				FROM render_jobs AS job
+				WHERE job.id = ${jobId}
+					AND job.status = 'succeeded'
+					AND job.is_public
+				LIMIT 1`,
+			);
+			const row = rows[0];
+			return row ? publishedRenderFromRow(row) : null;
+		},
+
+		async isPublic(ownerId, jobId) {
+			const rows = await executeRows<{ readonly isPublic: boolean }>(
+				db,
+				sql`SELECT job.is_public AS "isPublic"
+				FROM render_jobs AS job
+				WHERE job.owner_id = ${ownerId}
+					AND job.id = ${jobId}
+				LIMIT 1`,
+			);
+			const row = rows[0];
+			return row ? row.isPublic === true : null;
+		},
+
+		async setPublic(ownerId, jobId, value) {
+			const rows = await executeRows<AppliedRow>(
+				db,
+				sql`UPDATE render_jobs AS job
+				SET is_public = ${value},
+					updated_at = now()
+				WHERE job.owner_id = ${ownerId}
+					AND job.id = ${jobId}
+					AND job.status = 'succeeded'
+				RETURNING job.id AS "id"`,
+			);
+			return rows.length === 1;
+		},
+	};
+}
+
 /**
  * Atomic worker queue. `attempts` is the fencing token: every claim, including
  * recovery of an expired lease, increments it before returning the snapshot.
@@ -295,6 +393,7 @@ export function createRenderJobQueue(db: CreatorDatabase): RenderJobQueuePort {
 					output_object_key = NULL,
 					output_mime_type = NULL,
 					output_byte_size = NULL,
+					output_poster_key = NULL,
 					error_code = 'lease-expired',
 					error_message = 'Render worker lease expired after maximum attempts',
 					updated_at = ${input.now},
@@ -337,6 +436,7 @@ export function createRenderJobQueue(db: CreatorDatabase): RenderJobQueuePort {
 					output_object_key = NULL,
 					output_mime_type = NULL,
 					output_byte_size = NULL,
+					output_poster_key = NULL,
 					error_code = NULL,
 					error_message = NULL,
 					updated_at = ${input.now},
@@ -374,6 +474,7 @@ export function createRenderJobQueue(db: CreatorDatabase): RenderJobQueuePort {
 					output_object_key = ${input.output.objectKey},
 					output_mime_type = ${input.output.mimeType},
 					output_byte_size = ${input.output.byteSize},
+					output_poster_key = ${input.output.posterObjectKey ?? null},
 					error_code = NULL,
 					error_message = NULL,
 					updated_at = ${input.now},
@@ -404,6 +505,7 @@ export function createRenderJobQueue(db: CreatorDatabase): RenderJobQueuePort {
 					output_object_key = NULL,
 					output_mime_type = NULL,
 					output_byte_size = NULL,
+					output_poster_key = NULL,
 					updated_at = ${input.now}
 				WHERE ${currentLeaseWhere(input)}
 				RETURNING job.id AS "id"`,

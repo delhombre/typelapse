@@ -4,6 +4,7 @@ import type {
 	CloudDownload,
 	CloudExportPort,
 	CloudFailure,
+	CloudPublicPage,
 	CloudRenderJob,
 	CloudRenderOptions,
 } from "@/domain/ports/cloud-export.port";
@@ -43,6 +44,8 @@ export type CloudRenderPhase =
 			readonly kind: "succeeded";
 			readonly jobId: string;
 			readonly download: CloudDownload;
+			/** Its public page, when the server lets this account switch one. */
+			readonly page?: CloudPublicPage;
 			readonly notice?: string;
 	  }
 	| {
@@ -75,6 +78,9 @@ export interface HostedRenderJobsState {
 	/** Follow the job a previous page left behind, if any. */
 	resume(): void;
 	download(): Promise<void>;
+	/** Turn the render's public page on if it is off, then copy its address. */
+	copyPublicLink(): Promise<void>;
+	makePrivate(): Promise<void>;
 	dismiss(): void;
 }
 
@@ -86,6 +92,7 @@ export interface HostedRenderJobsOptions {
 	readonly setTimer?: (effect: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
 	readonly clearTimer?: (timer: ReturnType<typeof setTimeout>) => void;
 	readonly open?: (url: string) => void;
+	readonly copy?: (text: string) => Promise<boolean>;
 	readonly pollMs?: number;
 }
 
@@ -108,6 +115,24 @@ function openInNewTab(url: string): void {
 	link.click();
 }
 
+async function copyText(text: string): Promise<boolean> {
+	try {
+		await navigator.clipboard.writeText(text);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function succeededPhase(job: CloudRenderJob, download: CloudDownload): CloudRenderPhase {
+	return {
+		kind: "succeeded",
+		jobId: job.id,
+		download,
+		...(job.page ? { page: job.page } : {}),
+	};
+}
+
 function toRenderOptions(request: CloudRenderRequest): CloudRenderOptions | null {
 	if (request.format !== "mp4" && request.format !== "webm") return null;
 	return {
@@ -127,6 +152,7 @@ export function createHostedRenderJobsStore({
 	setTimer = (effect, delayMs) => setTimeout(effect, delayMs),
 	clearTimer = (timer) => clearTimeout(timer),
 	open = openInNewTab,
+	copy = copyText,
 	pollMs = 1500,
 }: HostedRenderJobsOptions) {
 	let save: SaveCloudRevision | null = null;
@@ -181,7 +207,7 @@ export function createHostedRenderJobsStore({
 				return;
 			}
 			if (job.download) {
-				set({ phase: { kind: "succeeded", jobId: job.id, download: job.download } });
+				set({ phase: succeededPhase(job, job.download) });
 				return;
 			}
 			// Succeeded without a link: the plan no longer keeps it, and only the
@@ -189,7 +215,7 @@ export function createHostedRenderJobsStore({
 			const access = await client.download(job.id);
 			if (run !== generation) return;
 			if (access.kind === "ready") {
-				set({ phase: { kind: "succeeded", jobId: job.id, download: access.download } });
+				set({ phase: succeededPhase(job, access.download) });
 			} else if (access.kind === "refused") {
 				set({
 					phase: {
@@ -333,7 +359,9 @@ export function createHostedRenderJobsStore({
 				const access = await client.download(phase.jobId);
 				if (get().phase !== phase) return;
 				if (access.kind === "ready") {
-					set({ phase: { kind: "succeeded", jobId: phase.jobId, download: access.download } });
+					// A fresh link clears the last notice; the page, if any, stays as it was.
+					const { notice: _spent, ...receipt } = phase;
+					set({ phase: { ...receipt, download: access.download } });
 					open(access.download.url);
 				} else if (access.kind === "refused" && access.code === "output-expired") {
 					set({
@@ -347,6 +375,44 @@ export function createHostedRenderJobsStore({
 				} else {
 					set({ phase: { ...phase, notice: failureMessage(access) } });
 				}
+			},
+
+			copyPublicLink: async () => {
+				const phase = get().phase;
+				if (phase.kind !== "succeeded" || !phase.page) return;
+				let page = phase.page;
+				if (!page.public) {
+					const answer = await client.setPublic(phase.jobId, true);
+					if (get().phase !== phase) return;
+					if (answer.kind !== "ok") {
+						set({ phase: { ...phase, notice: failureMessage(answer) } });
+						return;
+					}
+					page = answer.page;
+				}
+				const copied = await copy(page.url);
+				const current = get().phase;
+				if (current.kind !== "succeeded" || current.jobId !== phase.jobId) return;
+				set({
+					phase: {
+						...current,
+						page,
+						notice: copied ? "Public link copied" : `Public at ${page.url}`,
+					},
+				});
+			},
+
+			makePrivate: async () => {
+				const phase = get().phase;
+				if (phase.kind !== "succeeded" || !phase.page?.public) return;
+				const answer = await client.setPublic(phase.jobId, false);
+				if (get().phase !== phase) return;
+				set({
+					phase:
+						answer.kind === "ok"
+							? { ...phase, page: answer.page, notice: "The public page is off" }
+							: { ...phase, notice: failureMessage(answer) },
+				});
 			},
 
 			dismiss: () => {

@@ -307,6 +307,10 @@ export const renderJobs = pgTable(
 		outputObjectKey: text("output_object_key"),
 		outputMimeType: text("output_mime_type"),
 		outputByteSize: bigint("output_byte_size", { mode: "number" }),
+		/** A still of the output for its public page; best effort, so it may stay NULL. */
+		outputPosterKey: text("output_poster_key"),
+		/** The owner's public page switch (`/v/<id>`); every render starts private. */
+		isPublic: boolean("is_public").default(false).notNull(),
 		errorCode: text("error_code"),
 		errorMessage: text("error_message"),
 		createdAt: hostedTimestamp("created_at").defaultNow().notNull(),

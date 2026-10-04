@@ -19,11 +19,18 @@ export interface CloudDownload {
 	readonly byteSize: number;
 }
 
+/** The render's public page (`/v/<id>`), present only where its owner may switch it. */
+export interface CloudPublicPage {
+	readonly public: boolean;
+	readonly url: string;
+}
+
 export interface CloudRenderJob {
 	readonly id: string;
 	readonly status: CloudJobStatus;
 	/** Present while the plan still keeps the output (the grace period after a downgrade). */
 	readonly download: CloudDownload | null;
+	readonly page?: CloudPublicPage | null;
 }
 
 /** The server said no, in its own sentence (a 402 names the plan that lifts it). */
@@ -69,4 +76,8 @@ export interface CloudExportPort {
 	download(
 		jobId: string,
 	): Promise<{ readonly kind: "ready"; readonly download: CloudDownload } | CloudFailure>;
+	setPublic(
+		jobId: string,
+		value: boolean,
+	): Promise<{ readonly kind: "ok"; readonly page: CloudPublicPage } | CloudFailure>;
 }

@@ -19,6 +19,8 @@ export interface RenderJobOutput {
 	readonly objectKey: string;
 	readonly mimeType: string;
 	readonly byteSize: number;
+	/** The poster frame stored beside the output, when the renderer made one. */
+	readonly posterObjectKey?: string;
 }
 
 export interface RenderJobFailure {
@@ -128,6 +130,9 @@ export function createHostedRenderWorker(input: {
 				objectKey: nonEmpty(output.objectKey, "Render output object key"),
 				mimeType: nonEmpty(output.mimeType, "Render output mime type"),
 				byteSize: positiveInteger(output.byteSize, "Render output byte size"),
+				...(output.posterObjectKey
+					? { posterObjectKey: nonEmpty(output.posterObjectKey, "Render poster object key") }
+					: {}),
 			};
 			const applied = await input.queue.succeed({
 				...fencedCommand(lease, now()),

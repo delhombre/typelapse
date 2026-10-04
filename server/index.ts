@@ -13,6 +13,10 @@ import {
 	createHostedRenderDownloadService,
 	type HostedRenderDownloadService,
 } from "../src/application/render/hosted-render-download";
+import {
+	createHostedRenderPageService,
+	type HostedRenderPageService,
+} from "../src/application/render/hosted-render-page";
 import type { AuthPort } from "../src/domain/ports/auth.port";
 import type { SubscriptionPort } from "../src/domain/ports/subscription.port";
 import { Plan } from "../src/domain/value-objects/plan";
@@ -31,12 +35,16 @@ import {
 import { createBillingProjectionStore } from "./db/billing-projection.store";
 import { databaseFromEnv, type CreatorDatabase } from "./db/database";
 import { createProjectDocumentRepository } from "./db/project-document.repository";
-import { createRenderOutputRepository } from "./db/render-job.repository";
+import {
+	createRenderOutputRepository,
+	createRenderPageRepository,
+} from "./db/render-job.repository";
 import { createAssetsRoute } from "./routes/assets";
 import { createBillingRoute } from "./routes/billing";
 import { createCloudRoute } from "./routes/cloud";
 import { createLocalMultimediaRenderRoute } from "./routes/local-multimedia-render";
 import { createProjectsRoute } from "./routes/projects";
+import { createRenderPageRoute } from "./routes/render-page";
 import { hostedRenderJobServiceFromEnv } from "./render/render-job-service";
 import { r2ObjectStorageFromEnv } from "./storage/r2-object-storage";
 
@@ -58,6 +66,7 @@ export interface CreateAppOptions {
 	readonly billing?: BillingService | null;
 	readonly renderJobs?: HostedRenderJobService | null;
 	readonly renderDownloads?: HostedRenderDownloadService | null;
+	readonly renderPages?: HostedRenderPageService | null;
 	readonly logger?: { error(message: string): void };
 }
 
@@ -134,6 +143,16 @@ export async function createApp(
 					return plan.tier === "creator" ? Plan.pro() : Plan.free();
 				},
 			};
+	// Public pages hang off Cloud renders: no hosted rendering, no page.
+	const renderPages =
+		options.renderPages === undefined && database && objectStorage && renderJobs
+			? createHostedRenderPageService({
+					pages: createRenderPageRepository(database),
+					storage: objectStorage,
+					subscriptions,
+				})
+			: (options.renderPages ?? null);
+	const appUrl = process.env.TYPELAPSE_APP_URL?.trim() || undefined;
 	const projectSync = Boolean(authPort && projectRepository && projectAssetResolver);
 	const privateAssets = Boolean(authPort && assetRepository && objectStorage);
 	const hostedRendering = Boolean(authPort && renderJobs && renderDownloads);
@@ -212,8 +231,15 @@ export async function createApp(
 				subscriptions: { planFor: async () => Plan.free() },
 			}),
 			...(renderJobs && renderDownloads ? { renderJobs, renderDownloads } : {}),
+			...(renderPages ? { renderPages } : {}),
+			...(appUrl ? { appUrl } : {}),
 		}),
 	);
+	if (renderPages) {
+		// The app's origin routes /v/* here, as it does /api/*: crawlers read this
+		// document, they never run the SPA.
+		app.route("/v", createRenderPageRoute({ pages: renderPages, ...(appUrl ? { appUrl } : {}) }));
+	}
 	app.route(
 		"/api/billing",
 		createBillingRoute({

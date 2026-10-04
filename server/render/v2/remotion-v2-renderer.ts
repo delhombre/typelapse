@@ -62,6 +62,19 @@ export interface RemotionV2RuntimePort {
 		readonly includeAudio: boolean;
 		readonly signal: AbortSignal;
 	}): Promise<void>;
+	/** One JPEG frame, for the render's public page. A runtime without it makes no poster. */
+	renderStill?(input: {
+		readonly serveUrl: string;
+		readonly composition: unknown;
+		readonly inputProps: { readonly input: RemotionV2CompositionInput };
+		readonly outputPath: string;
+		readonly width: number;
+		readonly height: number;
+		readonly fps: number;
+		readonly durationInFrames: number;
+		readonly frame: number;
+		readonly signal: AbortSignal;
+	}): Promise<void>;
 }
 
 type RemotionCancelSignal = (callback: () => void) => void;
@@ -95,6 +108,17 @@ export interface RemotionV2RuntimeApiPort {
 		readonly muted: boolean;
 		readonly cancelSignal: RemotionCancelSignal;
 	}): Promise<unknown>;
+	renderStill(input: {
+		readonly serveUrl: string;
+		readonly composition: Readonly<Record<string, unknown>>;
+		readonly inputProps: { readonly input: RemotionV2CompositionInput };
+		readonly output: string;
+		readonly frame: number;
+		readonly imageFormat: "jpeg";
+		readonly jpegQuality: number;
+		readonly overwrite: true;
+		readonly cancelSignal: RemotionCancelSignal;
+	}): Promise<unknown>;
 }
 
 const REMOTION_API: RemotionV2RuntimeApiPort = {
@@ -110,7 +134,37 @@ const REMOTION_API: RemotionV2RuntimeApiPort = {
 		const { renderMedia } = await import("@remotion/renderer");
 		return renderMedia(input as unknown as Parameters<typeof renderMedia>[0]);
 	},
+	async renderStill(input) {
+		const { renderStill } = await import("@remotion/renderer");
+		return renderStill(input as unknown as Parameters<typeof renderStill>[0]);
+	},
 };
+
+/** Remotion's cancel callback, driven by an AbortSignal. */
+function cancelSignalFor(signal: AbortSignal): {
+	readonly cancelSignal: RemotionCancelSignal;
+	readonly release: () => void;
+} {
+	const callbacks = new Set<() => void>();
+	const cancel = () => {
+		for (const callback of callbacks) {
+			callback();
+		}
+	};
+	signal.addEventListener("abort", cancel, { once: true });
+	return {
+		cancelSignal: (callback) => {
+			callbacks.add(callback);
+			if (signal.aborted) {
+				callback();
+			}
+		},
+		release: () => {
+			signal.removeEventListener("abort", cancel);
+			callbacks.clear();
+		},
+	};
+}
 
 function compositionRecord(composition: unknown): Readonly<Record<string, unknown>> {
 	if (typeof composition !== "object" || composition === null || Array.isArray(composition)) {
@@ -186,6 +240,33 @@ export function createRemotionV2Runtime(
 			} finally {
 				input.signal.removeEventListener("abort", cancel);
 				callbacks.clear();
+			}
+		},
+
+		async renderStill(input) {
+			input.signal.throwIfAborted();
+			const { cancelSignal, release } = cancelSignalFor(input.signal);
+			try {
+				await api.renderStill({
+					serveUrl: input.serveUrl,
+					composition: {
+						...compositionRecord(input.composition),
+						width: input.width,
+						height: input.height,
+						fps: input.fps,
+						durationInFrames: input.durationInFrames,
+					},
+					inputProps: input.inputProps,
+					output: input.outputPath,
+					frame: input.frame,
+					imageFormat: "jpeg",
+					jpegQuality: JPEG_QUALITY,
+					overwrite: true,
+					cancelSignal,
+				});
+				input.signal.throwIfAborted();
+			} finally {
+				release();
 			}
 		},
 	};
@@ -282,6 +363,17 @@ function sanitizedRenderDocument(
 			})),
 		},
 	};
+}
+
+/**
+ * The poster is the first scene, settled: 80% into its hold the code has typed
+ * out and nothing is moving yet, which frame 0 (a blank typewriter, a fade)
+ * cannot promise.
+ */
+export function posterFrame(document: ProjectDocumentV2, fps: number, totalFrames: number): number {
+	const firstSceneMs = document.project.scenes[0]?.durationMs ?? 0;
+	const frame = Math.round(((firstSceneMs * 0.8) / 1000) * fps);
+	return Math.min(Math.max(frame, 0), Math.max(totalFrames - 1, 0));
 }
 
 function outputMimeType(format: "mp4" | "webm"): string {
@@ -388,11 +480,41 @@ export function createHostedRemotionV2Renderer(input: {
 				if (!outputStats.isFile() || outputStats.isSymbolicLink() || outputStats.size <= 0) {
 					throw new Error("Remotion did not produce a regular non-empty output file");
 				}
+				const posterPath = path.join(workspace, "poster.jpg");
+				let poster: HostedRenderTemporaryArtifact["poster"];
+				try {
+					if (runtime.renderStill) {
+						await runtime.renderStill({
+							serveUrl,
+							composition,
+							inputProps,
+							outputPath: posterPath,
+							width: renderInput.options.width,
+							height: renderInput.options.height,
+							fps: renderInput.options.fps,
+							durationInFrames: timeline.totalFrames,
+							frame: posterFrame(document, renderInput.options.fps, timeline.totalFrames),
+							signal: renderInput.signal,
+						});
+						const posterStats = await lstat(posterPath);
+						if (posterStats.isFile() && !posterStats.isSymbolicLink() && posterStats.size > 0) {
+							poster = {
+								temporaryId: posterPath,
+								mimeType: "image/jpeg",
+								byteSize: posterStats.size,
+							};
+						}
+					}
+				} catch {
+					// The video is the job; a missing poster only costs the page its own card.
+					renderInput.signal.throwIfAborted();
+				}
 				managedWorkspaces.set(outputPath, workspace);
 				return {
 					temporaryId: outputPath,
 					mimeType: outputMimeType(renderInput.options.format),
 					byteSize: outputStats.size,
+					...(poster ? { poster } : {}),
 				} satisfies HostedRenderTemporaryArtifact;
 			} catch (error) {
 				await rm(workspace, { recursive: true, force: true });

@@ -22,6 +22,11 @@ export default defineConfig({
 				target: process.env.TYPELAPSE_API_URL ?? "http://localhost:3001",
 				changeOrigin: true,
 			},
+			// Public render pages are the API's own documents (server/routes/render-page.ts).
+			"^/v/": {
+				target: process.env.TYPELAPSE_API_URL ?? "http://localhost:3001",
+				changeOrigin: true,
+			},
 		},
 	},
 	test: {

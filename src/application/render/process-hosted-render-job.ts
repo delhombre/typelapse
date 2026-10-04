@@ -15,6 +15,12 @@ export interface HostedRenderTemporaryArtifact {
 	readonly temporaryId: string;
 	readonly mimeType: string;
 	readonly byteSize: number;
+	/** A still for the render's public page. Best effort: a render without one still succeeds. */
+	readonly poster?: {
+		readonly temporaryId: string;
+		readonly mimeType: "image/jpeg";
+		readonly byteSize: number;
+	};
 }
 
 export class HostedRenderProcessingError extends Error {
@@ -133,11 +139,21 @@ function outputObjectKey(lease: RenderJobLease): string {
 	].join("/");
 }
 
-function outputFrom(artifact: HostedRenderTemporaryArtifact, objectKey: string): RenderJobOutput {
+/** Beside the output it belongs to, so the two share one prefix and one fate. */
+function posterObjectKey(lease: RenderJobLease): string {
+	return outputObjectKey(lease).replace(/\.[a-z0-9]+$/, ".poster.jpg");
+}
+
+function outputFrom(
+	artifact: HostedRenderTemporaryArtifact,
+	objectKey: string,
+	posterKey: string | null,
+): RenderJobOutput {
 	return {
 		objectKey,
 		mimeType: artifact.mimeType,
 		byteSize: artifact.byteSize,
+		...(posterKey ? { posterObjectKey: posterKey } : {}),
 	};
 }
 
@@ -211,6 +227,7 @@ export function createHostedRenderProcessor(input: {
 			};
 			let artifact: HostedRenderTemporaryArtifact | null = null;
 			let storedObjectKey: string | null = null;
+			let storedPosterKey: string | null = null;
 			let storageAttempted = false;
 			const cleanupArtifact = async () => {
 				const current = artifact;
@@ -220,6 +237,11 @@ export function createHostedRenderProcessor(input: {
 				}
 			};
 			const cleanupStoredOutput = async () => {
+				const poster = storedPosterKey;
+				storedPosterKey = null;
+				if (poster) {
+					await input.outputs.deletePrivate(poster);
+				}
 				const current = storedObjectKey;
 				storedObjectKey = null;
 				if (current && storageAttempted) {
@@ -246,7 +268,21 @@ export function createHostedRenderProcessor(input: {
 					artifact,
 					signal: controller.signal,
 				});
-				const output = outputFrom(artifact, storedObjectKey);
+				if (artifact.poster) {
+					const posterKey = posterObjectKey(lease);
+					try {
+						await input.outputs.storePrivate({
+							objectKey: posterKey,
+							artifact: artifact.poster,
+							signal: controller.signal,
+						});
+						storedPosterKey = posterKey;
+					} catch {
+						// The page falls back to the site card; the video is what was asked for.
+						await input.outputs.deletePrivate(posterKey).catch(() => undefined);
+					}
+				}
+				const output = outputFrom(artifact, storedObjectKey, storedPosterKey);
 				await cleanupArtifact();
 				await stopHeartbeat();
 				if (leaseLost) {

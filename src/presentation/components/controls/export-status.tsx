@@ -32,6 +32,8 @@ export function ExportStatus() {
 	const outcome = useExportStore((s) => s.outcome);
 	const dismissOutcome = useExportStore((s) => s.dismissOutcome);
 	const cancelExport = useExportStore((s) => s.cancelExport);
+	const setTarget = useExportStore((s) => s.setTarget);
+	const exportVideo = useExportStore((s) => s.exportVideo);
 	// A cloud render outlives the page; this device's export, when there is one, speaks first.
 	const cloud = useCloudStatusView();
 	const reduce = useReducedMotion() === true;
@@ -120,6 +122,18 @@ export function ExportStatus() {
 								outcome.message
 							)}
 						</span>
+						{outcome.kind === "failed" && outcome.alternative === "device" && (
+							<button
+								type="button"
+								onClick={() => {
+									setTarget("device");
+									void exportVideo();
+								}}
+								className="si-button"
+							>
+								<span className="si-seg-label">Render on this device</span>
+							</button>
+						)}
 						<button
 							type="button"
 							onClick={dismissOutcome}
@@ -159,6 +173,11 @@ export function ExportStatus() {
 								<span className="si-seg-label">{cloud.action.label}</span>
 							</button>
 						)}
+						{cloud.extra?.map((extra) => (
+							<button key={extra.label} type="button" onClick={extra.run} className="si-button">
+								<span className="si-seg-label">{extra.label}</span>
+							</button>
+						))}
 						{cloud.dismiss && (
 							<button
 								type="button"

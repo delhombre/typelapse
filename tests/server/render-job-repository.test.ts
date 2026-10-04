@@ -77,6 +77,8 @@ describe("render job persistence mapping", () => {
 			outputObjectKey: "private/user-1/job-1.mp4",
 			outputMimeType: "video/mp4",
 			outputByteSize: 1024,
+			outputPosterKey: null,
+			isPublic: false,
 			errorCode: null,
 			errorMessage: null,
 			createdAt: NOW,
