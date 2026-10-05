@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import { ROUTE_STATE } from "./route-error-boundary";
 
 /**
  * Any address the app does not have. Without it the router matched nothing and
@@ -16,19 +17,14 @@ export function NotFound() {
 	}, []);
 
 	return (
-		<main className="route-state flex min-h-dvh flex-col items-center justify-center gap-3 bg-paper px-6 text-center">
-			<h1 className="text-[15px] font-semibold text-ink">This page does not exist</h1>
-			<p className="max-w-[34ch] text-[13px] leading-5 text-ash">
-				The link may be old or mistyped.
-			</p>
-			<div className="mt-1 flex items-center gap-2">
-				<Link
-					to="/app"
-					className="rounded-full bg-ink px-4 py-2 text-[13px] font-medium text-paper"
-				>
+		<main className={ROUTE_STATE.main}>
+			<h1 className={ROUTE_STATE.heading}>This page does not exist</h1>
+			<p className={ROUTE_STATE.body}>The link may be old or mistyped.</p>
+			<div className={ROUTE_STATE.actions}>
+				<Link to="/app" className={ROUTE_STATE.primary}>
 					Open the studio
 				</Link>
-				<Link to="/" className="rounded-full px-4 py-2 text-[13px] font-medium text-ink">
+				<Link to="/" className={ROUTE_STATE.secondary}>
 					Back to Typelapse
 				</Link>
 			</div>

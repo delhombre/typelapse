@@ -66,8 +66,13 @@ const STYLES = `
 	--primary: #f1be01;
 	--primary-hover: #f5c92a;
 	--on-primary: #1c1b19;
+	--primary-glow: rgb(241 190 1/.45);
 	--accent: oklch(.62 .19 268);
 	--ease-out: cubic-bezier(.23,1,.32,1);
+	/* The landing's code frame (app.css .code-frame-glow): a black ring at 7% and
+	   three soft layers on paper. */
+	--frame-depth: 0 0 0 1px oklch(0 0 0/.07),0 2px 6px -2px oklch(0 0 0/.08),
+		0 12px 32px -10px oklch(0 0 0/.16),0 26px 60px -18px oklch(0 0 0/.14);
 	color-scheme: light;
 }
 @media (prefers-color-scheme:dark) {
@@ -76,6 +81,9 @@ const STYLES = `
 		--ink: #f5f3ef;
 		--ash: #a8a39a;
 		--hairline: rgb(245 243 239/.12);
+		/* A black video on near-black paper: the shadows cannot be seen, so the
+		   edge is a white ring at 9%, as on the landing's dark frame. */
+		--frame-depth: 0 0 0 1px oklch(1 0 0/.09),0 12px 32px -10px oklch(0 0 0/.55);
 		color-scheme: dark;
 	}
 }
@@ -117,7 +125,7 @@ main {
 	border-radius: 12px;
 	overflow: hidden;
 	background: #000;
-	box-shadow: 0 0 0 1px var(--hairline),0 1px 2px rgb(0 0 0/.06),0 16px 40px -16px rgb(0 0 0/.24);
+	box-shadow: var(--frame-depth);
 }
 video {
 	display: block;
@@ -161,11 +169,15 @@ h1 {
 	font-weight: 500;
 	text-decoration: none;
 	white-space: nowrap;
-	transition: background-color .15s var(--ease-out),transform .16s var(--ease-out);
+	/* The glow is the primary's own light, as under the landing's filled actions. */
+	box-shadow: 0 6px 20px -6px var(--primary-glow);
+	transition: background-color .15s var(--ease-out),box-shadow .15s var(--ease-out),
+		transform .16s var(--ease-out);
 }
 @media (hover:hover) {
 	.button:hover {
 		background: var(--primary-hover);
+		box-shadow: 0 11px 28px -7px var(--primary-glow);
 	}
 }
 .button:active {
@@ -175,10 +187,25 @@ h1 {
 	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }
+@media (max-width:639px) {
+	/* A phone reads from the top: the video leads, the paper it would sit
+	   centred in goes below the action instead of above the video. */
+	.stage {
+		margin-block: 0 auto;
+	}
+}
 .gone {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 24px;
 	max-width: 32ch;
 	margin: 0 auto;
 	text-align: center;
+}
+.gone h1 {
+	font-size: clamp(22px,.5vw + 20px,24px);
+	letter-spacing: -.012em;
 }
 footer {
 	padding-top: 12px;
@@ -201,8 +228,9 @@ footer a {
 	}
 }
 @media (prefers-reduced-motion:reduce) {
+	/* Less motion, not a harsher page: the colour still fades, the press does not move. */
 	.button {
-		transition: none;
+		transition-property: background-color,box-shadow;
 	}
 	.button:active {
 		transform: none;
@@ -310,10 +338,12 @@ controls playsinline preload="metadata" aria-label="${title}"></video>
 	return documentShell(head, body);
 }
 
-function sentencePage(sentence: string): string {
+/** A page with nothing to play: the sentence, and the one way on from it. */
+function sentencePage(sentence: string, next: { href: string; label: string }): string {
+	const action = `\n<a class="button" href="${escapeHtml(next.href)}">${next.label}</a>`;
 	return documentShell(
 		`<title>Typelapse</title>\n<meta name="robots" content="noindex">`,
-		`<main><p class="gone">${sentence}</p></main>`,
+		`<main><div class="gone"><h1>${sentence}</h1>${action}</div></main>`,
 	);
 }
 
@@ -329,11 +359,19 @@ export const createRenderPageRoute = (deps: RenderPageRouteDeps): Hono => {
 
 	const notFound = (c: Context) => {
 		c.header("Cache-Control", "no-store");
-		return c.html(sentencePage(NOT_FOUND_SENTENCE), 404);
+		// A shared link that went dark is still someone arriving from a post: the
+		// studio is the one useful next step, and the status stays a 404.
+		const studio = `${new URL(appUrlOf(c)).origin}/app`;
+		return c.html(
+			sentencePage(NOT_FOUND_SENTENCE, { href: studio, label: "Make one in the studio" }),
+			404,
+		);
 	};
 	const unavailable = (c: Context) => {
 		c.header("Cache-Control", "no-store");
-		return c.html(sentencePage(UNAVAILABLE_SENTENCE), 503);
+		// The sentence says try again; the page's own address is the way to.
+		const again = { href: c.req.path, label: "Try again" };
+		return c.html(sentencePage(UNAVAILABLE_SENTENCE, again), 503);
 	};
 
 	const media = (kind: "video" | "poster") => async (c: Context) => {

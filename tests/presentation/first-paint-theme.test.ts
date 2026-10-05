@@ -57,6 +57,32 @@ describe("the theme before the bundle runs", () => {
 		expect(runAt("/app", false, "dark").classList.contains("dark")).toBe(false);
 	});
 
+	it("still answers the OS when storage is blocked", () => {
+		// A blocked storage throws on read; the first paint used to give up with
+		// it, and the landing's error state opened light on a dark OS.
+		const blocked = {
+			getItem: () => {
+				throw new DOMException("blocked", "SecurityError");
+			},
+		};
+		for (const [path, read] of [
+			["/", (root: HTMLElement) => root.dataset.landingTheme === "dark"],
+			["/nope", (root: HTMLElement) => root.classList.contains("dark")],
+		] as const) {
+			const root = document.documentElement;
+			root.removeAttribute("data-landing-theme");
+			root.classList.remove("dark");
+			window.history.replaceState(null, "", path);
+			vi.stubGlobal("localStorage", blocked);
+			vi.stubGlobal("matchMedia", (query: string) => ({
+				matches: query === "(prefers-color-scheme: dark)",
+			}));
+			new Function(SCRIPT)();
+			expect(read(root)).toBe(true);
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it("opens the studio in the theme picked there, over the OS", () => {
 		expect(runAt("/app", false, null, "dark").classList.contains("dark")).toBe(true);
 		expect(runAt("/app", true, null, "light").classList.contains("dark")).toBe(false);

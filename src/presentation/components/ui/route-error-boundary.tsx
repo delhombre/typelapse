@@ -2,6 +2,39 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 
 interface RouteErrorBoundaryState {
 	readonly failed: boolean;
+	/** The theme the page was in when it threw, read once (see `darkAtFailure`). */
+	readonly dark: boolean;
+}
+
+/**
+ * The 404 and this fallback are one family in the landing's material: one
+ * filled action in the brand's primary with its own glow (the landing's
+ * InkButton without the motion library), the other a quiet text action, both
+ * 44px tall for a thumb. `.route-state` remaps paper, ink and ash under `.dark`.
+ */
+export const ROUTE_STATE = {
+	main: "route-state flex min-h-dvh flex-col items-center justify-center bg-paper px-6 py-16 text-center",
+	heading:
+		"text-balance text-[22px] leading-tight font-semibold tracking-[-0.012em] text-ink sm:text-2xl",
+	body: "mt-2 max-w-[38ch] text-pretty text-[15px] leading-6 text-ash",
+	actions: "mt-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-3",
+	primary:
+		"inline-flex h-11 items-center justify-center rounded-full bg-primary px-5 text-[15px] font-medium text-on-primary shadow-[0_6px_20px_-6px_var(--color-primary-glow)] transition-[background-color,box-shadow,scale] duration-150 ease-out hover:bg-primary-hover hover:shadow-[0_11px_28px_-7px_var(--color-primary-glow)] active:scale-[0.97] motion-reduce:active:scale-100",
+	secondary:
+		"inline-flex h-11 items-center justify-center rounded-full px-4 text-[15px] font-medium text-ash transition-[color,scale] duration-150 ease-out hover:text-ink active:scale-[0.97] motion-reduce:active:scale-100",
+} as const;
+
+/**
+ * The studio's dark theme is a `.dark` class on the root, which `.route-state`
+ * reads. The landing's is a `data-landing-theme` attribute instead, and the
+ * landing removes it as it unmounts, so the fallback that replaces it opened on
+ * light paper for a dark-theme visitor. Read both at the moment of the throw,
+ * before that cleanup runs.
+ */
+function darkAtFailure(): boolean {
+	if (typeof document === "undefined") return false;
+	const root = document.documentElement;
+	return root.classList.contains("dark") || root.dataset.landingTheme === "dark";
 }
 
 interface RouteErrorBoundaryProps {
@@ -23,10 +56,10 @@ export class RouteErrorBoundary extends Component<
 	RouteErrorBoundaryProps,
 	RouteErrorBoundaryState
 > {
-	override state: RouteErrorBoundaryState = { failed: false };
+	override state: RouteErrorBoundaryState = { failed: false, dark: false };
 
 	static getDerivedStateFromError(): RouteErrorBoundaryState {
-		return { failed: true };
+		return { failed: true, dark: darkAtFailure() };
 	}
 
 	override componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -38,34 +71,31 @@ export class RouteErrorBoundary extends Component<
 			return this.props.children;
 		}
 		return (
-			<main
-				role="alert"
-				className="route-state flex min-h-dvh flex-col items-center justify-center gap-3 bg-paper px-6 text-center"
-			>
-				<h1 className="text-[15px] font-semibold text-ink">
-					{this.props.heading ?? "Typelapse hit a problem"}
-				</h1>
-				<p className="max-w-[34ch] text-[13px] leading-5 text-ash">
-					{this.props.message ??
-						"Your work is saved on this device. Reload to pick up where you left off."}
-				</p>
-				<div className="mt-1 flex items-center gap-2">
-					<button
-						type="button"
-						onClick={() => window.location.reload()}
-						className="rounded-full bg-ink px-4 py-2 text-[13px] font-medium text-paper"
-					>
-						Reload
-					</button>
-					{/* A full load rather than a router link: the tree that threw is
-					    not one to navigate from. */}
-					{this.props.offerStudio ? (
-						<a href="/app" className="rounded-full px-4 py-2 text-[13px] font-medium text-ink">
-							Open the studio
-						</a>
-					) : null}
-				</div>
-			</main>
+			<div className={this.state.dark ? "dark" : undefined}>
+				<main role="alert" className={ROUTE_STATE.main}>
+					<h1 className={ROUTE_STATE.heading}>{this.props.heading ?? "Typelapse hit a problem"}</h1>
+					<p className={ROUTE_STATE.body}>
+						{this.props.message ??
+							"Your work is saved on this device. Reload to pick up where you left off."}
+					</p>
+					<div className={ROUTE_STATE.actions}>
+						<button
+							type="button"
+							onClick={() => window.location.reload()}
+							className={ROUTE_STATE.primary}
+						>
+							Reload
+						</button>
+						{/* A full load rather than a router link: the tree that threw is
+						    not one to navigate from. */}
+						{this.props.offerStudio ? (
+							<a href="/app" className={ROUTE_STATE.secondary}>
+								Open the studio
+							</a>
+						) : null}
+					</div>
+				</main>
+			</div>
 		);
 	}
 }
