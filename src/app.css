@@ -1386,6 +1386,22 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* The export fan's phone row, edge to edge: it takes back the whole gutter its
+   section sits in (the same max() as `.lp-gutter`, so a notch is cleared on
+   each side) and pads its first and last card with it. The cards start on the
+   text's column and run off the screen, which is what says the row scrolls.
+   `overflow-x: auto` clips on y too, and the cards' shadows reach 60px under
+   them: the room for them is padding, given back to the layout as a negative
+   margin so the page does not grow. */
+.landing-root .lp-fan-row {
+	margin-right: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px)));
+	margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)));
+	padding-right: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px));
+	padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
+	margin-block: -1rem -4rem;
+	padding-block: 1rem 4rem;
+}
+
 /* The export fan's phone row runs edge to edge, so a ring drawn outside it
    falls off both sides of the screen and only its top and bottom show. Drawn
    inside, it frames the row the keyboard is about to scroll. */

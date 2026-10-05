@@ -1,9 +1,12 @@
+import { LandingChrome } from "@/presentation/landing/use-landing-theme";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 interface RouteErrorBoundaryState {
 	readonly failed: boolean;
-	/** The theme the page was in when it threw, read once (see `darkAtFailure`). */
+	/** The theme the page was in when it threw, read once (see `themeAtFailure`). */
 	readonly dark: boolean;
+	/** Whether that page was the landing, whose document chrome the fallback keeps. */
+	readonly landing: boolean;
 }
 
 /**
@@ -29,12 +32,18 @@ export const ROUTE_STATE = {
  * reads. The landing's is a `data-landing-theme` attribute instead, and the
  * landing removes it as it unmounts, so the fallback that replaces it opened on
  * light paper for a dark-theme visitor. Read both at the moment of the throw,
- * before that cleanup runs.
+ * before that cleanup runs. While the attribute is there it is the whole
+ * answer, as it is for the CSS: a `.dark` left on the root by a studio visit
+ * does not make a light landing dark.
  */
-function darkAtFailure(): boolean {
-	if (typeof document === "undefined") return false;
+function themeAtFailure(): Pick<RouteErrorBoundaryState, "dark" | "landing"> {
+	if (typeof document === "undefined") return { dark: false, landing: false };
 	const root = document.documentElement;
-	return root.classList.contains("dark") || root.dataset.landingTheme === "dark";
+	const landing = root.dataset.landingTheme;
+	if (landing === "light" || landing === "dark") {
+		return { dark: landing === "dark", landing: true };
+	}
+	return { dark: root.classList.contains("dark"), landing: false };
 }
 
 interface RouteErrorBoundaryProps {
@@ -56,10 +65,10 @@ export class RouteErrorBoundary extends Component<
 	RouteErrorBoundaryProps,
 	RouteErrorBoundaryState
 > {
-	override state: RouteErrorBoundaryState = { failed: false, dark: false };
+	override state: RouteErrorBoundaryState = { failed: false, dark: false, landing: false };
 
 	static getDerivedStateFromError(): RouteErrorBoundaryState {
-		return { failed: true, dark: darkAtFailure() };
+		return { failed: true, ...themeAtFailure() };
 	}
 
 	override componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -72,6 +81,12 @@ export class RouteErrorBoundary extends Component<
 		}
 		return (
 			<div className={this.state.dark ? "dark" : undefined}>
+				{/* The overscroll and the status bar are the landing route's, and the page's
+				    own effects took them down as the failure unmounted it. This mounts
+				    after those cleanups (React runs every cleanup of a commit before any
+				    new effect), so the document keeps the theme the page had and lets go
+				    of it when the route is left. */}
+				{this.state.landing ? <LandingChrome theme={this.state.dark ? "dark" : "light"} /> : null}
 				<main role="alert" className={ROUTE_STATE.main}>
 					<h1 className={ROUTE_STATE.heading}>{this.props.heading ?? "Typelapse hit a problem"}</h1>
 					<p className={ROUTE_STATE.body}>

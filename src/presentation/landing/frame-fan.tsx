@@ -142,6 +142,21 @@ export const FAN_CARDS = [
 	},
 ];
 
+/** The phone's row: the tallest card first, then the hand as the fan deals it.
+    A scroller is as tall as its tallest card, so led by the 16:9 it floated that
+    card in the 9:16's height of empty paper, with the 9:16 two swipes away. Led
+    by the 9:16 the row is full where a phone opens on it. The card after it is
+    a wide one, so the first screen shows two different shapes and the second
+    runs off the edge at any phone width: a portrait card there ends at 435px
+    (24 + 180 + 16 + 215), inside a Pro Max's 430 to 440, and the row would read
+    as complete with nothing to swipe to. */
+const heightOf = (card: (typeof FAN_CARDS)[number]) => {
+	const [w = 1, h = 1] = card.aspect.split("/").map(Number);
+	return (card.width * h) / w;
+};
+const TALLEST = FAN_CARDS.reduce((a, b) => (heightOf(b) > heightOf(a) ? b : a));
+export const ROW_CARDS = [TALLEST, ...FAN_CARDS.filter((card) => card !== TALLEST)];
+
 /**
  * A held hand of code cards. On desktop they overlap
  * in a fan; hovering one springs it up and straightens it, quietly. Below `lg` the
@@ -177,7 +192,7 @@ export function FrameFan() {
 	};
 
 	return (
-		<section className="mx-auto w-full max-w-5xl lp-gutter py-6">
+		<section className="mx-auto w-full max-w-5xl py-6">
 			{/* Desktop: the fan. It switches on at `lg`, not `md`: the hand is about
 			    840px from the outer edge of one rotated corner card to the other, so
 			    at a 768px tablet it ran off both sides of the page and gave the whole
@@ -208,7 +223,7 @@ export function FrameFan() {
 						   the lift itself is animated. */
 						<div
 							key={card.ratio}
-							className="lp-nogutter absolute bottom-4 left-1/2"
+							className="lp-nogutter absolute bottom-4 left-1/2 select-none"
 							style={{
 								zIndex: stackZ(hovered === i, descending.has(i), baseZ),
 								width: card.width,
@@ -276,19 +291,21 @@ export function FrameFan() {
 			    is as much a set of cards as the fan is. It has no arrows, so the
 			    keyboard scrolls it by focusing the row, which Chrome already makes a
 			    tab stop on its own; the role and name say what that stop is, and the
-			    explicit tabIndex gives Safari and Firefox the same stop. */}
+			    explicit tabIndex gives Safari and Firefox the same stop. It runs edge to
+			    edge (`.lp-fan-row` in app.css), is led by `ROW_CARDS`, and stands every
+			    card on one baseline, as the fan does. */}
 			<div
 				// biome-ignore lint/a11y/useSemanticElements: the scroller is a part of this section, not a section of the page
 				role="region"
 				aria-label="Export ratios"
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: a scroller with no arrows is reached by focusing it
 				tabIndex={0}
-				className="lp-fan-row -mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+				className="lp-fan-row flex snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 			>
-				{FAN_CARDS.map((card) => (
+				{ROW_CARDS.map((card) => (
 					<div
 						key={card.ratio}
-						className="lp-nogutter shrink-0 snap-center self-center"
+						className="lp-nogutter shrink-0 snap-center select-none self-end"
 						style={{ width: card.width, aspectRatio: card.aspect }}
 					>
 						<StaticFrame

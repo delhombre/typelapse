@@ -54,3 +54,20 @@ describe("landing frame fan, the code on each card", () => {
 		}
 	});
 });
+
+describe("landing frame fan, the phone row's composition", () => {
+	it("leads with the tallest card, then deals the rest as the fan does", () => {
+		const { getByRole } = render(<FrameFan />);
+		const row = getByRole("region", { name: "Export ratios" });
+
+		// The row is as tall as its tallest card, so that card has to be the one a
+		// phone shows first: led by the 16:9, the row floated it in 150px of paper.
+		// A wide card comes second, so the second card runs off the screen at every
+		// phone width (24 + 180 + 16 + 215 ends inside a Pro Max's 430 to 440px,
+		// and a row that ends flush there reads as complete).
+		const ratios = Array.from(row.querySelectorAll('[role="img"]')).map(
+			(card) => card.getAttribute("aria-label")?.split(", ")[1],
+		);
+		expect(ratios).toEqual(["9:16", "16:9", "4:5", "1:1", "3:4"]);
+	});
+});
