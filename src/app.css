@@ -1109,7 +1109,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 /* 0.97, the landing's one press (PRESS_SCALE, the field's button, Replay);
-   this was the page's lone 0.96 (SYSTEM.md Drift 7). */
+   this was the page's lone 0.96 (SYSTEM.md, Motion: Press). */
 .landing-root .lp-island-button:active {
 	transform: scale(0.97);
 }
@@ -1255,7 +1255,7 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* 0.97, the landing's one press value (it was 0.98 here, SYSTEM.md Drift 7). */
+/* 0.97, the landing's one press value (it was 0.98 here, SYSTEM.md, Motion: Press). */
 .landing-root .lp-island-cta:active {
 	transform: scale(0.97);
 }
@@ -2405,12 +2405,6 @@ html.dark:not([data-landing-theme]) {
 /* A press that answers the finger is worth keeping; a press that moves the
    control under it is not, once motion has been declined. */
 @media (prefers-reduced-motion: reduce) {
-	.studio-root .si-button,
-	.studio-root .si-cta,
-	.studio-root .si-dot > span {
-		transition: none;
-	}
-
 	.studio-root .si-button:active:not(:disabled),
 	.studio-root .si-cta:active:not(:disabled),
 	.sc-glyph-button:active {
@@ -2766,10 +2760,6 @@ html.dark:not([data-landing-theme]) {
 
 /* Unmoving, it still says "working": the whole track, dimmed. */
 @media (prefers-reduced-motion: reduce) {
-	.studio-root .si-status-fill {
-		transition: none;
-	}
-
 	.studio-root .si-status-fill[data-indeterminate] {
 		width: 100%;
 		opacity: 0.45;
@@ -2848,7 +2838,9 @@ html.dark:not([data-landing-theme]) {
 	position: relative;
 	width: 100%;
 	height: 100dvh;
-	overflow: hidden;
+	/* Clip, never hidden: a hidden box is still a scroll container, so one focus or
+	   scrollIntoView could slide the whole scene under its own corner row. */
+	overflow: clip;
 	background: var(--color-neutral-50);
 	color: var(--color-neutral-900);
 	font-family: var(--font-sans);
@@ -2885,9 +2877,10 @@ html.dark:not([data-landing-theme]) {
 		max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
 }
 
-/* The sheet is portaled to the body, out of the root's reach: it takes the
-   same tokens so the layer inspector inside it reads as it does on a desktop. */
-.sc-root-mobile,
+/* The sheet is portaled to the body, out of the root's reach, so it keeps a copy
+   of the tokens the layer inspector inside it reads. The root's own come from
+   studio-camera.css and are the warm set; these are the older cool values, left
+   for the phone sheet's pass (docs/design/passes/2026-10-05-studio-drift.md). */
 .sc-sheet {
 	--camera-focus: #1d1d20;
 	--camera-ink: #1d1d20;
@@ -2897,7 +2890,6 @@ html.dark:not([data-landing-theme]) {
 	--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024);
 }
 
-.dark .sc-root-mobile,
 .dark .sc-sheet {
 	--camera-focus: #f5f5f7;
 	--camera-ink: #f5f5f7;
@@ -3006,13 +2998,9 @@ html.dark:not([data-landing-theme]) {
 	/* A filtered ancestor becomes the containing block of fixed descendants.
 	   Source uses a viewport-width mobile menu, so this small island stays
 	   opaque instead of trapping that menu inside its own 98px pill. */
-	background: #fff;
+	background: var(--camera-surface);
 	-webkit-backdrop-filter: none;
 	backdrop-filter: none;
-}
-
-.dark .sc-chip.sc-mobile-resources {
-	background: #1b1c20;
 }
 
 .sc-mobile-resources .sc-source-root {
@@ -3028,13 +3016,7 @@ html.dark:not([data-landing-theme]) {
 	border-radius: var(--r-control);
 	background: transparent;
 	box-shadow: none;
-	color: var(--color-neutral-500);
-}
-
-.dark .sc-mobile-resources .sc-island-trigger {
-	background: transparent;
-	box-shadow: none;
-	color: var(--color-neutral-400);
+	color: var(--camera-muted);
 }
 
 .sc-mobile-resources .sc-island-trigger > span {
@@ -3042,11 +3024,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 .sc-mobile-resources .sc-island-trigger[aria-expanded="true"] {
-	background: rgb(28 27 25 / 0.06);
-}
-
-.dark .sc-mobile-resources .sc-island-trigger[aria-expanded="true"] {
-	background: rgb(255 255 255 / 0.08);
+	background: var(--camera-pill);
 }
 
 /* A top-row source form should use the phone's safe page margins, not inherit
@@ -3123,43 +3101,6 @@ html.dark:not([data-landing-theme]) {
 	.sc-corner-row .sc-title {
 		height: 40px;
 	}
-}
-
-/* A file dragged over a tablet in portrait: the same quiet veil as the desktop,
-   over the sheet and under the menus and notices. Pointer events pass through;
-   the window owns the drop. */
-.sc-root-mobile .sc-drop-veil {
-	position: fixed;
-	inset: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px))
-		max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
-	z-index: 60;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border: 1.5px dashed rgb(47 128 255 / 0.75);
-	border-radius: 22px;
-	background: rgb(47 128 255 / 0.05);
-	opacity: 0;
-	pointer-events: none;
-	transition: opacity 140ms ease-out;
-}
-
-.sc-root-mobile .sc-drop-veil[data-active] {
-	opacity: 1;
-}
-
-.sc-root-mobile .sc-drop-veil p {
-	padding: 8px 14px;
-	border-radius: 12px;
-	background: #fff;
-	box-shadow: var(--camera-surface-shadow);
-	color: var(--camera-ink);
-	font-size: 13px;
-	font-weight: 560;
-}
-
-.dark .sc-root-mobile .sc-drop-veil p {
-	background: #1b1c20;
 }
 
 .sc-utilities {

@@ -25,21 +25,25 @@ the header; on a short window the frame gives way first.
 
 ## D2 One filled shape per zone, and it wears the primary
 
-**Decision:** In a zone (the island, a sheet, a dialog footer) exactly one
-shape is filled: the CTA, `--color-primary` with `--color-on-primary` text.
-Every other control is transparent until hovered. When a sheet opens with
-its own render button, the island's CTA hands its fill over
-(`.si-cta[data-open]`). One filled "Open studio" per viewport: inside the
-hero the field's button is the primary, so the instrument's CTA is quiet
-there (`data-quiet`: transparent, the island's ink, the same box and target).
+**Decision:** In a zone (the island, a sheet, a popover, a dialog footer)
+exactly one shape is filled: the CTA, `--color-primary` with
+`--color-on-primary` text. Every other control is transparent until hovered.
+When a sheet opens with its own render button, the island's CTA hands its fill
+over (`.si-cta[data-open]`). One exception, recorded by the landing pass: the
+first viewport holds one filled "Open studio", so inside the hero the field's
+button is the zone's primary and the instrument's CTA is quiet there
+(`data-quiet`: transparent, the island's ink, the same box and target, one
+step of white on hover). The nav island's CTA, hidden until the hero has
+scrolled out, is the filled one past it.
 
 **Why:** hierarchy by subtraction; the old toolbar gave its only filled disc
 to Play, the least important action. Ink on the yellow reads 12:1, white
 1.75:1.
 
 **Enforced by:** `src/app.css` (`--color-primary`, `--color-cta`, `.si-cta`,
-`.lp-island-cta[data-quiet]`), `tests/presentation/landing-hero.test.tsx`
-(pass `docs/design/passes/2026-10-05-landing.md`).
+`.lp-island-cta[data-quiet]`), `tests/presentation/landing-hero.test.tsx`,
+`tests/presentation/landing-instrument-frame.test.tsx` (pass
+`docs/design/passes/2026-10-05-landing.md`).
 
 **Pivot:** "Secondary actions may be filled too."
 
@@ -58,8 +62,9 @@ reads as two products; a pill radius on a tall plate bows its sides.
 
 **Enforced by:** `src/app.css` (the `--r-*` block),
 `src/application/layout/concentric.ts` (tested in
-`tests/application/concentric.test.ts`). The showcase and source hub
-still write raw px (`SYSTEM.md` Drift 5).
+`tests/application/concentric.test.ts`); the source hub, the showcase and the
+drop veil are read for it by `tests/presentation/studio-surfaces-system.test.ts`.
+The capture library still writes raw px (`SYSTEM.md` Drift 5, ticket #142).
 
 **Pivot:** "Use one radius everywhere."
 
@@ -87,10 +92,12 @@ hover behind the same query).
 **Decision:** Three materials. The island and its sheet are a dark plate
 (`#151517`) that does not follow the theme; on a dark page it keeps its fill
 and gains an inset hairline. Floating surfaces over the phone's stage are the
-landing's card material: paper at 88%, a blur, a 1px ring, one soft shadow;
-the desktop card and timeline sit on flat paper, so they are opaque.
-Code frames take a layered shadow with a 1px ring inside it, not a border.
-Reduced transparency removes every blur.
+landing's card material: paper at 88%, a blur, a 1px ring, one soft shadow,
+and so are the menus and popovers of both shells; a header trigger sits on flat
+paper and takes the fill without the blur. The desktop card and timeline sit on
+flat paper, so they are opaque. Code frames take a layered shadow with a 1px
+ring inside it, not a border. Reduced transparency removes every blur and makes
+the material opaque.
 
 **Why:** the same plate on `/` and `/app` says it is the same instrument; an
 island that inverted with the theme would read as a panel of the page. A
@@ -109,7 +116,9 @@ reduced-transparency query), `src/presentation/studio-camera.css`
 **Decision:** Paper `#faf9f6` light and `#121110` dark, ink `#1c1b19`, never
 a neutral slate. The studio remaps Tailwind's neutral ramp to warm stone
 whose ends land on the landing's paper and ink. Both themes ship; the
-browser chrome and the document match the theme before the bundle runs.
+browser chrome and the document match the theme before the bundle runs. The
+landing's document chrome (`data-landing-theme`, `theme-color`) belongs to its
+route, so its error fallback keeps it.
 
 **Why:** the warmth is the brand (hero direction, 2026-08-09); the cold ramp
 dropped the temperature between `/` and `/app`.
@@ -117,6 +126,7 @@ dropped the temperature between `/` and `/app`.
 **Enforced by:** `src/app.css` (the warmth block, `html[data-landing-theme]`),
 `index.html` (theme-color, the inline theme script),
 `tests/presentation/landing-theme-color.test.tsx`,
+`tests/presentation/landing-error-boundary.test.tsx`,
 `tests/presentation/studio-theme-mode.test.ts`, `src/presentation/studio-camera.css`
 (the desktop paper reads the same ramp).
 
@@ -148,7 +158,8 @@ own `width` springs to its measured row, because the row holds its size
 (`flex: none`) and the island clips it. A drag or a keyboard move is
 one-to-one and instant; only a finished reorder settles. A cycling label
 reserves its widest width. Nothing enters from `scale(0)`. Under reduced
-motion only colour, opacity and shadow transitions survive.
+motion only colour, opacity and shadow transitions survive, and the global
+allow-list is the whole rule: no stylesheet turns a transition off locally.
 
 **Why:** a Lapse take caught the aspect frame forcing layout every frame and
 a spring writing sub-pixel values for 2666ms; a label one character wider
@@ -156,8 +167,9 @@ slid every control under the cursor. A movement nobody named does not happen.
 
 **Enforced by:** `src/app.css` (the scene comment, the reduced-motion query),
 `src/presentation/components/timeline/timeline-motion.ts`,
-`src/presentation/landing/instrument.tsx`, and the export progress fill,
-which scales (`scaleX`, `tests/presentation/export-status-progress.test.tsx`).
+`src/presentation/landing/instrument.tsx`, the export progress fill, which
+scales (`scaleX`, `tests/presentation/export-status-progress.test.tsx`), and
+`tests/presentation/studio-surfaces-system.test.ts` for the allow-list.
 
 **Pivot:** "Animate the layout directly; the jank is acceptable."
 
@@ -248,7 +260,8 @@ the plainest tell of generated prose, banned codebase-wide by the owner.
 **Decision:** Every piece of phone chrome starts from its inset: the corner
 row from `max(10px, env(safe-area-inset-top))`, the stage slot and the menus
 from the same line, the sheet's stops from `phone-sheet.ts`, the drop veil
-inset on every side, the instrument above the bottom inset. The insets reach
+inset on every side, a sheet's gutters and bottom padding, the instrument above
+the bottom inset. The insets reach
 JavaScript through a probe padded with `env()`, which follows a rotation.
 
 **Why:** `viewport-fit=cover` paints under the notch and the home indicator;
@@ -272,8 +285,9 @@ slid the whole studio 155px left under its own header. A clipped box cannot
 be scrolled at all.
 
 **Enforced by:** `src/presentation/studio-camera.css` (the desktop root),
-`tests/e2e/studio-shell.spec.ts` (pass
-`docs/design/passes/2026-10-05-studio-desktop.md`). The phone's `.sc-root`
-is still `hidden` (`SYSTEM.md` Drift 17).
+`src/app.css` (`.sc-root`, the phone's), `tests/e2e/studio-shell.spec.ts`,
+`tests/e2e/mobile-shell.spec.ts`, `tests/presentation/studio-surfaces-system.test.ts`
+(passes `docs/design/passes/2026-10-05-studio-desktop.md` and
+`docs/design/passes/2026-10-05-studio-drift.md`).
 
 **Pivot:** "Let the studio scroll to reveal an overhang."

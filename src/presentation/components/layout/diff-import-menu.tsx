@@ -8,7 +8,7 @@ import { type ImportPlayMode, useSourceImport } from "@/presentation/hooks/use-s
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
 import { hasStudioWorkToLose } from "@/presentation/utils/studio-project-replacement";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
 	type KeyboardEvent as ReactKeyboardEvent,
 	type RefObject,
@@ -19,6 +19,7 @@ import {
 	useState,
 } from "react";
 import { BranchDown, ChevronLeft } from "reicon-react";
+import { sourcePopoverMotion } from "./source-popover-motion";
 
 const IMPORT_MODES: { key: ImportPlayMode; label: string }[] = [
 	{ key: "whole", label: "Whole change" },
@@ -64,6 +65,7 @@ export function DiffImportMenu({
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const errorId = useId();
+	const reduce = useReducedMotion() === true;
 
 	const { loading, error, progress, run, reset } = useSourceImport();
 
@@ -162,7 +164,7 @@ export function DiffImportMenu({
 					aria-haspopup="dialog"
 					aria-expanded={open}
 					aria-label="Import a git diff"
-					whileTap={{ scale: 0.96 }}
+					whileTap={{ scale: 0.97 }}
 					transition={springs.snappy}
 					className={`hit-ext flex size-9 items-center justify-center rounded-xl transition-colors ${
 						open
@@ -178,16 +180,7 @@ export function DiffImportMenu({
 			<AnimatePresence>
 				{open && (
 					<motion.div
-						initial={{ opacity: 0, scale: 0.96, y: -4, filter: "blur(4px)" }}
-						animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-						exit={{
-							opacity: 0,
-							scale: 0.98,
-							y: -3,
-							filter: "blur(2px)",
-							transition: { duration: 0.12, ease: [0.4, 0, 1, 1] },
-						}}
-						transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+						{...sourcePopoverMotion(reduce)}
 						// It grows from the control that opened it: the hub's left edge when
 						// embedded, its own button's right edge when it stands alone.
 						style={{ transformOrigin: embedded ? "top left" : "top right" }}
@@ -197,7 +190,11 @@ export function DiffImportMenu({
 						// nothing outside is inert, so no aria-modal is claimed.
 						role="dialog"
 						aria-label="Import a git diff"
-						className={`absolute right-0 top-full z-50 mt-2 w-96 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900 ${embedded ? "sc-source-form-popover" : ""}`}
+						className={
+							embedded
+								? "sc-source-form-popover"
+								: "absolute right-0 top-full z-50 mt-2 w-96 rounded-xl border border-neutral-200 bg-white p-2.5 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.25)] dark:border-neutral-800 dark:bg-neutral-900"
+						}
 					>
 						{embedded && (
 							<div className="sc-source-view-head">
@@ -235,7 +232,7 @@ export function DiffImportMenu({
 									aria-label="Git diff or GitHub pull request link"
 									aria-invalid={error ? true : undefined}
 									aria-describedby={error ? errorId : undefined}
-									className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] pointer-coarse:text-base leading-relaxed text-neutral-700 outline-none transition-[border-color] duration-150 placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
+									className="sc-source-field"
 								/>
 								<AnimatePresence initial={false}>
 									{prRef && (
@@ -248,26 +245,23 @@ export function DiffImportMenu({
 											className="overflow-hidden"
 										>
 											<div className="mt-2 flex items-center gap-2">
-												<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-													play as
-												</span>
+												<span className="sc-source-hint">play as</span>
 												<ModeToggle mode={mode} onSelect={setMode} />
 											</div>
 										</motion.div>
 									)}
 								</AnimatePresence>
 								<div className="mt-2 flex items-center justify-between gap-2">
-									<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-										{hint()}
-									</span>
+									<span className="sc-source-hint">{hint()}</span>
 									<StudioTooltip content="Apply (⌘ Enter)">
 										<motion.button
 											type="button"
 											onClick={apply}
 											disabled={text.trim() === "" || loading}
-											whileTap={{ scale: 0.96 }}
+											aria-busy={loading || undefined}
+											whileTap={{ scale: 0.97 }}
 											transition={springs.snappy}
-											className="flex h-8 items-center justify-center rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3)] transition-colors duration-150 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+											className="sc-source-submit"
 										>
 											<BusyLabel busy={loading}>Apply</BusyLabel>
 										</motion.button>
@@ -293,7 +287,7 @@ function ModeToggle({
 	onSelect,
 }: { mode: ImportPlayMode; onSelect: (mode: ImportPlayMode) => void }) {
 	return (
-		<div className="flex items-center gap-0.5 rounded-lg border border-neutral-200/70 p-0.5 dark:border-neutral-800">
+		<fieldset className="sc-source-modes" aria-label="Play as">
 			{IMPORT_MODES.map((item) => {
 				const isSelected = item.key === mode;
 				return (
@@ -301,25 +295,22 @@ function ModeToggle({
 						key={item.key}
 						type="button"
 						onClick={() => onSelect(item.key)}
-						whileTap={{ scale: 0.96 }}
+						whileTap={{ scale: 0.97 }}
 						transition={springs.snappy}
-						className={`relative rounded-md px-2 py-1 text-[11px] font-medium transition-colors duration-150 ${
-							isSelected
-								? "text-white dark:text-neutral-900"
-								: "text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-300"
-						}`}
+						aria-pressed={isSelected}
+						className="sc-source-mode"
 					>
 						{isSelected && (
 							<motion.span
 								layoutId="diff-import-mode"
-								className="absolute inset-0 rounded-md bg-neutral-900 dark:bg-neutral-100"
-								transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
+								className="sc-source-mode-plate"
+								transition={springs.snappy}
 							/>
 						)}
-						<span className="relative z-10">{item.label}</span>
+						<span className="sc-source-mode-label">{item.label}</span>
 					</motion.button>
 				);
 			})}
-		</div>
+		</fieldset>
 	);
 }

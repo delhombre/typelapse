@@ -46,4 +46,11 @@ describe("TemplateGallery previews", () => {
 		const renders = screen.getAllByRole("img", { name: /Real Typelapse preview/ });
 		expect(renders).toHaveLength(6);
 	});
+
+	it("draws its trigger's glyph at the header's 14px", () => {
+		render(<TemplateGallery />);
+		const glyph = screen.getByRole("button", { name: "Showcase" }).querySelector("svg");
+		expect(glyph?.getAttribute("width")).toBe("14");
+		expect(glyph?.getAttribute("height")).toBe("14");
+	});
 });
