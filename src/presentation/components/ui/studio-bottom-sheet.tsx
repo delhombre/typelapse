@@ -34,12 +34,18 @@ export function StudioBottomSheet({
 	labelledBy,
 	children,
 	className = "",
+	onClosed,
 }: {
 	open: boolean;
 	onClose: () => void;
 	labelledBy: string;
 	children: ReactNode;
 	className?: string;
+	/**
+	 * Called once the exit has played and the dialog is closed: the page behind a modal
+	 * dialog is inert until then, so whatever must take focus elsewhere waits for this.
+	 */
+	onClosed?: () => void;
 }) {
 	const dialogRef = useRef<HTMLDialogElement>(null);
 	const panelRef = useRef<HTMLElement>(null);
@@ -76,6 +82,7 @@ export function StudioBottomSheet({
 		} else {
 			dialog.removeAttribute("open");
 		}
+		onClosed?.();
 	};
 
 	return (
@@ -84,6 +91,15 @@ export function StudioBottomSheet({
 			onCancel={(event) => {
 				event.preventDefault();
 				onClose();
+			}}
+			// The phone's drawer claims Escape on the document, and a key whose default is
+			// prevented raises no cancel, so the sheet answers the key itself. Handled here,
+			// the key raises no cancel on a desktop either: the sheet closes once.
+			onKeyDown={(event) => {
+				if (event.key === "Escape") {
+					event.preventDefault();
+					onClose();
+				}
 			}}
 			aria-labelledby={labelledBy}
 			className="studio-sheet-dialog"

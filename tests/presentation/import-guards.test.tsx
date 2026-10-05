@@ -2,7 +2,10 @@ import { DiffImportMenu } from "@/presentation/components/layout/diff-import-men
 import { StudioSourceHub } from "@/presentation/components/layout/studio-source-hub";
 import { UrlImportMenu } from "@/presentation/components/layout/url-import-menu";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
-import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
+import {
+	ConfirmDiscard,
+	ConfirmDiscardOverlay,
+} from "@/presentation/components/ui/confirm-discard";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
@@ -97,6 +100,57 @@ describe("ConfirmDiscard", () => {
 		expect(onCancel).toHaveBeenCalledTimes(1);
 		fireEvent.click(screen.getByRole("button", { name: "Do it" }));
 		expect(onConfirm).toHaveBeenCalledTimes(1);
+	});
+
+	// The question is asked in four places (a source popover, the Showcase, a modal of
+	// its own and the strip an import link raises) and each used to inherit a different
+	// look from Tailwind's cold neutral ramp and a yellow glow under its one button. It
+	// is styled by the studio's tokens in studio-camera.css now, which only the stylesheet
+	// test can read; here the markup must stop naming a ramp, a glow or a raw shadow.
+	it("wears the studio's own tokens: no Tailwind neutral, no glow, no raw shadow", () => {
+		const { container } = render(
+			<ConfirmDiscard
+				message="Replace what you have with this?"
+				confirmLabel="Do it"
+				onCancel={() => {}}
+				onConfirm={() => {}}
+			/>,
+		);
+
+		expect(container.innerHTML).not.toMatch(/neutral-|glow|shadow-\[|bg-white/);
+	});
+});
+
+describe("ConfirmDiscardOverlay", () => {
+	function renderOverlay() {
+		return render(
+			<ConfirmDiscardOverlay
+				open
+				message="Replace what you have with “opened.json”?"
+				confirmLabel="Open the file"
+				onCancel={() => {}}
+				onConfirm={() => {}}
+			/>,
+		);
+	}
+
+	it("wears the studio's own tokens, as the question inside it does", () => {
+		const { container } = renderOverlay();
+
+		expect(container.innerHTML).not.toMatch(/neutral-|glow|shadow-\[|bg-white/);
+	});
+
+	// The scrim is a button that fills the window, so its focus ring falls outside the
+	// window and a Tab onto it showed no focus at all. A keyboard leaves the modal by
+	// Escape or by "Keep my snippet"; the scrim is for a pointer.
+	it("puts the keyboard on its two buttons and never on the scrim behind them", () => {
+		const { container } = renderOverlay();
+		const dialog = container.querySelector("dialog");
+		const stops = [...(dialog?.querySelectorAll<HTMLElement>("button, [tabindex]") ?? [])]
+			.filter((element) => element.tabIndex >= 0)
+			.map((element) => element.textContent?.trim());
+
+		expect(stops).toEqual(["Keep my snippet", "Open the file"]);
 	});
 });
 

@@ -3614,6 +3614,80 @@ html.dark:not([data-landing-theme]) {
 	pointer-events: auto;
 }
 
+/* The phone's instrument under a thumb. The island's 35px pitch is a mouse's
+   target: the scene dots were 24px wide and Export 31px tall, so a press landed
+   on the next control or on nothing. The landing's island takes the same step
+   under a coarse pointer (a 48px plate, 36px controls, 44px cells). This one has
+   more to hold, so its root row tiles: every control is a 44px cell with no gap,
+   the glyph keeps the size it had and only the target grows, and the island
+   clips the 6px above and below that make the cell 48px tall. The dots that fit
+   at 44px each are counted in `dotBudget` (three at 375, two at 360), so below
+   that the dots give way to the counter before a target shrinks. Scoped to the
+   phone's root: the rail on a touch laptop is not this island. */
+@media (pointer: coarse) and (max-width: 639px) {
+	.sc-root-mobile .si-island {
+		height: 48px;
+	}
+
+	.sc-root-mobile .si-row .si-button,
+	.sc-root-mobile .si-row .si-cta {
+		height: 36px;
+	}
+
+	.sc-root-mobile .si-row .si-button::after {
+		inset-block: -6px;
+	}
+
+	.sc-root-mobile .si-row[data-dots] {
+		--island-cell: 44px;
+		--island-gap: 0px;
+	}
+
+	.sc-root-mobile .si-row[data-dots] .si-button {
+		min-width: var(--island-cell);
+	}
+
+	/* Round inside a round island (DECISIONS D3): the ring a keyboard draws on a dot
+	   follows the capsule it is in, like the controls beside it. */
+	.sc-root-mobile .si-row[data-dots] .si-dot {
+		width: var(--island-cell);
+		height: 36px;
+		border-radius: var(--r-pill);
+	}
+
+	.sc-root-mobile .si-row[data-dots] .si-dot::after {
+		inset: -6px 0;
+	}
+
+	/* The cells are the spacing now: the 7px that set the playback group apart
+	   would cost the third dot at 375. */
+	.sc-root-mobile .si-row[data-dots] .si-gap {
+		display: none;
+	}
+
+	/* Export is the one control that is not a cell. It has no extension of its
+	   own, so it reaches the island's height and the 6px of padding at its end. */
+	.sc-root-mobile .si-row[data-dots] .si-cta {
+		position: relative;
+		margin-left: 0;
+		padding: 0 12px;
+	}
+
+	.sc-root-mobile .si-row[data-dots] .si-cta::after {
+		content: "";
+		position: absolute;
+		inset: -6px -6px -6px 0;
+	}
+}
+
+/* Below 360 the bar goes before the counter does: the position is the words, and
+   the bar is an impression. */
+@media (pointer: coarse) and (max-width: 359px) {
+	.sc-root-mobile .si-track {
+		display: none;
+	}
+}
+
 /* ─────────────────────────── The phone's sheet ─────────────────────────── */
 
 .sc-sheet {

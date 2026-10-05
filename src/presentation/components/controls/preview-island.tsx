@@ -14,7 +14,7 @@ import {
 import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-size-container";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
-import { useIsNarrow } from "@/presentation/hooks/use-media-query";
+import { useDotBudget, useIsNarrow } from "@/presentation/hooks/use-media-query";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -23,8 +23,6 @@ import {
 	useSocialPreviewStore,
 } from "@/presentation/stores/social-preview.store";
 import {
-	MAX_DOTS,
-	NARROW_MAX_DOTS,
 	playbackFill,
 	showsDots,
 	stepCounter,
@@ -50,10 +48,23 @@ import {
 	X,
 } from "reicon-react";
 import { CLUSTERS, type ClusterId, ClusterPanel } from "./cluster-panels";
+import { ISLAND_SPRING } from "./island-motion";
 import { StudioAspectMode, StudioClusterMode } from "./studio-cluster-mode";
 
-/** The island's 3px side insets plus its two 1px material edges. */
-const ISLAND_PADDING = 8;
+/**
+ * The island's padding on both sides, which the measured row does not include.
+ * Read from the stylesheet rather than written here: a constant said 8 while the
+ * padding was 12, so the row's last control sat 2px from the island's right edge
+ * and 6px from its left, and the two numbers could drift again whenever a shell
+ * set its own padding (the rail's export pill and a finger-sized island both do).
+ */
+function sidePadding(island: HTMLElement | null): number {
+	if (!island) {
+		return 0;
+	}
+	const style = getComputedStyle(island);
+	return (Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0);
+}
 
 /** What can be open at once, which is one thing. */
 type Panel = ClusterId | "social" | "aspect" | null;
@@ -116,6 +127,7 @@ export function PreviewIsland({
 
 	const reduce = useReducedMotion() === true;
 	const narrow = useIsNarrow();
+	const dotsBudget = useDotBudget();
 	const [panel, setPanel] = useState<Panel>(null);
 	const cluster = panel === null || panel === "social" || panel === "aspect" ? null : panel;
 	/** Which door the phone's single settings button opens: the last one used. */
@@ -214,19 +226,20 @@ export function PreviewIsland({
 	);
 
 	// The island springs to a measured width, since `width: auto` cannot be
-	// animated. `offsetWidth`, not `scrollWidth`: the controls carry their pointer
-	// targets as absolutely positioned pseudo-elements that reach past the row on
-	// purpose, and `scrollWidth` counts that reach as content. A ResizeObserver
-	// rather than a mount callback, because the row's content changes without
-	// remounting (a step added, the counter appearing at a wider viewport).
-	const [rowWidth, setRowWidth] = useState<number | null>(null);
+	// animated: the row's, plus the island's own padding. `offsetWidth`, not
+	// `scrollWidth`: the controls carry their pointer targets as absolutely
+	// positioned pseudo-elements that reach past the row on purpose, and
+	// `scrollWidth` counts that reach as content. A ResizeObserver rather than a
+	// mount callback, because the row's content changes without remounting (a step
+	// added, the counter appearing at a wider viewport).
+	const [islandWidth, setIslandWidth] = useState<number | null>(null);
 	const observerRef = useRef<ResizeObserver | null>(null);
 	const measureRow = useCallback((node: HTMLDivElement | null) => {
 		observerRef.current?.disconnect();
 		if (!node) {
 			return;
 		}
-		const read = () => setRowWidth(node.offsetWidth);
+		const read = () => setIslandWidth(node.offsetWidth + sidePadding(node.parentElement));
 		read();
 		const observer = new ResizeObserver(read);
 		observer.observe(node);
@@ -363,7 +376,7 @@ export function PreviewIsland({
 
 	const face = transportFace(isPreparing, isPlaying);
 	const label = transportLabel(face);
-	const dots = showsDots(totalSteps, narrow ? NARROW_MAX_DOTS : MAX_DOTS);
+	const dots = showsDots(totalSteps, dotsBudget);
 	const selection: SocialPlatform | "off" =
 		resolveSocialPlatform(enabled, platform, width, height) ?? "off";
 
@@ -446,8 +459,8 @@ export function PreviewIsland({
 				role="toolbar"
 				aria-label={variant === "timeline" ? "Studio controls" : "Preview controls"}
 				initial={false}
-				animate={rowWidth === null ? undefined : { width: rowWidth + ISLAND_PADDING }}
-				transition={reduce ? { duration: 0 } : springs.default}
+				animate={islandWidth === null ? undefined : { width: islandWidth }}
+				transition={reduce ? { duration: 0 } : ISLAND_SPRING}
 			>
 				<AnimatePresence mode="wait" initial={false}>
 					{panel === "social" ? (

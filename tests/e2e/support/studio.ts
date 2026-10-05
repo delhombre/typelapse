@@ -1,4 +1,4 @@
-import { type Download, type Page, test as base, expect } from "@playwright/test";
+import { type Download, type Locator, type Page, test as base, expect } from "@playwright/test";
 
 /**
  * The journeys' shared vocabulary. Everything here drives the studio the way a
@@ -141,4 +141,56 @@ export async function storedScenes(page: Page): Promise<StoredScene[]> {
 			database.close();
 		}
 	});
+}
+
+/**
+ * What answers to `target` around it, by asking the page: the box of every point
+ * within `reach` px where `elementFromPoint` finds the target or something inside
+ * it. A hit area is a pseudo-element no layout box reports, and one a parent
+ * clips answers to nobody, so a box read from the DOM would flatter the control.
+ */
+export async function hitBox(
+	target: Locator,
+	reach = 14,
+): Promise<{ width: number; height: number }> {
+	return target.evaluate((element, reach) => {
+		const box = element.getBoundingClientRect();
+		let left = Number.POSITIVE_INFINITY;
+		let top = Number.POSITIVE_INFINITY;
+		let right = Number.NEGATIVE_INFINITY;
+		let bottom = Number.NEGATIVE_INFINITY;
+		const first = (value: number) => Math.floor(value) + 0.5;
+		for (let y = first(box.top - reach); y < box.bottom + reach; y += 1) {
+			for (let x = first(box.left - reach); x < box.right + reach; x += 1) {
+				const hit = document.elementFromPoint(x, y);
+				if (hit && (hit === element || element.contains(hit))) {
+					left = Math.min(left, x - 0.5);
+					right = Math.max(right, x + 0.5);
+					top = Math.min(top, y - 0.5);
+					bottom = Math.max(bottom, y + 0.5);
+				}
+			}
+		}
+		return { width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+	}, reach);
+}
+
+/** Resolves once `target` has stood still for ten frames: a spring or a slide has finished. */
+export async function settled(target: Locator): Promise<void> {
+	await target.evaluate(
+		(element) =>
+			new Promise<void>((resolve) => {
+				let last = "";
+				let still = 0;
+				const tick = () => {
+					const box = element.getBoundingClientRect();
+					const now = [box.x, box.y, box.width, box.height].map((n) => n.toFixed(2)).join();
+					still = now === last ? still + 1 : 0;
+					last = now;
+					if (still >= 10) resolve();
+					else requestAnimationFrame(tick);
+				};
+				requestAnimationFrame(tick);
+			}),
+	);
 }

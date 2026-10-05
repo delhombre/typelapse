@@ -1,6 +1,7 @@
 import {
 	MAX_DOTS,
 	NARROW_MAX_DOTS,
+	dotBudget,
 	formatPlaybackClock,
 	playbackFill,
 	showsDots,
@@ -87,6 +88,37 @@ describe("the counter and the dots", () => {
 		expect(showsDots(NARROW_MAX_DOTS, NARROW_MAX_DOTS)).toBe(true);
 		expect(showsDots(NARROW_MAX_DOTS + 1, NARROW_MAX_DOTS)).toBe(false);
 		expect(NARROW_MAX_DOTS).toBeLessThan(MAX_DOTS);
+	});
+
+	// Under a finger every dot is its own 44px cell, since a smaller one is a press that
+	// lands on its neighbour. Beside the transport, the settings, the social preview and
+	// the export button (61px), and the 12px of the island's padding and 32px of the dock's
+	// gutters, that is 237px that are not dots.
+	describe("the budget of a phone held in the hand", () => {
+		const hand = { narrow: true, coarse: true };
+
+		it("is as many 44px dots as fit in what the screen leaves", () => {
+			expect(dotBudget({ ...hand, width: 375 })).toBe(3); // (375 - 237) / 44 = 3.1
+			expect(dotBudget({ ...hand, width: 390 })).toBe(3); // 3.5
+			expect(dotBudget({ ...hand, width: 428 })).toBe(4); // 4.3
+			expect(dotBudget({ ...hand, width: 360 })).toBe(2); // 2.8
+		});
+
+		it("gives up the dots before it lets a target shrink, down to none on a 320px phone", () => {
+			expect(dotBudget({ ...hand, width: 320 })).toBe(1);
+			expect(showsDots(2, dotBudget({ ...hand, width: 320 }))).toBe(false);
+		});
+
+		it("never holds more than a phone's own budget, however wide the screen", () => {
+			expect(dotBudget({ ...hand, width: 639 })).toBe(NARROW_MAX_DOTS);
+		});
+
+		it("leaves the budgets of a pointer, which had room all along, as they were", () => {
+			expect(dotBudget({ narrow: true, coarse: false, width: 375 })).toBe(NARROW_MAX_DOTS);
+			expect(dotBudget({ narrow: false, coarse: false, width: 1280 })).toBe(MAX_DOTS);
+			// A tablet in portrait is not a phone: its row has the room.
+			expect(dotBudget({ narrow: false, coarse: true, width: 768 })).toBe(MAX_DOTS);
+		});
 	});
 
 	it("names each dot with its position, since a 6px dot has no other label", () => {

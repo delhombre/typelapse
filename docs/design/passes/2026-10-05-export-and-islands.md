@@ -192,16 +192,291 @@ Nits left: "Signing out…" is wider than "Sign out" (the button sits alone at
 the row's end, nothing moves); the server's sign-up error stays until the next
 submit.
 
+## Follow-up, ticket #140 (2026-10-05)
+
+Decision log `docs/decisions/2026-10-05-next-wave.md` D1 and D6. It settles three
+items this pass ended on (the rail's selected segments, the island's width
+spring, `ConfirmDiscard`), the island's targets under a thumb that the phone
+pass left to this one, and D6's call on the menus that hold text. Gate 4 ran in Emil's order: `emil-design-foundations`,
+`emil-surfaces`, `emil-ui-polish`, `craft-design-engineering`, then
+`emil-touch-and-accessibility` and `emil-animations` as refinements, and ended
+on `emil-ui-review`.
+
+### Screen
+
+Route `/app`, both shells, light and dark.
+
+- The rail: the `.si-*` rules of `src/presentation/studio-camera.css` (selected
+  segments, hover, the export button, the island's right padding).
+- The island's width: `controls/preview-island.tsx` and the new
+  `controls/island-motion.ts`.
+- The replace question: `ui/confirm-discard.tsx` (`ConfirmDiscard`,
+  `ConfirmDiscardOverlay`) in its four hosts: the source popovers, the
+  Showcase, the project-file modal and the strip an import link raises
+  (`layout/import-intent-boot.tsx`).
+- The phone's island under a thumb: `src/app.css`, `hooks/use-media-query.ts`,
+  `utils/playback-readout.ts`.
+- The menus that hold text: `.sc-source-menu`, `.sc-source-form-popover`,
+  `.sc-project-menu`.
+
+Out of scope: the capture library (#142), the account island (#144), the phone's
+bottom sheet (#141), the cluster sheet and the social row on a phone, and
+landscape phones and tablets.
+
+### Before
+
+Production build behind `vite preview` on 5234, ms-playwright Chromium 1243:
+desktop 1440x900 (DPR 2 for the rail), phone 375x812 at DPR 2 with touch, a
+mobile user agent and the notch forced through CDP (47 top, 34 bottom), light and
+dark. Scripts and shots are in the session scratchpad, `scratchpad/140/`
+(`capture.mjs`, `look-rail.mjs`, `probe-spring.mjs`, `hits.mjs`,
+`confirm-focus.mjs`; images in `before/`). Not committed.
+
+What a person saw go wrong, measured:
+
+- **The rail wore other yellows beside the primary.** The plate, its hover, the
+  soft plate, the range track and the field's focus were `rgb(255 213 11)` at
+  alphas 0.1, 0.14, 0.15, 0.08, 0.2, 0.72 and 0.32; the selected label turned
+  `#ffe35c` on hover (D4 says a hover never moves the ink); the export button's
+  hover was `#ffd326` and its ink `#181713`. The tokens are `--color-primary`
+  `#f1be01`, `--color-primary-hover` `#f5c92a` and `--color-on-primary` `#1c1b19`.
+- **The island closed on its last control.** `probe-spring.mjs` samples the width
+  every frame through each row swap. Going to a narrower row the island's edge
+  dipped inside the row's right edge by 2.2px (Motion to the root row), 2.3px
+  (Look to the root row), 4.1px (the root row to Social) and 6.8px (Export to
+  the root row, cutting the export pill's cap), because the 205/22 spring
+  (damping ratio 0.77) overshoots by 2.3% of the move: 4.3px of a 188px swap and
+  8.8px of a 382px one, and `overflow: hidden` is the clip. At rest the row ended
+  2px from the island's right edge and 6px from its left: a constant
+  (`ISLAND_PADDING = 8`) stood for a padding of 12.
+- **The replace question.** Opened by keyboard as a modal, focus lands on its card
+  (a `tabindex="-1"` div) and `:focus-visible` matches: `2px solid` accent at 2px
+  offset round the whole card, because Tailwind's `outline-none` is layered and
+  the global `:focus-visible` rule is not. Tab then walked Keep, Open the file,
+  the browser, and the scrim: a `fixed inset-0` button whose ring falls outside
+  the window, so a focus stop that showed nothing. The confirm button carried
+  `inset 0 1px 0 rgb(255 255 255 / 0.3), 0 4px 16px -4px rgb(241 190 1 / 0.45)`.
+  The card was `bg-neutral-50` with a 1px `neutral-200` border inside a white
+  card with its own border, so two surfaces. The strip an import link raises is
+  rendered beside the shell, outside `.studio-root`, so it read Tailwind's cold
+  default (`oklch(0.985 0 0)`, and `oklab(0.145 0 0 / 0.4)` in dark) instead of
+  the warm ramp, wore a raw `0 16px 40px -12px rgb(0 0 0 / 0.28)`, and started
+  12px from the top, inside a 47px inset. Both buttons were 32px tall with no
+  reach.
+- **The island under a thumb** (375x812, three scenes, `hits.mjs`: the box of every
+  point where `elementFromPoint` finds the control). Play 39x40, each scene dot
+  24x40, Settings 35x40, Social 36x40, Export 65x31 (box 64.6x30, with no
+  extension at all). The island was 270x40; four dots fit.
+- **The menus.** The source menu, its two popovers and the project menu were the
+  88% paper over an 18px blur: on a phone the stage's mesh showed through the
+  lower rows as a soft orange and grey blotch
+  (`before/phone375-light-11-source-menu.png`), and on a desktop through the
+  popover that asks the replace question
+  (`before/desktop-light-13-confirm-in-popover.png`).
+
+### Decisions
+
+Foundations (`emil-design-foundations`):
+
+- **The rail's selected segment wears the primary the way the export button
+  does.** Every literal yellow of a `.si-*` rule is `color-mix(in oklch,
+  var(--camera-amber) N%, transparent)` at the alpha it had, so the plate is
+  `oklch(0.8238 0.1682 89.03 / 0.1)` with a 0.14 ring, 0.15 on hover. It stays a
+  well, not a fill: the export button is the zone's one filled shape (D2). The
+  button's hover and ink are the tokens, `rgb(245, 201, 42)` and `rgb(28, 27,
+  25)`. A hover moves the plate and never the label (D4): the label is
+  `var(--camera-amber)` on hover, restated because the app's selected-hover rule
+  paints the dark ink of a white plate and would vanish on the well.
+  `SYSTEM.md` Colour row updated.
+- **The island's spring never crosses its target** (table below). The landing keeps
+  its own: its rows differ by a few pixels (0 and 1px in the swaps sampled, 24px
+  in the take its comment cites), so its 1.4% overshoot is under half a pixel
+  against 6px of slack, and its comment asks for the bounce.
+- **The island's padding is read from the stylesheet**, not written in the
+  component: `sidePadding` adds the computed padding to the row's width. The
+  desktop island ends 3px after the export pill, concentric with it (capsule 20 =
+  pill 17 + 3; it was 2px by accident), the phone's plate 6px (24 = 18 + 6).
+- **The replace question is one card, `.sc-confirm`**, on `--camera-surface` with
+  `--camera-raised`, `--r-surface`, its title 13px at 600 and its text 12px at
+  1.5, read from the studio's scale. Its buttons are 32px at `--r-control` (their
+  corners are 16px from the card's, so concentric would be square), one filled
+  shape with no glow, a transparent ghost beside it that takes `--camera-pill` on
+  hover. A host that is a surface flattens it (the popover, the modal); the modal's
+  card is `.sc-confirm-card` with `--camera-material-shadow`; its scrim is the
+  sheets' (`.sc-confirm-scrim`, pinned equal by a test); the strip is
+  `.sc-confirm-float` inside `studio-root sc-tokens`, which hands it the warm ramp
+  and the camera tokens it is rendered outside of.
+- **Menus that hold text take the opaque studio surface** (D6): `background:
+  var(--camera-surface)`, the same ring and shadow, no blur, since nothing is
+  left behind an opaque fill to blur. The capsules and the easing popover keep
+  the material. DECISIONS D5 amended in one sentence; `SYSTEM.md` rows updated.
+- **Touch** (D10). Under `(pointer: coarse) and (max-width: 639px)`, scoped to
+  `.sc-root-mobile`: a 48px plate, every root-row control a 44px cell with no gap
+  (36px tall, 48px of reach), the dots as cells too, the 7px spacer gone, Export
+  36px tall with a 6px extension. The landing took the same step with gaps; this
+  row has more to hold, so it tiles. The dots that fit are `dotBudget`: 237px of
+  transport, settings, social, export, padding and gutters, then 44px each, so
+  three from 369px of screen (375 and 390), two from 325 (360), four from 413
+  (430), none at 320, and the counter says the position past them. Below 360
+  the bar goes first.
+
+Surfaces (`emil-surfaces`): shadows over borders (the card and the menus carry a
+ring inside a stack, no border); concentric radii checked at both capsules
+(above) and the card; dark carries the same tokens (`--camera-surface`
+`#1e1c1a` on the page's `#121110`).
+
+Polish (`emil-ui-polish`):
+
+- The scrim is `tabindex="-1"` and `aria-hidden`: it is for a pointer, and a
+  keyboard leaves by Escape or "Keep my snippet". The card draws no ring
+  (`.sc-confirm-card:focus-visible { outline: none }`, D9's container rule);
+  the buttons keep the global accent ring.
+- The confirm's buttons are 32px drawn, 40px of reach to a pointer, 44px tall
+  under a finger.
+- The import strip starts at `max(0.75rem, env(safe-area-inset-top))` (D14).
+- A dot under a finger is `--r-pill`, so the ring a keyboard draws on it follows
+  the capsule.
+
+Craft (`craft-design-engineering`): Nested Border Radius (the two capsules and
+the card, above), Hit Areas (cells tile: no dead gap between targets; the
+confirm's two buttons reach only up and down), Shadows, Not Borders, Button Press
+kept at 0.97 (this system's value, SYSTEM.md Motion), Interruptibility (a spring
+keeps its velocity when a swap reverses).
+
+Motion (`emil-animations`; no `review-animations` run, the table is the hand-off):
+
+| Element | Trigger | Properties | Duration, curve | Reduced motion |
+| --- | --- | --- | --- | --- |
+| Island width | a row swap | `width` to the row's width plus the island's padding (D8's one exception) | spring 400/40, mass 1, critically damped: 194ms to 90%, 400 to 433ms to within half a pixel | `{ duration: 0 }` |
+| Replace question, card | it appears, leaves | opacity, y 6 to 0 / 0 to -4 | 180ms `cubic-bezier(0.23, 1, 0.32, 1)` (unchanged) | opacity only |
+| Replace question, modal | open, close | opacity, scale 0.97 to 1, y 8 to 0, blur 4px to 0 / the reverse | 220ms, the same curve (unchanged) | opacity only |
+| Replace question, buttons | hover, press | background-color, color / transform | 150ms `var(--ease-out)`, only on a hover device / `whileTap` 0.97 on `springs.snappy` | colour kept, no press movement |
+| Rail, selected well | hover | `background-color` of the plate, 0.1 to 0.15 alpha | none (a frequent control answers at once) | n/a |
+
+The spring, measured in the browser (`probe-spring.mjs`, every frame of each swap)
+and by a model that reproduces the old numbers (`tests/presentation/island-motion.test.ts`):
+
+| | Stiffness | Damping | Mass | Damping ratio | Past its target, 188px / 382px | 90% of a move | Within 0.5px, 188px / 382px |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Studio before (`springs.default`) | 205 | 22 | 1 | 0.77 | 4.3px / 8.8px (measured 4.33 / 8.80) | 200ms | 536ms / 563ms (measured 531 to 550) |
+| Landing (`instrument.tsx`) | 260 | 26 | 1 | 0.81 | 2.6px / 5.3px (1.4% of the move) | 186ms | 484ms / 518ms |
+| Studio after (`island-motion.ts`) | 400 | 40 | 1 | 1.00 | 0 / 0 | 194ms | 407ms / 447ms (measured 399 to 433) |
+
+The landing's rows differ by a few pixels, so its dip stays under half a pixel
+and its 6px of slack absorbs it (0.02px past its target in the widest swap
+sampled, 1px). The studio's rows differ by up to 382px. Critical damping is the
+least that never overshoots, so 400 is also the quickest safe stiffness; it keeps
+the old rise time (200ms) and settles about 120ms sooner.
+
+### After
+
+`scratchpad/140/after/`, the same states, light and dark: the rail
+(`rail-*`), the replace question in its four hosts (`desktop-*-13`, `-20`, `-21`,
+`-22`, `-30`, `-40`, `-41` and `phone375-*`), the island on a phone at 320, 360,
+375, 390 and 430 (`phone-<width>-island-<scenes>.png`), keyboard focus on its
+cells (`phone-375-focus-*`), and the menus (`desktop-*-10`, `-11`, `-12`,
+`phone375-*-10` to `-12`).
+
+- Rail: plate `oklch(0.8238 0.1682 89.03 / 0.1)`, the label `rgb(241, 190, 1)`
+  at rest and on hover; export hover `rgb(245, 201, 42)`; island padding 6px and
+  3px. Past-target 0 at every swap (`probe-spring.mjs after`): the island's edge
+  stays at least 3px outside the row, where it dipped 6.8px inside before.
+- Replace question, by keyboard (`confirm-focus.mjs`, `capture.mjs`): it opens with
+  focus on the card and no ring anywhere; Tab puts a 2px accent ring on "Keep my
+  snippet" and nothing else, then on "Open the file" and nothing else; the next
+  Tab leaves the page and the one after comes back to "Keep my snippet", never to
+  the scrim. The confirm button's `box-shadow` is `none`, the inner card has no
+  border and a transparent fill, the strip reads `rgb(255, 255, 255)` (dark
+  `rgb(30, 28, 26)`) with the material's shadow and no border, and starts at 47px
+  under the notch.
+- Island under a thumb (`hits.mjs`, 375x812, three scenes): Play 50x48, each dot
+  44x48, Settings 44x48, Social 44x48, Export 68x48 (box 60.6x36); the island is
+  337x48 at x = 19. At 390 the same; at 360 two dots (island 293), three scenes
+  show the counter (327, inside 328); at 320 the counter and no bar (255); at 430
+  four dots (381). Four scenes at 375: the counter (327).
+- Menus: `.sc-source-menu`, `.sc-source-form-popover` and `.sc-project-menu` compute
+  an opaque fill (alpha 1) and `backdrop-filter: none`, light and dark.
+
+Tests, each seen red first on the baseline build or with the code absent:
+
+- `tests/presentation/studio-surfaces-system.test.ts`: the menus' fill and blur
+  (3 red), the rail's literals, plate and hover ink (3 red), the replace
+  question's rules, card, glow, ring and 44px reach (5 red, no rules yet), the
+  phone island's cell (1 red, a missing export). The export button's tokens were
+  asserted with the rail's fix and checked against HEAD's stylesheet, which still
+  holds `#ffd326` and `#181713`. The radius test of that file went red for the
+  capture library's raw px while #142 worked, and is theirs.
+- `tests/presentation/island-motion.test.ts` (4, red on a missing module),
+  `playback-readout.test.ts` (`dotBudget`, 4 red), `import-guards.test.tsx` (the
+  replace question's markup and the overlay's tab stops, 3 red).
+- E2E, red against the baseline build, green on the final one:
+  `studio-shell.spec.ts` (the island never gets narrower than its row: -6.8px;
+  the row ends where the padding says: 2 against 6; the menus are opaque on the
+  desktop, light and dark: alpha 0.88 and `blur(18px) saturate(1.4)` before),
+  `mobile-shell.spec.ts` (the menus are opaque, light and dark; the island's
+  targets at 375 and 390: "Play reaches 39 wide"; past its dots the island keeps
+  its targets and its fit; the replace question's buttons: "reaches 33 tall"; the
+  import strip clears the notch: 12 against 47), `imports.spec.ts` (keyboard focus in the replace
+  question: a ring on the card at open; the strip an import link raises is the
+  studio's surface in both themes: `oklch(0.985 0 0)` and `oklab(0.145 0 0 / 0.4)`
+  against `rgb(255, 255, 255)` and `rgb(30, 28, 26)`).
+- `pnpm exec vitest run tests/docs/design-system.test.ts
+  tests/presentation/studio-surfaces-system.test.ts
+  tests/application/phone-sheet.test.ts tests/presentation/island-motion.test.ts
+  tests/presentation/playback-readout.test.ts
+  tests/presentation/import-guards.test.tsx
+  tests/presentation/studio-control-rail.test.tsx
+  tests/presentation/export-render-cta.test.tsx
+  tests/presentation/playback-render-isolation.test.tsx
+  tests/presentation/source-import-replacement.test.tsx
+  tests/presentation/template-gallery-preview.test.tsx
+  tests/presentation/mobile-shell.test.tsx
+  tests/presentation/studio-source-hub.test.tsx
+  tests/presentation/layer-editor-in-sheet.test.ts`: 14 files, 140 tests, green.
+- `E2E_SKIP_BUILD=1 E2E_PORT=5234 E2E_OUT_DIR=<scratchpad>/dist pnpm exec playwright
+  test mobile-shell studio-shell imports showcase studio-authoring landing`:
+  6 spec files, 37 passed.
+
+### Review verdict
+
+`emil-ui-review` on the diff: **approve with changes**. Should fix, both done:
+
+- The replace question's two buttons were claimed 44px under a finger by the
+  stylesheet and measured by nothing: `mobile-shell.spec.ts` now reads their reach
+  by `elementFromPoint` (33 tall before, 44 after).
+- `ConfirmDiscard`'s `className` said "outer spacing only" while the strip passes
+  its lift through it: the comment says spacing, width and lift.
+
+Accepted, not findings: the island's `width` is a layout property
+(D8's one sanctioned exception, now on a critically damped spring); Tab leaves
+the page after "Open the file", as a modal does.
+
+Nits left: the root row has no gap between the playback group and the settings
+group on a phone (the cells are the spacing); the dots read as sparse at 44px
+cells.
+
 ## Open
 
-- Selected segments in the rail still wash in `rgb(255 213 11)` while the CTA
-  now wears `--color-primary` (U2 is settling Drift 1 in `studio-camera.css`).
-- The island's width spring (205/22, damping ratio 0.77) overshoots by a few
-  pixels into its own clip; the landing's 260/26 settles. U2, D8.
 - A diff paste that is not a diff is asked about ("Replace what you have with
   this code?") before it is known to be readable, as the file was. Reading it
   first means parsing in the menu; left for the import owner.
-- `ConfirmDiscard` (`components/ui/confirm-discard.tsx`) still carries the
-  glow shadow on its confirm and, as a standalone modal, the browser's focus
-  ring around the whole dialog. Not in this pass's files.
 - The phone status keeps the 36px plate and 660px width (U4).
+- After the replace question's modal closes, focus lands on `body`: the menu row
+  that opened it is gone. `ConfirmDiscardOverlay` could hand focus back to the
+  Add source trigger; left for the source hub.
+- On a phone the island's second storey and its social row are not at 44px: the
+  cluster sheet's tabs and chips are 30px tall with 40px of reach, and the feed
+  chips ("Off" 33px, "X" 30px wide) cannot all reach 44 in 343px (seven chips
+  take 290px at 30px). A second row or a scroller would; the phone pass.
+- Landscape phones and tablets (640px and wider, a coarse pointer) keep the 35px
+  pitch, the 24px dots and a 31px tall export button: there the budget is eight
+  dots in 24px cells, and 44px cells need a different row.
+- Three dots at 375: a project of four scenes or more shows the counter and the
+  bar, where it showed four dots; seeking past three is the Scenes list.
+  Pivot: "keep four dots" needs the export button as a glyph or a second row.
+- The phone's More menu (Drift 19) is 98% white over a blur with a cool border:
+  it takes the opaque surface (D5) with the next phone pass.
+- Reduced transparency and forced colours were read from the stylesheet, not
+  seen: the opaque menus no longer depend on the first, the capsules still do.
+- Not verified on a device: the notch and the home indicator were forced through
+  CDP, and the reach numbers are `elementFromPoint`, not a thumb on glass.

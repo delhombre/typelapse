@@ -11,28 +11,45 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, Library, X } from "reicon-react";
 
+/** The island's Export button: how a capture is made, and where the empty state hands over. */
+const EXPORT_OPENER = '[data-island-opener="export"]';
+
 export function CaptureLibrary() {
 	const [open, setOpen] = useState(false);
-	const [loading, setLoading] = useState(false);
 	const [captures, setCaptures] = useState<CaptureRecord[]>([]);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	/** What the sheet does once it is gone, instead of handing focus back to its trigger. */
+	const afterClose = useRef<(() => void) | null>(null);
 
-	const refresh = useCallback(async () => {
-		setLoading(true);
+	const read = useCallback(async () => {
 		setCaptures(await browserCaptureLibrary.list());
-		setLoading(false);
 	}, []);
 
-	useEffect(() => browserCaptureLibrary.subscribe(() => void refresh()), [refresh]);
-	useEffect(() => {
-		if (open) {
-			void refresh();
-		}
-	}, [open, refresh]);
+	// The sheet is as wide as what it holds, so it reads first and opens second: it
+	// arrives at its final width instead of widening as its captures turn up.
+	const show = useCallback(async () => {
+		afterClose.current = null;
+		await read();
+		setOpen(true);
+	}, [read]);
+
+	// Open, it follows the library: a capture that finishes or goes appears in place.
+	useEffect(
+		() => (open ? browserCaptureLibrary.subscribe(() => void read()) : undefined),
+		[open, read],
+	);
 
 	const close = useCallback(() => {
+		afterClose.current = null;
 		setOpen(false);
 		triggerRef.current?.focus();
+	}, []);
+
+	// The panel is asked for after the sheet has closed: until then the page behind a
+	// modal dialog is inert, and a panel opened now could not take focus.
+	const exportInstead = useCallback(() => {
+		afterClose.current = () => document.querySelector<HTMLElement>(EXPORT_OPENER)?.click();
+		setOpen(false);
 	}, []);
 
 	return (
@@ -48,7 +65,7 @@ export function CaptureLibrary() {
 				transition={springs.snappy}
 				onClick={() => {
 					feedback("selection");
-					setOpen(true);
+					void show();
 				}}
 			>
 				<Library size={14} aria-hidden="true" />
@@ -60,6 +77,11 @@ export function CaptureLibrary() {
 				onClose={close}
 				labelledBy="capture-library-title"
 				className="capture-library-sheet"
+				onClosed={() => {
+					const next = afterClose.current;
+					afterClose.current = null;
+					next?.();
+				}}
 			>
 				<header className="studio-sheet-header">
 					<div>
@@ -71,18 +93,21 @@ export function CaptureLibrary() {
 					</button>
 				</header>
 
-				{loading ? (
-					<div className="capture-library-empty" aria-live="polite">
-						<span className="capture-library-spinner" aria-hidden="true" />
-						<p>Opening library…</p>
-					</div>
-				) : captures.length === 0 ? (
+				{captures.length === 0 ? (
 					<div className="capture-library-empty">
 						<span className="capture-library-empty-icon" aria-hidden="true">
-							<Library size={14} aria-hidden="true" />
+							<Library size={16} aria-hidden="true" />
 						</span>
-						<strong>No captures yet</strong>
-						<p>Export a PNG, GIF, MP4 or WebM and it will appear here.</p>
+						<p>Export a PNG, GIF, MP4 or WebM and it is kept here as a capture.</p>
+						<motion.button
+							type="button"
+							className="capture-library-action"
+							whileTap={{ scale: 0.97 }}
+							transition={springs.snappy}
+							onClick={exportInstead}
+						>
+							Export
+						</motion.button>
 					</div>
 				) : (
 					<div className="capture-library-grid">
@@ -128,7 +153,7 @@ function CaptureCard({ capture }: { capture: CaptureRecord }) {
 				{url && kind === "video" ? (
 					<video src={url} muted playsInline preload="metadata" aria-label={capture.filename} />
 				) : url ? (
-					<img src={url} alt="" />
+					<img src={url} alt="" loading="lazy" decoding="async" />
 				) : (
 					<span aria-hidden="true">
 						<Library size={14} />
@@ -140,7 +165,7 @@ function CaptureCard({ capture }: { capture: CaptureRecord }) {
 			</div>
 			<footer>
 				<div>
-					<strong>{capture.projectTitle}</strong>
+					<strong title={capture.projectTitle}>{capture.projectTitle}</strong>
 					<span>
 						{formatDate(capture.createdAt)} · {formatCaptureBytes(capture.bytes)}
 					</span>

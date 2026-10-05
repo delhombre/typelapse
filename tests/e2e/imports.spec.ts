@@ -155,6 +155,106 @@ test.describe("Imports: a change, a pull request or a project file becomes the p
 		},
 	);
 
+	// The question is a modal over the studio. It opens with focus on its card, which marks
+	// nothing to press and so draws no ring (DECISIONS D9); then the keyboard walks its two
+	// buttons, each of which shows where it is. The scrim behind them fills the window, so a
+	// ring on it falls outside the window: it must not be a stop at all.
+	test("the replace question shows keyboard focus on the button that has it and nowhere else", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		// A text layer is authored work, so the file below asks before it replaces it.
+		await addSource(page, "Add text");
+		await expect(page.getByRole("button", { name: "Edit text layer" })).toBeVisible();
+
+		// By keyboard from the first press, so the browser treats every focus as the keyboard's.
+		await page.getByRole("button", { name: "Add source" }).focus();
+		await page.keyboard.press("Enter");
+		await page.getByRole("menuitem", { name: "Open project file" }).focus();
+		const chooser = page.waitForEvent("filechooser");
+		await page.keyboard.press("Enter");
+		await (await chooser).setFiles({
+			name: "opened.json",
+			mimeType: "application/json",
+			buffer: Buffer.from(
+				JSON.stringify({
+					title: "opened.ts",
+					code: "const opened = 1;",
+					language: "typescript",
+					themeName: "nord",
+					background: "mesh:ocean",
+					steps: [],
+				}),
+			),
+		});
+		await expect(page.getByRole("dialog", { name: /Replace what you have/ })).toBeVisible();
+
+		/** What in the modal draws a focus ring, by what it says. */
+		const ringed = () =>
+			page.evaluate(() =>
+				[document.querySelector("dialog[open]"), ...document.querySelectorAll("dialog[open] *")]
+					.filter((element): element is Element => element !== null)
+					.filter((element) => {
+						const style = getComputedStyle(element);
+						return style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0;
+					})
+					.map((element) => element.textContent?.trim().slice(0, 40)),
+			);
+
+		expect(await ringed()).toEqual([]);
+		await page.keyboard.press("Tab");
+		await expect(page.getByRole("button", { name: "Keep my snippet" })).toBeFocused();
+		expect(await ringed()).toEqual(["Keep my snippet"]);
+		await page.keyboard.press("Tab");
+		await expect(page.getByRole("button", { name: "Open the file" })).toBeFocused();
+		expect(await ringed()).toEqual(["Open the file"]);
+
+		// Past the last button the keyboard leaves the page and comes back to the first
+		// button, not to a scrim whose ring nobody can see.
+		await page.keyboard.press("Tab");
+		await page.keyboard.press("Tab");
+		await expect(page.getByRole("button", { name: "Keep my snippet" })).toBeFocused();
+		expect(await ringed()).toEqual(["Keep my snippet"]);
+	});
+
+	// The strip an import link raises from an open studio is rendered beside the shell, outside
+	// `.studio-root`, so it used to read Tailwind's cold neutral ramp instead of the studio's
+	// surface. `studio-root sc-tokens` hands it the tokens: an opaque studio-white card, in
+	// both themes, with the material's shadow and no border.
+	for (const [theme, fill] of [
+		["light", "rgb(255, 255, 255)"],
+		["dark", "rgb(30, 28, 26)"],
+	] as const) {
+		test(`the strip an import link raises is the studio's own surface, ${theme}`, async ({
+			page,
+		}) => {
+			await page.addInitScript(
+				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				theme,
+			);
+			await openStudio(page);
+			await addSource(page, "Add text");
+			await expect(page.getByRole("button", { name: "Edit text layer" })).toBeVisible();
+			await page.evaluate((hash) => {
+				window.location.hash = hash;
+			}, importHash(GREET_DIFF));
+
+			const card = page.getByRole("alertdialog").locator("[data-confirm-discard]");
+			await expect(card).toBeVisible();
+			const paint = await card.evaluate((element) => {
+				const style = getComputedStyle(element);
+				return {
+					fill: style.backgroundColor,
+					border: style.borderTopWidth,
+					shadow: style.boxShadow,
+				};
+			});
+			expect(paint.fill).toBe(fill);
+			expect(paint.border).toBe("0px");
+			expect(paint.shadow).not.toBe("none");
+		});
+	}
+
 	test("arriving on an import link opens a new project and keeps the open one", async ({
 		page,
 		context,

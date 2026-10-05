@@ -21,6 +21,46 @@ export const MAX_DOTS = 8;
  */
 export const NARROW_MAX_DOTS = 4;
 
+/**
+ * A finger-sized target: the cell of one dot, or of the transport, the settings or
+ * the social preview. The stylesheet draws the same 44px (`--island-cell`).
+ */
+export const TOUCH_CELL = 44;
+/**
+ * What a phone's row holds that is not a dot, under a finger: three cells (the
+ * transport, the settings and the social preview), the export button at 61px, the
+ * island's 12px of padding and the 32px the dock leaves either side of it.
+ */
+const TOUCH_FIXED = 3 * TOUCH_CELL + 61 + 12 + 32;
+
+/**
+ * How many step dots the island holds before the counter says the position.
+ *
+ * With a pointer the budgets are the ones above: a 6px dot in a 24px cell. Under
+ * a finger on a phone every dot is its own 44px cell, since a smaller one is a
+ * press that lands on its neighbour, so the budget is how many such cells fit in
+ * what the screen leaves: three at 375 and 390, two at 360, none at 320 (where
+ * the counter and the bar take the room and the targets stay whole). A tablet is
+ * not a phone and its row has the room.
+ */
+export function dotBudget({
+	narrow,
+	coarse,
+	width,
+}: {
+	narrow: boolean;
+	coarse: boolean;
+	width: number;
+}): number {
+	if (!narrow) {
+		return MAX_DOTS;
+	}
+	if (!coarse) {
+		return NARROW_MAX_DOTS;
+	}
+	return Math.min(NARROW_MAX_DOTS, Math.max(0, Math.floor((width - TOUCH_FIXED) / TOUCH_CELL)));
+}
+
 export type TransportFace = "preparing" | "pause" | "play";
 
 /** The button's current face: the spinner outranks both, since neither can be pressed yet. */

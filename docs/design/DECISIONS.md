@@ -62,9 +62,9 @@ reads as two products; a pill radius on a tall plate bows its sides.
 
 **Enforced by:** `src/app.css` (the `--r-*` block),
 `src/application/layout/concentric.ts` (tested in
-`tests/application/concentric.test.ts`); the source hub, the showcase and the
-drop veil are read for it by `tests/presentation/studio-surfaces-system.test.ts`.
-The capture library still writes raw px (`SYSTEM.md` Drift 5, ticket #142).
+`tests/application/concentric.test.ts`); the source hub, the showcase, the
+drop veil and the capture library are read for it by
+`tests/presentation/studio-surfaces-system.test.ts`.
 
 **Pivot:** "Use one radius everywhere."
 
@@ -93,11 +93,12 @@ hover behind the same query).
 (`#151517`) that does not follow the theme; on a dark page it keeps its fill
 and gains an inset hairline. Floating surfaces over the phone's stage are the
 landing's card material: paper at 88%, a blur, a 1px ring, one soft shadow,
-and so are the menus and popovers of both shells; a header trigger sits on flat
-paper and takes the fill without the blur. The desktop card and timeline sit on
-flat paper, so they are opaque. Code frames take a layered shadow with a 1px
-ring inside it, not a border. Reduced transparency removes every blur and makes
-the material opaque.
+and so are the header capsules; a menu or popover that holds rows of text takes
+the opaque studio surface instead, in both shells (next-wave D6); a header
+trigger sits on flat paper and takes the fill without the blur. The desktop
+card and timeline sit on flat paper, so they are opaque. Code frames take a
+layered shadow with a 1px ring inside it, not a border. Reduced transparency
+removes every blur and makes the material opaque.
 
 **Why:** the same plate on `/` and `/app` says it is the same instrument; an
 island that inverted with the theme would read as a panel of the page. A
@@ -155,7 +156,8 @@ quiet. The shared set says the object on `/` is the object on `/app`.
 fold and the step back are transforms on `.sc-stage` and `.sc-dock`; an
 aspect change is a `clip-path` on one box sized for every ratio. One sanctioned exception: the island's
 own `width` springs to its measured row, because the row holds its size
-(`flex: none`) and the island clips it. A drag or a keyboard move is
+(`flex: none`) and the island clips it, on a critically damped spring so it
+never closes on the row's last control. A drag or a keyboard move is
 one-to-one and instant; only a finished reorder settles. A cycling label
 reserves its widest width. Nothing enters from `scale(0)`. Under reduced
 motion only colour, opacity and shadow transitions survive, and the global
@@ -167,8 +169,9 @@ slid every control under the cursor. A movement nobody named does not happen.
 
 **Enforced by:** `src/app.css` (the scene comment, the reduced-motion query),
 `src/presentation/components/timeline/timeline-motion.ts`,
-`src/presentation/landing/instrument.tsx`, the export progress fill, which
-scales (`scaleX`, `tests/presentation/export-status-progress.test.tsx`), and
+`src/presentation/landing/instrument.tsx`,
+`src/presentation/components/controls/island-motion.ts`, the export progress
+fill, which scales (`scaleX`, `tests/presentation/export-status-progress.test.tsx`), and
 `tests/presentation/studio-surfaces-system.test.ts` for the allow-list.
 
 **Pivot:** "Animate the layout directly; the jank is acceptable."
@@ -179,7 +182,7 @@ scales (`scaleX`, `tests/presentation/export-status-progress.test.tsx`), and
 `:focus-visible` only; 3px under `prefers-contrast: more`. In the island,
 2px at 1px offset in the island's ink, to fit its 5px of clearance. A
 container that receives programmatic focus (the phone sheet, the gallery
-dialog) draws no ring; its controls do.
+dialog, the replace question's modal) draws no ring; its controls do.
 
 **Why:** a ring needs 3:1 against what it sits on, and the primary yellow
 measures 1.67:1 against paper: the one place the brand colour cannot go.
@@ -260,8 +263,8 @@ the plainest tell of generated prose, banned codebase-wide by the owner.
 **Decision:** Every piece of phone chrome starts from its inset: the corner
 row from `max(10px, env(safe-area-inset-top))`, the stage slot and the menus
 from the same line, the sheet's stops from `phone-sheet.ts`, the drop veil
-inset on every side, a sheet's gutters and bottom padding, the instrument above
-the bottom inset. The insets reach
+inset on every side, the strip an import link raises, a sheet's gutters and
+bottom padding, the instrument above the bottom inset. The insets reach
 JavaScript through a probe padded with `env()`, which follows a rotation.
 
 **Why:** `viewport-fit=cover` paints under the notch and the home indicator;

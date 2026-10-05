@@ -1,4 +1,5 @@
 import { DESKTOP_SCENE_MIN_WIDTH } from "@/application/layout/scene-stage";
+import { dotBudget } from "@/presentation/utils/playback-readout";
 import { useSyncExternalStore } from "react";
 
 /**
@@ -37,4 +38,31 @@ export function useIsDesktop(): boolean {
  */
 export function useIsNarrow(): boolean {
 	return useMediaQuery("(max-width: 639px)");
+}
+
+/** A finger, not a cursor: the primary pointer is imprecise, so targets must be 44px. */
+export function useIsCoarse(): boolean {
+	return useMediaQuery("(pointer: coarse)");
+}
+
+function subscribeToResize(onChange: () => void) {
+	window.addEventListener("resize", onChange);
+	return () => window.removeEventListener("resize", onChange);
+}
+
+/**
+ * How many step dots the island can hold right now. Under a finger the count is a
+ * question about the screen's width (every dot is a 44px cell), which no media
+ * query can ask of a count, so the width is read here and the answer comes from
+ * `dotBudget`.
+ */
+export function useDotBudget(): number {
+	const narrow = useIsNarrow();
+	const coarse = useIsCoarse();
+	const width = useSyncExternalStore(
+		subscribeToResize,
+		() => window.innerWidth,
+		() => 0,
+	);
+	return dotBudget({ narrow, coarse, width });
 }

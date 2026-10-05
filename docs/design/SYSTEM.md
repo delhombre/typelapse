@@ -39,8 +39,8 @@ the one exception (DECISIONS D5).
 | Desktop muted, the landing's ash (4.87:1 on the pill) | `--camera-muted: #6e6b64` `src/presentation/studio-camera.css:28` | `--camera-muted: #a8a39a` `src/presentation/studio-camera.css:85` |
 | Desktop line, the scene hairline | `--camera-line: var(--sc-hairline)` `src/presentation/studio-camera.css:27` | same |
 | Desktop pill (fields, selection plate) | `--camera-pill: var(--color-neutral-100)` `src/presentation/studio-camera.css:29` | `--camera-pill: #292624` `src/presentation/studio-camera.css:86` |
-| Desktop opaque surface (card, timeline) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css:35` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css:88` |
-| Desktop CTA, timeline selection | `--camera-amber: var(--color-primary)` `src/presentation/studio-camera.css:19` | same |
+| Desktop opaque surface (card, timeline), and the menus that hold rows of text: the source menu, its popovers, the project menu (D5) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css:38` `background: var(--camera-surface)` `src/presentation/studio-camera.css:605` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css:103` |
+| Desktop CTA, timeline selection, a selected rail segment's well at 10% | `--camera-amber: var(--color-primary)` `src/presentation/studio-camera.css:22` `color-mix(in oklch, var(--camera-amber) 10%, transparent)` `src/presentation/studio-camera.css:2793` | same |
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css:18` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css:20` | same |
 | Error ink: a refused link or diff (5.0:1 on paper) | `--camera-danger: #c53a3a` `src/presentation/studio-camera.css:54` | `--camera-danger: #f28b82` `src/presentation/studio-camera.css:107` |
@@ -48,8 +48,9 @@ the one exception (DECISIONS D5).
 | Document behind the studio | `background: #fafaf9` `src/app.css:116` | `background: #121110` `src/app.css:124` |
 
 The `--camera-*` tokens are published on both shells, the desktop root and the
-phone root, by one rule (`:is(.studio-camera-root, .sc-root-mobile)`); only the
-phone's sheet, portaled to the body, keeps an older cool copy (Drift 18).
+phone root, by one rule (`:is(.studio-camera-root, .sc-root-mobile, .sc-tokens)`,
+the last for the strip an import link raises, rendered beside the shell); only
+the phone's sheet, portaled to the body, keeps an older cool copy (Drift 18).
 
 Theme switch: the landing sets `data-theme` on `.landing-root` and
 `data-landing-theme` on `<html>`; the studio toggles `.dark` on `<html>`. The
@@ -112,7 +113,7 @@ what has not adopted it yet.
 | Hero fixed chrome, stage ceiling | `--hero-chrome: 460px` `--stage-max: 400px` `src/app.css:942` |
 | Helper lane under the stage | `--helper-lane: 34px` `src/app.css:948` |
 | Phone fan row bleeds to the screen edge, clear of a notch | `margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)))` `src/app.css:1398` |
-| Sheet side gutter, header and content alike | `--sheet-inline: 28px` `--sheet-inline: 18px` `src/presentation/studio-camera.css:1045` |
+| Sheet side gutter, header and content alike; on a desktop its width is its content's, which each sheet names | `--sheet-inline: 28px` `--sheet-inline: 18px` `src/presentation/studio-camera.css:1167` `width: min(var(--sheet-width, 100%), calc(100% - 2 * var(--sheet-margin)))` `src/presentation/studio-camera.css:1182` |
 | Island gap (landing, studio phone) | `--island-gap: 5px` `src/app.css:992` |
 | Island gap (desktop studio, 34px labelled controls on the landing plate) | `--island-gap: 2px` `src/presentation/studio-camera.css:2248` |
 | Code card slot, scene gutter | `--sc-card-width: 356px` `--sc-gutter: 96px` `src/app.css:2035` |
@@ -132,8 +133,8 @@ target may grow into the gap beside it and no further.
 | Field | `--r-field: 8px` `src/app.css:2028` |
 | Control inside a round parent, CTA | `--r-pill: 999px` `src/app.css:2029` |
 | Nested in a corner: parent minus gap | `calc(var(--r-surface) - 7px)` `src/app.css:3265` |
-| Source hub: a row in the menu's corner, its icon tile, a popover's controls | `calc(var(--r-surface) - 4px)` `src/presentation/studio-camera.css:643` `calc(var(--r-surface) - 11px)` `src/presentation/studio-camera.css:684` `calc(var(--r-surface) - 9px)` `src/presentation/studio-camera.css:738` |
-| Showcase picture: the card's corner on top, a preview holder below | `var(--r-surface) var(--r-surface) var(--r-control) var(--r-control)` `src/presentation/studio-camera.css:1365` |
+| Source hub: a row in the menu's corner, its icon tile, a popover's controls. Library: the badge and the download in a card's corner | `calc(var(--r-surface) - 4px)` `src/presentation/studio-camera.css:643` `calc(var(--r-surface) - 11px)` `src/presentation/studio-camera.css:684` `calc(var(--r-surface) - 9px)` `src/presentation/studio-camera.css:738` `calc(var(--r-surface) - 10px)` `src/presentation/studio-camera.css:1454` `calc(var(--r-surface) - 12px)` `src/presentation/studio-camera.css:1507` |
+| Showcase and library picture: the card's corner on top, a preview holder below | `var(--r-surface) var(--r-surface) var(--r-control) var(--r-control)` `src/presentation/studio-camera.css:1425` |
 | Bottom sheet, top corners | `border-radius: var(--r-sheet) var(--r-sheet) 0 0` `src/presentation/studio-camera.css:1039` |
 | Hero block and field | `--mode-r: var(--text-x)` `--cap-r: calc(var(--field-h) / 2)` `src/app.css:423` |
 | Code card default (document data) | `borderRadius: block.borderRadius ?? 12` `src/application/render/scene-layer-visuals.ts:80` |
@@ -161,7 +162,7 @@ Which radius?
 | Desktop small surface | `--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024)` `src/presentation/studio-camera.css:47` |
 | Desktop raised (card, timeline): ring inside the stack | `--camera-raised: 0 0 0 1px var(--camera-line), 0 1px 2px rgb(28 27 25 / 0.04)` `src/presentation/studio-camera.css:38` |
 | Desktop raised on dark | `--camera-raised: 0 0 0 1px var(--camera-line), 0 10px 32px rgb(0 0 0 / 0.28)` `src/presentation/studio-camera.css:90` |
-| Menus, popovers and capsules on both shells: the floating material | `--camera-material: color-mix(in oklch, var(--color-neutral-50) 88%, transparent)` `src/presentation/studio-camera.css:42` |
+| Header capsules and the easing popover: the floating material | `--camera-material: color-mix(in oklch, var(--color-neutral-50) 88%, transparent)` `src/presentation/studio-camera.css:45` |
 | Bottom sheet: a ring and a shadow cast upward | `--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18)` `src/presentation/studio-camera.css:52` |
 | A hovered showcase card rises into the floating material's depth | `transition: box-shadow 150ms var(--ease-out)` `src/presentation/studio-camera.css:1339` |
 | Landing code card | `0 8px 20px -8px rgb(0 0 0 / 0.16)` `src/presentation/landing/static-frame.tsx:32` |
@@ -196,9 +197,9 @@ opaque (`--camera-material: var(--camera-paper)`
 | Landing reveal | `REVEAL_RISE = 12` `REVEAL_SCALE = 0.985` `REVEAL_BLUR = "blur(6px)"` `src/presentation/landing/tokens.ts:16` |
 | Landing reveal timing | `REVEAL_STAGGER = 0.06` `REVEAL_DURATION = 0.7` `src/presentation/landing/tokens.ts:21` |
 | Spring `snappy` (34 uses) | `stiffness: 400, damping: 30` `src/presentation/motion.ts:2` |
-| Spring `default` (11 uses) | `stiffness: 205, damping: 22` `src/presentation/motion.ts:3` |
+| Spring `default` (9 uses, the island's width is no longer one) | `stiffness: 205, damping: 22` `src/presentation/motion.ts:3` |
 | Spring `gentle` (6 uses) | `stiffness: 120, damping: 18` `src/presentation/motion.ts:4` |
-| Island width: undershoots, settles | `stiffness: 260, damping: 26, mass: 1` `src/presentation/landing/instrument.tsx:969` |
+| Island width: the landing undershoots and settles; the studio's is critically damped and never crosses its row | `stiffness: 260, damping: 26, mass: 1` `src/presentation/landing/instrument.tsx:969` `stiffness: 400, damping: 40, mass: 1` `src/presentation/components/controls/island-motion.ts:20` |
 | Aspect frame, bounded tail | `restDelta: 0.004` `src/presentation/landing/instrument.tsx:978` |
 | Timeline context enter, exit | `duration: 0.16` `duration: 0.09` `src/presentation/components/timeline/timeline-motion.ts:4` |
 | Timeline reorder settle | `stiffness: 500` `damping: 42` `src/presentation/components/timeline/timeline-motion.ts:15` |
@@ -221,11 +222,10 @@ starts at 0.985.
 | --- | --- |
 | 44px hit area, visual size unchanged | `width: 44px` `src/app.css:912` |
 | Hit extension for any control | `width: max(100%, 44px)` `src/app.css:1924` |
-| Island under a finger | `height: 48px` `src/app.css:1275` |
-| Island control under a finger | `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css:1280` |
+| Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css:1275` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css:1280` `--island-cell: 44px` `src/app.css:3642` |
 | Sheet chips under a finger | `height: 44px` `src/presentation/studio-camera.css:2101` |
 | A picture built from code is not text to select | `select-none` `src/presentation/landing/frame-fan.tsx:308` |
-| Popover controls and the sheet's close under a finger | `height: 44px` `src/presentation/studio-camera.css:978` `inset: -5px` `src/presentation/studio-camera.css:1111` |
+| Popover controls, the sheet's close and the replace question's buttons under a finger | `height: 44px` `src/presentation/studio-camera.css:978` `inset: -5px` `src/presentation/studio-camera.css:1111` |
 | Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css:569` `font-size: 16px` `src/presentation/studio-camera.css:2031` |
 | Hover exists only here | `@media (hover: hover) and (pointer: fine)` `src/app.css:1104` |
 | Hover-only helpers vanish on touch | `@media (hover: none)` `src/app.css:1383` |
@@ -242,7 +242,7 @@ decides, then updates the tables above and deletes the row.
 
 | # | Role | What ships | Recommendation |
 | --- | --- | --- | --- |
-| 5 | Radius | The source hub, the showcase, the drop veil and the header triggers read the radius tokens (pass 2026-10-05-studio-drift). Raw px remain in the capture library, `border-radius: 16px` `src/presentation/studio-camera.css:1209`, in the phone's More menu, `border-radius: 18px` `src/app.css:3124`, and in the timeline's easing and transition panels, `border-radius: 12px` `src/presentation/studio-camera.css:3401` | The capture library: ticket #142. The menu and the panels: map them as each is next touched |
-| 9 | Studio type | The scale is on both shells and the source hub, the showcase and the drop veil read it. Sizes of their own remain in the capture library, `font-size: 11.5px` `src/presentation/studio-camera.css:1272`, in the project menu, `font-size: 10.5px` `src/presentation/studio-camera.css:394`, and in the easing and transition panels, `font-size: 8px` `src/presentation/studio-camera.css:3389` | The capture library: ticket #142. The rest: adopt the scale as each is next touched |
+| 5 | Radius | The source hub, the showcase, the drop veil, the capture library and the header triggers read the radius tokens (passes 2026-10-05-studio-drift and 2026-10-05-capture-library). Raw px remain in the phone's More menu, `border-radius: 18px` `src/app.css:3124`, and in the timeline's easing and transition panels, `border-radius: 12px` `src/presentation/studio-camera.css:3401` | The menu and the panels: map them as each is next touched |
+| 9 | Studio type | The scale is on both shells and the source hub, the showcase, the drop veil and the capture library read it. Sizes of their own remain in the project menu, `font-size: 10.5px` `src/presentation/studio-camera.css:394`, and in the easing and transition panels, `font-size: 8px` `src/presentation/studio-camera.css:3389` | Adopt the scale as each is next touched |
 | 18 | Phone sheet tokens | The portaled sheet keeps the older cool copy of the camera tokens, `--camera-focus: #1d1d20` `src/app.css:2885`, with an ink ring, against the warm ink and the accent ring of D6 and D9 | The phone sheet pass (ticket #141): the warm values, and the accent for focus |
-| 19 | Phone More menu | `.sc-utility-overflow-menu` writes its own material, `border: 1px solid #e5e5e8` `src/app.css:3123`, where the source hub's menu wears the floating material | The phone pass that next touches the header: the material, `--r-surface` and the scale |
+| 19 | Phone More menu | `.sc-utility-overflow-menu` writes its own material, `border: 1px solid #e5e5e8` `src/app.css:3123`, where the source hub's menu wears the opaque surface (D5) | The phone pass that next touches the header: the opaque surface, `--r-surface` and the scale |
