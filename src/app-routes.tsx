@@ -1,5 +1,6 @@
 import { NotFound } from "@/presentation/components/ui/not-found";
 import { RouteErrorBoundary } from "@/presentation/components/ui/route-error-boundary";
+import { LandingErrorShell } from "@/presentation/landing/landing-error-shell";
 import { LandingPage } from "@/presentation/landing/landing-page";
 import { Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
@@ -21,6 +22,7 @@ export function AppRoutes() {
 						heading="This page did not load"
 						message="Reload to try again, or go straight to the studio."
 						offerStudio
+						Shell={LandingErrorShell}
 					>
 						<LandingPage />
 					</RouteErrorBoundary>

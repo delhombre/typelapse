@@ -48,7 +48,7 @@ const resolveTheme = (): LandingTheme => {
  * What the landing puts on the document outside its own element, for as long
  * as the landing is on screen.
  */
-function useLandingChrome(theme: LandingTheme): void {
+export function useLandingChrome(theme: LandingTheme): void {
 	// The page element cannot colour what sits outside it: overscroll rubber-band
 	// on macOS, and any viewport the layout does not fill, both fall through to
 	// the document's own background, which is white by default. Marking the root
@@ -80,17 +80,6 @@ function useLandingChrome(theme: LandingTheme): void {
 			});
 		};
 	}, [theme]);
-}
-
-/**
- * The same chrome with no page under it. The route's error fallback mounts this
- * so a landing that falls over takes only its page with it: the page's own
- * cleanup removes the overscroll and status bar paint as the failure unmounts
- * it, and the fallback is still the landing's route.
- */
-export function LandingChrome({ theme }: { theme: LandingTheme }): null {
-	useLandingChrome(theme);
-	return null;
 }
 
 export function useLandingTheme(): [LandingTheme, () => void] {
