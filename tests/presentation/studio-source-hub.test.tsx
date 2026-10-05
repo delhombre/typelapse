@@ -1,6 +1,7 @@
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { Asset } from "@/domain/entities/asset";
 import { StudioSourceHub } from "@/presentation/components/layout/studio-source-hub";
+import { useNoticeStore } from "@/presentation/stores/notice.store";
 import {
 	readStudioCompositionSnapshot,
 	useStudioCompositionSelectionStore,
@@ -40,6 +41,15 @@ vi.mock("@/presentation/studio-media-runtime", async () => {
 		studioMediaRegistry: createSceneAssetSourceRegistry(),
 		studioMediaSourceFactory: { create: vi.fn() },
 	};
+});
+
+// Whether the studio holds work a load would discard; the confirm hangs on it.
+const work = vi.hoisted(() => ({ toLose: false }));
+
+vi.mock("@/presentation/utils/studio-project-replacement", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("@/presentation/utils/studio-project-replacement")>();
+	return { ...actual, hasStudioWorkToLose: () => work.toLose };
 });
 
 const PHOTO = Asset.create({
@@ -195,5 +205,55 @@ describe("StudioSourceHub keyboard exits", () => {
 
 		fireEvent.keyDown(document.activeElement ?? document, { key: "Home" });
 		expect(document.activeElement).toBe(first);
+	});
+});
+
+describe("StudioSourceHub refusals", () => {
+	afterEach(() => {
+		cleanup();
+		work.toLose = false;
+		useNoticeStore.setState({ notices: [] });
+	});
+
+	it("refuses a file that is not a project before asking to replace any work", async () => {
+		work.toLose = true;
+		const { container, queryByText } = render(
+			<MemoryRouter>
+				<StudioSourceHub />
+			</MemoryRouter>,
+		);
+		const input = container.querySelector<HTMLInputElement>('input[type="file"][accept=".json"]');
+		const file = new File(["{ not json"], "broken.json", { type: "application/json" });
+		fireEvent.change(input as HTMLInputElement, { target: { files: [file] } });
+
+		await waitFor(() => expect(useNoticeStore.getState().notices).toHaveLength(1));
+		expect(useNoticeStore.getState().notices[0]).toMatchObject({
+			tone: "error",
+			detail: "broken.json",
+		});
+		// A confirm that ends in a refusal asks a question nobody needed to answer.
+		expect(queryByText(/Replace what you have/)).toBeNull();
+	});
+
+	it("takes the link refusal back as soon as the link is edited", () => {
+		const view = render(
+			<MemoryRouter>
+				<StudioSourceHub />
+			</MemoryRouter>,
+		);
+		fireEvent.click(view.getByRole("button", { name: "Add source" }));
+		fireEvent.click(view.getByRole("menuitem", { name: "Import from URL" }));
+		const field = view.getByRole("textbox", { name: "Gist or GitHub link" });
+		fireEvent.change(field, { target: { value: "not a link" } });
+		fireEvent.submit(field);
+
+		const alert = view.getByRole("alert");
+		expect(field.getAttribute("aria-invalid")).toBe("true");
+		expect(field.getAttribute("aria-describedby")).toBe(alert.id);
+
+		fireEvent.change(field, { target: { value: "https://gist.github.com/" } });
+
+		expect(view.queryByRole("alert")).toBeNull();
+		expect(field.getAttribute("aria-invalid")).toBeNull();
 	});
 });

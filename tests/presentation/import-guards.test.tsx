@@ -103,9 +103,12 @@ describe("ConfirmDiscard", () => {
 describe("DiffImportMenu guard", () => {
 	function openAndPaste(text: string): void {
 		fireEvent.click(screen.getByRole("button", { name: "Import a git diff" }));
-		fireEvent.change(screen.getByPlaceholderText(/paste a git diff/), {
-			target: { value: text },
-		});
+		fireEvent.change(
+			screen.getByRole("textbox", { name: "Git diff or GitHub pull request link" }),
+			{
+				target: { value: text },
+			},
+		);
 	}
 
 	it("asks before a diff paste replaces edited work, and cancel keeps it", () => {
@@ -122,7 +125,9 @@ describe("DiffImportMenu guard", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Keep my snippet" }));
 		expect(screen.queryByText(/Replace what you have/)).toBeNull();
 		// The paste survives the cancel: nothing was thrown away on either side.
-		expect(screen.getByPlaceholderText(/paste a git diff/)).toBeTruthy();
+		expect(
+			screen.getByRole("textbox", { name: "Git diff or GitHub pull request link" }),
+		).toBeTruthy();
 		expect(useSnippetStore.getState().snippet.code).toBe(codeBefore);
 	});
 
@@ -165,7 +170,7 @@ describe("UrlImportMenu guard", () => {
 		render(<UrlImportMenu />);
 
 		fireEvent.click(screen.getByRole("button", { name: "Import from URL" }));
-		fireEvent.change(screen.getByPlaceholderText("gist or github url"), {
+		fireEvent.change(screen.getByRole("textbox", { name: "Gist or GitHub link" }), {
 			target: { value: GIST_URL },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Fetch" }));
@@ -325,7 +330,7 @@ describe("StudioSourceHub import guard", () => {
 		});
 		const notice = useNoticeStore.getState().notices[0];
 		expect(notice?.tone).toBe("error");
-		expect(notice?.message).toBe("Invalid JSON format");
+		expect(notice?.message).toBe("That file is not valid JSON, so it is not a Typelapse project.");
 		expect(notice?.detail).toBe("broken.json");
 	});
 });

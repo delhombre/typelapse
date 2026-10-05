@@ -1,3 +1,4 @@
+import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { PreviewIsland } from "@/presentation/components/controls/preview-island";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -124,5 +125,36 @@ describe("the timeline control rail", () => {
 		fireEvent.change(field, { target: { value: "@typelapse" } });
 		expect(useSnippetStore.getState().watermark).toBe("@typelapse");
 		expect(screen.getByRole("button", { name: "Back to look controls" })).toBeTruthy();
+	});
+
+	it("keeps the export mode open while its own status is dismissed", async () => {
+		useExportStore.setState({
+			outcome: {
+				kind: "done",
+				filename: "Untitled.mp4",
+				bytes: 978_000,
+				elapsedMs: 1200,
+				target: "device",
+			},
+		} as Partial<ReturnType<typeof useExportStore.getState>>);
+		render(
+			<>
+				<ExportStatus />
+				<PreviewIsland variant="timeline" />
+			</>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: /^Export · / }));
+		expect(await screen.findByRole("group", { name: "Where" })).toBeTruthy();
+
+		const dismiss = screen.getByRole("button", { name: "Dismiss export status" });
+		fireEvent.pointerDown(dismiss);
+		fireEvent.click(dismiss);
+
+		// The status floats above the rail it reports on; answering it is not leaving.
+		// A closing row lingers for its exit, so the check waits past it.
+		await new Promise((resolve) => setTimeout(resolve, 200));
+		expect(screen.queryByRole("group", { name: "Where" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Frame settings" })).toBeNull();
+		useExportStore.setState({ outcome: null });
 	});
 });

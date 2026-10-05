@@ -162,9 +162,12 @@ describe("an import replaces the project", () => {
 describe("the import confirm", () => {
 	function openAndPaste(text: string): void {
 		fireEvent.click(screen.getByRole("button", { name: "Import a git diff" }));
-		fireEvent.change(screen.getByPlaceholderText(/paste a git diff/), {
-			target: { value: text },
-		});
+		fireEvent.change(
+			screen.getByRole("textbox", { name: "Git diff or GitHub pull request link" }),
+			{
+				target: { value: text },
+			},
+		);
 	}
 
 	it("asks once when the only work to lose is a layer, and names what is imported", async () => {
