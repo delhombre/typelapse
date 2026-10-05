@@ -162,6 +162,8 @@ CLI and answers with the file and the studio link; see
 - Hosted owner-scoped project CRUD with optimistic revisions.
 - Private R2 media upload/finalization with MIME, size and SHA-256 verification.
 - Better Auth email/password sessions in the hosted account island.
+- API keys made in the account island: a script renders on the hosted render
+  routes with a key, no browser.
 - Stripe monthly/annual Checkout, Customer Portal and signed webhook projection.
 - Postgres-backed render and object-deletion workers with leased retries. In a
   hosted build, a signed-in account renders on them from the export panel's
@@ -197,8 +199,20 @@ until every required adapter is configured.
    ```
 
 `GET /health` is the runtime source of truth for `auth`, `projectSync`,
-`privateAssets`, `billing` and `hostedRendering`. Anonymous synchronous Remotion
-compute is never mounted in hosted mode.
+`privateAssets`, `billing`, `hostedRendering` and `apiKeys`. Anonymous
+synchronous Remotion compute is never mounted in hosted mode.
+
+### API keys
+
+A signed-in account makes, copies once and revokes keys in the account island
+(Account, then API keys). A key is `tlk_`, eight characters and a 256-bit
+secret; the database keeps the prefix and a SHA-256 hash, never the secret, so a
+lost key is revoked and replaced. A script sends it as
+`Authorization: Bearer <key>` to the hosted render routes under `/api/cloud`,
+and to nothing else: account, billing, projects, assets and key management
+accept the session cookie alone. The account's plan still decides what a key may
+start. A key is limited to 120 requests a minute (the 429 carries `Retry-After`),
+and a key that is unknown, revoked or expired gets one and the same 401.
 
 ### Browser configuration
 

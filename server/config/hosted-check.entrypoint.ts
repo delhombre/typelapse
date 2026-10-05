@@ -11,7 +11,9 @@ async function main(): Promise<void> {
 		process.exitCode = 1;
 		return;
 	}
-	console.log("Hosted configuration ready: auth, projects, private assets, billing and rendering");
+	console.log(
+		"Hosted configuration ready: auth, projects, private assets, billing, rendering and API keys",
+	);
 }
 
 void main();

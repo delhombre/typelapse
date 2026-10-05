@@ -3,7 +3,8 @@ export type HostedCapability =
 	| "projectSync"
 	| "privateAssets"
 	| "billing"
-	| "hostedRendering";
+	| "hostedRendering"
+	| "apiKeys";
 
 export interface RuntimeHealth {
 	readonly status: "ok";
@@ -22,6 +23,7 @@ const REQUIRED_CAPABILITIES: readonly HostedCapability[] = [
 	"privateAssets",
 	"billing",
 	"hostedRendering",
+	"apiKeys",
 ];
 
 /** Pure deployment gate used by CI and the operator-facing CLI. */

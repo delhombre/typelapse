@@ -7,6 +7,7 @@ import { requestId } from "hono/request-id";
 import type { AssetRepositoryPort } from "../src/application/assets/asset-repository.port";
 import type { HostedProjectAssetResolverPort } from "../src/application/assets/hosted-project-asset-resolver.port";
 import type { ObjectStoragePort } from "../src/application/assets/object-storage.port";
+import type { ApiKeyRepositoryPort } from "../src/application/auth/api-key-repository.port";
 import type { ProjectDocumentRepositoryPort } from "../src/application/project/project-document-repository.port";
 import type { HostedRenderJobService } from "../src/application/render/hosted-render-job";
 import {
@@ -21,6 +22,7 @@ import type { AuthPort } from "../src/domain/ports/auth.port";
 import type { SubscriptionPort } from "../src/domain/ports/subscription.port";
 import { Plan } from "../src/domain/value-objects/plan";
 import { betterAuthAdapter } from "../src/infrastructure/auth/better-auth.adapter";
+import { createApiKeyService } from "./auth/api-keys";
 import { authInstance, type AuthInstance } from "./auth/auth-instance";
 import type { HostedRenderDeps } from "./auth/hosted-render-guard";
 import { createAccountPlanResolver } from "./billing/account-plan";
@@ -28,6 +30,7 @@ import { billingServiceFromEnv } from "./billing/billing-from-env";
 import type { BillingService } from "./billing/billing-service";
 import { type DeploymentMode, deploymentModeFrom } from "./config/deployment-mode";
 import { createAccountUsageRepository } from "./db/account-usage.repository";
+import { createApiKeyRepository } from "./db/api-key.repository";
 import {
 	createAssetRepository,
 	createHostedProjectAssetResolver,
@@ -39,6 +42,7 @@ import {
 	createRenderOutputRepository,
 	createRenderPageRepository,
 } from "./db/render-job.repository";
+import { createApiKeysRoute } from "./routes/api-keys";
 import { createAssetsRoute } from "./routes/assets";
 import { createBillingRoute } from "./routes/billing";
 import { createCloudRoute } from "./routes/cloud";
@@ -59,6 +63,7 @@ export interface CreateAppOptions {
 	readonly database?: CreatorDatabase | null;
 	readonly auth?: AuthInstance | null;
 	readonly authPort?: AuthPort | null;
+	readonly apiKeyRepository?: ApiKeyRepositoryPort | null;
 	readonly projectRepository?: ProjectDocumentRepositoryPort | null;
 	readonly projectAssetResolver?: HostedProjectAssetResolverPort | null;
 	readonly assetRepository?: AssetRepositoryPort | null;
@@ -97,6 +102,13 @@ export async function createApp(
 	const auth = options.auth === undefined ? authInstance(database) : options.auth;
 	const authPort =
 		options.authPort === undefined ? (auth ? betterAuthAdapter(auth) : null) : options.authPort;
+	const apiKeyRepository =
+		options.apiKeyRepository === undefined && database
+			? createApiKeyRepository(database)
+			: (options.apiKeyRepository ?? null);
+	// A key needs an account to belong to, so it is mounted with auth or not at all.
+	const apiKeys =
+		authPort && apiKeyRepository ? createApiKeyService({ repository: apiKeyRepository }) : null;
 	const projectRepository =
 		options.projectRepository === undefined && database
 			? createProjectDocumentRepository(database)
@@ -167,6 +179,7 @@ export async function createApp(
 				privateAssets,
 				billing: Boolean(authPort && billing),
 				hostedRendering,
+				apiKeys: Boolean(apiKeys),
 				localMultimediaRendering: deploymentMode === "local",
 			},
 		}),
@@ -208,8 +221,13 @@ export async function createApp(
 		);
 	}
 
+	if (authPort && apiKeys) {
+		app.route("/api/keys", createApiKeysRoute({ auth: authPort, keys: apiKeys }));
+	}
+
+	// A key opens the hosted render routes below and nothing else.
 	const hostedRenderDeps: HostedRenderDeps | undefined = authPort
-		? { auth: authPort, subscriptions }
+		? { auth: authPort, subscriptions, ...(apiKeys ? { apiKeys } : {}) }
 		: undefined;
 
 	if (deploymentMode === "local") {

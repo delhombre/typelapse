@@ -6,6 +6,7 @@ import {
 	type StudioCloudRuntime,
 	useStudioCloudProject,
 } from "@/presentation/hooks/use-studio-cloud-project";
+import { useApiKeyStore } from "@/presentation/stores/api-key.store";
 import { useAuthStore } from "@/presentation/stores/auth.store";
 import { useHostedRenderJobsStore } from "@/presentation/stores/hosted-render-jobs.store";
 import { usePlanStore } from "@/presentation/stores/plan.store";
@@ -38,14 +39,15 @@ function defaultCloudRuntime(): StudioCloudRuntime | null {
 export interface StudioAccountIslandProps {
 	readonly authStore?: typeof useAuthStore;
 	readonly planStore?: typeof usePlanStore;
+	readonly apiKeyStore?: typeof useApiKeyStore;
 	readonly compositionStore?: typeof useStudioCompositionStore;
 	/** `undefined` resolves the browser runtime; `null` disables cloud save. */
 	readonly cloudRuntime?: StudioCloudRuntime | null;
 }
 
 /**
- * The Studio's account island: sign up, sign in, cloud save and billing. It
- * exists only where accounts do; the local profile renders nothing at all.
+ * The Studio's account island: sign up, sign in, cloud save, billing and API
+ * keys. It exists only where accounts do; the local profile renders nothing.
  */
 export function StudioAccountIsland({
 	authStore = useAuthStore,
@@ -59,6 +61,7 @@ export function StudioAccountIsland({
 function HostedAccountIsland({
 	authStore = useAuthStore,
 	planStore = usePlanStore,
+	apiKeyStore = useApiKeyStore,
 	compositionStore = useStudioCompositionStore,
 	cloudRuntime,
 }: StudioAccountIslandProps) {
@@ -108,6 +111,7 @@ function HostedAccountIsland({
 				cloudProjectState={cloudProjectState}
 				{...(runtime ? { onSaveToCloud: saveToCloud } : {})}
 				allowance={allowance}
+				apiKeys={{ store: apiKeyStore }}
 				billing={{
 					planLabel: plan.label,
 					paid: plan.isPaid,

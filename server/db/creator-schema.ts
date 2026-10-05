@@ -198,6 +198,41 @@ export const objectDeletionOutbox = pgTable(
 	],
 );
 
+/**
+ * API keys: a second credential for the hosted render routes, made in the
+ * account island. The prefix is public and is the key's identity; the secret is
+ * never stored, only a SHA-256 hash of it. Revoking deletes the row, so a
+ * revoked key and an unknown one are the same thing to the guard.
+ */
+export const apiKeys = pgTable(
+	"api_keys",
+	{
+		prefix: text("prefix").primaryKey(),
+		ownerId: text("owner_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		secretHash: text("secret_hash").notNull(),
+		createdAt: hostedTimestamp("created_at").defaultNow().notNull(),
+		expiresAt: hostedTimestamp("expires_at"),
+		/** Precise to the minute: written at most once a minute per key. */
+		lastUsedAt: hostedTimestamp("last_used_at"),
+	},
+	(table) => [
+		check("api_keys_prefix_format_check", sql`${table.prefix} ~ '^tlk_[0-9a-f]{8}$'`),
+		check(
+			"api_keys_name_check",
+			sql`char_length(${table.name}) BETWEEN 1 AND 60 AND ${table.name} = btrim(${table.name})`,
+		),
+		check("api_keys_secret_hash_check", sql`${table.secretHash} ~ '^[0-9a-f]{64}$'`),
+		check(
+			"api_keys_expiry_check",
+			sql`${table.expiresAt} IS NULL OR ${table.expiresAt} > ${table.createdAt}`,
+		),
+		index("api_keys_owner_created_idx").on(table.ownerId, table.createdAt),
+	],
+);
+
 export const subscriptionProjections = pgTable(
 	"subscription_projections",
 	{

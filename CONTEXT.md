@@ -131,8 +131,8 @@ or it does not land.
   rendering; anonymous synchronous compute is disabled). Separate from
   entitlement.
 - **Capability**: a hosted feature the API can mount (`auth`, `projectSync`,
-  `privateAssets`, `billing`, `hostedRendering`). Each fails closed when its
-  configuration is absent; `pnpm hosted:check` lists what is missing.
+  `privateAssets`, `billing`, `hostedRendering`, `apiKeys`). Each fails closed
+  when its configuration is absent; `pnpm hosted:check` lists what is missing.
 - **Plan**: `free` or `creator` (paid). Resolved server-side from the Stripe
   projection; never from a header or a body field.
 - **Ceiling**: a hosted limit carried by the Plan (cloud projects, media
@@ -148,6 +148,15 @@ or it does not land.
   private). It lives while the owner's plan keeps the output; anything else is
   the same 404. Its video and poster addresses re-sign a one-hour object URL on
   each request, so making it private takes effect at once.
+- **API key**: a credential an account makes in the account island for a
+  script that has no browser. Named, optionally expiring, shown once and kept
+  only as a hash, rate limited per key, revoked by deleting it. It stands in
+  for the session on the hosted render routes (and the import route) and on
+  nothing else: account, billing, projects, assets and key management accept
+  the session alone. The account's plan still decides what a key may start.
+- **Key prefix**: the public start of a key (`tlk_` and eight characters). It
+  names the key in the island and in a log line and is how the server finds
+  it; the secret is the rest, and it is never stored.
 - **The rule that settles pricing edge cases**: what runs on the user's
   machine is free and stays free; what runs on our servers is paid.
 
@@ -183,6 +192,9 @@ or it does not land.
 - Preview duration equals export duration equals the sum of scene durations
   plus transitions (plus audio-only tail).
 - Nothing uploads before the user consents; local mode makes no account calls.
+- A key opens the hosted render routes and nothing else; a request with a valid
+  session and a key is the session's; a key that is unknown, revoked or expired
+  is refused with one answer, whichever it is.
 - The export note never promises what the file does not contain.
 - Undo then redo returns the exact project document; an undo never resets the
   unsaved-work baseline, and the composition shows the timeline's scene.

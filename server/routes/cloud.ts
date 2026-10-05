@@ -40,7 +40,6 @@ export interface CloudRouteDeps extends HostedRenderDeps {
 	readonly renderPages?: HostedRenderPageService;
 	/** The public origin a page address is written on. */
 	readonly appUrl?: string;
-	readonly now?: () => Date;
 }
 
 /** A paid plan keeps every output; a downgraded one keeps them for its grace period. */
@@ -132,7 +131,7 @@ export const createCloudRoute = (
 		return { public: isPublic, url: pageUrl(c, jobId) };
 	};
 
-	cloudRoute.use("*", requireHostedAccount(deps));
+	cloudRoute.use("*", requireHostedAccount({ ...deps, now }));
 	cloudRoute.use(
 		"/render",
 		bodyLimit({

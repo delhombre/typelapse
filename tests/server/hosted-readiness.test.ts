@@ -12,13 +12,14 @@ describe("hosted configuration readiness", () => {
 				privateAssets: false,
 				billing: false,
 				hostedRendering: false,
+				apiKeys: false,
 				localMultimediaRendering: false,
 			},
 		});
 
 		expect(result).toEqual({
 			ready: false,
-			missing: ["privateAssets", "billing", "hostedRendering"],
+			missing: ["privateAssets", "billing", "hostedRendering", "apiKeys"],
 		});
 	});
 
@@ -33,6 +34,7 @@ describe("hosted configuration readiness", () => {
 					privateAssets: true,
 					billing: true,
 					hostedRendering: true,
+					apiKeys: true,
 					localMultimediaRendering: false,
 				},
 			}),
@@ -49,6 +51,7 @@ describe("hosted configuration readiness", () => {
 				privateAssets: true,
 				billing: true,
 				hostedRendering: true,
+				apiKeys: true,
 				localMultimediaRendering: true,
 			},
 		});

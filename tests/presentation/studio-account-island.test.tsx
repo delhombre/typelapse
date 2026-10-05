@@ -17,6 +17,7 @@ import { SceneShell } from "@/presentation/components/layout/scene-shell";
 import { StudioAccountIsland } from "@/presentation/components/layout/studio-account-island";
 import { StudioTooltipProvider } from "@/presentation/components/ui/studio-tooltip";
 import type { StudioCloudRuntime } from "@/presentation/hooks/use-studio-cloud-project";
+import { createApiKeyStore } from "@/presentation/stores/api-key.store";
 import { createAuthStore, useAuthStore } from "@/presentation/stores/auth.store";
 import { createPlanStore } from "@/presentation/stores/plan.store";
 import { createProjectStore } from "@/presentation/stores/project.store";
@@ -204,6 +205,27 @@ describe("StudioAccountIsland", () => {
 		);
 
 		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
+	});
+
+	it("leads a signed-in account to its API keys, and asks for them only once it gets there", async () => {
+		const list = vi.fn(async () => []);
+		const apiKeyStore = createApiKeyStore({ port: { list, create: vi.fn(), revoke: vi.fn() } });
+		render(
+			<StudioAccountIsland
+				authStore={createAuthStore({ kind: "hosted", port: authPort(SESSION) }, { now: () => NOW })}
+				planStore={planStore()}
+				apiKeyStore={apiKeyStore}
+				compositionStore={createProjectStore(localDocument())}
+				cloudRuntime={null}
+			/>,
+		);
+
+		fireEvent.click(await screen.findByRole("button", { name: "Account for Ada Lovelace" }));
+		expect(list).not.toHaveBeenCalled();
+		fireEvent.click(screen.getByRole("button", { name: "API keys" }));
+
+		expect(await screen.findByRole("heading", { name: "API keys" })).toBeTruthy();
+		await waitFor(() => expect(list).toHaveBeenCalledOnce());
 	});
 
 	it("saves the V2 composition only on request and stays in sync after a reordered echo", async () => {

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type APIRequestContext, type Page, expect, request } from "@playwright/test";
 import pg from "pg";
+import { storedScenes } from "./studio";
 
 /**
  * What the hosted journeys share: where the services are, the environment the
@@ -158,6 +159,28 @@ export async function cloudProjectCount(email: string): Promise<number> {
 	return Number(row.count);
 }
 
+/** The account's newest cloud project: what a script names when it asks for a render. */
+export async function newestCloudProject(email: string): Promise<{ id: string; revision: number }> {
+	const id = await accountId(email);
+	return one<{ id: string; revision: number }>(
+		"SELECT id, revision FROM projects WHERE owner_id = $1 ORDER BY created_at DESC LIMIT 1",
+		[id],
+	);
+}
+
+/** The API keys the account holds, as the database keeps them: a prefix and a hash, never a secret. */
+export async function apiKeysOf(
+	email: string,
+): Promise<{ prefix: string; name: string; secretHash: string; lastUsedAt: Date | null }[]> {
+	const id = await accountId(email);
+	const result = await database().query(
+		`SELECT prefix, name, secret_hash AS "secretHash", last_used_at AS "lastUsedAt"
+		FROM api_keys WHERE owner_id = $1 ORDER BY created_at DESC`,
+		[id],
+	);
+	return result.rows;
+}
+
 /** The account's render jobs, newest first. */
 export async function renderJobsOf(
 	email: string,
@@ -199,23 +222,38 @@ async function authPost(
 	}
 }
 
+/** The scenes the studio shows right now: "0 scenes", "1 scene". */
+async function shownScenes(page: Page): Promise<number> {
+	const text = await page
+		.getByText(/^\d+ scenes?$/)
+		.first()
+		.textContent();
+	return Number.parseInt(text ?? "0", 10);
+}
+
 /** Sign up through the Studio's account island, the way a visitor does. */
 export async function signUpInIsland(page: Page, account: TestAccount): Promise<void> {
-	// The trigger is disabled while the session check runs, then reads "Sign in".
-	await page.getByRole("button", { name: "Sign in", exact: true }).click();
-	const panel = page.getByRole("dialog", { name: "Typelapse account" });
-	await panel.getByRole("button", { name: "New here? Create an account" }).click();
-	await panel.getByLabel("Name").fill(account.name);
-	await panel.getByLabel("Email").fill(account.email);
-	await panel.getByLabel("Password").fill(account.password);
 	for (let attempt = 1; ; attempt++) {
+		// The trigger is disabled while the session check runs, then reads "Sign in".
+		await page.getByRole("button", { name: "Sign in", exact: true }).click();
+		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		await panel.getByRole("button", { name: "New here? Create an account" }).click();
+		await panel.getByLabel("Name").fill(account.name);
+		await panel.getByLabel("Email").fill(account.email);
+		await panel.getByLabel("Password").fill(account.password);
 		const answer = page.waitForResponse(
 			(response) => new URL(response.url()).pathname === "/api/auth/sign-up/email",
 		);
 		await panel.getByRole("button", { name: "Create account" }).click();
 		const response = await answer;
 		if (response.status() !== 429 || attempt === AUTH_ATTEMPTS) break;
+		// A refused sign-up leaves the island reading "Cloud unavailable" with no form,
+		// so the retry is a fresh page: wait out the window the 429 names, let the
+		// studio write what it holds (a reload keeps only what was written), reload.
+		const scenes = await shownScenes(page);
+		await expect.poll(async () => (await storedScenes(page)).length).toBe(scenes);
 		await page.waitForTimeout(retryAfterMs(response.headers()));
+		await page.reload();
 	}
 	// Signed in, the panel closes on its own and the trigger names the account.
 	await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();

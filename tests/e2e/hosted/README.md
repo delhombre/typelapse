@@ -47,10 +47,21 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
     work; with the job and the downgrade dated past the grace period, the
     download is a 402 with the plan's sentence and the page is a 404.
 
-`support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job) and the
+- `api-keys.spec.ts` (one account, one sign-up): the island makes a key (shown
+  once, copied, gone from the page, kept as a prefix and a hash); while the
+  account is free the key signs it in and the plan refuses the render (402, not
+  a 401); as a Creator the same key, from a caller with no cookie, starts a Cloud
+  render and fetches the file; the key opens no account, billing, project, asset
+  or key route; the island shows when it was last used; and once it is revoked
+  the next request is the same 401 an unknown key gets.
+
+`support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job, the keys) and the
 sign-up helpers. Better Auth allows three sign-ups per ten seconds per client,
-and behind the preview every journey is one client, so the helpers wait out a
-429 instead of failing.
+the ten seconds counted from the last accepted one, and behind the preview every
+journey is one client, so the helpers wait out a 429 instead of failing. The
+island reads a refused sign-up as "Cloud unavailable" and drops its form, so the
+island helper waits out the window, lets the studio write what it holds and
+reloads before it tries again.
 
 ## Reload with no edit (#127)
 
