@@ -65,3 +65,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-05 [ui-passes](2026-10-05-ui-passes.md): the design system doc first,
   then every screen through Emil's loop with Craft, proof by screenshots and
   a ui-review verdict.
+- 2026-10-05 [next-wave](2026-10-05-next-wave.md): the passes' open items
+  screen by screen, API keys, render by URL and the Action's hosted output
+  before staging, captions and audio stay hosted, issues close on main.
