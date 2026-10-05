@@ -3,8 +3,9 @@
 Every unit of work (a feature, a fix, a screen, a refactor) runs these gates
 in order, so an agent can work alone and the owner only reads and pivots. Each
 gate ends on a **pass condition** you can check. A feeling of being done is
-not a pass. Skills are named as installed; prefix `mattpocock-skills:` when a
-bare name does not resolve.
+not a pass. Engineering skills are Matt Pocock's plugin, called by namespace
+(`mattpocock-skills:tdd`), so a same-name skill installed elsewhere never
+answers instead.
 
 **The loop rule.** A gate that fails sends the work back to the gate that
 **owns the cause**, never forward. Loosening a threshold, skipping a route or
@@ -27,7 +28,7 @@ from the owning gate onwards.
 Read `CONTEXT.md`, the decision logs in `docs/decisions/` that touch the same
 area, `goals/multimedia-saas/contract.md` and `state.md`, and the ticket. When
 a fact is missing (a competitor's behaviour, a codec limit, a licence term),
-run the `research` skill or a sub-agent and cite what it found in the
+run `mattpocock-skills:research` and cite what it found in the
 owner's notes, or under `docs/research/` when present. Apply Pstack **Foundational Thinking** before writing logic:
 core types, what concurrent actors share.
 
@@ -36,7 +37,7 @@ ticket and the D-numbers it touches.
 
 ### 1 Grill
 
-Run the `grilling` skill against your own plan, and play both sides. Build the
+Run `mattpocock-skills:grilling` against your own plan, and play both sides. Build the
 design tree, work its frontier round by round, answer every question with your
 recommended answer, and take that answer. Decisions are yours, recorded so the
 owner can overturn any of them with one sentence. Apply Pstack **Attack the
@@ -54,8 +55,8 @@ exists in the format of `docs/decisions/README.md`, indexed there.
 ### 2 Model
 
 When the work touches the domain (an entity, an invariant, a use case, a
-term), run `domain-modeling` for the language and `codebase-design` for the
-module shape and its seams, with Pstack **Model the Domain**, **Boundary
+term), run `mattpocock-skills:domain-modeling` for the language and
+`mattpocock-skills:codebase-design` for the module shape and its seams, with Pstack **Model the Domain**, **Boundary
 Discipline** and **Type System Discipline**. Otherwise write "no domain
 change" in the log.
 
@@ -64,8 +65,8 @@ will test.
 
 ### 3 Build
 
-Run `tdd` at the seams from gate 2: one test, seen red, then the least code to
-make it green, one slice at a time. For a bug, run `diagnosing-bugs` first so
+Run `mattpocock-skills:tdd` at the seams from gate 2: one test, seen red, then the least code to
+make it green, one slice at a time. For a bug, run `mattpocock-skills:diagnosing-bugs` first so
 the bug becomes a red test (Pstack **Fix Root Causes**). Apply **Laziness
 Protocol** and **Subtract Before You Add**: the smallest diff, delete first.
 Edit, never rewrite: `Edit` with the smallest unique strings; `Write` is for a
@@ -135,18 +136,27 @@ the spec that now replays it, and what could not be verified and why.
 
 ### 6 Ship
 
-The orchestrator commits with the decision log, updates the ticket (Project 4
-column and label), and asks Bruno for the merge. Before a release,
+`mattpocock-skills:code-review` runs on the diff since `main`, standards and
+spec; a finding goes back to the gate that owns it. Then the orchestrator
+commits with the decision log, updates the ticket (Project 4 column and
+label), and asks Bruno for the merge. Before a release,
 `emil-prep-for-prod` runs on the whole app and its "Needs a device" list goes
 to Bruno as a checklist.
 
 ## Roles
 
-- **Fable orchestrates and never edits product code.** It writes decision
-  logs, briefs, memory and workflow docs, reviews reports, runs the gates
-  once and commits.
+- **The orchestrator never edits product code.** It is Fable, or Opus while
+  Fable's weekly limit is reached. It writes decision logs, briefs, tickets,
+  memory and workflow docs, reviews reports, runs the gates once and commits.
+- **No custom agents.** There is no `.claude/agents/` and no subagent
+  definition. Work goes to the built-in agents with a model and a brief that
+  names the skills of its gate.
+- **Builders** run on Sonnet (`model: sonnet`): one ticket, one brief, their
+  own ports, and a report in the four-part format: journeys, bugs, fixes with
+  tests, not verifiable. A task Sonnet cannot finish goes to Opus
+  (`model: opus`) with Sonnet's failure named in the new brief.
 - **Explore agents** (Haiku, read-only) answer "where is X" with a report
   under 40 lines, so builders start editing on their first turn.
-- **Builders** (Opus) take one ticket, one brief, their own ports, and report
-  in the four-part format: journeys, bugs, fixes with tests, not verifiable.
+- **Tickets** are cut with `mattpocock-skills:to-tickets` and moved with
+  `mattpocock-skills:triage`; see `issue-tracker.md` for Project 4.
 - Writing rule for everything in the repo: no em-dashes. Comments say why.
