@@ -1,11 +1,13 @@
+import { type PhoneSheetStop, phoneSheetGeometry } from "@/application/layout/phone-sheet";
 import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { PreviewIsland } from "@/presentation/components/controls/preview-island";
 import { StudioLayerStrip } from "@/presentation/components/editor/studio-layer-strip";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
+import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { motion, useReducedMotion } from "motion/react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
@@ -21,36 +23,15 @@ interface MobileShellProps {
 	preview: ReactNode;
 }
 
-// Bottom-sheet stops: a peek handle, a mid "scenes" stage, and the full editor.
-const PEEK = "56px";
-const MID = 0.55;
-const FULL = 0.94;
-const SNAP_POINTS: (number | string)[] = [PEEK, MID, FULL];
-
 // The drawer's own settle curve, so the instrument lands with the sheet.
 const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
-
-/**
- * Where the instrument floats for a sheet stop: on the sheet's top edge at the
- * peek and the scenes stop, so it never sits over a scene row, and back at the
- * bottom of the screen over the full editor, whose top edge is under the chips.
- */
-function dockLine(snap: number | string | null): string {
-	if (snap === MID) {
-		return `${MID * 100}dvh`;
-	}
-	if (snap === FULL) {
-		return "max(12px, env(safe-area-inset-bottom))";
-	}
-	return PEEK;
-}
 
 /**
  * The scene, folded to one column.
  *
  * It is the same scene and not a second design: the chips are the same chips,
  * the instrument is the same instrument, and every setting is in the same four
- * clusters it is in on a desktop — the island drops its labels below 640 and
+ * clusters it is in on a desktop: the island drops its labels below 640 and
  * raises its sheets over the phone exactly as it raises them over the page. The
  * one thing that cannot float here is the code card, which has nowhere to be:
  * it becomes the bottom sheet, which is the shape a phone already has for it.
@@ -60,9 +41,23 @@ function dockLine(snap: number | string | null): string {
  * work surface.
  */
 export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) {
-	const [snap, setSnap] = useState<number | string | null>(PEEK);
+	// The stops are pixels from the viewport and its safe areas (application/
+	// layout/phone-sheet.ts): a phone on its side has no scenes stop, and the
+	// sheet is held by the name of its stop so a rotation keeps it there.
+	const viewport = usePhoneViewport();
+	const sheet = useMemo(() => phoneSheetGeometry(viewport), [viewport]);
+	const [wanted, setWanted] = useState<PhoneSheetStop>("peek");
+	const stop = sheet.resolve(wanted);
+	// One array per geometry: vaul recomputes its offsets whenever the identity
+	// of `snapPoints` changes, so a fresh array each render would re-measure it.
+	const [stopNames, snapPoints] = useMemo(() => {
+		const names = (["peek", "scenes", "full"] as const).filter(
+			(name) => sheet.stops[name] !== null,
+		);
+		return [names, names.map((name) => `${sheet.stops[name]}px`)] as const;
+	}, [sheet]);
 	const [sheetRaised, setSheetRaised] = useState(false);
-	const isPeek = snap === PEEK;
+	const isPeek = stop === "peek";
 	const editorKind = useEditorKind();
 	const reduce = useReducedMotion() === true;
 	// A tablet in portrait gets this layout, and it can drag a file in from
@@ -70,7 +65,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const draggingFile = useStudioFileDrop();
 	// The frame keeps the room above the instrument. Over the full editor it
 	// keeps the scenes stop's room rather than refitting to a frame nobody sees.
-	const stageLine = isPeek ? PEEK : `${MID * 100}dvh`;
+	const stageLift = sheet.stageLift(stop);
 
 	return (
 		<main className="studio-root sc-root sc-root-mobile">
@@ -80,7 +75,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			    rather than being covered by what it is being adjusted against. */}
 			<div
 				className="sc-stage-slot"
-				style={{ paddingBottom: `calc(${stageLine} + ${sheetRaised ? 460 : 116}px)` }}
+				style={{ paddingBottom: stageLift + (sheetRaised ? 460 : 116) }}
 			>
 				{/* The frame is the video's own shape here too: a phone used to get
 				    the bare card, so a 16:9 export previewed as a wide strip. */}
@@ -90,7 +85,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			</div>
 
 			{/* One row rather than two corners: at 390 the corners meet in the middle,
-			    so they are laid out as what they have become — a row whose left half
+			    so they are laid out as what they have become, a row whose left half
 			    gives up its width first. */}
 			<div className="sc-corner-row">
 				<ProjectChip />
@@ -108,8 +103,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			<div
 				className="sc-dock-slot"
 				style={{
-					bottom: PEEK,
-					transform: `translateY(calc(${PEEK} - ${dockLine(snap)}))`,
+					transform: `translateY(${-sheet.dockLift(stop)}px)`,
 					transition: reduce ? undefined : `transform 500ms ${SHEET_EASE}`,
 				}}
 			>
@@ -128,27 +122,35 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				dismissible={false}
 				handleOnly
 				repositionInputs
-				snapPoints={SNAP_POINTS}
-				activeSnapPoint={snap}
-				setActiveSnapPoint={setSnap}
+				snapPoints={snapPoints}
+				activeSnapPoint={snapPoints[stopNames.indexOf(stop)] ?? null}
+				setActiveSnapPoint={(point) => {
+					const name = stopNames[snapPoints.indexOf(String(point))];
+					if (name) setWanted(name);
+				}}
 			>
 				<Drawer.Portal>
 					<Drawer.Content className="sc-sheet">
-						<Drawer.Handle className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 dark:!bg-neutral-700" />
+						{/* The handle darkens under the finger that holds it: the press is the
+						    only feedback a drag gets before the sheet moves. */}
+						<Drawer.Handle className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 transition-[background-color] duration-150 active:!bg-neutral-400 dark:!bg-neutral-700 dark:active:!bg-neutral-500" />
 						<Drawer.Title className="sr-only">Code and scenes</Drawer.Title>
 						<Drawer.Description className="sr-only">
 							Edit code and arrange animation scenes.
 						</Drawer.Description>
 
+						{/* Rows scrolled up dissolve under the handle instead of being cut flat
+						    across it; the 12px fade sits in the content's top padding, so at rest
+						    nothing is faded. */}
 						<div
-							className={`min-h-0 flex-1 ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
+							className={`min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,transparent,black_12px)] ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
 						>
 							<motion.div
 								// Over the full editor the instrument sits at the bottom of the
 								// screen: the end of the sheet scrolls clear of it.
 								// Landscape puts the notch on a side: the sheet's content clears it.
-								className={`flex flex-col gap-6 pt-2 pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] ${
-									snap === FULL
+								className={`flex flex-col gap-6 pt-3 pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] ${
+									stop === "full"
 										? "pb-[calc(5rem+env(safe-area-inset-bottom))]"
 										: "pb-[max(1.5rem,env(safe-area-inset-bottom))]"
 								}`}

@@ -89,6 +89,8 @@ html {
 :where(button, [role="button"]) {
 	user-select: none;
 	-webkit-user-select: none;
+	/* iOS's long-press callout (copy, share, open) is for content, not controls. */
+	-webkit-touch-callout: none;
 }
 
 /* Set while the landing is mounted. The landing element paints itself, but not
@@ -337,11 +339,12 @@ html.dark:not([data-landing-theme]) {
 	text-wrap: balance;
 }
 
-/* Section heading: same characterful face, a step down in weight for elegance
-   at a large size. */
+/* Section heading: same face, and the same 600 as the display. It was 700,
+   which at 49px read as a poster shouting over a product shot that should be
+   the loudest thing in its section (pass 2026-10-05). */
 .landing-root .lp-h2 {
 	font-family: var(--font-display);
-	font-weight: 700;
+	font-weight: 600;
 	font-size: clamp(2rem, 1.25rem + 2.8vw, 3.05rem);
 	line-height: 1.05;
 	letter-spacing: -0.021em;
@@ -493,9 +496,10 @@ html.dark:not([data-landing-theme]) {
 
 /* The selected one takes the field's surface and no edge of its own: the rules
    beside it already separate it, and the field draws the one below. */
+/* Same weight as the rest: at 600 the selected label grew by a pixel or two
+   and every pastille to its right moved over with it on each change of mode. */
 .landing-root .lp-mode[data-active] {
 	color: var(--color-ink);
-	font-weight: 600;
 	background: var(--color-surface);
 }
 
@@ -863,13 +867,20 @@ html.dark:not([data-landing-theme]) {
 	background: transparent !important;
 	white-space: pre;
 }
+/* A column of lines rather than a block of them: Shiki puts a newline text node
+   between its line spans, and inside a `pre` each one drew a blank line box, so
+   every static frame on the landing ran at double leading (30px steps for 9.5px
+   code) and the diff shot cut its last line off at 375. A flex container drops
+   whitespace-only text, and an empty line still keeps its one line of height. */
 .studio-code code {
 	counter-reset: studio-line;
-	display: block;
+	display: flex;
+	flex-direction: column;
 }
 .studio-code .line {
 	counter-increment: studio-line;
 	display: block;
+	min-height: 1lh;
 }
 .studio-code .line::before {
 	content: counter(studio-line, decimal-leading-zero);
@@ -1097,8 +1108,10 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* 0.97, the landing's one press (PRESS_SCALE, the field's button, Replay);
+   this was the page's lone 0.96 (SYSTEM.md Drift 7). */
 .landing-root .lp-island-button:active {
-	transform: scale(0.96);
+	transform: scale(0.97);
 }
 
 /* The island leaves exactly 5px above and below a control, so the focus ring
@@ -1219,17 +1232,32 @@ html.dark:not([data-landing-theme]) {
 	white-space: nowrap;
 	/* The colour itself rather than a filter over it: `brightness()` on a
 	   saturated yellow lifts the green as much as the red and the hue drifts. */
-	transition: background-color 150ms var(--ease-out), transform 140ms var(--ease-out);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 140ms
+		var(--ease-out);
+}
+
+/* Quiet: a text action in the island's own ink, same box and same target. Used
+   where the screen's primary already says "Open studio" (the hero's field), so
+   a viewport holds one filled one. It hovers like the island's other controls,
+   one step of white fill, never a change of ink (D4). */
+.landing-root .lp-island-cta[data-quiet] {
+	background: transparent;
+	color: var(--dock-ink);
 }
 
 @media (hover: hover) and (pointer: fine) {
 	.landing-root .lp-island-cta:hover {
 		background: var(--color-primary-hover);
 	}
+
+	.landing-root .lp-island-cta[data-quiet]:hover {
+		background: rgb(255 255 255 / 0.07);
+	}
 }
 
+/* 0.97, the landing's one press value (it was 0.98 here, SYSTEM.md Drift 7). */
 .landing-root .lp-island-cta:active {
-	transform: scale(0.98);
+	transform: scale(0.97);
 }
 
 /* A finger, not a cursor. The 35px pitch above is a mouse's target; a thumb
@@ -1321,6 +1349,8 @@ html.dark:not([data-landing-theme]) {
 	font-size: 13px;
 	line-height: 20px;
 	text-align: center;
+	/* At 375 the sentence left "frame." alone on its second line. */
+	text-wrap: balance;
 }
 
 .landing-root .lp-island-helper {
@@ -1811,6 +1841,18 @@ html.dark:not([data-landing-theme]) {
 		height: 148px;
 	}
 
+	/* At 375 the window is 286px and the longest line is 45 characters: the
+	   line numbers (28px) go and the code steps down from 9.5px to 8.25px, so
+	   "users.filter((u) => u.active)" ends inside the window. The code is the
+	   subject; the numbers are not. */
+	.landing-root .lp-import-render {
+		--frame-font: 8.25px;
+	}
+
+	.landing-root .lp-import-render .studio-code .line::before {
+		content: none;
+	}
+
 	.landing-root .lp-import-ready {
 		right: 10px;
 		bottom: 10px;
@@ -2164,7 +2206,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 .studio-root .si-button:active:not(:disabled) {
-	transform: scale(0.96);
+	transform: scale(0.97);
 }
 
 /* The island leaves exactly 5px above and below a control, so the focus ring
@@ -2583,7 +2625,7 @@ html.dark:not([data-landing-theme]) {
    above comes earlier in the file and lost to this one on order alone. */
 @media (prefers-reduced-motion: no-preference) {
 	.studio-root .si-cta:active:not(:disabled):not([aria-disabled="true"]) {
-		transform: scale(0.96);
+		transform: scale(0.97);
 	}
 }
 
@@ -2678,10 +2720,45 @@ html.dark:not([data-landing-theme]) {
 	overflow: hidden;
 }
 
+/* The fill is always the full track, scaled: a transform the compositor runs,
+   tweened once per update so it lands on the number beside it and never past. */
 .studio-root .si-status-fill {
+	width: 100%;
 	height: 100%;
 	border-radius: 999px;
 	background: var(--color-cta);
+	transform-origin: left center;
+	transition: transform 160ms linear;
+}
+
+/* A phase nobody can measure: a segment that travels, instead of a third of a
+   bar that claims a number. */
+.studio-root .si-status-fill[data-indeterminate] {
+	width: 36%;
+	transition: none;
+	animation: si-status-travel 1.3s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes si-status-travel {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(280%);
+	}
+}
+
+/* Unmoving, it still says "working": the whole track, dimmed. */
+@media (prefers-reduced-motion: reduce) {
+	.studio-root .si-status-fill {
+		transition: none;
+	}
+
+	.studio-root .si-status-fill[data-indeterminate] {
+		width: 100%;
+		opacity: 0.45;
+		animation: none;
+	}
 }
 
 .studio-root .si-status-text {
@@ -2708,6 +2785,33 @@ html.dark:not([data-landing-theme]) {
 	flex: none;
 	align-items: center;
 	font-weight: 700;
+}
+
+/* With nothing after it, the sentence keeps the pill's own inset on the right
+   instead of running into its curve. */
+.studio-root .si-status-message:last-child {
+	padding-right: 11px;
+}
+
+/* A note (what the plan includes) is read, not acted on: dim ink. */
+.studio-root .si-status-message[data-note] {
+	color: var(--dock-dim);
+}
+
+/* The status's one next step speaks in ink on a wash; the rest stay dim. */
+.studio-root .si-status .si-status-action {
+	color: var(--dock-ink);
+	background: rgb(255 255 255 / 0.08);
+}
+
+.studio-root .si-status .si-status-dismiss {
+	padding-inline: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.studio-root .si-status .si-status-action:hover:not(:disabled) {
+		background: rgb(255 255 255 / 0.14);
+	}
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -2761,7 +2865,8 @@ html.dark:not([data-landing-theme]) {
 /* The phone's slot states its own bottom inline, since the sheet's peek is a
    number the drawer owns rather than a constant this file could name. */
 .sc-root-mobile .sc-stage-slot {
-	padding: 68px max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
+	padding: calc(max(10px, env(safe-area-inset-top, 0px)) + 58px)
+		max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
 }
 
 /* The sheet is portaled to the body, out of the root's reach: it takes the
@@ -2849,7 +2954,8 @@ html.dark:not([data-landing-theme]) {
    top-row popovers. */
 .sc-corner-row {
 	position: absolute;
-	top: 10px;
+	/* Under the status bar and the Dynamic Island in portrait, not behind them. */
+	top: max(10px, env(safe-area-inset-top, 0px));
 	right: max(10px, env(safe-area-inset-right, 0px));
 	left: max(10px, env(safe-area-inset-left, 0px));
 	z-index: 30;
@@ -2933,7 +3039,7 @@ html.dark:not([data-landing-theme]) {
 .sc-root-mobile .sc-source-form-popover,
 .sc-root-mobile .sc-source-form-popover[aria-label="Import a git diff"] {
 	position: fixed;
-	top: 58px;
+	top: calc(max(10px, env(safe-area-inset-top, 0px)) + 48px);
 	right: max(10px, env(safe-area-inset-right, 0px));
 	left: max(10px, env(safe-area-inset-left, 0px));
 	width: auto;
@@ -2966,12 +3072,50 @@ html.dark:not([data-landing-theme]) {
 	pointer-events: none;
 }
 
+/* Under a finger the row keeps its 31px pitch, which is what nine controls get
+   in 370px, and each control reaches the row's full height and 6px past it: a
+   52px column a thumb lands in without firing the one beside it. */
+@media (pointer: coarse) {
+	.sc-corner-row .sc-history button.hit-ext::after {
+		inset: -11px 0;
+	}
+
+	.sc-corner-row .sc-utilities button.hit-ext::after,
+	.sc-corner-row .sc-utilities .hit-ext::after {
+		inset: -11px -1px;
+	}
+
+	.sc-mobile-resources .sc-island-trigger,
+	.sc-corner-row .sc-project-trigger,
+	.sc-corner-row .sc-brand {
+		position: relative;
+	}
+
+	.sc-mobile-resources .sc-island-trigger::after,
+	.sc-corner-row .sc-project-trigger::after,
+	.sc-corner-row .sc-brand::after {
+		content: "";
+		position: absolute;
+		inset: -11px 0;
+	}
+
+	.sc-corner-row .sc-brand::after {
+		inset: -13px -4px;
+	}
+
+	/* The name is the chip's own height: the whole band beside the brand types. */
+	.sc-corner-row .sc-title {
+		height: 40px;
+	}
+}
+
 /* A file dragged over a tablet in portrait: the same quiet veil as the desktop,
    over the sheet and under the menus and notices. Pointer events pass through;
    the window owns the drop. */
 .sc-root-mobile .sc-drop-veil {
 	position: fixed;
-	inset: max(10px, env(safe-area-inset-top, 0px)) 10px max(10px, env(safe-area-inset-bottom, 0px));
+	inset: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px))
+		max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
 	z-index: 60;
 	display: flex;
 	align-items: center;
@@ -3000,12 +3144,6 @@ html.dark:not([data-landing-theme]) {
 
 .dark .sc-root-mobile .sc-drop-veil p {
 	background: #1b1c20;
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.sc-root-mobile .sc-drop-veil {
-		transition: none;
-	}
 }
 
 .sc-utilities {
@@ -3250,7 +3388,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 .sc-glyph-button:active {
-	transform: scale(0.96);
+	transform: scale(0.97);
 }
 
 .dark .sc-glyph-button {
@@ -3523,17 +3661,22 @@ html.dark:not([data-landing-theme]) {
 
 .sc-sheet {
 	--camera-paper: #f9fafc;
+	/* Portaled to the body, out of `.studio-root`'s tokens: without its own the
+	   hairline on its top edge resolved to nothing. */
+	--sc-hairline: rgb(28 27 25 / 0.1);
+	--r-sheet: 20px;
 	position: fixed;
 	right: 0;
 	bottom: 0;
 	left: 0;
 	z-index: 20;
 	display: flex;
+	/* The full screen, exactly: the drawer's pixel stops are heights of sheet
+	   showing, and a sheet capped at 97% shifted each of them by 3%. */
 	height: 100%;
-	max-height: 97%;
 	flex-direction: column;
 	border-top: 1px solid var(--sc-hairline);
-	border-radius: 22px 22px 0 0;
+	border-radius: var(--r-sheet) var(--r-sheet) 0 0;
 	background: color-mix(in oklch, var(--color-neutral-50) 92%, transparent);
 	box-shadow: 0 -8px 40px -12px rgb(0 0 0 / 0.25);
 	-webkit-backdrop-filter: blur(20px) saturate(1.5);
@@ -3542,5 +3685,6 @@ html.dark:not([data-landing-theme]) {
 
 .dark .sc-sheet {
 	--camera-paper: #101114;
+	--sc-hairline: rgb(245 243 239 / 0.12);
 	background: color-mix(in oklch, var(--color-neutral-950) 88%, transparent);
 }
