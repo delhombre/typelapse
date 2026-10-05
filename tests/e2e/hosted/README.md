@@ -55,13 +55,26 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
   or key route; the island shows when it was last used; and once it is revoked
   the next request is the same 401 an unknown key gets.
 
-`support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job, the keys) and the
-sign-up helpers. Better Auth allows three sign-ups per ten seconds per client,
-the ten seconds counted from the last accepted one, and behind the preview every
-journey is one client, so the helpers wait out a 429 instead of failing. The
-island reads a refused sign-up as "Cloud unavailable" and drops its form, so the
-island helper waits out the window, lets the studio write what it holds and
-reloads before it tries again.
+- `render-by-url.spec.ts` (serial, no browser for the calls: a script holds only
+  a key): a Creator's key and the repository's own diff queue one render at the
+  size asked for (1280x720, 24 fps, read back with ffprobe) and save the project;
+  the same request again is the same job and not a second project; the job is
+  followed with the key until it is done, and its page is private until the key
+  publishes it, then reachable by anyone; the studio link opens the same import
+  in the studio. A free account's key gets the studio link and the reason, with
+  no project and no job. An account at the month's minutes is refused with the
+  ceiling it hit and nothing is created, while the render it already asked for
+  still answers with its job. A text that is no source is refused, and a
+  repository GitHub does not show (private or missing) is refused in plain words;
+  that one is tagged `@network` and skips when GitHub cannot be reached.
+
+`support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job, the keys, the
+projects, the minutes a render counts) and the sign-up helpers. Better Auth allows
+three sign-ups per ten seconds per client, the ten seconds counted from the last
+accepted one, and behind the preview every journey is one client, so the helpers
+wait out a 429 instead of failing. The island reads a refused sign-up as "Cloud
+unavailable" and drops its form, so the island helper waits out the window, lets
+the studio write what it holds and reloads before it tries again.
 
 ## Reload with no edit (#127)
 

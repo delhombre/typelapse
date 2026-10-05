@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	allowanceSentence,
 	planLimitRefusal,
+	renderCeilingCrossed,
 	renderPeriodStart,
 } from "../../src/application/billing/plan-allowance";
 import { Plan } from "../../src/domain/value-objects/plan";
@@ -81,6 +82,44 @@ describe("render period", () => {
 	it("is the calendar month in UTC", () => {
 		expect(renderPeriodStart(new Date("2026-10-31T23:59:59.000Z")).toISOString()).toBe(
 			"2026-10-01T00:00:00.000Z",
+		);
+	});
+});
+
+describe("the hosted render ceiling a new render would cross", () => {
+	const usage = (activeRenders: number, hostedRenderMsThisMonth: number) => ({
+		activeRenders,
+		hostedRenderMsThisMonth,
+	});
+	const MINUTE = 60_000;
+
+	it("is none while the render fits both ceilings, to the millisecond", () => {
+		expect(renderCeilingCrossed(Plan.pro(), usage(2, 60 * MINUTE - 3_050), 3_050)).toBeNull();
+	});
+
+	it("is the month's minutes once the render goes one millisecond past them", () => {
+		expect(renderCeilingCrossed(Plan.pro(), usage(0, 60 * MINUTE - 3_049), 3_050)).toEqual({
+			ceiling: "hostedRenderTime",
+			used: 60 * MINUTE - 3_049,
+		});
+	});
+
+	it("is the number of renders already running once the plan's are all busy", () => {
+		expect(renderCeilingCrossed(Plan.pro(), usage(3, 0), 3_050)).toEqual({
+			ceiling: "concurrentRenders",
+			used: 3,
+		});
+	});
+
+	it("names the renders running first when both ceilings are crossed, as the queue does", () => {
+		expect(renderCeilingCrossed(Plan.pro(), usage(3, 60 * MINUTE), 3_050)?.ceiling).toBe(
+			"concurrentRenders",
+		);
+	});
+
+	it("is always the first ceiling for a plan with no hosted renders", () => {
+		expect(renderCeilingCrossed(Plan.free(), usage(0, 0), 3_050)?.ceiling).toBe(
+			"concurrentRenders",
 		);
 	});
 });

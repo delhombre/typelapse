@@ -4,9 +4,12 @@ import {
 	outputExpiredRefusal,
 	planLimitRefusal,
 } from "../../src/application/billing/plan-allowance";
+import { IMPORT_HASH_KEY, studioImportLink } from "../../src/application/import/import-link";
+import { type ImportFailure, readImportSource } from "../../src/application/import/import-source";
 import {
 	type HostedRenderJob,
 	type HostedRenderJobService,
+	type HostedRenderOptions,
 	parseHostedRenderOptions,
 } from "../../src/application/render/hosted-render-job";
 import type {
@@ -17,6 +20,11 @@ import {
 	type HostedRenderPageService,
 	publicRenderPageUrl,
 } from "../../src/application/render/hosted-render-page";
+import {
+	type RenderBySourceResult,
+	type RenderBySourceService,
+	parseRenderSourceOptions,
+} from "../../src/application/render/render-by-source";
 import type { Plan } from "../../src/domain/value-objects/plan";
 import {
 	type HostedRenderDeps,
@@ -25,6 +33,27 @@ import {
 } from "../auth/hosted-render-guard";
 
 const MAX_RENDER_REQUEST_BYTES = 32 * 1024;
+/** A source is a link or a unified diff; GitHub serves no diff bigger than this to render. */
+const MAX_SOURCE_REQUEST_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Where a source that cannot be read goes on the wire: what the caller can fix
+ * is a 422, and what GitHub did is a 503 for its rate limit and a 502 for the
+ * rest, so a script knows whether to change the request or to wait.
+ */
+const SOURCE_REFUSALS: Record<
+	ImportFailure,
+	{ readonly status: 422 | 502 | 503; readonly code: string }
+> = {
+	"not-found": { status: 422, code: "source-not-found" },
+	"too-large": { status: 422, code: "source-too-large" },
+	"range-too-large": { status: 422, code: "source-too-large" },
+	other: { status: 422, code: "source-unusable" },
+	"rate-limit": { status: 503, code: "source-rate-limited" },
+	timeout: { status: 502, code: "source-unavailable" },
+	unreachable: { status: 502, code: "source-unavailable" },
+	unfetchable: { status: 502, code: "source-unavailable" },
+};
 
 interface CloudRouteEnv {
 	Variables: {
@@ -38,6 +67,8 @@ export interface CloudRouteDeps extends HostedRenderDeps {
 	readonly renderDownloads?: HostedRenderDownloadService;
 	/** Public pages (`/v/<id>`); without them the owner sees no page control. */
 	readonly renderPages?: HostedRenderPageService;
+	/** Render by URL; without it a Creator gets a 503, and a free account still gets its link. */
+	readonly renderSources?: RenderBySourceService;
 	/** The public origin a page address is written on. */
 	readonly appUrl?: string;
 }
@@ -78,6 +109,44 @@ async function downloadResponse(
 		return await deps.renderDownloads.open(ownerId, jobId);
 	} catch {
 		return { outcome: "unavailable" };
+	}
+}
+
+/** Said with a studio link that carries nothing: an address is only so long. */
+const LINK_WITHOUT_SOURCE = "That diff is too long to travel in a link, so the studio opens empty";
+
+/** What the use case answered, as the status and body a script reads. */
+function sourceAnswer(
+	c: Context<CloudRouteEnv>,
+	result: RenderBySourceResult,
+	studioUrl: string,
+	linkNotice: string | undefined,
+) {
+	switch (result.outcome) {
+		case "queued": {
+			const notice = result.notice ?? linkNotice;
+			return c.json({ job: result.job, studioUrl, ...(notice ? { notice } : {}) }, 202);
+		}
+		case "plan-limit":
+			// Too many renders at once clears by itself, so it is a retry, not an upgrade.
+			return c.json(
+				planLimitRefusal(c.get("plan"), result.ceiling, result.used),
+				result.ceiling === "concurrentRenders" ? 429 : 402,
+			);
+		case "resolution-limit":
+			return c.json({ error: result.message, code: "resolution-limit" }, 402);
+		case "source-refused": {
+			const refusal = SOURCE_REFUSALS[result.failure];
+			return c.json({ error: result.message, code: refusal.code }, refusal.status);
+		}
+		case "conflict":
+			return c.json(
+				{
+					error: "The project changed while it was being saved; send the request again",
+					code: "conflict",
+				},
+				409,
+			);
 	}
 }
 
@@ -139,6 +208,71 @@ export const createCloudRoute = (
 			onError: (c) => c.json({ error: "Hosted render request is too large" }, 413),
 		}),
 	);
+
+	cloudRoute.use(
+		"/render/source",
+		bodyLimit({
+			maxSize: MAX_SOURCE_REQUEST_BYTES,
+			onError: (c) => c.json({ error: "Render request is too large" }, 413),
+		}),
+	);
+
+	/**
+	 * Render by URL: a pull request, commit, release or compare link, or a unified
+	 * diff, becomes a cloud project of the caller and a hosted render job. A free
+	 * account's call stops at the studio link, since what runs on our servers is
+	 * paid and nothing here has to be fetched or saved to open the studio on it.
+	 */
+	cloudRoute.post("/render/source", async (c) => {
+		// A cross-site form can only send text, so asking for JSON keeps it out of a
+		// call that spends the account's minutes; the session cookie is SameSite too.
+		if (!c.req.header("content-type")?.toLowerCase().startsWith("application/json")) {
+			return c.json({ error: 'Send the source as JSON: { "source": "<link or diff>" }' }, 415);
+		}
+		const body: unknown = await c.req.json().catch(() => null);
+		const input =
+			typeof body === "object" && body !== null && !Array.isArray(body)
+				? (body as Record<string, unknown>)
+				: null;
+		const source = input?.source;
+		if (typeof source !== "string") {
+			return c.json({ error: 'Send the source as a string: { "source": "<link or diff>" }' }, 400);
+		}
+		const read = readImportSource(source);
+		if (read.outcome === "refused") {
+			return c.json({ error: read.message }, 400);
+		}
+		let renderOptions: HostedRenderOptions;
+		try {
+			renderOptions = parseRenderSourceOptions(input?.renderOptions);
+		} catch (error) {
+			return c.json(
+				{ error: error instanceof Error ? error.message : "Invalid render options" },
+				400,
+			);
+		}
+		const plan = c.get("plan");
+		const studioUrl = studioImportLink(deps.appUrl ?? new URL(c.req.url).origin, source.trim());
+		const linkNotice = studioUrl.includes(IMPORT_HASH_KEY) ? undefined : LINK_WITHOUT_SOURCE;
+		if (!plan.capabilities.allowsCloudExport) {
+			return c.json({
+				studioUrl,
+				...(linkNotice ? { notice: linkNotice } : {}),
+				reason: planLimitRefusal(plan, "hostedRenderTime", 0),
+			});
+		}
+		if (!deps.renderSources) {
+			return c.json({ error: "Render by URL is not configured" }, 503);
+		}
+		const result = await deps.renderSources.submit({
+			ownerId: c.get("accountId"),
+			plan,
+			source: read.source,
+			renderOptions,
+			now: now(),
+		});
+		return sourceAnswer(c, result, studioUrl, linkNotice);
+	});
 
 	cloudRoute.post("/render", async (c) => {
 		const plan = c.get("plan");

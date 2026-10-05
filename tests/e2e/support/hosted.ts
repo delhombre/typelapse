@@ -195,6 +195,30 @@ export async function renderJobsOf(
 }
 
 /**
+ * The account's cloud projects, newest first: what a script that rendered by URL
+ * can see of the project it left behind.
+ */
+export async function cloudProjectsOf(
+	email: string,
+): Promise<{ id: string; title: string; revision: number; scenes: number }[]> {
+	const id = await accountId(email);
+	const result = await database().query(
+		`SELECT id, title, revision, jsonb_array_length(document -> 'project' -> 'scenes') AS scenes
+		FROM projects WHERE owner_id = $1 ORDER BY created_at DESC`,
+		[id],
+	);
+	return result.rows.map((row) => ({ ...row, scenes: Number(row.scenes) }));
+}
+
+/** What a render counts against the month's minutes, as if it had played that long. */
+export async function setRenderDuration(jobId: string, durationMs: number): Promise<void> {
+	await one("UPDATE render_jobs SET duration_ms = $2 WHERE id = $1 RETURNING id", [
+		jobId,
+		durationMs,
+	]);
+}
+
+/**
  * Better Auth allows three sign-ups or sign-ins per ten seconds per client, and
  * behind the preview proxy every journey is the same client (the API logs that
  * it cannot see an address). A journey that meets the ceiling waits the time
@@ -288,6 +312,16 @@ export async function signUpByApi(account: TestAccount): Promise<APIRequestConte
 		password: account.password,
 	});
 	return client;
+}
+
+/**
+ * A key made the way the island makes one: by the signed-in account, shown once.
+ * A script then holds only the key, with no cookie.
+ */
+export async function createApiKeyByApi(client: APIRequestContext, name: string): Promise<string> {
+	const response = await client.post("/api/keys", { data: { name } });
+	expect(response.status(), await response.text()).toBe(201);
+	return ((await response.json()) as { key: string }).key;
 }
 
 /** A signed-in API client for an account that already exists. */

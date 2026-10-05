@@ -10,6 +10,7 @@ import type { ObjectStoragePort } from "../src/application/assets/object-storage
 import type { ApiKeyRepositoryPort } from "../src/application/auth/api-key-repository.port";
 import type { ProjectDocumentRepositoryPort } from "../src/application/project/project-document-repository.port";
 import type { HostedRenderJobService } from "../src/application/render/hosted-render-job";
+import type { RenderBySourceService } from "../src/application/render/render-by-source";
 import {
 	createHostedRenderDownloadService,
 	type HostedRenderDownloadService,
@@ -49,6 +50,7 @@ import { createCloudRoute } from "./routes/cloud";
 import { createLocalMultimediaRenderRoute } from "./routes/local-multimedia-render";
 import { createProjectsRoute } from "./routes/projects";
 import { createRenderPageRoute } from "./routes/render-page";
+import { renderBySourceServiceFor } from "./render/render-by-source-service";
 import { hostedRenderJobServiceFromEnv } from "./render/render-job-service";
 import { r2ObjectStorageFromEnv } from "./storage/r2-object-storage";
 
@@ -72,6 +74,7 @@ export interface CreateAppOptions {
 	readonly renderJobs?: HostedRenderJobService | null;
 	readonly renderDownloads?: HostedRenderDownloadService | null;
 	readonly renderPages?: HostedRenderPageService | null;
+	readonly renderSources?: RenderBySourceService | null;
 	readonly logger?: { error(message: string): void };
 }
 
@@ -164,6 +167,13 @@ export async function createApp(
 					subscriptions,
 				})
 			: (options.renderPages ?? null);
+	// Render by URL saves a project and queues a job, so it needs the stores and the queue.
+	const renderSources =
+		options.renderSources === undefined
+			? database && projectRepository && renderJobs
+				? renderBySourceServiceFor({ db: database, projects: projectRepository, jobs: renderJobs })
+				: null
+			: options.renderSources;
 	const appUrl = process.env.TYPELAPSE_APP_URL?.trim() || undefined;
 	const projectSync = Boolean(authPort && projectRepository && projectAssetResolver);
 	const privateAssets = Boolean(authPort && assetRepository && objectStorage);
@@ -250,6 +260,7 @@ export async function createApp(
 			}),
 			...(renderJobs && renderDownloads ? { renderJobs, renderDownloads } : {}),
 			...(renderPages ? { renderPages } : {}),
+			...(renderSources ? { renderSources } : {}),
 			...(appUrl ? { appUrl } : {}),
 		}),
 	);

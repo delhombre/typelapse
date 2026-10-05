@@ -69,6 +69,65 @@ file was written, `2` bad arguments or a bad file, `3` GitHub could not serve
 the source (private, missing, rate-limited, offline), `4` the render failed.
 Every error is one sentence.
 
+## Render by URL
+
+The same sources, rendered on Typelapse's servers instead of your machine, by any
+script that holds an [API key](#api-keys); `$TYPELAPSE_URL` is the address of the
+hosted deployment. It needs a Creator account; a free account gets the link that
+opens the import in the studio.
+
+```bash
+curl -sS "$TYPELAPSE_URL/api/cloud/render/source" \
+  -H "Authorization: Bearer $TYPELAPSE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"source": "https://github.com/octocat/Hello-World/pull/1"}'
+```
+
+`source` is what the CLI takes, files aside: a pull request, commit, release
+(`/releases/tag/<tag>`) or compare (`/compare/<a>...<b>`) URL of a public
+repository, or a unified diff as text. They are read by the same importers as
+the CLI and the studio, so the video is the one they would make. Typelapse sends
+GitHub no credential, so a private repository is refused like a missing one:
+send its diff as `source` instead. `renderOptions` is optional and changes only
+what it names: `format` (`mp4` or `webm`), `width` and `height` (both together),
+`fps` (24, 30 or 60) and `loop`. Without it the render is the studio's own, MP4
+at 1920x1080 and 60 fps.
+
+A Creator gets `202`, the job and the link that opens the same import in the
+studio. `notice`, when there is one, says that a release plays from the first
+commit or as one change, or that a diff is too long to travel in a link, so the
+studio opens empty:
+
+```json
+{
+  "job": { "id": "job_...", "projectId": "import_...", "revision": 1, "status": "queued" },
+  "studioUrl": "https://studio.example/app#import=..."
+}
+```
+
+The source is saved as a cloud project of the account, one for each source. The
+same source sent again is the same job, so a retry costs nothing; a pull request
+that has gained commits since is a new revision of its project, and a new job.
+Follow the job with the same key, `GET /api/cloud/jobs/<id>`: once `status` is
+`succeeded` it carries `download` (a signed link) and `page`, the render's share
+page. Every render starts private, so the page answers `404` until
+`PUT /api/cloud/jobs/<id>/public` with `{"public": true}` turns it on.
+
+A free account's call is answered with `200`, `studioUrl` and `reason` (hosted
+renders come with Creator) and no job. Nothing is fetched or saved for it. A
+refused request creates nothing:
+
+- `400` the source or the options are not usable, `413` the body is past 4 MiB,
+  `415` it is not JSON.
+- `401` the key is not valid, `429` the key made 120 requests in a minute (see
+  `Retry-After`) or the plan's renders are all running.
+- `402` a ceiling of the plan: `ceiling` is `hostedRenderTime` (the month's
+  minutes) or `cloudProjects`; a size past the plan has the `code`
+  `resolution-limit`.
+- `422` the source could not be read: `source-not-found` (missing or private),
+  `source-too-large` or `source-unusable`. `502` or `503` GitHub did not answer
+  or limited this server's anonymous reads; try again, or send a diff.
+
 ## Render every pull request
 
 ```yaml

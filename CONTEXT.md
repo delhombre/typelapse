@@ -104,6 +104,17 @@ or it does not land.
   (`application/import/release-project`).
 - **Hosted render job**: a queued, leased, fenced job on a canonical revision,
   entitlement-gated, with expiring result access.
+- **Render by URL**: the hosted call that turns a **source** (a pull request,
+  commit, release or compare link of a public repository, or a unified diff)
+  into a cloud project of the caller and a hosted render job. The importers the
+  studio and the headless render use read the source, and the project is the one
+  they would build. The caller holds one project for each source: the same
+  source sent twice is the same project and the same job, and a source that has
+  changed since is a new revision of it. The answer names the job and the
+  **studio link** (`/app#import=`, which opens the same import in the studio;
+  a diff too long for an address opens the studio empty). A free account gets
+  the studio link and the reason there is no job, and nothing is fetched or
+  saved. A request over a ceiling creates nothing.
 - **Where**: the export panel's choice of machine. **Device** (WebCodecs in
   this tab), **Server** (the local Remotion routes) and, in a hosted build for
   a signed-in account only, **Cloud**: Render saves the canonical revision
@@ -151,7 +162,7 @@ or it does not land.
 - **API key**: a credential an account makes in the account island for a
   script that has no browser. Named, optionally expiring, shown once and kept
   only as a hash, rate limited per key, revoked by deleting it. It stands in
-  for the session on the hosted render routes (and the import route) and on
+  for the session on the hosted render routes (render by URL included) and on
   nothing else: account, billing, projects, assets and key management accept
   the session alone. The account's plan still decides what a key may start.
 - **Key prefix**: the public start of a key (`tlk_` and eight characters). It
@@ -185,6 +196,13 @@ or it does not land.
 - **Edit burst**: edits to the same values within a second (typing, dragging a
   layer, scrubbing a number) are one history entry. Adding or removing a scene,
   a layer or a cue is always an entry of its own.
+- **Capture library**: what the Library button opens, a sheet of the
+  **captures** this device kept: each finished export (a PNG, GIF, MP4 or WebM
+  from the device or the local server) with its project's title, date and size,
+  newest first, across local projects, at most 24 and 150 MB. A capture here is
+  a kept export, not the step builder's Capture, which turns live code into a
+  step. On a desktop the sheet is as wide as its captures (one to three
+  columns); its empty state says what a capture is and opens the export panel.
 
 ## Invariants worth a test
 
@@ -195,6 +213,9 @@ or it does not land.
 - A key opens the hosted render routes and nothing else; a request with a valid
   session and a key is the session's; a key that is unknown, revoked or expired
   is refused with one answer, whichever it is.
+- A source rendered by URL twice is one project and one job; a request refused
+  for a ceiling, a size or a source that cannot be read leaves no project and no
+  job behind.
 - The export note never promises what the file does not contain.
 - Undo then redo returns the exact project document; an undo never resets the
   unsaved-work baseline, and the composition shows the timeline's scene.
