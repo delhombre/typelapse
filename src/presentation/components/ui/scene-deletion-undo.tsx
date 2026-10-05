@@ -41,7 +41,7 @@ export function SceneDeletionUndo({
 				type="button"
 				onClick={onUndo}
 				aria-label={`Undo delete scene ${sceneNumber}`}
-				whileTap={reduce ? undefined : { scale: 0.96 }}
+				whileTap={reduce ? undefined : { scale: 0.97 }}
 				transition={reduce ? { duration: 0 } : springs.snappy}
 			>
 				<Undo size={13} strokeWidth={1.7} aria-hidden="true" />

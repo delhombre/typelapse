@@ -20,7 +20,7 @@ import {
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
 import { studioMediaRegistry } from "@/presentation/studio-media-runtime";
-import { type ChangeEvent, type ReactNode, useEffect, useState } from "react";
+import { type ChangeEvent, type ReactNode, useEffect, useId, useState } from "react";
 import { ArrowDown, ArrowDownSquare, ArrowUp, ArrowUpSquare, Trash } from "reicon-react";
 import { CodeEditor } from "./code-editor";
 
@@ -152,6 +152,16 @@ function finiteNumber(event: ChangeEvent<HTMLInputElement>, apply: (value: numbe
 	}
 }
 
+/** A text layer is named by its first line, which is what it says on the frame. */
+function textLayerTitle(text: string): string {
+	return (
+		text
+			.split("\n")
+			.find((line) => line.trim())
+			?.trim() ?? "Text"
+	);
+}
+
 function formatSeconds(ms: number): string {
 	return (ms / 1000).toFixed(1);
 }
@@ -257,7 +267,7 @@ function TextLayerEditor({
 	useEffect(() => setDraft(block.text), [block.text]);
 	return (
 		<div className="sc-layer-editor">
-			<EditorHeader eyebrow="Text layer" title="Text" onDelete={onDelete} />
+			<EditorHeader eyebrow="Text layer" title={textLayerTitle(block.text)} onDelete={onDelete} />
 			<label className="sc-layer-field sc-layer-field-grow">
 				<span>Content</span>
 				<textarea
@@ -358,13 +368,6 @@ function MediaLayerEditor({
 	return (
 		<div className="sc-layer-editor">
 			<EditorHeader eyebrow={`${block.kind} layer`} title={fileName} onDelete={onDelete} />
-			<StudioLayerCompositionControls
-				placement={block.placement}
-				onPlacement={onPlacement}
-				onOrder={onOrder}
-				layerIndex={layerIndex}
-				layerCount={layerCount}
-			/>
 			<div className="sc-layer-grid">
 				<label className="sc-layer-field">
 					<span>Fit</span>
@@ -459,6 +462,15 @@ function MediaLayerEditor({
 					</div>
 				</>
 			) : null}
+			{/* Every kind ends on the same block, so Layout is always where the
+			    eye left it on the last layer. */}
+			<StudioLayerCompositionControls
+				placement={block.placement}
+				onPlacement={onPlacement}
+				onOrder={onOrder}
+				layerIndex={layerIndex}
+				layerCount={layerCount}
+			/>
 		</div>
 	);
 }
@@ -479,10 +491,10 @@ function StudioLayerCompositionControls({
 	const atBack = layerIndex <= 0;
 	const atFront = layerIndex >= layerCount - 1;
 	const controls = [
-		{ key: "x", label: "X", value: placement.x },
-		{ key: "y", label: "Y", value: placement.y },
-		{ key: "width", label: "W", value: placement.width },
-		{ key: "height", label: "H", value: placement.height },
+		{ key: "x", label: "X", name: "X position percentage", value: placement.x },
+		{ key: "y", label: "Y", name: "Y position percentage", value: placement.y },
+		{ key: "width", label: "W", name: "Width percentage", value: placement.width },
+		{ key: "height", label: "H", name: "Height percentage", value: placement.height },
 	] as const;
 	const order = [
 		{ action: "back", label: "Send to back", disabled: atBack, icon: ArrowDownSquare },
@@ -536,7 +548,7 @@ function StudioLayerCompositionControls({
 							max={100}
 							step={1}
 							value={Math.round(control.value * 100)}
-							aria-label={`${control.label} position percentage`}
+							aria-label={control.name}
 							onChange={(event) =>
 								finiteNumber(event, (value) => onPlacement({ [control.key]: value / 100 }))
 							}
@@ -567,6 +579,7 @@ function AudioLayerEditor({
 	// Trim and fades share one budget: the trimmed clip must stay longer than
 	// both fades together, or the cue invariant rejects the edit.
 	const minimumClipMs = Math.max(1, cue.fadeInMs + cue.fadeOutMs);
+	const volumeId = useId();
 	const patchGain = (percent: number) => {
 		if (Number.isFinite(percent)) {
 			onPatch({ gain: Math.min(Math.max(percent, 0), 100) / 100 });
@@ -586,24 +599,8 @@ function AudioLayerEditor({
 						: "Source file is not in this browser"}
 				</small>
 			</div>
+			{/* Trim and fades in pairs, then the cue's place on the timeline. */}
 			<div className="sc-layer-grid">
-				<SecondsField
-					label="Timeline start"
-					valueMs={cue.startMs}
-					minMs={0}
-					maxMs={Number.MAX_SAFE_INTEGER - cue.durationMs}
-					onCommit={(startMs) => onPatch({ startMs })}
-				/>
-				<label className="sc-layer-field">
-					<span>Volume</span>
-					<input
-						type="number"
-						min={0}
-						max={100}
-						value={Math.round(cue.gain * 100)}
-						onChange={(event) => patchGain(event.currentTarget.valueAsNumber)}
-					/>
-				</label>
 				<SecondsField
 					label="Source in"
 					valueMs={cue.trim.startMs}
@@ -632,17 +629,39 @@ function AudioLayerEditor({
 					maxMs={cue.durationMs - cue.fadeInMs}
 					onCommit={(fadeOutMs) => onPatch({ fadeOutMs })}
 				/>
-			</div>
-			<label className="sc-layer-field sc-layer-range">
-				<span>Volume</span>
-				<input
-					type="range"
-					min={0}
-					max={100}
-					value={Math.round(cue.gain * 100)}
-					onChange={(event) => patchGain(event.currentTarget.valueAsNumber)}
+				<SecondsField
+					label="Timeline start"
+					valueMs={cue.startMs}
+					minMs={0}
+					maxMs={Number.MAX_SAFE_INTEGER - cue.durationMs}
+					onCommit={(startMs) => onPatch({ startMs })}
 				/>
-			</label>
+			</div>
+			{/* One volume, drawn twice: the slider to feel it, the number to set it
+			    exactly. Two labelled "Volume" fields read as two settings. */}
+			<div className="sc-layer-field sc-layer-range">
+				{/* The word focuses the exact field, as every other label does. */}
+				<label htmlFor={volumeId}>Volume</label>
+				<div className="sc-layer-range-row">
+					<input
+						type="range"
+						min={0}
+						max={100}
+						value={Math.round(cue.gain * 100)}
+						onChange={(event) => patchGain(event.currentTarget.valueAsNumber)}
+						aria-label="Volume"
+					/>
+					<input
+						id={volumeId}
+						type="number"
+						min={0}
+						max={100}
+						value={Math.round(cue.gain * 100)}
+						onChange={(event) => patchGain(event.currentTarget.valueAsNumber)}
+						aria-label="Volume"
+					/>
+				</div>
+			</div>
 		</div>
 	);
 }

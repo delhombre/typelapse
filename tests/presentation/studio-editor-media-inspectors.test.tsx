@@ -1,4 +1,4 @@
-import { addMediaAsset } from "@/application/project/multimedia-authoring";
+import { addMediaAsset, addTextLayer } from "@/application/project/multimedia-authoring";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { Asset } from "@/domain/entities/asset";
 import { StudioEditor } from "@/presentation/components/editor/studio-editor";
@@ -115,6 +115,37 @@ describe("StudioEditor media inspectors", () => {
 			target: { value: "150" },
 		});
 		expect(cue().gain).toBe(1);
+	});
+
+	it("shows one volume control: a slider and its number under a single label", () => {
+		useStudioCompositionStore
+			.getState()
+			.transact((project) => addMediaAsset(project, sceneId(), AUDIO, { cueId: "cue-1" }));
+		useStudioCompositionSelectionStore.getState().selectAudioCue("cue-1");
+		render(<StudioEditor />);
+
+		expect(screen.getAllByText("Volume")).toHaveLength(1);
+		expect(screen.getAllByRole("slider", { name: "Volume" })).toHaveLength(1);
+		fireEvent.change(screen.getByRole("slider", { name: "Volume" }), { target: { value: "40" } });
+		expect(cue().gain).toBe(0.4);
+		expect((screen.getByRole("spinbutton", { name: "Volume" }) as HTMLInputElement).value).toBe(
+			"40",
+		);
+	});
+
+	it("names a text layer by its words and its size fields by what they size", () => {
+		useStudioCompositionStore
+			.getState()
+			.transact((project) =>
+				addTextLayer(project, sceneId(), { id: "title", text: "Ship the diff\nand more" }),
+			);
+		useStudioCompositionStore.getState().selectBlock(sceneId(), "title");
+		render(<StudioEditor />);
+
+		expect(screen.getByText("Ship the diff", { selector: "strong" })).toBeTruthy();
+		expect(screen.getByRole("spinbutton", { name: "Width percentage" })).toBeTruthy();
+		expect(screen.getByRole("spinbutton", { name: "Height percentage" })).toBeTruthy();
+		expect(screen.getByRole("spinbutton", { name: "X position percentage" })).toBeTruthy();
 	});
 
 	it("trims a video and states what happens when the clip and scene lengths differ", () => {

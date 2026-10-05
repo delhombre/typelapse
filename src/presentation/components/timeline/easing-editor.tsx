@@ -106,7 +106,11 @@ export function EasingEditor({
 			style={{ left: position.left, bottom: position.bottom }}
 			initial={reduceMotion ? false : { opacity: 0, y: 8, scale: 0.985 }}
 			animate={{ opacity: 1, y: 0, scale: 1 }}
-			exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 5, scale: 0.99 }}
+			exit={
+				reduceMotion
+					? { opacity: 1 }
+					: { opacity: 0, y: 5, scale: 0.99, transition: { duration: 0.11, ease: [0.4, 0, 1, 1] } }
+			}
 			transition={reduceMotion ? { duration: 0 } : { duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
 		>
 			<div className="studio-easing-heading">
