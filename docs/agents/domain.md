@@ -23,6 +23,7 @@ invariant has actually been settled.
 ├── CONTEXT.md            # glossary and invariants
 ├── docs/decisions/       # dated decision logs (D-numbers), indexed by README.md
 ├── docs/agents/          # how agents work here: tracker, labels, quality loop
+├── docs/design/          # SYSTEM.md (tokens), DECISIONS.md (doctrine), passes/ (one file per screen pass)
 ├── docs/research/        # cited research reports, when present (else the owner's notes)
 └── goals/<goal>/         # contract, plan, evidence and state of a goal
 ```
