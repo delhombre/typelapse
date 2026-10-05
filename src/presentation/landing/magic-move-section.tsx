@@ -1,6 +1,7 @@
 import { TRANSITION_MS } from "@/application/magic-move/timeline";
 import { Theme } from "@/domain/entities/theme";
 import { LoopingFrames } from "@/presentation/components/preview/looping-frames";
+import { useReducedMotion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FeatureSection } from "./feature-section";
 
@@ -127,6 +128,9 @@ export function MagicMoveSection() {
 }
 
 function LiveMorph() {
+	/* Under reduced motion the frame rests on its last state and does not play,
+	   so a Play button there only changed its own label. */
+	const reduce = useReducedMotion();
 	const [playing, setPlaying] = useState(false);
 	const frame = useRef<HTMLDivElement>(null);
 	const [room, setRoom] = useState(0);
@@ -153,7 +157,11 @@ function LiveMorph() {
 		let alive = true;
 		const horizontalPadding = (el: Element) => {
 			const style = getComputedStyle(el);
-			return Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
+			/* A padding that does not parse is none: NaN here made a room that is
+			   never equal to itself, and the fit refitted forever. */
+			return (
+				(Number.parseFloat(style.paddingLeft) || 0) + (Number.parseFloat(style.paddingRight) || 0)
+			);
 		};
 		const measure = () =>
 			setRoom(column.clientWidth - horizontalPadding(column) - horizontalPadding(node));
@@ -215,10 +223,12 @@ function LiveMorph() {
 					ariaLabel="A code snippet morphing token by token as two lines are added"
 				/>
 			</div>
-			<button type="button" className="lp-demo-replay" onClick={replay}>
-				<ReplayIcon />
-				<span>{playing ? "Replay" : "Play motion"}</span>
-			</button>
+			{!reduce && (
+				<button type="button" className="lp-demo-replay hit-ext" onClick={replay}>
+					<ReplayIcon />
+					<span>{playing ? "Replay" : "Play motion"}</span>
+				</button>
+			)}
 		</div>
 	);
 }

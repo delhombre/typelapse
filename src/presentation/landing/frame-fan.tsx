@@ -66,13 +66,21 @@ function stackZ(hovered: boolean, descending: boolean, baseZ: number): number {
     ratio as a proof-sheet corner mark, so the claim is performed by the
     object and the chip row could be retired. Theme and mesh still vary per
     card; widths are tuned so every shape reads at the fan's scale. */
-const FAN = [
+/** The change every card carries. Short enough to sit whole in the narrowest
+    shape: at `const active = users.filter(` the 9:16 card cut the line at
+    "users.fi", which read as an export that crops your code, and no export does. */
+export const FAN_CODE = "users.filter(\n  (u) => u.active\n)";
+export const FAN_FONT = 11;
+export const FAN_FRAME_PADDING = 16;
+export const FAN_MESH_PADDING = 10;
+
+export const FAN_CARDS = [
 	{
 		themeName: "nord",
 		presetId: "forest",
 		title: "api/users.ts",
 		language: "typescript",
-		code: "const active = users.filter(\n  (u) => u.active\n)",
+		code: FAN_CODE,
 		ratio: "16:9",
 		width: 300,
 		aspect: "16 / 9",
@@ -85,7 +93,7 @@ const FAN = [
 		presetId: "nebula",
 		title: "api/users.ts",
 		language: "typescript",
-		code: "const active = users.filter(\n  (u) => u.active\n)",
+		code: FAN_CODE,
 		ratio: "4:5",
 		width: 210,
 		aspect: "4 / 5",
@@ -98,7 +106,7 @@ const FAN = [
 		presetId: "solar",
 		title: "api/users.ts",
 		language: "typescript",
-		code: "const active = users.filter(\n  (u) => u.active\n)",
+		code: FAN_CODE,
 		ratio: "9:16",
 		width: 180,
 		aspect: "9 / 16",
@@ -111,7 +119,7 @@ const FAN = [
 		presetId: "ocean",
 		title: "api/users.ts",
 		language: "typescript",
-		code: "const active = users.filter(\n  (u) => u.active\n)",
+		code: FAN_CODE,
 		ratio: "1:1",
 		width: 230,
 		aspect: "1 / 1",
@@ -124,7 +132,7 @@ const FAN = [
 		presetId: "ember",
 		title: "api/users.ts",
 		language: "typescript",
-		code: "const active = users.filter(\n  (u) => u.active\n)",
+		code: FAN_CODE,
 		ratio: "3:4",
 		width: 215,
 		aspect: "3 / 4",
@@ -175,7 +183,7 @@ export function FrameFan() {
 			    at a 768px tablet it ran off both sides of the page and gave the whole
 			    landing a horizontal scroll. */}
 			<div className="relative hidden h-[380px] lg:block">
-				{FAN.map((card, i) => {
+				{FAN_CARDS.map((card, i) => {
 					const baseZ = 30 - Math.abs(i - 2) * 10;
 					/* Only the cards touching the hovered one move aside, and they move
 					   *away* from it: the sign comes from which side of the hover they
@@ -200,7 +208,7 @@ export function FrameFan() {
 						   the lift itself is animated. */
 						<div
 							key={card.ratio}
-							className="absolute bottom-4 left-1/2"
+							className="lp-nogutter absolute bottom-4 left-1/2"
 							style={{
 								zIndex: stackZ(hovered === i, descending.has(i), baseZ),
 								width: card.width,
@@ -249,9 +257,9 @@ export function FrameFan() {
 										code={card.code}
 										label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
 										meshTime={card.meshTime}
-										fontSize={11}
-										framePadding={16}
-										meshPadding={10}
+										fontSize={FAN_FONT}
+										framePadding={FAN_FRAME_PADDING}
+										meshPadding={FAN_MESH_PADDING}
 										fill
 										badge={card.ratio}
 										className="h-full w-full"
@@ -277,10 +285,10 @@ export function FrameFan() {
 				tabIndex={0}
 				className="lp-fan-row -mx-6 flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-2 lg:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 			>
-				{FAN.map((card) => (
+				{FAN_CARDS.map((card) => (
 					<div
 						key={card.ratio}
-						className="shrink-0 snap-center self-center"
+						className="lp-nogutter shrink-0 snap-center self-center"
 						style={{ width: card.width, aspectRatio: card.aspect }}
 					>
 						<StaticFrame
@@ -291,9 +299,9 @@ export function FrameFan() {
 							code={card.code}
 							label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
 							meshTime={card.meshTime}
-							fontSize={11}
-							framePadding={16}
-							meshPadding={10}
+							fontSize={FAN_FONT}
+							framePadding={FAN_FRAME_PADDING}
+							meshPadding={FAN_MESH_PADDING}
 							fill
 							badge={card.ratio}
 							className="h-full w-full"

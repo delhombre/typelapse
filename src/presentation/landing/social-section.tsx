@@ -34,9 +34,9 @@ export function SocialSection() {
 						<Eyebrow>Step 03 · Check</Eyebrow>
 						<h2 className="lp-h2 mt-4">Check where it lands.</h2>
 						<p className="lp-line mt-4 max-w-md">
-							The same clip, dropped into a faithful TikTok, Reels, Shorts, X or LinkedIn frame with
-							the real safe zones. You see what a caption or an action rail would cover before you
-							ever leave the studio.
+							The same clip in a faithful TikTok, Reels, Shorts, X or LinkedIn frame with the real
+							safe zones, so you see what a caption or an action rail would cover before you leave
+							the studio.
 						</p>
 						{/* The row and the phone drive the same selected platform. Nothing
 						    moves unless a chip, key press or swipe asks it to. */}
@@ -53,18 +53,9 @@ export function SocialSection() {
 					</Reveal>
 
 					<Reveal delay={0.1} className="flex items-center justify-center">
-						<div className="relative flex w-full items-center justify-center">
-							{/* A second, tighter glow hugging the device for extra product-shot depth. */}
-							<div
-								aria-hidden
-								className="pointer-events-none absolute inset-0"
-								style={{
-									background:
-										"radial-gradient(40% 38% at 50% 46%, oklch(1 0 0 / 0.06), transparent 72%)",
-								}}
-							/>
-							<IphoneShowcase cycle={cycle} className="relative z-10" />
-						</div>
+						{/* One glow for the section, behind it. A second, tighter one hugged
+						    the device as well: two depth cues for one object (pass 2026-10-05). */}
+						<IphoneShowcase cycle={cycle} className="relative z-10" />
 					</Reveal>
 				</div>
 			</div>
@@ -107,7 +98,7 @@ function PlatformChip({
 	   dot's offset and the label's step, and a class built by interpolation is
 	   a class Tailwind never sees to generate. */
 	const base =
-		"relative inline-flex h-9 items-center rounded-full border font-medium text-[13px] tabular-nums transition-colors duration-500 ease-[var(--ease-out)]";
+		"relative inline-flex h-9 items-center rounded-full border font-medium text-[13px] tabular-nums active:scale-[0.97]";
 	/* The selected one wears the primary. This section is the darkest surface on
 	   the page, which is exactly where that colour is at its strongest, and a
 	   white-on-white indicator here was the one live control that had no idea
@@ -115,7 +106,7 @@ function PlatformChip({
 	   brand marks the one that is playing, not the row. */
 	const tone = active
 		? "border-[var(--color-primary)]/45 bg-[var(--color-primary)]/12 text-[var(--color-primary)]"
-		: "border-white/12 bg-transparent text-white/40";
+		: "border-white/12 bg-transparent text-white/40 hover:border-white/20 hover:text-white/70";
 	/* The dot is always here. Mounted only while active it had to appear from
 	   nothing on the frame the carousel turned, in the middle of a 500ms colour
 	   fade — the one hard cut inside an otherwise slow change. And it sat in the
@@ -138,7 +129,13 @@ function PlatformChip({
 			aria-label={`Show the ${PLATFORM_LABELS[platform]} frame`}
 			// 36px of chip, 44px of hit area: the row is the same one a thumb uses.
 			className={`${base} ${tone} hit-ext cursor-pointer`}
-			style={{ paddingInline: CHIP_PAD }}
+			/* The colours keep their slow cross-fade, the press its own quick one:
+			   at 500ms a press would still be sinking after the finger left. */
+			style={{
+				paddingInline: CHIP_PAD,
+				transition:
+					"color 500ms var(--ease-out), background-color 500ms var(--ease-out), border-color 500ms var(--ease-out), transform 140ms var(--ease-out)",
+			}}
 		>
 			<span
 				aria-hidden

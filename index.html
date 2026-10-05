@@ -16,13 +16,16 @@
 		<!-- Paints the document in the theme the app will open in, before the bundle
 		     runs: on / the landing's stored choice, elsewhere the studio's, and the OS
 		     before either (use-landing-theme.ts and theme-mode.store.ts decide the
-		     same way). -->
+		     same way). A blocked storage throws on read; the OS still answers then. -->
 		<script>
 			try {
 				var root = document.documentElement;
 				var osDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 				var landing = location.pathname === "/";
-				var stored = localStorage.getItem(landing ? "typelapse.landing-theme" : "typelapse.studio-theme");
+				var stored = null;
+				try {
+					stored = localStorage.getItem(landing ? "typelapse.landing-theme" : "typelapse.studio-theme");
+				} catch (error) {}
 				var dark = stored === "dark" || (stored !== "light" && osDark);
 				if (landing) {
 					root.dataset.landingTheme = dark ? "dark" : "light";

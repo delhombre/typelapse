@@ -2,7 +2,13 @@ import { classifySource } from "@/application/import/classify-source";
 import { routeUrlPaste } from "@/application/import/route-url-paste";
 import { trigger } from "@/presentation/haptics";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
-import { type KeyboardEvent as ReactKeyboardEvent, useMemo, useRef, useState } from "react";
+import {
+	Fragment,
+	type KeyboardEvent as ReactKeyboardEvent,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
@@ -48,6 +54,8 @@ const EXAMPLES = [
 	{ url: "github.com/vercel/next.js/pull/97139", files: "1 file", added: "+19", removed: "−7" },
 	{ url: "github.com/honojs/hono/pull/5189", files: "3 files", added: "+44", removed: "−1" },
 ] as const;
+
+const META = ["Local by default", "Preview matches export", "MP4, WebM, GIF and PNG"] as const;
 
 /**
  * Which pastille the field's contents belong under, for the kinds we can be
@@ -212,15 +220,25 @@ export function Hero() {
 					</ul>
 				</RevealItem>
 				<RevealItem>
+					{/* Each fact is the unit that wraps: at 375 the line used to break
+					    inside the format list and leave "WebM, GIF and PNG" orphaned. */}
 					<p className="lp-hero-meta">
-						Local by default &nbsp;·&nbsp; Preview matches export &nbsp;·&nbsp; MP4, WebM, GIF and
-						PNG
+						{META.map((fact, i) => (
+							<Fragment key={fact}>
+								{/* Held to the fact before it, so a wrapped line never opens on a dot. */}
+								{i > 0 && <span aria-hidden="true">{"\u00a0\u00a0·\u00a0 "}</span>}
+								<span className="whitespace-nowrap">{fact}</span>
+							</Fragment>
+						))}
 					</p>
 				</RevealItem>
 			</RevealGroup>
 
 			<Reveal immediate delay={0.26} className="mt-10">
-				<Instrument />
+				{/* The field's button is this screen's primary, and the island sits
+				    inside the same screen, so its own "Open studio" stays a text
+				    action. The nav's filled one only appears once the hero is gone. */}
+				<Instrument quietCta />
 			</Reveal>
 		</section>
 	);

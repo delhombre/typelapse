@@ -5,7 +5,9 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/presentation/landing/instrument", () => ({
-	Instrument: () => <div aria-label="Product preview" />,
+	Instrument: ({ quietCta }: { quietCta?: boolean }) => (
+		<div aria-label="Product preview" data-quiet-cta={quietCta ? "" : undefined} />
+	),
 }));
 
 vi.mock("@/presentation/haptics", () => ({ trigger: vi.fn() }));
@@ -112,5 +114,32 @@ describe("landing hero", () => {
 		expect(screen.getByRole("status", { name: "Studio" }).textContent).toBe(
 			`/app${encodeImportIntent({ source: url })}`,
 		);
+	});
+});
+
+describe("landing hero, the meta line", () => {
+	it("keeps each fact whole when the line wraps", () => {
+		const { container } = renderHero();
+		const meta = container.querySelector(".lp-hero-meta");
+		const facts = Array.from(meta?.querySelectorAll(":scope > span:not([aria-hidden])") ?? []);
+		// At 375 the line broke inside "MP4, WebM, GIF and PNG"; a fact is the unit
+		// that may move to the next line, never half of one.
+		expect(facts.map((fact) => fact.textContent)).toEqual([
+			"Local by default",
+			"Preview matches export",
+			"MP4, WebM, GIF and PNG",
+		]);
+		for (const fact of facts) {
+			expect(fact.className).toContain("whitespace-nowrap");
+		}
+	});
+});
+
+describe("landing hero, one filled call to action", () => {
+	it("keeps the field's button as the primary and quiets the instrument's own", () => {
+		// The island sits inside the hero, so whenever it is on screen the field's
+		// "Open studio" is too: two filled buttons with the same words.
+		renderHero();
+		expect(screen.getByLabelText("Product preview").hasAttribute("data-quiet-cta")).toBe(true);
 	});
 });
