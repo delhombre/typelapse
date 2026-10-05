@@ -62,3 +62,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-04 [renderer-drifts-and-size-refusal](2026-10-04-renderer-drifts-and-size-refusal.md):
   the push-in clips under the chrome bar in all three renderers; the preview
   lays its card out at export size; a refused server render offers Device.
+- 2026-10-05 [ui-passes](2026-10-05-ui-passes.md): the design system doc first,
+  then every screen through Emil's loop with Craft, proof by screenshots and
+  a ui-review verdict.
