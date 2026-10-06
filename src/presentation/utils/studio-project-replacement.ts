@@ -140,12 +140,18 @@ export const LEGACY_STUDIO_PROJECT_ID = "studio-project";
  * snippet already holds, under that project's id. A project with nothing
  * stored gets a composition of its code alone, never the previous project's
  * layers. `adoptLegacy` hands the old single composition to this project if it
- * is still there; only the boot asks for it.
+ * is still there; only the boot asks for it. `guard` runs the moment the stored
+ * composition goes on screen (and only that moment, not the reads before it):
+ * the boot passes the boot guard's, so a stored document that throws the studio
+ * is set aside rather than replayed.
  */
 export async function restoreStudioProject(
 	projectId: string,
 	isActive: () => boolean = () => true,
-	options: { readonly adoptLegacy?: boolean } = {},
+	options: {
+		readonly adoptLegacy?: boolean;
+		readonly guard?: (restore: () => boolean) => boolean;
+	} = {},
 ): Promise<void> {
 	let stored = await studioLocalLibrary.loadProject(projectId);
 	if (!stored && options.adoptLegacy && projectId !== LEGACY_STUDIO_PROJECT_ID) {
@@ -174,17 +180,21 @@ export async function restoreStudioProject(
 			studioMediaRegistry.revoke(asset.id);
 		}
 	}
-	// The code was loaded from the project's spine, whose step ids need not be
-	// the ones the layers and the history were saved under: the steps take the
-	// stored ids, so the composition loads exactly as it was stored.
-	takeStoredSceneIds(document);
-	loadStudioCompositionDocument(adoptStoredSceneIds(document, readStudioCompositionSnapshot()));
-	// loadDocument resets selection to the first scene; follow the Studio's.
-	const sceneId = studioSceneIdAt(useSnippetStore.getState().currentStepIndex);
-	const composition = useStudioCompositionStore.getState();
-	if (composition.value.project.scenes.some((scene) => scene.id === sceneId)) {
-		composition.selectScene(sceneId);
-	}
+	const guard = options.guard ?? ((restore: () => boolean) => restore());
+	guard(() => {
+		// The code was loaded from the project's spine, whose step ids need not be
+		// the ones the layers and the history were saved under: the steps take the
+		// stored ids, so the composition loads exactly as it was stored.
+		takeStoredSceneIds(document);
+		loadStudioCompositionDocument(adoptStoredSceneIds(document, readStudioCompositionSnapshot()));
+		// loadDocument resets selection to the first scene; follow the Studio's.
+		const sceneId = studioSceneIdAt(useSnippetStore.getState().currentStepIndex);
+		const composition = useStudioCompositionStore.getState();
+		if (composition.value.project.scenes.some((scene) => scene.id === sceneId)) {
+			composition.selectScene(sceneId);
+		}
+		return true;
+	});
 }
 
 /** Rename the snippet's steps to the stored scene ids they match; not an edit. */
