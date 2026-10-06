@@ -11,26 +11,63 @@
 	--camera-timeline-height: 218px;
 	--camera-timeline-bottom: 16px;
 	--camera-rail-bottom: 246px;
-	--camera-accent: #2f80ff;
-	--camera-amber: #ffd50b;
+	/* One accent and one primary for the whole product (SYSTEM.md, drift 1 and
+	   2, settled by the studio desktop pass): the timeline's selection and the
+	   island's CTA wear the same yellow as every other filled action, and every
+	   ring and selection outline is the accent the landing already focuses with. */
+	--camera-accent: var(--color-accent);
+	--camera-amber: var(--color-primary);
 	--camera-coral: #ef5b43;
-	--camera-focus: #1d1d20;
-	--camera-ink: #1d1d20;
-	--camera-line: rgb(29 29 32 / 0.05);
-	/* Slightly darker than the reference's muted ink so 11px labels still pass
-	   AA on the near-white paper instead of missing the threshold by 0.07. */
-	--camera-muted: #74717a;
-	--camera-pill: #f1f2f4;
-	--camera-paper: #f9fafc;
+	--camera-focus: var(--color-accent);
+	/* Warm paper, the landing's own (drift 3): ui.camera's cool grey made /app
+	   a colder room than the page that led to it. Ink and the muted grey are the
+	   landing's ink and ash; the ash keeps 11px labels at AA on the pill fill,
+	   where the old muted grey fell to 4.39:1. */
+	--camera-ink: var(--color-neutral-900);
+	--camera-line: var(--sc-hairline);
+	--camera-muted: #6e6b64;
+	--camera-pill: var(--color-neutral-100);
+	--camera-paper: var(--color-neutral-50);
+	/* The opaque floating surface: the card and the timeline. Opaque rather than
+	   the phone's frosted material (drift 11) because there is nothing behind
+	   them but flat paper, so a blur costs a compositing layer over Monaco and
+	   shows nothing. */
+	--camera-surface: #ffffff;
+	/* Raised, for the opaque card and timeline: the hairline is a ring inside
+	   the shadow stack rather than a border, so it never adds to the box. */
+	--camera-raised: 0 0 0 1px var(--camera-line), 0 1px 2px rgb(28 27 25 / 0.04), 0 8px 28px
+		rgb(28 27 25 / 0.05);
+	/* The landing's card material (DECISIONS D5), for everything that floats
+	   over the scene: the header capsules, the menus, the easing popover. */
+	--camera-material: color-mix(in oklch, var(--color-neutral-50) 88%, transparent);
+	--camera-material-blur: blur(18px) saturate(1.4);
+	--camera-material-shadow: 0 0 0 1px var(--sc-hairline), 0 2px 6px rgb(0 0 0 / 0.04), 0 18px 40px
+		-18px rgb(0 0 0 / 0.22);
 	--camera-control-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 3px 9px rgb(15 23 42 / 0.024);
 	--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024);
 	--camera-dark-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 5px 16px rgb(0 0 0 / 0.07);
+	/* The studio's type scale (drift 9): five sizes, three weights. Anything
+	   smaller than 9px is a texture (the clips' code), not text. */
+	--sc-text-2xs: 9px;
+	--sc-text-xs: 10px;
+	--sc-text-sm: 11px;
+	--sc-text-md: 12px;
+	--sc-text-lg: 13px;
+	--sc-weight-regular: 500;
+	--sc-weight-medium: 600;
+	--sc-weight-strong: 650;
 	isolation: isolate;
+	/* Clip, not hidden. With the card open, the stage and the dock overhang the
+	   window by up to 160px, and a hidden overflow is still a scroll container:
+	   a focus, a find-in-page or any scrollIntoView slid the whole studio left
+	   under its own header. A clipped box cannot be scrolled at all. */
+	overflow: clip;
 	background: var(--camera-paper);
 	color: var(--camera-ink);
-	/* Open Runde is part of ui.camera's identity. We keep our own assets and use
-	   the platform's rounded UI face first, with Geist as the portable fallback. */
-	font-family: ui-rounded, "SF Pro Rounded", var(--font-sans);
+	/* One face on every platform (drift 10): the rounded system face only ever
+	   reached Apple screens, so the same studio was two products depending on
+	   the machine. Geist is the landing's face and the phone's. */
+	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
 }
 
@@ -41,12 +78,18 @@
 	flex: none;
 }
 
+/* The ink was never redefined here, so every field value, chip label and
+   inspector title painted #1d1d20 on a dark surface. */
 .dark .studio-camera-root {
-	--camera-line: rgb(255 255 255 / 0.08);
-	--camera-muted: #a09da6;
-	--camera-pill: #242428;
-	--camera-paper: #101114;
-	--camera-focus: #f5f5f7;
+	--camera-ink: #f5f3ef;
+	--camera-muted: #a8a39a;
+	--camera-pill: #292624;
+	--camera-paper: var(--color-neutral-950);
+	--camera-surface: #1e1c1a;
+	/* A drop shadow does nothing on a dark page: the ring carries the edge. */
+	--camera-raised: 0 0 0 1px var(--camera-line), 0 10px 32px rgb(0 0 0 / 0.28);
+	--camera-material: color-mix(in oklch, var(--color-neutral-900) 82%, transparent);
+	--camera-material-shadow: 0 0 0 1px var(--sc-hairline), 0 20px 44px -18px rgb(0 0 0 / 0.6);
 	background: var(--camera-paper);
 }
 
@@ -203,20 +246,16 @@
 	gap: 8px;
 }
 
+/* The header's capsules are floating surfaces, so they wear the material; at
+   40px tall a pill radius is their own height's half. */
 .studio-camera-root .sc-chip {
 	height: 40px;
 	padding-inline: 3px;
-	border: 1px solid var(--camera-line);
-	border-radius: 20px;
-	background: #fff;
-	box-shadow: var(--camera-surface-shadow);
-	-webkit-backdrop-filter: none;
-	backdrop-filter: none;
-}
-
-.dark .studio-camera-root .sc-chip {
-	background: #1b1c20;
-	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 5px 18px rgb(0 0 0 / 0.18);
+	border-radius: var(--r-pill);
+	background: var(--camera-material);
+	box-shadow: var(--camera-material-shadow);
+	-webkit-backdrop-filter: var(--camera-material-blur);
+	backdrop-filter: var(--camera-material-blur);
 }
 
 .studio-camera-root .sc-brand {
@@ -248,19 +287,16 @@
 	height: 30px;
 	padding-inline: 3px;
 	color: var(--camera-ink);
-	font-size: 12px;
-	font-weight: 600;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
 	letter-spacing: -0.012em;
-}
-
-.dark .studio-camera-root .sc-title {
-	color: #f5f5f7;
 }
 
 .studio-camera-root .sc-steps {
 	padding-right: 0;
 	color: var(--camera-muted);
-	font-size: 10.5px;
+	font-size: var(--sc-text-sm);
+	font-variant-numeric: tabular-nums;
 }
 
 .sc-project-trigger {
@@ -294,20 +330,12 @@
 	z-index: 80;
 	width: 310px;
 	overflow: hidden;
-	border: 1px solid #e5e5e8;
-	border-radius: 18px;
-	background: rgb(255 255 255 / 0.98);
-	box-shadow: 0 14px 42px rgb(20 20 24 / 0.1);
+	border-radius: var(--r-surface);
+	background: var(--camera-material);
+	box-shadow: var(--camera-material-shadow);
 	color: var(--camera-ink);
-	-webkit-backdrop-filter: blur(18px) saturate(1.05);
-	backdrop-filter: blur(18px) saturate(1.05);
-}
-
-.dark .sc-project-menu {
-	border-color: rgb(255 255 255 / 0.09);
-	background: rgb(29 29 32 / 0.97);
-	box-shadow: 0 18px 48px rgb(0 0 0 / 0.35);
-	color: #f5f5f7;
+	-webkit-backdrop-filter: var(--camera-material-blur);
+	backdrop-filter: var(--camera-material-blur);
 }
 
 .sc-project-menu-head {
@@ -353,7 +381,7 @@
 	gap: 3px;
 	max-height: 240px;
 	overflow-y: auto;
-	padding: 7px;
+	padding: 6px;
 }
 
 .sc-project-row,
@@ -371,8 +399,16 @@
 .sc-project-row {
 	gap: 10px;
 	min-height: 54px;
-	padding: 6px 9px 6px 7px;
-	border-radius: 12px;
+	padding: 6px 10px 6px 6px;
+	border-radius: calc(var(--r-surface) - 6px);
+}
+
+.sc-project-row {
+	transition: background-color 150ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.sc-project-row:active {
+	transform: scale(0.97);
 }
 
 .sc-project-row[data-active] {
@@ -390,9 +426,14 @@
 	width: 54px;
 	height: 36px;
 	flex: none;
-	border: 1px solid rgb(29 29 32 / 0.08);
-	border-radius: 8px;
-	box-shadow: inset 0 1px rgb(255 255 255 / 0.2), 0 1px 2px rgb(20 20 24 / 0.06);
+	/* An image's edge: pure black or white at 10%, inside its own bounds. */
+	border-radius: var(--r-field);
+	outline: 1px solid rgb(0 0 0 / 0.1);
+	outline-offset: -1px;
+}
+
+.dark .sc-project-thumb {
+	outline-color: rgb(255 255 255 / 0.1);
 }
 
 .sc-project-copy {
@@ -510,6 +551,12 @@
 	color: var(--camera-ink);
 }
 
+/* --camera-ink is not themed, so open on the dark paper the label was ink on
+   the dark pill: the trigger went blank the moment its menu opened. */
+.dark .sc-island-trigger[aria-expanded="true"] {
+	color: #f5f5f7;
+}
+
 .sc-source-root {
 	position: relative;
 }
@@ -522,37 +569,45 @@
 	z-index: 50;
 	width: 278px;
 	overflow: hidden;
-	border: 1px solid #e5e5e8;
+	border: 0;
 	border-radius: 18px;
 	background: #fff;
-	box-shadow: 0 14px 42px rgb(20 20 24 / 0.1);
+	/* Raised, so depth is a ring inside a shadow stack rather than a border
+	   tuned to one paper: crisp under the edge, soft below it. */
+	box-shadow: 0 0 0 1px rgb(29 29 32 / 0.08), 0 2px 6px rgb(20 20 24 / 0.05), 0 16px 40px -12px
+		rgb(20 20 24 / 0.16);
 	color: #1d1d20;
 }
 
 .dark .sc-source-menu,
 .dark .sc-source-form-popover {
-	border-color: rgb(255 255 255 / 0.09);
 	background: #1b1c20;
-	box-shadow: 0 18px 48px rgb(0 0 0 / 0.4);
+	box-shadow: 0 0 0 1px rgb(255 255 255 / 0.09), 0 18px 48px -12px rgb(0 0 0 / 0.6);
 	color: #f5f5f7;
 }
 
-.sc-source-menu > header {
-	display: grid;
-	gap: 2px;
-	padding: 14px 14px 11px;
-	border-bottom: 1px solid var(--camera-line);
-}
-
-.sc-source-menu > header strong {
-	font-size: 12px;
-	font-weight: 670;
-	letter-spacing: -0.012em;
-}
-
-.sc-source-menu > header span {
+/* Empty until media is being added; then one line under the choices. */
+.sc-source-status {
+	order: 1;
+	margin: 0;
+	padding: 2px 14px 10px;
 	color: var(--camera-muted);
-	font-size: 10.5px;
+	font-size: 11px;
+}
+
+.sc-source-status:empty {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+}
+
+.sc-source-menu {
+	display: flex;
+	flex-direction: column;
+	padding-block: 2px;
 }
 
 .sc-source-choice {
@@ -570,7 +625,7 @@
 	color: inherit;
 	font-family: inherit;
 	text-align: left;
-	transition: background-color 150ms var(--ease-out), transform 120ms var(--ease-out);
+	transition: background-color 150ms var(--ease-out), transform 150ms var(--ease-out);
 }
 
 .sc-source-choice + .sc-source-choice {
@@ -579,6 +634,12 @@
 
 .sc-source-choice:active {
 	transform: scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.sc-source-choice:active {
+		transform: none;
+	}
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -602,7 +663,8 @@
 	height: 34px;
 	align-items: center;
 	justify-content: center;
-	border-radius: 11px;
+	/* Concentric with the row: its 14px corner less the 7px it sits in. */
+	border-radius: 7px;
 	background: #f1f2f4;
 	color: #55535b;
 	box-shadow: inset 0 0 0 1px rgb(29 29 32 / 0.025);
@@ -621,14 +683,17 @@
 }
 
 .sc-source-choice strong {
-	font-size: 11.5px;
-	font-weight: 630;
+	font-size: 12px;
+	font-weight: 600;
 	letter-spacing: -0.008em;
 }
 
 .sc-source-choice small {
+	overflow: hidden;
 	color: var(--camera-muted);
-	font-size: 10px;
+	font-size: 11px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .sc-source-choice > svg {
@@ -637,10 +702,39 @@
 
 .sc-source-form-popover {
 	right: auto;
+	width: 320px;
 	margin-top: 0;
 	padding: 9px;
-	border-color: #e5e5e8;
 	border-radius: 18px;
+}
+
+/* A refusal, under the field it is about. */
+.sc-source-error {
+	margin: 6px 2px 0;
+	color: #c53a3a;
+	font-size: 11px;
+	line-height: 1.45;
+	text-wrap: pretty;
+}
+
+.dark .sc-source-error {
+	color: #f28b82;
+}
+
+/* The replace question is the popover's content, not a card inside it: a
+   second border and fill inside the first read as two surfaces. */
+.sc-source-form-popover [data-confirm-discard] {
+	padding: 6px 4px 2px;
+	border: 0;
+	background: transparent;
+}
+
+.sc-source-form-popover [data-confirm-discard] p:first-child {
+	text-wrap: balance;
+}
+
+.sc-source-form-popover [data-confirm-discard] button {
+	white-space: nowrap;
 }
 
 .sc-source-form-popover[aria-label="Import a git diff"] {
@@ -655,6 +749,7 @@
 }
 
 .sc-source-view-head > button {
+	position: relative;
 	display: inline-flex;
 	width: 30px;
 	height: 30px;
@@ -663,9 +758,30 @@
 	flex: none;
 	padding: 0;
 	border: 0;
-	border-radius: 10px;
+	/* The popover's 18px corner less its 9px padding. */
+	border-radius: 9px;
 	background: #f1f2f4;
 	color: #55535b;
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+
+/* 30px drawn, 40px to the pointer; nothing borders it closer than 8px. */
+.sc-source-view-head > button::after {
+	content: "";
+	position: absolute;
+	inset: -5px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-source-view-head > button:hover {
+		background: #e8e9ec;
+		color: #1d1d20;
+	}
+
+	.dark .sc-source-view-head > button:hover {
+		background: rgb(255 255 255 / 0.11);
+		color: #f5f5f7;
+	}
 }
 
 .dark .sc-source-view-head > button {
@@ -679,13 +795,13 @@
 }
 
 .sc-source-view-head strong {
-	font-size: 11.5px;
-	font-weight: 650;
+	font-size: 12px;
+	font-weight: 600;
 }
 
 .sc-source-view-head span {
 	color: var(--camera-muted);
-	font-size: 9.5px;
+	font-size: 11px;
 }
 
 /* ─────────────────────────── Bottom sheets ─────────────────────────── */
@@ -1391,23 +1507,14 @@
 }
 
 .studio-camera-root .sc-glyph-button-active {
-	background: rgb(29 29 32 / 0.055);
+	background: var(--camera-pill);
 	color: var(--camera-ink);
-}
-
-.dark .studio-camera-root .sc-glyph-button-active {
-	background: rgb(255 255 255 / 0.08);
-	color: #f5f5f7;
 }
 
 @media (hover: hover) and (pointer: fine) {
 	.studio-camera-root .sc-glyph-button:hover {
 		background: var(--camera-pill);
-		color: #252329;
-	}
-
-	.dark .studio-camera-root .sc-glyph-button:hover {
-		color: #f5f5f7;
+		color: var(--camera-ink);
 	}
 }
 
@@ -1420,17 +1527,13 @@
 	grid-template-columns: 1fr 1fr;
 	min-width: 0;
 	margin: 0;
-	padding: 3px;
-	border: 1px solid var(--camera-line);
-	border-radius: 20px;
-	background: #fff;
-	box-shadow: var(--camera-surface-shadow);
+	padding: 4px;
+	border-radius: var(--r-pill);
+	background: var(--camera-material);
+	box-shadow: var(--camera-material-shadow);
+	-webkit-backdrop-filter: var(--camera-material-blur);
+	backdrop-filter: var(--camera-material-blur);
 	transform: translateX(-50%);
-}
-
-.dark .studio-camera-mode {
-	background: #1b1c20;
-	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 5px 18px rgb(0 0 0 / 0.18);
 }
 
 .studio-camera-mode button {
@@ -1439,12 +1542,12 @@
 	height: 32px;
 	padding: 0 16px;
 	border: 0;
-	border-radius: 16px;
+	border-radius: calc(var(--r-pill) - 4px);
 	background: transparent;
 	color: var(--camera-muted);
 	font-family: inherit;
-	font-size: 11.5px;
-	font-weight: 600;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
 	letter-spacing: -0.01em;
 	transition: color 150ms var(--ease-out), transform 120ms var(--ease-out);
 }
@@ -1470,8 +1573,8 @@
 	position: absolute;
 	inset: 0;
 	z-index: 0;
-	border-radius: 16px;
-	background: #1d1d20;
+	border-radius: inherit;
+	background: var(--color-neutral-900);
 	box-shadow: 0 1px 2px rgb(0 0 0 / 0.16), 0 4px 10px rgb(0 0 0 / 0.11);
 	pointer-events: none;
 }
@@ -1487,7 +1590,7 @@
 }
 
 .studio-camera-mode button:active {
-	transform: scale(0.96);
+	transform: scale(0.97);
 }
 
 .studio-camera-mode button:focus-visible {
@@ -1516,17 +1619,11 @@
 }
 
 .studio-camera-root .sc-card {
-	border: 1px solid var(--camera-line);
-	border-radius: 20px;
-	background: #fff;
-	box-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 8px 28px rgb(15 23 42 / 0.045);
+	border-radius: var(--r-sheet);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-raised);
 	-webkit-backdrop-filter: none;
 	backdrop-filter: none;
-}
-
-.dark .studio-camera-root .sc-card {
-	background: #1b1c20;
-	box-shadow: 0 1px 2px rgb(0 0 0 / 0.24), 0 10px 32px rgb(0 0 0 / 0.2);
 }
 
 .studio-camera-root .sc-tab {
@@ -1536,17 +1633,13 @@
 /* Multimedia appears as a capability of the accepted Studio, never as another
    shell. These controls only mount after the first authored layer, leaving the
    code-only composition byte-for-byte visually unchanged. */
-.studio-camera-root .sc-source-divider {
+/* The phone's menu too: scoped to the desktop root alone, the phone drew the
+   browser's default rule, a solid ink line across the menu. */
+:is(.studio-camera-root, .sc-root-mobile) .sc-source-divider {
 	height: 1px;
 	margin: 5px 12px;
 	border: 0;
 	background: var(--camera-line);
-}
-
-.studio-camera-root .sc-layer-header-title {
-	color: var(--camera-muted);
-	font-size: 11.5px;
-	font-weight: 520;
 }
 
 /* Code keeps the accepted 5173 proportions. A selected authored layer turns
@@ -1593,7 +1686,6 @@
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head small,
-:is(.studio-camera-root, .sc-sheet) .sc-layer-field > span,
 :is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head > span {
 	color: var(--camera-muted);
 	font-size: 9px;
@@ -1602,12 +1694,28 @@
 	text-transform: uppercase;
 }
 
+/* A field's label is a plain word above it, in the muted ink: the capitals
+   are kept for the section heads (Layers, Layout), so a label never reads as
+   another heading and the column has one level of caps, not three. */
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field > span {
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm, 11px);
+	font-weight: var(--sc-weight-regular, 500);
+}
+
+/* The card's head already names the kind (TEXT, IMAGE, AUDIO), so on the
+   desktop the inspector's own eyebrow would say it a second time. The phone's
+   sheet has no such head and keeps it. */
+.studio-camera-root .sc-layer-editor-head small {
+	display: none;
+}
+
 :is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head strong {
 	max-width: 210px;
 	overflow: hidden;
 	color: var(--camera-ink);
-	font-size: 12px;
-	font-weight: 650;
+	font-size: var(--sc-text-lg, 13px);
+	font-weight: var(--sc-weight-strong, 650);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -1628,9 +1736,21 @@
 		var(--ease-out);
 }
 
+/* The 28px delete mark sits alone at the head's end, so its target can take
+   the 40px a desktop pointer is owed without reaching anything else. */
+.studio-camera-root .sc-layer-editor-head button {
+	position: relative;
+}
+
+.studio-camera-root .sc-layer-editor-head button::after {
+	content: "";
+	position: absolute;
+	inset: -6px;
+}
+
 :is(.studio-camera-root, .sc-sheet) .sc-layer-editor-head button:active,
 :is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:active:not(:disabled) {
-	transform: scale(0.94);
+	transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1648,12 +1768,13 @@
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field {
 	display: grid;
 	min-width: 0;
-	gap: 6px;
+	gap: 4px;
 }
 
+/* Three lines: a text layer is a title or a sentence, and the old 118px box
+   pushed Layout below the card's fold on a 900px window. */
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field-grow {
-	min-height: 106px;
-	flex: 0 0 118px;
+	flex: none;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea,
@@ -1661,18 +1782,17 @@
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field select {
 	width: 100%;
 	border: 1px solid var(--camera-line);
-	border-radius: 10px;
+	border-radius: var(--r-field);
 	background: var(--camera-pill);
 	color: var(--camera-ink);
 	font: inherit;
-	font-size: 11px;
+	font-size: var(--sc-text-md);
 	outline: none;
 	transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea {
-	min-height: 112px;
-	height: 100%;
+	height: 76px;
 	resize: none;
 	padding: 10px;
 	line-height: 1.5;
@@ -1681,29 +1801,33 @@
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field input[type="number"],
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field select {
 	height: 34px;
-	padding: 0 9px;
+	padding: 0 10px;
+}
+
+/* Values typed with arrows step in place: every digit takes the same width. */
+:is(.studio-camera-root, .sc-sheet) .sc-layer-field input[type="number"],
+:is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary {
+	font-variant-numeric: tabular-nums;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field textarea:focus,
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field input:focus,
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field select:focus {
-	border-color: rgb(49 130 246 / 0.58);
-	box-shadow: 0 0 0 3px rgb(49 130 246 / 0.1);
+	border-color: color-mix(in oklch, var(--color-accent) 60%, transparent);
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent) 16%, transparent);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
-	gap: 9px;
+	gap: 12px 8px;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-layout {
 	display: grid;
-	gap: 7px;
-	padding: 8px;
-	border: 1px solid var(--camera-line);
-	border-radius: 13px;
-	background: color-mix(in srgb, var(--camera-pill) 72%, transparent);
+	gap: 8px;
+	padding-top: 12px;
+	border-top: 1px solid var(--camera-line);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header {
@@ -1746,7 +1870,7 @@
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:active:not(:disabled) {
-	transform: scale(0.92);
+	transform: scale(0.97);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:disabled {
@@ -1758,34 +1882,34 @@
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 2px;
 	padding: 3px;
-	border-radius: 10px;
-	background: color-mix(in srgb, var(--camera-line) 55%, transparent);
+	border-radius: var(--r-control);
+	background: var(--camera-pill);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-presets button {
 	height: 28px;
 	padding: 0 5px;
 	border: 0;
-	border-radius: 8px;
+	border-radius: calc(var(--r-control) - 3px);
 	background: transparent;
 	color: var(--camera-muted);
 	font: inherit;
-	font-size: 9.5px;
-	font-weight: 590;
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-medium);
 	transition: background-color 140ms var(--ease-out), color 140ms var(--ease-out), transform 100ms
 		var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
 	:is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:hover {
-		background: var(--camera-paper);
-		box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+		background: var(--camera-surface);
+		box-shadow: 0 1px 2px rgb(28 27 25 / 0.06);
 		color: var(--camera-ink);
 	}
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-presets button:active {
-	transform: scale(0.96);
+	transform: scale(0.97);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid {
@@ -1801,14 +1925,14 @@
 	align-items: center;
 	padding: 0 4px;
 	border: 1px solid var(--camera-line);
-	border-radius: 9px;
-	background: var(--camera-paper);
+	border-radius: var(--r-field);
+	background: var(--camera-pill);
 	color: var(--camera-muted);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid label:focus-within {
-	border-color: rgb(49 130 246 / 0.58);
-	box-shadow: 0 0 0 2px rgb(49 130 246 / 0.08);
+	border-color: color-mix(in oklch, var(--color-accent) 60%, transparent);
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent) 16%, transparent);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-placement-grid span,
@@ -1834,7 +1958,7 @@
 	height: 34px;
 	padding: 4px;
 	border: 1px solid var(--camera-line);
-	border-radius: 10px;
+	border-radius: var(--r-field);
 	background: var(--camera-pill);
 }
 
@@ -1847,12 +1971,25 @@
 	width: 34px;
 	height: 34px;
 	margin: 0;
-	accent-color: var(--camera-focus);
+	accent-color: var(--camera-ink);
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-range input {
 	width: 100%;
-	accent-color: var(--camera-focus);
+	accent-color: var(--camera-ink);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-range > label {
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-regular);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-range-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 64px;
+	align-items: center;
+	gap: 12px;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-audio-summary {
@@ -1862,7 +1999,7 @@
 	gap: 8px;
 	padding: 10px;
 	border: 1px solid var(--camera-line);
-	border-radius: 12px;
+	border-radius: var(--r-control);
 	background: var(--camera-pill);
 }
 
@@ -1899,11 +2036,7 @@
    layer is selected there; vaul portals the sheet out of this root. */
 :is(.studio-camera-root, .sc-sheet) .sc-layer-strip {
 	display: grid;
-	gap: 7px;
-	padding: 8px;
-	border: 1px solid var(--camera-line);
-	border-radius: 13px;
-	background: color-mix(in srgb, var(--camera-pill) 72%, transparent);
+	gap: 8px;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head {
@@ -1920,13 +2053,8 @@
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-pills {
 	display: flex;
-	gap: 5px;
-	overflow-x: auto;
-	scrollbar-width: none;
-}
-
-:is(.studio-camera-root, .sc-sheet) .sc-layer-pills::-webkit-scrollbar {
-	display: none;
+	flex-wrap: wrap;
+	gap: 4px;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-pill {
@@ -1934,21 +2062,31 @@
 	height: 29px;
 	flex: none;
 	align-items: center;
-	gap: 5px;
-	padding: 0 9px;
+	gap: 4px;
+	padding: 0 10px;
 	border: 1px solid transparent;
-	border-radius: 10px;
+	border-radius: var(--r-control);
 	background: transparent;
 	color: var(--camera-muted);
 	font-family: inherit;
-	font-size: 10px;
-	font-weight: 560;
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-regular);
+	/* Selection is a colour change, not a movement: the plate fades in place. */
+	transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), color
+		150ms var(--ease-out);
 }
 
+@media (hover: hover) and (pointer: fine) {
+	:is(.studio-camera-root, .sc-sheet) .sc-layer-pill:not([data-selected]):hover {
+		color: var(--camera-ink);
+	}
+}
+
+/* The chips sit on the card's own surface now, so a white plate would vanish:
+   the selection is the pill fill, the same plate a hovered control wears. */
 :is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-selected] {
 	border-color: var(--camera-line);
-	background: #fff;
-	box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+	background: var(--camera-pill);
 	color: var(--camera-ink);
 }
 
@@ -1956,9 +2094,17 @@
 	opacity: 0.46;
 }
 
-.dark :is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-selected] {
-	background: rgb(255 255 255 / 0.09);
-	box-shadow: none;
+/* The desktop card under a finger (a touch laptop, an iPad in landscape): the
+   chips and the delete mark take the 44px floor the sheet already has. */
+@media (pointer: coarse) {
+	.studio-camera-root .sc-layer-pill {
+		height: 44px;
+	}
+
+	.studio-camera-root .sc-layer-editor-head button {
+		width: 44px;
+		height: 44px;
+	}
 }
 
 /* Under a finger a chip is a 44px target: at 29px the row in the sheet was the
@@ -1970,13 +2116,54 @@
 		font-size: 12px;
 	}
 
-	/* The eye beside "Layers" too: the head grows to hold a full target. */
-	.sc-sheet .sc-layer-strip-head {
+	/* The eye beside "Layers" too: the head grows to hold a full target, and
+	   only when it has one. A scene without code has no eye, and the 44px head
+	   was an empty band between the label and the chips. */
+	.sc-sheet .sc-layer-strip-head:has(button) {
 		height: 44px;
 	}
 
 	.sc-sheet .sc-layer-strip-head button {
 		width: 44px;
+		height: 44px;
+	}
+
+	/* The inspector under a finger, in the sheet only: the desktop card's 24 to
+	   34px controls were the sheet's mis-taps (delete, the four order arrows,
+	   the presets and the placement fields). Text the desktop sets at 8 to
+	   9.5px reads at arm's length here. */
+	.sc-sheet .sc-layer-editor-head button,
+	.sc-sheet .sc-layer-layout > header button {
+		width: 44px;
+		height: 44px;
+	}
+
+	.sc-sheet .sc-layer-layout > header {
+		height: 44px;
+	}
+
+	.sc-sheet .sc-layer-presets button {
+		height: 44px;
+		font-size: 12px;
+	}
+
+	.sc-sheet .sc-layer-placement-grid label {
+		height: 44px;
+	}
+
+	.sc-sheet .sc-layer-placement-grid input {
+		height: 42px;
+	}
+
+	.sc-sheet .sc-layer-placement-grid span,
+	.sc-sheet .sc-layer-placement-grid small {
+		font-size: 10px;
+	}
+
+	.sc-sheet .sc-layer-field input[type="number"],
+	.sc-sheet .sc-layer-field select,
+	.sc-sheet .sc-layer-color input,
+	.sc-sheet .sc-layer-range input {
 		height: 44px;
 	}
 }
@@ -2053,15 +2240,10 @@
 	padding: 0;
 }
 
-.studio-camera-root .si-island {
-	height: 42px;
-	padding: 3px;
-	border: 1px solid rgb(255 255 255 / 0.1);
-	border-radius: 999px;
-	background: #151517;
-	box-shadow: var(--camera-dark-shadow);
-}
-
+/* The island is the landing's plate (app.css: 40px, 0 6px, the pill, no
+   border, an inset hairline on dark). The desktop keeps its own 34px labelled
+   controls and 2px gap inside it: eight labelled settings and a CTA do not fit
+   the landing's 30px glyphs. */
 .studio-camera-root .si-row {
 	--island-gap: 2px;
 }
@@ -2080,11 +2262,11 @@
 }
 
 .studio-camera-root .si-row > .si-button:first-child::after {
-	inset-inline-start: -3px;
+	inset-inline-start: -6px;
 }
 
 .studio-camera-root .si-row > .si-button:last-child::after {
-	inset-inline-end: -3px;
+	inset-inline-end: -6px;
 }
 
 .studio-camera-root .si-cta {
@@ -2288,7 +2470,8 @@
 
 .studio-camera-root .si-mode-row .si-eyebrow {
 	padding-right: 2px;
-	color: #74727b;
+	/* 5.4:1 on the rail; the old #74727b was 3.8:1 at 10px. */
+	color: #8e8c95;
 	font-size: 10px;
 	font-weight: 500;
 	letter-spacing: 0;
@@ -2328,6 +2511,71 @@
 	box-shadow: inset 0 0 0 1px rgb(255 213 11 / 0.32);
 }
 
+/* The export status, in the rail's own material: the same fill, edge, shadow
+   and 42px plate as the island under it, so the two read as one instrument.
+   It hugs what it says instead of a fixed 660px that matched neither the
+   rail's root row nor its export row. */
+.studio-camera-root .si-status {
+	width: auto;
+	max-width: min(720px, calc(100vw - 40px));
+	min-height: 42px;
+	gap: 8px;
+	margin-bottom: 10px;
+	padding: 3px 3px 3px 14px;
+	border: 1px solid rgb(255 255 255 / 0.1);
+	background: #151517;
+	box-shadow: var(--camera-dark-shadow);
+	font-size: 11px;
+}
+
+.studio-camera-root .si-status-track {
+	width: 168px;
+	flex: none;
+}
+
+.studio-camera-root .si-status-fill {
+	background: var(--camera-amber);
+}
+
+.studio-camera-root .si-status-message {
+	padding-block: 9px;
+	line-height: 1.4;
+	text-wrap: pretty;
+}
+
+.studio-camera-root .si-status-mark {
+	color: var(--camera-amber);
+}
+
+.studio-camera-root .si-status[data-tone="failed"] .si-status-mark {
+	color: #f28b82;
+}
+
+.studio-camera-root .si-status .si-status-dismiss {
+	min-width: 34px;
+}
+
+/* Busy, Render keeps its fill: an amber at 55% opacity on the dark plate read
+   as olive, a broken button rather than a working one. The words carry the
+   state; the cursor says to wait. */
+.studio-camera-root .si-cta[aria-disabled="true"] {
+	cursor: progress;
+	opacity: 1;
+}
+
+/* Nothing to render is a refusal, so it takes a muted fill of its own rather
+   than a translucent amber. */
+.studio-camera-root .si-cta:disabled {
+	background: rgb(255 255 255 / 0.08);
+	color: #8e8c95;
+	opacity: 1;
+}
+
+/* Sizes and rates are read as a set; their figures keep one width. */
+.studio-camera-root .si-mode-row .si-seg-label {
+	font-variant-numeric: tabular-nums;
+}
+
 /* ───────────────────────────── Timeline ───────────────────────────── */
 
 .sc-timeline-slot {
@@ -2344,18 +2592,11 @@
 	height: 100%;
 	grid-template-rows: 56px minmax(0, 1fr);
 	overflow: hidden;
-	border: 1px solid var(--camera-line);
-	border-radius: 20px;
-	background: #fff;
-	box-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 8px 28px rgb(15 23 42 / 0.04);
+	border-radius: var(--r-sheet);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-raised);
 	color: var(--camera-ink);
 	isolation: isolate;
-}
-
-.dark .studio-timeline {
-	background: #1b1c20;
-	color: #efefeb;
-	box-shadow: 0 1px 2px rgb(0 0 0 / 0.24), 0 10px 32px rgb(0 0 0 / 0.2);
 }
 
 .studio-timeline-transport {
@@ -2483,7 +2724,7 @@
 	font-family: inherit;
 	font-size: 10px;
 	font-weight: 650;
-	transition: background-color 130ms var(--ease-out), box-shadow 130ms var(--ease-out), color 130ms
+	transition: background-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), color 150ms
 		var(--ease-out);
 }
 
@@ -2514,14 +2755,9 @@
 	height: 32px;
 	flex: none;
 	overflow: hidden;
-	border: 1px solid rgb(29 29 32 / 0.08);
-	border-radius: 9px;
-	background: #f4f5f7;
-}
-
-.dark .studio-scene-thumbnail {
-	border-color: rgb(255 255 255 / 0.09);
-	background: #242529;
+	border: 1px solid var(--camera-line);
+	border-radius: var(--r-field);
+	background: var(--camera-pill);
 }
 
 .studio-scene-thumbnail .studio-timeline-code {
@@ -2540,24 +2776,20 @@
 	text-overflow: ellipsis;
 }
 
-.dark .studio-scene-context strong {
-	color: #efefeb;
-}
-
 .studio-scene-duration {
 	display: inline-flex;
 	height: 32px;
 	align-items: center;
 	gap: 1px;
-	padding: 0 7px;
-	border: 1px solid rgb(29 29 32 / 0.08);
-	border-radius: 10px;
+	padding: 0 8px;
+	border: 1px solid var(--camera-line);
+	border-radius: var(--r-field);
 	background: rgb(125 125 120 / 0.055);
 	color: var(--camera-muted);
 	font-family: var(--font-mono);
-	font-size: 9px;
+	font-size: var(--sc-text-sm);
 	font-variant-numeric: tabular-nums;
-	transition: border-color 130ms var(--ease-out), background-color 130ms var(--ease-out);
+	transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out);
 }
 
 .dark .studio-scene-duration {
@@ -2567,7 +2799,7 @@
 
 .studio-scene-duration:focus-within {
 	border-color: rgb(29 29 32 / 0.3);
-	background: #fff;
+	background: var(--camera-surface);
 }
 
 .dark .studio-scene-duration:focus-within {
@@ -2576,7 +2808,7 @@
 }
 
 .studio-scene-duration input {
-	width: 29px;
+	width: 34px;
 	padding: 0;
 	border: 0;
 	outline: 0;
@@ -2587,8 +2819,12 @@
 	text-align: right;
 }
 
-.dark .studio-scene-duration input {
-	color: #efefeb;
+/* A touch laptop's finger: iOS and iPadOS zoom into any field under 16px. */
+@media (pointer: coarse) {
+	.studio-scene-duration,
+	.studio-easing-values input {
+		font-size: 16px;
+	}
 }
 
 .studio-scene-duration input::-webkit-inner-spin-button,
@@ -2606,13 +2842,13 @@
 	gap: 6px;
 	padding: 0 10px;
 	border: 0;
-	border-radius: 12px;
+	border-radius: var(--r-control);
 	background: transparent;
 	color: var(--camera-muted);
 	font-family: inherit;
-	font-size: 10px;
-	font-weight: 570;
-	transition: background-color 130ms var(--ease-out), color 130ms var(--ease-out), transform 100ms
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-regular);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 100ms
 		var(--ease-out);
 }
 
@@ -2639,7 +2875,7 @@
 }
 
 .studio-scene-context button:active {
-	transform: scale(0.96);
+	transform: scale(0.97);
 }
 
 .studio-easing-anchor {
@@ -2667,20 +2903,13 @@
 	width: 336px;
 	gap: 10px;
 	padding: 12px;
-	border: 1px solid rgb(29 29 32 / 0.09);
-	border-radius: 20px;
-	background: rgb(250 250 251 / 0.96);
-	box-shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 20px 54px rgb(15 23 42 / 0.16);
+	border-radius: var(--r-sheet);
+	background: var(--camera-material);
+	box-shadow: var(--camera-material-shadow);
 	color: var(--camera-ink);
 	transform-origin: 84px 100%;
-	backdrop-filter: blur(20px) saturate(1.15);
-}
-
-.dark .studio-easing-editor {
-	border-color: rgb(255 255 255 / 0.1);
-	background: rgb(31 32 36 / 0.96);
-	box-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 22px 58px rgb(0 0 0 / 0.45);
-	color: #f4f4f1;
+	-webkit-backdrop-filter: var(--camera-material-blur);
+	backdrop-filter: var(--camera-material-blur);
 }
 
 .studio-easing-heading {
@@ -2785,8 +3014,8 @@
 	font-size: 10px;
 	font-variant-numeric: tabular-nums;
 	text-align: center;
-	transition: border-color 120ms var(--ease-out), background-color 120ms var(--ease-out), box-shadow
-		120ms var(--ease-out);
+	transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out), box-shadow
+		150ms var(--ease-out);
 }
 
 .studio-easing-values input:focus {
@@ -2842,8 +3071,8 @@
 	color: var(--camera-muted);
 	font-size: 9px;
 	font-weight: 570;
-	transition: border-color 120ms var(--ease-out), background-color 120ms var(--ease-out), color
-		120ms var(--ease-out), transform 100ms var(--ease-out);
+	transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out), color
+		150ms var(--ease-out), transform 100ms var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -2999,7 +3228,7 @@
 	font-family: inherit;
 	font-size: 9px;
 	font-weight: 580;
-	transition: background-color 130ms var(--ease-out), box-shadow 130ms var(--ease-out), color 130ms
+	transition: background-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), color 150ms
 		var(--ease-out), transform 100ms var(--ease-out);
 }
 
@@ -3042,7 +3271,7 @@
 
 .studio-transition-tempos button:active,
 .studio-transition-close:active {
-	transform: scale(0.96);
+	transform: scale(0.97);
 }
 
 .studio-transition-close {
@@ -3057,7 +3286,7 @@
 	border-radius: 11px;
 	background: transparent;
 	color: var(--camera-muted);
-	transition: background-color 130ms var(--ease-out), color 130ms var(--ease-out), transform 100ms
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 100ms
 		var(--ease-out);
 }
 
@@ -3099,7 +3328,7 @@
 	border-radius: 999px;
 	background: transparent;
 	color: var(--camera-muted);
-	transition: background-color 130ms var(--ease-out), color 130ms var(--ease-out), transform 110ms
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 110ms
 		var(--ease-out);
 }
 
@@ -3226,18 +3455,17 @@
 	height: 28px;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid rgb(29 29 32 / 0.09);
-	border-radius: 999px;
-	background: #fff;
-	box-shadow: 0 2px 7px rgb(15 23 42 / 0.07);
-	transition: border-color 130ms var(--ease-out), background-color 130ms var(--ease-out), color
-		130ms var(--ease-out), transform 110ms var(--ease-out);
+	border: 1px solid var(--camera-line);
+	border-radius: var(--r-pill);
+	background: var(--camera-surface);
+	box-shadow: 0 2px 7px rgb(28 27 25 / 0.07);
+	transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out), color
+		150ms var(--ease-out), transform 110ms var(--ease-out);
 }
 
 .dark .studio-timeline-transition > span {
-	border-color: rgb(255 255 255 / 0.1);
-	background: #242529;
-	box-shadow: 0 2px 7px rgb(0 0 0 / 0.2);
+	background: var(--camera-pill);
+	box-shadow: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -3258,10 +3486,11 @@
 }
 
 .studio-timeline-transition[data-active] > span {
-	border-color: rgb(255 213 11 / 0.7);
-	background: #ffda16;
-	box-shadow: 0 0 0 2px rgb(255 213 11 / 0.2), 0 3px 9px rgb(15 23 42 / 0.09);
-	color: #211b00;
+	border-color: var(--camera-amber);
+	background: var(--camera-amber);
+	box-shadow: 0 0 0 2px color-mix(in oklch, var(--camera-amber) 22%, transparent), 0 3px 9px
+		rgb(28 27 25 / 0.09);
+	color: var(--color-on-primary);
 }
 
 /* The loop band marks where the file morphs back; it is not a control, so it
@@ -3320,14 +3549,14 @@
 	height: 100%;
 	overflow: hidden;
 	padding: 0;
-	border: 1px solid rgb(29 29 32 / 0.055);
-	border-radius: 12px;
-	background: #f4f5f7;
-	color: #30302d;
+	border: 1px solid var(--camera-line);
+	border-radius: var(--r-control);
+	background: var(--camera-pill);
+	color: var(--camera-ink);
 	cursor: grab;
 	text-align: left;
-	transition: border-color 100ms var(--ease-out), background-color 100ms var(--ease-out), box-shadow
-		120ms var(--ease-out), transform 120ms var(--ease-out);
+	transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out), box-shadow
+		150ms var(--ease-out), transform 120ms var(--ease-out);
 }
 
 .studio-timeline-clip[data-dragged] {
@@ -3342,18 +3571,8 @@
 }
 
 .studio-timeline-clip[data-drop-target] .studio-timeline-clip-face {
-	border-color: rgb(255 213 11 / 0.58);
-	background: color-mix(in srgb, #f4f5f7 88%, var(--camera-amber));
-}
-
-.dark .studio-timeline-clip-face {
-	border-color: rgb(255 255 255 / 0.08);
-	background: #232321;
-	color: #e8e8e3;
-}
-
-.dark .studio-timeline-clip[data-drop-target] .studio-timeline-clip-face {
-	background: color-mix(in srgb, #232321 88%, var(--camera-amber));
+	border-color: color-mix(in oklch, var(--camera-amber) 58%, transparent);
+	background: color-mix(in oklch, var(--camera-pill) 88%, var(--camera-amber));
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -3368,12 +3587,12 @@
 
 .studio-timeline-clip[data-selected] .studio-timeline-clip-face {
 	border-color: var(--camera-amber);
-	box-shadow: 0 0 0 2px rgb(255 213 11 / 0.78), 0 4px 14px rgb(15 23 42 / 0.06);
+	box-shadow: 0 0 0 2px var(--camera-amber), 0 4px 14px rgb(28 27 25 / 0.06);
 }
 
 .studio-timeline-clip[data-resizing] .studio-timeline-clip-face {
 	border-color: var(--camera-amber);
-	box-shadow: 0 0 0 2px rgb(255 213 11 / 0.42);
+	box-shadow: 0 0 0 2px color-mix(in oklch, var(--camera-amber) 42%, transparent);
 }
 
 /* The code starts under the number and duration row (top 6px, 8px type), not
@@ -3398,15 +3617,10 @@
 	position: absolute;
 	z-index: 1;
 	top: 6px;
-	color: #64645f;
+	color: var(--camera-muted);
 	font-family: var(--font-mono);
-	font-size: 8px;
+	font-size: var(--sc-text-2xs);
 	font-variant-numeric: tabular-nums;
-}
-
-.dark .studio-timeline-clip-number,
-.dark .studio-timeline-clip-duration {
-	color: #aaa9a3;
 }
 
 .studio-timeline-clip-number {
@@ -3425,15 +3639,12 @@
 	display: inline-flex;
 	height: 16px;
 	align-items: center;
-	gap: 1px;
-	padding: 0 4px;
-	border: 1px solid rgb(255 255 255 / 0.12);
-	border-radius: 999px;
-	background: rgb(20 20 19 / 0.74);
-	box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
-	color: rgb(255 255 255 / 0.8);
-	-webkit-backdrop-filter: blur(8px);
-	backdrop-filter: blur(8px);
+	gap: 3px;
+	padding: 0 5px;
+	border-radius: var(--r-pill);
+	background: var(--camera-surface);
+	box-shadow: 0 0 0 1px var(--camera-line);
+	color: var(--camera-muted);
 	pointer-events: none;
 }
 
@@ -3444,7 +3655,7 @@
 }
 
 .studio-timeline-layer-marks > span[data-kind="audio"] {
-	color: #a694ff;
+	color: #7c5cff;
 }
 
 .studio-timeline-resize {
@@ -3470,7 +3681,7 @@
 	background: var(--camera-amber);
 	box-shadow: 0 0 0 2px color-mix(in srgb, var(--camera-paper) 88%, transparent);
 	transform: translate(-50%, -50%);
-	transition: box-shadow 120ms var(--ease-out), transform 100ms var(--ease-out);
+	transition: box-shadow 150ms var(--ease-out), transform 100ms var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -3505,15 +3716,15 @@
 	justify-content: center;
 	gap: 7px;
 	padding: 0 14px;
-	border: 1px dashed rgb(29 29 32 / 0.16);
-	border-radius: 12px;
-	background: #fbfbfc;
+	border: 1px dashed color-mix(in oklch, var(--camera-ink) 18%, transparent);
+	border-radius: var(--r-control);
+	background: transparent;
 	color: var(--camera-muted);
 	font-family: inherit;
-	font-size: 11px;
-	font-weight: 570;
-	transition: border-color 130ms var(--ease-out), background-color 130ms var(--ease-out), color
-		130ms var(--ease-out), transform 100ms var(--ease-out);
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-medium);
+	transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out), color
+		150ms var(--ease-out), transform 100ms var(--ease-out);
 }
 
 .dark .studio-timeline-add {
@@ -3551,7 +3762,7 @@
 }
 
 .studio-timeline-add:active {
-	transform: scale(0.96);
+	transform: scale(0.97);
 }
 
 /* A triangle is mathematically centred before it looks centred. */
@@ -3715,19 +3926,9 @@
 		animation: none;
 	}
 
-	.studio-camera-mode button,
-	.studio-timeline-actions button,
-	.studio-transition-tempos button,
-	.studio-transition-close,
-	.studio-timeline-transition > span,
-	.studio-timeline-clip,
-	.studio-timeline-clip::after,
-	.studio-timeline-clip-face,
-	.studio-timeline-resize::before,
-	.studio-timeline-add {
-		transition: none;
-	}
-
+	/* No `transition: none` here (SYSTEM.md drift 8): the global rule already
+	   drops every moving property, and zeroing the rest killed the colour fades
+	   it keeps. What stays is the press and the lifts, which land as no move. */
 	.studio-camera-mode button:active,
 	.studio-timeline-actions button:active:not(:disabled),
 	.studio-transition-tempos button:active,
@@ -3775,12 +3976,6 @@
 	color: var(--camera-ink);
 	font-size: 13px;
 	font-weight: 560;
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.studio-camera-root .sc-drop-veil {
-		transition: none;
-	}
 }
 
 /* Media chips carry file names now; a long one ends in an ellipsis and its

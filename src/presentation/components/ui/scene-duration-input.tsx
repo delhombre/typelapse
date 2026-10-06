@@ -58,6 +58,12 @@ export function SceneDurationInput({
 			spellCheck={false}
 			value={draft ?? String(durationMs / 1000)}
 			onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+				// The key says "done", so Enter finishes: leaving the field is what
+				// clamps an out-of-range draft and commits it.
+				if (event.key === "Enter") {
+					event.currentTarget.blur();
+					return;
+				}
 				if (event.key !== "ArrowUp" && event.key !== "ArrowDown") {
 					return;
 				}

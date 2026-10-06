@@ -24,7 +24,7 @@ export function DiffSection() {
 		<FeatureSection
 			eyebrow="Step 01 · Paste"
 			title="It starts with a diff."
-			line="Paste a unified diff or a GitHub pull request. Typelapse reads the change, finds its meaningful beats and turns them into editable scenes, ready on the timeline before you touch a control."
+			line="Paste a unified diff or a GitHub pull request, and Typelapse turns the change into editable scenes on the timeline."
 			align="right"
 			visual={<ImportProductShot />}
 		/>
@@ -70,7 +70,7 @@ function ImportProductShot() {
 
 				<div className="lp-import-ready">
 					<span aria-hidden="true">
-						<SparkIcon />
+						<ScenesIcon />
 					</span>
 					<strong>3 scenes ready</strong>
 					<small>Focus, captions and timing stay editable</small>
@@ -149,13 +149,15 @@ function CheckIcon() {
 	);
 }
 
-function SparkIcon() {
+/** Three clips on a track: what the badge reports, drawn as the thing itself.
+    It was a four-point sparkle, the mark every generated "AI feature" wears,
+    on a step that is a parser, not a model. */
+function ScenesIcon() {
 	return (
 		<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-			<path
-				d="M8 1.8c.5 3.2 2.1 4.8 5.2 5.2-3.1.5-4.7 2.1-5.2 5.2C7.5 9.1 5.9 7.5 2.8 7 5.9 6.6 7.5 5 8 1.8Z"
-				fill="currentColor"
-			/>
+			<rect x="1.5" y="4.5" width="3.6" height="7" rx="1" fill="currentColor" />
+			<rect x="6.2" y="4.5" width="3.6" height="7" rx="1" fill="currentColor" />
+			<rect x="10.9" y="4.5" width="3.6" height="7" rx="1" fill="currentColor" />
 		</svg>
 	);
 }

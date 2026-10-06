@@ -6,10 +6,10 @@ import { CONTAINER, HAIRLINE } from "./tokens";
     ledger repeating its chips verbatim made the page stutter. Share carries the
     features the page never states anywhere else. */
 const CAPABILITIES: [string, string][] = [
-	["Import", "paste code, a git diff, or a GitHub PR URL"],
-	["Look", "7 themes, 4 window chromes, mesh, solid and image backdrops"],
-	["Motion", "token morph, typewriter, spotlight and zoom, captions, tempo"],
-	["Share", "a link that reopens your project, JSON in and out, PNG stills"],
+	["Import", "Paste code, a git diff or a GitHub PR URL."],
+	["Look", "7 themes, 4 window chromes, mesh, solid and image backdrops."],
+	["Motion", "Token morph, typewriter, spotlight and zoom, captions, tempo."],
+	["Share", "A link that reopens your project, JSON in and out, PNG stills."],
 ];
 
 /**

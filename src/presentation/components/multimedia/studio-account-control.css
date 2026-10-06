@@ -14,9 +14,10 @@
 	border-radius: 11px;
 	background: transparent;
 	color: var(--mm-muted);
-	font-size: 10.5px;
-	font-weight: 620;
-	transition: background-color 130ms, color 130ms, transform 120ms;
+	font-size: 11px;
+	font-weight: 600;
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms
+		var(--ease-out);
 }
 
 .mm-account-trigger:disabled {
@@ -32,7 +33,9 @@
 	background: var(--mm-deep);
 	color: var(--mm-deep-ink);
 	font-size: 9px;
-	font-weight: 760;
+	font-weight: 650;
+	/* Initials are read as a mark, not a word: tight figures, no ascender gap. */
+	letter-spacing: 0.02em;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -47,7 +50,7 @@
 }
 
 .mm-account-trigger:active:not(:disabled) {
-	transform: scale(0.965);
+	transform: scale(0.97);
 }
 
 .mm-account-popover {
@@ -70,6 +73,7 @@
 }
 
 .mm-account-close {
+	transition: color 150ms var(--ease-out);
 	position: absolute;
 	top: 10px;
 	right: 10px;
@@ -82,6 +86,13 @@
 	border-radius: 10px;
 	background: transparent;
 	color: var(--mm-muted);
+}
+
+/* 32px drawn, 40px to the pointer: the corner it sits in has room for it. */
+.mm-account-close::after {
+	content: "";
+	position: absolute;
+	inset: -4px;
 }
 
 .mm-account-symbol {
@@ -105,10 +116,71 @@
 
 .mm-account-copy h2,
 .mm-account-form h2 {
-	margin: 4px 36px 7px 0;
+	margin: 4px 36px 6px 0;
 	font-size: 17px;
-	font-weight: 690;
-	letter-spacing: -0.025em;
+	font-weight: 650;
+	letter-spacing: -0.02em;
+	text-wrap: balance;
+}
+
+/* The person, as the trigger shows them: the same initials, one size up. */
+.mm-account-identity {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin: 0 36px 16px 0;
+}
+
+.mm-account-identity .mm-account-avatar {
+	flex: none;
+	width: 40px;
+	height: 40px;
+	font-size: 13px;
+}
+
+.mm-account-identity > div {
+	display: grid;
+	min-width: 0;
+	gap: 2px;
+}
+
+.mm-account-identity h2 {
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mm-account-identity p {
+	margin: 0;
+	overflow: hidden;
+	color: var(--mm-muted);
+	font-size: 12px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* This project's cloud copy: its state, what it means, and the one action that
+   changes it, set off from the account above by a hairline rather than a card. */
+.mm-account-sync {
+	display: grid;
+	gap: 6px;
+	margin: 0 0 14px;
+	padding-top: 14px;
+	border-top: 1px solid var(--mm-hairline);
+}
+
+.mm-account-sync > p:not(.mm-eyebrow) {
+	margin: 0 0 4px;
+	color: var(--mm-muted);
+	font-size: 12px;
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+.mm-account-sync > .mm-account-primary {
+	width: 100%;
+	margin: 4px 0 0;
 }
 
 .mm-account-copy > p:not(.mm-eyebrow),
@@ -121,6 +193,8 @@
 
 /* The allowance is mostly numbers: figures of one width keep "2 of 3" steady as usage moves. */
 .mm-account-copy > .mm-account-allowance {
+	margin-bottom: 14px;
+	color: var(--mm-ink);
 	font-variant-numeric: tabular-nums;
 	text-wrap: pretty;
 }
@@ -139,8 +213,13 @@
 	background: rgb(28 27 25 / 0.04);
 	color: var(--mm-ink);
 	font-size: 11px;
-	font-weight: 640;
+	font-weight: 600;
 	text-decoration: none;
+	transition: background-color 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+
+.mm-account-actions button:disabled {
+	color: var(--mm-muted);
 }
 
 .dark .mm-account-copy > a,
@@ -174,7 +253,7 @@
 
 .mm-account-plan-card span {
 	color: var(--mm-muted);
-	font-size: 9.5px;
+	font-size: 10px;
 	line-height: 1.25;
 }
 
@@ -182,7 +261,7 @@
 	display: block;
 	margin-top: 2px;
 	font-size: 12px;
-	font-weight: 710;
+	font-weight: 650;
 }
 
 .mm-account-plan-card > button:not(.mm-account-primary) {
@@ -193,7 +272,7 @@
 	background: var(--mm-surface);
 	color: var(--mm-ink);
 	font-size: 10px;
-	font-weight: 660;
+	font-weight: 600;
 }
 
 .mm-account-cadence {
@@ -216,9 +295,12 @@
 	border-radius: 9px;
 	background: transparent;
 	color: var(--mm-muted);
-	font-size: 9.5px;
-	font-weight: 630;
-	transition: color 130ms, background-color 130ms, box-shadow 130ms, transform 120ms;
+	font-size: 10px;
+	font-weight: 600;
+	/* Prices are compared across the two buttons, so their figures line up. */
+	font-variant-numeric: tabular-nums;
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), box-shadow 150ms
+		var(--ease-out), transform 150ms var(--ease-out);
 }
 
 .mm-account-cadence button[aria-pressed="true"] {
@@ -228,12 +310,12 @@
 }
 
 .mm-account-cadence button:active {
-	transform: scale(0.975);
+	transform: scale(0.97);
 }
 
 .mm-account-plan-card [role="alert"] {
 	margin: 0;
-	color: #c93f3f;
+	color: var(--mm-danger, #c53a3a);
 	font-size: 10px;
 	line-height: 1.4;
 }
@@ -247,8 +329,24 @@
 	display: grid;
 	gap: 6px;
 	color: var(--mm-muted);
-	font-size: 10px;
-	font-weight: 620;
+	font-size: 11px;
+	font-weight: 600;
+}
+
+.mm-account-field {
+	display: grid;
+	gap: 5px;
+}
+
+/* Said beside the field it is about, in words that name the fix. */
+.mm-account-field-error {
+	color: var(--mm-danger, #c53a3a);
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+.mm-account-form input[aria-invalid="true"] {
+	border-color: color-mix(in srgb, var(--mm-danger, #c53a3a) 55%, transparent);
 }
 
 .mm-account-form input {
@@ -260,7 +358,8 @@
 	background: rgb(28 27 25 / 0.035);
 	color: var(--mm-ink);
 	font-size: 12px;
-	transition: border-color 140ms, box-shadow 140ms, background-color 140ms;
+	transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out), background-color
+		150ms var(--ease-out);
 }
 
 /* iOS zooms into a field under 16px and stays zoomed after sign-in; the island
@@ -275,17 +374,21 @@
 	background: rgb(255 255 255 / 0.055);
 }
 
+/* Focus is the accent, as everywhere else (DECISIONS D9): yellow is the one
+   filled action, and a yellow ring read as a second one. */
 .mm-account-form input:focus-visible {
-	border-color: color-mix(in srgb, var(--mm-primary) 75%, var(--mm-ink));
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--mm-primary) 18%, transparent);
+	border-color: var(--color-accent, #4f5bd5);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #4f5bd5) 22%, transparent);
 }
 
 .mm-account-primary,
 .mm-account-switch {
 	height: 40px;
 	border-radius: 12px;
-	font-size: 11px;
-	font-weight: 660;
+	font-size: 12px;
+	font-weight: 600;
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms
+		var(--ease-out);
 }
 
 .mm-account-primary {
@@ -293,6 +396,38 @@
 	border: 0;
 	background: var(--mm-deep);
 	color: var(--mm-deep-ink);
+}
+
+/* Busy, the button keeps its fill and says what it is doing; only a refused
+   press looks spent. */
+.mm-account-primary:disabled {
+	cursor: progress;
+	background: color-mix(in srgb, var(--mm-deep) 82%, var(--mm-surface));
+}
+
+.mm-account-primary:active:not(:disabled),
+.mm-account-actions :is(a, button):active:not(:disabled),
+.mm-account-plan-card > button:active:not(:disabled) {
+	transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.mm-account-primary:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--mm-deep) 88%, var(--mm-surface));
+	}
+
+	.mm-account-switch:hover,
+	.mm-account-close:hover {
+		color: var(--mm-ink);
+	}
+
+	.mm-account-actions :is(a, button):hover:not(:disabled) {
+		background: rgb(28 27 25 / 0.07);
+	}
+
+	.dark .mm-account-actions :is(a, button):hover:not(:disabled) {
+		background: rgb(255 255 255 / 0.09);
+	}
 }
 
 .mm-account-switch {
@@ -305,16 +440,18 @@
 	margin: 0;
 	padding: 9px 10px;
 	border-radius: 10px;
-	background: rgb(201 63 63 / 0.1);
-	color: #c93f3f;
+	background: color-mix(in srgb, var(--mm-danger, #c53a3a) 10%, transparent);
+	color: var(--mm-danger, #c53a3a);
 	font-size: 11px;
 	line-height: 1.4;
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.mm-account-trigger,
-	.mm-account-form input {
-		transition-duration: 0.01ms;
+	.mm-account-trigger:active:not(:disabled),
+	.mm-account-primary:active:not(:disabled),
+	.mm-account-actions :is(a, button):active:not(:disabled),
+	.mm-account-cadence button:active {
+		transform: none;
 	}
 }
 

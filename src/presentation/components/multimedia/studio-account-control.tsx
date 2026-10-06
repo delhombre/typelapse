@@ -5,8 +5,8 @@ import {
 	useAuthStore,
 } from "@/presentation/stores/auth.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from "react";
-import { CloudCheck, HardDrive, Logout, Profile, X } from "reicon-react";
+import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react";
+import { HardDrive, Logout, Profile, X } from "reicon-react";
 import "./studio-account-control.css";
 
 type AuthStore = typeof useAuthStore;
@@ -149,7 +149,16 @@ export function StudioAccountControl({
 						aria-label={status.kind === "local-offline" ? "Local project" : "Typelapse account"}
 						initial={reduceMotion ? false : { opacity: 0, y: -5, scale: 0.985 }}
 						animate={{ opacity: 1, y: 0, scale: 1 }}
-						exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.99 }}
+						exit={
+							reduceMotion
+								? { opacity: 0 }
+								: {
+										opacity: 0,
+										y: -3,
+										scale: 0.99,
+										transition: { duration: 0.11, ease: [0.4, 0, 1, 1] },
+									}
+						}
 						transition={{ duration: reduceMotion ? 0 : 0.16, ease: [0.16, 1, 0.3, 1] }}
 					>
 						<button
@@ -253,22 +262,32 @@ function AccountPanel({
 					};
 			}
 		})();
+		const { name, email } = status.session.account;
 		return (
 			<div className="mm-account-copy">
-				<div className="mm-account-symbol mm-account-symbol-cloud">
-					<CloudCheck size={20} aria-hidden="true" />
+				{/* Who first, then what the plan allows, then this project's cloud copy
+				    with the one action that changes it: the sync state used to sit above
+				    the name, where "On this device" read as a fact about the person. */}
+				<div className="mm-account-identity">
+					<span className="mm-account-avatar" aria-hidden="true">
+						{initials(name)}
+					</span>
+					<div>
+						<h2>{name}</h2>
+						<p>{email}</p>
+					</div>
 				</div>
-				<p className="mm-eyebrow">{syncCopy.eyebrow}</p>
-				<h2>{status.session.account.name}</h2>
-				<p>{status.session.account.email}</p>
 				{billing ? <AccountBilling billing={billing} /> : null}
 				{allowance ? <p className="mm-account-allowance">{allowance}</p> : null}
-				<p>{syncCopy.body}</p>
-				{onSaveToCloud && cloudProjectState !== "connecting" && cloudProjectState !== "synced" ? (
-					<button type="button" className="mm-account-primary" onClick={onSaveToCloud}>
-						{cloudProjectState === "device" ? "Save this project to cloud" : "Save changes"}
-					</button>
-				) : null}
+				<div className="mm-account-sync">
+					<p className="mm-eyebrow">{syncCopy.eyebrow}</p>
+					<p>{syncCopy.body}</p>
+					{onSaveToCloud && cloudProjectState !== "connecting" && cloudProjectState !== "synced" ? (
+						<button type="button" className="mm-account-primary" onClick={onSaveToCloud}>
+							{cloudProjectState === "device" ? "Save this project to cloud" : "Save changes"}
+						</button>
+					) : null}
+				</div>
 				<div className="mm-account-actions">
 					{!billing?.available ? <a href="/">About Typelapse</a> : null}
 					<button
@@ -276,8 +295,8 @@ function AccountPanel({
 						disabled={operation === "signing-out"}
 						onClick={() => void onSignOut()}
 					>
-						<Logout size={15} aria-hidden="true" />
-						Sign out
+						<Logout size={14} aria-hidden="true" />
+						{operation === "signing-out" ? "Signing out…" : "Sign out"}
 					</button>
 				</div>
 			</div>
@@ -385,6 +404,24 @@ function AccountBilling({ billing }: { readonly billing: StudioBillingControl })
 	);
 }
 
+type AuthField = "name" | "email" | "password";
+type AuthErrors = Partial<Record<AuthField, string>>;
+
+const MIN_PASSWORD = 8;
+
+/** What is wrong with each field, said as the fix. The server still has the last word. */
+function authErrors(mode: FormMode, values: Record<AuthField, string>): AuthErrors {
+	const errors: AuthErrors = {};
+	if (mode === "sign-up" && values.name.trim() === "") errors.name = "Add your name.";
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
+		errors.email = "Enter an email address like ada@example.com.";
+	}
+	if (values.password.length < MIN_PASSWORD) {
+		errors.password = `Use at least ${MIN_PASSWORD} characters.`;
+	}
+	return errors;
+}
+
 function AuthForm({
 	mode,
 	busy,
@@ -400,55 +437,96 @@ function AuthForm({
 	readonly onSignIn: (email: string, password: string) => Promise<void>;
 	readonly onSignUp: (name: string, email: string, password: string) => Promise<void>;
 }) {
+	const formId = useId();
+	const [values, setValues] = useState<Record<AuthField, string>>({
+		name: "",
+		email: "",
+		password: "",
+	});
+	// Empty until the first submit: a first attempt is never flagged mid-word.
+	// After it, each field is checked as it changes, so a fixed one clears at once.
+	const [errors, setErrors] = useState<AuthErrors | null>(null);
+	const formRef = useRef<HTMLFormElement>(null);
+
+	const change = (field: AuthField, value: string) => {
+		const next = { ...values, [field]: value };
+		setValues(next);
+		if (errors) setErrors(authErrors(mode, next));
+	};
+
 	const submit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		const data = new FormData(event.currentTarget);
-		const email = String(data.get("email") ?? "").trim();
-		const password = String(data.get("password") ?? "");
-		if (mode === "sign-up") {
-			void onSignUp(String(data.get("name") ?? "").trim(), email, password);
+		if (busy) return;
+		const found = authErrors(mode, values);
+		const first = (["name", "email", "password"] as const).find((field) => found[field]);
+		if (first) {
+			setErrors(found);
+			formRef.current?.querySelector<HTMLInputElement>(`[name="${first}"]`)?.focus();
 			return;
 		}
-		void onSignIn(email, password);
+		const email = values.email.trim();
+		if (mode === "sign-up") {
+			void onSignUp(values.name.trim(), email, values.password);
+			return;
+		}
+		void onSignIn(email, values.password);
 	};
+
+	const switchMode = () => {
+		setErrors(null);
+		onMode(mode === "sign-in" ? "sign-up" : "sign-in");
+	};
+
+	const field = (name: AuthField, label: string, input: Record<string, string>) => {
+		const message = mode === "sign-in" && name === "name" ? undefined : errors?.[name];
+		const messageId = `${formId}-${name}`;
+		// The message sits outside the label, so it describes the field instead of
+		// becoming part of its name.
+		return (
+			<div className="mm-account-field">
+				<label>
+					{label}
+					<input
+						name={name}
+						value={values[name]}
+						onChange={(event) => change(name, event.target.value)}
+						aria-invalid={message ? true : undefined}
+						aria-describedby={message ? messageId : undefined}
+						{...input}
+					/>
+				</label>
+				{message ? (
+					<span id={messageId} className="mm-account-field-error">
+						{message}
+					</span>
+				) : null}
+			</div>
+		);
+	};
+
+	const submitLabel = mode === "sign-in" ? "Sign in" : "Create account";
 	return (
-		<form className="mm-account-form" onSubmit={submit}>
+		// The checks are ours, beside each field and in the studio's voice; the
+		// browser's bubbles pointed at one field at a time and disappeared.
+		<form ref={formRef} className="mm-account-form" onSubmit={submit} noValidate>
 			<p className="mm-eyebrow">Typelapse Cloud</p>
 			<h2>{mode === "sign-in" ? "Continue your work." : "Create your workspace."}</h2>
 			<p>Sync projects and private media, then render in the background.</p>
-			{mode === "sign-up" ? (
-				<label>
-					Name
-					<input name="name" autoComplete="name" required />
-				</label>
-			) : null}
-			<label>
-				Email
-				<input name="email" type="email" autoComplete="email" required aria-label="Email" />
-			</label>
-			<label>
-				Password
-				<input
-					name="password"
-					type="password"
-					autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-					minLength={8}
-					required
-				/>
-			</label>
+			{mode === "sign-up" ? field("name", "Name", { autoComplete: "name" }) : null}
+			{field("email", "Email", { type: "email", autoComplete: "email", spellCheck: "false" })}
+			{field("password", "Password", {
+				type: "password",
+				autoComplete: mode === "sign-in" ? "current-password" : "new-password",
+			})}
 			{error ? (
 				<p role="alert" className="mm-account-error">
 					{error}
 				</p>
 			) : null}
 			<button type="submit" className="mm-account-primary" disabled={busy}>
-				{busy ? "Working…" : "Continue"}
+				{busy ? (mode === "sign-in" ? "Signing in…" : "Creating account…") : submitLabel}
 			</button>
-			<button
-				type="button"
-				className="mm-account-switch"
-				onClick={() => onMode(mode === "sign-in" ? "sign-up" : "sign-in")}
-			>
+			<button type="button" className="mm-account-switch" onClick={switchMode}>
 				{mode === "sign-in" ? "New here? Create an account" : "Already have an account? Sign in"}
 			</button>
 		</form>

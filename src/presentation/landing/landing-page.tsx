@@ -63,7 +63,7 @@ function Cta() {
 		<section className={`${CONTAINER} ${SECTION_PY} text-center`}>
 			<Reveal>
 				<h2 className="lp-h2 mx-auto max-w-[18ch] text-ink">
-					Open the studio and make your first clip.
+					Paste a change and make your first clip.
 				</h2>
 				<div className="mt-8 flex justify-center">
 					<InkButton to="/app" size="lg">

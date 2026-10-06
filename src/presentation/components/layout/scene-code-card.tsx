@@ -75,6 +75,8 @@ export function SceneCodeCard({
 			>
 				<header className="sc-card-head">
 					<span className="sc-eyebrow">{editorKind}</span>
+					{/* A layer's head is its kind alone: the inspector below names the
+					    layer itself, so "Scene layer" here only said "layer" twice. */}
 					{isCode ? (
 						<select
 							value={language}
@@ -88,9 +90,7 @@ export function SceneCodeCard({
 								</option>
 							))}
 						</select>
-					) : (
-						<span className="sc-layer-header-title">Scene layer</span>
-					)}
+					) : null}
 					<span className="sc-card-spacer" />
 					{/* `hit-ext`: the glyph is 30px and the header is 44, and nothing else
 					    is within 44px of it, so the target can take the whole height the
@@ -130,7 +130,7 @@ export function SceneCodeCard({
 					// against 93ms for every CSS press in the scene: inside the 300ms UI
 					// budget and still 2.4× slower than the finger that caused it. `snappy`
 					// is the spring the rest of the product presses with.
-					whileTap={{ scale: 0.96, transition: springs.snappy }}
+					whileTap={{ scale: 0.97, transition: springs.snappy }}
 					transition={springs.default}
 					style={{ transformOrigin: "left center" }}
 					aria-hidden={!folded}

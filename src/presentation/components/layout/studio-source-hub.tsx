@@ -1,4 +1,5 @@
 import { addTextLayer } from "@/application/project/multimedia-authoring";
+import { openStudioDocument } from "@/application/project/studio-document";
 import { ConfirmDiscardOverlay } from "@/presentation/components/ui/confirm-discard";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
@@ -141,6 +142,14 @@ export function StudioSourceHub() {
 				if (typeof text !== "string") {
 					return;
 				}
+				// An unreadable file is refused before anything is asked: a confirm
+				// that ends in a refusal is a question nobody needed to answer.
+				const unreadable = projectFileProblem(text);
+				if (unreadable) {
+					feedback("error");
+					notify(unreadable, { tone: "error", detail: file.name });
+					return;
+				}
 				if (hasStudioWorkToLose()) {
 					setPendingFile({ name: file.name, json: text });
 					return;
@@ -255,16 +264,26 @@ export function StudioSourceHub() {
 							reduce ? { opacity: 0 } : { opacity: 0, y: -5, scale: 0.97, filter: "blur(4px)" }
 						}
 						animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-						exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.98, filter: "blur(3px)" }}
+						// Leaving is quicker than arriving and accelerates away.
+						exit={
+							reduce
+								? { opacity: 0 }
+								: {
+										opacity: 0,
+										y: -3,
+										scale: 0.98,
+										filter: "blur(2px)",
+										transition: { duration: 0.12, ease: [0.4, 0, 1, 1] },
+									}
+						}
 						transition={{ duration: reduce ? 0.01 : 0.18, ease: [0.23, 1, 0.32, 1] }}
 						style={{ transformOrigin: "top left" }}
 					>
-						<header>
-							<strong>Add source</strong>
-							<span aria-live="polite">
-								{sourceStatus ?? "Choose what Typelapse should animate."}
-							</span>
-						</header>
+						{/* No title: the button that opened the menu already says "Add source".
+						    The region stays mounted so a status said later is heard. */}
+						<p className="sc-source-status" aria-live="polite">
+							{sourceStatus ?? ""}
+						</p>
 						<SourceChoice
 							label="Add text"
 							detail="A title, label or callout on this scene"
@@ -274,7 +293,7 @@ export function StudioSourceHub() {
 						<SourceChoice
 							label="Add photo or video"
 							disabled={importing}
-							detail="Place media behind or above the code"
+							detail="Behind or above the code"
 							icon={<Image size={14} aria-hidden="true" />}
 							onClick={() => openMediaPicker("image/*,video/*")}
 						/>
@@ -289,12 +308,14 @@ export function StudioSourceHub() {
 						<SourceChoice
 							label="Paste a link"
 							detail="Gist, GitHub file or commit"
+							opensView
 							icon={<LinkGlyph size={14} aria-hidden="true" />}
 							onClick={() => setView("url")}
 						/>
 						<SourceChoice
 							label="Import a change"
 							detail="Git diff or pull request"
+							opensView
 							icon={<BranchDown size={14} aria-hidden="true" />}
 							onClick={() => setView("diff")}
 						/>
@@ -342,6 +363,22 @@ export function StudioSourceHub() {
 	);
 }
 
+/** Why a file cannot be opened as a project, read without touching the studio. */
+function projectFileProblem(json: string): string | null {
+	let data: unknown;
+	try {
+		data = JSON.parse(json);
+	} catch {
+		return "That file is not valid JSON, so it is not a Typelapse project.";
+	}
+	try {
+		openStudioDocument(data);
+		return null;
+	} catch (error) {
+		return error instanceof Error ? error.message : "That file could not be read.";
+	}
+}
+
 /** The keys a menu answers to (WAI-ARIA menu pattern): the arrows wrap, Home and End jump. */
 function walkMenu(event: ReactKeyboardEvent<HTMLDivElement>): void {
 	const items = [
@@ -376,12 +413,15 @@ function SourceChoice({
 	icon,
 	onClick,
 	disabled = false,
+	opensView = false,
 }: {
 	label: string;
 	detail: string;
 	icon: ReactNode;
 	onClick: () => void;
 	disabled?: boolean;
+	/** A chevron promises a second view; a choice that acts at once makes no such promise. */
+	opensView?: boolean;
 }) {
 	return (
 		<button
@@ -408,7 +448,7 @@ function SourceChoice({
 				<strong>{label}</strong>
 				<small>{detail}</small>
 			</span>
-			<ChevronRight size={12} aria-hidden="true" />
+			{opensView ? <ChevronRight size={12} aria-hidden="true" /> : null}
 		</button>
 	);
 }

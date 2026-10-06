@@ -127,7 +127,13 @@ export const StaticFrame = memo(function StaticFrame({
 	const codeBlock = (
 		<div
 			className={`studio-code font-mono leading-[1.6] ${fill ? "flex flex-1 items-center" : ""}`}
-			style={{ padding: framePadding, fontSize, color: theme.foreground }}
+			/* A variable over the prop, so a layout too narrow for the code can set a
+			   smaller size from CSS without fighting an inline style. */
+			style={{
+				padding: framePadding,
+				fontSize: `var(--frame-font, ${fontSize}px)`,
+				color: theme.foreground,
+			}}
 			// biome-ignore lint/security/noDangerouslySetInnerHtml: trusted Shiki output from our own highlighter
 			dangerouslySetInnerHTML={{ __html: html }}
 		/>

@@ -155,6 +155,48 @@ describe("public render page (D4.1)", () => {
 		expect(payload).toMatchObject({ title: "Retry with backoff", code: "const retry = true;" });
 	});
 
+	it("never titles a page Untitled: the first text line, else a plain name", async () => {
+		const scene = DOCUMENT.project.scenes[0];
+		if (!scene) throw new Error("the fixture has a scene");
+		const withText = structuredClone(DOCUMENT);
+		withText.project.scenes[0] = {
+			...scene,
+			blocks: [
+				...scene.blocks,
+				{
+					id: "text-1",
+					kind: "text",
+					opacity: 1,
+					placement: { x: 0, y: 0, width: 400, height: 80 },
+					text: "\n  Ship the retry  \nwith backoff",
+					typography: {
+						fontFamily: "Geist",
+						fontSize: 48,
+						fontWeight: 600,
+						color: "#ffffff",
+						align: "left",
+					},
+				},
+			],
+		};
+		const { repository } = rows([
+			{ ...record({ jobId: "job_text", title: "Untitled", document: withText }), isPublic: true },
+			{ ...record({ jobId: "job_bare", title: "Untitled 2" }), isPublic: true },
+			{ ...record({ jobId: "job_blank", title: "   " }), isPublic: true },
+		]);
+		const app = publicApp(pages(repository));
+
+		const titled = (html: string, name: string) => {
+			expect(html).toContain(`<title>${name} · Typelapse</title>`);
+			expect(html).toContain(`<meta property="og:title" content="${name}">`);
+			expect(html).toContain(`<h1>${name}</h1>`);
+			expect(html).not.toContain("Untitled");
+		};
+		titled(await (await app.request("/v/job_text")).text(), "Ship the retry");
+		titled(await (await app.request("/v/job_bare")).text(), "A Typelapse video");
+		titled(await (await app.request("/v/job_blank")).text(), "A Typelapse video");
+	});
+
 	it("escapes the project title everywhere it is written", async () => {
 		const { repository } = rows([
 			{ ...record({ title: '"><script>alert(1)</script>' }), isPublic: true },
@@ -198,6 +240,27 @@ describe("public render page (D4.1)", () => {
 		expect(await missing.text()).toBe(sentence);
 		expect(await expired.text()).toBe(sentence);
 		expect(sentence).not.toContain("og:video");
+		// A shared link that went dark still leaves one way on.
+		expect(sentence).toContain('href="https://typelapse.example/app"');
+		expect(sentence).toContain("Make one in the studio");
+	});
+
+	it("answers 503 with a way to try again when the database cannot be read", async () => {
+		const down: HostedRenderPageRepositoryPort = {
+			findPublished: async () => {
+				throw new Error("connection refused");
+			},
+			isPublic: async () => null,
+			setPublic: async () => false,
+		};
+		const response = await publicApp(pages(down)).request("/v/job_1");
+
+		expect(response.status).toBe(503);
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		const html = await response.text();
+		expect(html).toContain("This video cannot be shown right now. Try again in a moment.");
+		expect(html).toContain('<a class="button" href="/v/job_1">Try again</a>');
+		expect(html).not.toContain("og:video");
 	});
 
 	it("keeps a page live through a downgraded owner's grace period", async () => {
@@ -239,8 +302,13 @@ describe("public render page (D4.1)", () => {
 	});
 });
 
+/**
+ * The hosted guard checks the session against the wall clock, not the route's
+ * `now`, so an expiry tied to the fixed NOW went stale the day after NOW. A
+ * session that never expires keeps these tests about the page, not the date.
+ */
 const signedInAs = (accountId: string): AuthPort => ({
-	verify: async () => ({ accountId, expiresAt: new Date(NOW.getTime() + 60_000) }),
+	verify: async () => ({ accountId, expiresAt: new Date("9999-12-31T23:59:59.000Z") }),
 });
 
 function jobsWith(status: "succeeded" | "running", completedAt = new Date(NOW.getTime() - DAY_MS)) {

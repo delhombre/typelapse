@@ -3,6 +3,7 @@ import { importConfirmLabel, importReplaceQuestion } from "@/application/import/
 import { resolvePrUrl } from "@/application/import/pr-url";
 import { BusyLabel } from "@/presentation/components/ui/busy-label";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
+import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { type ImportPlayMode, useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
@@ -13,6 +14,7 @@ import {
 	type RefObject,
 	useCallback,
 	useEffect,
+	useId,
 	useRef,
 	useState,
 } from "react";
@@ -61,6 +63,7 @@ export function DiffImportMenu({
 	const [confirming, setConfirming] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
+	const errorId = useId();
 
 	const { loading, error, progress, run, reset } = useSourceImport();
 
@@ -168,7 +171,7 @@ export function DiffImportMenu({
 					}`}
 					title="Import a git diff"
 				>
-					<BranchDown size={13} strokeWidth={1.6} aria-hidden="true" />
+					<BranchDown size={13} aria-hidden="true" />
 				</motion.button>
 			)}
 
@@ -177,9 +180,17 @@ export function DiffImportMenu({
 					<motion.div
 						initial={{ opacity: 0, scale: 0.96, y: -4, filter: "blur(4px)" }}
 						animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-						exit={{ opacity: 0, scale: 0.97, y: -4, filter: "blur(4px)" }}
+						exit={{
+							opacity: 0,
+							scale: 0.98,
+							y: -3,
+							filter: "blur(2px)",
+							transition: { duration: 0.12, ease: [0.4, 0, 1, 1] },
+						}}
 						transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-						style={{ transformOrigin: "top right" }}
+						// It grows from the control that opened it: the hub's left edge when
+						// embedded, its own button's right edge when it stands alone.
+						style={{ transformOrigin: embedded ? "top left" : "top right" }}
 						// biome-ignore lint/a11y/useSemanticElements: a native <dialog> cannot be
 						// anchored to its trigger the way this panel is, and loses its enter/exit
 						// animation with it. Non-modal by intent: the backdrop dismisses and
@@ -191,7 +202,7 @@ export function DiffImportMenu({
 						{embedded && (
 							<div className="sc-source-view-head">
 								<button type="button" onClick={onBack} aria-label="Back to source choices">
-									<ChevronLeft size={13} strokeWidth={1.7} aria-hidden="true" />
+									<ChevronLeft size={13} aria-hidden="true" />
 								</button>
 								<div>
 									<strong>Import a change</strong>
@@ -220,8 +231,10 @@ export function DiffImportMenu({
 									onKeyDown={onTextareaKeyDown}
 									rows={10}
 									spellCheck={false}
-									placeholder={"paste a git diff, or a github pr url"}
+									placeholder="Paste a git diff, or a GitHub pull request link"
 									aria-label="Git diff or GitHub pull request link"
+									aria-invalid={error ? true : undefined}
+									aria-describedby={error ? errorId : undefined}
 									className="block w-full resize-none rounded-lg border border-neutral-200/70 bg-white px-2.5 py-2 font-mono text-[11px] pointer-coarse:text-base leading-relaxed text-neutral-700 outline-none transition-[border-color] duration-150 placeholder:text-neutral-400 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200 dark:placeholder:text-neutral-600 dark:focus:border-neutral-700"
 								/>
 								<AnimatePresence initial={false}>
@@ -247,19 +260,21 @@ export function DiffImportMenu({
 									<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
 										{hint()}
 									</span>
-									<motion.button
-										type="button"
-										onClick={apply}
-										disabled={text.trim() === "" || loading}
-										whileTap={{ scale: 0.96 }}
-										transition={springs.snappy}
-										className="flex h-8 items-center justify-center rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
-									>
-										<BusyLabel busy={loading}>Apply</BusyLabel>
-									</motion.button>
+									<StudioTooltip content="Apply (⌘ Enter)">
+										<motion.button
+											type="button"
+											onClick={apply}
+											disabled={text.trim() === "" || loading}
+											whileTap={{ scale: 0.96 }}
+											transition={springs.snappy}
+											className="flex h-8 items-center justify-center rounded-xl bg-[var(--color-primary)] px-3 text-[11px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3)] transition-colors duration-150 hover:bg-[var(--color-primary-hover)] disabled:opacity-60"
+										>
+											<BusyLabel busy={loading}>Apply</BusyLabel>
+										</motion.button>
+									</StudioTooltip>
 								</div>
 								{error && (
-									<p role="alert" className="mt-1.5 px-0.5 text-[11px] text-red-500">
+									<p id={errorId} role="alert" className="sc-source-error">
 										{error}
 									</p>
 								)}
