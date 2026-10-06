@@ -8,12 +8,13 @@
  * library entry and the draft that mirrors it) moves under the **recovery
  * key**, one slot per project id, and a fresh project takes its place. Its
  * composition stays in IndexedDB under the id the slot names, and comes along
- * whole when it is what threw. The
+ * whole when it is what threw and holds layers. The
  * other projects of the library are not touched, a slot is never evicted to
  * make room for another, and the default project is never kept: it is nobody's
  * work.
  */
 
+import { hydrateProjectDocument } from "@/application/project/hydrate-project-document";
 import { activeLocalProject, nextUntitledTitle } from "@/application/project/local-project-library";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
@@ -22,6 +23,7 @@ import { useExportStore } from "@/presentation/stores/export.store";
 import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
+	hasAuthoredMultimedia,
 	loadStudioCompositionDocument,
 	readStudioCompositionSnapshot,
 } from "@/presentation/stores/studio-composition.store";
@@ -53,13 +55,15 @@ export interface KeptProject {
 	readonly draft: string | null;
 	/**
 	 * The IndexedDB key its composition (layers, media, audio cues) stays under,
-	 * untouched; null when it had no local project. Absent from slots written
-	 * before compositions were kept.
+	 * untouched since no project opens it again; null when its library entry
+	 * stays open (then that project still reads and saves it) or it had none.
+	 * Absent from slots written before compositions were kept.
 	 */
 	readonly compositionId?: string | null;
 	/**
 	 * The composition as it was on screen when it threw: present when the
-	 * composition restore was what threw, and then what "Download it" saves.
+	 * composition restore was what threw and the composition holds layers,
+	 * media or audio, and then what "Download it" saves.
 	 */
 	readonly document?: ProjectDocumentV2 | null;
 }
@@ -130,20 +134,48 @@ function draftHoldsWork(draft: string | null, defaultProject: ProjectPayload): b
 }
 
 /**
+ * What the guard knows when the composition restore is what threw: the
+ * composition as it was on screen, or null when even reading it threw.
+ */
+export interface CompositionCrash {
+	readonly document: ProjectDocumentV2 | null;
+}
+
+/** A composition holds work when it carries more than the code: layers, media, audio. */
+function compositionHoldsWork(document: ProjectDocumentV2): boolean {
+	try {
+		return hasAuthoredMultimedia(hydrateProjectDocument(document).project);
+	} catch {
+		// Unreadable is not empty: it may be all that is left of the layers.
+		return true;
+	}
+}
+
+/**
+ * Whether the open project's library entry leaves with the recovery: when it
+ * holds work of its own, or when its composition is what threw (left open, the
+ * next restore would replay it, kept or not).
+ */
+function entryLeaves(project: ProjectPayload | null, crash: CompositionCrash | null): boolean {
+	return project !== null || crash !== null;
+}
+
+/**
  * The open project as the device stores it, or null when what is stored is
- * only the default project. `composition` is the stored composition that threw,
- * when it was the composition restore: it is work even over the default code.
+ * only the default project: its code, and a composition of that code alone.
  */
 export function storedActiveProject(
 	defaultProject: ProjectPayload,
-	composition: ProjectDocumentV2 | null = null,
+	crash: CompositionCrash | null = null,
 	now = Date.now(),
 ): KeptProject | null {
 	const draft = readDraftRaw();
 	const active = activeLocalProject(readLocalProjects());
 	const project = active && !sameWork(active.project, defaultProject) ? active.project : null;
 	const keptDraft = draftHoldsWork(draft, defaultProject) ? draft : null;
-	if (project === null && keptDraft === null && composition === null) {
+	const document = crash?.document ?? null;
+	const keptDocument = document && compositionHoldsWork(document) ? document : null;
+	if (project === null && keptDraft === null && keptDocument === null) {
 		return null;
 	}
 	return {
@@ -152,8 +184,12 @@ export function storedActiveProject(
 		title: project?.title ?? titleOf(keptDraft) ?? "Untitled",
 		project,
 		draft: keptDraft,
-		compositionId: composition?.project.id ?? active?.id ?? null,
-		document: composition,
+		// Named only when nothing opens that key again: an entry that stays open
+		// re-reads and autosaves over it.
+		compositionId: entryLeaves(project, crash)
+			? (document?.project.id ?? active?.id ?? null)
+			: null,
+		document: keptDocument,
 	};
 }
 
@@ -179,15 +215,22 @@ export type SetAside =
  * library entry go, so a project is never removed before it is safe somewhere
  * else. A second recovery of the same project fills the same slot. The
  * composition stays in IndexedDB under `compositionId`; no project opens it
- * again, since its library entry is gone.
+ * again, since its library entry is gone. When the composition is what threw,
+ * the entry goes even if nothing in it was worth keeping.
  */
 export function setAsideActiveProject(
 	defaultProject: ProjectPayload,
-	composition: ProjectDocumentV2 | null = null,
+	crash: CompositionCrash | null = null,
 	now = Date.now(),
 ): SetAside {
-	const kept = storedActiveProject(defaultProject, composition, now);
+	const kept = storedActiveProject(defaultProject, crash, now);
 	if (kept === null) {
+		const active = activeLocalProject(readLocalProjects());
+		if (crash !== null && active) {
+			// The default project's own composition threw: nothing to keep, but
+			// reopening that entry would throw again.
+			openFreshProject(active.id, defaultProject, now);
+		}
 		return { status: "nothing" };
 	}
 	try {
@@ -204,22 +247,25 @@ export function setAsideActiveProject(
 	} catch {
 		// Blocked storage: the copy is written, which is what matters.
 	}
-	// A composition that threw is kept even over the default code, and its
-	// library entry goes with it: left open, the next restore would replay it.
-	if (kept.project !== null || kept.document) {
-		deleteLocalProject(kept.id);
-		// Explicitly a new project: left to the library, the most recent of the
-		// others would become the open one and the next autosave would write the
-		// default project over it.
-		createLocalProject(
-			{
-				...defaultProject,
-				title: nextUntitledTitle(readLocalProjects().projects.map((r) => r.project.title)),
-			},
-			{ now },
-		);
+	if (entryLeaves(kept.project, crash)) {
+		openFreshProject(kept.id, defaultProject, now);
 	}
 	return { status: "kept", kept };
+}
+
+/** Remove a library entry and open a new project in its place. */
+function openFreshProject(id: string, defaultProject: ProjectPayload, now: number): void {
+	deleteLocalProject(id);
+	// Explicitly a new project: left to the library, the most recent of the
+	// others would become the open one and the next autosave would write the
+	// default project over it.
+	createLocalProject(
+		{
+			...defaultProject,
+			title: nextUntitledTitle(readLocalProjects().projects.map((r) => r.project.title)),
+		},
+		{ now },
+	);
 }
 
 /**

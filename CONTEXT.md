@@ -248,15 +248,18 @@ or it does not land.
   restores: the code (the draft, on mount) and the composition (layers, media,
   audio cues, read from IndexedDB once the code is on screen); the wait between
   them is not watched. One slot per project id, never evicted; the rest of the
-  library stays; the default project is never kept, but a composition that
-  threw is, even over the default code. The slot names the IndexedDB key the
-  project's composition and media bytes stay under (nothing deletes them: no
-  library entry opens that key again, and bytes a stored composition
-  references are never pruned). When the composition is what threw, the slot
-  also holds it as it was on screen. The studio opens a fresh project and says
-  so in one line whose one action, "Download it", saves the kept project as a
-  file the studio opens: the V2 document, layers and media by reference, when
-  the slot holds it, else the code project. A throw anywhere else moves
+  library stays; the default project (its code, and a composition of that code
+  alone) is never kept. When the composition is what threw, the open project's
+  library entry goes whether or not anything was kept, so the fresh project
+  never reopens it. When the entry goes, the slot names the IndexedDB key its
+  composition and media bytes stay under, untouched (no library entry opens
+  that key again, and bytes a stored composition references are never pruned);
+  when the entry stays open, it names none, since that project still reads and
+  saves it. When the composition that threw holds layers, media or audio, the
+  slot also holds it as it was on screen. The studio opens a fresh project and
+  says so in one line whose one action, "Download it", saves the kept project
+  as a file the studio opens: the V2 document, layers and media by reference,
+  when the slot holds it, else the code project. A throw anywhere else moves
   nothing, and a studio that threw writes nothing on its way out.
 - **Project history**: the one undo and redo of the open local project. Each
   entry is a whole project document, so every edit is covered (code, scene

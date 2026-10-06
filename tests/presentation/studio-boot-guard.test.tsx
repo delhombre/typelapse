@@ -62,6 +62,25 @@ vi.mock("@/presentation/studio-media-runtime", async () => {
 	};
 });
 
+/** Compositions whose serialization throws, as a layer a newer studio wrote might. */
+const serialization = vi.hoisted(() => ({ failsOnAsset: new Set<string>() }));
+
+vi.mock("@/presentation/stores/studio-composition.store", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("@/presentation/stores/studio-composition.store")>();
+	return {
+		...actual,
+		readStudioProjectDocument: () => {
+			const { assets } = actual.useStudioCompositionStore.getState().value.project;
+			const poisoned = assets.find((asset) => serialization.failsOnAsset.has(asset.id));
+			if (poisoned) {
+				throw new Error(`The composition cannot be serialized: ${poisoned.id}`);
+			}
+			return actual.readStudioProjectDocument();
+		},
+	};
+});
+
 /**
  * The boot guard (#185): a stored project that throws the studio once it is
  * restored is set aside, not replayed on every reload, and a throw that is not
@@ -168,6 +187,8 @@ const probe = {
 	failsOn: new Set<string>(),
 	/** Media the preview cannot draw: a layer of a stored composition. */
 	failsOnAsset: new Set<string>(),
+	/** Compositions the preview cannot draw, by the project id they were stored under. */
+	failsOnCompositionId: new Set<string>(),
 	/** Every render throws, the default project's included: a shell bug. */
 	always: false,
 	/** The default project throws too, once the studio has opened. */
@@ -179,6 +200,10 @@ const probe = {
 function PreviewProbe() {
 	const title = useSnippetStore((s) => s.snippet.title);
 	const assets = useStudioCompositionStore((s) => s.value.project.assets);
+	const compositionId = useStudioCompositionStore((s) => s.value.project.id);
+	if (probe.failsOnCompositionId.has(compositionId)) {
+		throw new Error(`The studio cannot draw the composition ${compositionId}`);
+	}
 	if (probe.always || probe.failsOn.has(title)) {
 		throw new Error(`The studio cannot draw ${title}`);
 	}
@@ -244,6 +269,8 @@ beforeEach(() => {
 	useNoticeStore.setState({ notices: [] });
 	probe.failsOn = new Set();
 	probe.failsOnAsset = new Set();
+	probe.failsOnCompositionId = new Set();
+	serialization.failsOnAsset = new Set();
 	probe.always = false;
 	storedCompositions = {};
 	Object.defineProperty(globalThis, "indexedDB", { value: {}, configurable: true });
@@ -634,5 +661,87 @@ describe("a throw once the stored composition (layers, media) is restored", () =
 		expect(screen.getByRole("alert").textContent).toContain("Reload to pick up where you left off");
 		expect(storageSnapshot()).toEqual(before);
 		expect(savedCompositionIds()).toEqual([]);
+	});
+});
+
+describe("what a composition that throws leaves behind", () => {
+	/** A device whose open project is the default one, as a first visit leaves it. */
+	function seedDefaultDevice(draft?: ProjectPayload) {
+		boot();
+		const pristine = useSnippetStore.getState().toProjectPayload();
+		cleanup();
+		const device: LocalProjectLibrary = {
+			version: 1,
+			activeId: "p",
+			projects: [{ id: "p", updatedAt: 1_000, project: pristine }],
+		};
+		window.localStorage.setItem(LOCAL_PROJECTS_STORAGE_KEY, JSON.stringify(device));
+		window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft ?? pristine));
+		library.loadProject.mockClear();
+	}
+
+	it("keeps no default project: a code-only composition that throws leaves no slot, and its entry does not open again", async () => {
+		seedDefaultDevice();
+		// What the bridge saves after any restore: the code, no layers.
+		storedCompositions.p = createStudioCompositionDocument({
+			...readStudioCompositionSnapshot(),
+			projectId: "p",
+		});
+		probe.failsOnCompositionId.add("p");
+
+		boot();
+		await settleRestore();
+		await settleRestore();
+
+		expect(screen.queryByRole("alert")).toBeNull();
+		expect(window.localStorage.getItem(RECOVERY_STORAGE_KEY)).toBeNull();
+		expect(useNoticeStore.getState().notices).toHaveLength(0);
+		const device = readLocalProjects();
+		expect(device.projects.map((record) => record.id)).not.toContain("p");
+		expect(device.activeId).not.toBeNull();
+
+		boot();
+		await settleRestore();
+
+		expect(screen.queryByRole("alert")).toBeNull();
+		expect(window.localStorage.getItem(RECOVERY_STORAGE_KEY)).toBeNull();
+		expect(library.loadProject.mock.calls.filter(([id]) => id === "p")).toHaveLength(1);
+	});
+
+	it("sets the project aside even when reading the composition that threw throws too", async () => {
+		seedDevice({ id: "p", title: "layered.ts" }, [{ id: "q", title: "other.ts" }]);
+		storedCompositions.p = compositionWithImage("p", "unserializable");
+		probe.failsOnAsset.add("unserializable");
+		serialization.failsOnAsset.add("unserializable");
+
+		boot();
+		await settleRestore();
+
+		expect(screen.queryByRole("alert")).toBeNull();
+		expect(screen.getByTestId("title").textContent).toBe(DEFAULT_TITLE);
+		const kept = readKeptProjects();
+		expect(kept.map((entry) => entry.id)).toEqual(["p"]);
+		expect(kept[0]?.project?.title).toBe("layered.ts");
+		expect(kept[0]?.compositionId).toBe("p");
+		expect(kept[0]?.document ?? null).toBeNull();
+		expect(readLocalProjects().projects.map((record) => record.id)).not.toContain("p");
+		expect(useNoticeStore.getState().notices.map((notice) => notice.message)).toEqual([
+			RECOVERY_NOTICE,
+		]);
+	});
+
+	it("names no composition key when the open entry stays: that project still reads and saves it", () => {
+		// A draft the studio refuses (a theme from a newer studio), over a default entry.
+		const unreadable = { ...project("future.ts"), themeName: "theme-from-the-future" };
+		seedDefaultDevice(unreadable);
+
+		boot();
+
+		const kept = readKeptProjects();
+		expect(kept).toHaveLength(1);
+		expect(kept[0]?.draft).toBe(JSON.stringify(unreadable));
+		expect(kept[0]?.project).toBeNull();
+		expect(kept[0]?.compositionId).toBeNull();
+		expect(readLocalProjects().activeId).toBe("p");
 	});
 });

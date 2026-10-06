@@ -3,6 +3,7 @@ import type { ProjectPayload } from "@/application/project/project-payload";
 import { StoredProjectError } from "@/presentation/components/ui/route-error-boundary";
 import { readStudioProjectDocument } from "@/presentation/stores/studio-composition.store";
 import {
+	type CompositionCrash,
 	announceKeptProject,
 	downloadKeptProject,
 	setAsideActiveProject,
@@ -16,6 +17,19 @@ import {
 	createContext,
 	useContext,
 } from "react";
+
+/**
+ * The composition on screen, or null when reading it throws: its serialization
+ * may be the very thing that threw the studio, and the guard must still try the
+ * default project.
+ */
+function readCrashedComposition(): ProjectDocumentV2 | null {
+	try {
+		return readStudioProjectDocument();
+	} catch {
+		return null;
+	}
+}
 
 /** Which part of the stored project a restore puts on screen. */
 export type RestoredPart = "draft" | "composition";
@@ -114,8 +128,8 @@ export class StudioBootGuard extends Component<
 	private armed: RestoredPart | null = null;
 	/** The default project the probe opened, as a payload, to tell work from it. */
 	private defaultProject: ProjectPayload | null = null;
-	/** The stored composition that threw, taken before the default replaces it. */
-	private composition: ProjectDocumentV2 | null = null;
+	/** Set when the composition restore threw, taken before the default replaces it. */
+	private crash: CompositionCrash | null = null;
 	private stuck: StoredProjectError | null = null;
 	private boot: MountedBoot = this.mount(false);
 
@@ -141,7 +155,12 @@ export class StudioBootGuard extends Component<
 			this.armed = restored ? part : before;
 		}
 		if (restored) {
-			// Its commit is what disarms the guard (componentDidUpdate).
+			// Its commit is what disarms the guard (componentDidUpdate). For the
+			// composition, landing outside any React event, that is the guard's
+			// DefaultLane commit, one task after the composition's own SyncLane
+			// commit: conservative, since the stored state has rendered by then. The
+			// cost is low: another update pending in that same render that throws
+			// would be blamed on the stored project.
 			this.setState((state) => ({ restoreTick: state.restoreTick + 1 }));
 		}
 		return restored;
@@ -156,7 +175,7 @@ export class StudioBootGuard extends Component<
 			return;
 		}
 		// The layers that threw are only in memory now; the next step replaces them.
-		this.composition = this.armed === "composition" ? readStudioProjectDocument() : null;
+		this.crash = this.armed === "composition" ? { document: readCrashedComposition() } : null;
 		this.armed = null;
 		console.warn(
 			"Typelapse could not open the stored project; trying the default one",
@@ -189,11 +208,8 @@ export class StudioBootGuard extends Component<
 
 	/** The default project committed: the stored one was the cause. */
 	private settle(): void {
-		const outcome = setAsideActiveProject(
-			this.defaultProject ?? startDefaultProject(),
-			this.composition,
-		);
-		this.composition = null;
+		const outcome = setAsideActiveProject(this.defaultProject ?? startDefaultProject(), this.crash);
+		this.crash = null;
 		if (outcome.status === "failed") {
 			const project = outcome.project;
 			this.stuck = new StoredProjectError(
