@@ -11,13 +11,25 @@
  * own numbers (`CHROME_STYLE`), and every surface draws exactly that string.
  *
  * The bar's type is monospace (`CHROME_FONT_STACK`), so "how much fits" is a
- * count of characters at a fixed advance rather than a measurement.
+ * count of cells at a fixed advance rather than a measurement. A cell is what
+ * the code grid counts (`displayWidth`): a CJK ideograph or an emoji takes two,
+ * so a title in either takes the room it draws, and a glyph is never cut.
  */
 
+import { clusters } from "../text/display-width";
 import { CHROME_STYLE, type ChromeVariant } from "./frame-metrics";
 
 /** The glyph CSS puts at the cut of `text-overflow: ellipsis`. */
 export const ELLIPSIS = "…";
+
+/** Cells the ellipsis takes: U+2026 is one advance in the bar's mono. */
+const ELLIPSIS_CELLS = 1;
+
+/**
+ * Cells a cut title needs before it is drawn at all: below two, the ellipsis
+ * would stand alone and say nothing, so the bar draws no title instead.
+ */
+const MIN_CUT_CAPACITY = 2;
 
 /**
  * Advance of one glyph of the chrome mono, in em. JetBrains Mono (the bar's
@@ -41,9 +53,13 @@ export function chromeGlyphAdvance(size: number, unit: number): number {
 	return size * unit * CHROME_ADVANCE_EM;
 }
 
-/** The em fraction of a CSS tracking such as "-0.02em". */
-function trackingEm(tracking: string): number {
-	return Number.parseFloat(tracking);
+/**
+ * The em fraction of a CSS tracking such as "-0.02em". "normal" (or anything
+ * else that is not a number) is no tracking, not NaN.
+ */
+export function trackingEm(tracking: string): number {
+	const em = Number.parseFloat(tracking);
+	return Number.isFinite(em) ? em : 0;
 }
 
 /**
@@ -92,7 +108,7 @@ export function windowTitleRoom(chrome: ChromeVariant, windowWidth: number, unit
 	return bar.pillMaxWidth * flex - 2 * bar.pillPadX * unit;
 }
 
-/** How many title characters the bar has room for: zero when it has none. */
+/** How many cells of title the bar has room for: zero when it has none. */
 export function windowTitleCapacity(
 	chrome: ChromeVariant,
 	windowWidth: number,
@@ -106,22 +122,33 @@ export function windowTitleCapacity(
 }
 
 /**
- * A title cut to `capacity` characters, ellipsis included. A title that fits is
- * returned whole. Counted in code points, so an emoji is never cut in half, and
- * the cut never leaves a space in front of the ellipsis.
+ * A title cut to `capacity` cells, ellipsis included. A title that fits is
+ * returned whole; one with fewer than two cells of room is not drawn. Cut by the glyphs the grid places (`clusters`), so a wide
+ * glyph or an emoji sequence is never cut in half, and by their cells, so a
+ * title of wide glyphs stops where its width does. The cut never leaves a space
+ * in front of the ellipsis, and when the next glyph is wider than the one cell
+ * left over, that cell stays empty.
  */
 export function fitTitleToCapacity(title: string, capacity: number): string {
-	const glyphs = Array.from(title);
-	if (glyphs.length <= capacity) {
+	const glyphs = clusters(title);
+	const cells = glyphs.reduce((sum, glyph) => sum + glyph.width, 0);
+	if (cells <= capacity) {
 		return title;
 	}
-	if (capacity <= 0) {
+	if (capacity < MIN_CUT_CAPACITY) {
 		return "";
 	}
-	return `${glyphs
-		.slice(0, capacity - 1)
-		.join("")
-		.trimEnd()}${ELLIPSIS}`;
+	const budget = capacity - ELLIPSIS_CELLS;
+	let kept = "";
+	let used = 0;
+	for (const glyph of glyphs) {
+		if (used + glyph.width > budget) {
+			break;
+		}
+		kept += glyph.text;
+		used += glyph.width;
+	}
+	return `${kept.trimEnd()}${ELLIPSIS}`;
 }
 
 /**

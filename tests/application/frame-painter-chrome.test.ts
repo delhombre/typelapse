@@ -9,8 +9,13 @@ import {
 	chromePadY,
 	chromeRowHeight,
 } from "@/application/layout/frame-metrics";
-import { chromeGlyphAdvance, windowTitle } from "@/application/layout/window-title";
+import {
+	chromeGlyphAdvance,
+	windowTitle,
+	windowTitleCapacity,
+} from "@/application/layout/window-title";
 import type { RenderToken } from "@/application/magic-move/engine";
+import { displayWidth } from "@/application/text/display-width";
 import { describe, expect, it } from "vitest";
 import { RecordingContext, round } from "./support/recording-context";
 
@@ -291,6 +296,48 @@ describe("paintChrome: a long title is one line, cut at the width the bar leaves
 		// One line, and never the untruncated string the old painter drew.
 		expect(drawn.some((command) => command.includes(PR_TITLE))).toBe(false);
 	});
+
+	it.each([
+		["CJK", "修复(路由器): 每个斜杠都要计数，每个路径都要匹配，不要漏掉任何一个"],
+		["emoji", "🚀🚀🚀 ship the 🔥 trie-router fix 🎉🎉🎉 ✨ before the 🌍 launch 🚀🚀🚀"],
+	])(
+		"%s title: draws the cut that counts cells, so it fits the room it takes (#197)",
+		(_name, title) => {
+			for (const chrome of VARIANTS) {
+				const { ctx, scene } = paint({ chrome, title });
+				const expected = windowTitle(title, chrome, scene.window.width, UNIT);
+				expect(expected, chrome).not.toBe(title);
+				expect(expected.endsWith("…"), chrome).toBe(true);
+				expect(displayWidth(expected), chrome).toBeLessThanOrEqual(
+					windowTitleCapacity(chrome, scene.window.width, UNIT),
+				);
+				expect(
+					ctx.commands.some((command) =>
+						command.startsWith(`fillText(${JSON.stringify(expected)},`),
+					),
+					chrome,
+				).toBe(true);
+			}
+		},
+	);
+
+	it.each(["macos", "browser"] as const)(
+		"%s: a window with under two cells of room draws no title, not a lone ellipsis (#203)",
+		(chrome) => {
+			const { ctx, scene } = paint({
+				chrome,
+				title: "Untitled",
+				plan: { frames: [{ lineCount: 1, tokens: [] }] },
+				showLineNumbers: false,
+				padding: 0,
+			});
+			expect(windowTitleCapacity(chrome, scene.window.width, UNIT)).toBeLessThan(2);
+			expect(windowTitle("Untitled", chrome, scene.window.width, UNIT)).toBe("");
+			expect(ctx.commands.some((command) => command.includes("…"))).toBe(false);
+			expect(ctx.commands.some((command) => command.includes("Untitled"))).toBe(false);
+			expect(ctx.commands.some((command) => command.startsWith('fillText("",'))).toBe(false);
+		},
+	);
 
 	it("draws the whole title where the window has room for it", () => {
 		const { ctx, scene } = paint({
