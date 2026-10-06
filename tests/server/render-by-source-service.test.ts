@@ -44,7 +44,10 @@ const job = {
 	completedAt: null,
 };
 
-function service(projects = new MemoryProjectRepository(NOW)) {
+function service(
+	projects = new MemoryProjectRepository(NOW),
+	options: { githubToken?: string; readBudgetMs?: number } = {},
+) {
 	const jobs: HostedRenderJobService = {
 		submit: async () => ({ outcome: "accepted", job }),
 		status: async () => job,
@@ -54,7 +57,7 @@ function service(projects = new MemoryProjectRepository(NOW)) {
 		submit: (
 			source: Parameters<ReturnType<typeof renderBySourceServiceFor>["submit"]>[0]["source"],
 		) =>
-			renderBySourceServiceFor({ db: database, projects, jobs }).submit({
+			renderBySourceServiceFor({ db: database, projects, jobs, ...options }).submit({
 				ownerId: "account-1",
 				plan: Plan.pro(),
 				source,
@@ -162,5 +165,126 @@ describe("a commit read from GitHub", () => {
 		await submit({ kind: "commit", ref: { owner: "acme", repo: "widgets", sha: "7fd1a60" } });
 
 		expect([...projects.records.values()][0]?.document.project.title).toBe("trim before greeting");
+	});
+});
+
+describe("with a GitHub token on this server", () => {
+	const PR = { kind: "pr", ref: { owner: "acme", repo: "widgets", number: 42 } } as const;
+	const TOKEN = "github_pat_fine_grained";
+
+	/** GitHub, as it answers a token: a pull request's diff and title, for a repository of any kind. */
+	const answers = (isPrivate: boolean) => (url: URL, accept: string) => {
+		if (url.pathname === "/repos/acme/widgets") {
+			return Response.json({ private: isPrivate });
+		}
+		return accept === "application/vnd.github.diff"
+			? new Response(GREET_DIFF)
+			: Response.json({ title: "Trim names before greeting" });
+	};
+
+	it("signs every read of a public repository with it", async () => {
+		const sent = fakeGitHub(answers(false));
+		const { projects, submit } = service(undefined, { githubToken: TOKEN });
+
+		const result = await submit(PR);
+
+		expect(result.outcome).toBe("queued");
+		expect(projects.records.size).toBe(1);
+		expect(sent.length).toBeGreaterThan(1);
+		for (const request of sent) {
+			expect(request.headers.get("authorization")).toBe(`Bearer ${TOKEN}`);
+		}
+	});
+
+	it("refuses a private repository the token could read, as a repository nobody sees", async () => {
+		const sent = fakeGitHub(answers(true));
+		const { projects, submit } = service(undefined, { githubToken: TOKEN });
+
+		const result = await submit(PR);
+
+		expect(result).toEqual({
+			outcome: "source-refused",
+			failure: "not-found",
+			message:
+				"That pull request was not found, or its repository is private; Typelapse reads public repositories only, so send a diff as the source instead",
+		});
+		expect(projects.records.size).toBe(0);
+		// The token was used once, on the repository's own record, and read nothing of the pull request.
+		expect(sent.map((request) => request.url.pathname)).toEqual(["/repos/acme/widgets"]);
+	});
+
+	it("refuses the same private repository without a token, in the same words", async () => {
+		fakeGitHub(() => new Response("{}", { status: 404 }));
+		const { submit } = service();
+
+		await expect(submit(PR)).resolves.toMatchObject({
+			outcome: "source-refused",
+			failure: "not-found",
+		});
+	});
+
+	it("names GitHub's limit when it is spent, whatever the token's", async () => {
+		fakeGitHub(
+			(url) =>
+				url.pathname === "/repos/acme/widgets"
+					? Response.json({ private: false })
+					: new Response("{}", {
+							status: 403,
+							headers: {
+								"x-ratelimit-limit": "5000",
+								"x-ratelimit-remaining": "0",
+								"x-ratelimit-reset": "1791000000",
+							},
+						}),
+		);
+		const { projects, submit } = service(undefined, { githubToken: TOKEN });
+
+		const result = await submit(PR);
+
+		expect(result).toEqual({
+			outcome: "source-refused",
+			failure: "rate-limit",
+			message:
+				"GitHub's rate limit was hit (0 of 5000 requests left, resets at 04:00 UTC); try again later, or send a diff as the source",
+		});
+		expect(projects.records.size).toBe(0);
+	});
+});
+
+describe("a source GitHub reads slowly", () => {
+	const RELEASE = { kind: "release", ref: { owner: "acme", repo: "widgets", tag: "v2.0.0" } } as const;
+
+	/** A GitHub that holds every request open until the caller gives up on it. */
+	function stalledGitHub() {
+		const open = { requests: 0, stopped: 0 };
+		vi.stubGlobal(
+			"fetch",
+			(_input: string | URL | Request, init?: RequestInit) =>
+				new Promise<Response>((_resolve, reject) => {
+					open.requests += 1;
+					init?.signal?.addEventListener("abort", () => {
+						open.stopped += 1;
+						reject(new DOMException("aborted", "AbortError"));
+					});
+				}),
+		);
+		return open;
+	}
+
+	it("is refused with the budget named, and the reads it started are stopped", async () => {
+		const open = stalledGitHub();
+		const { projects, submit } = service(undefined, { readBudgetMs: 200 });
+
+		const result = await submit(RELEASE);
+
+		expect(result).toEqual({
+			outcome: "source-refused",
+			failure: "budget",
+			message:
+				"Reading the source took longer than 0.2 seconds; try again, or send a smaller range or a diff as the source",
+		});
+		expect(projects.records.size).toBe(0);
+		expect(open.requests).toBeGreaterThan(0);
+		expect(open.stopped).toBe(open.requests);
 	});
 });

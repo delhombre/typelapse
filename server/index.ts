@@ -173,7 +173,12 @@ export async function createApp(
 	const renderSources =
 		options.renderSources === undefined
 			? database && projectRepository && renderJobs
-				? renderBySourceServiceFor({ db: database, projects: projectRepository, jobs: renderJobs })
+				? renderBySourceServiceFor({
+					db: database,
+					projects: projectRepository,
+					jobs: renderJobs,
+					githubToken: process.env.TYPELAPSE_GITHUB_TOKEN,
+				})
 				: null
 			: options.renderSources;
 	const appUrl = process.env.TYPELAPSE_APP_URL?.trim() || undefined;

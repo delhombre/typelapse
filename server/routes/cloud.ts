@@ -24,6 +24,7 @@ import {
 	type RenderBySourceResult,
 	type RenderBySourceService,
 	parseRenderSourceOptions,
+	parseRenderSourceTheme,
 } from "../../src/application/render/render-by-source";
 import type { Plan } from "../../src/domain/value-objects/plan";
 import {
@@ -39,11 +40,12 @@ const MAX_SOURCE_REQUEST_BYTES = 4 * 1024 * 1024;
 /**
  * Where a source that cannot be read goes on the wire: what the caller can fix
  * is a 422, and what GitHub did is a 503 for its rate limit and a 502 for the
- * rest, so a script knows whether to change the request or to wait.
+ * rest, and a 504 when the read outlasted the budget this server gives a
+ * source, so a script knows whether to change the request or to wait.
  */
 const SOURCE_REFUSALS: Record<
 	ImportFailure,
-	{ readonly status: 422 | 502 | 503; readonly code: string }
+	{ readonly status: 422 | 502 | 503 | 504; readonly code: string }
 > = {
 	"not-found": { status: 422, code: "source-not-found" },
 	"too-large": { status: 422, code: "source-too-large" },
@@ -51,6 +53,8 @@ const SOURCE_REFUSALS: Record<
 	other: { status: 422, code: "source-unusable" },
 	"rate-limit": { status: 503, code: "source-rate-limited" },
 	timeout: { status: 502, code: "source-unavailable" },
+	// The read took longer than this server allows one source: a smaller range, or a diff, fits.
+	budget: { status: 504, code: "source-too-slow" },
 	unreachable: { status: 502, code: "source-unavailable" },
 	unfetchable: { status: 502, code: "source-unavailable" },
 };
@@ -243,8 +247,10 @@ export const createCloudRoute = (
 			return c.json({ error: read.message }, 400);
 		}
 		let renderOptions: HostedRenderOptions;
+		let theme: string | undefined;
 		try {
 			renderOptions = parseRenderSourceOptions(input?.renderOptions);
+			theme = parseRenderSourceTheme(input?.renderOptions);
 		} catch (error) {
 			return c.json(
 				{ error: error instanceof Error ? error.message : "Invalid render options" },
@@ -269,6 +275,7 @@ export const createCloudRoute = (
 			plan,
 			source: read.source,
 			renderOptions,
+			...(theme ? { theme } : {}),
 			now: now(),
 		});
 		return sourceAnswer(c, result, studioUrl, linkNotice);

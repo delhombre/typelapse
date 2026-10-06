@@ -2,6 +2,9 @@ import { springs } from "@/presentation/motion";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type SyntheticEvent, useCallback, useEffect, useId, useRef } from "react";
 
+const SNIPPET_DETAIL =
+	"Your snippet has changes only this browser remembers. Loading this replaces them, and the autosaved draft with them. Export or copy a share link first if you want to keep them.";
+
 /**
  * The one confirm every destructive load walks through.
  *
@@ -11,11 +14,16 @@ import { type SyntheticEvent, useCallback, useEffect, useId, useRef } from "reac
  * so all four ask with the same voice, and so the copy can tell the truth
  * about the autosaved draft in exactly one place. Its look lives with the
  * studio's other surfaces (`.sc-confirm` in studio-camera.css), read from the
- * studio's tokens, so a host that is already a surface can flatten it.
+ * studio's tokens, so a host that is already a surface can flatten it. A host
+ * asking about something other than the snippet gives its own `detail` and
+ * `keepLabel`.
  */
 export function ConfirmDiscard({
 	message,
 	messageId,
+	detail = SNIPPET_DETAIL,
+	keepLabel = "Keep my snippet",
+	focusKeep = false,
 	confirmLabel,
 	onCancel,
 	onConfirm,
@@ -25,6 +33,12 @@ export function ConfirmDiscard({
 	message: string;
 	/** Lets a hosting dialog point `aria-labelledby` at the question itself. */
 	messageId?: string;
+	/** What else is lost, in one sentence; absent says the snippet's. */
+	detail?: string;
+	/** The safe answer's label; absent is the snippet's. */
+	keepLabel?: string;
+	/** Puts the keyboard on the safe answer when the question appears under the person's hand. */
+	focusKeep?: boolean;
 	confirmLabel: string;
 	onCancel: () => void;
 	onConfirm: () => void;
@@ -32,6 +46,11 @@ export function ConfirmDiscard({
 	className?: string;
 }) {
 	const reduce = useReducedMotion();
+	const keepRef = useRef<HTMLButtonElement>(null);
+
+	useEffect(() => {
+		if (focusKeep) keepRef.current?.focus({ preventScroll: true });
+	}, [focusKeep]);
 
 	return (
 		<motion.div
@@ -45,19 +64,17 @@ export function ConfirmDiscard({
 			<p id={messageId} className="sc-confirm-title">
 				{message}
 			</p>
-			<p className="sc-confirm-text">
-				Your snippet has changes only this browser remembers. Loading this replaces them, and the
-				autosaved draft with them. Export or copy a share link first if you want to keep them.
-			</p>
+			<p className="sc-confirm-text">{detail}</p>
 			<div className="sc-confirm-actions">
 				<motion.button
+					ref={keepRef}
 					type="button"
 					onClick={onCancel}
 					whileTap={{ scale: 0.97 }}
 					transition={springs.snappy}
 					className="sc-confirm-keep"
 				>
-					Keep my snippet
+					{keepLabel}
 				</motion.button>
 				<motion.button
 					type="button"

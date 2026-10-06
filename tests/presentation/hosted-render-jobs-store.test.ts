@@ -302,3 +302,59 @@ describe("hosted render jobs", () => {
 		expect(jobs.getState().phase).toMatchObject({ kind: "failed" });
 	});
 });
+
+describe("a render whose project was deleted", () => {
+	it("is let go: the status stops offering a download the server no longer has", async () => {
+		const lookups = client(
+			{ submit: async () => ({ kind: "accepted", job: job("succeeded", DOWNLOAD) }) },
+			[{ kind: "not-found" }],
+		);
+		const { jobs, storage } = store(lookups);
+		jobs.getState().connectCloudSave(saved);
+		await jobs.getState().submit(REQUEST);
+		expect(jobs.getState().phase.kind).toBe("succeeded");
+
+		await jobs.getState().recheck();
+
+		expect(jobs.getState().phase).toEqual({
+			kind: "failed",
+			message: "This cloud render is no longer available.",
+			upgradeTo: null,
+		});
+		expect(storage.values.has(CLOUD_RENDER_JOB_KEY)).toBe(false);
+	});
+
+	it("is left alone when the server still has its job", async () => {
+		const port = client(
+			{ submit: async () => ({ kind: "accepted", job: job("succeeded", DOWNLOAD) }) },
+			[{ kind: "found", job: job("succeeded", DOWNLOAD) }],
+		);
+		const { jobs, storage } = store(port);
+		jobs.getState().connectCloudSave(saved);
+		await jobs.getState().submit(REQUEST);
+
+		await jobs.getState().recheck();
+
+		expect(jobs.getState().phase.kind).toBe("succeeded");
+		expect(storage.values.get(CLOUD_RENDER_JOB_KEY)).toBe("job-1");
+	});
+
+	it("is a no-op when there is no render on screen, and when the server cannot be reached", async () => {
+		const lookup = vi.fn(async () => ({ kind: "unreachable" as const }));
+		const idle = store(client({ job: lookup }));
+		await idle.jobs.getState().recheck();
+		expect(lookup).not.toHaveBeenCalled();
+		expect(idle.jobs.getState().phase.kind).toBe("idle");
+
+		const { jobs } = store(
+			client({
+				submit: async () => ({ kind: "accepted", job: job("succeeded", DOWNLOAD) }),
+				job: lookup,
+			}),
+		);
+		jobs.getState().connectCloudSave(saved);
+		await jobs.getState().submit(REQUEST);
+		await jobs.getState().recheck();
+		expect(jobs.getState().phase.kind).toBe("succeeded");
+	});
+});

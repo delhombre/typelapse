@@ -24,6 +24,10 @@ const projects: ProjectDocumentRepositoryPort = {
 	findOwnedById: async () => null,
 	listByOwner: async () => [],
 	update: async () => ({ outcome: "not-found" }),
+	createAutomation: async () => {
+		throw new Error("not needed");
+	},
+	updateAutomation: async () => ({ outcome: "not-found" }),
 	deleteOwnedById: async () => false,
 };
 

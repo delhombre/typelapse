@@ -1,6 +1,7 @@
 import { projectFromDiff } from "@/application/import/diff-project";
 import {
 	type ImportFetchers,
+	importFailureDetailOf,
 	importFailureOf,
 	importSource,
 	importSourceKey,
@@ -8,7 +9,7 @@ import {
 	remoteSourceOf,
 } from "@/application/import/import-source";
 import { releaseProject } from "@/application/import/release-project";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The cascade the CLI and the hosted render route share: a pasted string is a
@@ -204,6 +205,99 @@ describe("importSource", () => {
 	});
 });
 
+afterEach(() => {
+	vi.useRealTimers();
+});
+
+describe("importSource with a time budget", () => {
+	const PR = { kind: "pr", ref: { owner: "octocat", repo: "Hello-World", number: 1 } } as const;
+
+	/** A GitHub that never answers, and stops when it is told to. */
+	function slowGitHub() {
+		const told: AbortSignal[] = [];
+		const slow = fetchers({
+			fetchPr: vi.fn(
+				(_ref, read) =>
+					new Promise<never>((_resolve, reject) => {
+						if (read?.signal) {
+							told.push(read.signal);
+							read.signal.addEventListener("abort", () => reject(new Error("Request timed out")));
+						}
+					}),
+			),
+		});
+		return { slow, told };
+	}
+
+	it("refuses a read that outlasts it, naming the budget, and tells the read to stop", async () => {
+		vi.useFakeTimers();
+		const { slow, told } = slowGitHub();
+
+		const reading = importSource(PR, slow, { budgetMs: 30_000 });
+		const outcome = expect(reading).rejects.toThrow(
+			"Reading the source took longer than 30 seconds",
+		);
+		await vi.advanceTimersByTimeAsync(30_000);
+
+		await outcome;
+		expect(told).toHaveLength(1);
+		expect(told[0]?.aborted).toBe(true);
+	});
+
+	it("is not what a request's own timeout says", async () => {
+		vi.useFakeTimers();
+		const { slow } = slowGitHub();
+
+		const reading = importSource(PR, slow, { budgetMs: 1_000 }).catch((error: Error) => error);
+		await vi.advanceTimersByTimeAsync(1_000);
+
+		expect(importFailureOf(((await reading) as Error).message)).toBe("budget");
+	});
+
+	it("lets a read that is in time through, and leaves no timer behind", async () => {
+		vi.useFakeTimers();
+
+		const imported = await importSource(PR, fetchers(), { budgetMs: 30_000 });
+
+		expect(imported.kind).toBe("pr");
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("keeps the budget of one source apart from the next", async () => {
+		vi.useFakeTimers();
+		const { slow } = slowGitHub();
+
+		const first = importSource(PR, slow, { budgetMs: 1_000 }).catch(() => "refused");
+		await vi.advanceTimersByTimeAsync(1_000);
+		await first;
+
+		await expect(importSource(PR, fetchers(), { budgetMs: 1_000 })).resolves.toMatchObject({
+			kind: "pr",
+		});
+	});
+
+	it("reads without any budget as it always did", async () => {
+		const imported = await importSource(PR, fetchers());
+
+		expect(imported.kind).toBe("pr");
+	});
+});
+
+describe("importFailureDetailOf", () => {
+	it("reads what GitHub said of its limit out of the importer's sentence", () => {
+		expect(
+			importFailureDetailOf(
+				"GitHub rate limit hit (0 of 60 requests left, resets at 04:00 UTC): paste the diff instead",
+			),
+		).toBe("0 of 60 requests left, resets at 04:00 UTC");
+	});
+
+	it("is nothing when the sentence says nothing more", () => {
+		expect(importFailureDetailOf("GitHub rate limit hit: paste the diff instead")).toBeUndefined();
+		expect(importFailureDetailOf("")).toBeUndefined();
+	});
+});
+
 describe("importFailureOf", () => {
 	it.each([
 		["PR not found (or the repository is private)", "not-found"],
@@ -213,6 +307,11 @@ describe("importFailureOf", () => {
 		["GitHub will not compare a range this large: pass a smaller range", "range-too-large"],
 		["GitHub will not serve a diff this large: paste a smaller diff instead", "too-large"],
 		["Request timed out", "timeout"],
+		["Reading the source took longer than 30 seconds", "budget"],
+		[
+			"GitHub rate limit hit (0 of 5000 requests left, resets at 04:00 UTC): try again later",
+			"rate-limit",
+		],
 		["Could not reach GitHub: check your connection, or paste the diff instead", "unreachable"],
 		["Could not fetch the change", "unfetchable"],
 		["This change has no file differences to animate", "other"],

@@ -68,6 +68,19 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
   repository GitHub does not show (private or missing) is refused in plain words;
   that one is tagged `@network` and skips when GitHub cannot be reached.
 
+- `github-action.spec.ts` (serial, no browser: the Action's own scripts run as a
+  runner runs them, `cli/hosted-render.ts` then `cli/pr-comment.ts`, with a key in
+  the environment): a Creator's key renders the repository's diff at 1280x720, 24
+  fps in the nord theme, publishes the page, and leaves the share page and the
+  studio link in the outputs; the page is reachable by anyone, the file is read
+  back with ffprobe and its card is nord's colour and not midnight's, the saved
+  project carries the theme, and the comment links the page with no artifact. The
+  same run again is the same job and page. A free account's key leaves the runner
+  to render, with the studio base for its link and the sentence that the hosted
+  video comes with Creator, and nothing saved or queued; a key that is not valid
+  is a warning and a line in the comment; no key and no address writes nothing,
+  and an address without a key says so in the job summary.
+
 - `rate-limit.spec.ts`: a sign-up the limiter refuses (a script spends the window
   first, up to the first 429) keeps the island's form with what was typed, says in
   one sentence how long to wait, using the seconds the server named in
@@ -81,6 +94,15 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
   saving the render-by-URL project from the studio is refused at the ceiling and
   writes nothing, and once a place is free the same save makes it regular, so
   that it counts.
+
+- `delete-cloud-project.spec.ts` (one Creator render): the island lists the cloud
+  copy of the open project, Delete asks with the shared question and one sentence
+  on what goes, and keeping deletes nothing; deleting removes the project, the
+  render and its public page (the page and its video answer 404), leaves a note
+  for each file the render stored, and leaves the studio on its own project, on
+  this device, with the render status saying the render is gone; a new save makes
+  a new project. Another account's delete answers 404, as for a project that is
+  not there.
 
 `support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job, the keys, the
 projects, the minutes a render counts) and the sign-up helpers. Better Auth allows

@@ -3,8 +3,10 @@
  * route share, so a pull request becomes the same project wherever it is read.
  * A source is a GitHub pull request, commit, release or compare link, or a
  * unified diff. The network is injected ({@link ImportFetchers}); the studio's
- * own fetchers (`infrastructure/import`) are the real ones, and they send no
- * credential, so a private repository is out of reach here by construction.
+ * own fetchers (`infrastructure/import`) are the real ones. They send no
+ * credential unless a server gives them a token, and then they read public
+ * repositories only (`github-fetchers`). A server may also hold one source's
+ * read to a time budget ({@link ImportOptions}).
  *
  * Relative imports on purpose: the hosted server loads this under tsx, which
  * does not resolve the "@/" path mapping unless it starts from the repository.
@@ -51,10 +53,15 @@ export interface FetchedRelease {
 	readonly notice?: string;
 }
 
+/** What a read is told by the cascade: the signal that stops it when its budget is spent. */
+export interface ImportRead {
+	readonly signal?: AbortSignal;
+}
+
 export interface ImportFetchers {
-	fetchPr: (ref: PrRef) => Promise<FetchedChange>;
-	fetchCommit: (ref: CommitRef) => Promise<FetchedChange>;
-	fetchRelease: (ref: ReleaseRef | CompareRef) => Promise<FetchedRelease>;
+	fetchPr: (ref: PrRef, read?: ImportRead) => Promise<FetchedChange>;
+	fetchCommit: (ref: CommitRef, read?: ImportRead) => Promise<FetchedChange>;
+	fetchRelease: (ref: ReleaseRef | CompareRef, read?: ImportRead) => Promise<FetchedRelease>;
 }
 
 export interface ImportedSource {
@@ -115,28 +122,76 @@ export function readImportSource(input: string): ReadImportSource {
 	return { outcome: "refused", message: isBareLink(text) ? NOT_A_CHANGE_LINK : NEITHER };
 }
 
+export interface ImportOptions {
+	/**
+	 * The longest one source may take to read, in milliseconds. A server sets it so
+	 * that a release of thirty commits, read one request at a time, cannot hold a
+	 * connection for minutes; the CLI sets none and waits as long as GitHub does.
+	 */
+	readonly budgetMs?: number;
+}
+
+const budgetSentence = (budgetMs: number) => {
+	const seconds = Math.round(budgetMs / 100) / 10;
+	return `Reading the source took longer than ${seconds} ${seconds === 1 ? "second" : "seconds"}`;
+};
+
 /**
  * The project a source becomes, built by the studio's own steps: a pull request
  * or a commit through its diff and title, a release or a range through its
  * chapters behind a title card, a diff as it is. Throws the importer's own
- * sentence when the source cannot be read or has nothing to animate.
+ * sentence when the source cannot be read or has nothing to animate, or the
+ * budget's when the read outlasts it: the budget is kept here, once, so the
+ * fetchers only have to stop when they are told to, and every way of reading a
+ * source is held to it the same way.
  */
 export async function importSource(
 	source: ImportSource,
 	fetchers: ImportFetchers,
+	options: ImportOptions = {},
 ): Promise<ImportedSource> {
+	const { budgetMs } = options;
+	if (budgetMs === undefined) {
+		return build(source, fetchers);
+	}
+	const stop = new AbortController();
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const spent = new Promise<never>((_resolve, reject) => {
+		timer = setTimeout(() => {
+			// Refuse first, then stop the read: what it fails with after that is not the answer.
+			reject(new Error(budgetSentence(budgetMs)));
+			stop.abort();
+		}, budgetMs);
+	});
+	const reading = build(source, fetchers, { signal: stop.signal });
+	// A read that loses the race fails later, and nobody is left to hear it.
+	reading.catch(() => undefined);
+	try {
+		return await Promise.race([reading, spent]);
+	} finally {
+		clearTimeout(timer);
+	}
+}
+
+async function build(
+	source: ImportSource,
+	fetchers: ImportFetchers,
+	read?: ImportRead,
+): Promise<ImportedSource> {
+	// A fetcher is told nothing when there is nothing to tell: the CLI's are called as they were.
+	const told = read ? ([read] as const) : ([] as const);
 	switch (source.kind) {
 		case "pr":
 		case "commit": {
 			const { diffText, title } =
 				source.kind === "pr"
-					? await fetchers.fetchPr(source.ref)
-					: await fetchers.fetchCommit(source.ref);
+					? await fetchers.fetchPr(source.ref, ...told)
+					: await fetchers.fetchCommit(source.ref, ...told);
 			return { kind: source.kind, project: projectFromDiff(diffText, { title }) };
 		}
 		case "release":
 		case "compare": {
-			const { card, chapters, notice } = await fetchers.fetchRelease(source.ref);
+			const { card, chapters, notice } = await fetchers.fetchRelease(source.ref, ...told);
 			const project = releaseProject(card, chapters);
 			return notice
 				? { kind: source.kind, project, card, notice }
@@ -176,6 +231,8 @@ export type ImportFailure =
 	| "rate-limit"
 	| "range-too-large"
 	| "too-large"
+	/** The whole read outlasted the time one source is given; GitHub may have been fine. */
+	| "budget"
 	| "timeout"
 	| "unreachable"
 	/** GitHub answered, with nothing the importer could use: its generic "could not fetch". */
@@ -189,6 +246,9 @@ export type ImportFailure =
  * the general "too large".
  */
 export function importFailureOf(message: string): ImportFailure {
+	if (/took longer than/i.test(message)) {
+		return "budget";
+	}
 	if (/not found/i.test(message)) {
 		return "not-found";
 	}
@@ -211,4 +271,13 @@ export function importFailureOf(message: string): ImportFailure {
 		return "unfetchable";
 	}
 	return "other";
+}
+
+/**
+ * What GitHub said of its limit, when the importer's sentence carries it: how
+ * much was left and when it resets, or the wait asked. Read from the sentence
+ * like the failure is, and undefined when GitHub said nothing.
+ */
+export function importFailureDetailOf(message: string): string | undefined {
+	return /rate limit hit \(([^)]+)\)/i.exec(message)?.[1];
 }

@@ -24,29 +24,37 @@ function dayLabel(date: Date, now: Date, timeZone: string | undefined): string {
 	}).format(date);
 }
 
+/**
+ * How long ago something happened, led by the verb a row uses ("Used", "Edited"):
+ * just now for the first two minutes, then minutes, hours and days, then the day.
+ */
+export function elapsedLabel(at: Date, now: Date, lead: string, timeZone?: string): string {
+	// A machine that wrote it a little ahead of this one never reads as the future.
+	const elapsed = Math.max(0, now.getTime() - at.getTime());
+	if (elapsed < JUST_NOW_MS) {
+		return `${lead} just now`;
+	}
+	if (elapsed < HOUR_MS) {
+		return `${lead} ${Math.floor(elapsed / MINUTE_MS)} min ago`;
+	}
+	if (elapsed < DAY_MS) {
+		return `${lead} ${Math.floor(elapsed / HOUR_MS)} h ago`;
+	}
+	const days = Math.floor(elapsed / DAY_MS);
+	if (days === 1) {
+		return `${lead} yesterday`;
+	}
+	if (days < DAYS_BEFORE_A_DATE) {
+		return `${lead} ${days} days ago`;
+	}
+	return `${lead} ${dayLabel(at, now, timeZone)}`;
+}
+
 export function lastUsedLabel(lastUsedAt: Date | null, now: Date, timeZone?: string): string {
 	if (lastUsedAt === null) {
 		return "Never used";
 	}
-	// A machine that wrote it a little ahead of this one never reads as the future.
-	const elapsed = Math.max(0, now.getTime() - lastUsedAt.getTime());
-	if (elapsed < JUST_NOW_MS) {
-		return "Used just now";
-	}
-	if (elapsed < HOUR_MS) {
-		return `Used ${Math.floor(elapsed / MINUTE_MS)} min ago`;
-	}
-	if (elapsed < DAY_MS) {
-		return `Used ${Math.floor(elapsed / HOUR_MS)} h ago`;
-	}
-	const days = Math.floor(elapsed / DAY_MS);
-	if (days === 1) {
-		return "Used yesterday";
-	}
-	if (days < DAYS_BEFORE_A_DATE) {
-		return `Used ${days} days ago`;
-	}
-	return `Used ${dayLabel(lastUsedAt, now, timeZone)}`;
+	return elapsedLabel(lastUsedAt, now, "Used", timeZone);
 }
 
 /** Null for a key that never expires: a row with nothing to warn of says nothing. */

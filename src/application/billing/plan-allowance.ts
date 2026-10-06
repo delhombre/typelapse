@@ -9,6 +9,7 @@ const MINUTE_MS = 60_000;
 
 /** What an account currently holds against the hosted ceilings. */
 export interface AccountUsage {
+	/** Regular projects: the ones the ceiling counts, not those only render by URL has saved. */
 	readonly cloudProjects: number;
 	readonly mediaBytes: number;
 	/** Output of hosted jobs queued, running or succeeded since the period start. */

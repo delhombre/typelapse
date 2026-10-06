@@ -1,8 +1,9 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, type SQL, sql } from "drizzle-orm";
 import type {
 	ProjectDocumentRepositoryPort,
 	ProjectDocumentSummary,
 	StoredProjectDocument,
+	UpdateProjectDocumentResult,
 } from "../../src/application/project/project-document-repository.port";
 import {
 	parseProjectDocument,
@@ -12,6 +13,14 @@ import { projects } from "./creator-schema";
 import type { CreatorDatabase } from "./database";
 
 type ProjectRow = typeof projects.$inferSelect;
+
+/**
+ * What the cloud-projects ceiling counts: the owner's regular projects. The
+ * allowance reads the same rows, so what is shown is what is enforced.
+ */
+export function regularProjectsOf(ownerId: string) {
+	return and(eq(projects.ownerId, ownerId), eq(projects.automation, false));
+}
 
 function verifiedDocument(input: unknown): ProjectDocumentV2 {
 	const parsed = parseProjectDocument(input);
@@ -30,6 +39,79 @@ export function storedProjectFromRow(row: ProjectRow): StoredProjectDocument {
 		createdAt: row.createdAt,
 		updatedAt: row.updatedAt,
 	};
+}
+
+/** The database, or a transaction of it. */
+type Executor = Pick<CreatorDatabase, "select" | "update" | "execute">;
+
+interface Save {
+	readonly ownerId: string;
+	readonly id: string;
+	readonly expectedRevision: number;
+	readonly document: ProjectDocumentV2;
+}
+
+/**
+ * Same owner lock as asset reservation and render enqueue: what counts a
+ * project and then writes one serializes, so the count it reads is the count it
+ * writes against.
+ */
+async function lockOwner(executor: Executor, ownerId: string): Promise<void> {
+	await executor.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${ownerId}, 0))`);
+}
+
+async function countRegular(executor: Executor, ownerId: string): Promise<number> {
+	const [owned] = await executor
+		.select({ count: sql<number>`count(*)::int` })
+		.from(projects)
+		.where(regularProjectsOf(ownerId));
+	return Number(owned?.count ?? 0);
+}
+
+/**
+ * The write every save starts from: the revision moves only if it is the one
+ * asked for. `only` narrows the rows it may touch, and `becomes` sets the kind
+ * as the document is written; without it the kind is left as it is.
+ */
+async function writeRevision(
+	executor: Executor,
+	input: Save,
+	options: { readonly only?: SQL; readonly becomes?: { readonly automation: false } } = {},
+): Promise<ProjectRow | undefined> {
+	const [row] = await executor
+		.update(projects)
+		.set({
+			title: input.document.project.title,
+			document: input.document,
+			revision: sql`${projects.revision} + 1`,
+			updatedAt: new Date(),
+			...options.becomes,
+		})
+		.where(
+			and(
+				eq(projects.id, input.id),
+				eq(projects.ownerId, input.ownerId),
+				eq(projects.revision, input.expectedRevision),
+				options.only,
+			),
+		)
+		.returning();
+	return row;
+}
+
+/** Why a write that touched nothing touched nothing: the project is gone, or its revision moved. */
+async function refusalOf(
+	executor: Executor,
+	input: Save,
+): Promise<Exclude<UpdateProjectDocumentResult, { readonly outcome: "updated" }>> {
+	const [current] = await executor
+		.select({ revision: projects.revision })
+		.from(projects)
+		.where(and(eq(projects.id, input.id), eq(projects.ownerId, input.ownerId)))
+		.limit(1);
+	return current
+		? { outcome: "conflict", currentRevision: current.revision }
+		: { outcome: "not-found" };
 }
 
 /** PostgreSQL/Drizzle implementation with ownership embedded in every mutation. */
@@ -65,18 +147,10 @@ export function createProjectDocumentRepository(
 		},
 
 		async create(input) {
-			// Same owner lock as asset reservation and render enqueue: a burst of
-			// creates serializes, so the count it reads is the count it inserts against.
 			return db.transaction(async (tx) => {
-				await tx.execute(
-					sql`SELECT pg_advisory_xact_lock(hashtextextended(${input.ownerId}, 0))`,
-				);
+				await lockOwner(tx, input.ownerId);
 				if (Number.isFinite(input.maxProjects)) {
-					const [owned] = await tx
-						.select({ count: sql<number>`count(*)::int` })
-						.from(projects)
-						.where(eq(projects.ownerId, input.ownerId));
-					const projectCount = Number(owned?.count ?? 0);
+					const projectCount = await countRegular(tx, input.ownerId);
 					if (projectCount >= input.maxProjects) {
 						return { outcome: "limit-reached" as const, projectCount };
 					}
@@ -97,42 +171,110 @@ export function createProjectDocumentRepository(
 			});
 		},
 
-		async update(input) {
+		async createAutomation(input) {
+			// Nothing is counted, so there is nothing to lock: two requests for one
+			// source meet at the primary key, and the loser learns it from the error.
 			const [row] = await db
-				.update(projects)
-				.set({
+				.insert(projects)
+				.values({
+					id: input.document.project.id,
+					ownerId: input.ownerId,
 					title: input.document.project.title,
 					document: input.document,
-					revision: sql`${projects.revision} + 1`,
-					updatedAt: new Date(),
+					automation: true,
 				})
-				.where(
-					and(
-						eq(projects.id, input.id),
-						eq(projects.ownerId, input.ownerId),
-						eq(projects.revision, input.expectedRevision),
-					),
-				)
 				.returning();
-			if (row) {
-				return { outcome: "updated", project: storedProjectFromRow(row) };
+			if (!row) {
+				throw new Error("Project persistence returned no created row");
 			}
-			const [current] = await db
-				.select({ revision: projects.revision })
-				.from(projects)
-				.where(and(eq(projects.id, input.id), eq(projects.ownerId, input.ownerId)))
-				.limit(1);
-			return current
-				? { outcome: "conflict", currentRevision: current.revision }
-				: { outcome: "not-found" };
+			return storedProjectFromRow(row);
+		},
+
+		async update(input) {
+			// A regular project is saved as it always was: one write, no lock, and
+			// whatever the ceiling now is, since saving what an account holds is not
+			// creating more.
+			const regular = await writeRevision(db, input, { only: eq(projects.automation, false) });
+			if (regular) {
+				return { outcome: "updated", project: storedProjectFromRow(regular) };
+			}
+			// What is left is an automation project, which this save makes regular, or
+			// a project that is stale or not there. Counting and writing are one step
+			// under the owner lock, as for a new project.
+			return db.transaction(async (tx) => {
+				await lockOwner(tx, input.ownerId);
+				const [current] = await tx
+					.select({ revision: projects.revision, automation: projects.automation })
+					.from(projects)
+					.where(and(eq(projects.id, input.id), eq(projects.ownerId, input.ownerId)))
+					.limit(1);
+				if (!current) {
+					return { outcome: "not-found" as const };
+				}
+				if (current.revision !== input.expectedRevision) {
+					return { outcome: "conflict" as const, currentRevision: current.revision };
+				}
+				if (current.automation && Number.isFinite(input.maxProjects)) {
+					const projectCount = await countRegular(tx, input.ownerId);
+					if (projectCount >= input.maxProjects) {
+						return { outcome: "limit-reached" as const, projectCount };
+					}
+				}
+				const row = await writeRevision(tx, input, { becomes: { automation: false } });
+				if (row) {
+					return { outcome: "updated" as const, project: storedProjectFromRow(row) };
+				}
+				// Render by URL revised it between the read and the write.
+				return refusalOf(tx, input);
+			});
+		},
+
+		async updateAutomation(input) {
+			const row = await writeRevision(db, input);
+			return row
+				? { outcome: "updated", project: storedProjectFromRow(row) }
+				: refusalOf(db, input);
 		},
 
 		async deleteOwnedById(ownerId, id) {
-			const deleted = await db
-				.delete(projects)
-				.where(and(eq(projects.id, id), eq(projects.ownerId, ownerId)))
-				.returning({ id: projects.id });
-			return deleted.length > 0;
+			// The owner lock every other writer of the account takes, so a delete never
+			// interleaves with a reservation or an enqueue.
+			return db.transaction(async (tx) => {
+				await lockOwner(tx, ownerId);
+				const [owned] = await tx
+					.select({ id: projects.id })
+					.from(projects)
+					.where(and(eq(projects.id, id), eq(projects.ownerId, ownerId)))
+					.for("update");
+				if (!owned) {
+					return false;
+				}
+				// Its media and renders go with it by cascade, but the files they name sit
+				// in the bucket, which a cascade cannot reach: each gets a note for the
+				// cleanup worker, written in this transaction so it is as durable as the
+				// delete. The jobs are held first so a worker cannot store a result between
+				// this read and the delete; its next write finds no job and removes the result.
+				await tx.execute(sql`SELECT id FROM render_jobs WHERE project_id = ${id} FOR UPDATE`);
+				await tx.execute(
+					sql`INSERT INTO object_deletion_outbox (id, object_key)
+						SELECT stored.id, stored.object_key FROM (
+							SELECT a.id AS id, a.object_key AS object_key
+							FROM assets a
+							WHERE a.project_id = ${id} AND a.upload_status <> 'deleted'
+							UNION ALL
+							SELECT j.id || ':output', j.output_object_key
+							FROM render_jobs j
+							WHERE j.project_id = ${id} AND j.output_object_key IS NOT NULL
+							UNION ALL
+							SELECT j.id || ':poster', j.output_poster_key
+							FROM render_jobs j
+							WHERE j.project_id = ${id} AND j.output_poster_key IS NOT NULL
+						) AS stored
+						ON CONFLICT DO NOTHING`,
+				);
+				await tx.delete(projects).where(and(eq(projects.id, id), eq(projects.ownerId, ownerId)));
+				return true;
+			});
 		},
 	};
 }

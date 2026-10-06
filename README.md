@@ -86,12 +86,15 @@ curl -sS "$TYPELAPSE_URL/api/cloud/render/source" \
 `source` is what the CLI takes, files aside: a pull request, commit, release
 (`/releases/tag/<tag>`) or compare (`/compare/<a>...<b>`) URL of a public
 repository, or a unified diff as text. They are read by the same importers as
-the CLI and the studio, so the video is the one they would make. Typelapse sends
-GitHub no credential, so a private repository is refused like a missing one:
-send its diff as `source` instead. `renderOptions` is optional and changes only
+the CLI and the studio, so the video is the one they would make. A private
+repository is refused like a missing one, whatever credential the server holds:
+send its diff as `source` instead. A source is read inside 30 seconds; past
+that it is refused rather than held. `renderOptions` is optional and changes only
 what it names: `format` (`mp4` or `webm`), `width` and `height` (both together),
-`fps` (24, 30 or 60) and `loop`. Without it the render is the studio's own, MP4
-at 1920x1080 and 60 fps.
+`fps` (24, 30 or 60), `loop` and `theme` (`midnight`, `aurora`, `frost`,
+`dracula`, `one-dark`, `catppuccin` or `nord`, swapped whole as the CLI's
+`--theme` does; another theme for the same source is a new revision of its
+project). Without it the render is the studio's own, MP4 at 1920x1080 and 60 fps.
 
 A Creator gets `202`, the job and the link that opens the same import in the
 studio. `notice`, when there is one, says that a release plays from the first
@@ -108,6 +111,8 @@ studio opens empty:
 The source is saved as a cloud project of the account, one for each source. The
 same source sent again is the same job, so a retry costs nothing; a pull request
 that has gained commits since is a new revision of its project, and a new job.
+These projects do not count toward your plan's cloud projects until you save one
+from the studio, so rendering every pull request never locks you out of saving.
 Follow the job with the same key, `GET /api/cloud/jobs/<id>`: once `status` is
 `succeeded` it carries `download` (a signed link) and `page`, the render's share
 page. Every render starts private, so the page answers `404` until
@@ -122,11 +127,12 @@ refused request creates nothing:
 - `401` the key is not valid, `429` the key made 120 requests in a minute (see
   `Retry-After`) or the plan's renders are all running.
 - `402` a ceiling of the plan: `ceiling` is `hostedRenderTime` (the month's
-  minutes) or `cloudProjects`; a size past the plan has the `code`
-  `resolution-limit`.
+  minutes); a size past the plan has the `code` `resolution-limit`.
 - `422` the source could not be read: `source-not-found` (missing or private),
   `source-too-large` or `source-unusable`. `502` or `503` GitHub did not answer
-  or limited this server's anonymous reads; try again, or send a diff.
+  or limited this server's reads, and the message gives the limit, what is left
+  and when it resets; `504` `source-too-slow` the read outlasted its 30 seconds,
+  and the message names them. Try again, send a smaller range, or send a diff.
 
 ## Render every pull request
 
@@ -184,11 +190,41 @@ works on a push), `format`, `size`, `fps` and
 a local one at `http://localhost:5173/app`), `comment` (`false` writes the job
 summary only), `github-token` and `fail-on-render-error` (`false` keeps the job
 green when the render fails and leaves the comment as the only signal, for a
-demo or a non-blocking check). Outputs: `path`, `studio-url`,
-`artifact-url` and `exit-code`. A pull request from a fork runs with a read-only
-token, so its link lands in the job summary instead of a comment. This
-repository runs the action on its own pull requests
+demo or a non-blocking check), `api-key` and `api-url` (below). Outputs: `path`,
+`studio-url`, `artifact-url`, `exit-code` and `share-url`. A pull request from a
+fork runs with a read-only token, so its link lands in the job summary instead of
+a comment. This repository runs the action on its own pull requests
 ([`.github/workflows/render-pr.yml`](.github/workflows/render-pr.yml)).
+
+### Let Typelapse render it
+
+```yaml
+      - uses: delhombre/typelapse@main
+        with:
+          api-key: ${{ secrets.TYPELAPSE_API_KEY }}
+          # Until Typelapse has a public address: the deployment the key belongs to.
+          api-url: https://api.example.com
+```
+
+With a Creator [API key](#api-keys), the action asks [render by URL](#render-by-url)
+to render the pull request on Typelapse's servers instead of on the runner, with
+the same `format`, `size`, `fps` and `theme`. It waits up to ten minutes for the
+job, publishes the render's page (a page is private until its owner publishes it,
+and render by URL reads public repositories only), and the one comment, which
+each push edits, links that share page and the studio; the job summary says the
+same. A GIF stays on the runner, since hosted renders are MP4 or WebM.
+
+The hosted output replaces the runner's render only when it ends in a published
+page. A free account's key, a refusal (a private repository, a ceiling of the
+plan, a key that is not valid) or an outage leaves the render to the runner as
+without a key, and the comment says why in one line; for a free account it says
+the hosted video comes with Creator. A hosted problem never fails the job.
+
+The key is read from a secret, masked in the log before any other step runs,
+sent only as `Authorization: Bearer` to `api-url` (https, or http on localhost;
+redirects are refused) and never put in a URL, an argument or a file. GitHub gives
+a pull request from a fork no secrets, so it renders on the runner, and the job
+summary says so when `api-url` is set.
 
 ## Let an agent render it
 
@@ -301,6 +337,19 @@ Two addresses are not known until the studio is deployed:
   variables, Actions, Variables). The render workflow passes it as `studio-url`,
   so the pull request comment links the deployed studio; left empty, the link
   opens a local one. The CLI reads the same name from the environment.
+
+- `TYPELAPSE_GITHUB_TOKEN` is optional, and it only changes render by URL. Without
+  it the server reads GitHub with no credential, at the anonymous 60 requests an
+  hour for its address, and a release of 30 commits costs about 33. With it, every
+  read is signed and the limit is the token's (5,000 an hour). Public repositories
+  stay the only ones read: before the token reads anything of a repository, that
+  repository's own record must say it is public, so a token set too wide changes
+  nothing, and `pnpm hosted:check` says whether the token is set. Create it at
+  GitHub, Settings, Developer settings, Fine-grained personal access tokens:
+  resource owner is the account that will hold it, repository access is "Public
+  repositories", no permission is added (public data needs none), an expiry you
+  will remember to renew. It is not the CLI's `GITHUB_TOKEN`, which reads
+  private repositories on purpose.
 
 ## Business model encoded in the product
 

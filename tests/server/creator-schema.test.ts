@@ -60,6 +60,14 @@ describe("Creator hosted database schema", () => {
 		);
 	});
 
+	it("tells a regular project from an automation one with a flag a writer must ask for", () => {
+		expect(projects.automation.notNull).toBe(true);
+		expect(projects.automation.hasDefault).toBe(true);
+		// A writer that says nothing writes a regular project, which counts toward the
+		// ceiling: the exemption is opt-in.
+		expect(projects.automation.default).toBe(false);
+	});
+
 	it("models asset identity, object storage and verification lifecycle", () => {
 		expect(assetKind.enumValues).toEqual(["image", "video", "audio"]);
 		expect(assetUploadStatus.enumValues).toEqual([

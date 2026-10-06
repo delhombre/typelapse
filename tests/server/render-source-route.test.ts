@@ -166,6 +166,33 @@ describe("a Creator's render by URL", () => {
 		});
 	});
 
+	it("takes a theme among the options and hands it over beside them, not inside them", async () => {
+		const { call, received } = await harness();
+
+		await call({ source: PR, renderOptions: { format: "webm", theme: "nord" } });
+
+		expect(received[0]?.theme).toBe("nord");
+		expect(received[0]?.renderOptions).toEqual({
+			format: "webm",
+			width: 1920,
+			height: 1080,
+			fps: 60,
+			includeAudio: true,
+		});
+	});
+
+	it("asks for no theme when none is sent, so the project keeps the studio's own", async () => {
+		const { call, received } = await harness();
+
+		await call({ source: PR, renderOptions: { fps: 30 } });
+		await call({ source: PR });
+
+		expect(received).toHaveLength(2);
+		for (const request of received) {
+			expect(request).not.toHaveProperty("theme");
+		}
+	});
+
 	it("says what is unusual about a release, without making it a refusal", async () => {
 		const { call } = await harness({
 			answer: {
@@ -335,6 +362,10 @@ describe("a request the route refuses before it asks anyone", () => {
 		[{ width: 1280 }, "Send width and height together"],
 		[{ format: "gif" }, "Unsupported hosted render format"],
 		[{ fps: 25 }, "Hosted render fps must be 24, 30 or 60"],
+		[
+			{ theme: "solarized" },
+			"Hosted render theme must be midnight, aurora, frost, dracula, one-dark, catppuccin or nord",
+		],
 		["mp4", "Render options must be an object"],
 	])("is a 400 for the render options %j", async (renderOptions, error) => {
 		const { call, received } = await harness();
@@ -373,12 +404,6 @@ describe("what the use case answers, on the wire", () => {
 			{ outcome: "plan-limit", ceiling: "hostedRenderTime", used: 3_599_000 },
 			402,
 			planLimitRefusal(Plan.pro(), "hostedRenderTime", 3_599_000),
-		],
-		[
-			"the projects the plan keeps",
-			{ outcome: "plan-limit", ceiling: "cloudProjects", used: 100 },
-			402,
-			planLimitRefusal(Plan.pro(), "cloudProjects", 100),
 		],
 		[
 			"the renders already running, which clears by itself and so is a 429",
@@ -437,6 +462,12 @@ describe("what the use case answers, on the wire", () => {
 			{ outcome: "source-refused", failure: "timeout", message: "slow" },
 			502,
 			{ error: "slow", code: "source-unavailable" },
+		],
+		[
+			"a read that outlasted this server's budget",
+			{ outcome: "source-refused", failure: "budget", message: "too slow" },
+			504,
+			{ error: "too slow", code: "source-too-slow" },
 		],
 		[
 			"GitHub not reachable",

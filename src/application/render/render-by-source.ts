@@ -11,6 +11,11 @@
  * or that renders every push to a pull request, neither multiplies projects nor
  * pays the same minutes twice.
  *
+ * What it saves is an automation project: the plan's cloud-project ceiling does
+ * not count it, so a script that renders every pull request never meets that
+ * ceiling and never locks its owner out of saving from the studio. Only a save
+ * from the studio makes it count.
+ *
  * A refusal creates nothing. What can be known without writing is asked first:
  * the size against the plan, the source from GitHub, the ceilings against the
  * account's usage. The job queue stays the judge, under its own lock, so a
@@ -33,6 +38,7 @@ import {
 	type ImportFetchers,
 	type ImportSource,
 	type ImportedSource,
+	importFailureDetailOf,
 	importFailureOf,
 	importSource,
 	importSourceKey,
@@ -40,11 +46,16 @@ import {
 import { withReleaseCard } from "../import/release-project";
 import { canonicalJson } from "../project/canonical-json";
 import { migrateV1ToV2 } from "../project/migrate-v1-project";
-import { type ProjectDocumentV2, parseProjectDocument } from "../project/project-document";
+import {
+	type ProjectDocumentV2,
+	THEME_NAMES,
+	parseProjectDocument,
+} from "../project/project-document";
 import type {
 	ProjectDocumentRepositoryPort,
 	StoredProjectDocument,
 } from "../project/project-document-repository.port";
+import { withTheme } from "../project/with-theme";
 import {
 	type HostedRenderJob,
 	type HostedRenderJobService,
@@ -87,12 +98,40 @@ export function parseRenderSourceOptions(input: unknown): HostedRenderOptions {
 	return parseHostedRenderOptions({ ...RENDER_SOURCE_DEFAULTS, ...asked });
 }
 
+const THEME_SENTENCE = `Hosted render theme must be ${THEME_NAMES.slice(0, -1).join(", ")} or ${THEME_NAMES.at(-1)}`;
+
+/**
+ * The theme a request asks for among its options, or undefined for the studio's
+ * own. The look belongs to the saved project and not to the render job, so it is
+ * read apart from the options the queue holds. Throws the sentence that names
+ * the themes that exist.
+ */
+export function parseRenderSourceTheme(input: unknown): string | undefined {
+	if (typeof input !== "object" || input === null || Array.isArray(input)) {
+		return undefined;
+	}
+	const { theme } = input as Record<string, unknown>;
+	if (theme === undefined) {
+		return undefined;
+	}
+	if (typeof theme !== "string" || !(THEME_NAMES as readonly string[]).includes(theme)) {
+		throw new Error(THEME_SENTENCE);
+	}
+	return theme;
+}
+
 export interface RenderBySourceRequest {
 	readonly ownerId: string;
 	/** Resolved on the server from the account, never from the request. */
 	readonly plan: Plan;
 	readonly source: ImportSource;
 	readonly renderOptions: HostedRenderOptions;
+	/**
+	 * One of the studio's themes, for the project's code; absent keeps the studio's
+	 * own. It is part of the saved project, so another theme for the same source is
+	 * a new revision of it, and the same theme again is the same job.
+	 */
+	readonly theme?: string;
 	readonly now: Date;
 }
 
@@ -103,10 +142,10 @@ export type RenderBySourceResult =
 			/** Said alongside a good import: the range is not shown the way a release usually is. */
 			readonly notice?: string;
 	  }
-	/** A ceiling of the plan: the projects it keeps, the month's minutes, the renders at once. */
+	/** A ceiling of the plan: the month's minutes, the renders at once. Never the projects it keeps. */
 	| {
 			readonly outcome: "plan-limit";
-			readonly ceiling: "cloudProjects" | "hostedRenderTime" | "concurrentRenders";
+			readonly ceiling: "hostedRenderTime" | "concurrentRenders";
 			readonly used: number;
 	  }
 	| { readonly outcome: "resolution-limit"; readonly message: string }
@@ -124,10 +163,16 @@ export interface RenderBySourceService {
 }
 
 export interface RenderBySourceDeps {
-	readonly projects: ProjectDocumentRepositoryPort;
+	/** It reads projects and writes automation ones: the studio's writes are out of its reach. */
+	readonly projects: Pick<
+		ProjectDocumentRepositoryPort,
+		"findOwnedById" | "createAutomation" | "updateAutomation"
+	>;
 	readonly jobs: Pick<HostedRenderJobService, "submit">;
 	readonly usage: AccountUsagePort;
 	readonly fetchers: ImportFetchers;
+	/** The longest one source may take to read; past it the request is refused. None: no limit. */
+	readonly readBudgetMs?: number;
 	/** A hex digest, injected so this layer stays free of the platform. */
 	readonly hash: (value: string) => string;
 }
@@ -159,8 +204,14 @@ function refusalSentence(
 	switch (failure) {
 		case "not-found":
 			return `${subject} was not found, or its repository is private; Typelapse reads public repositories only, so send a diff as the source instead`;
-		case "rate-limit":
-			return "GitHub's rate limit was hit; try again later, or send a diff as the source";
+		case "rate-limit": {
+			// What GitHub said of its limit is what a script can act on: wait, or send a diff.
+			const detail = importFailureDetailOf(message);
+			return `GitHub's rate limit was hit${detail ? ` (${detail})` : ""}; try again later, or send a diff as the source`;
+		}
+		case "budget":
+			// The importer's own sentence names the budget this server set.
+			return `${message}; try again, or send a smaller range or a diff as the source`;
 		case "range-too-large":
 			return "GitHub will not compare a range this large; send a smaller range as a compare link";
 		case "too-large":
@@ -183,37 +234,31 @@ const SAVE_ATTEMPTS = 3;
 
 type Saved =
 	| { readonly outcome: "saved"; readonly revision: number }
-	| { readonly outcome: "limit-reached"; readonly projectCount: number }
 	| { readonly outcome: "conflict" };
 
 const sameDocument = (stored: ProjectDocumentV2, next: ProjectDocumentV2) =>
 	canonicalJson(stored) === canonicalJson(next);
 
 /**
- * The document as a revision of the project: created when there is none (at the
- * plan's project ceiling, atomically), left alone when it is what is stored,
- * saved over the stored one when it has changed. A project that appears or moves
- * while this runs is read again rather than overwritten blind.
+ * The document as a revision of the project: created when there is none, left
+ * alone when it is what is stored, saved over the stored one when it has
+ * changed. An automation project is outside the plan's project ceiling, so
+ * nothing here is refused for it. A project that appears or moves while this
+ * runs is read again rather than overwritten blind.
  */
 async function saveRevision(
-	projects: ProjectDocumentRepositoryPort,
-	input: {
-		readonly ownerId: string;
-		readonly document: ProjectDocumentV2;
-		readonly maxProjects: number;
-	},
+	projects: RenderBySourceDeps["projects"],
+	input: { readonly ownerId: string; readonly document: ProjectDocumentV2 },
 	known: StoredProjectDocument | null,
 ): Promise<Saved> {
-	const { ownerId, document, maxProjects } = input;
+	const { ownerId, document } = input;
 	const id = document.project.id;
 	let stored = known;
 	for (let attempt = 0; attempt < SAVE_ATTEMPTS; attempt += 1) {
 		if (stored === null) {
 			try {
-				const created = await projects.create({ ownerId, document, maxProjects });
-				return created.outcome === "created"
-					? { outcome: "saved", revision: created.project.revision }
-					: { outcome: "limit-reached", projectCount: created.projectCount };
+				const created = await projects.createAutomation({ ownerId, document });
+				return { outcome: "saved", revision: created.revision };
 			} catch (error) {
 				// Two requests for one source race to create it, and the loser meets the
 				// winner's row. With no such row nothing explains the failure.
@@ -226,7 +271,7 @@ async function saveRevision(
 		if (sameDocument(stored.document, document)) {
 			return { outcome: "saved", revision: stored.revision };
 		}
-		const updated = await projects.update({
+		const updated = await projects.updateAutomation({
 			ownerId,
 			id,
 			expectedRevision: stored.revision,
@@ -245,8 +290,13 @@ async function saveRevision(
  * CLI's own steps (a V1 project migrated to V2, a release's card on its blank
  * first scene) under the id the account's project for this source has.
  */
-function documentOf(imported: ImportedSource, projectId: string): ProjectDocumentV2 {
-	const migrated = migrateV1ToV2(imported.project);
+function documentOf(
+	imported: ImportedSource,
+	projectId: string,
+	theme: string | undefined,
+): ProjectDocumentV2 {
+	// The theme is the code's and is set before a release's title card joins it, as the CLI does.
+	const migrated = migrateV1ToV2(theme ? withTheme(imported.project, theme) : imported.project);
 	const document = imported.card ? withReleaseCard(migrated, imported.card) : migrated;
 	const parsed = parseProjectDocument({
 		...document,
@@ -260,7 +310,7 @@ function documentOf(imported: ImportedSource, projectId: string): ProjectDocumen
 
 export function createRenderBySourceService(deps: RenderBySourceDeps): RenderBySourceService {
 	return {
-		async submit({ ownerId, plan, source, renderOptions, now }) {
+		async submit({ ownerId, plan, source, renderOptions, theme, now }) {
 			// Pure, so asked before the network and before anything is written.
 			const { width, height } = renderOptions;
 			if (!plan.allowsResolution(width, height)) {
@@ -272,7 +322,11 @@ export function createRenderBySourceService(deps: RenderBySourceDeps): RenderByS
 
 			let imported: ImportedSource;
 			try {
-				imported = await importSource(source, deps.fetchers);
+				imported = await importSource(
+					source,
+					deps.fetchers,
+					deps.readBudgetMs === undefined ? {} : { budgetMs: deps.readBudgetMs },
+				);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "";
 				const failure = importFailureOf(message);
@@ -286,7 +340,7 @@ export function createRenderBySourceService(deps: RenderBySourceDeps): RenderByS
 			// The account's project for this source: owned by the hash, so another
 			// account's is another id and nothing about the id can be guessed into theirs.
 			const projectId = `import_${deps.hash(`${ownerId}\n${importSourceKey(source)}`).slice(0, 32)}`;
-			const document = documentOf(imported, projectId);
+			const document = documentOf(imported, projectId, theme);
 			const stored = await deps.projects.findOwnedById(ownerId, projectId);
 			const unchanged = stored !== null && sameDocument(stored.document, document);
 
@@ -305,18 +359,7 @@ export function createRenderBySourceService(deps: RenderBySourceDeps): RenderByS
 				if (crossed) {
 					return { outcome: "plan-limit", ...crossed };
 				}
-				const saved = await saveRevision(
-					deps.projects,
-					{ ownerId, document, maxProjects: plan.limitFor("cloudProjects") },
-					stored,
-				);
-				if (saved.outcome === "limit-reached") {
-					return {
-						outcome: "plan-limit",
-						ceiling: "cloudProjects",
-						used: saved.projectCount,
-					};
-				}
+				const saved = await saveRevision(deps.projects, { ownerId, document }, stored);
 				if (saved.outcome === "conflict") {
 					return { outcome: "conflict" };
 				}

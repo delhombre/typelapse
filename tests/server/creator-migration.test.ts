@@ -6,6 +6,11 @@ const migration = readFileSync(resolve("server/db/migrations/0001_long_sprite.sq
 
 const apiKeysMigration = readFileSync(resolve("server/db/migrations/0006_api_keys.sql"), "utf8");
 
+const automationMigration = readFileSync(
+	resolve("server/db/migrations/0007_automation_projects.sql"),
+	"utf8",
+);
+
 describe("API keys migration", () => {
 	it("adds one table owned by an account and drops nothing", () => {
 		expect(apiKeysMigration).toContain('CREATE TABLE "api_keys"');
@@ -19,6 +24,16 @@ describe("API keys migration", () => {
 		expect(apiKeysMigration).toContain('"secret_hash" text NOT NULL');
 		expect(apiKeysMigration).toContain("secret_hash\" ~ '^[0-9a-f]{64}$'");
 		expect(apiKeysMigration).not.toMatch(/"(?:key|secret|token|api_key)" /);
+	});
+});
+
+describe("automation projects migration", () => {
+	it("adds one flag to projects and leaves every project already there regular", () => {
+		expect(automationMigration).toMatch(
+			/ALTER TABLE "projects" ADD COLUMN (?:IF NOT EXISTS )?"automation" boolean DEFAULT false NOT NULL/,
+		);
+		// The default is what makes the rows that exist count: nothing is rewritten or dropped.
+		expect(automationMigration).not.toMatch(/DROP |UPDATE |DELETE |TRUNCATE /);
 	});
 });
 

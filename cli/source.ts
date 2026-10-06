@@ -29,6 +29,7 @@ import {
 	parseProjectDocument,
 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
+import { withTheme } from "@/application/project/with-theme";
 import { THEMES } from "@/presentation/components/controls/control-presets";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { CliError, EXIT_SOURCE, EXIT_USAGE } from "./errors";
@@ -186,6 +187,8 @@ function remoteSentence(message: string, kind: RemoteKind): string {
 			return "Could not reach GitHub; check the connection, or pass the diff as a file";
 		case "unfetchable":
 			return `${subject} could not be fetched from GitHub`;
+		// The CLI sets no budget, so this is only here to say what a caller that did meant.
+		case "budget":
 		case "other":
 			return message
 				? `${subject} could not be animated: ${lowerFirst(message.replace(/\.$/, ""))}`
@@ -212,8 +215,7 @@ export function applyOverrides(
 ): ProjectPayload {
 	let next = project;
 	if (overrides.theme !== undefined) {
-		const { fontFamily: _font, borderRadius: _radius, ...rest } = next;
-		next = { ...rest, themeName: overrides.theme };
+		next = withTheme(next, overrides.theme);
 	}
 	if (overrides.size !== undefined) {
 		next = { ...next, width: overrides.size.width, height: overrides.size.height };

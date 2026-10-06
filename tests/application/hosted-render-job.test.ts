@@ -37,6 +37,10 @@ function projectPort(document = DOCUMENT): ProjectDocumentRepositoryPort {
 			throw new Error("not used");
 		},
 		update: async () => ({ outcome: "not-found" }),
+		createAutomation: async () => {
+			throw new Error("not used");
+		},
+		updateAutomation: async () => ({ outcome: "not-found" }),
 		deleteOwnedById: async () => false,
 	};
 }

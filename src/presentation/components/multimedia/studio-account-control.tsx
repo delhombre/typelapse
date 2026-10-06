@@ -14,13 +14,14 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { ChevronRight, HardDrive, Key, Logout, Profile, X } from "reicon-react";
+import { ChevronRight, Cloud, HardDrive, Key, Logout, Profile, X } from "reicon-react";
 import { StudioApiKeys, type StudioApiKeysControl } from "./studio-api-keys";
+import { StudioCloudProjects, type StudioCloudProjectsControl } from "./studio-cloud-projects";
 import "./studio-account-control.css";
 
 type AuthStore = typeof useAuthStore;
 type FormMode = "sign-in" | "sign-up";
-type PanelView = "account" | "keys";
+type PanelView = "account" | "keys" | "projects";
 
 export type StudioCloudProjectState = "device" | "connecting" | "synced" | "unsaved" | "error";
 
@@ -33,6 +34,8 @@ export interface StudioAccountControlProps {
 	readonly allowance?: string | null;
 	/** Offered to a signed-in account only; without it the panel has no keys view. */
 	readonly apiKeys?: StudioApiKeysControl;
+	/** Offered to a signed-in account only; without it the panel has no cloud projects view. */
+	readonly cloudProjects?: StudioCloudProjectsControl;
 }
 
 export interface StudioBillingControl {
@@ -69,6 +72,7 @@ export function StudioAccountControl({
 	billing,
 	allowance,
 	apiKeys,
+	cloudProjects,
 }: StudioAccountControlProps) {
 	const { status, operation, error, refreshSession, signIn, signUp, signOut } = store();
 	const reduceMotion = useReducedMotion() === true;
@@ -87,24 +91,30 @@ export function StudioAccountControl({
 	const [formMode, setFormMode] = useState<FormMode>("sign-in");
 	const [view, setView] = useState<PanelView>("account");
 	const keysEntryRef = useRef<HTMLButtonElement>(null);
-	const backFromKeys = useRef(false);
+	const projectsEntryRef = useRef<HTMLButtonElement>(null);
+	// The view the person is coming back from, so focus returns to the row that led there.
+	const backFrom = useRef<PanelView | null>(null);
 	const keyStore = apiKeys?.store;
+	const cloudProjectsStore = cloudProjects?.store;
 
 	const showAccount = () => {
-		backFromKeys.current = true;
+		backFrom.current = view;
 		setView("account");
 	};
-	// Back from the keys, focus returns to the row that led there.
+	// Back from a view, focus returns to the row that led there.
 	useEffect(() => {
-		if (view === "account" && backFromKeys.current) {
-			backFromKeys.current = false;
-			keysEntryRef.current?.focus();
+		if (view === "account" && backFrom.current) {
+			(backFrom.current === "projects" ? projectsEntryRef : keysEntryRef).current?.focus();
+			backFrom.current = null;
 		}
 	}, [view]);
 	// Signing out takes the keys and any key still on screen with it.
 	useEffect(() => {
-		if (status.kind !== "authenticated") keyStore?.getState().reset();
-	}, [status.kind, keyStore]);
+		if (status.kind !== "authenticated") {
+			keyStore?.getState().reset();
+			cloudProjectsStore?.getState().reset();
+		}
+	}, [status.kind, keyStore, cloudProjectsStore]);
 
 	useEffect(() => {
 		if (status.kind === "checking" && operation === "idle") {
@@ -218,7 +228,9 @@ export function StudioAccountControl({
 							allowance={allowance}
 							apiKeys={apiKeys}
 							view={view}
+							cloudProjects={cloudProjects}
 							keysEntryRef={keysEntryRef}
+							projectsEntryRef={projectsEntryRef}
 							onView={(next) => (next === "account" ? showAccount() : setView(next))}
 							onFormMode={setFormMode}
 							onSaveToCloud={onSaveToCloud}
@@ -242,8 +254,10 @@ interface AccountPanelProps {
 	readonly billing?: StudioBillingControl;
 	readonly allowance?: string | null;
 	readonly apiKeys?: StudioApiKeysControl;
+	readonly cloudProjects?: StudioCloudProjectsControl;
 	readonly view: PanelView;
 	readonly keysEntryRef: RefObject<HTMLButtonElement | null>;
+	readonly projectsEntryRef: RefObject<HTMLButtonElement | null>;
 	readonly onView: (view: PanelView) => void;
 	readonly onFormMode: (mode: FormMode) => void;
 	readonly onSaveToCloud?: () => void;
@@ -261,8 +275,10 @@ function AccountPanel({
 	billing,
 	allowance,
 	apiKeys,
+	cloudProjects,
 	view,
 	keysEntryRef,
+	projectsEntryRef,
 	onView,
 	onFormMode,
 	onSaveToCloud,
@@ -286,6 +302,9 @@ function AccountPanel({
 	if (status.kind === "authenticated") {
 		if (apiKeys && view === "keys") {
 			return <StudioApiKeys keys={apiKeys} onBack={() => onView("account")} />;
+		}
+		if (cloudProjects && view === "projects") {
+			return <StudioCloudProjects projects={cloudProjects} onBack={() => onView("account")} />;
 		}
 		const syncCopy = (() => {
 			switch (cloudProjectState) {
@@ -333,6 +352,18 @@ function AccountPanel({
 				</div>
 				{billing ? <AccountBilling billing={billing} /> : null}
 				{allowance ? <p className="mm-account-allowance">{allowance}</p> : null}
+				{cloudProjects ? (
+					<button
+						ref={projectsEntryRef}
+						type="button"
+						className="mm-keys-entry mm-projects-entry"
+						onClick={() => onView("projects")}
+					>
+						<Cloud size={14} aria-hidden="true" />
+						Cloud projects
+						<ChevronRight size={14} aria-hidden="true" />
+					</button>
+				) : null}
 				{apiKeys ? (
 					<button
 						ref={keysEntryRef}

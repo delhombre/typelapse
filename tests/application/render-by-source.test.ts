@@ -3,6 +3,7 @@ import type { AccountUsage, AccountUsagePort } from "@/application/billing/plan-
 import { projectFromDiff } from "@/application/import/diff-project";
 import type { ImportFetchers, ImportSource } from "@/application/import/import-source";
 import { migrateV1ToV2 } from "@/application/project/migrate-v1-project";
+import { THEME_NAMES } from "@/application/project/project-document";
 import type {
 	HostedRenderJob,
 	HostedRenderJobService,
@@ -11,9 +12,12 @@ import {
 	RENDER_SOURCE_DEFAULTS,
 	createRenderBySourceService,
 	parseRenderSourceOptions,
+	parseRenderSourceTheme,
 } from "@/application/render/render-by-source";
 import { Plan } from "@/domain/value-objects/plan";
+import { THEMES } from "@/presentation/components/controls/control-presets";
 import { describe, expect, it, vi } from "vitest";
+import { applyOverrides } from "../../cli/source";
 import { MemoryProjectRepository } from "./support/memory-project-repository";
 
 /**
@@ -274,28 +278,70 @@ describe("the same source twice", () => {
 	});
 });
 
-describe("a request over the plan creates nothing", () => {
-	it("is refused at the project ceiling, with the project count it hit", async () => {
-		const { projects, queue, submit } = harness();
-		for (let index = 0; index < 100; index += 1) {
-			const base = migrateV1ToV2(projectFromDiff(DIFF, { title: `Project ${index}` }));
-			projects.records.set(`project-${index}`, {
-				id: `project-${index}`,
-				ownerId: OWNER,
-				revision: 1,
-				document: { ...base, project: { ...base.project, id: `project-${index}` } },
-				createdAt: NOW,
-				updatedAt: NOW,
-			});
+describe("what render by URL saves stays out of the cloud-projects ceiling", () => {
+	const CEILING = CREATOR.limitFor("cloudProjects");
+
+	/** The studio's own save of a project, which counts toward the ceiling. */
+	function saveFromTheStudio(projects: MemoryProjectRepository, name: string) {
+		const base = migrateV1ToV2(projectFromDiff(DIFF, { title: name }));
+		return projects.create({
+			ownerId: OWNER,
+			document: { ...base, project: { ...base.project, id: `studio-${name}` } },
+			maxProjects: CEILING,
+		});
+	}
+
+	async function holdRegularProjects(projects: MemoryProjectRepository, count: number) {
+		for (let index = 0; index < count; index += 1) {
+			expect((await saveFromTheStudio(projects, `project-${index}`)).outcome).toBe("created");
 		}
+	}
+
+	it("renders a 101st source for a Creator at a hundred regular projects", async () => {
+		const { projects, queue, submit } = harness();
+		await holdRegularProjects(projects, CEILING);
 
 		const result = await submit();
 
-		expect(result).toEqual({ outcome: "plan-limit", ceiling: "cloudProjects", used: 100 });
-		expect(projects.records.size).toBe(100);
-		expect(queue.submitted).toEqual([]);
+		expect(result.outcome).toBe("queued");
+		expect(queue.submitted).toHaveLength(1);
+		expect(projects.records.size).toBe(CEILING + 1);
+		expect(projects.automation.has(queue.submitted[0]?.projectId ?? "")).toBe(true);
 	});
 
+	it("leaves the studio's save of a 101st project refused, however many sources were rendered", async () => {
+		const { projects, submit } = harness();
+		await holdRegularProjects(projects, CEILING - 1);
+		for (const greeting of ["Hi, ", "Hey, ", "Yo, ", "Ahoy, ", "Salut, "]) {
+			const text = DIFF.replace("Hello, ", greeting);
+			expect((await submit({ source: { kind: "diff", text } })).outcome).toBe("queued");
+		}
+
+		// Five automation projects beside ninety-nine regular ones: one place is left.
+		const hundredth = await saveFromTheStudio(projects, "the hundredth");
+		const hundredFirst = await saveFromTheStudio(projects, "the hundred and first");
+
+		expect(projects.records.size).toBe(CEILING + 5);
+		expect(hundredth.outcome).toBe("created");
+		expect(hundredFirst).toEqual({ outcome: "limit-reached", projectCount: CEILING });
+	});
+
+	it("stays an automation project through a new revision of its source", async () => {
+		const answers = [DIFF, NEWER_DIFF];
+		const { projects, submit } = harness({
+			fetchers: { fetchPr: async () => ({ diffText: answers.shift() ?? "", title: "Trim" }) },
+		});
+
+		await submit();
+		await submit();
+
+		const [saved] = [...projects.records.values()];
+		expect(saved?.revision).toBe(2);
+		expect(projects.automation.has(saved?.id ?? "")).toBe(true);
+	});
+});
+
+describe("a request over the plan creates nothing", () => {
 	it("is refused past the month's hosted minutes, before anything is saved", async () => {
 		const { projects, queue, submit } = harness({ usage: { hostedRenderMsThisMonth: 3_599_000 } });
 
@@ -545,5 +591,135 @@ describe("parseRenderSourceOptions", () => {
 		[["mp4"], "Render options must be an object"],
 	])("refuses %j with %j", (input, message) => {
 		expect(() => parseRenderSourceOptions(input)).toThrow(message);
+	});
+});
+
+describe("the theme a caller asks for", () => {
+	/** The code cards of the saved project: the blocks a theme is a property of. */
+	function codeCards(projects: MemoryProjectRepository) {
+		const [saved] = [...projects.records.values()];
+		return (saved?.document.project.scenes ?? []).flatMap((scene) =>
+			scene.blocks.filter((block) => block.kind === "code"),
+		);
+	}
+
+	it("is the saved project's theme, swapped whole as the CLI's --theme swaps it", async () => {
+		const { projects, submit } = harness();
+
+		await submit({ theme: "nord" });
+
+		const cards = codeCards(projects);
+		expect(cards.length).toBeGreaterThan(0);
+		for (const card of cards) {
+			expect(card).toMatchObject({ themeName: "nord" });
+			// The font and the radius midnight brought must not stay behind on the new theme.
+			expect(card).not.toHaveProperty("fontFamily");
+			expect(card).not.toHaveProperty("borderRadius");
+		}
+	});
+
+	it("is the project the CLI renders for the same --theme, scene by scene", async () => {
+		const { projects, submit } = harness();
+
+		await submit({ theme: "nord" });
+
+		const [saved] = [...projects.records.values()];
+		const cli = migrateV1ToV2(
+			applyOverrides(projectFromDiff(DIFF, { title: "Trim the name" }), { theme: "nord" }),
+		);
+		expect(saved?.document).toEqual({ ...cli, project: { ...cli.project, id: saved?.id } });
+	});
+
+	it("leaves the studio's own theme when none is asked", async () => {
+		const { projects, submit } = harness();
+
+		await submit();
+
+		for (const card of codeCards(projects)) {
+			expect(card).toMatchObject({
+				themeName: "midnight",
+				fontFamily: "JetBrains Mono, monospace",
+			});
+		}
+	});
+
+	it("is not a render option: the job queue is asked for the same options either way", async () => {
+		const { queue, submit } = harness();
+
+		await submit({ theme: "nord" });
+
+		expect(queue.submitted[0]?.renderOptions).toEqual(OPTIONS);
+	});
+
+	it("is the same project, a new revision and a new job when the source is asked again in another theme", async () => {
+		const { projects, queue, submit } = harness();
+
+		await submit();
+		const result = await submit({ theme: "dracula" });
+
+		expect(projects.records.size).toBe(1);
+		const [saved] = [...projects.records.values()];
+		expect(saved?.revision).toBe(2);
+		expect(queue.submitted.map((input) => input.revision)).toEqual([1, 2]);
+		expect(result).toMatchObject({ outcome: "queued", job: { revision: 2 } });
+		for (const card of codeCards(projects)) {
+			expect(card).toMatchObject({ themeName: "dracula" });
+		}
+	});
+
+	it("is the same job when the source is asked again in the same theme", async () => {
+		const { projects, queue, submit } = harness();
+
+		const first = await submit({ theme: "nord" });
+		const second = await submit({ theme: "nord" });
+
+		expect(second).toEqual(first);
+		expect(projects.updates).toBe(0);
+		expect(queue.submitted.map((input) => input.revision)).toEqual([1, 1]);
+	});
+
+	it("themes a release's code and leaves its title card as it was", async () => {
+		const { projects, submit } = harness();
+		const release: ImportSource = {
+			kind: "release",
+			ref: { owner: "o", repo: "r", tag: "v1.0.0" },
+		};
+
+		await submit({ source: release, theme: "frost" });
+		const [saved] = [...projects.records.values()];
+		const [first] = saved?.document.project.scenes ?? [];
+
+		expect(first?.blocks.map((block) => block.kind)).toEqual(["text", "text"]);
+		for (const card of codeCards(projects)) {
+			expect(card).toMatchObject({ themeName: "frost" });
+		}
+	});
+});
+
+describe("parseRenderSourceTheme", () => {
+	it("is nothing when the caller asked for no theme", () => {
+		expect(parseRenderSourceTheme(undefined)).toBeUndefined();
+		expect(parseRenderSourceTheme({})).toBeUndefined();
+		expect(parseRenderSourceTheme({ format: "webm", fps: 30 })).toBeUndefined();
+	});
+
+	it("accepts exactly the themes the studio's picker offers, in its order", () => {
+		expect(THEME_NAMES).toEqual(THEMES.map((theme) => theme.name));
+		for (const theme of THEMES) {
+			expect(parseRenderSourceTheme({ theme: theme.name })).toBe(theme.name);
+		}
+	});
+
+	it.each([["solarized"], ["Nord"], [""], [7], [null], [["nord"]]])(
+		"refuses %j in one sentence that names the themes",
+		(theme) => {
+			expect(() => parseRenderSourceTheme({ theme })).toThrow(
+				"Hosted render theme must be midnight, aurora, frost, dracula, one-dark, catppuccin or nord",
+			);
+		},
+	);
+
+	it("leaves the render options untouched by it", () => {
+		expect(parseRenderSourceOptions({ theme: "nord" })).toEqual(RENDER_SOURCE_DEFAULTS);
 	});
 });

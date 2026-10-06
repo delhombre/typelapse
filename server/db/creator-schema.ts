@@ -55,6 +55,12 @@ export const projects = pgTable(
 		title: text("title").notNull(),
 		document: jsonb("document").$type<PersistedProjectDocumentV2>().notNull(),
 		revision: integer("revision").default(1).notNull(),
+		/**
+		 * A project only render by URL has written. The cloud-project ceiling counts
+		 * the others, and a save from the studio makes an automation project regular.
+		 * The default keeps every writer that does not say counted.
+		 */
+		automation: boolean("automation").default(false).notNull(),
 		createdAt: hostedTimestamp("created_at").defaultNow().notNull(),
 		updatedAt: hostedTimestamp("updated_at")
 			.defaultNow()

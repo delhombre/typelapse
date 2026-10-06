@@ -1,5 +1,5 @@
 name: Typelapse PR to video
-description: Render a pull request into a code video on the runner, upload it as an artifact and comment a link that opens it in the Typelapse studio.
+description: Render a pull request into a code video on the runner, upload it as an artifact and comment a link that opens it in the Typelapse studio. With a Typelapse API key, Creator renders it on Typelapse's servers and the comment links its share page instead.
 author: delhombre
 branding:
   icon: film
@@ -31,16 +31,25 @@ inputs:
     description: Reads the pull request and writes the comment. The workflow's own token is enough.
     default: ${{ github.token }}
   fail-on-render-error:
-    description: true fails the job when the render fails, after the comment says why; false keeps the job green and leaves the comment as the only signal, for a demo or a non-blocking check.
+    description: true fails the job when the render fails, after the comment says why; false keeps the job green and leaves the comment as the only signal, for a demo or a non-blocking check. It judges the render on the runner; a hosted render that does not deliver never fails the job.
     default: "true"
+  api-key:
+    description: A Typelapse API key, always passed from a repository secret. With a Creator key, Typelapse renders the pull request on its servers and the comment links the render's share page, published by this step. A free account's key, a refusal or an outage leaves the render to the runner, with a line in the comment saying why. Empty renders on the runner, as a pull request from a fork must, since GitHub gives it no secrets.
+    default: ""
+  api-url:
+    description: The address of the Typelapse deployment the key belongs to, such as https://api.example.com. https only, or http on localhost. Until Typelapse has a public address, it is needed with api-key.
+    default: ""
 
 outputs:
   path:
-    description: The video on the runner, absent when the render failed.
+    description: The video on the runner, absent when the render failed or Typelapse rendered it.
     value: ${{ steps.render.outputs.path }}
   studio-url:
     description: The link that opens the same project in the studio.
-    value: ${{ steps.render.outputs.studio-url }}
+    value: ${{ steps.render.outputs.studio-url || steps.hosted.outputs.studio-url }}
+  share-url:
+    description: The share page of the render Typelapse made, public once this step published it. Absent when the video rendered on the runner.
+    value: ${{ steps.hosted.outputs.share-url }}
   artifact-url:
     description: The artifact's download link.
     value: ${{ steps.upload.outputs.artifact-url }}
@@ -51,6 +60,18 @@ outputs:
 runs:
   using: composite
   steps:
+    # First, before any other step can print the key. A secret is already masked
+    # by GitHub; this covers a key that reached the input some other way. The key
+    # goes only to this step and to the hosted one, through the environment.
+    - name: Mask the API key
+      if: inputs.api-key != ''
+      shell: bash
+      env:
+        TYPELAPSE_API_KEY: ${{ inputs.api-key }}
+      run: |
+        key=$(printf '%s' "$TYPELAPSE_API_KEY" | tr -d '[:space:]')
+        echo "::add-mask::$key"
+
     - uses: actions/setup-node@v7
       with:
         node-version: 24
@@ -83,9 +104,30 @@ runs:
         pnpm install --frozen-lockfile
         echo "remotion=$(node -p "require('@remotion/renderer/package.json').version")" >> "$GITHUB_OUTPUT"
 
+    # With a key, Typelapse renders it: the runner's own render below runs only
+    # when that did not end in a published page. The step never fails the job.
+    - name: Render on Typelapse
+      id: hosted
+      if: inputs.api-key != '' || inputs.api-url != ''
+      continue-on-error: true
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        TYPELAPSE_API_KEY: ${{ inputs.api-key }}
+        TYPELAPSE_API_URL: ${{ inputs.api-url }}
+        SOURCE: ${{ inputs.source }}
+        FORMAT: ${{ inputs.format }}
+        SIZE: ${{ inputs.size }}
+        FPS: ${{ inputs.fps }}
+        THEME: ${{ inputs.theme }}
+        TYPELAPSE_FORK: ${{ github.event.pull_request.head.repo.fork }}
+        TYPELAPSE_HOSTED_RESULT: ${{ runner.temp }}/typelapse-hosted.json
+      run: pnpm exec tsx cli/hosted-render.ts
+
     # Remotion downloads its headless Chrome into node_modules/.remotion under
     # the directory it runs from: about 100 MB a run without this.
     - uses: actions/cache@v6
+      if: steps.hosted.outputs.rendered != 'true'
       with:
         path: ${{ github.action_path }}/node_modules/.remotion
         key: typelapse-remotion-${{ runner.os }}-${{ runner.arch }}-${{ steps.install.outputs.remotion }}
@@ -94,7 +136,7 @@ runs:
     # minimal or self-hosted image lacks them and the headless shell dies on
     # libnspr4.so. The list is Remotion's for Ubuntu 24.04 (libasound2 before it).
     - name: Install the browser's libraries
-      if: runner.os == 'Linux'
+      if: runner.os == 'Linux' && steps.hosted.outputs.rendered != 'true'
       shell: bash
       run: |
         if ldconfig -p | grep -q libnss3.so && ldconfig -p | grep -q libgbm.so.1 && ldconfig -p | grep -q libasound.so.2; then
@@ -112,6 +154,7 @@ runs:
     # why; the last step fails the job with the same code.
     - name: Render
       id: render
+      if: steps.hosted.outputs.rendered != 'true'
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
@@ -120,7 +163,8 @@ runs:
         SIZE: ${{ inputs.size }}
         FPS: ${{ inputs.fps }}
         THEME: ${{ inputs.theme }}
-        STUDIO_URL: ${{ inputs.studio-url }}
+        # A free account's key names a deployed studio, which beats the local default.
+        STUDIO_URL: ${{ inputs.studio-url || steps.hosted.outputs.studio-base }}
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         mkdir -p "$RUNNER_TEMP/typelapse"
@@ -154,11 +198,12 @@ runs:
 
     # The job summary gets the same body, which a fork's read-only token can still write.
     - name: Write the comment
-      if: always() && steps.render.outcome == 'success'
+      if: always() && (steps.render.outcome == 'success' || steps.hosted.outputs.rendered == 'true')
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
         TYPELAPSE_RESULT: ${{ runner.temp }}/typelapse-result.json
+        TYPELAPSE_HOSTED: ${{ runner.temp }}/typelapse-hosted.json
         TYPELAPSE_COMMENT: ${{ runner.temp }}/typelapse-comment.md
         TYPELAPSE_ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         TYPELAPSE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -168,7 +213,7 @@ runs:
         cat "$TYPELAPSE_COMMENT" >> "$GITHUB_STEP_SUMMARY"
 
     - name: Comment on the pull request
-      if: always() && steps.render.outcome == 'success' && inputs.comment == 'true' && github.event.pull_request
+      if: always() && (steps.render.outcome == 'success' || steps.hosted.outputs.rendered == 'true') && inputs.comment == 'true' && github.event.pull_request
       uses: actions/github-script@v9
       env:
         TYPELAPSE_COMMENT: ${{ runner.temp }}/typelapse-comment.md
