@@ -135,6 +135,104 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		expect(await card.boundingBox()).toEqual(scenesBox);
 	});
 
+	// Opening a panel lowers the sheet, and the panel then rises from the instrument: Frame
+	// and Look are taller than the room between the frame and the island, and used to cover
+	// the frame (a top at y 400 and 416 under a frame ending at 451, ticket #187). Each
+	// panel is capped to that room, which the sheet's own math gives, and scrolls inside.
+	// The third run puts a notch and a home indicator on the phone: the room follows them.
+	const insets = { top: 47, bottom: 34, left: 0, right: 0 };
+	for (const { width, height, notch } of [
+		{ width: 390, height: 844, notch: false },
+		{ width: 375, height: 812, notch: false },
+		{ width: 390, height: 844, notch: true },
+	]) {
+		const label = `${width}x${height}${notch ? " with a notch" : ""}`;
+		test(
+			`every island panel stays under the frame and scrolls inside, at ${label}`,
+			// One viewport runs in the smoke set.
+			width === 390 && !notch ? { tag: "@smoke" } : {},
+			async ({ page }) => {
+				await page.setViewportSize({ width, height });
+				if (notch) {
+					const cdp = await page.context().newCDPSession(page);
+					await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets });
+				}
+				await openStudio(page);
+				await captureScenes(page, 1);
+				// The frame is the picture the panel must not cover: the mesh box, not the
+				// code window inside it.
+				const frame = page.getByTestId("preview-frame");
+				const panel = page.locator(".si-sheet");
+				const body = page.locator(".si-sheet-body");
+				await page.locator(".si-cta").tap();
+				await expect(panel).toBeVisible();
+
+				const gap = 8;
+				const scrolls: string[] = [];
+				for (const tab of ["Frame", "Look", "Motion", "Export"]) {
+					await panel.getByRole("button", { name: tab, exact: true }).tap();
+					await expect(panel).toHaveAttribute("data-cluster", tab.toLowerCase());
+					await settled(frame);
+					await settled(panel);
+					const cardBox = await frame.boundingBox();
+					const panelBox = await panel.boundingBox();
+					if (!cardBox || !panelBox) throw new Error(`no frame or panel on ${tab}`);
+					const frameEnds = cardBox.y + cardBox.height;
+					expect(
+						panelBox.y,
+						`${tab} starts at ${panelBox.y}, the frame ends at ${frameEnds}`,
+					).toBeGreaterThanOrEqual(frameEnds + gap - 0.5);
+
+					// Taller than its room, the controls scroll inside the panel and the tabs stay put.
+					const scroll = await body.evaluate((element) => {
+						const overflow = getComputedStyle(element).overflowY;
+						const taller = element.scrollHeight > element.clientHeight + 1;
+						element.scrollTop = element.scrollHeight;
+						const moved = element.scrollTop;
+						element.scrollTop = 0;
+						return { overflow, taller, moved };
+					});
+					if (scroll.taller) {
+						scrolls.push(tab);
+						expect(["auto", "scroll"], `${tab} is taller and does not scroll`).toContain(
+							scroll.overflow,
+						);
+						expect(scroll.moved, `${tab} did not scroll`).toBeGreaterThan(0);
+						const tabs = await panel.locator(".si-sheet-tabs").boundingBox();
+						expect(tabs?.y).toBeCloseTo(panelBox.y, 0);
+					}
+				}
+				// Frame and Look are the two taller than the room under the frame, here and on a
+				// shorter phone: both scroll, and Motion and Export need not.
+				expect(scrolls).toEqual(expect.arrayContaining(["Frame", "Look"]));
+
+				// Changing a control in a scrolled panel leaves it where it is.
+				await panel.getByRole("button", { name: "Look", exact: true }).tap();
+				// The tab that left is still in the body, fading, until it has gone.
+				await expect(body.locator(".si-cluster")).toHaveCount(1);
+				await settled(panel);
+				await body.evaluate((element) => {
+					element.scrollTop = element.scrollHeight;
+				});
+				const scrolledTo = await body.evaluate((element) => element.scrollTop);
+				expect(scrolledTo).toBeGreaterThan(0);
+				await panel.getByRole("button", { name: "Fira", exact: true }).tap();
+				await expect(panel.getByRole("button", { name: "Fira", exact: true })).toHaveAttribute(
+					"aria-pressed",
+					"true",
+				);
+				await settled(panel);
+				expect(await body.evaluate((element) => element.scrollTop)).toBe(scrolledTo);
+
+				// A tab opens at its top, not where the last one was left scrolled to.
+				await panel.getByRole("button", { name: "Frame", exact: true }).tap();
+				await expect(panel).toHaveAttribute("data-cluster", "frame");
+				await settled(panel);
+				expect(await body.evaluate((element) => element.scrollTop)).toBe(0);
+			},
+		);
+	}
+
 	// The Showcase's replace question holds a picture, two paragraphs and a card of
 	// its own. On a short phone the sheet is 74% of the screen, and the block was
 	// clipped by it with nothing a finger could scroll: "Open example" sat below the

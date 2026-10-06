@@ -480,6 +480,9 @@ never shows.
 
 ## Open
 
+- Island panels are capped to the room under the frame (ticket #187). Where the frame fills the
+  stage (landscape, tall shapes) there is none, and the panel floors at 120px and covers the foot of
+  the frame.
 - The sheet's own material was an open question until ticket #160 (below): it is opaque now.
 - The corner row keeps its 31px pitch and the island's scene dots (24x40) and Export (64x30)
   sit under #140's geometry: neither is 44px by 44px.

@@ -2469,6 +2469,34 @@ html.dark:not([data-landing-theme]) {
 	padding: 8px 14px 16px;
 }
 
+/* On the phone the panel is capped to the room under the frame and scrolls
+   inside it. `--sc-panel-room` is written while a panel is open
+   (hooks/use-phone-dock-room.ts, from application/layout/phone-panel.ts). It
+   is a max-height and not a share of a flex parent's: a fieldset only keeps its
+   content inside a height it was given, and one a flex container shrank it to
+   is not that. The tabs stay where they are and the controls scroll under them.
+   Unset (no panel has been opened yet), nothing is capped. */
+.sc-root-mobile .si-sheet {
+	display: flex;
+	max-height: var(--sc-panel-room, none);
+	flex-direction: column;
+}
+
+.sc-root-mobile .si-sheet-tabs {
+	flex: none;
+}
+
+.sc-root-mobile .si-sheet-body {
+	min-height: 0;
+	flex: 1 1 auto;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	/* Rows still to scroll to dissolve into the sheet's foot instead of being cut
+	   flat. The fade is the cluster's own 16px of bottom padding, so at the end of
+	   the scroll nothing is faded. */
+	mask-image: linear-gradient(to bottom, black calc(100% - 16px), transparent);
+}
+
 .studio-root .si-cluster-group {
 	display: flex;
 	min-width: 0;

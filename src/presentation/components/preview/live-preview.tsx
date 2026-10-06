@@ -652,6 +652,7 @@ export function LivePreview() {
 					<motion.div
 						ref={boxRef}
 						data-testid="preview-frame"
+						data-preview-frame
 						layout
 						className="relative shrink-0 overflow-hidden"
 						style={{
