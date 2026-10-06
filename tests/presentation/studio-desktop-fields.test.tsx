@@ -1,7 +1,7 @@
 import { addTextLayer } from "@/application/project/multimedia-authoring";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { TEMPLATE_CATALOG } from "@/application/templates/catalog";
-import { SceneInspector } from "@/presentation/components/editor/step-builder";
+import { SceneInspector, StepBuilder } from "@/presentation/components/editor/step-builder";
 import { SceneDurationInput } from "@/presentation/components/ui/scene-duration-input";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
@@ -70,5 +70,77 @@ describe("the studio's typed fields", () => {
 		expect(screen.queryByRole("button", { name: "Capture" })).toBeNull();
 		expect(screen.queryByRole("button", { name: "Blank" })).toBeNull();
 		expect(screen.getByRole("button", { name: "Text" }).getAttribute("aria-pressed")).toBe("true");
+	});
+
+	describe("the focus field", () => {
+		const FIVE_LINES = "a();\nb();\nc();\nd();\ne();";
+
+		function sceneWithFiveLines(focus?: string) {
+			const project = TEMPLATE_CATALOG[0]?.project;
+			if (!project) throw new Error("The template catalog must contain a project");
+			useSnippetStore.getState().importFromJson(
+				JSON.stringify({
+					...project,
+					code: FIVE_LINES,
+					steps: [{ id: "five", code: FIVE_LINES, duration: 1_000, ...(focus ? { focus } : {}) }],
+				}),
+			);
+			useSnippetStore.getState().setCurrentStepIndex(0);
+			useStudioCompositionStore
+				.getState()
+				.loadDocument(createStudioCompositionDocument(readStudioCompositionSnapshot()));
+		}
+
+		function type(field: HTMLElement, value: string) {
+			fireEvent.change(field, { target: { value } });
+			fireEvent.blur(field);
+		}
+
+		it.each(["abc", "0", "5-2", "9"])("shows %s as invalid and keeps what was typed", (value) => {
+			sceneWithFiveLines();
+			render(<SceneInspector />);
+			const field = screen.getByRole("textbox", { name: "Scene 1 focus lines" });
+			type(field, value);
+
+			expect(field.getAttribute("aria-invalid")).toBe("true");
+			expect((field as HTMLInputElement).value).toBe(value);
+			expect(useSnippetStore.getState().snippet.steps[0]?.highlightRanges).toEqual([]);
+		});
+
+		it("clamps 1-1000000 to the scene's five lines and says so in the field", () => {
+			sceneWithFiveLines();
+			render(<SceneInspector />);
+			const field = screen.getByRole("textbox", { name: "Scene 1 focus lines" });
+			type(field, "1-1000000");
+
+			expect(field.getAttribute("aria-invalid")).toBe("false");
+			expect((field as HTMLInputElement).value).toBe("1-5");
+			const [range] = useSnippetStore.getState().snippet.steps[0]?.highlightRanges ?? [];
+			expect([range?.startLine, range?.endLine]).toEqual([1, 5]);
+		});
+
+		it("opens a saved 2, 8-10 on five lines as it was saved, and a blur leaves it alone", () => {
+			sceneWithFiveLines("2, 8-10");
+
+			expect(useSnippetStore.getState().toProjectPayload().steps[0]?.focus).toBe("2, 8-10");
+			render(<SceneInspector />);
+			const field = screen.getByRole("textbox", { name: "Scene 1 focus lines" });
+			expect((field as HTMLInputElement).value).toBe("2, 8-10");
+			fireEvent.blur(field);
+
+			expect(field.getAttribute("aria-invalid")).toBe("false");
+			expect(useSnippetStore.getState().toProjectPayload().steps[0]?.focus).toBe("2, 8-10");
+		});
+
+		it("is the same field in the scene list, with the same invalid state", () => {
+			Element.prototype.scrollIntoView = vi.fn();
+			sceneWithFiveLines();
+			render(<StepBuilder />);
+			const field = screen.getByRole("textbox", { name: "Scene 1 focus lines" });
+			type(field, "0");
+
+			expect(field.getAttribute("aria-invalid")).toBe("true");
+			expect((field as HTMLInputElement).value).toBe("0");
+		});
 	});
 });

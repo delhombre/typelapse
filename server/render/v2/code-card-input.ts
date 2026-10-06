@@ -1,5 +1,6 @@
 import { type BundledLanguage, type Highlighter, createHighlighter } from "shiki";
-import { focusLineSet, parseLineRanges } from "../../../src/application/focus/line-ranges";
+import { focusLineSet, readLineRanges } from "../../../src/application/focus/line-ranges";
+import { frameLineCount } from "../../../src/application/magic-move/engine";
 import { DEFAULT_TRANSITION_EASING } from "../../../src/application/magic-move/easing";
 import { typingHoldIndex } from "../../../src/application/magic-move/typewriter";
 import type {
@@ -49,9 +50,9 @@ function sceneCards(document: ProjectDocumentV2): (CodeBlockPayload | undefined)
 	);
 }
 
-function focusLines(focus: string | undefined): number[] | undefined {
-	const ranges = focus ? parseLineRanges(focus) : null;
-	const lines = ranges ? [...focusLineSet(ranges)] : [];
+function focusLines(focus: string | undefined, code: string): number[] | undefined {
+	const ranges = focus ? readLineRanges(focus) : null;
+	const lines = ranges ? [...focusLineSet(ranges, frameLineCount(code))] : [];
 	return lines.length > 0 ? lines : undefined;
 }
 
@@ -96,9 +97,10 @@ export async function buildCodeCardInput(input: {
 		borderRadius: first.borderRadius ?? factory.borderRadius,
 	};
 	const steps = project.scenes.map((scene, index) => {
-		const focus = focusLines(cards[index]?.focus);
+		const code = codes[index] ?? last.code;
+		const focus = focusLines(cards[index]?.focus, code);
 		return {
-			code: codes[index] ?? last.code,
+			code,
 			duration: scene.durationMs,
 			...(focus ? { focus } : {}),
 			...(scene.caption ? { caption: scene.caption } : {}),

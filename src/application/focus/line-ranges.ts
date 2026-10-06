@@ -3,69 +3,93 @@
  *
  * The step card exposes focus as a compact human string ("2-4, 7"); the domain
  * stores it as `HighlightRange[]`; the render engine wants a flat `Set` of the
- * 1-indexed lines to keep bright. These three helpers convert between them and
- * are shared by the store, the UI, and the share/JSON serialization.
+ * 1-indexed lines to keep bright. The helpers below convert between them and
+ * are shared by the store, the UI, and the share/JSON serialization. Two
+ * parses, on purpose: the field refuses what a person cannot mean, and opening
+ * a project keeps what it holds; the clamp to the step's lines is at use.
  */
 
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 
-/** Coerce one numeric token to a line number (>= 1), or null when not a number. */
-function toLine(text: string): number | null {
+/**
+ * One numeric token as a whole number, or null when it is not one. Past the
+ * largest safe integer it is that integer: no step has that many lines, and the
+ * number still prints as digits.
+ */
+function toNumber(text: string): number | null {
 	if (!/^\d+$/.test(text)) {
 		return null;
 	}
-	const n = Number.parseInt(text, 10);
-	if (Number.isNaN(n)) {
+	return Math.min(Number.parseInt(text, 10), Number.MAX_SAFE_INTEGER);
+}
+
+/** One chunk ("7" or "2-4") as its two bounds, as written, or null when unreadable. */
+function boundsOf(chunk: string): [number, number] | null {
+	const parts = chunk.split("-").map((p) => p.trim());
+	if (parts.length > 2) {
 		return null;
 	}
-	// Lines are 1-indexed; clamp anything below 1 (e.g. "0") up to the first line.
-	return Math.max(1, n);
+	const start = toNumber(parts[0] ?? "");
+	const end = parts.length === 1 ? start : toNumber(parts[1] ?? "");
+	return start === null || end === null ? null : [start, end];
 }
 
-/** Parse one chunk ("7" or "2-4") into a range, normalizing reversed bounds. */
-function parseChunk(chunk: string): HighlightRange | null {
-	const parts = chunk.split("-").map((p) => p.trim());
-	if (parts.length === 1) {
-		const n = toLine(parts[0] ?? "");
-		if (n === null) {
-			return null;
-		}
-		return HighlightRange.create({ startLine: n, endLine: n });
-	}
-	if (parts.length === 2) {
-		const a = toLine(parts[0] ?? "");
-		const b = toLine(parts[1] ?? "");
-		if (a === null || b === null) {
-			return null;
-		}
-		return HighlightRange.create({ startLine: Math.min(a, b), endLine: Math.max(a, b) });
-	}
-	return null;
-}
-
-/**
- * Parse a focus string into ranges. Blank input yields `[]` (no focus). Tolerant
- * of spaces, single numbers, reversed bounds and empty chunks; returns `null` for
- * any non-numeric/malformed chunk so callers can reject the edit without a throw.
- */
-export function parseLineRanges(input: string): HighlightRange[] | null {
-	const trimmed = input.trim();
-	if (trimmed === "") {
-		return [];
-	}
+/** Every chunk of a focus string through `read`; null as soon as one is unreadable. */
+function eachChunk(
+	input: string,
+	read: (bounds: [number, number]) => HighlightRange | null,
+): HighlightRange[] | null {
 	const ranges: HighlightRange[] = [];
-	for (const rawChunk of trimmed.split(",")) {
+	for (const rawChunk of input.trim().split(",")) {
 		const chunk = rawChunk.trim();
 		if (chunk === "") {
 			continue;
 		}
-		const parsed = parseChunk(chunk);
-		if (parsed === null) {
+		const bounds = boundsOf(chunk);
+		const range = bounds === null ? null : read(bounds);
+		if (range === null) {
 			return null;
 		}
-		ranges.push(parsed);
+		ranges.push(range);
 	}
 	return ranges;
+}
+
+/**
+ * The focus field's parse: what a person types. Blank input yields `[]` (no
+ * focus); spaces, single numbers and empty chunks are fine. It returns `null`
+ * for anything it cannot take as lines of this step (non-numeric, line 0, a
+ * reversed range like `5-2`, a start past the last line), so the field shows
+ * itself invalid instead of rewriting what was typed. With the step's
+ * `lineCount`, a range's end is clamped to the last line (`1-99` on five lines
+ * is `1-5`).
+ */
+export function parseLineRanges(input: string, lineCount?: number): HighlightRange[] | null {
+	return eachChunk(input, ([start, end]) => {
+		if (start < 1 || end < start) {
+			return null;
+		}
+		if (lineCount !== undefined && start > lineCount) {
+			return null;
+		}
+		return HighlightRange.create({
+			startLine: start,
+			endLine: lineCount === undefined ? end : Math.min(end, lineCount),
+		});
+	});
+}
+
+/**
+ * Read a focus string a project already holds (a file, the draft, a share link,
+ * the undo history). Nothing is clamped or refused here: a range past the last
+ * line, or line 0, is kept as written and `focusLineSet` leaves out what the
+ * step does not have. Only a reversed range is turned round, since a range
+ * cannot hold it. Opening a project never rewrites its focus.
+ */
+export function readLineRanges(input: string): HighlightRange[] | null {
+	return eachChunk(input, ([a, b]) =>
+		HighlightRange.create({ startLine: Math.min(a, b), endLine: Math.max(a, b) }),
+	);
 }
 
 /** Format ranges back to their canonical string ("2-4, 7"); inverse of parse. */
@@ -75,11 +99,17 @@ export function formatLineRanges(ranges: readonly HighlightRange[]): string {
 		.join(", ");
 }
 
-/** Flatten ranges to the set of 1-indexed lines the engine keeps bright. */
-export function focusLineSet(ranges: readonly HighlightRange[]): Set<number> {
+/**
+ * Flatten ranges to the set of 1-indexed lines the engine keeps bright, never
+ * past the step's last line: a stored "1-1000000" is a range, not a million
+ * lines, and the set is at most `lineCount` big whatever a file or a share link
+ * asked for.
+ */
+export function focusLineSet(ranges: readonly HighlightRange[], lineCount: number): Set<number> {
 	const lines = new Set<number>();
 	for (const range of ranges) {
-		for (let line = range.startLine; line <= range.endLine; line++) {
+		const last = Math.min(range.endLine, lineCount);
+		for (let line = Math.max(1, range.startLine); line <= last; line++) {
 			lines.add(line);
 		}
 	}

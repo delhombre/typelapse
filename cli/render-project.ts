@@ -8,7 +8,8 @@
  * this is the real route, its clamps and its Remotion bundle, without a port.
  */
 
-import { focusLineSet, parseLineRanges } from "@/application/focus/line-ranges";
+import { focusLineSet, readLineRanges } from "@/application/focus/line-ranges";
+import { frameLineCount } from "@/application/magic-move/engine";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import type { HostedRenderOptions } from "@/application/render/hosted-render-job";
@@ -40,7 +41,9 @@ export function renderRequestBody(payload: ProjectPayload, settings: RenderSetti
 		language: payload.language,
 		theme: themeData(payload),
 		steps: payload.steps.map((step) => {
-			const focus = [...focusLineSet(parseLineRanges(step.focus ?? "") ?? [])];
+			const focus = [
+				...focusLineSet(readLineRanges(step.focus ?? "") ?? [], frameLineCount(step.code)),
+			];
 			return {
 				code: step.code,
 				duration: step.duration,

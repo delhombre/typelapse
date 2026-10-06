@@ -2,7 +2,28 @@ import { Component, type ComponentType, type ErrorInfo, type ReactNode, useState
 
 interface RouteErrorBoundaryState {
 	readonly failed: boolean;
+	/** Set when the stored project threw and could not be set aside: a reload would replay it. */
+	readonly stored: StoredProjectError | null;
 }
+
+/**
+ * The studio failed on the project it restored from this device, and the
+ * project could not be set aside (no room left to copy it). It is still where
+ * it was, so a reload would only replay the failure: the screen offers the
+ * project as a file instead.
+ */
+export class StoredProjectError extends Error {
+	constructor(
+		readonly original: Error,
+		readonly download: () => void,
+	) {
+		super(original.message);
+		this.name = "StoredProjectError";
+	}
+}
+
+const STORED_PROJECT_MESSAGE =
+	"The last project could not be opened. It is still on this device as it was; download it to keep a copy.";
 
 /**
  * The 404 and this fallback are one family in the landing's material: one
@@ -64,10 +85,10 @@ export class RouteErrorBoundary extends Component<
 	RouteErrorBoundaryProps,
 	RouteErrorBoundaryState
 > {
-	override state: RouteErrorBoundaryState = { failed: false };
+	override state: RouteErrorBoundaryState = { failed: false, stored: null };
 
-	static getDerivedStateFromError(): RouteErrorBoundaryState {
-		return { failed: true };
+	static getDerivedStateFromError(error: unknown): RouteErrorBoundaryState {
+		return { failed: true, stored: error instanceof StoredProjectError ? error : null };
 	}
 
 	override componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -79,6 +100,25 @@ export class RouteErrorBoundary extends Component<
 			return this.props.children;
 		}
 		const Shell = this.props.Shell ?? DarkShell;
+		const { stored } = this.state;
+		if (stored) {
+			// One action, the one that helps: Reload would replay the failure.
+			return (
+				<Shell>
+					<main role="alert" className={ROUTE_STATE.main}>
+						<h1 className={ROUTE_STATE.heading}>
+							{this.props.heading ?? "Typelapse hit a problem"}
+						</h1>
+						<p className={ROUTE_STATE.body}>{STORED_PROJECT_MESSAGE}</p>
+						<div className={ROUTE_STATE.actions}>
+							<button type="button" onClick={stored.download} className={ROUTE_STATE.primary}>
+								Download it
+							</button>
+						</div>
+					</main>
+				</Shell>
+			);
+		}
 		return (
 			<Shell>
 				<main role="alert" className={ROUTE_STATE.main}>

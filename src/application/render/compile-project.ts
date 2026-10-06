@@ -1,6 +1,6 @@
 import { videoScript } from "../export/video-script";
-import { focusLineSet, parseLineRanges } from "../focus/line-ranges";
-import type { MagicMovePlan } from "../magic-move/engine";
+import { focusLineSet, readLineRanges } from "../focus/line-ranges";
+import { type MagicMovePlan, frameLineCount } from "../magic-move/engine";
 import type { CodeBlockPayload, ProjectDocumentV2 } from "../project/project-document";
 import type { RenderProgram } from "./render-program";
 
@@ -52,8 +52,8 @@ export function compileCodeProject(input: CompileCodeProjectInput): RenderProgra
 		typewriter: document.project.settings.typewriter,
 		firstCode: first.code,
 		focusSets: blocks.map((block) => {
-			const ranges = block.focus ? parseLineRanges(block.focus) : undefined;
-			return ranges ? focusLineSet(ranges) : undefined;
+			const ranges = block.focus ? readLineRanges(block.focus) : undefined;
+			return ranges ? focusLineSet(ranges, frameLineCount(block.code)) : undefined;
 		}),
 	});
 

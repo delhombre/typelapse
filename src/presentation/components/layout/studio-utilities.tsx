@@ -6,6 +6,7 @@ import { useInterfaceFeedbackStore } from "@/presentation/stores/interface-feedb
 import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import { saveJsonFile } from "@/presentation/utils/save-json-file";
 import {
 	copyToClipboard,
 	encodeShareLink,
@@ -97,13 +98,7 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 
 	const handleExport = useCallback(() => {
 		const json = studioProjectFileJson();
-		const blob = new Blob([json], { type: "application/json" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = `${snippetTitle.replace(/\s+/g, "-").toLowerCase()}.json`;
-		a.click();
-		URL.revokeObjectURL(url);
+		saveJsonFile(json, snippetTitle);
 		feedback("commit");
 		// The file is the whole V2 project, but it names its media by reference and
 		// never carries the bytes. Say so at the moment of saving, so the file is

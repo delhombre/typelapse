@@ -10,10 +10,16 @@
  * whatever they left behind last time.
  */
 
+import type { ProjectPayload } from "@/application/project/project-payload";
+import { StoredProjectError } from "@/presentation/components/ui/route-error-boundary";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
-
-export const DRAFT_STORAGE_KEY = "typelapse:draft";
+import {
+	announceKeptProject,
+	downloadKeptProject,
+	setAsideActiveProject,
+} from "@/presentation/utils/studio-recovery";
+import { DRAFT_STORAGE_KEY } from "@/presentation/utils/studio-storage-keys";
 
 /** A beat after the last change: long enough to coalesce typing, short enough
  * that closing the tab a moment later loses nothing worth mourning. */
@@ -79,8 +85,12 @@ export function shouldRestoreDraft(args: {
  * Bring last session's draft back, given the hash the page ARRIVED with (the
  * import-intent boot scrubs `#import=` in its own effect, so the caller must
  * capture the hash before the effects run). Returns true when the studio was
- * replaced. A draft that fails validation is dropped rather than allowed to
- * wedge every subsequent boot.
+ * replaced. A draft that fails validation is not allowed to wedge every
+ * subsequent boot: the open project is set aside under the recovery key
+ * (`studio-recovery`), a fresh one opens, and the studio says so. When there is
+ * no room to copy it, it stays where it is and this throws a
+ * `StoredProjectError`, whose screen offers it as a file: the persistence must
+ * not go on to save the default project over it.
  */
 export function restoreDraftOnBoot(hash: string): boolean {
 	const draft = readDraft();
@@ -91,8 +101,18 @@ export function restoreDraftOnBoot(hash: string): boolean {
 	try {
 		useSnippetStore.getState().importFromJson(draft);
 		return true;
-	} catch {
-		clearDraft();
+	} catch (error) {
+		// Set aside, never deleted: it is somebody's work, and it is what failed.
+		const outcome = setAsideActiveProject(JSON.parse(pristine) as ProjectPayload);
+		if (outcome.status === "failed") {
+			const { project } = outcome;
+			throw new StoredProjectError(error instanceof Error ? error : new Error(String(error)), () =>
+				downloadKeptProject(project),
+			);
+		}
+		if (outcome.status === "kept") {
+			announceKeptProject(outcome.kept);
+		}
 		return false;
 	}
 }

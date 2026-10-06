@@ -46,6 +46,10 @@ terms so issues, specs, tests and code use the same ones.
   is the studio's handle on one scene (same id). A step with empty code is a
   **blank step**: its scene is a blank scene, and the magic move holds the
   nearest captured code there so the card has something still to fade.
+  The focus field refuses what it cannot read as this step's lines (`abc`,
+  `0`, a reversed `5-2`, a start past the last line) and clamps an end past
+  it (`1-99` on five lines is `1-5`); opening a project keeps its focus as
+  written, and the clamp to the step's lines is applied where it is drawn.
 - **Live code**: what the code editor holds, never empty. Capture turns it
   into a step; with no step at all it is the one scene the studio shows.
 - **Magic move**: the pure, dependency-free token-morphing engine
@@ -237,6 +241,15 @@ or it does not land.
   A reload keeps every scene id: the code spine takes the stored ones.
 - **Autosave**: IndexedDB persistence of the open local project's V2 document,
   keyed by its id; no destructive action waits for a toast to disappear.
+- **Recovery key**: the localStorage entry (`typelapse:recovery:v1`) the open
+  project is set aside under, never deleted, when it cannot be opened: the
+  restore refused it, or the studio threw between the restore and its first
+  commit and the default project then rendered. One slot per project id, never
+  evicted; the rest of the library stays; the default project is never kept.
+  The studio opens a fresh project and says so in one line whose one action,
+  "Download it", saves the kept project as a JSON file the studio opens. A
+  throw anywhere else moves nothing, and a studio that threw writes nothing on
+  its way out.
 - **Project history**: the one undo and redo of the open local project. Each
   entry is a whole project document, so every edit is covered (code, scene
   durations, order, settings, layers, audio cues, a file opened over the

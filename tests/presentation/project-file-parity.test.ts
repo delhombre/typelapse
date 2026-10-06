@@ -1,5 +1,6 @@
 import { type VideoScript, videoScript } from "@/application/export/video-script";
 import { focusLineSet } from "@/application/focus/line-ranges";
+import { frameLineCount } from "@/application/magic-move/engine";
 import type { LaidOutToken, MagicMovePlan } from "@/application/magic-move/engine";
 import type { ProjectDocumentV1, ProjectDocumentV2 } from "@/application/project/project-document";
 import { compileCodeProject } from "@/application/render/compile-project";
@@ -111,7 +112,7 @@ function studioScript(loop: boolean, withEasing = true): VideoScript {
 		typewriter: scenery.typewriter,
 		firstCode: snippet.steps[0]?.code ?? snippet.code,
 		focusSets: snippet.steps.map((step) => {
-			const lines = focusLineSet(step.highlightRanges);
+			const lines = focusLineSet(step.highlightRanges, frameLineCount(step.code));
 			return lines.size > 0 ? lines : undefined;
 		}),
 	});

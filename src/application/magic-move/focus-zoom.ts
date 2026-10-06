@@ -51,9 +51,14 @@ export function zoomForFocus(
 	if (!focus || focus.size === 0) {
 		return { scale: 1, originYRatio: 0.5 };
 	}
-	const focused = [...focus];
-	const minLine = Math.min(...focused);
-	const maxLine = Math.max(...focused);
+	// By iteration: spreading a set into Math.min/max overflows the call stack
+	// on a big one.
+	let minLine = Number.POSITIVE_INFINITY;
+	let maxLine = Number.NEGATIVE_INFINITY;
+	for (const line of focus) {
+		minLine = Math.min(minLine, line);
+		maxLine = Math.max(maxLine, line);
+	}
 	const lines = Math.max(1, lineCount);
 	const center = ((minLine - 1 + maxLine) / 2 - firstRow) / lines;
 	return { scale: ZOOM_SCALE, originYRatio: clamp01(center) };

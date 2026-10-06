@@ -1,5 +1,6 @@
 import { nextUntitledTitle } from "@/application/project/local-project-library";
 import type { ProjectPayload } from "@/application/project/project-payload";
+import { useStudioBoot } from "@/presentation/components/layout/studio-boot-guard";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	createLocalProject,
@@ -24,6 +25,7 @@ import { useEffect, useRef, useState } from "react";
  * ARRIVED with: a `#import=` deep link or a `#share=` link wins over the draft.
  */
 export function StudioPersistence() {
+	const { held, guardRestore, hasCrashed } = useStudioBoot();
 	// Captured at render, before any effect runs: ImportIntentBoot consumes and
 	// scrubs `#import=` in its own mount effect, and the restore decision must
 	// see the hash as it stood on arrival, whatever order the effects fire in.
@@ -34,6 +36,11 @@ export function StudioPersistence() {
 	const autosaveRef = useRef<DraftAutosave | null>(null);
 
 	useEffect(() => {
+		// The boot guard is trying the default project: storage stays exactly as
+		// the person left it until the guard decides what to set aside.
+		if (held) {
+			return;
+		}
 		// Read BEFORE the restore, so it is the state the studio actually booted
 		// with: the autosave refuses to write this back, and a link that promised
 		// content and then failed to deliver any can no longer flush an empty
@@ -42,7 +49,7 @@ export function StudioPersistence() {
 		const arrival = hasArrivalPayload(arrivalHash);
 		if (!restoredRef.current) {
 			restoredRef.current = true;
-			restoreDraftOnBoot(arrivalHash);
+			guardRestore(() => restoreDraftOnBoot(arrivalHash));
 			// A link that carries content opens a project of its own, before the
 			// composition restore reads which project is active: the project that
 			// was open keeps its code, layers and history. The import names it.
@@ -67,14 +74,20 @@ export function StudioPersistence() {
 		autosaveRef.current = autosave;
 		return () => {
 			// Leaving the studio (say, back to the landing) is not a crash: write
-			// what is pending so the next visit finds it.
-			autosave.flush();
+			// what is pending so the next visit finds it. A crash is: what is in
+			// memory is what threw, and writing it would replay it on every reload.
+			if (!hasCrashed()) {
+				autosave.flush();
+			}
 			autosave.stop();
 			autosaveRef.current = null;
 		};
-	}, [arrivalHash]);
+	}, [arrivalHash, held, guardRestore, hasCrashed]);
 
 	useEffect(() => {
+		if (held) {
+			return;
+		}
 		const guard = (event: BeforeUnloadEvent) => {
 			// Whatever happens next, the draft is current: the debounce window must
 			// not be a window in which closing the tab loses the last edit.
@@ -85,7 +98,7 @@ export function StudioPersistence() {
 		};
 		window.addEventListener("beforeunload", guard);
 		return () => window.removeEventListener("beforeunload", guard);
-	}, []);
+	}, [held]);
 
 	return null;
 }

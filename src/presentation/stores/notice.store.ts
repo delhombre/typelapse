@@ -33,7 +33,7 @@ export interface NotifyOptions {
 	detail?: string;
 	tone?: NoticeTone;
 	action?: NoticeAction;
-	/** How long the notice dwells before dismissing itself. */
+	/** How long the notice dwells before dismissing itself; `Infinity` keeps it until dismissed. */
 	durationMs?: number;
 }
 
@@ -65,10 +65,15 @@ export const useNoticeStore = create<NoticeState>((set, get) => ({
 			...(options?.action !== undefined ? { action: options.action } : {}),
 		};
 		set({ notices: [...get().notices, notice] });
-		timers.set(
-			id,
-			setTimeout(() => get().dismiss(id), options?.durationMs ?? AUTO_DISMISS_MS),
-		);
+		const durationMs = options?.durationMs ?? AUTO_DISMISS_MS;
+		// An infinite dwell is a notice whose action is the only way back to
+		// something; it leaves when the person dismisses it.
+		if (Number.isFinite(durationMs)) {
+			timers.set(
+				id,
+				setTimeout(() => get().dismiss(id), durationMs),
+			);
+		}
 		return id;
 	},
 

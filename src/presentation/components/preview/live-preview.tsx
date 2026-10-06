@@ -24,7 +24,7 @@ import {
 } from "@/application/layout/frame-metrics";
 import { watermarkPlacement } from "@/application/layout/watermark-placement";
 import type { CubicBezier } from "@/application/magic-move/easing";
-import { renderStatic } from "@/application/magic-move/engine";
+import { frameLineCount, renderStatic } from "@/application/magic-move/engine";
 import { NO_ZOOM, type ZoomTransform, zoomForFocus } from "@/application/magic-move/focus-zoom";
 import { typingHoldIndex } from "@/application/magic-move/typewriter";
 import { frameFirstRow, scrollRows } from "@/application/magic-move/window";
@@ -462,7 +462,9 @@ export function LivePreview() {
 	const typingIndex = typingHoldIndex(snippet.steps.map((s) => s.code));
 	const firstCode = snippet.steps[typingIndex]?.code ?? liveCode;
 	// Per-step spotlight, applied at render time (no re-tokenize when focus edits).
-	const focusSets = snippet.steps.map((s) => focusLineSet(s.highlightRanges));
+	const focusSets = snippet.steps.map((s) =>
+		focusLineSet(s.highlightRanges, frameLineCount(s.code)),
+	);
 	const view = resolveView(
 		plan,
 		playback,
