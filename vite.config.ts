@@ -34,5 +34,7 @@ export default defineConfig({
 		environment: "jsdom",
 		include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
 		setupFiles: ["./tests/setup.ts"],
+		// Migrates the contract-test database once, before any worker starts.
+		globalSetup: ["./tests/global-setup.ts"],
 	},
 });

@@ -1,5 +1,4 @@
 import { randomBytes } from "node:crypto";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApiKeyRepository } from "../../server/db/api-key.repository";
 import { createDatabase } from "../../server/db/database";
@@ -39,7 +38,6 @@ async function memorySubject(): Promise<Subject> {
 
 async function postgresSubject(): Promise<Subject> {
 	const db = createDatabase(DATABASE_URL ?? "");
-	await migrate(db, { migrationsFolder: "server/db/migrations" });
 	const made: string[] = [];
 	return {
 		repository: createApiKeyRepository(db),
