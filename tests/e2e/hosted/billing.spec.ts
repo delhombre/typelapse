@@ -178,7 +178,7 @@ test.describe("Billing against the Polar sandbox", () => {
 	test("pays on Polar's hosted checkout with the 4242 test card and the plan flips to Creator", async ({
 		page,
 	}) => {
-		test.setTimeout(300_000);
+		test.setTimeout(180_000);
 		const polar = createPolar({
 			accessToken: POLAR_E2E.sandboxToken ?? "",
 			environment: "sandbox",
@@ -215,60 +215,110 @@ test.describe("Billing against the Polar sandbox", () => {
 		await panel.getByRole("button", { name: "Upgrade to Creator" }).click();
 		await page.waitForURL(/sandbox\.polar\.sh\/checkout\//, { timeout: 60_000 });
 
-		// Polar's checkout: contact details, then Stripe's card fields in frames.
-		await page.getByLabel(/email/i).first().fill(account.email);
-		await page.getByLabel(/name/i).first().fill(account.name);
-		const card = page.frameLocator('iframe[title*="card number" i]').first();
-		await card.getByRole("textbox").fill("4242424242424242");
-		await page
-			.frameLocator('iframe[title*="expiration" i]')
-			.first()
-			.getByRole("textbox")
-			.fill("1234");
-		await page
-			.frameLocator('iframe[title*="security code" i], iframe[title*="CVC" i]')
-			.first()
-			.getByRole("textbox")
-			.fill("123");
-		await page
-			.getByRole("button", { name: /subscribe|pay|start/i })
-			.last()
-			.click();
-		await page.waitForURL(/\/app\?billing=success/, { timeout: 120_000 });
+		// Polar's checkout form is long: at 720px tall the Subscribe click leaves the
+		// page without confirming (no /confirm request), at 1400px it confirms. Observed
+		// against sandbox.polar.sh; a tall viewport keeps the whole form on screen.
+		await page.setViewportSize({ width: 1280, height: 1400 });
+		const patches = new Set<unknown>();
+		const isPatch = (request: { method(): string; url(): string }) =>
+			request.method() === "PATCH" && request.url().includes("/v1/checkouts/client/");
+		page.on("request", (request) => {
+			if (isPatch(request)) patches.add(request);
+		});
+		const done = (request: { method(): string; url(): string }) => {
+			patches.delete(request);
+		};
+		page.on("requestfinished", done);
+		const confirmations: string[] = [];
+		page.on("response", async (response) => {
+			if (response.url().includes("/confirm")) {
+				confirmations.push(
+					`${response.status()} ${(await response.text().catch(() => "")).slice(0, 200)}`,
+				);
+			}
+		});
+		page.on("requestfailed", done);
 
-		// The real delivery Polar logged for this account's subscription.active.
+		// Polar's checkout (https://sandbox.polar.sh/checkout/polar_c_...): contact details,
+		// then Stripe's payment element in one frame titled "Secure payment input frame".
+		// Polar refuses a reserved domain (.test) and one that does not accept mail
+		// (example.com), so the checkout gets a throwaway address on a public inbox
+		// domain: a random sandbox receipt is the only thing it can ever receive.
+		const checkoutDomain = process.env.E2E_POLAR_CHECKOUT_EMAIL_DOMAIN ?? "mailinator.com";
+		await page
+			.getByRole("textbox", { name: "Email" })
+			.fill(account.email.replace(/@.*/, `@${checkoutDomain}`));
+		await page.getByRole("textbox", { name: "Cardholder name" }).fill(account.name);
+		const stripe = page.frameLocator('iframe[title="Secure payment input frame"]');
+		await stripe.getByRole("textbox", { name: "Card number" }).fill("4242424242424242");
+		await stripe.getByRole("textbox", { name: "Expiration date" }).fill("12 / 34");
+		await stripe.getByRole("textbox", { name: "Security code" }).fill("123");
+		// The country is a custom picker over a native select; the select takes the ISO code.
+		await page.locator("select").first().selectOption("US");
+		// A US address asks for the rest of it, so tax can be worked out.
+		await page.getByPlaceholder("Street address").fill("1 Main Street");
+		await page.getByPlaceholder("Postal code").fill("10001");
+		await page.getByPlaceholder("City").fill("New York");
+		await page
+			.locator("select")
+			.filter({ has: page.locator('option[value="US-NY"], option[value="NY"]') })
+			.first()
+			.selectOption({ label: "New York" });
+		// Every field edit patches the checkout (tax is recomputed server side); confirming
+		// while one is in flight is a 409 "Checkout is currently being processed". So wait
+		// for the tax line, then for the patches to stop, before pressing Subscribe.
+		await expect(page.getByText(/^Taxes/).locator("..")).not.toContainText("\u2014");
+		await expect.poll(() => patches.size, { timeout: 30_000 }).toBe(0);
+		await page.waitForTimeout(1_500);
+		await expect.poll(() => patches.size).toBe(0);
+		await page.getByRole("button", { name: "Subscribe now" }).click();
+		console.log(
+			`checkout: ${new URL(page.url()).origin}${new URL(page.url()).pathname.replace(/polar_c_\w+/, "polar_c_<id>")}`,
+		);
+		await page.waitForURL(/\/app\?billing=success/, { timeout: 120_000 }).catch((error) => {
+			throw new Error(
+				`checkout did not return to the app; confirmations: ${confirmations.join(" | ")}`,
+				{ cause: error },
+			);
+		});
+
+		// The real delivery Polar logged for a given event of this account's subscription.
 		const id = await accountId(account.email);
-		let recorded: { body: string; eventId: string; subscriptionId: string } | undefined;
-		await expect
-			.poll(
-				async () => {
-					const deliveries = await polar.webhooks.listWebhookDeliveries({
-						endpoint_id: endpoint.id,
-						event_type: ["subscription.active"],
-						start_timestamp: startedAt,
-						limit: 50,
-					});
-					for (const delivery of deliveries.items) {
-						const body = delivery.webhook_event.payload;
-						if (!body) continue;
-						const parsed = JSON.parse(body) as {
-							data?: { id?: string; customer?: { external_id?: string | null } };
-						};
-						if (parsed.data?.customer?.external_id === id && parsed.data.id) {
-							recorded = {
-								body,
-								eventId: delivery.webhook_event.id,
-								subscriptionId: parsed.data.id,
+		const recordedDelivery = async (type: (typeof WATCHED_EVENTS)[number]) => {
+			let found: { body: string; eventId: string; subscriptionId: string } | undefined;
+			await expect
+				.poll(
+					async () => {
+						const deliveries = await polar.webhooks.listWebhookDeliveries({
+							endpoint_id: endpoint.id,
+							event_type: [type],
+							start_timestamp: startedAt,
+							limit: 50,
+						});
+						for (const delivery of deliveries.items) {
+							const body = delivery.webhook_event.payload;
+							if (!body) continue;
+							const parsed = JSON.parse(body) as {
+								data?: { id?: string; customer?: { external_id?: string | null } };
 							};
-							return true;
+							if (parsed.data?.customer?.external_id === id && parsed.data.id) {
+								found = {
+									body,
+									eventId: delivery.webhook_event.id,
+									subscriptionId: parsed.data.id,
+								};
+								return true;
+							}
 						}
-					}
-					return false;
-				},
-				{ timeout: 90_000, message: "Polar logged no subscription.active for this account" },
-			)
-			.toBe(true);
-		const payload = JSON.parse(recorded?.body ?? "{}") as {
+						return false;
+					},
+					{ timeout: 90_000, message: `Polar logged no ${type} for this account` },
+				)
+				.toBe(true);
+			return found as { body: string; eventId: string; subscriptionId: string };
+		};
+		const recorded = await recordedDelivery("subscription.active");
+		const payload = JSON.parse(recorded.body) as {
 			timestamp?: string;
 			data?: { customer?: { external_id?: string } };
 		};
@@ -276,11 +326,9 @@ test.describe("Billing against the Polar sandbox", () => {
 		expect(payload.data?.customer?.external_id).toBe(id);
 		// The delivery is for the subscription this checkout produced, not a stale one.
 		const made = await polar.subscriptions.list({ external_customer_id: id, active: true });
-		expect(made.items.map((subscription) => subscription.id)).toContain(
-			recorded?.subscriptionId ?? "",
-		);
+		expect(made.items.map((subscription) => subscription.id)).toContain(recorded.subscriptionId);
 
-		expect(await postSignedBody(recorded?.body ?? "", recorded?.eventId ?? "")).toMatchObject({
+		expect(await postSignedBody(recorded.body, recorded.eventId)).toMatchObject({
 			outcome: "processed",
 		});
 
@@ -289,7 +337,23 @@ test.describe("Billing against the Polar sandbox", () => {
 		await expect(creator.getByText("Creator", { exact: true })).toBeVisible();
 		await expect(creator.getByText(/hosted render minutes this month/)).toBeVisible();
 
-		// Leave the sandbox tidy: revoke what this run bought.
-		await polar.subscriptions.revoke(recorded?.subscriptionId ?? "");
+		// The portal opens for the account through a pre-authenticated customer session.
+		await creator.getByRole("button", { name: "Manage billing" }).click();
+		await page.waitForURL(/sandbox\.polar\.sh\/.*portal/, { timeout: 60_000 });
+		console.log(
+			`portal: ${new URL(page.url()).origin}${new URL(page.url()).pathname.replace(/[^/]{16,}/g, "<id>")}`,
+		);
+
+		// Revoke what this run bought; Polar's own subscription.revoked delivery then ends the plan.
+		await polar.subscriptions.revoke(recorded.subscriptionId);
+		const revoked = await recordedDelivery("subscription.revoked");
+		expect(revoked.subscriptionId).toBe(recorded.subscriptionId);
+		expect(await postSignedBody(revoked.body, revoked.eventId)).toMatchObject({
+			outcome: "processed",
+		});
+		await openStudio(page);
+		const ended = await openAccountPanel(page, account);
+		await expect(ended.getByRole("status")).toHaveText(FREE_ENDED);
+		await expect(ended.getByRole("button", { name: "Upgrade to Creator" })).toBeVisible();
 	});
 });
