@@ -1,6 +1,13 @@
+import { hydrateProjectDocument } from "@/application/project/hydrate-project-document";
 import type { LocalProjectLibrary } from "@/application/project/local-project-library";
+import { addMediaAsset } from "@/application/project/multimedia-authoring";
+import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
+import { serializeProjectDocument } from "@/application/project/serialize-project-document";
+import { createStudioCompositionDocument } from "@/application/project/studio-composition";
+import { Asset } from "@/domain/entities/asset";
 import { StudioBootGuard } from "@/presentation/components/layout/studio-boot-guard";
+import { StudioCompositionBridge } from "@/presentation/components/layout/studio-composition-bridge";
 import { StudioPersistence } from "@/presentation/components/layout/studio-persistence";
 import { StudioUtilities } from "@/presentation/components/layout/studio-utilities";
 import { RouteErrorBoundary } from "@/presentation/components/ui/route-error-boundary";
@@ -9,10 +16,15 @@ import { useExportStore } from "@/presentation/stores/export.store";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
+	readStudioCompositionSnapshot,
+	useStudioCompositionStore,
+} from "@/presentation/stores/studio-composition.store";
+import {
 	LOCAL_PROJECTS_STORAGE_KEY,
 	readLocalProjects,
 } from "@/presentation/utils/local-project-storage";
 import { encodeShareLink } from "@/presentation/utils/share-link";
+import { openStudioProjectDocument } from "@/presentation/utils/studio-project-replacement";
 import {
 	RECOVERY_NOTICE,
 	RECOVERY_STORAGE_KEY,
@@ -22,6 +34,33 @@ import { DRAFT_STORAGE_KEY } from "@/presentation/utils/studio-storage-keys";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+/** IndexedDB, where each local project's composition (layers, media, audio) lives. */
+const library = vi.hoisted(() => ({
+	loadProject: vi.fn(),
+	moveProject: vi.fn(),
+	loadAsset: vi.fn(),
+	saveProject: vi.fn(),
+	saveAsset: vi.fn(),
+	deleteUnreferencedAssets: vi.fn(),
+}));
+
+vi.mock("@/presentation/studio-media-runtime", async () => {
+	const { createSceneAssetSourceRegistry } = await import(
+		"@/infrastructure/assets/scene-asset-source.registry"
+	);
+	const { BrowserObjectUrlSceneAssetSourceFactory } = await import(
+		"@/infrastructure/assets/browser-local-media-importer"
+	);
+	return {
+		studioLocalLibrary: library,
+		studioMediaRegistry: createSceneAssetSourceRegistry(),
+		studioMediaSourceFactory: new BrowserObjectUrlSceneAssetSourceFactory({
+			createObjectURL: () => "blob:test",
+			revokeObjectURL: () => undefined,
+		}),
+	};
+});
 
 /**
  * The boot guard (#185): a stored project that throws the studio once it is
@@ -80,9 +119,55 @@ function storageSnapshot(): Record<string, string | null> {
 	};
 }
 
+/** The compositions IndexedDB holds, by local project id. */
+let storedCompositions: Record<string, ProjectDocumentV2> = {};
+
+/** A stored composition: the studio's blank document plus one image layer. */
+function compositionWithImage(projectId: string, assetId: string): ProjectDocumentV2 {
+	const blank = hydrateProjectDocument(
+		createStudioCompositionDocument({ ...readStudioCompositionSnapshot(), projectId }),
+	);
+	const sceneId = blank.project.scenes[0]?.id ?? "";
+	const image = Asset.create({
+		id: assetId,
+		kind: "image",
+		fileName: `${assetId}.png`,
+		mimeType: "image/png",
+		byteSize: 4,
+		checksum: "a".repeat(64),
+		width: 640,
+		height: 360,
+	});
+	return serializeProjectDocument({
+		...blank,
+		project: addMediaAsset(blank.project, sceneId, image, { blockId: `${assetId}-block` }),
+	});
+}
+
+/** Lets the composition restore (IndexedDB reads, then the load) run to its end. */
+async function settleRestore() {
+	await act(async () => {
+		for (let tick = 0; tick < 20; tick++) {
+			await Promise.resolve();
+		}
+	});
+}
+
+function savedCompositionIds(): string[] {
+	return library.saveProject.mock.calls.map(
+		([document]) => (document as ProjectDocumentV2).project.id,
+	);
+}
+
+function assetIdsOnScreen(): string[] {
+	return useStudioCompositionStore.getState().value.project.assets.map((asset) => asset.id);
+}
+
 const probe = {
 	/** Titles the preview cannot draw. */
 	failsOn: new Set<string>(),
+	/** Media the preview cannot draw: a layer of a stored composition. */
+	failsOnAsset: new Set<string>(),
 	/** Every render throws, the default project's included: a shell bug. */
 	always: false,
 	/** The default project throws too, once the studio has opened. */
@@ -93,8 +178,13 @@ const probe = {
 /** What the preview does with the snippet: draw it, or throw. */
 function PreviewProbe() {
 	const title = useSnippetStore((s) => s.snippet.title);
+	const assets = useStudioCompositionStore((s) => s.value.project.assets);
 	if (probe.always || probe.failsOn.has(title)) {
 		throw new Error(`The studio cannot draw ${title}`);
+	}
+	const poisoned = assets.find((asset) => probe.failsOnAsset.has(asset.id));
+	if (poisoned) {
+		throw new Error(`The studio cannot draw the layer ${poisoned.id}`);
 	}
 	if (probe.opened && probe.defaultFailsAfterOpen && title === DEFAULT_TITLE) {
 		throw new Error("The studio cannot draw the default project either");
@@ -116,6 +206,7 @@ function Studio({ withShareLoader = false }: { withShareLoader?: boolean }) {
 			<StudioTooltipProvider>
 				<StudioBootGuard>
 					<StudioPersistence />
+					<StudioCompositionBridge />
 					{withShareLoader ? <StudioUtilities /> : null}
 					<OpenedMarker />
 					<PreviewProbe />
@@ -140,6 +231,9 @@ function boot(props: { withShareLoader?: boolean } = {}) {
 	cleanup();
 	useSnippetStore.setState(useSnippetStore.getInitialState(), true);
 	useExportStore.setState(useExportStore.getInitialState(), true);
+	useStudioCompositionStore
+		.getState()
+		.loadDocument(createStudioCompositionDocument(readStudioCompositionSnapshot()));
 	probe.opened = false;
 	return render(<Studio {...props} />);
 }
@@ -149,7 +243,17 @@ beforeEach(() => {
 	window.history.replaceState(null, "", "/app");
 	useNoticeStore.setState({ notices: [] });
 	probe.failsOn = new Set();
+	probe.failsOnAsset = new Set();
 	probe.always = false;
+	storedCompositions = {};
+	Object.defineProperty(globalThis, "indexedDB", { value: {}, configurable: true });
+	library.loadProject
+		.mockReset()
+		.mockImplementation(async (id: string) => storedCompositions[id] ?? null);
+	library.moveProject.mockReset().mockResolvedValue(null);
+	library.loadAsset.mockReset().mockResolvedValue(null);
+	library.saveProject.mockReset().mockResolvedValue(undefined);
+	library.deleteUnreferencedAssets.mockReset().mockResolvedValue([]);
 	probe.defaultFailsAfterOpen = false;
 	vi.spyOn(console, "error").mockImplementation(() => undefined);
 	vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -158,6 +262,7 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
+	Reflect.deleteProperty(globalThis, "indexedDB");
 });
 
 describe("a throw that is not the stored project's moves nothing", () => {
@@ -392,4 +497,142 @@ it("the error screen's Download button is the screen's one action", () => {
 	fireEvent.click(screen.getByRole("button", { name: "Download it" }));
 
 	expect(click).toHaveBeenCalledTimes(1);
+});
+
+describe("a throw once the stored composition (layers, media) is restored", () => {
+	it("sets aside exactly the active project with its composition, and boots the default with the notice", async () => {
+		seedDevice({ id: "p", title: "layered.ts" }, [{ id: "q", title: "other.ts" }]);
+		storedCompositions.p = compositionWithImage("p", "poison-image");
+		storedCompositions.q = compositionWithImage("q", "other-image");
+		probe.failsOnAsset.add("poison-image");
+
+		boot();
+		// The code restore committed: the composition arrives later, from IndexedDB.
+		expect(screen.getByTestId("title").textContent).toBe("layered.ts");
+		await settleRestore();
+
+		expect(screen.queryByRole("alert")).toBeNull();
+		expect(screen.getByTestId("title").textContent).toBe(DEFAULT_TITLE);
+		expect(assetIdsOnScreen()).not.toContain("poison-image");
+		const kept = readKeptProjects();
+		expect(kept.map((entry) => entry.id)).toEqual(["p"]);
+		expect(kept[0]?.project?.title).toBe("layered.ts");
+		// Its composition is named, and comes along as the document that threw.
+		expect(kept[0]?.compositionId).toBe("p");
+		expect(kept[0]?.document?.project.assets.map((asset) => asset.id)).toEqual(["poison-image"]);
+		const titles = readLocalProjects().projects.map((record) => record.project.title);
+		expect(titles).toContain("other.ts");
+		expect(titles).not.toContain("layered.ts");
+		expect(["p", "q"]).not.toContain(readLocalProjects().activeId);
+		// The stored composition is left where it is: nothing was written over it.
+		expect(savedCompositionIds()).not.toContain("p");
+		expect(useNoticeStore.getState().notices.map((notice) => notice.message)).toEqual([
+			RECOVERY_NOTICE,
+		]);
+	});
+
+	it("keeps a project whose code is the default's but whose layers throw, and opens it once", async () => {
+		boot();
+		const pristine = useSnippetStore.getState().toProjectPayload();
+		cleanup();
+		const device: LocalProjectLibrary = {
+			version: 1,
+			activeId: "p",
+			projects: [{ id: "p", updatedAt: 1_000, project: pristine }],
+		};
+		window.localStorage.setItem(LOCAL_PROJECTS_STORAGE_KEY, JSON.stringify(device));
+		window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(pristine));
+		storedCompositions.p = compositionWithImage("p", "poison-image");
+		probe.failsOnAsset.add("poison-image");
+		library.loadProject.mockClear();
+
+		boot();
+		await settleRestore();
+		await settleRestore();
+
+		expect(screen.queryByRole("alert")).toBeNull();
+		expect(screen.getByTestId("title").textContent).toBe(DEFAULT_TITLE);
+		expect(readKeptProjects().map((entry) => entry.compositionId)).toEqual(["p"]);
+		expect(readLocalProjects().activeId).not.toBe("p");
+		// Restored once, set aside once: the fresh project does not reopen it.
+		expect(library.loadProject.mock.calls.filter(([id]) => id === "p")).toHaveLength(1);
+		expect(useNoticeStore.getState().notices).toHaveLength(1);
+	});
+
+	it("Download it saves the V2 document, layers and media references included, which opens again", async () => {
+		const saved: Blob[] = [];
+		Object.assign(URL, {
+			createObjectURL: vi.fn((blob: Blob) => {
+				saved.push(blob);
+				return "blob:kept";
+			}),
+			revokeObjectURL: vi.fn(),
+		});
+		vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+		seedDevice({ id: "p", title: "layered.ts" }, []);
+		storedCompositions.p = compositionWithImage("p", "poison-image");
+		probe.failsOnAsset.add("poison-image");
+		boot();
+		await settleRestore();
+
+		const [notice] = useNoticeStore.getState().notices;
+		act(() => notice?.action?.onSelect());
+
+		const json = await readBlob(saved[0]);
+		const document = JSON.parse(json) as ProjectDocumentV2;
+		expect(document.schemaVersion).toBe(2);
+		expect(document.project.assets.map((asset) => asset.id)).toEqual(["poison-image"]);
+		probe.failsOnAsset.clear();
+		act(() => openStudioProjectDocument(json));
+		expect(assetIdsOnScreen()).toEqual(["poison-image"]);
+		expect(useSnippetStore.getState().snippet.title).toBe("layered.ts");
+	});
+
+	it("a healthy project whose composition is slow to arrive boots normally", async () => {
+		seedDevice({ id: "p", title: "healthy.ts" }, [{ id: "q", title: "other.ts" }]);
+		let arrive: (document: ProjectDocumentV2 | null) => void = () => undefined;
+		library.loadProject.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					arrive = resolve;
+				}),
+		);
+
+		boot();
+		// Long after the code restore committed, the layers land.
+		await settleRestore();
+		expect(screen.getByTestId("title").textContent).toBe("healthy.ts");
+		arrive(compositionWithImage("p", "still-image"));
+		await settleRestore();
+
+		expect(screen.queryByRole("alert")).toBeNull();
+		expect(screen.getByTestId("title").textContent).toBe("healthy.ts");
+		expect(assetIdsOnScreen()).toEqual(["still-image"]);
+		expect(window.localStorage.getItem(RECOVERY_STORAGE_KEY)).toBeNull();
+		expect(useNoticeStore.getState().notices).toHaveLength(0);
+		expect(readLocalProjects().activeId).toBe("p");
+	});
+
+	it("a throw while the composition is still on its way is not the stored project's", async () => {
+		seedDevice({ id: "p", title: "healthy.ts" }, []);
+		let arrive: (document: ProjectDocumentV2 | null) => void = () => undefined;
+		library.loadProject.mockImplementation(
+			() =>
+				new Promise((resolve) => {
+					arrive = resolve;
+				}),
+		);
+		boot();
+		await settleRestore();
+		const before = storageSnapshot();
+		probe.failsOn.add("edited.ts");
+
+		act(() => useSnippetStore.getState().setTitle("edited.ts"));
+		arrive(compositionWithImage("p", "still-image"));
+		await settleRestore();
+
+		expect(screen.getByRole("alert").textContent).toContain("Reload to pick up where you left off");
+		expect(storageSnapshot()).toEqual(before);
+		expect(savedCompositionIds()).toEqual([]);
+	});
 });

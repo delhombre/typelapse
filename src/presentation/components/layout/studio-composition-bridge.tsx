@@ -36,7 +36,7 @@ function bootProjectId(): string {
 export function StudioCompositionBridge() {
 	// Held while the boot guard tries the default project: the composition still
 	// follows the code, but nothing is restored from or written to the device.
-	const { held } = useStudioBoot();
+	const { held, guardRestore } = useStudioBoot();
 	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
 	const steps = useSnippetStore((state) => state.snippet.steps);
 	const currentSceneId = steps[currentStepIndex]?.id ?? STUDIO_LIVE_SCENE_ID;
@@ -104,7 +104,13 @@ export function StudioCompositionBridge() {
 		const unsubscribeRelease = onStudioPersistenceRelease(persist);
 		setStudioCompositionRestored(false);
 		if (typeof indexedDB !== "undefined" && !held) {
-			void restoreStudioProject(bootProjectId(), () => active, { adoptLegacy: true })
+			// The stored layers arrive after the code has committed, so the boot guard
+			// watches their landing too: a stored composition that throws the studio
+			// is set aside with its project instead of replayed on every reload.
+			void restoreStudioProject(bootProjectId(), () => active, {
+				adoptLegacy: true,
+				guard: (restore) => guardRestore(restore, "composition"),
+			})
 				.catch(() => undefined)
 				.then(() => {
 					if (!active) {
@@ -135,7 +141,7 @@ export function StudioCompositionBridge() {
 			unsubscribeComposition();
 			unsubscribeRelease();
 		};
-	}, [held]);
+	}, [held, guardRestore]);
 
 	useEffect(() => {
 		const composition = useStudioCompositionStore.getState();
