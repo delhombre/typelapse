@@ -1,5 +1,6 @@
 import type { ProjectPayload } from "@/application/project/project-payload";
 import { useExportStore } from "@/presentation/stores/export.store";
+import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	DRAFT_STORAGE_KEY,
@@ -11,6 +12,11 @@ import {
 	startDraftAutosave,
 	writeDraft,
 } from "@/presentation/utils/studio-draft";
+import {
+	RECOVERY_NOTICE,
+	RECOVERY_STORAGE_KEY,
+	readKeptProjects,
+} from "@/presentation/utils/studio-recovery";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -39,6 +45,8 @@ function currentPayloadJson(): string {
 
 beforeEach(() => {
 	clearDraft();
+	window.localStorage.removeItem(RECOVERY_STORAGE_KEY);
+	useNoticeStore.setState({ notices: [] });
 });
 
 describe("shouldRestoreDraft", () => {
@@ -133,20 +141,25 @@ describe("restoreDraftOnBoot", () => {
 		expect(restoreDraftOnBoot("")).toBe(false);
 	});
 
-	it("drops a corrupt draft instead of wedging every boot", () => {
+	it("sets a corrupt draft aside instead of wedging every boot", () => {
 		writeDraft("{not json");
 		const before = useSnippetStore.getState().snippet.title;
 
 		expect(restoreDraftOnBoot("")).toBe(false);
 		expect(readDraft()).toBeNull();
+		expect(readKeptProjects().map((kept) => kept.draft)).toEqual(["{not json"]);
 		expect(useSnippetStore.getState().snippet.title).toBe(before);
 	});
 
-	it("drops a parseable but invalid draft the same way", () => {
+	it("sets a parseable but invalid draft aside the same way, and says so", () => {
 		writeDraft('{"title":""}');
 
 		expect(restoreDraftOnBoot("")).toBe(false);
 		expect(readDraft()).toBeNull();
+		expect(readKeptProjects().map((kept) => kept.draft)).toEqual(['{"title":""}']);
+		expect(useNoticeStore.getState().notices.map((notice) => notice.message)).toEqual([
+			RECOVERY_NOTICE,
+		]);
 	});
 });
 

@@ -12,8 +12,10 @@
 
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { keepUnreadableProject } from "@/presentation/utils/studio-recovery";
+import { DRAFT_STORAGE_KEY } from "@/presentation/utils/studio-storage-keys";
 
-export const DRAFT_STORAGE_KEY = "typelapse:draft";
+export { DRAFT_STORAGE_KEY };
 
 /** A beat after the last change: long enough to coalesce typing, short enough
  * that closing the tab a moment later loses nothing worth mourning. */
@@ -79,8 +81,8 @@ export function shouldRestoreDraft(args: {
  * Bring last session's draft back, given the hash the page ARRIVED with (the
  * import-intent boot scrubs `#import=` in its own effect, so the caller must
  * capture the hash before the effects run). Returns true when the studio was
- * replaced. A draft that fails validation is dropped rather than allowed to
- * wedge every subsequent boot.
+ * replaced. A draft that fails validation is set aside under the recovery key
+ * (`studio-recovery`) rather than allowed to wedge every subsequent boot.
  */
 export function restoreDraftOnBoot(hash: string): boolean {
 	const draft = readDraft();
@@ -92,7 +94,8 @@ export function restoreDraftOnBoot(hash: string): boolean {
 		useSnippetStore.getState().importFromJson(draft);
 		return true;
 	} catch {
-		clearDraft();
+		// Set aside, never deleted: it is somebody's work, and it is what failed.
+		keepUnreadableProject();
 		return false;
 	}
 }

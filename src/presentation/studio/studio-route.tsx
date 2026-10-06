@@ -4,6 +4,7 @@ import { SceneInspector, StepBuilder } from "@/presentation/components/editor/st
 import { StudioEditor } from "@/presentation/components/editor/studio-editor";
 import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
 import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
+import { StudioBootGuard } from "@/presentation/components/layout/studio-boot-guard";
 import { StudioCompositionBridge } from "@/presentation/components/layout/studio-composition-bridge";
 import { StudioPersistence } from "@/presentation/components/layout/studio-persistence";
 import { LivePreview } from "@/presentation/components/preview/live-preview";
@@ -29,16 +30,18 @@ export function StudioRoute() {
 
 	return (
 		<StudioTooltipProvider>
-			<StudioPersistence />
-			<StudioCompositionBridge />
-			<ImportIntentBoot />
 			<NoticeHost />
-			<ResponsiveShell
-				editor={<StudioEditor />}
-				sceneInspector={<SceneInspector />}
-				stepBuilder={<StepBuilder />}
-				preview={<LivePreview />}
-			/>
+			<StudioBootGuard>
+				<StudioPersistence />
+				<StudioCompositionBridge />
+				<ImportIntentBoot />
+				<ResponsiveShell
+					editor={<StudioEditor />}
+					sceneInspector={<SceneInspector />}
+					stepBuilder={<StepBuilder />}
+					preview={<LivePreview />}
+				/>
+			</StudioBootGuard>
 		</StudioTooltipProvider>
 	);
 }

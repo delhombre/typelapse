@@ -230,6 +230,10 @@ or it does not land.
   A reload keeps every scene id: the code spine takes the stored ones.
 - **Autosave**: IndexedDB persistence of the open local project's V2 document,
   keyed by its id; no destructive action waits for a toast to disappear.
+- **Recovery key**: the localStorage entry (`typelapse:recovery:v1`) a stored
+  project is set aside under, never deleted, when it cannot be opened (the
+  restore refused it, or the studio threw on it in its first seconds); the
+  studio then starts the default project and says so in one line.
 - **Project history**: the one undo and redo of the open local project. Each
   entry is a whole project document, so every edit is covered (code, scene
   durations, order, settings, layers, audio cues, a file opened over the
