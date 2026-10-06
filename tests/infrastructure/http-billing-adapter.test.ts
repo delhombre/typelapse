@@ -59,7 +59,7 @@ describe("hosted billing client", () => {
 		await expect(configured.isConfigured()).resolves.toBe(true);
 		await expect(unconfigured.isConfigured()).resolves.toBe(false);
 		await new HttpBillingAdapter(fetcher).isConfigured();
-		expect(fetcher).toHaveBeenCalledWith("/api/health");
+		expect(fetcher).toHaveBeenCalledWith("/api/health", { signal: expect.any(AbortSignal) });
 	});
 
 	it("does not take an unreadable capability read for a billing that is off", async () => {

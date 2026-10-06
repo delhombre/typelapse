@@ -51,7 +51,8 @@ export function createPlanStore({
 	// Asked once per page: billing does not switch on while the studio is open.
 	let configured: Promise<boolean> | undefined;
 	const billingConfigured = () => {
-		configured ??= billing.isConfigured?.() ?? Promise.resolve(true);
+		// A probe that fails leaves billing assumed, as the adapter's does.
+		configured ??= (billing.isConfigured?.() ?? Promise.resolve(true)).catch(() => true);
 		return configured;
 	};
 
@@ -72,13 +73,18 @@ export function createPlanStore({
 				return;
 			}
 			if (!(await billingConfigured())) {
-				// A hosted server without a payment provider answers every billing
-				// read with a 503: nothing to ask, and Free is the whole story.
+				// A hosted server without a payment provider answers the catalog, plan
+				// and notice reads with a 503: nothing to ask, and Free is the whole
+				// story. The allowance does not depend on checkout (a free account has
+				// ceilings either way), so a signed-in account still reads it.
+				const [allowance] = await Promise.allSettled([
+					signedIn ? (billing.getAllowance?.() ?? Promise.resolve(null)) : Promise.resolve(null),
+				]);
 				set({
 					catalog: null,
 					billingAvailable: false,
 					plan: Plan.free(),
-					allowance: null,
+					allowance: allowance.status === "fulfilled" ? allowance.value : null,
 					notice: null,
 					error: null,
 				});
