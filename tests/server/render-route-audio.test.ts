@@ -26,6 +26,8 @@ vi.mock("@remotion/renderer", () => ({
 }));
 
 const { renderRoute } = await import("../../server/routes/render");
+const { TRANSITION_MS } = await import("../../src/application/magic-move/timeline");
+const { TYPE_COMPLETE_AT } = await import("../../src/application/magic-move/typewriter");
 
 function render(body: Record<string, unknown>) {
 	return renderRoute.request("/render", {
@@ -92,20 +94,27 @@ describe("the V1 render route's typed scene", () => {
 				input: {
 					typingIndex: number;
 					audioDataUrl: string;
-					plan: { frames: { tokens: unknown[] }[] };
+					plan: { frames: { tokens: unknown[] }[]; typing?: { content: string }[] };
 				};
 			};
 		};
 		const { input } = inputProps;
 		expect(input.typingIndex).toBe(1);
-		// The ticks: nothing sounds over the blank hold, and the typed scene does.
+		// The ticks: the morph thump out of the blank hold, silence through the
+		// transition, then the keys of scene 1, which is the scene typed.
 		const pcm = Buffer.from(input.audioDataUrl.replace(/^data:audio\/wav;base64,/, ""), "base64");
 		const samples = new Int16Array(pcm.buffer, pcm.byteOffset + 44, (pcm.length - 44) / 2);
-		const blankHold = Math.floor(0.6 * 44100);
-		expect(samples.slice(0, blankHold).every((sample) => sample === 0)).toBe(true);
-		expect(samples.slice(blankHold).some((sample) => sample !== 0)).toBe(true);
-		// The blank scene holds its neighbour's code in the plan, so there is a card to type.
-		expect(input.plan.frames[0]?.tokens.length).toBeGreaterThan(0);
+		const at = (ms: number) => Math.floor((ms / 1000) * 44100);
+		const typedAt = 600 + TRANSITION_MS;
+		expect(samples.slice(0, at(600)).every((sample) => sample === 0)).toBe(true);
+		expect(samples.slice(at(650), at(typedAt)).every((sample) => sample === 0)).toBe(true);
+		expect(samples.slice(at(typedAt), at(typedAt + 600 * TYPE_COMPLETE_AT)).some((s) => s !== 0)).toBe(
+			true,
+		);
+		// The picture: a blank scene is an empty window, as on main; the typing plan
+		// holds scene 1's code.
+		expect(input.plan.frames[0]?.tokens).toEqual([]);
+		expect(input.plan.typing?.map((token) => token.content).join("").trim()).toBe("const a = 1;");
 	});
 
 	it("keeps the first scene as the typed one when it has code", async () => {

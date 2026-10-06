@@ -17,7 +17,6 @@ import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradien
 import { clampRenderDimension } from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
 import { typingHoldIndex } from "../../src/application/magic-move/typewriter";
-import { morphCodes } from "../../src/domain/entities/snippet";
 import {
 	DEFAULT_TRANSITION_EASING,
 	isCubicBezier,
@@ -250,20 +249,36 @@ renderRoute.post(
 			const shikiTheme = resolveShikiTheme(theme.name);
 			await ensureLanguage(highlighter, lang);
 
-			// A blank scene holds its neighbour's code, as the studio and the server's
-			// card lay out their plans, and the typewriter types the first scene with
-			// code: the picture and the ticks below name the same scene.
+			// The typewriter types the first scene with code, not a blank one before
+			// it: the typing plan, the picture and the ticks below name that scene.
+			// The frames keep each scene's own code (a blank scene shows an empty
+			// window, as it always did here); only the typing borrows the typed one.
 			const sceneCodes = clampedSteps.map((s) => s.code);
 			const typingIndex = typingHoldIndex(sceneCodes);
-			const plan = buildServerMagicMovePlan(
+			const framesPlan = buildServerMagicMovePlan(
 				highlighter,
-				morphCodes(sceneCodes, [...sceneCodes].reverse().find((code) => code !== "") ?? ""),
+				sceneCodes,
 				lang,
 				shikiTheme,
 				theme.background,
 				loop,
 				clampedSteps.map((s) => s.focus),
 			);
+			const plan =
+				typingIndex === 0
+					? framesPlan
+					: {
+							...framesPlan,
+							typing: buildServerMagicMovePlan(
+								highlighter,
+								[sceneCodes[typingIndex] ?? ""],
+								lang,
+								shikiTheme,
+								theme.background,
+								false,
+								[clampedSteps[typingIndex]?.focus],
+							).typing,
+						};
 
 			// Total duration = holds + a transition between each adjacent pair (+ the
 			// loop-back transition when looping). Tempo is driven by `transitionMs`.
