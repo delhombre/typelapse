@@ -148,70 +148,84 @@ const SHELLS = [
 	{ name: "390 phone", width: 390, height: 844 },
 	{ name: "375 phone", width: 375, height: 812 },
 	{ name: "1100 wide", width: 1100, height: 800 },
+	// The desktop shell keeps its line (#192): 76px, under the header.
+	{ name: "1280 desktop", width: 1280, height: 800 },
+	{ name: "1440 desktop", width: 1440, height: 900 },
 ] as const;
+
+/** DESKTOP_SCENE_MIN_WIDTH (scene-stage.ts): where the header stops being the corner row. */
+const DESKTOP_MIN_WIDTH = 1280;
 
 test.describe("The import status over the ceiling, on every shell", () => {
 	for (const shell of SHELLS) {
-		test(`at ${shell.name} the status covers no header control and is read whole`, async ({
-			browser,
-		}, testInfo) => {
-			const context = await browser.newContext({
-				viewport: { width: shell.width, height: shell.height },
-			});
-			const page = await context.newPage();
-			await page.goto("/app");
-			await page.evaluate((source) => {
-				sessionStorage.setItem("typelapse:import-intent", JSON.stringify({ source }));
-				location.hash = "#import=~";
-			}, codeOfLines(6000));
+		test(
+			`at ${shell.name} the status covers no header control and is read whole`,
+			{ tag: "@smoke" },
+			async ({ browser }, testInfo) => {
+				const context = await browser.newContext({
+					viewport: { width: shell.width, height: shell.height },
+				});
+				const page = await context.newPage();
+				await page.goto("/app");
+				await page.evaluate((source) => {
+					sessionStorage.setItem("typelapse:import-intent", JSON.stringify({ source }));
+					location.hash = "#import=~";
+				}, codeOfLines(6000));
 
-			const status = page.getByTestId("import-status");
-			await expect(status).toContainText(/too long to animate \(over 5,000 lines\)/);
-			// The enter spring has settled once the pill stops moving.
-			await expect(async () => {
-				const first = await status.boundingBox();
-				await page.waitForTimeout(120);
-				expect(await status.boundingBox()).toEqual(first);
-			}).toPass();
+				const status = page.getByTestId("import-status");
+				await expect(status).toContainText(/too long to animate \(over 5,000 lines\)/);
+				// The enter spring has settled once the pill stops moving.
+				await expect(async () => {
+					const first = await status.boundingBox();
+					await page.waitForTimeout(120);
+					expect(await status.boundingBox()).toEqual(first);
+				}).toPass();
 
-			const box = await status.boundingBox();
-			if (!box) throw new Error("the status has no box");
-			const controls = page.locator(
-				".sc-corner-row :is(button, a, input, [role='button'], [role='combobox'])",
-			);
-			const count = await controls.count();
-			expect(count).toBeGreaterThan(4);
-			for (let index = 0; index < count; index += 1) {
-				const control = controls.nth(index);
-				const rect = await control.boundingBox();
-				if (!rect || rect.width === 0) continue;
-				const apart =
-					rect.y + rect.height <= box.y + 0.5 ||
-					box.y + box.height <= rect.y + 0.5 ||
-					rect.x + rect.width <= box.x + 0.5 ||
-					box.x + box.width <= rect.x + 0.5;
-				const label = await control.evaluate(
-					(element) => element.getAttribute("aria-label") ?? element.textContent ?? element.tagName,
+				const box = await status.boundingBox();
+				if (!box) throw new Error("the status has no box");
+				const desktop = shell.width >= DESKTOP_MIN_WIDTH;
+				if (desktop) {
+					expect(box.y).toBeCloseTo(76, 0);
+				}
+				const header = desktop ? ".studio-camera-header" : ".sc-corner-row";
+				const controls = page.locator(
+					`${header} :is(button, a, input, [role='button'], [role='combobox'])`,
 				);
-				expect(apart, `the status covers "${label}"`).toBe(true);
-			}
+				const count = await controls.count();
+				expect(count).toBeGreaterThan(desktop ? 2 : 4);
+				for (let index = 0; index < count; index += 1) {
+					const control = controls.nth(index);
+					const rect = await control.boundingBox();
+					if (!rect || rect.width === 0) continue;
+					const apart =
+						rect.y + rect.height <= box.y + 0.5 ||
+						box.y + box.height <= rect.y + 0.5 ||
+						rect.x + rect.width <= box.x + 0.5 ||
+						box.x + box.width <= rect.x + 0.5;
+					const label = await control.evaluate(
+						(element) =>
+							element.getAttribute("aria-label") ?? element.textContent ?? element.tagName,
+					);
+					expect(apart, `the status covers "${label}"`).toBe(true);
+				}
 
-			// Whole: the words wrap onto more lines rather than end in an ellipsis.
-			const text = status.getByTestId("import-status-text");
-			expect(
-				await text.evaluate((element) => element.scrollWidth <= element.clientWidth),
-				"the text is cut",
-			).toBe(true);
-			expect(await text.evaluate((element) => getComputedStyle(element).textOverflow)).not.toBe(
-				"ellipsis",
-			);
-			expect(box.x).toBeGreaterThanOrEqual(0);
-			expect(box.x + box.width).toBeLessThanOrEqual(shell.width);
+				// Whole: the words wrap onto more lines rather than end in an ellipsis.
+				const text = status.getByTestId("import-status-text");
+				expect(
+					await text.evaluate((element) => element.scrollWidth <= element.clientWidth),
+					"the text is cut",
+				).toBe(true);
+				expect(await text.evaluate((element) => getComputedStyle(element).textOverflow)).not.toBe(
+					"ellipsis",
+				);
+				expect(box.x).toBeGreaterThanOrEqual(0);
+				expect(box.x + box.width).toBeLessThanOrEqual(shell.width);
 
-			await page.screenshot({
-				path: testInfo.outputPath(`import-status-${shell.width}.png`),
-			});
-			await context.close();
-		});
+				await page.screenshot({
+					path: testInfo.outputPath(`import-status-${shell.width}.png`),
+				});
+				await context.close();
+			},
+		);
 	}
 });
