@@ -5,11 +5,13 @@ import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import {
 	Fragment,
 	type KeyboardEvent as ReactKeyboardEvent,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { takeBulkInsert } from "./bulk-insert";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
 
@@ -34,10 +36,17 @@ const MODES = ["pull request", "diff", "snippet"] as const;
 
 type Mode = (typeof MODES)[number];
 
+/**
+ * Short enough to be read whole on the narrowest phone. The field shares its row
+ * with the button, which leaves about 17 monospace characters at 360px, and a
+ * placeholder is cut at the edge rather than wrapped: the pull request's address
+ * used to read "https://github.com/o". The log under the field shows real
+ * addresses, so the placeholder says what to do instead of imitating one.
+ */
 const PLACEHOLDERS: Record<Mode, string> = {
-	"pull request": "https://github.com/owner/repo/pull/1247",
+	"pull request": "Paste a PR link",
 	diff: "@@ -1,6 +1,10 @@",
-	snippet: "const users = await db.users.all()",
+	snippet: "db.users.all()",
 };
 
 /**
@@ -108,6 +117,24 @@ export function Hero() {
 		   studio it has always been. Anything else travels. */
 		navigate(value.trim() === "" ? "/app" : `/app${encodeImportIntent({ source: value })}`);
 	}
+
+	/* Native rather than `onBeforeInput`: React's version is synthesised from
+	   keypress and textInput and does not see an insertion that comes from an
+	   input method or a script, which are the ones this exists for. */
+	useEffect(() => {
+		const element = field.current;
+		if (!element) {
+			return;
+		}
+		const onBeforeInput = (event: InputEvent) => {
+			const next = takeBulkInsert(event, element);
+			if (next !== null) {
+				onChange(next);
+			}
+		};
+		element.addEventListener("beforeinput", onBeforeInput);
+		return () => element.removeEventListener("beforeinput", onBeforeInput);
+	}, []);
 
 	function onChange(next: string) {
 		setValue(next);

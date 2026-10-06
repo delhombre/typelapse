@@ -245,6 +245,52 @@ describe("an import link on an open studio", () => {
 	});
 });
 
+describe("a paste carried in from the landing hero", () => {
+	const PASTED = "const answer = 42;\nconsole.log(answer);";
+
+	function arriveWith(source: string): void {
+		act(() => {
+			history.replaceState(null, "", `/app${encodeImportIntent({ source })}`);
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+	}
+
+	it("lands with the pasted code captured as scene one, so Play is live", async () => {
+		render(<ImportIntentBoot />);
+
+		arriveWith(PASTED);
+
+		await waitFor(() => expect(useSnippetStore.getState().snippet.steps.length).toBe(1));
+		const { snippet, currentStepIndex } = useSnippetStore.getState();
+		expect(snippet.code).toBe(PASTED);
+		expect(snippet.steps[0]?.code).toBe(PASTED);
+		expect(currentStepIndex).toBe(0);
+		// The composition carries the same scene, and no undo walks back to an empty studio.
+		expect(useStudioCompositionStore.getState().value.project.scenes).toHaveLength(1);
+		expect(studioHistory.canUndo()).toBe(false);
+	});
+
+	it("does not add a scene on top of the ones a diff already made", async () => {
+		render(<ImportIntentBoot />);
+
+		arriveWith(VALID_DIFF);
+
+		await waitFor(() => expect(useSnippetStore.getState().snippet.steps.length).toBe(2));
+	});
+
+	it("leaves a paste made inside the studio exactly as it was: code, no scene yet", async () => {
+		const { result } = renderHook(() => useSourceImport());
+
+		await act(async () => {
+			await result.current.run(PASTED);
+		});
+
+		const { snippet } = useSnippetStore.getState();
+		expect(snippet.code).toBe(PASTED);
+		expect(snippet.steps).toHaveLength(0);
+	});
+});
+
 describe("a release link", () => {
 	const API = "https://api.github.com/repos/acme/app";
 	const RELEASE_URL = "https://github.com/acme/app/releases/tag/v1.2.0";

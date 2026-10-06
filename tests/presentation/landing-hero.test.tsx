@@ -1,6 +1,6 @@
 import { Hero } from "@/presentation/landing/hero";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
@@ -114,6 +114,94 @@ describe("landing hero", () => {
 		expect(screen.getByRole("status", { name: "Studio" }).textContent).toBe(
 			`/app${encodeImportIntent({ source: url })}`,
 		);
+	});
+});
+
+/* #172: on a 390px phone the pull request's address was cut at the field's edge
+   and read "https://github.com/o". A placeholder is never wrapped, so it has to
+   be short enough to be read whole where the field is narrowest (about 17
+   monospace characters at 360px); the e2e journey measures it in the browser. */
+describe("landing hero, the placeholders", () => {
+	it.each(["pull request", "diff", "snippet"])(
+		"keeps the %s placeholder short enough to read whole",
+		(mode) => {
+			renderHero();
+			fireEvent.click(screen.getByRole("radio", { name: mode }));
+
+			const placeholder = (screen.getByRole("textbox") as HTMLTextAreaElement).placeholder;
+
+			expect(placeholder.length).toBeGreaterThan(0);
+			expect(placeholder.length).toBeLessThanOrEqual(16);
+		},
+	);
+});
+
+/* #172: Chromium's `insertText` command is quadratic in the number of lines it
+   inserts (a bare <textarea> takes 0.9 s for 1,500 lines, 61 s for 8,000), and it
+   is the command typing, an input method and automation all go through. A real
+   paste is a different command and is not slow. The field takes a long
+   `insertText` itself, in one assignment. */
+describe("landing hero, a long insertion", () => {
+	const LONG = Array.from({ length: 600 }, (_, i) => `const a${i} = ${i};`).join("\n");
+
+	function beforeInput(field: HTMLElement, inputType: string, data: string): InputEvent {
+		const event = new InputEvent("beforeinput", {
+			inputType,
+			data,
+			bubbles: true,
+			cancelable: true,
+		});
+		act(() => {
+			field.dispatchEvent(event);
+		});
+		return event;
+	}
+
+	function pullRequestField(): HTMLTextAreaElement {
+		return screen.getByRole("textbox", { name: /paste a pull request/i }) as HTMLTextAreaElement;
+	}
+
+	it("takes a long insertText in one assignment and answers like any other change", () => {
+		renderHero();
+		const field = pullRequestField();
+
+		const event = beforeInput(field, "insertText", LONG);
+
+		expect(event.defaultPrevented).toBe(true);
+		expect(field.value).toBe(LONG);
+		expect(field.selectionStart).toBe(LONG.length);
+		expect(screen.getByRole("button", { name: "Import & animate" })).toBeTruthy();
+	});
+
+	it("inserts at the selection, like the command it replaces", () => {
+		renderHero();
+		const field = pullRequestField();
+		fireEvent.change(field, { target: { value: "head TAIL" } });
+		field.setSelectionRange(5, 9);
+
+		beforeInput(field, "insertText", LONG);
+
+		expect(field.value).toBe(`head ${LONG}`);
+	});
+
+	it("leaves a short insertion, a paste and a deletion to the browser", () => {
+		renderHero();
+		const field = pullRequestField();
+
+		expect(beforeInput(field, "insertText", "a\nb").defaultPrevented).toBe(false);
+		// A real paste is not slow, and keeps its native undo.
+		expect(beforeInput(field, "insertFromPaste", LONG).defaultPrevented).toBe(false);
+		expect(beforeInput(field, "deleteContentBackward", "").defaultPrevented).toBe(false);
+	});
+
+	it("can be emptied again after it took a long insertion", () => {
+		renderHero();
+		const field = pullRequestField();
+		beforeInput(field, "insertText", LONG);
+
+		fireEvent.change(field, { target: { value: "" } });
+
+		expect(screen.getByRole("button", { name: "Open studio" })).toBeTruthy();
 	});
 });
 

@@ -10,6 +10,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useId, useState } from "react";
 
 /**
+ * A pasted snippet arrives as scene one. The landing button says "Import & animate"
+ * and the studio opened on "0 scenes" with Play disabled; a paste made inside the
+ * studio keeps its own, quieter behaviour because it does not pass this.
+ */
+const ARRIVAL = { openingScene: true } as const;
+
+/**
  * Picks up what the landing hero was pasted, on arrival in the studio.
  *
  * The hero navigates the moment you press Render rather than fetching first,
@@ -43,7 +50,7 @@ export function ImportIntentBoot() {
 				setAsking(true);
 				return;
 			}
-			void run(taken.source, taken.playMode);
+			void run(taken.source, taken.playMode, ARRIVAL);
 		},
 		[reset, run],
 	);
@@ -87,7 +94,7 @@ export function ImportIntentBoot() {
 					}}
 					onConfirm={() => {
 						setAsking(false);
-						void run(intent.source, intent.playMode);
+						void run(intent.source, intent.playMode, ARRIVAL);
 					}}
 					className="sc-confirm-float w-full max-w-sm"
 				/>
