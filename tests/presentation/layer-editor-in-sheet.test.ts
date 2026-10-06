@@ -67,12 +67,23 @@ describe("the layer inspector in the phone's sheet", () => {
 		expect(field.join("")).toContain("border: 1px solid var(--camera-line)");
 	});
 
-	it("has the studio's colour tokens, which the root that carries them does not reach", () => {
-		const sheet = rulesFor(app, ".sc-sheet").join("");
+	it("has the studio's colour tokens, published to it by name since the root does not reach it", () => {
+		// One rule for both shells and the sheet (SYSTEM.md Drift 18): no copy of its own.
+		const published = rulesFor(
+			camera,
+			":is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet)",
+		).join("");
 		for (const token of ["--camera-line", "--camera-pill", "--camera-ink", "--camera-muted"]) {
-			expect(sheet).toContain(`${token}:`);
+			expect(published).toContain(`${token}:`);
 		}
-		expect(rulesFor(app, ".dark .sc-sheet").join("")).toContain("--camera-pill:");
+		expect(
+			rulesFor(
+				camera,
+				".dark :is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet)",
+			).join(""),
+		).toContain("--camera-pill:");
+		// A copy is a definition (`--camera-x:`); the sheet's fill and shadow read the tokens.
+		expect(rulesFor(app, ".sc-sheet").join("")).not.toMatch(/--camera-[\w-]+\s*:/);
 	});
 
 	it("sits on the phone's stage, where a finger can select it, not off its edge", () => {

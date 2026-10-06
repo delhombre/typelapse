@@ -10,10 +10,10 @@
    root each carry `.studio-root`, so the ramp and the hairline below resolve on
    either; the phone used to hold a cool, partial copy of these in app.css, and
    its menus painted no material at all. The phone's sheet is portaled out of
-   `.studio-root` and keeps a copy of its own there. The strip an import link
-   raises is rendered beside the shell, not in it, so it carries `.studio-root
-   .sc-tokens` to read them too. */
-:is(.studio-camera-root, .sc-root-mobile, .sc-tokens) {
+   `.studio-root`, so it is named here too, and draws only its own hairline and
+   radius (app.css). The strip an import link raises is rendered beside the
+   shell, not in it, so it carries `.studio-root .sc-tokens` to read them too. */
+:is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet) {
 	/* One accent and one primary for the whole product (SYSTEM.md, drift 1 and
 	   2, settled by the studio desktop pass): the timeline's selection and the
 	   island's CTA wear the same yellow as every other filled action, and every
@@ -95,7 +95,7 @@
 
 /* The ink was never redefined here, so every field value, chip label and
    inspector title painted #1d1d20 on a dark surface. */
-.dark :is(.studio-camera-root, .sc-root-mobile, .sc-tokens) {
+.dark :is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet) {
 	--camera-ink: #f5f3ef;
 	--camera-muted: #a8a39a;
 	--camera-pill: #292624;

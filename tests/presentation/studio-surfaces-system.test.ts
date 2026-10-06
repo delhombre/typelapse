@@ -201,8 +201,26 @@ describe("the stylesheets under components/multimedia (DECISIONS D3, D8, D9)", (
 
 	it("find their sheets, so the checks below are not vacuous", () => {
 		expect(sheets.map(({ name }) => name)).toEqual(
-			expect.arrayContaining(["studio-api-keys.css", "studio-cloud-projects.css"]),
+			expect.arrayContaining([
+				"studio-account-control.css",
+				"studio-api-keys.css",
+				"studio-cloud-projects.css",
+			]),
 		);
+	});
+
+	it("write no hex literal: a colour is a token with no fallback of its own (a mask's black is not a colour)", () => {
+		const found = sheets.flatMap(({ name, rules }) =>
+			rules.flatMap((rule) =>
+				rule.declarations
+					.filter(([property, value]) => !/mask/.test(property) && /#[0-9a-f]{3,8}\b/i.test(value))
+					.map(
+						([property, value]) =>
+							`${name}: ${rule.selectors.join(", ")} { ${property}: ${value} }`,
+					),
+			),
+		);
+		expect(found).toEqual([]);
 	});
 
 	it("never turn a transition off under reduced motion: the global allow-list does it", () => {
@@ -219,9 +237,9 @@ describe("the stylesheets under components/multimedia (DECISIONS D3, D8, D9)", (
 		expect(overrides).toEqual([]);
 	});
 
-	// The keys sheet and the cloud list were built on the scale; the account island's
-	// older radii are its own pass.
-	const onTheScale = sheets.filter(({ name }) => name !== "studio-account-control.css");
+	// Every sheet is read, the account island's own included (ticket #153 moved its raw
+	// radii and its hex accent fallback onto the tokens).
+	const onTheScale = sheets;
 
 	it("take every radius from the scale, nested ones as calc() of a step", () => {
 		const step = "var\\(--r-(?:surface|sheet|control|field|pill)\\)";
@@ -506,5 +524,182 @@ describe("the phone's island under a finger (ticket #140)", () => {
 		expect(phone(".sc-root-mobile .si-row[data-dots] .si-dot", "border-radius")).toBe(
 			"var(--r-pill)",
 		);
+	});
+});
+
+describe("the phone's sheet reads the studio's tokens (was SYSTEM.md Drift 18)", () => {
+	// The sheet is portaled out of the root, so it once kept an older, cool copy of the
+	// camera tokens: an ink ring and a blue-grey pill beside the warm studio around it.
+	const camera_tokens = parseCss(camera).filter((rule) =>
+		rule.declarations.some(([property]) => property === "--camera-focus"),
+	);
+
+	it("is one of the selectors the camera tokens are published on", () => {
+		expect(camera_tokens.some((rule) => rule.selectors.join(" ").includes(".sc-sheet"))).toBe(true);
+	});
+
+	it("wears the studio's warm ramp, since the body it is portaled to has only the cold one", () => {
+		const ramp = parseCss(app).filter((rule) =>
+			rule.declarations.some(([property]) => property === "--color-neutral-50"),
+		);
+		expect(ramp.some((rule) => rule.selectors.includes(".sc-sheet"))).toBe(true);
+		expect(lastValue(app, ".sc-sheet", "--color-neutral-900")).toBe("#1c1917");
+	});
+
+	it("keeps no copy of its own: the stylesheet of the phone writes no camera token on the sheet", () => {
+		const copies = parseCss(app)
+			.filter((rule) => rule.selectors.some((selector) => selector.includes(".sc-sheet")))
+			.flatMap((rule) =>
+				rule.declarations
+					.filter(([property]) => property.startsWith("--camera-"))
+					.map(([property, value]) => `${rule.selectors.join(", ")} { ${property}: ${value} }`),
+			);
+		expect(copies).toEqual([]);
+	});
+});
+
+describe("the phone's sheet (DECISIONS D5, ticket #160)", () => {
+	// The sheet holds text at every stop (the scenes, the step builder, the inspectors), so it
+	// is the opaque studio surface like the menus: at 92% with a blur the stage's mesh showed
+	// through it. Its edge is the ring inside the sheet's shadow stack, never a border beside a
+	// shadow, and the tokens flip the fill with the theme.
+	const sheet = ".sc-sheet";
+
+	it("is the opaque studio surface with no blur, in either theme", () => {
+		expect(lastValue(app, sheet, "background")).toBe("var(--camera-surface)");
+		const blurs = declarationsOf(app, sheet).filter(([name]) => name.endsWith("backdrop-filter"));
+		expect(blurs).toEqual([]);
+		expect(declarationsOf(app, `.dark ${sheet}`).filter(([name]) => name === "background")).toEqual(
+			[],
+		);
+	});
+
+	it("takes its edge from the ring in the sheet's shadow stack, not from a border", () => {
+		expect(lastValue(app, sheet, "box-shadow")).toBe("var(--camera-sheet-shadow)");
+		expect(
+			declarationsOf(app, sheet).filter(
+				([name]) => name.startsWith("border-") && name !== "border-radius",
+			),
+		).toEqual([]);
+		expect(declarationsOf(app, sheet).filter(([name]) => name === "border")).toEqual([]);
+	});
+
+	it("keeps its top corners on the sheet radius", () => {
+		expect(lastValue(app, sheet, "border-radius")).toBe("var(--r-sheet) var(--r-sheet) 0 0");
+	});
+});
+
+describe("the phone's More menu (was SYSTEM.md Drift 19, DECISIONS D5)", () => {
+	const menu = ".sc-utility-overflow-menu";
+
+	it("is the opaque studio surface in a ring and a shadow, with no blur and no border", () => {
+		expect(lastValue(app, menu, "background")).toBe("var(--camera-surface)");
+		expect(lastValue(app, menu, "box-shadow")).toBe("var(--camera-material-shadow)");
+		expect(lastValue(app, menu, "color")).toBe("var(--camera-ink)");
+		const blurs = declarationsOf(app, menu).filter(([name]) => name.endsWith("backdrop-filter"));
+		expect(blurs).toEqual([]);
+		expect(
+			declarationsOf(app, menu).filter(
+				([name]) => name.startsWith("border-") && name !== "border-radius",
+			),
+		).toEqual([]);
+		expect(declarationsOf(app, menu).filter(([name]) => name === "border")).toEqual([]);
+	});
+
+	it("flips with the theme through the token, not through a rule of its own", () => {
+		expect(declarationsOf(app, `.dark ${menu}`)).toEqual([]);
+	});
+
+	it("takes its radius from the scale and its rows nest in its corner", () => {
+		expect(lastValue(app, menu, "border-radius")).toBe("var(--r-surface)");
+		expect(lastValue(app, `${menu} button`, "border-radius")).toBe("calc(var(--r-surface) - 5px)");
+	});
+
+	it("makes each row a finger's height", () => {
+		expect(lastValue(app, `${menu} button`, "height")).toBe("44px");
+	});
+
+	it("sets its rows in the studio's scale", () => {
+		expect(lastValue(app, `${menu} button`, "font-size")).toBe("var(--sc-text-md)");
+		expect(lastValue(app, `${menu} button`, "font-weight")).toBe("var(--sc-weight-medium)");
+	});
+});
+
+describe("the account panel (DECISIONS D5, next-wave D6)", () => {
+	// A panel that holds a form and a plan reads like the menus that hold rows of text: on
+	// a phone it covered the stage and the mesh showed through it as a blotch.
+	const dir = resolve(__dirname, "../../src/presentation/components");
+	const panel = readFileSync(resolve(dir, "multimedia/studio-account-control.css"), "utf8");
+	const island = readFileSync(resolve(dir, "layout/studio-account-island.css"), "utf8");
+
+	it("paints the opaque studio surface, with no blur behind it", () => {
+		expect(lastValue(panel, ".mm-account-popover", "background")).toBe("var(--mm-surface)");
+		expect(lastValue(island, ".sc-account-island", "--mm-surface")).toBe("var(--camera-surface)");
+		expect(lastValue(island, ".dark .sc-account-island", "--mm-surface")).toBeUndefined();
+		const blurs = declarationsOf(panel, ".mm-account-popover").filter(([name]) =>
+			name.endsWith("backdrop-filter"),
+		);
+		expect(blurs).toEqual([]);
+	});
+
+	it("reads its ink, its filled button and its hairline from the camera tokens, in both themes", () => {
+		const token = (name: string) => lastValue(island, ".sc-account-island", name);
+		expect(token("--mm-ink")).toBe("var(--camera-ink)");
+		expect(token("--mm-deep")).toBe("var(--camera-ink)");
+		expect(token("--mm-deep-ink")).toBe("var(--camera-paper)");
+		expect(token("--mm-hairline")).toBe("var(--camera-line)");
+		// The tokens flip with the theme, so no dark rule restates them as a cool literal.
+		for (const name of ["--mm-ink", "--mm-deep", "--mm-deep-ink", "--mm-hairline"]) {
+			expect(lastValue(island, ".dark .sc-account-island", name), name).toBeUndefined();
+		}
+	});
+
+	it("keeps its ring inside the floating shadow stack, with no border beside it", () => {
+		expect(lastValue(panel, ".mm-account-popover", "box-shadow")).toBe(
+			"var(--camera-material-shadow)",
+		);
+		expect(
+			declarationsOf(panel, ".mm-account-popover").filter(
+				([name, value]) => name === "border" && value !== "0",
+			),
+		).toEqual([]);
+	});
+
+	it("grows its fields and buttons to 44px under a finger, and the close reaches 44", () => {
+		const coarse = /pointer: coarse/;
+		for (const selector of [".mm-account-primary", ".mm-account-switch"]) {
+			expect(lastValue(panel, selector, "height", coarse), selector).toBe("44px");
+		}
+		expect(lastValue(panel, ".mm-account-form input", "height", coarse)).toBe("44px");
+		expect(lastValue(panel, ".mm-account-close::after", "inset", coarse)).toBe("-6px");
+		// Equal specificity: the finger's rule has to come after the one that says 40.
+		const rules = parseCss(panel);
+		const last = (selector: string, finger: boolean) =>
+			rules
+				.map(
+					(rule) =>
+						rule.selectors.includes(selector) &&
+						rule.declarations.some(([property]) => property === "height") &&
+						rule.context.some((prelude) => coarse.test(prelude)) === finger,
+				)
+				.lastIndexOf(true);
+		for (const selector of [
+			".mm-account-primary",
+			".mm-account-switch",
+			".mm-account-form input",
+		]) {
+			expect(last(selector, true), selector).toBeGreaterThan(last(selector, false));
+		}
+	});
+
+	it("reserves the room an alert takes, so the form does not move when one appears", () => {
+		expect(lastValue(panel, ".mm-account-alert", "min-height")).toBeDefined();
+	});
+
+	it("dims a busy button without taking it out of the tab order", () => {
+		const busy = parseCss(panel).filter((rule) =>
+			rule.selectors.some((selector) => selector.includes('[aria-disabled="true"]')),
+		);
+		expect(busy.length).toBeGreaterThan(0);
 	});
 });

@@ -63,7 +63,7 @@ reads as two products; a pill radius on a tall plate bows its sides.
 **Enforced by:** `src/app.css` (the `--r-*` block),
 `src/application/layout/concentric.ts` (tested in
 `tests/application/concentric.test.ts`); the source hub, the showcase, the
-drop veil and the capture library are read for it by
+drop veil, the capture library and the account island are read for it by
 `tests/presentation/studio-surfaces-system.test.ts`.
 
 **Pivot:** "Use one radius everywhere."
@@ -94,7 +94,8 @@ hover behind the same query).
 and gains an inset hairline. Floating surfaces over the phone's stage are the
 landing's card material: paper at 88%, a blur, a 1px ring, one soft shadow,
 and so are the header capsules; a menu or popover that holds rows of text takes
-the opaque studio surface instead, in both shells (next-wave D6); a header
+the opaque studio surface instead, in both shells (next-wave D6): the phone's More
+menu, the account panel and the phone's sheet at every stop included; a header
 trigger sits on flat paper and takes the fill without the blur. The desktop
 card and timeline sit on flat paper, so they are opaque. Code frames take a
 layered shadow with a 1px ring inside it, not a border. Reduced transparency

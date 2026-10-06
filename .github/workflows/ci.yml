@@ -62,15 +62,15 @@ jobs:
       # Every tests/**/*.contract.test.ts, found by its name so a new one runs
       # with no line added here. They skip when the variable is unset, which is
       # why only this step sets it: the Test step above and a laptop skip them.
-      # The migrations go first and once. Left to the files, each applies them
-      # on its own, and two that meet an empty database together fail on the
-      # same CREATE TABLE.
+      # The migrations are applied once by tests/global-setup.ts before any
+      # contract file starts, so no migrate line is needed here (a second one
+      # would only repeat what the run does first). Left to the files, each
+      # applied them on its own, and two that met an empty database together
+      # failed on the same CREATE TABLE.
       - name: Contract tests (PostgreSQL)
         env:
           TYPELAPSE_TEST_DATABASE_URL: postgres://postgres:typelapse@127.0.0.1:54381/typelapse
-        run: |
-          DATABASE_URL="$TYPELAPSE_TEST_DATABASE_URL" pnpm db:migrate
-          pnpm exec vitest run .contract.test.
+        run: pnpm exec vitest run .contract.test.
 
       - name: Build
         env:

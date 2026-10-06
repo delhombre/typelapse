@@ -11,7 +11,7 @@
 	gap: 6px;
 	padding: 0 9px;
 	border: 0;
-	border-radius: 11px;
+	border-radius: var(--r-control);
 	background: transparent;
 	color: var(--mm-muted);
 	font-size: 11px;
@@ -29,7 +29,7 @@
 	width: 24px;
 	height: 24px;
 	place-items: center;
-	border-radius: 8px;
+	border-radius: var(--r-field);
 	background: var(--mm-deep);
 	color: var(--mm-deep-ink);
 	font-size: 9px;
@@ -63,12 +63,13 @@
 	width: min(330px, calc(100vw - 24px));
 	margin: 0;
 	padding: 18px;
-	border: 1px solid var(--mm-hairline);
-	border-radius: 20px;
-	background: color-mix(in srgb, var(--mm-surface) 96%, transparent);
-	box-shadow: var(--mm-shadow-lifted);
-	-webkit-backdrop-filter: blur(24px) saturate(1.45);
-	backdrop-filter: blur(24px) saturate(1.45);
+	/* A panel that holds a form and a plan is a menu that holds text (DECISIONS D5): the
+	   opaque studio surface, its ring inside the shadow stack, no blur and no border. */
+	border: 0;
+	border-radius: var(--r-surface);
+	background: var(--mm-surface);
+	box-shadow: var(--camera-material-shadow);
+	color: var(--mm-ink);
 	transform-origin: top right;
 }
 
@@ -83,7 +84,7 @@
 	place-items: center;
 	padding: 0;
 	border: 0;
-	border-radius: 10px;
+	border-radius: var(--r-control);
 	background: transparent;
 	color: var(--mm-muted);
 }
@@ -102,7 +103,7 @@
 	margin-bottom: 16px;
 	place-items: center;
 	border: 1px solid var(--mm-hairline);
-	border-radius: 14px;
+	border-radius: var(--r-control);
 }
 
 .mm-account-symbol-local {
@@ -209,7 +210,7 @@
 	gap: 6px;
 	padding: 0 12px;
 	border: 1px solid var(--mm-hairline);
-	border-radius: 12px;
+	border-radius: var(--r-control);
 	background: rgb(28 27 25 / 0.04);
 	color: var(--mm-ink);
 	font-size: 11px;
@@ -239,7 +240,7 @@
 	margin: 2px 0 16px;
 	padding: 12px;
 	border: 1px solid var(--mm-hairline);
-	border-radius: 15px;
+	border-radius: var(--r-surface);
 	background: color-mix(in srgb, var(--mm-surface) 80%, var(--mm-primary) 4%);
 }
 
@@ -268,7 +269,7 @@
 	height: 32px;
 	padding: 0 10px;
 	border: 1px solid var(--mm-hairline);
-	border-radius: 10px;
+	border-radius: var(--r-control);
 	background: var(--mm-surface);
 	color: var(--mm-ink);
 	font-size: 10px;
@@ -280,7 +281,7 @@
 	grid-template-columns: 1fr 1fr;
 	gap: 3px;
 	padding: 3px;
-	border-radius: 12px;
+	border-radius: var(--r-control);
 	background: rgb(28 27 25 / 0.055);
 }
 
@@ -292,7 +293,8 @@
 	height: 34px;
 	padding: 0 8px;
 	border: 0;
-	border-radius: 9px;
+	/* Concentric with the well it sits in: its corner less the 3px of padding. */
+	border-radius: calc(var(--r-control) - 3px);
 	background: transparent;
 	color: var(--mm-muted);
 	font-size: 10px;
@@ -338,7 +340,7 @@
 
 .mm-account-plan-card [role="alert"] {
 	margin: 0;
-	color: var(--mm-danger, #c53a3a);
+	color: var(--mm-danger);
 	font-size: 10px;
 	line-height: 1.4;
 }
@@ -363,20 +365,20 @@
 
 /* Said beside the field it is about, in words that name the fix. */
 .mm-account-field-error {
-	color: var(--mm-danger, #c53a3a);
-	font-size: 11px;
+	color: var(--mm-danger);
+	font-size: var(--sc-text-sm);
 	line-height: 1.4;
 }
 
 .mm-account-form input[aria-invalid="true"] {
-	border-color: color-mix(in srgb, var(--mm-danger, #c53a3a) 55%, transparent);
+	border-color: color-mix(in srgb, var(--mm-danger) 55%, transparent);
 }
 
 .mm-account-form input {
 	height: 40px;
 	padding: 0 11px;
 	border: 1px solid var(--mm-hairline);
-	border-radius: 12px;
+	border-radius: var(--r-control);
 	outline: none;
 	background: rgb(28 27 25 / 0.035);
 	color: var(--mm-ink);
@@ -400,18 +402,33 @@
 /* Focus is the accent, as everywhere else (DECISIONS D9): yellow is the one
    filled action, and a yellow ring read as a second one. */
 .mm-account-form input:focus-visible {
-	border-color: var(--color-accent, #4f5bd5);
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #4f5bd5) 22%, transparent);
+	border-color: var(--color-accent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
 .mm-account-primary,
 .mm-account-switch {
 	height: 40px;
-	border-radius: 12px;
+	border-radius: var(--r-control);
 	font-size: 12px;
 	font-weight: 600;
 	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms
 		var(--ease-out);
+}
+
+/* A finger needs 44px each way (DECISIONS D10): the fields and the form's two buttons grow
+   from 40, and the close, drawn at 32, reaches 44 into the corner it sits in. After the
+   rule that sets their 40, so the later one does not win. */
+@media (pointer: coarse) {
+	.mm-account-form input,
+	.mm-account-primary,
+	.mm-account-switch {
+		height: 44px;
+	}
+
+	.mm-account-close::after {
+		inset: -6px;
+	}
 }
 
 .mm-account-primary {
@@ -423,19 +440,21 @@
 
 /* Busy, the button keeps its fill and says what it is doing; only a refused
    press looks spent. */
-.mm-account-primary:disabled {
+.mm-account-popover .mm-account-primary:is(:disabled, [aria-disabled="true"]) {
+	/* Three classes' worth: the studio's `button:not(:disabled)` pointer is two and an
+	   element, and an `aria-disabled` button is not `:disabled`. */
 	cursor: progress;
 	background: color-mix(in srgb, var(--mm-deep) 82%, var(--mm-surface));
 }
 
-.mm-account-primary:active:not(:disabled),
+.mm-account-primary:active:not(:disabled, [aria-disabled="true"]),
 .mm-account-actions :is(a, button):active:not(:disabled),
 .mm-account-plan-card > button:active:not(:disabled) {
 	transform: scale(0.97);
 }
 
 @media (hover: hover) and (pointer: fine) {
-	.mm-account-primary:hover:not(:disabled) {
+	.mm-account-primary:hover:not(:disabled, [aria-disabled="true"]) {
 		background: color-mix(in srgb, var(--mm-deep) 88%, var(--mm-surface));
 	}
 
@@ -462,18 +481,37 @@
 .mm-account-error {
 	margin: 0;
 	padding: 9px 10px;
-	border-radius: 10px;
-	background: color-mix(in srgb, var(--mm-danger, #c53a3a) 10%, transparent);
-	color: var(--mm-danger, #c53a3a);
-	font-size: 11px;
+	border-radius: var(--r-control);
+	background: color-mix(in srgb, var(--mm-danger) 10%, transparent);
+	color: var(--mm-danger);
+	font-size: var(--sc-text-sm);
 	line-height: 1.4;
 	/* A refusal that names a wait can wrap on a phone: no lone "seconds" on the second line. */
 	text-wrap: pretty;
 }
 
+/* The refusal's room, held empty until a refusal arrives: one line of the chip above
+   (its 1.4 line and 9px of padding above and below), so the button above it and the
+   fields above that never move. A refusal that wraps grows the slot, which moves only
+   the link under it. */
+.mm-account-alert {
+	display: grid;
+	min-height: calc(1.4 * var(--sc-text-sm) + 18px);
+}
+
+.mm-account-alert > .mm-account-error {
+	animation: mm-alert-in 150ms var(--ease-out);
+}
+
+@keyframes mm-alert-in {
+	from {
+		opacity: 0;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.mm-account-trigger:active:not(:disabled),
-	.mm-account-primary:active:not(:disabled),
+	.mm-account-primary:active:not(:disabled, [aria-disabled="true"]),
 	.mm-account-actions :is(a, button):active:not(:disabled),
 	.mm-account-cadence button:active {
 		transform: none;

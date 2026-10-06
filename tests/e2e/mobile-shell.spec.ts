@@ -252,6 +252,89 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		});
 	}
 
+	// The More menu holds text too (second phone pass, #153): the same opaque surface, and its
+	// rows a finger's height. (The account panel is hosted only; its journey is in
+	// hosted/account.spec.ts.) The sheet is portaled out of the
+	// root, so it reads the root's warm tokens by being named beside it, not by a copy.
+	for (const theme of ["light", "dark"] as const) {
+		test(`the More menu is opaque, and the sheet is warm, ${theme}`, async ({ page }) => {
+			await page.addInitScript(
+				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				theme,
+			);
+			await openStudio(page);
+			const paint = (selector: string) =>
+				page.locator(selector).evaluate((element) => {
+					const style = getComputedStyle(element);
+					const slash = style.backgroundColor.match(/\/\s*([\d.]+)(%?)\s*\)/);
+					const rgba = style.backgroundColor.match(/^rgba\(([^)]*)\)/);
+					const alpha = slash
+						? Number(slash[1]) / (slash[2] ? 100 : 1)
+						: rgba
+							? Number(rgba[1]?.split(",")[3] ?? 1)
+							: 1;
+					return { alpha, blur: style.backdropFilter, border: style.borderTopWidth };
+				});
+
+			await page.getByRole("button", { name: "More actions" }).tap();
+			await expect(page.locator(".sc-utility-overflow-menu")).toBeVisible();
+			expect(await paint(".sc-utility-overflow-menu")).toEqual({
+				alpha: 1,
+				blur: "none",
+				border: "0px",
+			});
+			const rows = await page
+				.locator(".sc-utility-overflow-menu button")
+				.evaluateAll((buttons) => buttons.map((button) => (button as HTMLElement).offsetHeight));
+			expect(rows.length).toBeGreaterThan(0);
+			expect(rows.filter((height) => height < 44)).toEqual([]);
+			await page.getByRole("button", { name: "More actions" }).tap();
+
+			const tokens = (selector: string) =>
+				page.locator(selector).evaluate((element) => {
+					const style = getComputedStyle(element);
+					return ["--camera-ink", "--camera-pill", "--camera-muted", "--camera-focus"].map((name) =>
+						style.getPropertyValue(name).trim(),
+					);
+				});
+			const root = await tokens(".sc-root-mobile");
+			expect(root.every((value) => value !== "")).toBe(true);
+			expect(await tokens(".sc-sheet")).toEqual(root);
+		});
+	}
+
+	// The sheet holds text at every stop, so it is the opaque studio surface too (#160): at 92%
+	// with a blur the stage's mesh showed through it. Read at the peek, the scenes stop and the
+	// full stop, where the drawer has moved it, in both themes.
+	for (const theme of ["light", "dark"] as const) {
+		test(`the sheet is opaque at every stop, ${theme}`, async ({ page }) => {
+			await page.addInitScript(
+				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				theme,
+			);
+			await openStudio(page);
+			const handle = page.locator("[data-vaul-handle]");
+			await handle.focus();
+			for (const text of ["Collapsed", "Half open", "Open"]) {
+				await expect(handle).toHaveAttribute("aria-valuetext", text);
+				const paint = await page.locator(".sc-sheet").evaluate((element) => {
+					const style = getComputedStyle(element);
+					return {
+						background: style.backgroundColor,
+						blur: style.backdropFilter,
+						border: style.borderTopWidth,
+					};
+				});
+				expect(paint, text).toEqual({
+					background: theme === "light" ? "rgb(255, 255, 255)" : "rgb(30, 28, 26)",
+					blur: "none",
+					border: "0px",
+				});
+				await handle.press("ArrowUp");
+			}
+		});
+	}
+
 	test("a short phone can still answer the Showcase's replace question", async ({ page }) => {
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await page.setViewportSize({ width: 375, height: 600 });
