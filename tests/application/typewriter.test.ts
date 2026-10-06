@@ -1,5 +1,6 @@
 import type { RawToken } from "@/application/magic-move/engine";
 import {
+	keystrokeCount,
 	layoutTypingTokens,
 	renderTyping,
 	typedCharCount,
@@ -71,12 +72,27 @@ describe("renderTyping with wide characters", () => {
 		expect(renderTyping(code, laid, 9).cursor).toMatchObject({ line: 0, col: 11 });
 	});
 
-	it("never reveals half of an emoji: a reveal inside a glyph types the whole glyph", () => {
+	it("types a glyph per keystroke: an emoji is one key, never half of one", () => {
 		const code = "a🚀b";
 		const laid = layoutTypingTokens(code, [raw("a", "a", 0), raw("r", "🚀", 1), raw("b", "b", 3)]);
+		expect(keystrokeCount(code)).toBe(3);
 		const view = renderTyping(code, laid, 2);
 		expect(view.tokens.map((token) => token.content)).toEqual(["a", "🚀"]);
 		expect(view.cursor).toMatchObject({ col: 3 });
+		expect(renderTyping(code, laid, 3).tokens.map((token) => token.content)).toEqual([
+			"a",
+			"🚀",
+			"b",
+		]);
+	});
+
+	it("counts the #188 sample in keystrokes, one per glyph", () => {
+		const sample = 'const msg = "こんにちは世界 🚀 naïve café";';
+		// 36 UTF-16 units; the rocket is one key, not two.
+		expect(sample.length).toBe(36);
+		expect(keystrokeCount(sample)).toBe(35);
+		expect(keystrokeCount("abc")).toBe(3);
+		expect(keystrokeCount("cafe\u0301")).toBe(4);
 	});
 });
 

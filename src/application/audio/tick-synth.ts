@@ -16,7 +16,7 @@ export interface TickEvent {
 export interface TickEventOptions {
 	/** Type the first step out character by character (key ticks over its hold). */
 	typewriter: boolean;
-	/** Character count of the first step's code: the number of key ticks. */
+	/** Keystrokes in the typed step's code (`keystrokeCount`): the number of key ticks. */
 	firstCodeLength: number;
 	/** Per-step hold durations in ms (same array fed to buildTimeline). */
 	holds: number[];

@@ -5,12 +5,7 @@
  * tokens by this count, so a wide glyph is never painted over by the next token.
  */
 
-import {
-	cellRuns,
-	codePointWidth,
-	displayWidth,
-	glyphBoundary,
-} from "@/application/text/display-width";
+import { cellRuns, clusters, codePointWidth, displayWidth } from "@/application/text/display-width";
 import { describe, expect, it } from "vitest";
 
 const cp = (char: string): number => char.codePointAt(0) ?? 0;
@@ -41,7 +36,10 @@ describe("codePointWidth", () => {
 	});
 
 	it("counts combining marks, joiners and variation selectors as zero cells", () => {
-		for (const point of [0x0301, 0x0308, 0x20e3, 0x200b, 0x200d, 0xfe0f, 0xfe0e, 0xfeff]) {
+		for (const point of [
+			0x0301, 0x0308, 0x20e3, 0x200b, 0x200d, 0xfe0f, 0xfe0e, 0xfeff, 0x3099, 0x309a, 0x1160,
+			0x11a8, 0x11ff,
+		]) {
 			expect(codePointWidth(point), point.toString(16)).toBe(0);
 		}
 	});
@@ -87,21 +85,22 @@ describe("displayWidth", () => {
 	});
 });
 
-describe("glyphBoundary", () => {
-	it("leaves an index between two glyphs where it is", () => {
-		expect(glyphBoundary("abc", 2)).toBe(2);
-		expect(glyphBoundary("a🚀b", 3)).toBe(3);
+describe("clusters", () => {
+	it("never lets a newline, a tab or a control character join a dangling joiner", () => {
+		expect(clusters("x\u200d\ny").map((c) => c.text)).toEqual(["x\u200d", "\n", "y"]);
+		expect(clusters("x\u200d\ty").map((c) => c.text)).toEqual(["x\u200d", "\t", "y"]);
+		expect(clusters("x\u200d\u0007").map((c) => c.text)).toEqual(["x\u200d", "\u0007"]);
 	});
 
-	it("moves an index inside a glyph to the glyph's end", () => {
-		expect(glyphBoundary("a🚀b", 2)).toBe(3);
-		expect(glyphBoundary("café!", 4)).toBe(5);
-		expect(glyphBoundary("x👨‍👩y", 3)).toBe(6);
+	it("joins only a pictograph or a symbol after a joiner, never a quote", () => {
+		expect(clusters('"👨\u200d";').map((c) => c.text)).toEqual(['"', "👨\u200d", '"', ";"]);
+		// The gendered runner: a symbol (U+2640) joins, then VS16.
+		expect(clusters("🏃\u200d\u2640\ufe0f").map((c) => c.text)).toEqual(["🏃\u200d\u2640\ufe0f"]);
 	});
 
-	it("clamps to the text", () => {
-		expect(glyphBoundary("ab", -1)).toBe(0);
-		expect(glyphBoundary("ab", 9)).toBe(2);
+	it("keeps a combining dakuten and Hangul jamo medials on their base", () => {
+		expect(displayWidth("か\u3099")).toBe(2);
+		expect(displayWidth("\u1100\u1161\u11a8")).toBe(2);
 	});
 });
 

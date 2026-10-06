@@ -5,7 +5,7 @@ import {
 	renderTickTrack,
 } from "@/application/audio/tick-synth";
 import { buildTimeline } from "@/application/magic-move/timeline";
-import { TYPE_COMPLETE_AT } from "@/application/magic-move/typewriter";
+import { TYPE_COMPLETE_AT, keystrokeCount } from "@/application/magic-move/typewriter";
 import { describe, expect, it } from "vitest";
 
 /** Decode a `data:audio/wav;base64,...` URL back into raw bytes (jsdom atob). */
@@ -28,6 +28,17 @@ function ascii(bytes: Uint8Array, offset: number, len: number): string {
 }
 
 describe("collectTickEvents", () => {
+	it("ticks once per typed glyph on the #188 sample, an emoji included", () => {
+		const sample = 'const msg = "こんにちは世界 🚀 naïve café";';
+		const events = collectTickEvents({
+			typewriter: true,
+			firstCodeLength: keystrokeCount(sample),
+			holds: [2000],
+			transitionMs: 600,
+		});
+		expect(events.filter((event) => event.kind === "key")).toHaveLength(35);
+	});
+
 	it("emits a morph at each transition start and no keys without typewriter", () => {
 		const holds = [1000, 800, 1200];
 		const transitionMs = 650;

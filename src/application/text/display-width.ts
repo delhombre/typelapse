@@ -11,15 +11,20 @@
  * - 2 cells: East Asian Wide and Fullwidth blocks, and emoji whose default
  *   presentation is the colour glyph (the pictograph blocks plus the handful
  *   of BMP symbols in `WIDE`).
- * - 0 cells: combining marks, zero-width spaces and joiners, variation
- *   selectors, tag characters. They draw on the glyph before them.
- * - 1 cell: everything else.
+ * - 0 cells: combining marks (Latin, the kana dakuten, Hangul jamo medials
+ *   and finals), zero-width spaces and joiners, variation selectors, tag
+ *   characters. They draw on the glyph before them.
+ * - 1 cell: everything else, East Asian Ambiguous included (`±`, `°`, Greek,
+ *   Cyrillic, box drawing): code is set in a Latin monospace face, where
+ *   those are one advance, the way a terminal outside a CJK locale counts them.
  *
  * Text is walked by code point, never by code unit, and grouped into clusters:
- * a base code point with the zero-width ones that follow it, the code point
- * after a zero-width joiner (a family emoji is one glyph), a skin-tone modifier
+ * a base code point with the zero-width ones that follow it, the pictograph or
+ * symbol after a zero-width joiner (a family emoji is one glyph), a skin-tone modifier
  * on its emoji, a pair of regional indicators (a flag), and a text symbol
- * followed by VS16 (`❤️`), which asks for the two-cell emoji glyph.
+ * followed by VS16 (`❤️`), which asks for the two-cell emoji glyph. A newline,
+ * a tab or any other control character is always a cluster of its own, so a
+ * dangling joiner can never swallow a line break.
  *
  * Deliberately not here: Unicode's full East Asian Width and emoji data. The
  * ranges below cover the scripts and emoji code actually contains; a rare
@@ -97,12 +102,14 @@ const ZERO: readonly (readonly [number, number])[] = [
 	[0x0e31, 0x0e31], // Thai
 	[0x0e34, 0x0e3a],
 	[0x0e47, 0x0e4e],
+	[0x1160, 0x11ff], // Hangul Jamo medial vowels and final consonants
 	[0x1ab0, 0x1aff], // combining diacritical marks extended
 	[0x1dc0, 0x1dff], // combining diacritical marks supplement
 	[0x200b, 0x200f], // zero-width space, non-joiner, joiner, direction marks
 	[0x202a, 0x202e], // bidi embedding controls
 	[0x2060, 0x2064], // word joiner, invisible operators
 	[0x20d0, 0x20ff], // combining marks for symbols (keycap)
+	[0x3099, 0x309a], // combining kana voiced and semi-voiced marks
 	[0xfe00, 0xfe0f], // variation selectors
 	[0xfe20, 0xfe2f], // combining half marks
 	[0xfeff, 0xfeff], // byte order mark
@@ -111,7 +118,7 @@ const ZERO: readonly (readonly [number, number])[] = [
 ];
 
 /** Below U+0300 every code point is one cell: the common case skips the walk. */
-function isNarrowOnly(text: string): boolean {
+export function isNarrowOnly(text: string): boolean {
 	for (let i = 0; i < text.length; i++) {
 		if (text.charCodeAt(i) >= 0x0300) {
 			return false;
@@ -126,6 +133,9 @@ const SKIN_TONE_FIRST = 0x1f3fb;
 const SKIN_TONE_LAST = 0x1f3ff;
 const REGIONAL_FIRST = 0x1f1e6;
 const REGIONAL_LAST = 0x1f1ff;
+/** Miscellaneous symbols and dingbats: the text symbols ZWJ sequences use. */
+const SYMBOLS_FIRST = 0x2600;
+const SYMBOLS_LAST = 0x27bf;
 
 function inRanges(point: number, ranges: readonly (readonly [number, number])[]): boolean {
 	let low = 0;
@@ -171,8 +181,8 @@ function isRegional(point: number): boolean {
 
 /**
  * Split a text into the glyphs a monospace grid places, with their cell widths.
- * A newline and a tab are clusters of their own that nothing joins; the caller
- * decides what they advance.
+ * A newline, a tab or another control character is a cluster of its own that
+ * nothing joins; the caller decides what newlines and tabs advance.
  */
 export function clusters(text: string): Cluster[] {
 	const out: Cluster[] = [];
@@ -203,6 +213,20 @@ export function clusters(text: string): Cluster[] {
 	return out;
 }
 
+/** C0 and C1 controls, newline and tab among them: never part of a glyph. */
+function isControl(point: number): boolean {
+	return point < 0x20 || (point >= 0x7f && point < 0xa0);
+}
+
+/**
+ * What a joiner joins: a pictograph, or one of the symbols emoji sequences use
+ * (`♀`, `⚕`, `✈`, `❤`). A quote or a letter after a dangling joiner is a glyph
+ * of its own.
+ */
+function joinsAfterJoiner(point: number, width: number): boolean {
+	return width === 2 || (point >= SYMBOLS_FIRST && point <= SYMBOLS_LAST);
+}
+
 function joinsCluster(
 	current: Cluster,
 	point: number,
@@ -210,39 +234,15 @@ function joinsCluster(
 	previous: number,
 	loneRegional: boolean,
 ): boolean {
-	if (current.text === "\n" || current.text === "\t") {
+	if (isControl(point) || isControl(current.text.codePointAt(0) ?? 0)) {
 		return false;
 	}
 	return (
 		width === 0 ||
-		previous === ZERO_WIDTH_JOINER ||
+		(previous === ZERO_WIDTH_JOINER && joinsAfterJoiner(point, width)) ||
 		(point >= SKIN_TONE_FIRST && point <= SKIN_TONE_LAST) ||
 		(loneRegional && isRegional(point))
 	);
-}
-
-/**
- * The first glyph boundary at or after UTF-16 `index`: where a cut through the
- * text keeps every glyph whole (never half a surrogate pair, never a letter
- * without its accent, never part of a joined emoji).
- */
-export function glyphBoundary(text: string, index: number): number {
-	if (index <= 0) {
-		return 0;
-	}
-	if (index >= text.length) {
-		return text.length;
-	}
-	if (isNarrowOnly(text)) {
-		return index;
-	}
-	for (const cluster of clusters(text)) {
-		const end = cluster.start + cluster.text.length;
-		if (end >= index) {
-			return cluster.start === index ? index : end;
-		}
-	}
-	return text.length;
 }
 
 /** Cells a text takes on the monospace grid. */

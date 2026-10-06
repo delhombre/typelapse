@@ -16,6 +16,7 @@ import {
 import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradient";
 import { clampRenderDimension } from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
+import { keystrokeCount } from "../../src/application/magic-move/typewriter";
 import {
 	DEFAULT_TRANSITION_EASING,
 	isCubicBezier,
@@ -280,7 +281,7 @@ renderRoute.post(
 			if (sound && fmt !== "gif") {
 				const events = collectTickEvents({
 					typewriter,
-					firstCodeLength: clampedSteps[0]?.code.length ?? 0,
+					firstCodeLength: keystrokeCount(clampedSteps[0]?.code ?? ""),
 					holds: clampedSteps.map((s) => s.duration),
 					transitionMs,
 				});

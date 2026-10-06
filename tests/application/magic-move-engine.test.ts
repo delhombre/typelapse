@@ -95,6 +95,17 @@ describe("layoutFrame with wide characters", () => {
 		expect(positions.map((pos) => pos.col)).toEqual([0, 1, 1, 3, 4]);
 	});
 
+	it("starts the next line after a newline that follows a dangling joiner", () => {
+		const positions = gridPositions("x\u200d\ny");
+		expect(positions[3]).toEqual({ line: 1, col: 0 });
+	});
+
+	it("puts a quote after a dangling joiner on a cell of its own", () => {
+		// `"`, the man (two cells, the joiner on it), `"`, `;`.
+		const positions = gridPositions('"👨\u200d";');
+		expect(positions.map((pos) => pos.col)).toEqual([0, 1, 1, 1, 3, 4, 5]);
+	});
+
 	it("keeps a decomposed accent on its letter", () => {
 		const positions = gridPositions("e\u0301x");
 		expect(positions.map((pos) => pos.col)).toEqual([0, 0, 1, 2]);

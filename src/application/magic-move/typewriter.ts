@@ -1,10 +1,11 @@
-import { glyphBoundary } from "../text/display-width";
 /**
  * Typewriter reveal: pure. Types a frame's code out character by character,
  * slicing the token being typed and reporting the cursor position. This is the
  * literal "Typelapse" promise: you watch the code get written rather than watch
  * it appear. Shared by the preview and the Remotion video.
  */
+
+import { clusters, isNarrowOnly } from "../text/display-width";
 import {
 	type GridPosition,
 	type RawToken,
@@ -86,16 +87,38 @@ export function typingProgressAt(
 	return position.phase === "hold" && position.index === holdIndex ? position.t : null;
 }
 
-/** Reveal the first `revealChars` characters, slicing the straddling token, plus the cursor. */
+/**
+ * Keystrokes it takes to type `code`: one per glyph, so an emoji (two UTF-16
+ * units) is one key and an accent typed with its letter. The typewriter paces
+ * its reveal on this count and the tick synth ticks on it, so every key tick
+ * lands on a glyph appearing.
+ */
+export function keystrokeCount(code: string): number {
+	return isNarrowOnly(code) ? code.length : clusters(code).length;
+}
+
+/** UTF-16 index just after the first `keystrokes` glyphs of `code`. */
+function keystrokeOffset(code: string, keystrokes: number): number {
+	if (keystrokes <= 0) {
+		return 0;
+	}
+	if (isNarrowOnly(code)) {
+		return Math.min(keystrokes, code.length);
+	}
+	return clusters(code)[keystrokes]?.start ?? code.length;
+}
+
+/**
+ * Reveal the first `keystrokes` glyphs (`keystrokeCount`), slicing the
+ * straddling token, plus the cursor. A glyph is never cut: no half emoji.
+ */
 export function renderTyping(
 	code: string,
 	tokens: TypedToken[],
-	revealChars: number,
+	keystrokes: number,
 	tabSize = 2,
 ): TypingView {
-	// Typed a glyph at a time: a reveal that lands inside an emoji (two UTF-16
-	// units) or on a letter before its accent types the rest of it too.
-	const reveal = glyphBoundary(code, Math.ceil(Math.max(0, revealChars)));
+	const reveal = keystrokeOffset(code, Math.ceil(keystrokes));
 	const out: RenderToken[] = [];
 
 	for (const token of tokens) {

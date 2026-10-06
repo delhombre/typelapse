@@ -14,7 +14,7 @@
  */
 
 import { VISIBLE_COL_LIMIT } from "../layout/canvas-fit";
-import { clusters } from "../text/display-width";
+import { clusters, isNarrowOnly } from "../text/display-width";
 
 /** A highlighted token before layout: `offset` is its index into the frame code. */
 export interface RawToken {
@@ -325,6 +325,9 @@ export function gridPositions(code: string, tabSize = 2): GridPosition[] {
 }
 
 function buildPositionIndex(code: string, tabSize: number): GridPosition[] {
+	if (isNarrowOnly(code)) {
+		return narrowPositionIndex(code, tabSize);
+	}
 	const positions: GridPosition[] = new Array(code.length + 1);
 	let line = 0;
 	let col = 0;
@@ -342,6 +345,27 @@ function buildPositionIndex(code: string, tabSize: number): GridPosition[] {
 			col += tabSize - (col % tabSize);
 		} else {
 			col += cluster.width;
+		}
+	}
+	positions[code.length] = { line, col };
+	return positions;
+}
+
+/** The common case, every code unit one cell: no glyph walk, nothing allocated but positions. */
+function narrowPositionIndex(code: string, tabSize: number): GridPosition[] {
+	const positions: GridPosition[] = new Array(code.length + 1);
+	let line = 0;
+	let col = 0;
+	for (let i = 0; i < code.length; i++) {
+		positions[i] = { line, col };
+		const char = code[i];
+		if (char === "\n") {
+			line++;
+			col = 0;
+		} else if (char === "\t") {
+			col += tabSize - (col % tabSize);
+		} else {
+			col++;
 		}
 	}
 	positions[code.length] = { line, col };
