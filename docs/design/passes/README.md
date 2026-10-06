@@ -27,8 +27,9 @@ sees go wrong, measured: the element, the value, the file and line.
 ## Decisions
 
 One line per decision: the skill that raised it, what changed, and why.
-A change to a token names the `SYSTEM.md` row it updates; a settled Drift row
-is deleted there in the same change. A new standing rule is added to
+A change to a token names the `SYSTEM.md` row it updates, and the same change
+makes that row's citation true (see Citations below); a settled Drift row is
+deleted there in the same change. A new standing rule is added to
 `DECISIONS.md` as the next D-number, with Why, Enforced by and Pivot.
 Motion is written as durations, curves and the properties animated.
 
@@ -46,3 +47,31 @@ The `emil-ui-review` verdict (blocked, approve with changes, ship it), its
 
 What the pass saw and did not fix, and who owns it.
 ```
+
+## Citations
+
+A `SYSTEM.md` citation is `file`, or `file @ selector` for a CSS file, after
+the backticked value it ships. Never a line number: the docs test refuses one.
+`tests/docs/design-system.test.ts` fails a pass that leaves a citation false and
+says which row and what it found, so the fix is one edit to that row:
+
+- Value changed or moved out of the file: write the shipped value, in the file
+  that now ships it.
+- Value moved to another rule: change the `@ selector` to the block that holds
+  it now (any enclosing selector or at-rule matches, so `.si-cta` covers
+  `.studio-root .si-cta`).
+- A new value that already appears in its file: add `@ selector`; in a `.ts`
+  or `.tsx` file quote more of the line until it is unique.
+- A row that no longer exists in the code: delete it, and its Drift entry if
+  it had one.
+
+- The test also refuses a row that quotes no value ("quotes no value": write the
+  shipped value in backticks before the file) and `@ selector` on a file that
+  is not CSS ("only a CSS file takes `@ selector`").
+
+Anchor the rule that owns the value, never an ancestor: `.si-cta` for the
+declaration in `.studio-root .si-cta`, not `.studio-root`, and not a fragment
+such as `.si-c`. A declaration inside an at-rule is written
+`@ @media (pointer: coarse) / .selector`, the query whole.
+
+Run `pnpm vitest run tests/docs` before the review verdict.
