@@ -16,7 +16,7 @@ import {
 	CHROME_STYLE,
 	CHROME_TEXT_LINE_HEIGHT,
 } from "../../../application/layout/frame-metrics";
-import { windowTitle } from "../../../application/layout/window-title";
+import { chromeGlyphAdvance, windowTitle } from "../../../application/layout/window-title";
 
 export type WindowChrome = "macos" | "browser" | "terminal" | "none";
 
@@ -52,7 +52,8 @@ interface FrameChromeProps {
 	 * The title is one line cut with an ellipsis at what the bar leaves it, by the
 	 * function the frame painter calls too (`windowTitle`), so the three surfaces
 	 * draw the same characters. Left out, the whole title is rendered and CSS
-	 * clips it, which is the right thing for a window whose width is not known.
+	 * clips it on one line: only the template gallery's thumbnails do, whose width
+	 * is whatever their grid cell gives them.
 	 */
 	width?: number;
 }
@@ -168,7 +169,15 @@ function BrowserChrome({ title, shown, foreground, scale }: BarProps) {
 				}}
 			>
 				{bar.chevrons.map((chevron) => (
-					<span key={chevron}>{chevron}</span>
+					<span
+						key={chevron}
+						style={{
+							display: "inline-block",
+							width: chromeGlyphAdvance(bar.chevronSize, scale),
+						}}
+					>
+						{chevron}
+					</span>
 				))}
 			</div>
 			<div style={{ flex: 1, display: "flex", justifyContent: "center", minWidth: 0 }}>
@@ -222,6 +231,10 @@ function TerminalChrome({ title, shown, foreground, scale }: BarProps) {
 		>
 			<span
 				style={{
+					// A box of the counted advance, whatever face the glyph lands in.
+					display: "inline-block",
+					flexShrink: 0,
+					width: chromeGlyphAdvance(bar.promptSize, scale),
 					fontFamily: MONO,
 					fontSize: bar.promptSize * scale,
 					fontWeight: bar.promptWeight,

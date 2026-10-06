@@ -9,7 +9,7 @@ import {
 	chromePadY,
 	chromeRowHeight,
 } from "@/application/layout/frame-metrics";
-import { windowTitle } from "@/application/layout/window-title";
+import { chromeGlyphAdvance, windowTitle } from "@/application/layout/window-title";
 import type { RenderToken } from "@/application/magic-move/engine";
 import { describe, expect, it } from "vitest";
 import { RecordingContext, round } from "./support/recording-context";
@@ -302,5 +302,45 @@ describe("paintChrome: a long title is one line, cut at the width the bar leaves
 		expect(ctx.commands.some((command) => command.startsWith(`fillText("${PR_TITLE}",`))).toBe(
 			true,
 		);
+	});
+});
+
+describe("paintChrome: the bar's furniture is placed on the advance the title is counted in (#186)", () => {
+	/** A machine whose fallback face draws U+276F and the chevrons a third wider. */
+	class WideFallback extends RecordingContext {
+		measureText(text: string) {
+			const measured = super.measureText(text);
+			return ["❯", "‹", "›"].includes(text)
+				? { ...measured, width: measured.width * 1.4 }
+				: measured;
+		}
+	}
+
+	function paintWide(input: Partial<FrameSceneInput>) {
+		const scene = frameScene({ ...BASE, ...input });
+		const ctx = new WideFallback();
+		paintFrame(ctx, scene, { tokens: [TOKEN], lineCount: 2, lineNumberCount: 2, timeSeconds: 0 });
+		return { ctx, scene };
+	}
+
+	it("terminal: the title sits one gap past the counted prompt, not the measured one", () => {
+		const bar = CHROME_STYLE.terminal;
+		const { ctx, scene } = paintWide({ chrome: "terminal" });
+		const cy = centreY(scene, "terminal");
+		const x =
+			scene.window.x + bar.padX * UNIT + chromeGlyphAdvance(bar.promptSize, UNIT) + bar.gap * UNIT;
+		expect(ctx.commands).toContain(`fillText("demo.ts",${round(x)},${round(cy)})`);
+	});
+
+	it("browser: the second chevron is one counted glyph and one gap along", () => {
+		const bar = CHROME_STYLE.browser;
+		const { ctx, scene } = paintWide({ chrome: "browser" });
+		const cy = centreY(scene, "browser");
+		const x =
+			scene.window.x +
+			bar.padX * UNIT +
+			chromeGlyphAdvance(bar.chevronSize, UNIT) +
+			bar.chevronGap * UNIT;
+		expect(ctx.commands).toContain(`fillText("›",${round(x)},${round(cy)})`);
 	});
 });

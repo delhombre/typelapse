@@ -33,7 +33,7 @@ import {
 	chromeRowHeight,
 } from "../layout/frame-metrics";
 import { watermarkPlacement } from "../layout/watermark-placement";
-import { windowTitle } from "../layout/window-title";
+import { chromeGlyphAdvance, windowTitle } from "../layout/window-title";
 import { scrolledGutter } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
 import type { ZoomTransform } from "../magic-move/focus-zoom";
@@ -519,7 +519,9 @@ function paintBrowserChrome(
 	const chevronY = baselines.at(cy, chromeLine(bar.chevronSize, unit));
 	for (const chevron of bar.chevrons) {
 		ctx.fillText(chevron, cx, chevronY);
-		cx += ctx.measureText(chevron).width + bar.chevronGap * unit;
+		// Counted, not measured: the chevrons fall outside the bar's font subset,
+		// and the title's room is counted on the same advance (`window-title.ts`).
+		cx += chromeGlyphAdvance(bar.chevronSize, unit) + bar.chevronGap * unit;
 	}
 	// The last chevron added a gap that is not there; take it back.
 	const chevronWidth = cx - bar.chevronGap * unit - left;
@@ -571,7 +573,10 @@ function paintTerminalChrome(
 	ctx.font = canvasFont(bar.promptSize * unit, CHROME_FONT_STACK, undefined, bar.promptWeight);
 	ctx.fillStyle = withHexAlpha(theme.foreground, bar.promptAlpha);
 	ctx.fillText(bar.prompt, left, baselines.at(cy, chromeLine(bar.promptSize, unit)));
-	const promptWidth = ctx.measureText(bar.prompt).width;
+	// Counted, not measured: U+276F is outside the bar's font subset, so its
+	// measured width is a fallback's, while the title's room is counted on the
+	// advance `FrameChrome` gives the prompt's box.
+	const promptWidth = chromeGlyphAdvance(bar.promptSize, unit);
 
 	const label = windowTitle(title, "terminal", scene.window.width, unit);
 	if (label === "") {

@@ -29,6 +29,18 @@ const CHROME_ADVANCE_EM = 0.6;
 /** Slack for the float error of a width that is an exact multiple of the advance. */
 const EPSILON = 1e-6;
 
+/**
+ * Width in px of one glyph of the bar's furniture (the terminal prompt, the
+ * browser chevrons) at `size` and `unit`. The glyph's own face is not trusted
+ * with it: U+276F and the chevrons are outside the JetBrains Mono subset, so
+ * they render in whatever the machine falls back to. `FrameChrome` gives each a
+ * box of exactly this width and the painter advances by it, so the room the
+ * title is counted in is the room both draw it in.
+ */
+export function chromeGlyphAdvance(size: number, unit: number): number {
+	return size * unit * CHROME_ADVANCE_EM;
+}
+
 /** The em fraction of a CSS tracking such as "-0.02em". */
 function trackingEm(tracking: string): number {
 	return Number.parseFloat(tracking);

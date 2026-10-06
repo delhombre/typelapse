@@ -1,8 +1,12 @@
+import { paintFrame } from "@/application/frame-painter/painter";
+import { type FrameSceneInput, frameScene } from "@/application/frame-painter/scene";
+import { CANVAS_MARGIN } from "@/application/layout/canvas-fit";
 import { windowTitle } from "@/application/layout/window-title";
 import { FrameChrome, type WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CenteredFrame } from "../../server/remotion/composition";
+import { RecordingContext } from "../application/support/recording-context";
 
 const PR_TITLE = "fix(trie-router): count every slash a pattern consumes";
 const FG = "#e6edf3";
@@ -109,4 +113,62 @@ describe("the Remotion composition draws the same title (#186)", () => {
 		expect(expected.endsWith("…")).toBe(true);
 		expect(titleElement(container)?.textContent).toBe(expected);
 	});
+
+	it.each(BARS)(
+		"%s: the painter and the composition draw one string for the same inputs and canvas",
+		(chrome) => {
+			const inputs = {
+				canvasWidth: 1920,
+				canvasHeight: 1080,
+				title: PR_TITLE,
+				chrome,
+				padding: 24,
+				cardMargin: 32,
+				showLineNumbers: true,
+				lineNumberStart: 1,
+				charWidthRatio: 0.6,
+				scale: UNIT,
+			};
+			// What the painter draws: the string handed to `fillText` with the title's name.
+			const scene = frameScene({
+				...inputs,
+				plan: PLAN as unknown as FrameSceneInput["plan"],
+				theme: THEME,
+				background: "mesh:aurora",
+				canvasMargin: CANVAS_MARGIN,
+				grain: null,
+			});
+			const ctx = new RecordingContext();
+			paintFrame(ctx, scene, { tokens: [], lineCount: 2, lineNumberCount: 2, timeSeconds: 0 });
+			const painted = ctx.commands
+				.map((command) => /^fillText\("(fix\(.*?)",/.exec(command)?.[1])
+				.filter((text): text is string => text !== undefined);
+
+			// What the Remotion composition renders, from the same inputs.
+			const { container } = render(
+				<CenteredFrame
+					plan={PLAN}
+					theme={THEME}
+					title={PR_TITLE}
+					windowChrome={chrome}
+					showLineNumbers
+					lineNumberStart={1}
+					framePadding={inputs.padding}
+					cardMargin={inputs.cardMargin}
+					canvasWidth={inputs.canvasWidth}
+					canvasHeight={inputs.canvasHeight}
+					videoScale={UNIT}
+					charWidthRatio={inputs.charWidthRatio}
+				>
+					<div />
+				</CenteredFrame>,
+			);
+			const composed = titleElement(container)?.textContent;
+
+			expect(painted).toHaveLength(1);
+			expect(painted[0]).not.toBe(PR_TITLE);
+			expect(painted[0]?.endsWith("…")).toBe(true);
+			expect(composed).toBe(painted[0]);
+		},
+	);
 });
