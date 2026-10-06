@@ -1,4 +1,5 @@
 import {
+	DOCK_ROOM,
 	type PhoneSheetStep,
 	type PhoneSheetStop,
 	phoneSheetGeometry,
@@ -12,7 +13,15 @@ import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
 import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { motion } from "motion/react";
-import { type KeyboardEvent, type ReactNode, useId, useMemo, useRef, useState } from "react";
+import {
+	type KeyboardEvent,
+	type ReactNode,
+	useCallback,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
@@ -71,6 +80,27 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const sheet = useMemo(() => phoneSheetGeometry(viewport), [viewport]);
 	const [wanted, setWanted] = useState<PhoneSheetStop>("peek");
 	const stop = sheet.resolve(wanted);
+	// An island panel needs the room the sheet takes: the sheet goes down to the
+	// peek while one is open, so the frame stays above it at its own size, and
+	// comes back to the stop it left when the panel closes, unless a hand moved it
+	// in between (DECISIONS D4). The stage's slot never changes for a panel.
+	const wantedRef = useRef(wanted);
+	wantedRef.current = wanted;
+	const stopBeforePanel = useRef<PhoneSheetStop | null>(null);
+	const onPanelOpenChange = useCallback((open: boolean) => {
+		if (open) {
+			// Only the first open lowers the sheet: switching tabs while a panel is open
+			// fires this again, and a stop the hand chose meanwhile stays.
+			if (stopBeforePanel.current === null) {
+				stopBeforePanel.current = wantedRef.current;
+				setWanted("peek");
+			}
+			return;
+		}
+		const back = stopBeforePanel.current;
+		stopBeforePanel.current = null;
+		if (back) setWanted((now) => (now === "peek" ? back : now));
+	}, []);
 	// One array per geometry: vaul recomputes its offsets whenever the identity
 	// of `snapPoints` changes, so a fresh array each render would re-measure it.
 	const [stopNames, snapPoints] = useMemo(
@@ -83,7 +113,6 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const dockRef = useRef<HTMLDivElement>(null);
 	useDockFollowsSheet(sheetElement, dockRef, sheet);
 	const contentId = useId();
-	const [sheetRaised, setSheetRaised] = useState(false);
 	const isPeek = stop === "peek";
 	const editorKind = useEditorKind();
 	// A tablet in portrait gets this layout, and it can drag a file in from
@@ -96,13 +125,12 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	return (
 		<main className="studio-root sc-root sc-root-mobile">
 			<h1 className="sr-only">Typelapse studio</h1>
-			{/* A phone has no room to step the stage back into, so a raised cluster
-			    takes its room from the slot instead: the frame gets out of the way
-			    rather than being covered by what it is being adjusted against. */}
-			<div
-				className="sc-stage-slot"
-				style={{ paddingBottom: stageLift + (sheetRaised ? 460 : 116) }}
-			>
+			{/* The slot's room is the sheet's and the instrument's, and nothing an
+			    island panel opens: a phone has no room to step the stage back into,
+			    and a slot asked for 460px more than the screen has left collapses to
+			    a box of nothing, which the card refits into at a negative offset
+			    (#169). A raised cluster lowers the sheet instead (above). */}
+			<div className="sc-stage-slot" style={{ paddingBottom: stageLift + DOCK_ROOM }}>
 				{/* The frame is the video's own shape here too: a phone used to get
 				    the bare card, so a 16:9 export previewed as a wide strip. */}
 				<StudioVideoModeProvider active>
@@ -129,7 +157,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			<div className="sc-dock-slot" ref={dockRef}>
 				<div className="sc-dock">
 					<ExportStatus />
-					<PreviewIsland onSheetRaisedChange={setSheetRaised} />
+					<PreviewIsland onPanelOpenChange={onPanelOpenChange} />
 				</div>
 			</div>
 

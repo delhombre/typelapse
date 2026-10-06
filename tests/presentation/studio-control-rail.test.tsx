@@ -42,9 +42,9 @@ afterEach(cleanup);
 
 describe("the timeline control rail", () => {
 	it("turns a cluster into a focused rail mode instead of opening a detached sheet", async () => {
-		const onSheetRaisedChange = vi.fn();
+		const onPanelOpenChange = vi.fn();
 		const { container } = render(
-			<PreviewIsland variant="timeline" onSheetRaisedChange={onSheetRaisedChange} />,
+			<PreviewIsland variant="timeline" onPanelOpenChange={onPanelOpenChange} />,
 		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Look settings" }));
@@ -54,7 +54,7 @@ describe("the timeline control rail", () => {
 		expect(screen.queryByRole("button", { name: "Close settings" })).toBeNull();
 		expect(container.querySelector(".si-sheet")).toBeNull();
 		await waitFor(() => {
-			expect(onSheetRaisedChange).toHaveBeenLastCalledWith(false);
+			expect(onPanelOpenChange).toHaveBeenLastCalledWith(false);
 		});
 	});
 

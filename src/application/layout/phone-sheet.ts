@@ -25,7 +25,7 @@ const FULL_TOP_GAP = 8;
 /** Between the instrument and the sheet's top edge it floats on. */
 const DOCK_GAP = 12;
 /** The instrument and the export status above it. */
-const DOCK_ROOM = 116;
+export const DOCK_ROOM = 116;
 /** The least frame worth keeping: a 16:9 picture 213px wide. */
 const MIN_STAGE = 120;
 /** A scenes stop must show at least one scene row more than the peek does. */

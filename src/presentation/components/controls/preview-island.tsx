@@ -93,11 +93,11 @@ type Panel = ClusterId | "social" | "aspect" | null;
  * choosing it against. Only one of the two is ever open.
  */
 export function PreviewIsland({
-	onSheetRaisedChange,
+	onPanelOpenChange,
 	variant = "preview",
 }: {
-	/** Told when a settings surface is visible, so the stage can make room for it. */
-	onSheetRaisedChange?: (raised: boolean) => void;
+	/** Told when a settings panel is raised above the plate, and when it goes. */
+	onPanelOpenChange?: (open: boolean) => void;
 	/** The timeline owns transport in the desktop scene-table layout. */
 	variant?: "preview" | "timeline";
 }) {
@@ -156,11 +156,11 @@ export function PreviewIsland({
 		setPlatform(correction.platform);
 	}, [enabled, platforms, platform, setPlatform, setEnabled]);
 
-	// Only the compact preview raises a sheet. On the scene-table rail, settings
+	// Only the compact preview raises a panel. On the scene-table rail, settings
 	// replace the row in place, so the picture remains still while it is judged.
 	useEffect(() => {
-		onSheetRaisedChange?.(variant !== "timeline" && cluster !== null);
-	}, [cluster, onSheetRaisedChange, variant]);
+		onPanelOpenChange?.(variant !== "timeline" && cluster !== null);
+	}, [cluster, onPanelOpenChange, variant]);
 
 	/**
 	 * A finished render is a thing the machine did, at a moment nobody chose: it

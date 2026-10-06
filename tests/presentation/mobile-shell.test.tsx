@@ -165,6 +165,118 @@ describe("the phone studio", () => {
 	});
 });
 
+describe("the stage while an island panel is open on the phone", () => {
+	beforeEach(() => {
+		Object.defineProperty(window, "matchMedia", {
+			configurable: true,
+			value: (query: string) => ({
+				matches: false,
+				media: query,
+				addEventListener() {},
+				removeEventListener() {},
+				addListener() {},
+				removeListener() {},
+			}),
+		});
+		globalThis.ResizeObserver ??= class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		};
+	});
+
+	afterEach(() => cleanup());
+
+	const handle = () => screen.getByRole("slider", { name: "Sheet height" });
+	const stopText = () => handle().getAttribute("aria-valuetext");
+
+	// A panel never resizes the stage: it asked the slot for 460px more than the screen
+	// had left and the card refit to a box of nothing (ticket #169). The sheet gives the
+	// room instead, by going down to the peek while a panel is open (DECISIONS D4).
+	// jsdom has no layout, so the slot's own style and the sheet's stop are held here
+	// and the card's box in the e2e journey.
+	it("lowers the sheet to the peek while a panel is open, and puts it back where it was", () => {
+		const { container } = shell();
+		const slot = container.querySelector<HTMLElement>(".sc-stage-slot");
+		const cta = container.querySelector<HTMLElement>(".si-cta");
+		if (!slot || !cta) throw new Error("no stage slot or export control");
+		const peekRoom = slot.style.paddingBottom;
+
+		for (const [key, stop] of [
+			["Enter", "Half open"],
+			["Enter", "Open"],
+			["Enter", "Collapsed"],
+		] as const) {
+			fireEvent.keyDown(handle(), { key });
+			expect(stopText()).toBe(stop);
+
+			fireEvent.click(cta);
+			expect(screen.getByRole("button", { name: "Close settings" })).toBeTruthy();
+			expect(stopText()).toBe("Collapsed");
+			expect(slot.style.paddingBottom).toBe(peekRoom);
+
+			fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+			expect(stopText()).toBe(stop);
+		}
+	});
+
+	it("leaves the sheet where the user put it when they moved it during the panel", () => {
+		const { container } = shell();
+		const cta = container.querySelector<HTMLElement>(".si-cta");
+		if (!cta) throw new Error("no export control");
+		fireEvent.keyDown(handle(), { key: "Enter" });
+		fireEvent.click(cta);
+		expect(stopText()).toBe("Collapsed");
+
+		fireEvent.keyDown(handle(), { key: "End" });
+		fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+		expect(stopText()).toBe("Open");
+	});
+
+	it("keeps a stop the user chose during the panel when they switch to another tab", () => {
+		const { container } = shell();
+		const cta = container.querySelector<HTMLElement>(".si-cta");
+		if (!cta) throw new Error("no export control");
+		fireEvent.keyDown(handle(), { key: "Enter" });
+		fireEvent.click(cta);
+		expect(stopText()).toBe("Collapsed");
+
+		fireEvent.keyDown(handle(), { key: "ArrowUp" });
+		expect(stopText()).toBe("Half open");
+		fireEvent.click(screen.getByRole("button", { name: "Look settings" }));
+		expect(stopText()).toBe("Half open");
+
+		fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+		expect(stopText()).toBe("Half open");
+	});
+
+	it("remembers the real previous stop each time the panel opens again", async () => {
+		const { container } = shell();
+		const cta = container.querySelector<HTMLElement>(".si-cta");
+		if (!cta) throw new Error("no export control");
+		fireEvent.keyDown(handle(), { key: "Enter" });
+		expect(stopText()).toBe("Half open");
+
+		await act(async () => {
+			fireEvent.click(cta);
+		});
+		expect(stopText()).toBe("Collapsed");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+		});
+		expect(stopText()).toBe("Half open");
+
+		await act(async () => {
+			fireEvent.click(cta);
+		});
+		expect(stopText()).toBe("Collapsed");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+		});
+		expect(stopText()).toBe("Half open");
+	});
+});
+
 describe("the phone sheet's handle", () => {
 	beforeEach(() => {
 		Object.defineProperty(window, "matchMedia", {

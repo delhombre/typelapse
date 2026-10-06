@@ -92,6 +92,49 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		expect(shadow).not.toBe("none");
 	});
 
+	// Opening the export panel used to ask the stage's slot for 460px more than the screen
+	// has left, and the card refit to a box of nothing: 107x64 became 672x264 at a negative
+	// offset (ticket #169). A panel never resizes the stage; it lowers the sheet to the peek,
+	// where the frame has room above the panel, and gives the stop back when it closes (D4).
+	test("the export panel lowers the sheet to the peek and the frame stays above it", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		await captureScenes(page, 1);
+		const card = page.locator("[data-export-target]");
+		const handle = page.getByRole("slider", { name: "Sheet height" });
+
+		// The peek's box, measured on its own, to hold the panel's against.
+		await handle.press("Home");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
+		await settled(card);
+		const peekBox = await card.boundingBox();
+		await handle.press("ArrowUp");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+		await settled(card);
+		const scenesBox = await card.boundingBox();
+		expect(scenesBox).not.toEqual(peekBox);
+
+		await page.locator(".si-cta").tap();
+		const panel = page.locator(".si-sheet");
+		await expect(panel).toBeVisible();
+		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
+		await settled(card);
+		await settled(panel);
+		const open = await card.boundingBox();
+		expect(open).toEqual(peekBox);
+		expect(open?.x).toBeGreaterThanOrEqual(0);
+		expect(open?.y).toBeGreaterThanOrEqual(0);
+		const panelBox = await panel.boundingBox();
+		if (!open || !panelBox) throw new Error("no card or panel");
+		expect(open.y + open.height, "the frame ends above the panel").toBeLessThanOrEqual(panelBox.y);
+
+		await page.getByRole("button", { name: "Close settings" }).tap();
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+		await settled(card);
+		expect(await card.boundingBox()).toEqual(scenesBox);
+	});
+
 	// The Showcase's replace question holds a picture, two paragraphs and a card of
 	// its own. On a short phone the sheet is 74% of the screen, and the block was
 	// clipped by it with nothing a finger could scroll: "Open example" sat below the
