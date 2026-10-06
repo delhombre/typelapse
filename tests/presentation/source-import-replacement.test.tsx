@@ -41,6 +41,12 @@ vi.hoisted(() => {
 		removeListener: () => {},
 		dispatchEvent: () => false,
 	})) as unknown as typeof window.matchMedia;
+	// The status strip measures the safe areas through a probe the observer watches.
+	globalThis.ResizeObserver ??= class {
+		observe() {}
+		unobserve() {}
+		disconnect() {}
+	};
 });
 
 const SINGLE_FRAME = JSON.stringify({

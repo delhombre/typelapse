@@ -1,6 +1,9 @@
 import { classifySource } from "@/application/import/classify-source";
 import { importConfirmLabel, importReplaceQuestion } from "@/application/import/import-wording";
+import { STAGE_TOP_GAP, phoneSheetGeometry } from "@/application/layout/phone-sheet";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
+import { useIsDesktop } from "@/presentation/hooks/use-media-query";
+import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { type ImportIntent, takeImportIntent } from "@/presentation/utils/import-intent";
@@ -108,38 +111,81 @@ export function ImportIntentBoot() {
 	const show = loading || error !== null;
 
 	return (
-		// On the desktop shell the header row, with the Preview/Edit switch
-		// centred in it, owns the top 76px (the same line the code card and the
-		// notices start from): the status sits below it, over no control.
-		// 1280px is DESKTOP_SCENE_MIN_WIDTH (scene-stage.ts) and 76px the line shared
-		// with .sc-card-slot and notice-host.tsx; a Tailwind arbitrary value cannot
-		// import them, so change them together.
+		<ImportStatus
+			show={show}
+			loading={loading}
+			error={error !== null}
+			message={message}
+			onDismiss={() => {
+				reset();
+				setIntent(null);
+			}}
+		/>
+	);
+}
+
+interface ImportStatusProps {
+	show: boolean;
+	loading: boolean;
+	error: boolean;
+	message: string;
+	onDismiss: () => void;
+}
+
+/** The desktop header's height, and the line the code card and the notices start from. */
+const DESKTOP_STATUS_TOP = 76;
+
+/**
+ * The status strip. It is a toast, so it covers no control on any shell
+ * (verify-gate-findings D8, #202).
+ *
+ * From 1280px the header row, with the Preview/Edit switch centred in it, owns the
+ * top 76px (the same line the code card and the notices start from): the status
+ * sits below it. 1280px is DESKTOP_SCENE_MIN_WIDTH (scene-stage.ts) and 76px the
+ * line shared with .sc-card-slot and notice-host.tsx; change them together.
+ *
+ * Under 1280px the shell is the phone's, at every width up to there, and its
+ * corner row is the header: the status starts one stage gap under it, where the
+ * frame starts, from the same figure (`rowBottom`) that places the sheet, so it
+ * follows the status bar and the Dynamic Island. It wraps onto a second line
+ * rather than ending in an ellipsis.
+ */
+function ImportStatus({ show, loading, error, message, onDismiss }: ImportStatusProps) {
+	const desktop = useIsDesktop();
+	const viewport = usePhoneViewport();
+	const top = desktop ? DESKTOP_STATUS_TOP : phoneSheetGeometry(viewport).rowBottom + STAGE_TOP_GAP;
+
+	return (
 		<div
-			className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex justify-center px-4 min-[1280px]:top-[76px]"
+			className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
+			style={{ top }}
 			aria-live="polite"
 		>
 			<AnimatePresence>
 				{show && (
 					<motion.div
+						data-testid="import-status"
 						initial={{ opacity: 0, y: -8, filter: "blur(4px)" }}
 						animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
 						exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
 						transition={springs.default}
-						className={`pointer-events-auto flex max-w-[min(92vw,30rem)] items-center gap-2.5 rounded-full border py-2 pl-3.5 pr-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.28)] ${
+						className={`pointer-events-auto flex max-w-[min(100%,30rem)] items-center gap-2.5 rounded-[22px] border py-2 pl-3.5 pr-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.28)] ${
 							error
 								? "border-red-200 bg-white text-red-600 dark:border-red-900/60 dark:bg-neutral-900 dark:text-red-400"
 								: "border-neutral-200 bg-white text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
 						}`}
 					>
 						{loading && <Spinner />}
-						<span className="min-w-0 flex-1 truncate font-mono text-[11px]">{message}</span>
+						<span
+							data-testid="import-status-text"
+							className="min-w-0 flex-1 text-pretty font-mono text-[11px] leading-[1.45] [overflow-wrap:anywhere]"
+						>
+							{message}
+						</span>
 						{error && (
 							<button
 								type="button"
-								onClick={() => {
-									reset();
-									setIntent(null);
-								}}
+								onClick={onDismiss}
 								className="hit-ext shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
 							>
 								Dismiss
