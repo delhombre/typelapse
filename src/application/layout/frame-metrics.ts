@@ -24,8 +24,19 @@ export const LINE_HEIGHT_RATIO = 1.6;
 /** Line height of chrome-bar text: `FrameChrome` sets it explicitly, so the bar
  *  both DOM renderers lay out is exactly as tall as `chromeBarHeight` says. */
 export const CHROME_TEXT_LINE_HEIGHT = 1.35;
-/** StepCaption footprint below the card: marginTop 14 + reserved minHeight 20. */
-const CAPTION_BLOCK = 14 + 20;
+/** Gap between the window and its caption, in unscaled px. */
+export const CAPTION_MARGIN_TOP = 14;
+/** One caption line's height, in unscaled px: `StepCaption`'s line-height. */
+export const CAPTION_LINE_HEIGHT = 20;
+/**
+ * The most lines a caption wraps to. A caption is up to 80 characters and the
+ * card can be narrower than that on one line, so it wraps; past two lines it is
+ * cut with an ellipsis. The band reserves both, always, so a caption fading in
+ * never moves the frame and a wrapped one never outgrows what the fit measured.
+ */
+export const CAPTION_MAX_LINES = 2;
+/** StepCaption footprint below the card: its margin plus the lines it reserves. */
+const CAPTION_BLOCK = CAPTION_MARGIN_TOP + CAPTION_LINE_HEIGHT * CAPTION_MAX_LINES;
 
 /**
  * Height the caption band takes under the window, scaled for the target: the

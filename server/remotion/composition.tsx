@@ -428,11 +428,11 @@ export function CenteredFrame({
 					</div>
 					{/* The caption band takes the window's width, like the reels bar above
 					    it. The column centres its children, so an unconstrained caption
-					    would size to its own text: `StepCaption`'s ellipsis would never
-					    engage (nothing to overflow) and a caption longer than a short code
-					    line would widen the column past the size `fitCardToCanvas` measured,
-					    pushing the card off the canvas. Pinning it here makes the one-line
-					    cut structural, exactly as the preview's block-level column does. */}
+					    would size to its own text: `StepCaption` would never wrap (nothing
+					    to overflow) and a caption longer than a short code line would widen
+					    the column past the size `fitCardToCanvas` measured, pushing the card
+					    off the canvas. Pinning it here makes the two-line wrap structural,
+					    exactly as the preview's block-level column does. */}
 					{caption && <div style={{ width: natural.width }}>{caption}</div>}
 				</div>
 			</div>

@@ -1,11 +1,11 @@
 /**
  * The caption band must be exactly as wide as the window it captions.
  *
- * `StepCaption` paints one line and ellipsises the overflow, but ellipsis only
- * engages against a *constraint*. In the video the caption sits in a flex column
+ * `StepCaption` wraps to two lines and ellipsises the overflow, but wrapping
+ * only engages against a *constraint*. In the video the caption sits in a flex column
  * with `alignItems: center`, where an unconstrained child is sized to its own
  * content: the caption box would simply grow wider than the window, so the
- * ellipsis could never bite and the caption would hang off both sides of the
+ * wrap could never bite and the caption would hang off both sides of the
  * card the fit math measured. The window and the reels bar both pin themselves
  * to `natural.width`; the caption has to do the same.
  *
@@ -90,7 +90,7 @@ describe("CenteredFrame caption width", () => {
 
 		expect(windowEl?.style.width).toMatch(/^\d/);
 		expect(captionEl).toBeDefined();
-		// Without this the caption box is auto-width and the ellipsis never engages.
+		// Without this the caption box is auto-width and the wrap never engages.
 		expect(captionEl?.style.width).toBe(windowEl?.style.width);
 	});
 

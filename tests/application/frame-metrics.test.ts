@@ -94,14 +94,14 @@ describe("frameNaturalSize", () => {
 
 	it("adds the caption block below the card", () => {
 		const withCaption = frameNaturalSize({ ...base, hasCaption: true });
-		// StepCaption: marginTop 14 + minHeight 20 = 34, scaled.
-		expect(withCaption.height).toBeCloseTo(frameNaturalSize(base).height + 34, 5);
+		// StepCaption: marginTop 14 + two reserved lines of 20 = 54, scaled.
+		expect(withCaption.height).toBeCloseTo(frameNaturalSize(base).height + 54, 5);
 	});
 
 	it("scales the caption block with the upscale factor", () => {
 		const s = 2.2;
 		const withCaption = frameNaturalSize({ ...base, hasCaption: true, scale: s });
 		const without = frameNaturalSize({ ...base, scale: s });
-		expect(withCaption.height - without.height).toBeCloseTo(34 * s, 5);
+		expect(withCaption.height - without.height).toBeCloseTo(54 * s, 5);
 	});
 });

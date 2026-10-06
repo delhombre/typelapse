@@ -160,7 +160,7 @@ describe("caption budget", () => {
 		// The unit is centred on the canvas, so the window sits half a caption higher.
 		const windowCentre = (scene: typeof without) =>
 			scene.card.originY + (scene.window.y + scene.window.height / 2) * scene.card.scale;
-		const captionBlock = (14 + 20) * 2.2;
+		const captionBlock = (14 + 2 * 20) * 2.2;
 		expect(windowCentre(withCaption)).toBeCloseTo(
 			1080 / 2 - (captionBlock * withCaption.card.scale) / 2,
 			6,

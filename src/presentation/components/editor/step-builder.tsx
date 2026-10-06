@@ -600,7 +600,7 @@ function FocusInput({
 /**
  * Compact caption input on a step card: the line of prose shown beneath the
  * frame while this step holds. Commits on blur/Enter. Capped at
- * `MAX_ANNOTATION_LENGTH` so the caption stays the single line the layout
+ * `MAX_ANNOTATION_LENGTH` so the caption stays within the two lines the layout
  * reserves for it: the domain rejects anything longer.
  */
 function CaptionInput({

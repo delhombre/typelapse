@@ -1,12 +1,12 @@
 import type { HighlightRange } from "../value-objects/highlight-range";
 
 /**
- * Longest caption a step may carry. The renderers reserve exactly one line of
- * height for the caption block (`CAPTION_BLOCK` in `frame-metrics`) before
- * fitting the card into the canvas, so a caption that wrapped to a second line
- * would render taller than the layout budgeted and push itself off the canvas,
- * worst on the narrow 9:16 preset. `StepCaption` therefore paints one line and
- * ellipsises the overflow.
+ * Longest caption a step may carry. The renderers reserve two lines of height
+ * for the caption block (`CAPTION_BLOCK` in `frame-metrics`) before fitting the
+ * card into the canvas, so a caption that wrapped to a third line would render
+ * taller than the layout budgeted and push itself off the canvas, worst on the
+ * narrow 9:16 preset. `StepCaption` therefore wraps to two lines and ellipsises
+ * the overflow.
  *
  * No character count can *guarantee* a fit: the caption band is as wide as the
  * card, and the card is as wide as the widest line of code, so a step with short
