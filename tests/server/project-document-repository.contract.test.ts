@@ -1,6 +1,5 @@
 // @vitest-environment node
 import { randomBytes } from "node:crypto";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAccountUsageRepository } from "../../server/db/account-usage.repository";
 import { createDatabase } from "../../server/db/database";
@@ -42,7 +41,6 @@ async function memorySubject(): Promise<Subject> {
 
 async function postgresSubject(): Promise<Subject> {
 	const db = createDatabase(DATABASE_URL ?? "");
-	await migrate(db, { migrationsFolder: "server/db/migrations" });
 	const made: string[] = [];
 	return {
 		repository: createProjectDocumentRepository(db),
@@ -480,10 +478,6 @@ describe.each(subjects)("the project store on %s: what the ceiling counts", (_na
 describe.skipIf(!DATABASE_URL)("the allowance on PostgreSQL", () => {
 	const db = createDatabase(DATABASE_URL ?? "postgres://unused");
 	const made: string[] = [];
-
-	beforeAll(async () => {
-		await migrate(db, { migrationsFolder: "server/db/migrations" });
-	});
 
 	afterAll(async () => {
 		for (const id of made) {

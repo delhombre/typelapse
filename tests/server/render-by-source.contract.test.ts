@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { createHash, randomBytes } from "node:crypto";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { createAccountUsageRepository } from "../../server/db/account-usage.repository";
 import { createDatabase } from "../../server/db/database";
 import { createProjectDocumentRepository } from "../../server/db/project-document.repository";
@@ -53,10 +52,6 @@ describe.skipIf(!DATABASE_URL)("render by URL on PostgreSQL", () => {
 	const db = createDatabase(DATABASE_URL ?? "postgres://unused");
 	const made: string[] = [];
 	const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
-
-	beforeAll(async () => {
-		await migrate(db, { migrationsFolder: "server/db/migrations" });
-	});
 
 	afterAll(async () => {
 		for (const id of made) {
