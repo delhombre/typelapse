@@ -76,9 +76,6 @@ importers:
       mediabunny:
         specifier: 1.53.0
         version: 1.53.0
-      modern-screenshot:
-        specifier: ^4.6.8
-        version: 4.6.8
       monaco-editor:
         specifier: 0.55.1
         version: 0.55.1
@@ -3271,9 +3268,6 @@ packages:
 
   minimist@1.2.6:
     resolution: {integrity: sha512-Jsjnk4bw3YJqYzbdyBiNsPWHPfO++UGG749Cxs6peCu5Xg4nrena6OVxOYxrQTqww0Jmwt+Ref8rggumkTLz9Q==}
-
-  modern-screenshot@4.6.8:
-    resolution: {integrity: sha512-GJkv/yWPOJTlxj1LZDU2k474cDyOWL+LVaqTdDWQwQ5d8zIuTz1892+1cV9V0ZpK6HYZFo/+BNLBbierO9d2TA==}
 
   monaco-editor@0.55.1:
     resolution: {integrity: sha512-jz4x+TJNFHwHtwuV9vA9rMujcZRb0CEilTEwG2rRSpe/A7Jdkuj8xPKttCgOh+v/lkHy7HsZ64oj+q3xoAFl9A==}
@@ -6893,8 +6887,6 @@ snapshots:
   mimic-fn@2.1.0: {}
 
   minimist@1.2.6: {}
-
-  modern-screenshot@4.6.8: {}
 
   monaco-editor@0.55.1:
     dependencies:

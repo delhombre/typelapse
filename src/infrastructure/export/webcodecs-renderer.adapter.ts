@@ -13,9 +13,11 @@
  * into the port's vocabulary: progress, a blob, or one sentence about why not.
  */
 
+import { stillFrameOf } from "@/application/export/png-snapshot";
 import { wantsTransparency } from "@/application/export/transparency";
+import type { VideoScript } from "@/application/export/video-script";
 import { focusLineSet } from "@/application/focus/line-ranges";
-import { paintFrame } from "@/application/frame-painter/painter";
+import { canvasFont } from "@/application/frame-painter/font";
 import type { SceneProgress, SceneWatermark } from "@/application/frame-painter/scene";
 import { advanceProbeFont, measureCharWidthRatio } from "@/application/layout/char-advance";
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
@@ -38,7 +40,7 @@ import {
 	type ClientExportMeasurements,
 	ClientExportUnsupportedError,
 } from "./client-export-job";
-import { sceneFor, scriptFor } from "./client-export-scene";
+import { openFramePainter, sceneFor, scriptFor, textFontFaces } from "./client-export-scene";
 import { firstEncodableRung } from "./codec-probe";
 import { decodeCompositionImages } from "./composition-images";
 import { loadCompositionVideos } from "./composition-videos";
@@ -116,7 +118,46 @@ export class WebCodecsRendererAdapter implements RendererPort {
 	 * measure, because a preview is shown next to the app.
 	 */
 	async renderPreview(snippet: Snippet): Promise<string> {
-		const job = await this.buildJob(snippet, snippet.renderConfig);
+		const canvas = await this.paintStill(snippet, snippet.renderConfig, () => 0);
+		return canvas.toDataURL("image/png");
+	}
+
+	/**
+	 * One scene of the export as a PNG: the frame the video shows at the end of
+	 * that scene's hold, at the config's own size.
+	 *
+	 * The same painter and the same script as the file, so the still is the
+	 * video's frame and not a fourth rendering of it: the mesh is behind the
+	 * card, the size is the preset's and not the window's, and a vertical export
+	 * is vertical. A background of `None` comes back transparent.
+	 */
+	async renderStill(snippet: Snippet, config: RenderConfig, sceneIndex: number): Promise<Blob> {
+		const canvas = await this.paintStill(snippet, config, (script) =>
+			stillFrameOf(script, sceneIndex),
+		);
+		return await new Promise<Blob>((resolve, reject) => {
+			canvas.toBlob((blob) => {
+				if (blob) {
+					resolve(blob);
+				} else {
+					reject(new Error("This browser could not encode the PNG."));
+				}
+			}, "image/png");
+		});
+	}
+
+	/**
+	 * One frame of the export, painted on the main thread.
+	 *
+	 * @param frameOf Picks the frame from the script, because the preview wants
+	 *   the first and a snapshot wants the end of a scene's hold.
+	 */
+	private async paintStill(
+		snippet: Snippet,
+		config: RenderConfig,
+		frameOf: (script: VideoScript) => number,
+	): Promise<HTMLCanvasElement> {
+		const job = await this.buildJob(snippet, config);
 		const { width, height } = evenDimensions(job.width, job.height);
 		const canvas = document.createElement("canvas");
 		canvas.width = width;
@@ -131,8 +172,34 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			grain: grainTileOf(job.grain, "png"),
 			backdropImage: await decodeBackdropImage(job.background),
 		});
-		paintFrame(ctx, scene, scriptFor(job).frameAt(0));
-		return canvas.toDataURL("image/png");
+		if (job.composition) {
+			await loadLayerFonts(job.composition.document);
+		}
+		const codeScript = scriptFor(job);
+		const frame = frameOf(codeScript);
+		const frames = await openFramePainter({
+			job,
+			ctx,
+			scene,
+			codeScript,
+			width,
+			height,
+			fps: job.fps,
+			makeScratch: (w, h) => {
+				const surface = document.createElement("canvas");
+				surface.width = w;
+				surface.height = h;
+				const surfaceCtx = surface.getContext("2d");
+				return surfaceCtx ? { ctx: surfaceCtx, image: surface } : null;
+			},
+			only: frame,
+		});
+		try {
+			await frames.paint(frame);
+		} finally {
+			frames.close();
+		}
+		return canvas;
 	}
 
 	async renderVideo(
@@ -267,6 +334,26 @@ export class WebCodecsRendererAdapter implements RendererPort {
 				snippet.theme.fontSize,
 			),
 		};
+	}
+}
+
+/**
+ * The faces the text layers are set in, ready before they are painted.
+ *
+ * A canvas draws in whatever the document has loaded at that instant, and a face
+ * the page has not yet used is still a fallback. The worker loads these itself;
+ * on the main thread the document already knows them, and only has to be asked.
+ */
+async function loadLayerFonts(project: ProjectDocumentV2): Promise<void> {
+	try {
+		await Promise.all(
+			textFontFaces(project).map(({ fontFamily, fontWeight }) =>
+				document.fonts.load(canvasFont(16, fontFamily, undefined, fontWeight)),
+			),
+		);
+	} catch {
+		// A family the document does not know is not an error: the fallback is
+		// exactly what the preview would use too.
 	}
 }
 

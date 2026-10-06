@@ -18,15 +18,13 @@
 
 import { transparencyPlan, wantsTransparency } from "@/application/export/transparency";
 import { advanceDriftMessage } from "@/application/fonts/font-fidelity";
-import { paintFrame } from "@/application/frame-painter/painter";
 import { measureCharWidthRatio } from "@/application/layout/char-advance";
 import { CHROME_FONT_STACK } from "@/application/layout/frame-metrics";
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, WebMOutputFormat } from "mediabunny";
 import { decodeBackdropImage } from "./backdrop-image";
 import type { ClientExportEvent, ClientExportJob } from "./client-export-job";
-import { compositionPlanFor, sceneFor, scriptFor, textFontStacks } from "./client-export-scene";
+import { openFramePainter, sceneFor, scriptFor, textFontStacks } from "./client-export-scene";
 import { firstEncodableRung, qualityOf } from "./codec-probe";
-import { openCompositionVideos } from "./composition-videos";
 import { encodeGif } from "./gif-encoder";
 import { gifDimensions } from "./gif-quality";
 import { gifSafeFps } from "./gif-timing";
@@ -119,41 +117,25 @@ async function run(job: ClientExportJob): Promise<void> {
 		grain: grainTileOf(job.grain, encoding.container),
 		backdropImage: await decodeBackdropImage(job.background),
 	});
-	const codeScript = scriptFor({ ...job, fps });
-	// A studio project's text and image layers come from the scene compiler the
-	// preview reads, at the file's own rate. Its timeline can outrun the code's
-	// (an audio cue past the last scene), and the code then holds its last frame.
-	const composition = job.composition
-		? compositionPlanFor(job.composition, { width, fps, loop: job.loop })
-		: null;
-	const script = composition
-		? { ...codeScript, totalFrames: Math.max(codeScript.totalFrames, composition.totalFrames) }
-		: codeScript;
-	// Where a translucent card is painted whole before it is faded as one picture.
-	const scratchCanvas = composition ? new OffscreenCanvas(width, height) : null;
-	const scratchCtx = scratchCanvas?.getContext("2d") ?? null;
-	const scratch =
-		scratchCanvas && scratchCtx ? { ctx: scratchCtx, image: scratchCanvas } : undefined;
-	// Video layers are decoded here, on the schedule the compiler gives every
-	// frame; a codec this browser cannot decode refuses now, before frame one.
-	const videos =
-		composition && job.composition
-			? await openCompositionVideos(
-					job.composition.document,
-					job.composition.videos,
-					composition.videoRequests(script.totalFrames),
-				)
-			: null;
-
-	const painter = async (frame: number) => {
-		const videoFrames = videos ? await videos.framesAt(frame) : undefined;
-		paintFrame(
-			ctx,
-			scene,
-			codeScript.frameAt(frame),
-			composition ? { ...composition.layersAt(frame, videoFrames), scratch } : undefined,
-		);
-	};
+	// A studio project's text, image and video layers come from the scene compiler
+	// the preview reads, at the file's own rate; the painting itself is shared
+	// with the PNG snapshot (`openFramePainter`).
+	const frames = await openFramePainter({
+		job,
+		ctx,
+		scene,
+		codeScript: scriptFor({ ...job, fps }),
+		width,
+		height,
+		fps,
+		makeScratch: (w, h) => {
+			const surface = new OffscreenCanvas(w, h);
+			const surfaceCtx = surface.getContext("2d");
+			return surfaceCtx ? { ctx: surfaceCtx, image: surface } : null;
+		},
+	});
+	const script = frames.script;
+	const painter = frames.paint;
 
 	const encoded =
 		encoding.container === "gif"
@@ -175,7 +157,7 @@ async function run(job: ClientExportJob): Promise<void> {
 					paint: painter,
 					alpha: transparency.encodeAlpha,
 				});
-	const result = await encoded.finally(() => videos?.close());
+	const result = await encoded.finally(() => frames.close());
 
 	post(
 		{

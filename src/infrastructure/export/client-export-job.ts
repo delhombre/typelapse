@@ -108,7 +108,7 @@ export interface ClientExportMeasurements {
 	/** The codec string the encoder was actually configured with. */
 	codec: string;
 	/**
-	 * What that rung is called out loud — "AV1 4:4:4", "VP9", "H.264".
+	 * What that rung is called out loud — "AV1 4:4:4", "VP9", "H.264 4:2:0".
 	 *
 	 * WebM's codec is a ladder, and a ladder that falls back silently is a ladder
 	 * that lies: a file the user believes is AV1 and is really VP8 is a different

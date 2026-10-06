@@ -47,18 +47,21 @@ export function exportCtaDetail(config: {
 }
 
 /**
- * What the finished file's codec is called, where that is not a foregone
- * conclusion.
+ * What the finished file's codec is called, for every format a codec touched.
  *
- * MP4 is H.264, and will be H.264 for as long as MP4's job is to open anywhere
- * on anything: saying so adds a word and no information. WebM's codec is chosen
- * off a ladder at run time — AV1 with whole chroma where the browser has it, and
- * VP9 or VP8 where it does not — and the difference between the top rung and the
- * bottom one is most of the file's quality. A ladder that falls back without
- * saying so is indistinguishable, from the outside, from one that never worked.
+ * WebM's codec is chosen off a ladder at run time — AV1 with whole chroma where
+ * the browser has it, and VP9 or VP8 where it does not — and the difference
+ * between the top rung and the bottom one is most of the file's quality. A
+ * ladder that falls back without saying so is indistinguishable, from the
+ * outside, from one that never worked.
+ *
+ * MP4 says it too, though its ladder only ever picks a profile of H.264: the
+ * product says the export names the codec it used, and a note that is there for
+ * WebM and missing for the default format makes that sentence false where most
+ * people read it (#170). A GIF has no rung, so the worker reports none.
  */
 export function exportCodecNote(format: RenderFormat, codecLabel: string | null): string | null {
-	if (format !== "webm" || !codecLabel) {
+	if (format === "gif" || !codecLabel) {
 		return null;
 	}
 	return `${FORMAT_NAMES[format]} · ${codecLabel}`;

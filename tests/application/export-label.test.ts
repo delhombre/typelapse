@@ -53,10 +53,16 @@ describe("exportCodecNote", () => {
 		expect(exportCodecNote("webm", "VP8")).toBe("WebM · VP8");
 	});
 
-	it("says nothing about MP4, whose codec was never in question", () => {
-		// MP4 is H.264 by contract — universal playback is the entire job — so the
-		// word would take up room in the note and tell nobody anything.
-		expect(exportCodecNote("mp4", "H.264")).toBeNull();
+	it("names the MP4's codec in the same form, so the export always says which it used", () => {
+		// The landing says "the export says which codec it used", and a note that
+		// is there for WebM and silent for MP4 makes that sentence false for the
+		// default format (#170).
+		expect(exportCodecNote("mp4", "H.264 4:2:0")).toBe("MP4 · H.264 4:2:0");
+	});
+
+	it("says nothing when the worker reported no rung, rather than inventing one", () => {
+		expect(exportCodecNote("mp4", null)).toBeNull();
+		expect(exportCodecNote("webm", null)).toBeNull();
 	});
 
 	it("says nothing about a GIF, which no codec touched", () => {

@@ -4,6 +4,7 @@ import { exportCodecNote, formatName } from "@/application/export/export-label";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
+import type { MagicMovePlan } from "@/application/magic-move/engine";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { hasAudibleMedia } from "@/application/render/scene-timeline";
 import { isPlayableProject } from "@/application/studio-timeline/playback";
@@ -26,7 +27,6 @@ import type { RenderRequestBody } from "../../../server/remotion/types";
 import { isHostedBuild, useHostedRenderJobsStore } from "./hosted-render-jobs.store";
 import { usePlanStore } from "./plan.store";
 import { useSnippetStore } from "./snippet.store";
-import { useSocialPreviewStore } from "./social-preview.store";
 
 export interface ExportProgress {
 	phase: "preparing" | "rendering" | "downloading";
@@ -331,20 +331,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					sizeNote,
 					composition: authored,
 					set,
-					scenery: {
-						background,
-						chrome: windowChrome,
-						padding: framePadding,
-						cardMargin,
-						showLineNumbers,
-						lineNumberStart,
-						transitionMs,
-						transitionEasing,
-						loop,
-						typewriter,
-						focusZoom,
-						progressStyle,
-					},
+					scenery: deviceScenery(snippetState, get()),
 				});
 				return;
 			}
@@ -468,9 +455,50 @@ export const useExportStore = create<ExportState>((set, get) => ({
 	},
 
 	exportPng: async () => {
-		const el = document.querySelector("[data-export-target]") as HTMLElement | null;
-		if (!el) {
-			set({ outcome: { kind: "failed", message: "No preview element found." } });
+		const snippetState = useSnippetStore.getState();
+		const { snippet, plan: magicMovePlan, currentStepIndex, watermark } = snippetState;
+		const { format, width, height, fps } = get();
+
+		// The size the video would come out at: the preset's, clamped to the plan,
+		// and even. The PNG is a frame of that export, so it takes the same
+		// decisions in the same place instead of reading them off the window.
+		let resolved: ReturnType<typeof resolveExport>;
+		try {
+			resolved = resolveExport(usePlanStore.getState().plan, {
+				...evenDimensions(width, height),
+				fps,
+				format,
+				userWatermark: watermark,
+			});
+		} catch (error) {
+			set({
+				outcome: {
+					kind: "failed",
+					message: error instanceof Error ? error.message : "These export settings are invalid.",
+				},
+			});
+			feedback("error");
+			return;
+		}
+		if (!magicMovePlan) {
+			set({
+				outcome: {
+					kind: "failed",
+					message: "The animation is still building; try again in a moment.",
+				},
+			});
+			feedback("error");
+			return;
+		}
+		// The studio's text, image and video layers, read the way the video reads
+		// them: the PNG is a frame of that export, layers included.
+		const studioComposition = await import("./studio-composition.store");
+		const authored = studioComposition.hasAuthoredMultimedia()
+			? studioComposition.readStudioProjectDocument()
+			: null;
+		const refusal = authored ? deviceExportRefusal(authored) : null;
+		if (refusal) {
+			set({ outcome: { kind: "failed", message: refusal } });
 			feedback("error");
 			return;
 		}
@@ -482,32 +510,21 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			outcome: null,
 		});
 
-		// Social-preview mode makes the card margin transparent (the mesh moves to
-		// the aspect box). A PNG must always capture the clean mesh card, so drop
-		// out of social mode for the snapshot and restore it afterward.
-		const social = useSocialPreviewStore.getState();
-		const restoreSocial = social.enabled;
-		if (restoreSocial) {
-			social.setEnabled(false);
-			// Let React repaint the card with its own mesh before capturing.
-			await new Promise<void>((resolve) => {
-				requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-			});
-		}
-
 		try {
-			const { domToBlob } = await import("modern-screenshot");
-			const blob = await domToBlob(el, {
-				scale: 2,
-				backgroundColor: null,
+			// Painted, not photographed: the same painter as the on-device video, at the
+			// export's own size and aspect, mesh behind the card. A screenshot of the
+			// DOM card followed the window and left the backdrop out (#166). The social
+			// preview is a DOM overlay, so it was never in this picture to begin with.
+			const renderer = await deviceRenderer({
+				snippet,
+				plan: magicMovePlan,
+				watermarkText: resolved.watermark,
+				scenery: deviceScenery(snippetState, get()),
+				composition: authored,
 			});
+			const blob = await renderer.renderStill(snippet, resolved.config, currentStepIndex);
 
-			if (!blob) {
-				throw new Error("Failed to create PNG");
-			}
-
-			const snippetState = useSnippetStore.getState();
-			const filename = snippetState.snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
+			const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 			await exporter.export(blob, filename, "png" as RenderFormat);
 			await rememberCapture(blob, `${filename}.png`, "png");
 
@@ -520,6 +537,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					bytes: blob.size,
 					target: "device",
 					elapsedMs: performance.now() - startedAt,
+					note: `${resolved.config.width}×${resolved.config.height}.`,
 				},
 			});
 			feedback("success");
@@ -533,10 +551,6 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				},
 			});
 			feedback("error");
-		} finally {
-			if (restoreSocial) {
-				social.setEnabled(true);
-			}
 		}
 	},
 }));
@@ -670,6 +684,22 @@ async function renderStudioMultimedia(input: StudioMultimediaRenderInput): Promi
 	}
 }
 
+/** The look an on-device render is configured with, as the studio holds it. */
+interface DeviceScenery {
+	background: string;
+	chrome: WindowChrome;
+	padding: number;
+	cardMargin: number;
+	showLineNumbers: boolean;
+	lineNumberStart: number;
+	transitionMs: number;
+	transitionEasing: CubicBezier;
+	loop: boolean;
+	typewriter: boolean;
+	focusZoom: boolean;
+	progressStyle: ProgressStyle;
+}
+
 interface DeviceRenderInput {
 	snippet: Snippet;
 	config: RenderConfig;
@@ -683,20 +713,80 @@ interface DeviceRenderInput {
 	/** The studio's text and image layers, or null for code alone. */
 	composition: ProjectDocumentV2 | null;
 	set: (partial: Partial<ExportState>) => void;
-	scenery: {
-		background: string;
-		chrome: WindowChrome;
-		padding: number;
-		cardMargin: number;
-		showLineNumbers: boolean;
-		lineNumberStart: number;
-		transitionMs: number;
-		transitionEasing: CubicBezier;
-		loop: boolean;
-		typewriter: boolean;
-		focusZoom: boolean;
-		progressStyle: ProgressStyle;
+	scenery: DeviceScenery;
+}
+
+/** The studio's current look, picked out of the two stores that hold it. */
+function deviceScenery(
+	studio: ReturnType<typeof useSnippetStore.getState>,
+	exporting: ExportState,
+): DeviceScenery {
+	return {
+		background: studio.background,
+		chrome: studio.windowChrome,
+		padding: studio.framePadding,
+		cardMargin: studio.cardMargin,
+		showLineNumbers: studio.showLineNumbers,
+		lineNumberStart: studio.lineNumberStart,
+		transitionMs: exporting.transitionMs,
+		transitionEasing: exporting.transitionEasing,
+		loop: exporting.loop,
+		typewriter: exporting.typewriter,
+		focusZoom: exporting.focusZoom,
+		progressStyle: exporting.progressStyle,
 	};
+}
+
+/**
+ * The on-device renderer for the look the user has now, one per export.
+ *
+ * The video and the PNG both come out of it, which is the point: the progress
+ * bar, the watermark and the caption budget are decided here once, so a still
+ * and the file's frame cannot be configured differently.
+ */
+async function deviceRenderer(input: {
+	snippet: Snippet;
+	plan: MagicMovePlan;
+	watermarkText: string | undefined;
+	scenery: DeviceScenery;
+	composition: ProjectDocumentV2 | null;
+}) {
+	const { snippet, scenery } = input;
+	const [{ WebCodecsRendererAdapter }, library] = await Promise.all([
+		import("@/infrastructure/export/webcodecs-renderer.adapter"),
+		input.composition
+			? import("@/presentation/studio-media-runtime").then((m) => m.studioLocalLibrary)
+			: null,
+	]);
+	return new WebCodecsRendererAdapter({
+		plan: input.plan,
+		background: scenery.background,
+		chrome: scenery.chrome,
+		padding: scenery.padding,
+		cardMargin: scenery.cardMargin,
+		showLineNumbers: scenery.showLineNumbers,
+		lineNumberStart: scenery.lineNumberStart,
+		transitionMs: scenery.transitionMs,
+		transitionEasing: scenery.transitionEasing,
+		loop: scenery.loop,
+		typewriter: scenery.typewriter,
+		focusZoom: scenery.focusZoom,
+		// The composition only bakes a bar when there is more than one step to
+		// divide it into; matching that keeps the two exports the same video.
+		progress:
+			snippet.steps.length >= 2
+				? { style: scenery.progressStyle, segments: snippet.steps.length }
+				: null,
+		watermark: input.watermarkText
+			? {
+					text: input.watermarkText,
+					color: getWatermarkColor(scenery.background, snippet.theme.foreground),
+				}
+			: null,
+		// Both DOM renderers centre the window and its caption band as one unit.
+		hasCaption: snippet.steps.some((step) => (step.annotation ?? "") !== ""),
+		composition: input.composition && library ? { document: input.composition, library } : null,
+	});
 }
 
 /**
@@ -729,40 +819,12 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 	});
 
 	try {
-		const [{ WebCodecsRendererAdapter }, library] = await Promise.all([
-			import("@/infrastructure/export/webcodecs-renderer.adapter"),
-			input.composition
-				? import("@/presentation/studio-media-runtime").then((m) => m.studioLocalLibrary)
-				: null,
-		]);
-		const renderer = new WebCodecsRendererAdapter({
+		const renderer = await deviceRenderer({
+			snippet,
 			plan,
-			background: scenery.background,
-			chrome: scenery.chrome,
-			padding: scenery.padding,
-			cardMargin: scenery.cardMargin,
-			showLineNumbers: scenery.showLineNumbers,
-			lineNumberStart: scenery.lineNumberStart,
-			transitionMs: scenery.transitionMs,
-			transitionEasing: scenery.transitionEasing,
-			loop: scenery.loop,
-			typewriter: scenery.typewriter,
-			focusZoom: scenery.focusZoom,
-			// The composition only bakes a bar when there is more than one step to
-			// divide it into; matching that keeps the two exports the same video.
-			progress:
-				snippet.steps.length >= 2
-					? { style: scenery.progressStyle, segments: snippet.steps.length }
-					: null,
-			watermark: input.watermarkText
-				? {
-						text: input.watermarkText,
-						color: getWatermarkColor(scenery.background, snippet.theme.foreground),
-					}
-				: null,
-			// Both DOM renderers centre the window and its caption band as one unit.
-			hasCaption: snippet.steps.some((step) => (step.annotation ?? "") !== ""),
-			composition: input.composition && library ? { document: input.composition, library } : null,
+			watermarkText: input.watermarkText,
+			scenery,
+			composition: input.composition,
 		});
 
 		const blob = await renderer.renderVideo(snippet, config, {
