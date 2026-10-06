@@ -730,6 +730,27 @@ describe("what a composition that throws leaves behind", () => {
 		]);
 	});
 
+	it("keeps a slot for a default project whose layered composition cannot be read: it is not known to be empty", async () => {
+		seedDefaultDevice();
+		storedCompositions.p = compositionWithImage("p", "unserializable");
+		probe.failsOnAsset.add("unserializable");
+		serialization.failsOnAsset.add("unserializable");
+
+		boot();
+		await settleRestore();
+
+		expect(screen.queryByRole("alert")).toBeNull();
+		const kept = readKeptProjects();
+		expect(kept.map((entry) => entry.id)).toEqual(["p"]);
+		expect(kept[0]?.project).toBeNull();
+		expect(kept[0]?.compositionId).toBe("p");
+		expect(kept[0]?.document ?? null).toBeNull();
+		expect(readLocalProjects().projects.map((record) => record.id)).not.toContain("p");
+		expect(useNoticeStore.getState().notices.map((notice) => notice.message)).toEqual([
+			RECOVERY_NOTICE,
+		]);
+	});
+
 	it("names no composition key when the open entry stays: that project still reads and saves it", () => {
 		// A draft the studio refuses (a theme from a newer studio), over a default entry.
 		const unreadable = { ...project("future.ts"), themeName: "theme-from-the-future" };

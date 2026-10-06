@@ -249,7 +249,8 @@ or it does not land.
   audio cues, read from IndexedDB once the code is on screen); the wait between
   them is not watched. One slot per project id, never evicted; the rest of the
   library stays; the default project (its code, and a composition of that code
-  alone) is never kept. When the composition is what threw, the open project's
+  alone) is never kept; a composition that threw and cannot even be read is
+  not known to be empty, so it gets a slot. When the composition is what threw, the open project's
   library entry goes whether or not anything was kept, so the fresh project
   never reopens it. When the entry goes, the slot names the IndexedDB key its
   composition and media bytes stay under, untouched (no library entry opens

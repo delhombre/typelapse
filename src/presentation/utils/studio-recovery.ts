@@ -175,7 +175,10 @@ export function storedActiveProject(
 	const keptDraft = draftHoldsWork(draft, defaultProject) ? draft : null;
 	const document = crash?.document ?? null;
 	const keptDocument = document && compositionHoldsWork(document) ? document : null;
-	if (project === null && keptDraft === null && keptDocument === null) {
+	// A composition that could not even be read is not known to be empty: its
+	// layers may be there, so the slot names where they stay.
+	const compositionMayHoldWork = keptDocument !== null || (crash !== null && document === null);
+	if (project === null && keptDraft === null && !compositionMayHoldWork) {
 		return null;
 	}
 	return {
