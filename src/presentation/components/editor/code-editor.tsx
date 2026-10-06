@@ -2,8 +2,8 @@ import type { Monaco, OnMount } from "@monaco-editor/react";
 import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 
 import {
-	SNIPPET_DIAGNOSTICS,
 	monacoLanguage,
+	snippetDiagnostics,
 } from "@/presentation/components/editor/monaco-language";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
@@ -41,6 +41,20 @@ const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg
 	catppuccin: { base: "vs-dark", bg: "#1e1e2e", fg: "#cdd6f4" },
 	nord: { base: "vs-dark", bg: "#2e3440", fg: "#d8dee9" },
 };
+
+/** Hand the TypeScript and JavaScript workers the diagnostics this code earns. */
+function applyDiagnostics(monaco: Monaco, code: string) {
+	const diagnostics = snippetDiagnostics(code);
+	for (const defaults of [
+		monaco.languages.typescript.typescriptDefaults,
+		monaco.languages.typescript.javascriptDefaults,
+	]) {
+		defaults.setDiagnosticsOptions({
+			...diagnostics,
+			diagnosticCodesToIgnore: [...diagnostics.diagnosticCodesToIgnore],
+		});
+	}
+}
 
 export function CodeEditor() {
 	// Field by field: the whole store changes on every playback tick.
@@ -84,14 +98,12 @@ export function CodeEditor() {
 	// used to open on a white editor.
 	const handleBeforeMount = useCallback((monaco: Monaco) => {
 		// A snippet is a fragment, not a project (see SNIPPET_DIAGNOSTICS).
+		const { draft: emptied, snippet: held } = useSnippetStore.getState();
+		applyDiagnostics(monaco, emptied ?? held.code);
 		for (const defaults of [
 			monaco.languages.typescript.typescriptDefaults,
 			monaco.languages.typescript.javascriptDefaults,
 		]) {
-			defaults.setDiagnosticsOptions({
-				...SNIPPET_DIAGNOSTICS,
-				diagnosticCodesToIgnore: [...SNIPPET_DIAGNOSTICS.diagnosticCodesToIgnore],
-			});
 			// Monaco has no separate TSX mode, so JSX has to be turned on here or a
 			// React snippet is underlined as a syntax error for containing markup.
 			defaults.setCompilerOptions({
@@ -156,6 +168,18 @@ export function CodeEditor() {
 			});
 		}
 	}, []);
+
+	// The workers' options follow the code: a windowed import silences the syntax
+	// squiggles its own separators cause, and typing the separator away brings
+	// them back. Re-sent only when the answer changes, not on every keystroke.
+	const code = draft ?? snippet.code;
+	const diagnosticsKey = JSON.stringify(snippetDiagnostics(code));
+	// biome-ignore lint/correctness/useExhaustiveDependencies: the key is the whole answer; the code is only what it is read from.
+	useEffect(() => {
+		if (monacoRef.current) {
+			applyDiagnostics(monacoRef.current, code);
+		}
+	}, [diagnosticsKey]);
 
 	/** One producer for the model's identity: the prop and the sync read the same. */
 	const editorLanguage = monacoLanguage(snippet.language);
