@@ -46,6 +46,19 @@ recovery key, starts from the default project, and says in one line that
 the last project could not be opened and was kept. "Reload to pick up where
 you left off" is shown only when a reload can.
 
+Amended the same night after the first build failed review: the guard arms
+only when a stored project was actually restored and disarms at the first
+commit after it; on a throw while armed it first mounts the default project
+without touching storage, and only if that commits does it set aside the
+draft and the active project's entry (never the whole library), keyed by
+project id with no count-based eviction; a default project is never kept; the
+notice appears only when a copy was written and carries one action,
+"Download it", the kept project as the studio's JSON. Ranges are parsed
+without the line count on load (a saved `"2, 8-10"` on a 5-line step opens
+unchanged); the clamp lives at the field and at use. The field's refusal of
+`5-2` and `0` replaces the old silent normalization; a hand-written file
+keeps normalizing at use.
+
 **Why:**
 
 - One typed range took the studio down for good, with a message that
@@ -58,6 +71,9 @@ you left off" is shown only when a reload can.
   way; the boot guard is the rule, the clamp is this instance.
 - Clearing the stored project automatically: deleting a person's work is
   Bruno's call; setting it aside is not.
+- A time window (any throw in the first seconds is the stored project's):
+  a lazy chunk or a share payload that throws would move a healthy project
+  aside, and a shell bug would evict it after a few boots.
 
 **Impact:** `src/application/focus/line-ranges.ts`,
 `src/application/magic-move/focus-zoom.ts`, the focus field in the step
