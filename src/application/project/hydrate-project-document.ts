@@ -9,6 +9,7 @@ import {
 } from "../../domain/entities/block";
 import { Project } from "../../domain/entities/project";
 import { Scene } from "../../domain/entities/scene";
+import { holdableFocus } from "../focus/line-ranges";
 import {
 	type AssetMetadataPayload,
 	type AudioCuePayload,
@@ -65,7 +66,9 @@ function hydrateBlock(payload: BlockPayload): Block {
 				themeName: payload.themeName,
 				...(payload.fontFamily ? { fontFamily: payload.fontFamily } : {}),
 				...(payload.borderRadius !== undefined ? { borderRadius: payload.borderRadius } : {}),
-				...(payload.focus ? { focus: payload.focus } : {}),
+				// A file or a link may carry a focus the block cannot hold ("abc", "5-2"):
+				// the project opens and the odd focus reads as the nearest one it can.
+				...(payload.focus ? { focus: holdableFocus(payload.focus) } : {}),
 				chrome: payload.chrome,
 				showLineNumbers: payload.showLineNumbers,
 				lineNumberStart: payload.lineNumberStart,

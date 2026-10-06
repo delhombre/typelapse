@@ -1,4 +1,8 @@
-import { firstLinePastEnd, formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import {
+	firstLinePastEnd,
+	formatLineRanges,
+	parseLineRanges,
+} from "@/application/focus/line-ranges";
 import { frameLineCount } from "@/application/magic-move/engine";
 import { MAX_ANNOTATION_LENGTH, type Step } from "@/domain/entities/step";
 import { LiveRegion } from "@/presentation/components/ui/live-region";

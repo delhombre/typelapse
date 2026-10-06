@@ -2,6 +2,7 @@ import {
 	firstLinePastEnd,
 	focusLineSet,
 	formatLineRanges,
+	holdableFocus,
 	parseLineRanges,
 	readLineRanges,
 } from "@/application/focus/line-ranges";
@@ -162,5 +163,28 @@ describe("firstLinePastEnd", () => {
 		expect(firstLinePastEnd("0", 5)).toBeNull();
 		expect(firstLinePastEnd("5-2", 5)).toBeNull();
 		expect(firstLinePastEnd("abc, 9", 5)).toBeNull();
+	});
+});
+
+describe("holdableFocus", () => {
+	it("keeps a focus as it is written, past the last line included", () => {
+		expect(holdableFocus("2-4, 7")).toBe("2-4, 7");
+		expect(holdableFocus("2, 8-10")).toBe("2, 8-10");
+	});
+
+	it("turns a reversed range round, as opening a project does", () => {
+		expect(holdableFocus("5-2")).toBe("2-5");
+	});
+
+	it("keeps a huge number as the largest safe line", () => {
+		expect(holdableFocus("1-99999999999999999999999")).toBe(`1-${Number.MAX_SAFE_INTEGER}`);
+	});
+
+	it("leaves out what is not lines a scene could light", () => {
+		expect(holdableFocus("abc")).toBeUndefined();
+		expect(holdableFocus("2, abc")).toBeUndefined();
+		expect(holdableFocus("0")).toBeUndefined();
+		expect(holdableFocus("0, 3")).toBe("3");
+		expect(holdableFocus("   ")).toBeUndefined();
 	});
 });
