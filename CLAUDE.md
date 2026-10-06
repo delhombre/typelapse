@@ -208,3 +208,14 @@ Triage uses the five canonical Matt Pocock skill labels. See `docs/agents/triage
 ### Domain docs
 
 Typelapse is single-context: `CONTEXT.md` at the root, decision logs under `docs/decisions/`. See `docs/agents/domain.md`.
+
+<!-- craft-harness:start (managed by /craft-harness:setup; edit freely, the markers are the only contract) -->
+## Working style (craft-harness)
+
+- Kind: web (Vite + React studio) with a Hono API. Verification gate: `bash .craft/verify.sh` (lint, check-types, typecheck:server, test). A subagent that changed files cannot finish until it passes; fix root causes, never weaken a test or a rule to pass.
+- Method: `tdd` on logic that matters, `domain-modeling` keeps `CONTEXT.md` current, `codebase-design` for module boundaries, `pstack-principles` (Laziness Protocol, Prove It Works, Fix Root Causes). Smallest diff that solves the problem.
+- UI/UX: load the matching `emil-*` skill and `craft-design-engineering` before interface work; `docs/design-direction.md` is the point of view to express. Run `emil-unslop-design` before shipping a screen.
+- User journeys: tester.army `e2e` (`npx e2e guide` for the API); recorded flows replay without a model.
+- Review: `/code-review` on the branch before merge. Done means `/craft-harness:verify` reported SHIP.
+- Running state for long work lives in `.craft/STATE.md` (plan, decisions, file ownership).
+<!-- craft-harness:end -->
