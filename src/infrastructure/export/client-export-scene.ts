@@ -121,9 +121,10 @@ export interface CompositionPlan {
 	/**
 	 * Every video frame the first `frames` export frames show, in frame order:
 	 * the whole schedule is known before the first decode, which is what lets the
-	 * decoder read each packet once instead of seeking per frame.
+	 * decoder read each packet once instead of seeking per frame. `first` starts
+	 * the walk later: a still asks for its one frame without walking the rest.
 	 */
-	videoRequests(frames: number): VideoFrameRequest[];
+	videoRequests(frames: number, first?: number): VideoFrameRequest[];
 }
 
 /**
@@ -152,9 +153,9 @@ export function compositionPlanFor(
 				output.width,
 				videoFrames,
 			),
-		videoRequests: (frames) => {
+		videoRequests: (frames, first = 0) => {
 			const requests: VideoFrameRequest[] = [];
-			for (let frame = 0; frame < frames; frame++) {
+			for (let frame = first; frame < frames; frame++) {
 				for (const layer of timeline.frameAt(frame).layers) {
 					if (layer.kind === "video") {
 						requests.push({
@@ -193,6 +194,28 @@ export function textFontStacks(document: ProjectDocumentV2): string[] {
 		}
 	}
 	return [...stacks];
+}
+
+/**
+ * Every (family, weight) pair a text layer paints with, once each.
+ *
+ * A family registers one face per weight, and a canvas draws in the faces the
+ * page has loaded by then: asking for the family alone gets the regular face and
+ * leaves the weight the layer actually uses to fall back.
+ */
+export function textFontFaces(
+	document: ProjectDocumentV2,
+): { fontFamily: string; fontWeight: number }[] {
+	const faces = new Map<string, { fontFamily: string; fontWeight: number }>();
+	for (const scene of document.project.scenes) {
+		for (const block of scene.blocks) {
+			if (block.kind === "text") {
+				const { fontFamily, fontWeight } = block.typography;
+				faces.set(`${fontWeight} ${fontFamily}`, { fontFamily, fontWeight });
+			}
+		}
+	}
+	return [...faces.values()];
 }
 
 /** The surface a translucent card is painted whole onto before it is faded. */
@@ -253,9 +276,10 @@ export async function openFramePainter(input: {
 	const scratch = input.makeScratch(width, height) ?? undefined;
 	// Video layers are decoded on the schedule the compiler gives every frame; a
 	// codec this browser cannot decode refuses now, before frame one.
-	const requests = composition
-		.videoRequests(script.totalFrames)
-		.filter((request) => input.only === undefined || request.frame === input.only);
+	const requests =
+		input.only === undefined
+			? composition.videoRequests(script.totalFrames)
+			: composition.videoRequests(input.only + 1, input.only);
 	const videos = await openCompositionVideos(
 		job.composition.document,
 		job.composition.videos,

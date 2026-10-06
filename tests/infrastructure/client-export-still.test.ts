@@ -216,7 +216,16 @@ describe("WebCodecsRendererAdapter.renderStill", () => {
 			...scenery,
 			composition: { document, library: { loadAsset: vi.fn() } },
 		});
-		await layered.renderStill(oneScene, config, 0);
+		const load = vi.fn(async () => []);
+		Object.defineProperty(globalThis.document, "fonts", { value: { load }, configurable: true });
+		try {
+			await layered.renderStill(oneScene, config, 0);
+		} finally {
+			Reflect.deleteProperty(globalThis.document, "fonts");
+		}
+		// The face the layer paints with is the one asked for: Geist registers one
+		// per weight, so the family alone would load the regular and fall back.
+		expect(load).toHaveBeenCalledWith(expect.stringMatching(/^650 16px Geist,/));
 		const withLayers = stillCanvas()?.context.commands ?? [];
 		expect(withLayers.some((command) => command.startsWith('fillText("Ship it"'))).toBe(true);
 

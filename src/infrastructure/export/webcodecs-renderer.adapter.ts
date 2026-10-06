@@ -40,7 +40,7 @@ import {
 	type ClientExportMeasurements,
 	ClientExportUnsupportedError,
 } from "./client-export-job";
-import { openFramePainter, sceneFor, scriptFor, textFontStacks } from "./client-export-scene";
+import { openFramePainter, sceneFor, scriptFor, textFontFaces } from "./client-export-scene";
 import { firstEncodableRung } from "./codec-probe";
 import { decodeCompositionImages } from "./composition-images";
 import { loadCompositionVideos } from "./composition-videos";
@@ -347,7 +347,9 @@ export class WebCodecsRendererAdapter implements RendererPort {
 async function loadLayerFonts(project: ProjectDocumentV2): Promise<void> {
 	try {
 		await Promise.all(
-			textFontStacks(project).map((stack) => document.fonts.load(canvasFont(16, stack))),
+			textFontFaces(project).map(({ fontFamily, fontWeight }) =>
+				document.fonts.load(canvasFont(16, fontFamily, undefined, fontWeight)),
+			),
 		);
 	} catch {
 		// A family the document does not know is not an error: the fallback is
