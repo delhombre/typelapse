@@ -138,3 +138,80 @@ test.describe("Landing: the hero's paste field", () => {
 		await context.close();
 	});
 });
+
+/**
+ * The studio's import status is a toast: it covers no control, on any shell
+ * (verify-gate-findings D8, #202). The corner row is the header on every width
+ * under 1280px; from 1280px the desktop header owns the top 76px.
+ */
+const SHELLS = [
+	{ name: "390 phone", width: 390, height: 844 },
+	{ name: "375 phone", width: 375, height: 812 },
+	{ name: "1100 wide", width: 1100, height: 800 },
+] as const;
+
+test.describe("The import status over the ceiling, on every shell", () => {
+	for (const shell of SHELLS) {
+		test(`at ${shell.name} the status covers no header control and is read whole`, async ({
+			browser,
+		}, testInfo) => {
+			const context = await browser.newContext({
+				viewport: { width: shell.width, height: shell.height },
+			});
+			const page = await context.newPage();
+			await page.goto("/app");
+			await page.evaluate((source) => {
+				sessionStorage.setItem("typelapse:import-intent", JSON.stringify({ source }));
+				location.hash = "#import=~";
+			}, codeOfLines(6000));
+
+			const status = page.getByTestId("import-status");
+			await expect(status).toContainText(/too long to animate \(over 5,000 lines\)/);
+			// The enter spring has settled once the pill stops moving.
+			await expect(async () => {
+				const first = await status.boundingBox();
+				await page.waitForTimeout(120);
+				expect(await status.boundingBox()).toEqual(first);
+			}).toPass();
+
+			const box = await status.boundingBox();
+			if (!box) throw new Error("the status has no box");
+			const controls = page.locator(
+				".sc-corner-row :is(button, a, input, [role='button'], [role='combobox'])",
+			);
+			const count = await controls.count();
+			expect(count).toBeGreaterThan(4);
+			for (let index = 0; index < count; index += 1) {
+				const control = controls.nth(index);
+				const rect = await control.boundingBox();
+				if (!rect || rect.width === 0) continue;
+				const apart =
+					rect.y + rect.height <= box.y + 0.5 ||
+					box.y + box.height <= rect.y + 0.5 ||
+					rect.x + rect.width <= box.x + 0.5 ||
+					box.x + box.width <= rect.x + 0.5;
+				const label = await control.evaluate(
+					(element) => element.getAttribute("aria-label") ?? element.textContent ?? element.tagName,
+				);
+				expect(apart, `the status covers "${label}"`).toBe(true);
+			}
+
+			// Whole: the words wrap onto more lines rather than end in an ellipsis.
+			const text = status.getByTestId("import-status-text");
+			expect(
+				await text.evaluate((element) => element.scrollWidth <= element.clientWidth),
+				"the text is cut",
+			).toBe(true);
+			expect(await text.evaluate((element) => getComputedStyle(element).textOverflow)).not.toBe(
+				"ellipsis",
+			);
+			expect(box.x).toBeGreaterThanOrEqual(0);
+			expect(box.x + box.width).toBeLessThanOrEqual(shell.width);
+
+			await page.screenshot({
+				path: testInfo.outputPath(`import-status-${shell.width}.png`),
+			});
+			await context.close();
+		});
+	}
+});
