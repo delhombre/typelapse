@@ -9,14 +9,14 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { type BundledLanguage, type Highlighter, createHighlighter } from "shiki";
 import {
-	collectTickEvents,
+	collectSceneTickEvents,
 	encodeWavBase64,
 	renderTickTrack,
 } from "../../src/application/audio/tick-synth";
 import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradient";
 import { clampRenderDimension } from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
-import { keystrokeCount } from "../../src/application/magic-move/typewriter";
+import { typingHoldIndex } from "../../src/application/magic-move/typewriter";
 import {
 	DEFAULT_TRANSITION_EASING,
 	isCubicBezier,
@@ -249,15 +249,36 @@ renderRoute.post(
 			const shikiTheme = resolveShikiTheme(theme.name);
 			await ensureLanguage(highlighter, lang);
 
-			const plan = buildServerMagicMovePlan(
+			// The typewriter types the first scene with code, not a blank one before
+			// it: the typing plan, the picture and the ticks below name that scene.
+			// The frames keep each scene's own code (a blank scene shows an empty
+			// window, as it always did here); only the typing borrows the typed one.
+			const sceneCodes = clampedSteps.map((s) => s.code);
+			const typingIndex = typingHoldIndex(sceneCodes);
+			const framesPlan = buildServerMagicMovePlan(
 				highlighter,
-				clampedSteps.map((s) => s.code),
+				sceneCodes,
 				lang,
 				shikiTheme,
 				theme.background,
 				loop,
 				clampedSteps.map((s) => s.focus),
 			);
+			const plan =
+				typingIndex === 0
+					? framesPlan
+					: {
+							...framesPlan,
+							typing: buildServerMagicMovePlan(
+								highlighter,
+								[sceneCodes[typingIndex] ?? ""],
+								lang,
+								shikiTheme,
+								theme.background,
+								false,
+								[clampedSteps[typingIndex]?.focus],
+							).typing,
+						};
 
 			// Total duration = holds + a transition between each adjacent pair (+ the
 			// loop-back transition when looping). Tempo is driven by `transitionMs`.
@@ -279,9 +300,9 @@ renderRoute.post(
 			// so skip it there silently.
 			let audioDataUrl: string | undefined;
 			if (sound && fmt !== "gif") {
-				const events = collectTickEvents({
+				const events = collectSceneTickEvents({
 					typewriter,
-					firstCodeLength: keystrokeCount(clampedSteps[0]?.code ?? ""),
+					sceneCodes,
 					holds: clampedSteps.map((s) => s.duration),
 					transitionMs,
 				});
@@ -305,6 +326,7 @@ renderRoute.post(
 				transitionEasing,
 				loop,
 				typewriter,
+				typingIndex,
 				focusZoom,
 				progressStyle,
 				watermark,

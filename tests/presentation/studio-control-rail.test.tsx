@@ -158,3 +158,29 @@ describe("the timeline control rail", () => {
 		useExportStore.setState({ outcome: null });
 	});
 });
+
+describe("the settings sheet's scroll edges", () => {
+	function scrolled(body: HTMLElement, scrollTop: number) {
+		Object.defineProperty(body, "clientHeight", { configurable: true, value: 200 });
+		Object.defineProperty(body, "scrollHeight", { configurable: true, value: 500 });
+		body.scrollTop = scrollTop;
+		fireEvent.scroll(body);
+	}
+
+	it("fades the top under the tabs only once the controls have scrolled", async () => {
+		const { container } = render(<PreviewIsland />);
+		fireEvent.click(screen.getByRole("button", { name: "Look settings" }));
+		await waitFor(() => expect(container.querySelector(".si-sheet-body")).not.toBeNull());
+		const body = container.querySelector<HTMLElement>(".si-sheet-body");
+		if (!body) throw new Error("The sheet must have a body");
+
+		scrolled(body, 0);
+		expect(body.getAttribute("data-more-above")).toBe("false");
+
+		scrolled(body, 120);
+		expect(body.getAttribute("data-more-above")).toBe("true");
+
+		scrolled(body, 0);
+		expect(body.getAttribute("data-more-above")).toBe("false");
+	});
+});

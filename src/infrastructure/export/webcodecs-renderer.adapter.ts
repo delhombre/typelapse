@@ -66,8 +66,8 @@ export interface ClientScenery {
 	focusZoom: boolean;
 	progress: SceneProgress | null;
 	watermark: SceneWatermark | null;
-	/** Whether any scene has a caption, which the card budgets room for. */
-	hasCaption?: boolean;
+	/** Every scene's caption, which the card budgets a band for. */
+	captions?: readonly string[];
 	/**
 	 * A studio project's layers: the V2 document, and the store its images' and
 	 * videos' bytes are read from on this device.
@@ -315,7 +315,7 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			lineNumberStart: scenery.lineNumberStart,
 			progress: scenery.progress,
 			watermark: scenery.watermark,
-			hasCaption: scenery.hasCaption ?? false,
+			captions: scenery.captions ?? [],
 			composition: scenery.composition
 				? {
 						document: scenery.composition.document,

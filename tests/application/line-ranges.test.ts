@@ -1,6 +1,8 @@
 import {
+	firstLinePastEnd,
 	focusLineSet,
 	formatLineRanges,
+	holdableFocus,
 	parseLineRanges,
 	readLineRanges,
 } from "@/application/focus/line-ranges";
@@ -145,5 +147,53 @@ describe("focusLineSet", () => {
 			3,
 		);
 		expect([...set]).toEqual([1, 2, 3]);
+	});
+});
+
+describe("firstLinePastEnd", () => {
+	it("names the line a refusal is about when only the last line is the problem", () => {
+		expect(firstLinePastEnd("9", 5)).toBe(9);
+		expect(firstLinePastEnd("2, 9-12", 5)).toBe(9);
+	});
+
+	it("stays silent for what the field would accept or refuse for another reason", () => {
+		expect(firstLinePastEnd("2-4", 5)).toBeNull();
+		expect(firstLinePastEnd("1-99", 5)).toBeNull();
+		expect(firstLinePastEnd("abc", 5)).toBeNull();
+		expect(firstLinePastEnd("0", 5)).toBeNull();
+		expect(firstLinePastEnd("5-2", 5)).toBeNull();
+		expect(firstLinePastEnd("abc, 9", 5)).toBeNull();
+	});
+});
+
+describe("holdableFocus", () => {
+	it("keeps a focus as it is written, past the last line included", () => {
+		expect(holdableFocus("2-4, 7")).toBe("2-4, 7");
+		expect(holdableFocus("2, 8-10")).toBe("2, 8-10");
+	});
+
+	it("turns a reversed range round, as opening a project does", () => {
+		expect(holdableFocus("5-2")).toBe("2-5");
+	});
+
+	it("keeps a huge number as the largest safe line", () => {
+		expect(holdableFocus("1-99999999999999999999999")).toBe(`1-${Number.MAX_SAFE_INTEGER}`);
+	});
+
+	it("keeps the chunks it can read when one is not line numbers", () => {
+		expect(holdableFocus("2, abc")).toBe("2");
+		expect(holdableFocus("abc, 4-6, x-y, 9")).toBe("4-6, 9");
+	});
+
+	it("lifts a start of 0 to line 1", () => {
+		expect(holdableFocus("0-5")).toBe("1-5");
+		expect(holdableFocus("0-5, 8")).toBe("1-5, 8");
+	});
+
+	it("leaves out what is not lines a scene could light", () => {
+		expect(holdableFocus("abc")).toBeUndefined();
+		expect(holdableFocus("0")).toBeUndefined();
+		expect(holdableFocus("0-0, 3")).toBe("3");
+		expect(holdableFocus("   ")).toBeUndefined();
 	});
 });

@@ -80,6 +80,20 @@ export function parseLineRanges(input: string, lineCount?: number): HighlightRan
 }
 
 /**
+ * The first line the field refused only for being past the step's last line, or
+ * null when the input is refused for anything else (or not refused at all).
+ * It lets the field say "line 9 is past the last line" instead of the generic
+ * hint, since a number that reads fine is not a typo.
+ */
+export function firstLinePastEnd(input: string, lineCount: number): number | null {
+	const wherever = parseLineRanges(input);
+	if (wherever === null || parseLineRanges(input, lineCount) !== null) {
+		return null;
+	}
+	return wherever.find((range) => range.startLine > lineCount)?.startLine ?? null;
+}
+
+/**
  * Read a focus string a project already holds (a file, the draft, a share link,
  * the undo history). Nothing is clamped or refused here: a range past the last
  * line, or line 0, is kept as written and `focusLineSet` leaves out what the
@@ -90,6 +104,31 @@ export function readLineRanges(input: string): HighlightRange[] | null {
 	return eachChunk(input, ([a, b]) =>
 		HighlightRange.create({ startLine: Math.min(a, b), endLine: Math.max(a, b) }),
 	);
+}
+
+/**
+ * A stored focus in the one spelling a code block holds: ascending ranges from
+ * line 1, read chunk by chunk. A chunk that is not line numbers ("abc") or that
+ * no scene could light ("0") is left out, a start of 0 is lifted to line 1
+ * ("0-5" is "1-5"), and the others stay: "2, abc" keeps line 2. So a project
+ * with an odd focus still opens, whole, instead of being refused. A range past
+ * the last line is kept for `focusLineSet` to clamp where it is drawn.
+ */
+export function holdableFocus(input: string): string | undefined {
+	const holdable: HighlightRange[] = [];
+	for (const chunk of input.split(",")) {
+		for (const range of readLineRanges(chunk) ?? []) {
+			if (range.endLine >= 1) {
+				holdable.push(
+					HighlightRange.create({
+						startLine: Math.max(1, range.startLine),
+						endLine: range.endLine,
+					}),
+				);
+			}
+		}
+	}
+	return holdable.length > 0 ? formatLineRanges(holdable) : undefined;
 }
 
 /** Format ranges back to their canonical string ("2-4, 7"); inverse of parse. */

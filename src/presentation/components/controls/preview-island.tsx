@@ -15,6 +15,7 @@ import { AnimatedSizeContainer } from "@/presentation/components/ui/animated-siz
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
 import { useDotBudget, useIsNarrow } from "@/presentation/hooks/use-media-query";
+import { useScrollEdges } from "@/presentation/hooks/use-scroll-edges";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -757,6 +758,10 @@ function ClusterSheet({
 }) {
 	const label = CLUSTERS.find((c) => c.id === cluster)?.label ?? "";
 	const tabsRef = useRef<HTMLDivElement>(null);
+	// Scrolled, the controls pass under the tabs: the top edge dissolves into them
+	// instead of being cut flat, and only once there is something above to show.
+	const bodyRef = useRef<HTMLDivElement>(null);
+	const { edges, measure } = useScrollEdges(bodyRef);
 
 	// On the way in, focus lands on the tab that is open: it says where you are,
 	// and it is also the fastest way back out (Escape) or sideways (the tab
@@ -829,7 +834,10 @@ function ClusterSheet({
 			    mounts at once and the height spring runs with the crossfade. */}
 			<AnimatedSizeContainer
 				height
+				ref={bodyRef}
 				className="si-sheet-body"
+				data-more-above={edges.above}
+				onScroll={measure}
 				transition={reduce ? { duration: 0 } : springs.default}
 			>
 				<AnimatePresence mode="popLayout" initial={false}>

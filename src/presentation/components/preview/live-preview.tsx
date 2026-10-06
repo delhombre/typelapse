@@ -20,6 +20,7 @@ import { fitScale } from "@/application/layout/fit-scale";
 import {
 	FRAME_SECONDARY_ALPHA_HEX,
 	LINE_HEIGHT_RATIO,
+	captionBandLines,
 	chromeBarHeight,
 } from "@/application/layout/frame-metrics";
 import { watermarkPlacement } from "@/application/layout/watermark-placement";
@@ -320,7 +321,7 @@ export function LivePreview() {
 	// FULL canvas, so they mark the real occluded regions, not the bare window.
 	const availWidth = containerEntry?.contentRect.width;
 	const availHeight = containerEntry?.contentRect.height;
-	const hasCaptionText = snippet.steps.some((s) => (s.annotation ?? "") !== "");
+	const captionTexts = useMemo(() => snippet.steps.map((s) => s.annotation ?? ""), [snippet.steps]);
 	const charWidthRatio = useCharWidthRatio(snippet.theme.fontFamily, snippet.theme.fontSize);
 	const aspectCanvas = useMemo(() => {
 		if (!aspectCanvasEnabled || !plan || plan.frames.length === 0) {
@@ -345,7 +346,7 @@ export function LivePreview() {
 			cardMargin,
 			showLineNumbers,
 			lineNumberStart,
-			hasCaption: hasCaptionText,
+			captions: captionTexts,
 			canvasWidth: exportWidth,
 			canvasHeight: exportHeight,
 			charWidthRatio,
@@ -374,6 +375,7 @@ export function LivePreview() {
 						}),
 					}
 				: null,
+			captionLines: placement.captionLines,
 			// Box px per layout px.
 			cardScale: placement.cardScale / layoutScale,
 			radius: socialCanvasRadius(boxWidth, boxHeight),
@@ -390,7 +392,7 @@ export function LivePreview() {
 		cardMargin,
 		showLineNumbers,
 		lineNumberStart,
-		hasCaptionText,
+		captionTexts,
 		exportWidth,
 		exportHeight,
 	]);
@@ -492,6 +494,10 @@ export function LivePreview() {
 	// title bar cuts a long title at the width it leaves, as the exports do.
 	const cardInset = isTransparent ? 0 : cardMargin * layoutScale;
 	const windowWidth = aspectCanvas ? aspectCanvas.windowWidth : PLAIN_CARD_WIDTH - 2 * cardInset;
+	// The band's lines: the exporters' own count on the export canvas, the same
+	// count from the same width on the plain card.
+	const captionBand =
+		aspectCanvas?.captionLines ?? captionBandLines(captionTexts, windowWidth, layoutScale);
 	// A ceiling on the growth, never a licence to invert: at the widest margin and
 	// the roundest window the cap would have made the card's corner tighter than
 	// the corner it wraps, which is the one thing `concentric` already refuses to
@@ -612,6 +618,7 @@ export function LivePreview() {
 						opacity={caption.opacity}
 						color={getWatermarkColor(background, snippet.theme.foreground)}
 						scale={layoutScale}
+						lines={captionBand}
 					/>
 				)}
 

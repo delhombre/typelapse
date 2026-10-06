@@ -791,7 +791,7 @@ async function deviceRenderer(input: {
 				}
 			: null,
 		// Both DOM renderers centre the window and its caption band as one unit.
-		hasCaption: snippet.steps.some((step) => (step.annotation ?? "") !== ""),
+		captions: snippet.steps.map((step) => step.annotation ?? ""),
 		composition: input.composition && library ? { document: input.composition, library } : null,
 	});
 }

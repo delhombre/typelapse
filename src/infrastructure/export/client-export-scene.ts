@@ -76,7 +76,7 @@ export function sceneInputFor(
 		focusZoom: job.focusZoom,
 		progress: job.progress,
 		watermark: job.watermark,
-		hasCaption: job.hasCaption ?? false,
+		captions: job.captions ?? [],
 	};
 }
 

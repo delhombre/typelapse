@@ -1,3 +1,5 @@
+import { displayWidth } from "../text/display-width";
+
 /**
  * Deterministic code-frame metrics: pure and dependency-free.
  *
@@ -24,17 +26,94 @@ export const LINE_HEIGHT_RATIO = 1.6;
 /** Line height of chrome-bar text: `FrameChrome` sets it explicitly, so the bar
  *  both DOM renderers lay out is exactly as tall as `chromeBarHeight` says. */
 export const CHROME_TEXT_LINE_HEIGHT = 1.35;
-/** StepCaption footprint below the card: marginTop 14 + reserved minHeight 20. */
-const CAPTION_BLOCK = 14 + 20;
+/** Gap between the window and its caption, in unscaled px. */
+export const CAPTION_MARGIN_TOP = 14;
+/** One caption line's height, in unscaled px: `StepCaption`'s line-height. */
+export const CAPTION_LINE_HEIGHT = 20;
+/** The caption's type size, in unscaled px. */
+export const CAPTION_FONT_SIZE = 13;
+/**
+ * The most lines a caption wraps to. A caption is up to 80 characters and a
+ * card can be narrower than that on one line, so it wraps; past two lines it is
+ * cut with an ellipsis.
+ */
+export const CAPTION_MAX_LINES = 2;
+/**
+ * Advance of one display cell of the caption's proportional face (Inter Medium),
+ * in em. Lowercase prose averages a little under this; capitals and digits are
+ * wider and take `CAPTION_CAPITAL_EM`. A count is an estimate, not a
+ * measurement: where it is short of the face, `StepCaption` clamps at the
+ * reserved lines with an ellipsis, so the band's geometry still holds.
+ */
+const CAPTION_CELL_EM = 0.5;
+/** Advance of a capital or a digit of the caption's face, in em. */
+const CAPTION_CAPITAL_EM = 0.62;
+/** A capital or a digit counts as this many cells. */
+const CAPITAL_CELLS = CAPTION_CAPITAL_EM / CAPTION_CELL_EM;
+
+/** Cells a word takes: its display width, with capitals and digits counted wider. */
+function wordCells(word: string): number {
+	const wide = word.match(/[A-Z0-9]/g)?.length ?? 0;
+	return displayWidth(word) + wide * (CAPITAL_CELLS - 1);
+}
+
+/**
+ * How many lines a caption takes in a window `width` px wide, at `unit` (the
+ * scale the type is drawn at): 0 for none, 1 or 2, never more (the third is the
+ * ellipsis). Counted from display cells against the caption's type size, with no
+ * measurement, so the preview, the video and the painter's band all get the same
+ * answer from the same two numbers. Words wrap; one longer than a line breaks.
+ */
+export function captionLines(caption: string, width: number, unit: number): number {
+	const words = caption.trim().split(/\s+/);
+	if (words[0] === "") {
+		return 0;
+	}
+	const cells = Math.max(1, Math.floor(width / (CAPTION_FONT_SIZE * unit * CAPTION_CELL_EM)));
+	let lines = 1;
+	let used = 0;
+	const place = (cost: number) => {
+		let rest = cost;
+		while (rest > cells) {
+			rest -= cells;
+			lines++;
+		}
+		used = rest;
+	};
+	for (const word of words) {
+		const cost = wordCells(word);
+		if (used === 0) {
+			place(cost);
+		} else if (used + 1 + cost <= cells) {
+			used += 1 + cost;
+		} else {
+			lines++;
+			place(cost);
+		}
+		if (lines >= CAPTION_MAX_LINES) {
+			return CAPTION_MAX_LINES;
+		}
+	}
+	return lines;
+}
+
+/**
+ * The lines the caption band reserves for a whole video: its longest caption's.
+ * One number for every scene, so a caption fading in never moves the frame.
+ */
+export function captionBandLines(captions: readonly string[], width: number, unit: number): number {
+	return captions.reduce((most, caption) => Math.max(most, captionLines(caption, width, unit)), 0);
+}
 
 /**
  * Height the caption band takes under the window, scaled for the target: the
- * part of the card + caption unit that is not the window. The painter bakes no
- * caption yet but has to budget it, or its card is larger and lower than the
- * one both DOM renderers centre.
+ * part of the card + caption unit that is not the window. `lines` is
+ * `captionBandLines`; 0 is no band. The painter bakes no caption yet but has to
+ * budget it, or its card is larger and lower than the one both DOM renderers
+ * centre.
  */
-export function captionBlockHeight(hasCaption: boolean, scale: number): number {
-	return hasCaption ? CAPTION_BLOCK * scale : 0;
+export function captionBlockHeight(lines: number, scale: number): number {
+	return lines > 0 ? (CAPTION_MARGIN_TOP + CAPTION_LINE_HEIGHT * lines) * scale : 0;
 }
 
 /**
@@ -173,8 +252,8 @@ export interface FrameNaturalSizeInput {
 	showLineNumbers: boolean;
 	/** First gutter number: decides the gutter's digit width. */
 	lineNumberStart: number;
-	/** Whether a caption block sits below the card. */
-	hasCaption: boolean;
+	/** Every scene's caption (blank for none): the band under the card takes the longest's lines. */
+	captions: readonly string[];
 	/** Upscale factor: chrome bar and caption block scale with it. */
 	scale: number;
 	/**
@@ -191,25 +270,17 @@ export interface FrameNaturalSizeInput {
  * `fitScale`. Mirrors the video's existing width math and adds the height the
  * old layout never bounded: the source of the cropping bug.
  */
-export function frameNaturalSize(input: FrameNaturalSizeInput): { width: number; height: number } {
-	const {
-		chrome,
-		maxCols,
-		fontSize,
-		padding,
-		showLineNumbers,
-		lineNumberStart,
-		hasCaption,
-		scale,
-	} = input;
+export function frameNaturalSize(input: FrameNaturalSizeInput): {
+	width: number;
+	height: number;
+	/** The lines the caption band reserves (0 when no scene has a caption). */
+	captionLines: number;
+} {
+	const { chrome, maxCols, fontSize, padding, showLineNumbers, lineNumberStart, captions, scale } =
+		input;
 	const maxLines = Math.max(1, input.maxLines);
 	const charRatio = input.charWidthRatio;
 	const lineHeight = fontSize * LINE_HEIGHT_RATIO;
-
-	// Height: chrome bar + code area (padding top/bottom + one row per line) + caption.
-	const codeAreaHeight = 2 * padding + maxLines * lineHeight;
-	const captionHeight = captionBlockHeight(hasCaption, scale);
-	const height = chromeBarHeight(chrome, scale) + codeAreaHeight + captionHeight;
 
 	// Width: padding + gutter (widest rendered line number) + widest code line.
 	const maxLineNo = Math.max(1, Math.floor(lineNumberStart)) + maxLines - 1;
@@ -218,5 +289,11 @@ export function frameNaturalSize(input: FrameNaturalSizeInput): { width: number;
 	const codeWidth = (maxCols + 2) * fontSize * charRatio;
 	const width = 2 * padding + gutterWidth + codeWidth;
 
-	return { width, height };
+	// Height: chrome bar + code area (padding top/bottom + one row per line) + the
+	// caption band, whose lines follow from the width just found.
+	const lines = captionBandLines(captions, width, scale);
+	const codeAreaHeight = 2 * padding + maxLines * lineHeight;
+	const height = chromeBarHeight(chrome, scale) + codeAreaHeight + captionBlockHeight(lines, scale);
+
+	return { width, height, captionLines: lines };
 }

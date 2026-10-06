@@ -71,6 +71,28 @@ describe("opening a share link on boot", () => {
 		expect(window.location.hash).toBe("");
 	});
 
+	it.each(["abc", "5-2", "0", "1-99999999999999999999999"])(
+		"opens a link whose focus is %s, and leaves the odd focus to be read at use",
+		(focus) => {
+			const code = "a();\nb();\nc();";
+			window.location.hash = `#share=${btoa(
+				JSON.stringify({
+					title: "Odd focus",
+					code,
+					language: "typescript",
+					themeName: "midnight",
+					steps: [{ id: "one", code, duration: 1_000, focus }],
+				}),
+			)}`;
+
+			openShareLinkOnBoot(useSnippetStore.getState().importFromJson);
+
+			expect(notices()).toEqual([]);
+			expect(useSnippetStore.getState().snippet.title).toBe("Odd focus");
+			expect(useSnippetStore.getState().snippet.steps).toHaveLength(1);
+		},
+	);
+
 	it("does nothing for a plain arrival", () => {
 		openShareLinkOnBoot(useSnippetStore.getState().importFromJson);
 		expect(notices()).toEqual([]);

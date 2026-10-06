@@ -197,15 +197,19 @@ export function CodeCard({ input }: { input: RenderInput }) {
 					/>
 				) : null
 			}
+			captions={annotations}
 			caption={
-				hasCaptions ? (
-					<StepCaption
-						text={caption.text}
-						opacity={caption.opacity}
-						color={wmColor}
-						scale={videoScale}
-					/>
-				) : null
+				hasCaptions
+					? (lines) => (
+							<StepCaption
+								text={caption.text}
+								opacity={caption.opacity}
+								color={wmColor}
+								scale={videoScale}
+								lines={lines}
+							/>
+						)
+					: undefined
 			}
 		>
 			{/* Focus zoom: the preview's component, so the video matches. */}
@@ -293,6 +297,7 @@ export function CenteredFrame({
 	videoScale,
 	charWidthRatio,
 	reels,
+	captions,
 	caption,
 	children,
 }: {
@@ -311,7 +316,10 @@ export function CenteredFrame({
 	/** The theme font's measured advance ÷ size (`measureCharWidthRatio`). */
 	charWidthRatio: number;
 	reels?: React.ReactNode;
-	caption?: React.ReactNode;
+	/** Every scene's caption: the band under the card takes the longest's lines. */
+	captions?: readonly string[];
+	/** The caption band, given the lines the fit reserved for it. */
+	caption?: (lines: number) => React.ReactNode;
 	children: React.ReactNode;
 }) {
 	const radius = theme.borderRadius * videoScale;
@@ -331,7 +339,7 @@ export function CenteredFrame({
 		cardMargin,
 		showLineNumbers,
 		lineNumberStart,
-		hasCaption: caption != null,
+		captions: caption ? (captions ?? []) : [],
 		scale: videoScale,
 		canvasWidth,
 		canvasHeight,
@@ -428,12 +436,14 @@ export function CenteredFrame({
 					</div>
 					{/* The caption band takes the window's width, like the reels bar above
 					    it. The column centres its children, so an unconstrained caption
-					    would size to its own text: `StepCaption`'s ellipsis would never
-					    engage (nothing to overflow) and a caption longer than a short code
-					    line would widen the column past the size `fitCardToCanvas` measured,
-					    pushing the card off the canvas. Pinning it here makes the one-line
-					    cut structural, exactly as the preview's block-level column does. */}
-					{caption && <div style={{ width: natural.width }}>{caption}</div>}
+					    would size to its own text: `StepCaption` would never wrap (nothing
+					    to overflow) and a caption longer than a short code line would widen
+					    the column past the size `fitCardToCanvas` measured, pushing the card
+					    off the canvas. Pinning it here makes the two-line wrap structural,
+					    exactly as the preview's block-level column does. */}
+					{caption && fit.captionLines > 0 && (
+						<div style={{ width: natural.width }}>{caption(fit.captionLines)}</div>
+					)}
 				</div>
 			</div>
 		</div>

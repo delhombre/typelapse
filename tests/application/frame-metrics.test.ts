@@ -1,5 +1,10 @@
 import {
+	CAPTION_LINE_HEIGHT,
+	CAPTION_MARGIN_TOP,
 	LINE_HEIGHT_RATIO,
+	captionBandLines,
+	captionBlockHeight,
+	captionLines,
 	chromeBarHeight,
 	frameNaturalSize,
 } from "@/application/layout/frame-metrics";
@@ -39,7 +44,7 @@ describe("frameNaturalSize", () => {
 		padding: 20,
 		showLineNumbers: false,
 		lineNumberStart: 1,
-		hasCaption: false,
+		captions: [],
 		scale: 1,
 		charWidthRatio: CHAR_WIDTH_RATIO,
 	};
@@ -93,15 +98,89 @@ describe("frameNaturalSize", () => {
 	});
 
 	it("adds the caption block below the card", () => {
-		const withCaption = frameNaturalSize({ ...base, hasCaption: true });
-		// StepCaption: marginTop 14 + minHeight 20 = 34, scaled.
+		const withCaption = frameNaturalSize({ ...base, captions: ["Reads the config"] });
+		// StepCaption: marginTop 14 + one line of 20 = 34, scaled.
+		expect(withCaption.captionLines).toBe(1);
 		expect(withCaption.height).toBeCloseTo(frameNaturalSize(base).height + 34, 5);
 	});
 
 	it("scales the caption block with the upscale factor", () => {
 		const s = 2.2;
-		const withCaption = frameNaturalSize({ ...base, hasCaption: true, scale: s });
-		const without = frameNaturalSize({ ...base, scale: s });
+		// A target at scale s sizes its type and padding by s too, which is what
+		// keeps a caption's line count the same at every scale.
+		const scaled = { ...base, fontSize: base.fontSize * s, padding: base.padding * s, scale: s };
+		const withCaption = frameNaturalSize({ ...scaled, captions: ["Reads the config"] });
+		const without = frameNaturalSize(scaled);
 		expect(withCaption.height - without.height).toBeCloseTo(34 * s, 5);
+	});
+
+	it("adds a second line to the band when a caption wraps on this card", () => {
+		const narrow = { ...base, maxCols: 8 };
+		const long = ["Sanity checks the reconciled workspace membership invitations table."];
+		const withCaption = frameNaturalSize({ ...narrow, captions: long });
+
+		expect(withCaption.captionLines).toBe(2);
+		expect(withCaption.height).toBeCloseTo(frameNaturalSize(narrow).height + 54, 5);
+	});
+
+	it("reserves the longest caption's lines for the whole video, blanks ignored", () => {
+		const narrow = { ...base, maxCols: 8 };
+		const mixed = [
+			"",
+			"Short",
+			"Sanity checks the reconciled workspace membership invitations table.",
+		];
+		expect(frameNaturalSize({ ...narrow, captions: mixed }).captionLines).toBe(2);
+		expect(frameNaturalSize({ ...narrow, captions: ["", " "] }).captionLines).toBe(0);
+	});
+});
+
+describe("captionLines", () => {
+	const EIGHTY = "Sanity checks the reconciled workspace membership invitations table.".padEnd(
+		80,
+		".",
+	);
+
+	it("is 0 for no caption and 1 for one that fits", () => {
+		expect(captionLines("", 400, 1)).toBe(0);
+		expect(captionLines("   ", 400, 1)).toBe(0);
+		expect(captionLines("Reads the config", 400, 1)).toBe(1);
+	});
+
+	it("takes 2 lines for the 80-character caption on a narrow card, and never a third", () => {
+		expect(captionLines(EIGHTY, 221, 1)).toBe(2);
+		expect(captionLines(EIGHTY, 100, 1)).toBe(2);
+		expect(captionLines("x".repeat(500), 200, 1)).toBe(2);
+	});
+
+	it("gives the same answer at every scale of the same card", () => {
+		for (const unit of [1, 2.2, 3]) {
+			expect(captionLines(EIGHTY, 221 * unit, unit)).toBe(captionLines(EIGHTY, 221, 1));
+		}
+	});
+
+	it("counts capitals and digits wider than lowercase prose", () => {
+		// 33 characters is 252px of Inter Medium at 13px in capitals: it needs two
+		// lines on a 221px window, where the same count in lowercase fits one.
+		expect(captionLines("WARNING: DO NOT MERGE THIS BRANCH", 221, 1)).toBe(2);
+		expect(captionLines("warning: do not merge this branch", 221, 1)).toBe(1);
+		expect(captionLines("Ship v2.0.1 on 12/10/2026 at 09:30", 221, 1)).toBe(2);
+	});
+
+	it("counts a wide glyph as two cells", () => {
+		const wide = "世".repeat(20);
+		expect(captionLines(wide, 150, 1)).toBeGreaterThan(captionLines("a".repeat(20), 150, 1));
+	});
+
+	it("takes the longest of the video's captions for the band", () => {
+		expect(captionBandLines(["", "Short", EIGHTY], 221, 1)).toBe(2);
+		expect(captionBandLines(["", "Short"], 221, 1)).toBe(1);
+		expect(captionBandLines([], 221, 1)).toBe(0);
+	});
+
+	it("budgets a band of the margin plus its lines", () => {
+		expect(captionBlockHeight(0, 2)).toBe(0);
+		expect(captionBlockHeight(1, 2)).toBe(2 * (CAPTION_MARGIN_TOP + CAPTION_LINE_HEIGHT));
+		expect(captionBlockHeight(2, 2)).toBe(2 * (CAPTION_MARGIN_TOP + 2 * CAPTION_LINE_HEIGHT));
 	});
 });

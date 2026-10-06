@@ -1,3 +1,5 @@
+import { ELLIPSIS } from "@/application/diff/windowing";
+
 /**
  * Shiki ids the editor spells differently.
  *
@@ -36,3 +38,20 @@ export const SNIPPET_DIAGNOSTICS = {
 	noSyntaxValidation: false,
 	diagnosticCodesToIgnore: [1127],
 } as const;
+
+/** True when a line of the code is the studio's own `⋯` separator between windows. */
+function holdsSeparator(code: string): boolean {
+	return code.split("\n").some((line) => line.trim() === ELLIPSIS);
+}
+
+/**
+ * The diagnostics for this code. A windowed import is a handful of excerpts
+ * cut at the diff's own boundaries, so the compiler reads a `})` whose opener
+ * sits in another window as "Declaration or statement expected" (1128), and
+ * the last excerpt as an unclosed block (1005): structure the author never
+ * wrote. While a separator is in the code the syntax squiggles describe the
+ * excerpting, not the author, so they go quiet; any ordinary snippet keeps them.
+ */
+export function snippetDiagnostics(code: string) {
+	return { ...SNIPPET_DIAGNOSTICS, noSyntaxValidation: holdsSeparator(code) };
+}

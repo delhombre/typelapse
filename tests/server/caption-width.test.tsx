@@ -1,11 +1,11 @@
 /**
  * The caption band must be exactly as wide as the window it captions.
  *
- * `StepCaption` paints one line and ellipsises the overflow, but ellipsis only
- * engages against a *constraint*. In the video the caption sits in a flex column
+ * `StepCaption` wraps to two lines and ellipsises the overflow, but wrapping
+ * only engages against a *constraint*. In the video the caption sits in a flex column
  * with `alignItems: center`, where an unconstrained child is sized to its own
  * content: the caption box would simply grow wider than the window, so the
- * ellipsis could never bite and the caption would hang off both sides of the
+ * wrap could never bite and the caption would hang off both sides of the
  * card the fit math measured. The window and the reels bar both pin themselves
  * to `natural.width`; the caption has to do the same.
  *
@@ -32,7 +32,7 @@ const LONG_CAPTION = "Sanity checks the reconciled workspace membership invitati
 	".",
 );
 
-function renderCard(caption: React.ReactNode) {
+function renderCard(caption: ((lines: number) => React.ReactNode) | null) {
 	return render(
 		<CenteredFrame
 			plan={PLAN}
@@ -57,7 +57,8 @@ function renderCard(caption: React.ReactNode) {
 			// than at an invented one.
 			videoScale={renderScaleFor(1080, 1920, BASE_VIDEO_SCALE)}
 			charWidthRatio={0.6}
-			caption={caption}
+			captions={caption ? [LONG_CAPTION] : []}
+			caption={caption ?? undefined}
 		>
 			<div data-testid="code" />
 		</CenteredFrame>,
@@ -83,15 +84,28 @@ function columnChildren(container: HTMLElement): HTMLElement[] {
 
 describe("CenteredFrame caption width", () => {
 	it("pins the caption band to the window's width", () => {
-		const { container } = renderCard(
-			<StepCaption text={LONG_CAPTION} opacity={1} color="#fff" scale={2.2} />,
-		);
+		const { container } = renderCard((lines) => (
+			<StepCaption text={LONG_CAPTION} opacity={1} color="#fff" scale={2.2} lines={lines} />
+		));
 		const [windowEl, captionEl] = columnChildren(container);
 
 		expect(windowEl?.style.width).toMatch(/^\d/);
 		expect(captionEl).toBeDefined();
-		// Without this the caption box is auto-width and the ellipsis never engages.
+		// Without this the caption box is auto-width and the wrap never engages.
 		expect(captionEl?.style.width).toBe(windowEl?.style.width);
+	});
+
+	it("hands the caption the lines the fit reserved, two for 80 characters over one short line", () => {
+		let given = 0;
+		const { container } = renderCard((lines) => {
+			given = lines;
+			return <StepCaption text={LONG_CAPTION} opacity={1} color="#fff" scale={2.2} lines={lines} />;
+		});
+		const [, captionEl] = columnChildren(container);
+		const line = captionEl?.firstElementChild?.firstElementChild as HTMLElement;
+
+		expect(given).toBe(2);
+		expect(line.style.getPropertyValue("-webkit-line-clamp")).toBe("2");
 	});
 
 	it("stacks nothing but the window when there is no caption", () => {

@@ -107,6 +107,21 @@ describe("the studio's typed fields", () => {
 			expect(useSnippetStore.getState().snippet.steps[0]?.highlightRanges).toEqual([]);
 		});
 
+		it("says a line past the last one is past it, not that the numbers are wrong", () => {
+			sceneWithFiveLines();
+			render(<SceneInspector />);
+			const field = screen.getByRole("textbox", { name: "Scene 1 focus lines" });
+			type(field, "9");
+
+			expect(field.getAttribute("aria-invalid")).toBe("true");
+			const message = screen.getByText("Line 9 is past the last line (5)");
+			expect(field.getAttribute("aria-describedby")).toBe(message.id);
+			expect(screen.queryByText("Use line numbers, like 2-4, 7")).toBeNull();
+
+			type(field, "abc");
+			expect(screen.getByText("Use line numbers, like 2-4, 7")).toBeTruthy();
+		});
+
 		it("clamps 1-1000000 to the scene's five lines and says so in the field", () => {
 			sceneWithFiveLines();
 			render(<SceneInspector />);

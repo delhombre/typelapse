@@ -1,4 +1,8 @@
-import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import {
+	firstLinePastEnd,
+	formatLineRanges,
+	parseLineRanges,
+} from "@/application/focus/line-ranges";
 import { frameLineCount } from "@/application/magic-move/engine";
 import { MAX_ANNOTATION_LENGTH, type Step } from "@/domain/entities/step";
 import { LiveRegion } from "@/presentation/components/ui/live-region";
@@ -515,21 +519,28 @@ function FocusInput({
 }: { step: Step; index: number; id?: string; placeholder?: string }) {
 	const updateStepFocus = useSnippetStore((s) => s.updateStepFocus);
 	const [text, setText] = useState(() => formatLineRanges(step.highlightRanges));
-	const [invalid, setInvalid] = useState(false);
+	const [refusal, setRefusal] = useState<string | null>(null);
+	const invalid = refusal !== null;
 
 	function commit() {
 		// Untouched, it is what the project holds (a saved "8-10" on a five-line
 		// scene included): the field's refusals and clamp are for what is typed.
 		if (text === formatLineRanges(step.highlightRanges)) {
-			setInvalid(false);
+			setRefusal(null);
 			return;
 		}
-		const parsed = parseLineRanges(text, frameLineCount(step.code));
+		const lineCount = frameLineCount(step.code);
+		const parsed = parseLineRanges(text, lineCount);
 		if (parsed === null) {
-			setInvalid(true);
+			const pastEnd = firstLinePastEnd(text, lineCount);
+			setRefusal(
+				pastEnd === null
+					? "Use line numbers, like 2-4, 7"
+					: `Line ${pastEnd} is past the last line (${lineCount})`,
+			);
 			return;
 		}
-		setInvalid(false);
+		setRefusal(null);
 		// Snap the field to the canonical form ("2-4,7" → "2-4, 7", "1-99" on a
 		// 5-line scene → "1-5"): the card no longer remounts on edit (step ids are
 		// stable), so sync explicitly.
@@ -557,9 +568,7 @@ function FocusInput({
 				autoComplete="off"
 				onChange={(e) => {
 					setText(e.target.value);
-					if (invalid) {
-						setInvalid(false);
-					}
+					setRefusal(null);
 				}}
 				onBlur={commit}
 				onKeyDown={(e) => {
@@ -581,7 +590,7 @@ function FocusInput({
 			{field}
 			{invalid ? (
 				<span id={errorId} className="text-[11px] leading-4 text-red-600 dark:text-red-400">
-					Use line numbers, like 2-4, 7
+					{refusal}
 				</span>
 			) : null}
 		</>
@@ -591,7 +600,7 @@ function FocusInput({
 /**
  * Compact caption input on a step card: the line of prose shown beneath the
  * frame while this step holds. Commits on blur/Enter. Capped at
- * `MAX_ANNOTATION_LENGTH` so the caption stays the single line the layout
+ * `MAX_ANNOTATION_LENGTH` so the caption stays within the two lines the layout
  * reserves for it: the domain rejects anything longer.
  */
 function CaptionInput({

@@ -413,7 +413,15 @@ class DefaultHostedProjectSyncCoordinator implements HostedProjectSyncCoordinato
 				this.assertLiveSession();
 				this.dependencies.registry.revokeAll();
 				const requestedId = input.hostedProjectId?.trim() || localDocument.project.id;
-				const loaded = await this.dependencies.api.load(requestedId, { signal });
+				// A project that names its cloud copy is opened, and a 404 there is news.
+				// One that does not may be new to the cloud, which is the usual first
+				// save: ask the list rather than a GET that answers 404, since the
+				// browser logs every 404 as an error and nothing went wrong.
+				const known =
+					Boolean(input.hostedProjectId?.trim()) ||
+					(await this.dependencies.api.list({ signal })).some(({ id }) => id === requestedId);
+				throwIfAborted(signal);
+				const loaded = known ? await this.dependencies.api.load(requestedId, { signal }) : null;
 				throwIfAborted(signal);
 				let project: HostedProjectRecord;
 				let wasLoaded = true;
