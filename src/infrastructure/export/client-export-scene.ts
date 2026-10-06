@@ -9,10 +9,12 @@
 
 import { type VideoScript, videoScript } from "@/application/export/video-script";
 import { layeredFrameAt } from "@/application/frame-painter/composition";
-import type { LayeredFrame } from "@/application/frame-painter/layers";
-import type { PaintImage } from "@/application/frame-painter/paint-context";
+import type { LayeredFrame, ScratchSurface } from "@/application/frame-painter/layers";
+import type { PaintContext, PaintImage } from "@/application/frame-painter/paint-context";
+import { paintFrame } from "@/application/frame-painter/painter";
 import {
 	type BackdropImage,
+	type FrameScene,
 	type FrameSceneInput,
 	type GrainTile,
 	frameScene,
@@ -21,6 +23,7 @@ import { BASE_VIDEO_SCALE, CANVAS_MARGIN, renderScaleFor } from "@/application/l
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { compileSceneTimeline } from "@/application/render/scene-timeline";
 import type { ClientExportComposition, ClientExportJob } from "./client-export-job";
+import { openCompositionVideos } from "./composition-videos";
 
 /**
  * The decoded images a frame needs, which a job cannot carry: neither survives
@@ -190,4 +193,83 @@ export function textFontStacks(document: ProjectDocumentV2): string[] {
 		}
 	}
 	return [...stacks];
+}
+
+/** The surface a translucent card is painted whole onto before it is faded. */
+export type MakeScratch = (width: number, height: number) => ScratchSurface | null;
+
+/** What paints the frames of one export, wherever the canvas lives. */
+export interface FramePainter {
+	/**
+	 * The script to step through: the code's, stretched to the composition's end
+	 * when its timeline outruns the code (an audio cue past the last scene, where
+	 * the code then holds its last frame).
+	 */
+	script: VideoScript;
+	/** Paint one frame: the code card and, for a studio project, the layers around it. */
+	paint(frame: number): Promise<void>;
+	/** Release the decoders. Always called once the frames are done. */
+	close(): void;
+}
+
+/**
+ * The one place a frame is painted, for the video and for the PNG.
+ *
+ * The worker steps through every frame of this; the main thread asks it for the
+ * single frame a still is cut from. Both pass through `paintFrame` with the same
+ * layers for the same frame index, so a snapshot cannot disagree with the file
+ * about what a studio project's text, image and video layers are doing.
+ *
+ * @param only A still's frame: the video layers are then decoded for that frame
+ *   alone instead of for the whole schedule.
+ */
+export async function openFramePainter(input: {
+	job: ClientExportJob;
+	ctx: PaintContext;
+	scene: FrameScene;
+	codeScript: VideoScript;
+	width: number;
+	height: number;
+	fps: number;
+	makeScratch: MakeScratch;
+	only?: number;
+}): Promise<FramePainter> {
+	const { job, ctx, scene, codeScript, width, height, fps } = input;
+	const composition = job.composition
+		? compositionPlanFor(job.composition, { width, fps, loop: job.loop })
+		: null;
+	if (!composition || !job.composition) {
+		return {
+			script: codeScript,
+			paint: async (frame) => paintFrame(ctx, scene, codeScript.frameAt(frame)),
+			close: () => {},
+		};
+	}
+
+	const script = {
+		...codeScript,
+		totalFrames: Math.max(codeScript.totalFrames, composition.totalFrames),
+	};
+	const scratch = input.makeScratch(width, height) ?? undefined;
+	// Video layers are decoded on the schedule the compiler gives every frame; a
+	// codec this browser cannot decode refuses now, before frame one.
+	const requests = composition
+		.videoRequests(script.totalFrames)
+		.filter((request) => input.only === undefined || request.frame === input.only);
+	const videos = await openCompositionVideos(
+		job.composition.document,
+		job.composition.videos,
+		requests,
+	);
+	return {
+		script,
+		paint: async (frame) => {
+			const videoFrames = await videos.framesAt(frame);
+			paintFrame(ctx, scene, codeScript.frameAt(frame), {
+				...composition.layersAt(frame, videoFrames),
+				scratch,
+			});
+		},
+		close: () => videos.close(),
+	};
 }

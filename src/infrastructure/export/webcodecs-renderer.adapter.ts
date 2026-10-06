@@ -17,7 +17,7 @@ import { stillFrameOf } from "@/application/export/png-snapshot";
 import { wantsTransparency } from "@/application/export/transparency";
 import type { VideoScript } from "@/application/export/video-script";
 import { focusLineSet } from "@/application/focus/line-ranges";
-import { paintFrame } from "@/application/frame-painter/painter";
+import { canvasFont } from "@/application/frame-painter/font";
 import type { SceneProgress, SceneWatermark } from "@/application/frame-painter/scene";
 import { advanceProbeFont, measureCharWidthRatio } from "@/application/layout/char-advance";
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
@@ -40,7 +40,7 @@ import {
 	type ClientExportMeasurements,
 	ClientExportUnsupportedError,
 } from "./client-export-job";
-import { sceneFor, scriptFor } from "./client-export-scene";
+import { openFramePainter, sceneFor, scriptFor, textFontStacks } from "./client-export-scene";
 import { firstEncodableRung } from "./codec-probe";
 import { decodeCompositionImages } from "./composition-images";
 import { loadCompositionVideos } from "./composition-videos";
@@ -172,8 +172,33 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			grain: grainTileOf(job.grain, "png"),
 			backdropImage: await decodeBackdropImage(job.background),
 		});
-		const script = scriptFor(job);
-		paintFrame(ctx, scene, script.frameAt(frameOf(script)));
+		if (job.composition) {
+			await loadLayerFonts(job.composition.document);
+		}
+		const codeScript = scriptFor(job);
+		const frame = frameOf(codeScript);
+		const frames = await openFramePainter({
+			job,
+			ctx,
+			scene,
+			codeScript,
+			width,
+			height,
+			fps: job.fps,
+			makeScratch: (w, h) => {
+				const surface = document.createElement("canvas");
+				surface.width = w;
+				surface.height = h;
+				const surfaceCtx = surface.getContext("2d");
+				return surfaceCtx ? { ctx: surfaceCtx, image: surface } : null;
+			},
+			only: frame,
+		});
+		try {
+			await frames.paint(frame);
+		} finally {
+			frames.close();
+		}
 		return canvas;
 	}
 
@@ -309,6 +334,24 @@ export class WebCodecsRendererAdapter implements RendererPort {
 				snippet.theme.fontSize,
 			),
 		};
+	}
+}
+
+/**
+ * The faces the text layers are set in, ready before they are painted.
+ *
+ * A canvas draws in whatever the document has loaded at that instant, and a face
+ * the page has not yet used is still a fallback. The worker loads these itself;
+ * on the main thread the document already knows them, and only has to be asked.
+ */
+async function loadLayerFonts(project: ProjectDocumentV2): Promise<void> {
+	try {
+		await Promise.all(
+			textFontStacks(project).map((stack) => document.fonts.load(canvasFont(16, stack))),
+		);
+	} catch {
+		// A family the document does not know is not an error: the fallback is
+		// exactly what the preview would use too.
 	}
 }
 

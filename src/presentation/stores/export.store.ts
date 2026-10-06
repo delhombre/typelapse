@@ -490,6 +490,18 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			feedback("error");
 			return;
 		}
+		// The studio's text, image and video layers, read the way the video reads
+		// them: the PNG is a frame of that export, layers included.
+		const studioComposition = await import("./studio-composition.store");
+		const authored = studioComposition.hasAuthoredMultimedia()
+			? studioComposition.readStudioProjectDocument()
+			: null;
+		const refusal = authored ? deviceExportRefusal(authored) : null;
+		if (refusal) {
+			set({ outcome: { kind: "failed", message: refusal } });
+			feedback("error");
+			return;
+		}
 		const startedAt = performance.now();
 
 		set({
@@ -508,7 +520,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				plan: magicMovePlan,
 				watermarkText: resolved.watermark,
 				scenery: deviceScenery(snippetState, get()),
-				composition: null,
+				composition: authored,
 			});
 			const blob = await renderer.renderStill(snippet, resolved.config, currentStepIndex);
 

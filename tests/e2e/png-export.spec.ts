@@ -20,7 +20,7 @@ async function savePng(page: Page, path: string) {
 	);
 }
 
-test.describe("PNG export: a frame at the export's own size", () => {
+test.describe("PNG export: a frame at the export's own size", { tag: "@smoke" }, () => {
 	test.use({ viewport: { width: 1440, height: 900 } });
 
 	test.beforeEach(async ({ page }) => {
