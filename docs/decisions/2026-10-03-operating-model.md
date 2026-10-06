@@ -28,6 +28,10 @@ flowchart TD
   D5["D5 One branch locally; PRs merge with --no-ff; the push stays Bruno's call"]
   D2 --> D6["D6 QA findings become tickets, P1 first; a fix ships with its regression test"]
   D7{{"D7 Owner: push main, align landing copy with the multimedia product, delete remote proto branches"}}
+  D1 --> D8["D8 (2026-10-05) No custom agents; skills carry the method"]
+  D8 --> D9["D9 Sonnet builds, Opus takes what Sonnet fails, Fable or Opus orchestrates"]
+  D3 --> D10["D10 Matt Pocock's plugin is the default engineering toolset, called by namespace"]
+  D8 --> D11["D11 CLAUDE.md and AGENTS.md are versioned, like mnemos"]
 ```
 
 ## D1 Fable is the Product Owner and never edits product code
@@ -203,3 +207,104 @@ meta, og and hero stop talking only about code and say "scene-first
 multimedia motion studio" like the README (his own non-goal says no rebrand
 before the mixed-media product is tested); delete `origin/proto/studio-shell`
 and, when the repository opens, merge or close draft #43.
+
+## Amendment 2026-10-05: skills, not agents
+
+Bruno, 2026-10-05: "Tout ce qui va être agents et sous-agents présents,
+devront être supprimés. On travaillera avec les skills de Matt Pocock sur
+l'ingénierie par défaut avec le système de tickets reliés au projet github.
+[...] On orchestre avec Fable mais comme j'ai atteint ma limite hebdomadaire,
+j'ai basculé sur opus, sonnet pour les tâches, opus pour ce que sonnet n'arrive
+pas à faire." Touches D1, D2 and D3.
+
+Measured before deciding (2026-10-05): the only custom agents were
+`comment-sicko` (user level, spawned by Pstack's `/no-comments`) and
+`codex-rescue` (the Codex plugin); mnemos runs six project agents. A session in
+a desktop-app worktree loaded neither the root `CLAUDE.md`, git-ignored since
+the first commit, nor its `## Agent skills` block. The Matt Pocock setup of D2
+matches plugin 1.2.3: tracker doc, the five labels on GitHub, domain doc.
+
+## D8 No custom agents; skills carry the method
+
+**Decision:** no subagent definition, in the repository or in the user's
+configuration. `comment-sicko` went to the Trash, and the Codex plugin, the
+only way to remove `codex-rescue`, is disabled. Work goes to the built-in
+agents with a model and a brief that names the skills of its gate.
+
+**Why:**
+
+- Bruno's words. The gates already name the skill each role needs, so a
+  persona agent is a second prompt to keep in step with the quality loop.
+
+**Rejected:**
+
+- Porting mnemos's six agents (senior-engineer, qa-engineer and the rest).
+
+**Impact:** `docs/agents/QUALITY_LOOP.md` Roles, `CLAUDE.md`. Pstack's
+`/no-comments` has no subagent left to spawn.
+
+**Pivot:** "Bring back an agent" (name it).
+
+## D9 Sonnet builds, Opus takes what Sonnet fails, Fable or Opus orchestrates
+
+**Decision:** builders run with `model: sonnet`. A task Sonnet cannot finish
+goes to `model: opus`, with Sonnet's failure named in the new brief. The
+orchestrator is Fable, or Opus while Fable's weekly limit is reached.
+Inventories stay on `Explore` with Haiku.
+
+**Why:**
+
+- Bruno's weekly Fable limit, and mnemos's usage economy (2026-09-25), which
+  already runs Sonnet by default and Opus after a Sonnet failure.
+
+**Rejected:**
+
+- Opus builders by default, the D1 arrangement: the most expensive builder on
+  routine slices.
+
+**Impact:** `docs/agents/QUALITY_LOOP.md` Roles, `CLAUDE.md`, memory.
+
+**Pivot:** "Builders go back to Opus."
+
+## D10 Matt Pocock's plugin is the default engineering toolset, called by namespace
+
+**Decision:** gates 0 to 3 and 6 name the plugin's skills with their
+namespace (`mattpocock-skills:tdd`), and `mattpocock-skills:code-review`
+joins Ship. The setup of D2 stands as it is.
+
+**Why:**
+
+- Same-name copies of these skills also sit in the user's skills folder; a
+  bare name can load a different version than the plugin.
+
+**Rejected:**
+
+- Running `setup-matt-pocock-skills` again: its outputs exist and follow the
+  plugin's templates, adapted to Project 4 and `docs/decisions/`.
+
+**Impact:** `docs/agents/QUALITY_LOOP.md`, `CLAUDE.md`.
+
+**Pivot:** "Use the bare skill names."
+
+## D11 CLAUDE.md and AGENTS.md are versioned, like mnemos
+
+**Decision:** `CLAUDE.md` leaves `.gitignore`; `CLAUDE.md` and its Codex twin
+`AGENTS.md` are committed, with a "How we work" section: the skills by domain
+and the models.
+
+**Why:**
+
+- A git-ignored file does not exist in a worktree, so agents there worked
+  without the project rules or the tracker configuration. mnemos versions
+  both files.
+
+**Rejected:**
+
+- A `.worktreeinclude` alone: it fixes new worktrees on Bruno's machine, not
+  a fresh clone.
+
+**Impact:** `.gitignore`, `CLAUDE.md`, `AGENTS.md`. Before pulling `main` into
+the main checkout, its untracked root `AGENTS.md` has to go, or git refuses
+the merge.
+
+**Pivot:** "Keep CLAUDE.md local."

@@ -6,7 +6,6 @@ dist/
 .tmp/
 .claude/
 .agent/
-CLAUDE.md
 *.tsbuildinfo
 *.log
 .env

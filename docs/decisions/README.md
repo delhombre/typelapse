@@ -46,7 +46,8 @@ posture, deleting data) is written as a diamond in the graph and marked
   Project → Scene → Block → Asset, hosted boundaries, Creator before Studio.
 - 2026-10-03 [operating-model](2026-10-03-operating-model.md): Fable as
   Product Owner, the tracker, the quality loop, Remotion under the Free
-  License, one branch.
+  License, one branch; amended 2026-10-05: no custom agents, Sonnet builders,
+  CLAUDE.md versioned.
 - 2026-10-03 [viability](2026-10-03-viability.md): positioning (sharpest,
   local, from a PR), the rule sharpened, Creator $12 or $99, free quotas, the
   headless path against HyperFrames, the sequence to the first euro.
