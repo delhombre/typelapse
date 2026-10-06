@@ -3682,15 +3682,15 @@ html.dark:not([data-landing-theme]) {
 	   showing, and a sheet capped at 97% shifted each of them by 3%. */
 	height: 100%;
 	flex-direction: column;
-	border-top: 1px solid var(--sc-hairline);
 	border-radius: var(--r-sheet) var(--r-sheet) 0 0;
-	background: color-mix(in oklch, var(--color-neutral-50) 92%, transparent);
-	box-shadow: 0 -8px 40px -12px rgb(0 0 0 / 0.25);
-	-webkit-backdrop-filter: blur(20px) saturate(1.5);
-	backdrop-filter: blur(20px) saturate(1.5);
+	/* It holds text at every stop (the scenes, the step builder, the inspectors), so it
+	   is the opaque studio surface, as the menus are (DECISIONS D5): no blur, nothing of
+	   the stage through it. The tokens flip with the theme, so there is no dark fill. The
+	   edge is the ring inside the sheet's shadow stack, never a border beside a shadow. */
+	background: var(--camera-surface);
+	box-shadow: var(--camera-sheet-shadow);
 }
 
 .dark .sc-sheet {
 	--sc-hairline: rgb(245 243 239 / 0.12);
-	background: color-mix(in oklch, var(--color-neutral-950) 88%, transparent);
 }

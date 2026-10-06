@@ -82,7 +82,8 @@ describe("the layer inspector in the phone's sheet", () => {
 				".dark :is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet)",
 			).join(""),
 		).toContain("--camera-pill:");
-		expect(rulesFor(app, ".sc-sheet").join("")).not.toContain("--camera-");
+		// A copy is a definition (`--camera-x:`); the sheet's fill and shadow read the tokens.
+		expect(rulesFor(app, ".sc-sheet").join("")).not.toMatch(/--camera-[\w-]+\s*:/);
 	});
 
 	it("sits on the phone's stage, where a finger can select it, not off its edge", () => {

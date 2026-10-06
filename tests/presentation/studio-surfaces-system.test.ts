@@ -558,6 +558,37 @@ describe("the phone's sheet reads the studio's tokens (was SYSTEM.md Drift 18)",
 	});
 });
 
+describe("the phone's sheet (DECISIONS D5, ticket #160)", () => {
+	// The sheet holds text at every stop (the scenes, the step builder, the inspectors), so it
+	// is the opaque studio surface like the menus: at 92% with a blur the stage's mesh showed
+	// through it. Its edge is the ring inside the sheet's shadow stack, never a border beside a
+	// shadow, and the tokens flip the fill with the theme.
+	const sheet = ".sc-sheet";
+
+	it("is the opaque studio surface with no blur, in either theme", () => {
+		expect(lastValue(app, sheet, "background")).toBe("var(--camera-surface)");
+		const blurs = declarationsOf(app, sheet).filter(([name]) => name.endsWith("backdrop-filter"));
+		expect(blurs).toEqual([]);
+		expect(declarationsOf(app, `.dark ${sheet}`).filter(([name]) => name === "background")).toEqual(
+			[],
+		);
+	});
+
+	it("takes its edge from the ring in the sheet's shadow stack, not from a border", () => {
+		expect(lastValue(app, sheet, "box-shadow")).toBe("var(--camera-sheet-shadow)");
+		expect(
+			declarationsOf(app, sheet).filter(
+				([name]) => name.startsWith("border-") && name !== "border-radius",
+			),
+		).toEqual([]);
+		expect(declarationsOf(app, sheet).filter(([name]) => name === "border")).toEqual([]);
+	});
+
+	it("keeps its top corners on the sheet radius", () => {
+		expect(lastValue(app, sheet, "border-radius")).toBe("var(--r-sheet) var(--r-sheet) 0 0");
+	});
+});
+
 describe("the phone's More menu (was SYSTEM.md Drift 19, DECISIONS D5)", () => {
 	const menu = ".sc-utility-overflow-menu";
 

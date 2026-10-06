@@ -426,12 +426,61 @@ buttons stayed 40px under a finger because the 44px rule came before the 40px on
 cursor never applied. Nits left: a refusal that wraps to two lines moves the "New here?"
 link by one line.
 
+## Follow-up, ticket #160 (2026-10-06)
+
+The phone sheet is opaque, like every surface that holds text. Gate 4 ran in Emil's order:
+`emil-design-foundations`, `emil-surfaces` (the material), `emil-ui-polish`,
+`craft-design-engineering` (Shadows, Not Borders; Nested Border Radius; Scroll Fades), then
+`emil-ui-review`. Out of scope: the instrument's plate, the sheet's stops and content.
+
+### Decision
+
+- **Material.** `.sc-sheet` paints `background: var(--camera-surface)` (`#ffffff` light,
+  `#1e1c1a` dark) at every stop, with no `backdrop-filter`; there is no dark fill rule, the
+  token flips. Before: `color-mix(in oklch, neutral-50 92%, transparent)` (dark neutral-950 at
+  88%) with `blur(20px) saturate(1.5)`, which let the stage's mesh tint the scene rows.
+- **Edge, by looking: the ring and the shadow, not a border.** The 1px `border-top` and the
+  `0 -8px 40px -12px rgb(0 0 0 / 0.25)` shadow are replaced by `--camera-sheet-shadow`, the
+  token the desktop sheet panel wears: `0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18)`
+  light, `0 0 0 1px var(--camera-line), 0 -22px 56px rgb(0 0 0 / 0.42)` dark. A hairline
+  alone could not carry the peek: white on the stage's `#fafaf9` is a 2% step, so the ring
+  gives the line (computed `rgba(28, 27, 25, 0.1) 0 0 0 1px`, dark `rgba(245, 243, 239, 0.12)`)
+  and the cast shadow the lift. One element, no border beside a shadow (design direction).
+  Dark reads as one step above the stage (`#1e1c1a` on `#121110`) plus the ring.
+- **Radius** unchanged, `--r-sheet` 20px, top corners only.
+
+### Proof
+
+Route `/app` at 375x812, DPR 2, touch, notch forced through CDP (47 top, 34 bottom), light and
+dark, two scenes captured so the sheet holds rows of text; a build of main (before) and of this
+branch (after), `vite preview`. Stops by the handle's keys: peek (sheet top 722), scenes
+(sheet top 365), full (95). Computed on `.sc-sheet`, light: before `oklch(0.9848 0.0013 none / 0.92)`,
+`blur(20px) saturate(1.5)`, border-top 1px; after `rgb(255, 255, 255)`, `none`, 0px. Dark:
+before `oklch(0.1784 0.0026 none / 0.88)`, after `rgb(30, 28, 26)`, `none`, 0px. Peek pixels
+at x=30: sheet (255,255,255) over stage (250,250,249) light, (30,28,26) over (18,17,16) dark.
+Desktop 1440x900, light and dark, the studio at rest: before and after screenshots are
+pixel-identical (`ImageChops.difference().getbbox()` is `None`).
+
+Screenshots (scratchpad `160/`): `before-{light,dark}-{1-peek,2-scenes,3-full}.png` and
+`after-` the same, `{before,after}-{light,dark}-strip.png` for the three stops side by side,
+`cmp-{light,dark}.png` for the peek and scenes crops at 2x.
+
+Tests, red first: `tests/presentation/studio-surfaces-system.test.ts` (the sheet's fill, blur,
+border and shadow: 2 red on the old CSS, 54 green now); `tests/e2e/mobile-shell.spec.ts`
+"the sheet is opaque at every stop", light and dark, over the three stops (red on the build of
+main: `blur(20px) saturate(1.5)`; green on this build).
+
+### Review verdict
+
+`emil-ui-review` on the diff: **ship it**. Nits left: the drag handle (`neutral-300` on white, 1.5:1)
+is a slider now and could take a darker step; the dark ring is an alpha white where Emil's rule
+prefers a solid line, as every other ring of the product; the desktop sheet panel is flat paper
+and the phone's is the white surface, a step the cast shadow explains on a phone and a desktop
+never shows.
+
 ## Open
 
-- The sheet's own material is the 92% paper with `blur(20px) saturate(1.5)` over the stage,
-  and it holds text (the inspector, the scene fields). D5 and next-wave D6 name menus and
-  popovers, not the sheet; whether it goes opaque like them is a decision for the orchestrator
-  (a Lapse take of the half stop would show whether the mesh bleeds through).
+- The sheet's own material was an open question until ticket #160 (below): it is opaque now.
 - The corner row keeps its 31px pitch and the island's scene dots (24x40) and Export (64x30)
   sit under #140's geometry: neither is 44px by 44px.
 - The sheet keeps its scroll position when lowered to the peek, so the peek can show a faded

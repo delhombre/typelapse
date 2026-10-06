@@ -95,7 +95,7 @@ and gains an inset hairline. Floating surfaces over the phone's stage are the
 landing's card material: paper at 88%, a blur, a 1px ring, one soft shadow,
 and so are the header capsules; a menu or popover that holds rows of text takes
 the opaque studio surface instead, in both shells (next-wave D6): the phone's More
-menu and the account panel included; a header
+menu, the account panel and the phone's sheet at every stop included; a header
 trigger sits on flat paper and takes the fill without the blur. The desktop
 card and timeline sit on flat paper, so they are opaque. Code frames take a
 layered shadow with a 1px ring inside it, not a border. Reduced transparency
