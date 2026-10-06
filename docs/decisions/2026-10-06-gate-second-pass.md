@@ -184,4 +184,18 @@ behaviour (the frame fits the longest scene), noted, not changed.
 `plan.store.ts` or the billing client, the toast placement, the Monaco
 language setup for the separator.
 
+Third pass (2026-10-07, SHIP WITH NITS, evidence `2026-10-07-main-3/`):
+the pill still covered the phone header (#202, placed by the shell's math
+in #206); the nits of #203 (PR #208): Monaco validation off only while a
+`⋯` line exists; the focus message names the last line; stored focus is
+read leniently on hydration, which also means the server now persists a
+lenient focus through `hydrateProjectDocument` (accepted: the domain
+invariant and the strict field stay); the first cloud save asks the list
+instead of probing (cost noted in #209); server ticks follow the typed
+scene, and the v1 route's picture types it too; a top fade on the Look
+panel; the caption band's height follows a pure display-cell line count
+(one line keeps today's geometry, a two-line caption adds one line for the
+whole video so the card never jumps between scenes). Open after it: #174,
+#179, #182, #204, #205, #207, #209.
+
 **Pivot:** "Leave the nits."
