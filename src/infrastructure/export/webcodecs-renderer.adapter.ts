@@ -13,7 +13,9 @@
  * into the port's vocabulary: progress, a blob, or one sentence about why not.
  */
 
+import { stillFrameOf } from "@/application/export/png-snapshot";
 import { wantsTransparency } from "@/application/export/transparency";
+import type { VideoScript } from "@/application/export/video-script";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { paintFrame } from "@/application/frame-painter/painter";
 import type { SceneProgress, SceneWatermark } from "@/application/frame-painter/scene";
@@ -116,7 +118,46 @@ export class WebCodecsRendererAdapter implements RendererPort {
 	 * measure, because a preview is shown next to the app.
 	 */
 	async renderPreview(snippet: Snippet): Promise<string> {
-		const job = await this.buildJob(snippet, snippet.renderConfig);
+		const canvas = await this.paintStill(snippet, snippet.renderConfig, () => 0);
+		return canvas.toDataURL("image/png");
+	}
+
+	/**
+	 * One scene of the export as a PNG: the frame the video shows at the end of
+	 * that scene's hold, at the config's own size.
+	 *
+	 * The same painter and the same script as the file, so the still is the
+	 * video's frame and not a fourth rendering of it: the mesh is behind the
+	 * card, the size is the preset's and not the window's, and a vertical export
+	 * is vertical. A background of `None` comes back transparent.
+	 */
+	async renderStill(snippet: Snippet, config: RenderConfig, sceneIndex: number): Promise<Blob> {
+		const canvas = await this.paintStill(snippet, config, (script) =>
+			stillFrameOf(script, sceneIndex),
+		);
+		return await new Promise<Blob>((resolve, reject) => {
+			canvas.toBlob((blob) => {
+				if (blob) {
+					resolve(blob);
+				} else {
+					reject(new Error("This browser could not encode the PNG."));
+				}
+			}, "image/png");
+		});
+	}
+
+	/**
+	 * One frame of the export, painted on the main thread.
+	 *
+	 * @param frameOf Picks the frame from the script, because the preview wants
+	 *   the first and a snapshot wants the end of a scene's hold.
+	 */
+	private async paintStill(
+		snippet: Snippet,
+		config: RenderConfig,
+		frameOf: (script: VideoScript) => number,
+	): Promise<HTMLCanvasElement> {
+		const job = await this.buildJob(snippet, config);
 		const { width, height } = evenDimensions(job.width, job.height);
 		const canvas = document.createElement("canvas");
 		canvas.width = width;
@@ -131,8 +172,9 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			grain: grainTileOf(job.grain, "png"),
 			backdropImage: await decodeBackdropImage(job.background),
 		});
-		paintFrame(ctx, scene, scriptFor(job).frameAt(0));
-		return canvas.toDataURL("image/png");
+		const script = scriptFor(job);
+		paintFrame(ctx, scene, script.frameAt(frameOf(script)));
+		return canvas;
 	}
 
 	async renderVideo(
