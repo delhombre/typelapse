@@ -26,6 +26,12 @@ export const ELLIPSIS = "…";
 const ELLIPSIS_CELLS = 1;
 
 /**
+ * Cells a cut title needs before it is drawn at all: below two, the ellipsis
+ * would stand alone and say nothing, so the bar draws no title instead.
+ */
+const MIN_CUT_CAPACITY = 2;
+
+/**
  * Advance of one glyph of the chrome mono, in em. JetBrains Mono (the bar's
  * face) and the monospaces it falls back to measure 0.6; the code grid is set on
  * the same figure (`measureCharWidthRatio`).
@@ -117,7 +123,7 @@ export function windowTitleCapacity(
 
 /**
  * A title cut to `capacity` cells, ellipsis included. A title that fits is
- * returned whole. Cut by the glyphs the grid places (`clusters`), so a wide
+ * returned whole; one with fewer than two cells of room is not drawn. Cut by the glyphs the grid places (`clusters`), so a wide
  * glyph or an emoji sequence is never cut in half, and by their cells, so a
  * title of wide glyphs stops where its width does. The cut never leaves a space
  * in front of the ellipsis, and when the next glyph is wider than the one cell
@@ -129,7 +135,7 @@ export function fitTitleToCapacity(title: string, capacity: number): string {
 	if (cells <= capacity) {
 		return title;
 	}
-	if (capacity <= 0) {
+	if (capacity < MIN_CUT_CAPACITY) {
 		return "";
 	}
 	const budget = capacity - ELLIPSIS_CELLS;

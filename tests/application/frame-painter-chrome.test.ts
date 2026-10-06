@@ -321,6 +321,24 @@ describe("paintChrome: a long title is one line, cut at the width the bar leaves
 		},
 	);
 
+	it.each(["macos", "browser"] as const)(
+		"%s: a window with under two cells of room draws no title, not a lone ellipsis (#203)",
+		(chrome) => {
+			const { ctx, scene } = paint({
+				chrome,
+				title: "Untitled",
+				plan: { frames: [{ lineCount: 1, tokens: [] }] },
+				showLineNumbers: false,
+				padding: 0,
+			});
+			expect(windowTitleCapacity(chrome, scene.window.width, UNIT)).toBeLessThan(2);
+			expect(windowTitle("Untitled", chrome, scene.window.width, UNIT)).toBe("");
+			expect(ctx.commands.some((command) => command.includes("…"))).toBe(false);
+			expect(ctx.commands.some((command) => command.includes("Untitled"))).toBe(false);
+			expect(ctx.commands.some((command) => command.startsWith('fillText("",'))).toBe(false);
+		},
+	);
+
 	it("draws the whole title where the window has room for it", () => {
 		const { ctx, scene } = paint({
 			chrome: "macos",

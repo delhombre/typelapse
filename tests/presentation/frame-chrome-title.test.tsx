@@ -97,6 +97,27 @@ describe("FrameChrome: a CJK or emoji title is cut by cells, as the painter cuts
 	});
 });
 
+describe("FrameChrome: the 80px empty card draws no title, not a lone ellipsis (#203)", () => {
+	const titleOf = (container: HTMLElement) =>
+		container.querySelector<HTMLElement>('[title="Untitled"]');
+
+	it("macos: renders no title node", () => {
+		const { container } = render(
+			<FrameChrome chrome="macos" title="Untitled" foreground={FG} width={80} />,
+		);
+		expect(titleOf(container)).toBeNull();
+		expect(container.textContent).not.toContain("…");
+	});
+
+	it("browser: keeps the pill, with an empty title in it", () => {
+		const { container } = render(
+			<FrameChrome chrome="browser" title="Untitled" foreground={FG} width={80} />,
+		);
+		expect(titleOf(container)?.textContent).toBe("");
+		expect(container.textContent).not.toContain("…");
+	});
+});
+
 describe("the Remotion composition draws the same title (#186)", () => {
 	const THEME = {
 		name: "midnight",

@@ -36,8 +36,17 @@ describe("fitTitleToCapacity", () => {
 		expect(fitTitleToCapacity("demo.tsx", 7)).toBe(`demo.t${ELLIPSIS}`);
 	});
 
-	it("draws the ellipsis alone when it is all the room there is", () => {
-		expect(fitTitleToCapacity("demo.ts", 1)).toBe(ELLIPSIS);
+	it("draws nothing when the ellipsis would be all the room there is", () => {
+		expect(fitTitleToCapacity("demo.ts", 1)).toBe("");
+		expect(fitTitleToCapacity("demo.ts", 0)).toBe("");
+	});
+
+	it("still draws a title of one cell that fits in one cell", () => {
+		expect(fitTitleToCapacity("a", 1)).toBe("a");
+	});
+
+	it("draws one glyph and the ellipsis from two cells of room", () => {
+		expect(fitTitleToCapacity("demo.ts", 2)).toBe(`d${ELLIPSIS}`);
 	});
 
 	it("draws nothing when there is no room, and nothing for no title", () => {
@@ -71,9 +80,9 @@ describe("fitTitleToCapacity: a wide glyph takes the two cells it draws", () => 
 		expect(fitTitleToCapacity("世界你好", 6)).toBe(`世界${ELLIPSIS}`);
 	});
 
-	it("draws the ellipsis alone when no wide glyph fits beside it", () => {
-		expect(fitTitleToCapacity("世界", 2)).toBe(ELLIPSIS);
-		expect(fitTitleToCapacity("世界", 1)).toBe(ELLIPSIS);
+	it("draws the ellipsis alone when no wide glyph fits beside it, nothing under two cells", () => {
+		expect(fitTitleToCapacity("世界你", 2)).toBe(ELLIPSIS);
+		expect(fitTitleToCapacity("世界", 1)).toBe("");
 	});
 
 	it("keeps an emoji title that fits and cuts one that does not, by cells", () => {
@@ -122,6 +131,12 @@ describe.each(BARS)("windowTitle: %s", (chrome) => {
 		expect(windowTitle("", chrome, 1000, 1)).toBe("");
 	});
 
+	it("draws nothing at 0 and 1 cell of room, an ellipsis from 2", () => {
+		expect(windowTitle("demo.tsx", chrome, widthFor(chrome, 0, 1), 1)).toBe("");
+		expect(windowTitle("demo.tsx", chrome, widthFor(chrome, 1, 1), 1)).toBe("");
+		expect(windowTitle("demo.tsx", chrome, widthFor(chrome, 2, 1), 1)).toBe(`d${ELLIPSIS}`);
+	});
+
 	it("draws nothing in a window too narrow for the bar's own furniture", () => {
 		expect(windowTitle("demo.ts", chrome, 10, 1)).toBe("");
 	});
@@ -163,6 +178,13 @@ describe("trackingEm", () => {
 		expect(trackingEm("normal")).toBe(0);
 		expect(trackingEm("")).toBe(0);
 		expect(trackingEm("inherit")).toBe(0);
+	});
+});
+
+describe("the 80px empty card (#203)", () => {
+	it.each(["macos", "browser"] as const)("%s: draws no title, not a lone ellipsis", (chrome) => {
+		expect(windowTitleCapacity(chrome, 80, 1)).toBeLessThan(2);
+		expect(windowTitle("Untitled", chrome, 80, 1)).toBe("");
 	});
 });
 
