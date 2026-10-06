@@ -16,11 +16,7 @@ import type { Project } from "@/domain/entities/project";
 import type { Scene } from "@/domain/entities/scene";
 import { EXPORT_DEFAULTS, useExportStore } from "@/presentation/stores/export.store";
 import { createProjectStore } from "@/presentation/stores/project.store";
-import {
-	liveCodeOf,
-	registerPlaybackComposition,
-	useSnippetStore,
-} from "@/presentation/stores/snippet.store";
+import { registerPlaybackComposition, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { create } from "zustand";
 
 /**
@@ -50,7 +46,7 @@ export function readStudioCompositionSnapshot(): StudioCompositionSnapshot {
 			: [
 					{
 						id: STUDIO_LIVE_SCENE_ID,
-						code: liveCodeOf(state),
+						code: snippet.code,
 						durationMs: STATIC_SCENE_DURATION_MS,
 					},
 				];
@@ -181,9 +177,7 @@ export function studioDocumentOf(
 	return studioProjectDocument(
 		serializeProjectDocument(composition),
 		readStudioCompositionSnapshot(),
-		// Whoever asks passes the snippet's code, which is stale while the editor is
-		// emptied: the draft decides, so no caller has to remember it.
-		useSnippetStore.getState().draft === null ? liveCode : "",
+		liveCode,
 	);
 }
 

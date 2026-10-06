@@ -30,12 +30,17 @@ test.describe("Studio editor emptied with Select all and Delete", () => {
 		await page.keyboard.press("Delete");
 
 		await expect(preview).not.toContainText("greet");
+		// The empty card is empty: the composition must not invent a title card there.
+		await expect(preview).not.toContainText("Add your text");
+		await expect(page.getByRole("button", { name: "Play timeline" })).toBeDisabled();
 		await expect(page.getByRole("button", { name: "Add scene" })).toBeDisabled();
 		await expect(page.getByRole("button", { name: "Capture", exact: true })).toBeDisabled();
 		expect(consoleErrors.slice(errorsBefore)).toEqual([]);
 
 		await page.keyboard.type("const answer = 42;");
 		await expect(preview).toContainText("answer");
+		await expect(preview).not.toContainText("Add your text");
+		await expect(page.getByRole("button", { name: "Play timeline" })).toBeDisabled();
 		await expect(page.getByRole("button", { name: "Add scene" })).toBeEnabled();
 		await expect(page.getByRole("button", { name: "Capture", exact: true })).toBeEnabled();
 		expect(consoleErrors.slice(errorsBefore)).toEqual([]);

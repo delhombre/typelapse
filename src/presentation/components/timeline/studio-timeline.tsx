@@ -140,7 +140,11 @@ export function StudioTimeline() {
 		[compositionProject, steps],
 	);
 
-	const canPlay = isPlayableProject(steps.length, hasAuthoredMultimedia(compositionProject));
+	const canPlay = isPlayableProject(
+		steps.length,
+		hasAuthoredMultimedia(compositionProject),
+		emptyDraft,
+	);
 	// The ruler measures the clock the preview plays: scenes, the loop morph
 	// where the export adds it, and the audio tail. The store reads those inputs
 	// itself; the dependencies are what makes the memo notice they changed.

@@ -1,22 +1,27 @@
 import { addTextLayer } from "@/application/project/multimedia-authoring";
-import { STUDIO_LIVE_SCENE_ID } from "@/application/project/studio-composition";
-import { applyStudioProjectDocument } from "@/presentation/stores/project-history.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	STUDIO_LIVE_SCENE_ID,
+	createStudioCompositionDocument,
+} from "@/application/project/studio-composition";
+import {
+	applyStudioProjectDocument,
+	createStudioHistory,
+} from "@/presentation/stores/project-history.store";
+import { studioPlaybackTimeline, useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	hasAuthoredMultimedia,
+	loadStudioCompositionDocument,
 	readStudioCompositionSnapshot,
 	readStudioProjectDocument,
-	studioDocumentOf,
-	synchronizeStudioCompositionStore,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**
- * #168 follow-up: an emptied editor is on no screen, so it is on no document
- * either. A project with media and no scene keeps its code on the live scene;
- * emptying the editor must empty that scene, or the saved file and the
- * server's video carry code the preview no longer shows.
+ * #168 follow-up. The document keeps the last code while the editor is emptied
+ * (the snippet keeps it, D2): rewriting the live scene to "" would make the
+ * composition invent a starter title card there. What an emptied editor with no
+ * scene changes is what can be played and rendered, which has its own tests.
  */
 
 const OLD_CODE = "const staleAnswer = 42;";
@@ -29,12 +34,15 @@ const DIFF = `diff --git a/src/a.ts b/src/a.ts
  const b = 3
 `;
 
+let projectCount = 0;
 let layerCount = 0;
+let clock = 0;
+let stopHistory: () => void = () => undefined;
 
-function openMediaOnly() {
+function openPlain() {
 	useSnippetStore.getState().importFromJson(
 		JSON.stringify({
-			title: "media only",
+			title: "plain",
 			code: OLD_CODE,
 			language: "typescript",
 			themeName: "midnight",
@@ -42,7 +50,17 @@ function openMediaOnly() {
 			steps: [],
 		}),
 	);
-	synchronizeStudioCompositionStore();
+	// A fresh composition for each test: the store outlives them.
+	loadStudioCompositionDocument(
+		createStudioCompositionDocument({
+			...readStudioCompositionSnapshot(),
+			projectId: `draft-document-${projectCount++}`,
+		}),
+	);
+}
+
+function openMediaOnly() {
+	openPlain();
 	useStudioCompositionStore
 		.getState()
 		.transact((project) =>
@@ -50,48 +68,75 @@ function openMediaOnly() {
 		);
 }
 
-describe("an emptied editor on a project with media and no scene", () => {
-	beforeEach(openMediaOnly);
+beforeEach(() => {
+	clock = 0;
+});
 
-	it("starts from a live scene that carries the code", () => {
-		expect(hasAuthoredMultimedia()).toBe(true);
+afterEach(() => stopHistory());
+
+describe("emptying the editor of a project with no scene, then typing again", () => {
+	beforeEach(openPlain);
+
+	it("adds no layer, no media and no history entry, and leaves the document as it was", () => {
+		const history = createStudioHistory({ storage: null, now: () => clock });
+		stopHistory = history.start();
+		const before = readStudioProjectDocument();
+
+		clock += 5_000;
+		useSnippetStore.getState().setCode("");
+		history.capture();
+		expect(readStudioProjectDocument()).toEqual(before);
+		expect(hasAuthoredMultimedia()).toBe(false);
+
+		clock += 5_000;
+		useSnippetStore.getState().setCode(OLD_CODE);
+		history.capture();
+
+		const after = readStudioProjectDocument();
+		expect(after).toEqual(before);
+		expect(hasAuthoredMultimedia()).toBe(false);
+		expect(JSON.stringify(after)).not.toContain('"kind":"text"');
+		expect(JSON.stringify(after)).not.toContain("Add your text");
+		expect(history.canUndo()).toBe(false);
+	});
+
+	it("keeps the last code on the live scene while the editor is empty", () => {
+		useSnippetStore.getState().setCode("");
+
 		expect(readStudioCompositionSnapshot().scenes.map((scene) => scene.code)).toEqual([OLD_CODE]);
 		expect(JSON.stringify(readStudioProjectDocument())).toContain(OLD_CODE);
 	});
+});
 
-	it("empties the live scene in the snapshot", () => {
+describe("emptying the editor of a project with media and no scene", () => {
+	beforeEach(openMediaOnly);
+
+	it("keeps the last code in the snapshot and the document, and adds nothing", () => {
+		const before = readStudioProjectDocument();
+
 		useSnippetStore.getState().setCode("");
 
-		expect(readStudioCompositionSnapshot().scenes.map((scene) => scene.code)).toEqual([""]);
+		expect(hasAuthoredMultimedia()).toBe(true);
+		expect(readStudioCompositionSnapshot().scenes.map((scene) => scene.code)).toEqual([OLD_CODE]);
+		expect(readStudioProjectDocument()).toEqual(before);
 	});
 
-	it("empties it in the saved document, which is what a server render reads", () => {
-		useSnippetStore.getState().setCode("");
+	it("cannot be played while the editor is empty, and can once code is back", () => {
+		expect(studioPlaybackTimeline()).not.toBeNull();
 
-		expect(JSON.stringify(readStudioProjectDocument())).not.toContain(OLD_CODE);
+		useSnippetStore.getState().setCode("");
+		expect(studioPlaybackTimeline()).toBeNull();
+
+		useSnippetStore.getState().setCode(OLD_CODE);
+		expect(studioPlaybackTimeline()).not.toBeNull();
 	});
 
-	it("empties it in the document the preview and the cloud copy build from the snippet's code", () => {
-		useSnippetStore.getState().setCode("");
-		// The composition bridge does this on every studio change.
-		synchronizeStudioCompositionStore();
-
-		const document = studioDocumentOf(
-			useStudioCompositionStore.getState().value,
-			useSnippetStore.getState().snippet.code,
-		);
-		expect(JSON.stringify(document)).not.toContain(OLD_CODE);
-	});
-
-	it("puts the code back as soon as something is typed", () => {
+	it("play() does nothing while the editor is empty", async () => {
 		useSnippetStore.getState().setCode("");
 
-		useSnippetStore.getState().setCode("const next = 1;");
+		await useSnippetStore.getState().play();
 
-		expect(readStudioCompositionSnapshot().scenes.map((scene) => scene.code)).toEqual([
-			"const next = 1;",
-		]);
-		expect(JSON.stringify(readStudioProjectDocument())).toContain("const next = 1;");
+		expect(useSnippetStore.getState().isPlaying).toBe(false);
 	});
 });
 

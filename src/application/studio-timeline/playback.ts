@@ -107,7 +107,17 @@ export function visibleSceneIndex(
 /**
  * D3: one scene is a video, and so is authored media without a captured scene
  * (audio alone). Play and Render ask this one question.
+ *
+ * With no scene, the live code is the project's only code, so an emptied editor
+ * (`emptyLiveCode`) leaves nothing on screen to play or render, media or not.
  */
-export function isPlayableProject(sceneCount: number, hasAuthoredMedia: boolean): boolean {
+export function isPlayableProject(
+	sceneCount: number,
+	hasAuthoredMedia: boolean,
+	emptyLiveCode = false,
+): boolean {
+	if (sceneCount === 0 && emptyLiveCode) {
+		return false;
+	}
 	return sceneCount >= 1 || hasAuthoredMedia;
 }

@@ -284,6 +284,13 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		const authored = studioComposition.hasAuthoredMultimedia()
 			? studioComposition.readStudioProjectDocument()
 			: null;
+		// One question for Play and both routes: an emptied editor with no scene is
+		// code on no screen, whatever media sits on the live scene.
+		if (!isPlayableProject(snippet.steps.length, authored !== null, snippetState.draft !== null)) {
+			set({ outcome: { kind: "failed", message: "A video needs at least one scene." } });
+			feedback("error");
+			return;
+		}
 		// Text and image layers paint on this device (autonomous sprint D2); only
 		// Server sends the media to the local Remotion route.
 		if (authored && get().target === "server") {

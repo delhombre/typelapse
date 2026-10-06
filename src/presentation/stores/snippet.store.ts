@@ -368,9 +368,10 @@ export function registerPlaybackComposition(read: () => PlaybackComposition): vo
  * null when the project is not a video yet (no scene and no authored media).
  */
 export function studioPlaybackTimeline(): StudioPlaybackTimeline | null {
-	const { steps } = useSnippetStore.getState().snippet;
+	const { snippet, draft } = useSnippetStore.getState();
+	const { steps } = snippet;
 	const composition = readPlaybackComposition();
-	if (!isPlayableProject(steps.length, composition.hasAuthoredMedia)) {
+	if (!isPlayableProject(steps.length, composition.hasAuthoredMedia, draft !== null)) {
 		return null;
 	}
 	const { transitionMs, loop } = useExportStore.getState();
