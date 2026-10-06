@@ -1,7 +1,8 @@
 import { paintFrame } from "@/application/frame-painter/painter";
 import { type FrameSceneInput, frameScene } from "@/application/frame-painter/scene";
 import { CANVAS_MARGIN } from "@/application/layout/canvas-fit";
-import { windowTitle } from "@/application/layout/window-title";
+import { windowTitle, windowTitleCapacity } from "@/application/layout/window-title";
+import { displayWidth } from "@/application/text/display-width";
 import { FrameChrome, type WindowChrome } from "@/presentation/components/preview/frame-chrome";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -9,6 +10,14 @@ import { CenteredFrame } from "../../server/remotion/composition";
 import { RecordingContext } from "../application/support/recording-context";
 
 const PR_TITLE = "fix(trie-router): count every slash a pattern consumes";
+/** Titles in two cells a glyph: what the cut must count in cells, not code points. */
+const CJK_TITLE = "修复(路由器): 每个斜杠都要计数，每个路径都要匹配，不要漏掉任何一个";
+const EMOJI_TITLE = "🚀🚀🚀 ship the 🔥 trie-router fix 🎉🎉🎉 ✨ before the 🌍 launch 🚀🚀🚀";
+const TITLES = [
+	{ name: "ascii", title: PR_TITLE },
+	{ name: "CJK", title: CJK_TITLE },
+	{ name: "emoji", title: EMOJI_TITLE },
+];
 const FG = "#e6edf3";
 const BARS: Exclude<WindowChrome, "none">[] = ["macos", "browser", "terminal"];
 
@@ -67,6 +76,27 @@ describe("FrameChrome: the title is one line, cut by the shared function (#186)"
 	});
 });
 
+describe("FrameChrome: a CJK or emoji title is cut by cells, as the painter cuts it (#197)", () => {
+	describe.each(BARS)("%s", (chrome) => {
+		it.each(TITLES.slice(1))(
+			"$name: renders the shared string, whole glyphs, within the room",
+			({ title }) => {
+				const width = 340;
+				const { container } = render(
+					<FrameChrome chrome={chrome} title={title} foreground={FG} width={width} />,
+				);
+				const expected = windowTitle(title, chrome, width, 1);
+				expect(expected).not.toBe(title);
+				expect(expected.endsWith("…")).toBe(true);
+				expect(displayWidth(expected)).toBeLessThanOrEqual(windowTitleCapacity(chrome, width, 1));
+				expect(container.querySelector<HTMLElement>(`[title="${title}"]`)?.textContent).toBe(
+					expected,
+				);
+			},
+		);
+	});
+});
+
 describe("the Remotion composition draws the same title (#186)", () => {
 	const THEME = {
 		name: "midnight",
@@ -114,13 +144,15 @@ describe("the Remotion composition draws the same title (#186)", () => {
 		expect(titleElement(container)?.textContent).toBe(expected);
 	});
 
-	it.each(BARS)(
-		"%s: the painter and the composition draw one string for the same inputs and canvas",
-		(chrome) => {
+	const CASES = BARS.flatMap((chrome) => TITLES.map((entry) => ({ chrome, ...entry })));
+
+	it.each(CASES)(
+		"$chrome, $name title: the painter and the composition draw one string for the same inputs and canvas",
+		({ chrome, title }) => {
 			const inputs = {
 				canvasWidth: 1920,
 				canvasHeight: 1080,
-				title: PR_TITLE,
+				title,
 				chrome,
 				padding: 24,
 				cardMargin: 32,
@@ -140,16 +172,19 @@ describe("the Remotion composition draws the same title (#186)", () => {
 			});
 			const ctx = new RecordingContext();
 			paintFrame(ctx, scene, { tokens: [], lineCount: 2, lineNumberCount: 2, timeSeconds: 0 });
+			const first = Array.from(title)[0] ?? "";
 			const painted = ctx.commands
-				.map((command) => /^fillText\("(fix\(.*?)",/.exec(command)?.[1])
-				.filter((text): text is string => text !== undefined);
+				.map((command) => /^fillText\((".*?"),/.exec(command)?.[1])
+				.filter((text): text is string => text !== undefined)
+				.map((text) => JSON.parse(text) as string)
+				.filter((text) => text.startsWith(first));
 
 			// What the Remotion composition renders, from the same inputs.
 			const { container } = render(
 				<CenteredFrame
 					plan={PLAN}
 					theme={THEME}
-					title={PR_TITLE}
+					title={title}
 					windowChrome={chrome}
 					showLineNumbers
 					lineNumberStart={1}
@@ -163,10 +198,13 @@ describe("the Remotion composition draws the same title (#186)", () => {
 					<div />
 				</CenteredFrame>,
 			);
-			const composed = titleElement(container)?.textContent;
+			const composed = container.querySelector<HTMLElement>(`[title="${title}"]`)?.textContent;
 
 			expect(painted).toHaveLength(1);
-			expect(painted[0]).not.toBe(PR_TITLE);
+			expect(painted[0]).not.toBe(title);
+			expect(displayWidth(painted[0] ?? "")).toBeLessThanOrEqual(
+				windowTitleCapacity(chrome, scene.window.width, UNIT),
+			);
 			expect(painted[0]?.endsWith("…")).toBe(true);
 			expect(composed).toBe(painted[0]);
 		},

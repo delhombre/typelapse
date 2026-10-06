@@ -2,11 +2,13 @@ import { CHROME_STYLE, type ChromeVariant } from "@/application/layout/frame-met
 import {
 	ELLIPSIS,
 	fitTitleToCapacity,
+	trackingEm,
 	windowTitle,
 	windowTitleAdvance,
 	windowTitleCapacity,
 	windowTitleRoom,
 } from "@/application/layout/window-title";
+import { displayWidth } from "@/application/text/display-width";
 import { describe, expect, it } from "vitest";
 
 const PR_TITLE = "fix(trie-router): count every slash a pattern consumes";
@@ -49,7 +51,51 @@ describe("fitTitleToCapacity", () => {
 	});
 
 	it("never cuts a character in half", () => {
-		expect(fitTitleToCapacity("a😀😀😀", 3)).toBe(`a😀${ELLIPSIS}`);
+		expect(fitTitleToCapacity("a😀😀😀", 4)).toBe(`a😀${ELLIPSIS}`);
+	});
+});
+
+describe("fitTitleToCapacity: a wide glyph takes the two cells it draws", () => {
+	it("keeps a CJK title whose cells fill the room exactly", () => {
+		expect(fitTitleToCapacity("世界你好", 8)).toBe("世界你好");
+	});
+
+	it("cuts a CJK title over by one cell, ellipsis included", () => {
+		// Seven cells for the text, one for the ellipsis: three glyphs fill six.
+		expect(fitTitleToCapacity("世界你好", 7)).toBe(`世界你${ELLIPSIS}`);
+		expect(displayWidth(fitTitleToCapacity("世界你好", 7))).toBeLessThanOrEqual(7);
+	});
+
+	it("leaves the odd cell empty rather than cut a wide glyph in half", () => {
+		// Budget is 5 cells for the text: two glyphs (4), the third would take 6.
+		expect(fitTitleToCapacity("世界你好", 6)).toBe(`世界${ELLIPSIS}`);
+	});
+
+	it("draws the ellipsis alone when no wide glyph fits beside it", () => {
+		expect(fitTitleToCapacity("世界", 2)).toBe(ELLIPSIS);
+		expect(fitTitleToCapacity("世界", 1)).toBe(ELLIPSIS);
+	});
+
+	it("keeps an emoji title that fits and cuts one that does not, by cells", () => {
+		expect(fitTitleToCapacity("🚀🚀🚀", 6)).toBe("🚀🚀🚀");
+		expect(fitTitleToCapacity("🚀🚀🚀", 5)).toBe(`🚀🚀${ELLIPSIS}`);
+	});
+
+	it("never splits a multi-code-point emoji", () => {
+		const family = "👨‍👩‍👧";
+		expect(fitTitleToCapacity(`ab${family}cd`, 4)).toBe(`ab${ELLIPSIS}`);
+		expect(fitTitleToCapacity(`ab${family}cd`, 5)).toBe(`ab${family}${ELLIPSIS}`);
+	});
+
+	it("counts a mixed title by cells", () => {
+		// a b 世 c 🚀 d = 1+1+2+1+2+1 = 8 cells.
+		expect(fitTitleToCapacity("ab世c🚀d", 8)).toBe("ab世c🚀d");
+		expect(fitTitleToCapacity("ab世c🚀d", 7)).toBe(`ab世c${ELLIPSIS}`);
+		expect(fitTitleToCapacity("ab世c🚀d", 4)).toBe(`ab${ELLIPSIS}`);
+	});
+
+	it("does not leave a space in front of the ellipsis after a wide glyph", () => {
+		expect(fitTitleToCapacity("世 界界", 5)).toBe(`世${ELLIPSIS}`);
 	});
 });
 
@@ -80,12 +126,43 @@ describe.each(BARS)("windowTitle: %s", (chrome) => {
 		expect(windowTitle("demo.ts", chrome, 10, 1)).toBe("");
 	});
 
+	it.each([
+		["CJK", "世界你好，世界你好，世界你好，世界你好"],
+		["emoji", "🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀"],
+		["mixed", "fix(路由): 🚀 count every slash 世界 and more"],
+	])("fits a %s title by the cells it draws, ellipsis included", (_name, title) => {
+		const capacity = 15;
+		const drawn = windowTitle(title, chrome, widthFor(chrome, capacity, 1), 1);
+		expect(windowTitleCapacity(chrome, widthFor(chrome, capacity, 1), 1)).toBe(capacity);
+		expect(drawn.endsWith(ELLIPSIS)).toBe(true);
+		expect(displayWidth(drawn)).toBeLessThanOrEqual(capacity);
+		// The next glyph would not have fitted: the cut leaves under one glyph spare.
+		expect(displayWidth(drawn)).toBeGreaterThan(capacity - 2);
+	});
+
+	it("keeps a wide title that fills the room exactly", () => {
+		expect(windowTitle("世界你好", chrome, widthFor(chrome, 8, 1), 1)).toBe("世界你好");
+	});
+
 	it("gives the same characters at every scale", () => {
 		for (const unit of [1, 2.2, 4.4]) {
 			expect(windowTitle(PR_TITLE, chrome, widthFor(chrome, 30, 1) * unit, unit)).toBe(
 				windowTitle(PR_TITLE, chrome, widthFor(chrome, 30, 1), 1),
 			);
 		}
+	});
+});
+
+describe("trackingEm", () => {
+	it("reads the em fraction of a CSS tracking", () => {
+		expect(trackingEm("-0.02em")).toBeCloseTo(-0.02, 9);
+		expect(trackingEm("0.05em")).toBeCloseTo(0.05, 9);
+	});
+
+	it('counts "normal", or anything it cannot read, as no tracking, never NaN', () => {
+		expect(trackingEm("normal")).toBe(0);
+		expect(trackingEm("")).toBe(0);
+		expect(trackingEm("inherit")).toBe(0);
 	});
 });
 
