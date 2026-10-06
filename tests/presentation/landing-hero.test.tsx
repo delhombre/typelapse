@@ -117,6 +117,25 @@ describe("landing hero", () => {
 	});
 });
 
+/* #172: on a 390px phone the pull request's address was cut at the field's edge
+   and read "https://github.com/o". A placeholder is never wrapped, so it has to
+   be short enough to be read whole where the field is narrowest (about 17
+   monospace characters at 360px); the e2e journey measures it in the browser. */
+describe("landing hero, the placeholders", () => {
+	it.each(["pull request", "diff", "snippet"])(
+		"keeps the %s placeholder short enough to read whole",
+		(mode) => {
+			renderHero();
+			fireEvent.click(screen.getByRole("radio", { name: mode }));
+
+			const placeholder = (screen.getByRole("textbox") as HTMLTextAreaElement).placeholder;
+
+			expect(placeholder.length).toBeGreaterThan(0);
+			expect(placeholder.length).toBeLessThanOrEqual(16);
+		},
+	);
+});
+
 describe("landing hero, the meta line", () => {
 	it("keeps each fact whole when the line wraps", () => {
 		const { container } = renderHero();

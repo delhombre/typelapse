@@ -34,10 +34,17 @@ const MODES = ["pull request", "diff", "snippet"] as const;
 
 type Mode = (typeof MODES)[number];
 
+/**
+ * Short enough to be read whole on the narrowest phone. The field shares its row
+ * with the button, which leaves about 17 monospace characters at 360px, and a
+ * placeholder is cut at the edge rather than wrapped: the pull request's address
+ * used to read "https://github.com/o". The log under the field shows real
+ * addresses, so the placeholder says what to do instead of imitating one.
+ */
 const PLACEHOLDERS: Record<Mode, string> = {
-	"pull request": "https://github.com/owner/repo/pull/1247",
+	"pull request": "Paste a PR link",
 	diff: "@@ -1,6 +1,10 @@",
-	snippet: "const users = await db.users.all()",
+	snippet: "db.users.all()",
 };
 
 /**

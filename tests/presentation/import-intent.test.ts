@@ -47,6 +47,20 @@ describe("import intent link", () => {
 		expect(/[+/=]/.test(hash.slice("#import=".length))).toBe(false);
 	});
 
+	it("round-trips an 8,000-line paste through the stash", () => {
+		const source = Array.from({ length: 8000 }, (_, i) => `const value${i} = compute(${i});`).join(
+			"\n",
+		);
+
+		const hash = encodeImportIntent({ source });
+		// Too big for a URL, so it waits in sessionStorage behind a marker.
+		expect(hash).toBe("#import=~");
+		land(hash);
+
+		expect(takeImportIntent()?.source).toBe(source);
+		expect(window.sessionStorage.getItem(IMPORT_INTENT_STASH_KEY)).toBeNull();
+	});
+
 	it("consumes the intent, so a re-read finds nothing", () => {
 		land(encodeImportIntent({ source: "github.com/o/r/pull/7" }));
 		expect(takeImportIntent()).not.toBeNull();
