@@ -10,7 +10,7 @@ import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
 import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
 import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { hasEmptyDraft, useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
@@ -30,6 +30,7 @@ export function StepBuilder() {
 	// Field by field: the whole store changes on every playback tick.
 	const snippet = useSnippetStore((s) => s.snippet);
 	const captureStep = useSnippetStore((s) => s.captureStep);
+	const emptyDraft = useSnippetStore(hasEmptyDraft);
 	const addBlankScene = useSnippetStore((s) => s.addBlankScene);
 	const updateStepDuration = useSnippetStore((s) => s.updateStepDuration);
 	const reorderSteps = useSnippetStore((s) => s.reorderSteps);
@@ -149,7 +150,7 @@ export function StepBuilder() {
 				<div className="flex items-center gap-2">
 					<RecordButton />
 					<BlankSceneButton onAdd={addBlankScene} />
-					<CaptureButton onCapture={captureStep} />
+					<CaptureButton onCapture={captureStep} disabled={emptyDraft} />
 				</div>
 			</div>
 
@@ -326,6 +327,7 @@ export function SceneInspector() {
 	const steps = useSnippetStore((state) => state.snippet.steps);
 	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
 	const captureStep = useSnippetStore((state) => state.captureStep);
+	const emptyDraft = useSnippetStore(hasEmptyDraft);
 	const addBlankScene = useSnippetStore((state) => state.addBlankScene);
 	const composition = useStudioCompositionStore();
 	const selectedAudioCueId = useStudioCompositionSelectionStore(
@@ -356,7 +358,7 @@ export function SceneInspector() {
 						<div className="flex shrink-0 items-center gap-2">
 							<RecordButton />
 							<BlankSceneButton onAdd={addBlankScene} />
-							<CaptureButton onCapture={captureStep} />
+							<CaptureButton onCapture={captureStep} disabled={emptyDraft} />
 						</div>
 					)}
 				</div>
@@ -433,17 +435,18 @@ function BlankSceneButton({ onAdd }: { onAdd: () => void }) {
 	);
 }
 
-function CaptureButton({ onCapture }: { onCapture: () => void }) {
+function CaptureButton({ onCapture, disabled }: { onCapture: () => void; disabled: boolean }) {
 	return (
 		<motion.button
 			type="button"
+			disabled={disabled}
 			onClick={() => {
 				onCapture();
 				feedback("commit");
 			}}
 			whileTap={{ scale: 0.97 }}
 			transition={springs.snappy}
-			className="flex h-8 items-center pointer-coarse:h-11 gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition-[border-color,background-color,color] duration-150 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+			className="flex h-8 items-center pointer-coarse:h-11 gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition-[border-color,background-color,color] duration-150 disabled:pointer-events-none disabled:opacity-40 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
 		>
 			<Add size={12} strokeWidth={1.8} aria-hidden="true" />
 			Capture

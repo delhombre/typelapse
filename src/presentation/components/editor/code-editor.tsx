@@ -42,6 +42,9 @@ const PREVIEW_THEME_MAP: Record<string, { base: "vs" | "vs-dark"; bg: string; fg
 export function CodeEditor() {
 	// Field by field: the whole store changes on every playback tick.
 	const snippet = useSnippetStore((s) => s.snippet);
+	// What the editor holds: its own emptiness while it is empty, which the snippet
+	// cannot carry, else the snippet's code.
+	const draft = useSnippetStore((s) => s.draft);
 	const setCode = useSnippetStore((s) => s.setCode);
 	const syncEditorTheme = useSnippetStore((s) => s.syncEditorTheme);
 	const isDark = useThemeModeStore((s) => s.mode === "dark");
@@ -179,7 +182,8 @@ export function CodeEditor() {
 		if (!model) {
 			return;
 		}
-		const current = useSnippetStore.getState().snippet.code;
+		const { draft: emptied, snippet: held } = useSnippetStore.getState();
+		const current = emptied ?? held.code;
 		if (model.getValue() !== current) {
 			model.setValue(current);
 		}
@@ -225,7 +229,7 @@ export function CodeEditor() {
 			>
 				<Suspense fallback={EDITOR_LOADING}>
 					<Editor
-						value={snippet.code}
+						value={draft ?? snippet.code}
 						language={editorLanguage}
 						path={editorPath}
 						theme={editorTheme}

@@ -446,12 +446,8 @@ export function LivePreview() {
 		? playbackProgress
 		: (Math.min(currentStepIndex, Math.max(segments - 1, 0)) + 1) / Math.max(segments, 1);
 
-	const isEmpty = snippet.code.trim() === "" && snippet.steps.length === 0;
-	if (isEmpty && !isBuilding) {
-		return <EmptyState />;
-	}
 	if (!plan || plan.frames.length === 0) {
-		return <EmptyState building />;
+		return <EmptyState />;
 	}
 
 	// A title card first is typed past: the first scene with code is typed.
@@ -895,7 +891,7 @@ function staticView(
 	};
 }
 
-function EmptyState({ building = false }: { building?: boolean }) {
+function EmptyState() {
 	return (
 		<div className="flex h-full flex-col items-center justify-center gap-3 text-neutral-500 dark:text-neutral-400">
 			<svg
@@ -911,9 +907,7 @@ function EmptyState({ building = false }: { building?: boolean }) {
 				<polyline points="16 18 22 12 16 6" />
 				<polyline points="8 6 2 12 8 18" />
 			</svg>
-			<span className="text-xs">
-				{building ? "Preparing preview…" : "Write code to see the preview"}
-			</span>
+			<span className="text-xs">Preparing preview…</span>
 		</div>
 	);
 }

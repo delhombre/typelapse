@@ -1,4 +1,5 @@
 import { migrateV1ToV2 } from "@/application/project/migrate-v1-project";
+import { Snippet } from "@/domain/entities/snippet";
 import { MAX_ANNOTATION_LENGTH } from "@/domain/entities/step";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -205,9 +206,9 @@ describe("snippet store record mode", () => {
 		vi.advanceTimersByTime(1500);
 		expect(stepCount()).toBe(before);
 
-		// Blank code is rejected at the source (Snippet.create), so a blank editor
-		// can never produce a recorded step even while armed.
-		expect(() => store.setCode("   ")).toThrow();
+		// A blank editor is a draft, not a snippet: it can never produce a recorded
+		// step even while armed.
+		store.setCode("   ");
 		vi.advanceTimersByTime(1500);
 		expect(stepCount()).toBe(before);
 	});
@@ -554,5 +555,155 @@ describe("snippet store importChapters", () => {
 		const after = useSnippetStore.getState().snippet;
 		expect(after).toBe(before);
 		expect(after.steps).toHaveLength(2);
+	});
+});
+
+/**
+ * A snippet always has code (the domain says so), but the editor is allowed to
+ * be empty on the way to the next thing typed. The store holds that emptiness
+ * as a draft beside the snippet instead of letting it reach Snippet.create:
+ * #168, decision D2 of the verify gate's findings.
+ */
+describe("snippet store: an emptied editor is a draft", () => {
+	const LIVE = "const a = 1;";
+	const NO_STEPS = JSON.stringify({
+		title: "draft",
+		code: LIVE,
+		language: "typescript",
+		themeName: "midnight",
+		steps: [],
+	});
+
+	beforeEach(() => {
+		vi.useFakeTimers();
+		useSnippetStore.getState().stopRecording();
+		useSnippetStore.getState().importFromJson(NO_STEPS);
+	});
+
+	afterEach(() => {
+		useSnippetStore.getState().stopRecording();
+		vi.restoreAllMocks();
+		vi.useRealTimers();
+	});
+
+	const state = () => useSnippetStore.getState();
+
+	it("takes an empty value without throwing, and the snippet keeps its code", () => {
+		expect(() => state().setCode("")).not.toThrow();
+
+		expect(state().draft).toBe("");
+		expect(state().snippet.code).toBe(LIVE);
+	});
+
+	it("treats whitespace alone as empty, exactly as Snippet does", () => {
+		state().setCode("  \n\t ");
+
+		expect(state().draft).toBe("  \n\t ");
+		expect(state().snippet.code).toBe(LIVE);
+	});
+
+	it("never reaches Snippet.create while the draft is empty", () => {
+		const create = vi.spyOn(Snippet, "create");
+
+		state().setCode("");
+		state().setCode("   ");
+
+		expect(create).not.toHaveBeenCalled();
+	});
+
+	it("resumes exactly as before when something is typed again", () => {
+		state().setCode("");
+
+		state().setCode("const b = 2;");
+
+		expect(state().draft).toBeNull();
+		expect(state().snippet.code).toBe("const b = 2;");
+	});
+
+	it("shows an empty card, not the previous code, while the draft is empty", () => {
+		state().setCode("");
+
+		const plan = state().plan;
+		expect(plan?.frames).toHaveLength(1);
+		expect(plan?.frames[0]?.tokens).toEqual([]);
+		expect(state().isBuilding).toBe(false);
+	});
+
+	it("keeps the scenes' own plan when scenes exist: the live code is not on screen", () => {
+		useSnippetStore.getState().importFromJson(BASE);
+		const before = state().plan;
+
+		state().setCode("");
+
+		expect(state().plan).toBe(before);
+		expect(state().snippet.steps).toHaveLength(2);
+	});
+
+	it("captures nothing while the draft is empty, whoever asks", () => {
+		state().setCode("");
+
+		state().captureStep();
+
+		expect(state().snippet.steps).toHaveLength(0);
+	});
+
+	it("captures again once code is back", () => {
+		state().setCode("");
+		state().setCode("const c = 3;");
+
+		state().captureStep();
+
+		expect(state().snippet.steps.map((step) => step.code)).toEqual(["const c = 3;"]);
+	});
+
+	it("is cleared by anything that replaces the whole snippet", () => {
+		state().setCode("");
+		state().importSnippet("const d = 4;");
+		expect(state().draft).toBeNull();
+
+		state().setCode("");
+		state().importFromJson(NO_STEPS);
+		expect(state().draft).toBeNull();
+	});
+
+	describe("while recording", () => {
+		it("anchors no baseline on an empty draft", () => {
+			state().setCode("");
+
+			state().startRecording();
+
+			expect(state().snippet.steps).toHaveLength(0);
+			expect(state().isRecording).toBe(true);
+		});
+
+		it("does not capture the previous code at the pause after emptying", () => {
+			state().startRecording();
+			const afterBaseline = state().snippet.steps.length;
+
+			state().setCode("");
+			vi.advanceTimersByTime(1500);
+
+			expect(state().snippet.steps).toHaveLength(afterBaseline);
+		});
+
+		it("does not flush the previous code when recording stops on an empty draft", () => {
+			state().startRecording();
+			const afterBaseline = state().snippet.steps.length;
+			state().setCode("");
+
+			state().stopRecording();
+
+			expect(state().snippet.steps).toHaveLength(afterBaseline);
+		});
+
+		it("resumes the debounce when typing starts again", () => {
+			state().startRecording();
+			state().setCode("");
+
+			state().setCode("const e = 5;");
+			vi.advanceTimersByTime(1500);
+
+			expect(state().snippet.steps.at(-1)?.code).toBe("const e = 5;");
+		});
 	});
 });

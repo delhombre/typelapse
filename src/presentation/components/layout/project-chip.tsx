@@ -195,6 +195,7 @@ export function ProjectChip() {
 					spellCheck={false}
 					autoComplete="off"
 					placeholder="Untitled"
+					title={title || undefined}
 					aria-label="Project name"
 					className="sc-title"
 				/>

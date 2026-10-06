@@ -1,0 +1,42 @@
+import { expect, openStudio, test } from "./support/studio";
+
+/**
+ * An emptied editor is a draft (#168): the studio keeps working, the preview
+ * shows an empty card instead of the code that was deleted, and nothing is
+ * captured from it. Typing again picks up where it left off.
+ */
+test.describe("Studio editor emptied with Select all and Delete", () => {
+	test.use({ viewport: { width: 1440, height: 900 } });
+
+	test("throws nothing, empties the card, disables Capture, and resumes on typing", async ({
+		page,
+		consoleErrors,
+	}) => {
+		await openStudio(page);
+		const edit = page.getByRole("button", { name: "Edit", exact: true });
+		if ((await edit.getAttribute("aria-pressed")) !== "true") await edit.click();
+
+		const preview = page.getByTestId("preview-frame");
+		await expect(preview).toContainText("greet");
+
+		// A click on the first line is a click into the text, so the editor has the
+		// keyboard before the chord is pressed.
+		await page.locator("#studio-editor .view-line").first().click();
+		await expect(page.locator("#studio-editor .native-edit-context")).toBeFocused();
+		// Control, not ControlOrMeta: the "Desktop Chrome" device presents a Windows
+		// user agent, so Monaco binds Select all to Control on every host.
+		await page.keyboard.press("Control+a");
+		await page.keyboard.press("Delete");
+
+		await expect(preview).not.toContainText("greet");
+		await expect(page.getByRole("button", { name: "Add scene" })).toBeDisabled();
+		await expect(page.getByRole("button", { name: "Capture", exact: true })).toBeDisabled();
+		expect(consoleErrors).toEqual([]);
+
+		await page.keyboard.type("const answer = 42;");
+		await expect(preview).toContainText("answer");
+		await expect(page.getByRole("button", { name: "Add scene" })).toBeEnabled();
+		await expect(page.getByRole("button", { name: "Capture", exact: true })).toBeEnabled();
+		expect(consoleErrors).toEqual([]);
+	});
+});
