@@ -2,6 +2,7 @@ import type { Highlighter } from "shiki";
 import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
 import type { MagicMovePlan } from "../../src/application/magic-move/engine";
 import { planMagicMove } from "../../src/application/magic-move/plan";
+import { keepGlyphsWhole } from "../../src/application/magic-move/whole-glyph-diff";
 
 /**
  * Server twin of the client magic-move keyer: the same plan walk
@@ -22,7 +23,12 @@ export function buildServerMagicMovePlan(
 ): MagicMovePlan {
 	const options = { lang, theme: shikiTheme } as Parameters<typeof highlighter.codeToTokens>[1];
 	// Keep unchanged code stable across a morph; only edited tokens enter/leave.
-	const diffOptions = { enhanceMatching: true, splitTokens: true } as const;
+	// Diff edges move onto glyph edges, so a cut never halves an emoji.
+	const diffOptions = {
+		enhanceMatching: true,
+		splitTokens: true,
+		diffCleanup: keepGlyphsWhole,
+	} as const;
 	return planMagicMove(
 		codes,
 		{

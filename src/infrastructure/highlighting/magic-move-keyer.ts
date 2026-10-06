@@ -1,5 +1,6 @@
 import type { MagicMovePlan } from "@/application/magic-move/engine";
 import { planMagicMove } from "@/application/magic-move/plan";
+import { keepGlyphsWhole } from "@/application/magic-move/whole-glyph-diff";
 import type { BundledLanguage, Highlighter } from "shiki";
 import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
 import type { KeyedTokensInfo } from "shiki-magic-move/types";
@@ -65,7 +66,12 @@ export function buildMagicMovePlan(
 	};
 	// Match same-content tokens and split at diff edges so unchanged code stays
 	// put (no flicker) and only the genuinely edited tokens enter/leave.
-	const diffOptions = { enhanceMatching: true, splitTokens: true } as const;
+	// Diff edges move onto glyph edges, so a cut never halves an emoji.
+	const diffOptions = {
+		enhanceMatching: true,
+		splitTokens: true,
+		diffCleanup: keepGlyphsWhole,
+	} as const;
 	return planMagicMove(
 		codes,
 		{

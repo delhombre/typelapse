@@ -106,6 +106,7 @@ export function ProjectChip() {
 	const title = useSnippetStore((s) => s.snippet.title);
 	const setTitle = useSnippetStore((s) => s.setTitle);
 	const steps = useSnippetStore((s) => s.snippet.steps.length);
+	const [blankDraft, setBlankDraft] = useState<string | null>(null);
 	const [open, setOpen] = useState(false);
 	const [library, setLibrary] = useState(readLocalProjects);
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -182,10 +183,25 @@ export function ProjectChip() {
 				</StudioTooltip>
 				<input
 					type="text"
-					value={title}
-					onChange={(event) => setTitle(event.target.value)}
-					// The name saves as it is typed, so Enter only has to put the
-					// keyboard away.
+					value={blankDraft ?? title}
+					onChange={(event) => {
+						// A real name saves as it is typed. A blank one is only a draft:
+						// the field may be emptied to type over, and it settles on blur.
+						const value = event.target.value;
+						if (value.trim() === "") {
+							setBlankDraft(value);
+							return;
+						}
+						setBlankDraft(null);
+						setTitle(value);
+					}}
+					onBlur={() => {
+						if (blankDraft !== null) {
+							setTitle(blankDraft);
+							setBlankDraft(null);
+						}
+					}}
+					// Enter only has to put the keyboard away; the blur settles the name.
 					onKeyDown={(event) => {
 						if (event.key === "Enter") {
 							event.currentTarget.blur();

@@ -118,6 +118,42 @@ describe("the project name as a field", () => {
 	});
 });
 
+describe("the project name when it is emptied", () => {
+	it("lets the field go blank while typing, and reverts to Untitled on blur without throwing", () => {
+		open(payload("Alpha"));
+		const name = screen.getByRole("textbox", { name: "Project name" }) as HTMLInputElement;
+
+		name.focus();
+		fireEvent.change(name, { target: { value: "" } });
+		expect(name.value).toBe("");
+		expect(useSnippetStore.getState().snippet.title).toBe("Alpha");
+
+		expect(() => fireEvent.blur(name)).not.toThrow();
+		expect(useSnippetStore.getState().snippet.title).toBe("Untitled");
+		expect(name.value).toBe("Untitled");
+	});
+
+	it("reverts a spaces-only name on Enter", () => {
+		open(payload("Alpha"));
+		const name = screen.getByRole("textbox", { name: "Project name" }) as HTMLInputElement;
+
+		name.focus();
+		fireEvent.change(name, { target: { value: "   " } });
+		fireEvent.keyDown(name, { key: "Enter" });
+
+		expect(useSnippetStore.getState().snippet.title).toBe("Untitled");
+		expect(name.value).toBe("Untitled");
+	});
+
+	it("still saves a real name as it is typed", () => {
+		open(payload("Alpha"));
+		const name = screen.getByRole("textbox", { name: "Project name" }) as HTMLInputElement;
+
+		fireEvent.change(name, { target: { value: "Beta" } });
+		expect(useSnippetStore.getState().snippet.title).toBe("Beta");
+	});
+});
+
 describe("ProjectChip name", () => {
 	it("keeps the whole title for a hover, since a long one ends in an ellipsis (#167)", () => {
 		const title = "fix(trie-router): count every slash a pattern consumes";

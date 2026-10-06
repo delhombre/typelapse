@@ -81,6 +81,13 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
   the top; a step that changes nothing keeps the window where it was
   (`magic-move/window`). The three renderers scroll between windows on the
   morph's easing; a file that fits the window never scrolls.
+- **Display cell**: the unit of a column on the magic-move grid, counted the
+  way a terminal does (`text/display-width`): a CJK character, a fullwidth
+  form or an emoji takes two cells, a combining mark or joiner none,
+  everything else one. The engine places tokens by cells; the three renderers
+  draw each wide glyph centred on its two cells, so the next token never
+  paints over it. Diff edges move onto glyph edges (`whole-glyph-diff`), so a
+  morph never cuts an emoji in half.
 
 Shared math lives in `src/application`. A visual feature lands in all three
 or it does not land.

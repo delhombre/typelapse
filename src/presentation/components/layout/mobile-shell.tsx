@@ -10,6 +10,7 @@ import { StudioLayerStrip } from "@/presentation/components/editor/studio-layer-
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useDockFollowsSheet } from "@/presentation/hooks/use-dock-follows-sheet";
 import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
+import { usePhoneDockRoom } from "@/presentation/hooks/use-phone-dock-room";
 import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { motion } from "motion/react";
@@ -87,7 +88,9 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const wantedRef = useRef(wanted);
 	wantedRef.current = wanted;
 	const stopBeforePanel = useRef<PhoneSheetStop | null>(null);
+	const [panelOpen, setPanelOpen] = useState(false);
 	const onPanelOpenChange = useCallback((open: boolean) => {
+		setPanelOpen(open);
 		if (open) {
 			// Only the first open lowers the sheet: switching tabs while a panel is open
 			// fires this again, and a stop the hand chose meanwhile stays.
@@ -112,6 +115,10 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const [sheetElement, setSheetElement] = useState<HTMLElement | null>(null);
 	const dockRef = useRef<HTMLDivElement>(null);
 	useDockFollowsSheet(sheetElement, dockRef, sheet);
+	// An island panel is capped to the room between the frame and the screen's
+	// foot, which the stage and the dock share (application/layout/phone-panel.ts).
+	const stageRef = useRef<HTMLDivElement>(null);
+	usePhoneDockRoom(stageRef, dockRef, viewport, stop, panelOpen);
 	const contentId = useId();
 	const isPeek = stop === "peek";
 	const editorKind = useEditorKind();
@@ -134,7 +141,9 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				{/* The frame is the video's own shape here too: a phone used to get
 				    the bare card, so a 16:9 export previewed as a wide strip. */}
 				<StudioVideoModeProvider active>
-					<div className="sc-stage">{preview}</div>
+					<div className="sc-stage" ref={stageRef}>
+						{preview}
+					</div>
 				</StudioVideoModeProvider>
 			</div>
 

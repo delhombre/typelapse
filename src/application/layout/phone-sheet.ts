@@ -20,7 +20,7 @@ const SCENES_SHARE = 0.55;
 const ROW_MARGIN = 10;
 const ROW_HEIGHT = 40;
 /** Between the row and the frame, and between the row and the full sheet. */
-const STAGE_TOP_GAP = 18;
+export const STAGE_TOP_GAP = 18;
 const FULL_TOP_GAP = 8;
 /** Between the instrument and the sheet's top edge it floats on. */
 const DOCK_GAP = 12;

@@ -7,7 +7,11 @@ import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { saveJsonFile } from "@/presentation/utils/save-json-file";
-import { copyToClipboard, decodeShareLink, encodeShareLink } from "@/presentation/utils/share-link";
+import {
+	copyToClipboard,
+	encodeShareLink,
+	openShareLinkOnBoot,
+} from "@/presentation/utils/share-link";
 import { studioProjectFileJson } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -37,18 +41,7 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 
 	// Load from share link on mount
 	useEffect(() => {
-		const shareData = decodeShareLink();
-		if (shareData) {
-			try {
-				// importFromJson restores the export-store settings (tempo, zoom,
-				// typewriter, progress style) from the same snapshot, so no manual
-				// re-application is needed here.
-				importFromJson(JSON.stringify(shareData));
-				history.replaceState(null, "", window.location.pathname);
-			} catch {
-				// Invalid share data
-			}
-		}
+		openShareLinkOnBoot(importFromJson);
 	}, [importFromJson]);
 
 	useEffect(() => {

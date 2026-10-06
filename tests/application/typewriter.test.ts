@@ -1,5 +1,6 @@
 import type { RawToken } from "@/application/magic-move/engine";
 import {
+	keystrokeCount,
 	layoutTypingTokens,
 	renderTyping,
 	typedCharCount,
@@ -54,6 +55,44 @@ describe("renderTyping", () => {
 		const multi = "a\nb";
 		const laid = layoutTypingTokens(multi, [raw("a", "a", 0), raw("b", "b", 2)]);
 		expect(renderTyping(multi, laid, 3).cursor).toMatchObject({ line: 1, col: 1 });
+	});
+});
+
+describe("renderTyping with wide characters", () => {
+	it("puts the caret after a wide glyph on its second cell's far edge", () => {
+		const code = 's = "世界";';
+		const laid = layoutTypingTokens(code, [
+			raw("s", "s", 0),
+			raw("eq", "=", 2),
+			raw("str", '"世界"', 4),
+			raw("semi", ";", 8),
+		]);
+		// `"` at 4, 世 at 5-6, 界 at 7-8: after 界 the caret is on cell 9.
+		expect(renderTyping(code, laid, 7).cursor).toMatchObject({ line: 0, col: 9 });
+		expect(renderTyping(code, laid, 9).cursor).toMatchObject({ line: 0, col: 11 });
+	});
+
+	it("types a glyph per keystroke: an emoji is one key, never half of one", () => {
+		const code = "a🚀b";
+		const laid = layoutTypingTokens(code, [raw("a", "a", 0), raw("r", "🚀", 1), raw("b", "b", 3)]);
+		expect(keystrokeCount(code)).toBe(3);
+		const view = renderTyping(code, laid, 2);
+		expect(view.tokens.map((token) => token.content)).toEqual(["a", "🚀"]);
+		expect(view.cursor).toMatchObject({ col: 3 });
+		expect(renderTyping(code, laid, 3).tokens.map((token) => token.content)).toEqual([
+			"a",
+			"🚀",
+			"b",
+		]);
+	});
+
+	it("counts the #188 sample in keystrokes, one per glyph", () => {
+		const sample = 'const msg = "こんにちは世界 🚀 naïve café";';
+		// 36 UTF-16 units; the rocket is one key, not two.
+		expect(sample.length).toBe(36);
+		expect(keystrokeCount(sample)).toBe(35);
+		expect(keystrokeCount("abc")).toBe(3);
+		expect(keystrokeCount("cafe\u0301")).toBe(4);
 	});
 });
 

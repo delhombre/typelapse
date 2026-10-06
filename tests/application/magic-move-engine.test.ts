@@ -4,6 +4,7 @@ import {
 	clamp01,
 	easeInOutCubic,
 	frameLineCount,
+	gridPositions,
 	layoutFrame,
 	renderStatic,
 	renderTransition,
@@ -54,6 +55,87 @@ describe("layoutFrame", () => {
 		]);
 
 		expect(token).toMatchObject({ color: "#f00", fontStyle: 2 });
+	});
+});
+
+/**
+ * The sample from #188: CJK and an emoji are two cells wide in a monospace
+ * face, a decomposed-free Latin accent is one. Offsets are UTF-16 indices, the
+ * way Shiki reports them; columns are display cells.
+ */
+const WIDE_SAMPLE = 'const msg = "こんにちは世界 🚀 naïve café";';
+const WIDE_CONTENT = "こんにちは世界 🚀 naïve café";
+
+function wideSampleTokens(): RawToken[] {
+	const close = 13 + WIDE_CONTENT.length;
+	return [
+		raw("const", "const", 0),
+		raw("msg", "msg", 6),
+		raw("eq", "=", 10),
+		raw("open", '"', 12),
+		raw("text", WIDE_CONTENT, 13),
+		raw("close", '"', close),
+		raw("semi", ";", close + 1),
+	];
+}
+
+describe("layoutFrame with wide characters", () => {
+	it('starts the `;` on the cell after `café"`, counting CJK and emoji twice', () => {
+		const laid = layoutFrame(WIDE_SAMPLE, wideSampleTokens());
+		const col = (key: string) => laid.find((token) => token.key === key)?.col;
+
+		expect(col("text")).toBe(13);
+		// 7 ideographs and kana (14) + space + rocket (2) + space + "naïve café" (10)
+		expect(col("close")).toBe(13 + 28);
+		expect(col("semi")).toBe(13 + 28 + 1);
+	});
+
+	it("never places the half of a surrogate pair on a column of its own", () => {
+		const positions = gridPositions("a🚀b");
+		expect(positions.map((pos) => pos.col)).toEqual([0, 1, 1, 3, 4]);
+	});
+
+	it("starts the next line after a newline that follows a dangling joiner", () => {
+		const positions = gridPositions("x\u200d\ny");
+		expect(positions[3]).toEqual({ line: 1, col: 0 });
+	});
+
+	it("puts a quote after a dangling joiner on a cell of its own", () => {
+		// `"`, the man (two cells, the joiner on it), `"`, `;`.
+		const positions = gridPositions('"👨\u200d";');
+		expect(positions.map((pos) => pos.col)).toEqual([0, 1, 1, 1, 3, 4, 5]);
+	});
+
+	it("keeps a decomposed accent on its letter", () => {
+		const positions = gridPositions("e\u0301x");
+		expect(positions.map((pos) => pos.col)).toEqual([0, 0, 1, 2]);
+	});
+});
+
+describe("renderTransition with wide characters", () => {
+	it("glides a shared token from its cell column to its new one", () => {
+		const from = layoutFrame('a = "世界";', [
+			raw("a", "a", 0),
+			raw("eq", "=", 2),
+			raw("str", '"世界"', 4),
+			raw("semi", ";", 8),
+		]);
+		const to = layoutFrame('abc = "世界";', [
+			raw("abc", "abc", 0),
+			raw("eq", "=", 4),
+			raw("str", '"世界"', 6),
+			raw("semi", ";", 10),
+		]);
+		const semi = (t: number) =>
+			renderTransition(from, to, t, { stagger: 0 }).find((token) => token.key === "semi");
+
+		// `"世界"` is six cells: the `;` sits at 4 + 6 and then 6 + 6.
+		expect(semi(0)?.col).toBe(10);
+		expect(semi(1)?.col).toBe(12);
+		const mid = semi(0.3)?.col ?? 0;
+		expect(mid).toBeGreaterThan(10);
+		expect(mid).toBeLessThan(12);
+		expect(semi(0.3)?.opacity).toBe(1);
 	});
 });
 

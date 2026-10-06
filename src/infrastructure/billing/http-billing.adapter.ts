@@ -55,11 +55,32 @@ function billingPrice(value: unknown): { currency: string; unitAmount: number } 
 	return { currency: value.currency, unitAmount: value.unitAmount };
 }
 
+const HEALTH_TIMEOUT_MS = 4000;
+
 /** Browser adapter for the server-authoritative billing API (Polar behind it). */
 export class HttpBillingAdapter implements BillingPort {
 	// The default wraps fetch rather than storing it: called as `this.fetcher(...)`
 	// a bare window.fetch throws "Illegal invocation" in every browser.
 	constructor(private readonly fetcher: typeof fetch = (input, init) => fetch(input, init)) {}
+
+	/**
+	 * The server's own capability read. Anything but a clear "billing: false"
+	 * (an unreachable server, an odd body) leaves billing assumed, so a failed
+	 * probe never hides a billing that works.
+	 */
+	async isConfigured(): Promise<boolean> {
+		try {
+			// A hung read must not keep a paying account on the Free default.
+			const response = await this.fetcher("/api/health", {
+				signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+			});
+			const body = response.ok ? await response.json().catch(() => null) : null;
+			const capabilities = isRecord(body) ? body.capabilities : undefined;
+			return !(isRecord(capabilities) && capabilities.billing === false);
+		} catch {
+			return true;
+		}
+	}
 
 	async getCatalog(): Promise<BillingCatalog> {
 		const response = await this.fetcher("/api/billing/catalog", { credentials: "include" });

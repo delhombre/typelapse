@@ -30,6 +30,12 @@ describe("widestColumn", () => {
 	it("returns 0 for a plan with no tokens", () => {
 		expect(widestColumn({ frames: [] })).toBe(0);
 	});
+
+	it("counts a token's display cells, so a wide glyph widens the card by two", () => {
+		const wide = { frames: [{ lineCount: 1, tokens: [{ col: 4, content: '"世界 🚀"' }] }] };
+		// quote + 2 ideographs (4) + space + rocket (2) + quote = 9 cells, not 7 code units.
+		expect(widestColumn(wide)).toBe(4 + 9);
+	});
 });
 
 describe("tallestFrame", () => {

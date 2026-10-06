@@ -19,7 +19,7 @@ import {
 	hasAuthoredMultimedia,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { Camera } from "reicon-react";
 import { RENDER_BUSY_LABELS, useCloudRenderCta, useCloudTarget } from "./cloud-render";
 import {
@@ -79,6 +79,15 @@ const PROGRESS_LABELS: Record<(typeof PROGRESS_STYLES)[number], string> = {
 };
 
 export function ClusterPanel({ cluster }: { cluster: ClusterId }) {
+	return (
+		<>
+			<OpensAtTop />
+			<ClusterControls cluster={cluster} />
+		</>
+	);
+}
+
+function ClusterControls({ cluster }: { cluster: ClusterId }) {
 	if (cluster === "frame") {
 		return <FrameCluster />;
 	}
@@ -89,6 +98,25 @@ export function ClusterPanel({ cluster }: { cluster: ClusterId }) {
 		return <MotionCluster />;
 	}
 	return <ExportCluster />;
+}
+
+/**
+ * A tab opens at its top. On the phone the panel's body scrolls, and the tabs
+ * swap in the same body, so one scrolled to its end would hand the next its
+ * offset and open it with its first rows above the fold.
+ */
+function OpensAtTop() {
+	// Stable, so React attaches it once, when the tab mounts, and not again on
+	// every render of the panel: a callback ref made inline is a new function
+	// each time, and would throw a scrolled panel back to its top whenever a
+	// control in it changed a store.
+	const toTop = useCallback((marker: HTMLSpanElement | null) => {
+		const body = marker?.closest(".si-sheet-body");
+		if (body) {
+			body.scrollTop = 0;
+		}
+	}, []);
+	return <span hidden ref={toTop} />;
 }
 
 /* ─────────────────────────────── Frame ─────────────────────────────── */

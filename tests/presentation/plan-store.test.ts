@@ -130,6 +130,61 @@ describe("deployment-aware plan store", () => {
 		expect(navigate).toHaveBeenNthCalledWith(2, "https://sandbox.polar.sh/portal/session");
 	});
 
+	it("asks billing for nothing when the server says billing is off", async () => {
+		// Hosted without Polar: the capability read says so, and the catalog, plan,
+		// allowance and notice reads were four 503s in the console on every load.
+		const remote = billing({
+			isConfigured: vi.fn(async () => false),
+			getCatalog: vi.fn(),
+			getCurrentPlan: vi.fn(),
+			getAllowance: vi.fn(async () => "You are using 1 of 3 cloud projects."),
+			getNotice: vi.fn(),
+		});
+		const store = createPlanStore({ deploymentMode: "hosted", billing: remote });
+
+		await store.getState().refresh();
+
+		// The allowance does not depend on checkout: a signed-in Free account keeps it.
+		expect(store.getState().allowance).toBe("You are using 1 of 3 cloud projects.");
+		await store.getState().refresh({ signedIn: false });
+
+		expect(remote.getCatalog).not.toHaveBeenCalled();
+		expect(remote.getCurrentPlan).not.toHaveBeenCalled();
+		expect(remote.getAllowance).toHaveBeenCalledOnce();
+		expect(remote.getNotice).not.toHaveBeenCalled();
+		expect(store.getState().allowance).toBeNull();
+		expect(store.getState().billingAvailable).toBe(false);
+		expect(store.getState().plan.tier).toBe("free");
+		// One answer for the session: billing does not switch on while the page is open.
+		expect(remote.isConfigured).toHaveBeenCalledOnce();
+	});
+
+	it("reads billing as usual when the capability read itself rejects", async () => {
+		const remote = billing({
+			isConfigured: async () => Promise.reject(new Error("boom")),
+			getCurrentPlan: vi.fn(async () => Plan.pro()),
+		});
+		const store = createPlanStore({ deploymentMode: "hosted", billing: remote });
+
+		await store.getState().refresh();
+		await store.getState().refresh();
+
+		expect(store.getState().plan.tier).toBe("pro");
+	});
+
+	it("reads billing as usual when the server says it is configured", async () => {
+		const remote = billing({
+			isConfigured: async () => true,
+			getCurrentPlan: vi.fn(async () => Plan.pro()),
+		});
+		const store = createPlanStore({ deploymentMode: "hosted", billing: remote });
+
+		await store.getState().refresh();
+
+		expect(store.getState().billingAvailable).toBe(true);
+		expect(store.getState().plan.tier).toBe("pro");
+	});
+
 	it("keeps billing unavailable when the public catalog is not configured", async () => {
 		const store = createPlanStore({
 			deploymentMode: "hosted",

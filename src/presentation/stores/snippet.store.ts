@@ -620,7 +620,10 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	setTitle: (title: string) => {
-		set({ snippet: rebuildSnippet(get().snippet, { title }) });
+		// A blank name is not one: the title falls back to what a new project is called.
+		set({
+			snippet: rebuildSnippet(get().snippet, { title: title.trim() === "" ? "Untitled" : title }),
+		});
 	},
 
 	setTheme: (theme: Theme) => {

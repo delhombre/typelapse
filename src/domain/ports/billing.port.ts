@@ -39,6 +39,12 @@ export interface BillingPortalSession {
  * subscription, never how payments actually happen.
  */
 export interface BillingPort {
+	/**
+	 * Whether the server has billing configured at all. A hosted server without a
+	 * payment provider answers every billing read with a 503, so the client asks
+	 * once instead of probing. Absent, billing is assumed to be there.
+	 */
+	isConfigured?(): Promise<boolean>;
 	/** Public, provider-authoritative prices currently configured for sale. */
 	getCatalog(): Promise<BillingCatalog>;
 	/** Resolve the current plan for the user (defaults to Free). */

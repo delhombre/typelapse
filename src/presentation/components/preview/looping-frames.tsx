@@ -6,7 +6,8 @@ import {
 	renderTransition,
 } from "@/application/magic-move/engine";
 import { buildTimeline, locate } from "@/application/magic-move/timeline";
-import { renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
+import { keystrokeCount, renderTyping, typedCharCount } from "@/application/magic-move/typewriter";
+import { displayWidth } from "@/application/text/display-width";
 import type { Theme } from "@/domain/entities/theme";
 import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
 import {
@@ -143,7 +144,7 @@ export function LoopingFrames({
 		const resolve = (pos: ReturnType<typeof locate>) => {
 			if (typewriter && pos.phase === "hold" && pos.index === 0 && built.typing) {
 				const firstCode = frames[0] ?? "";
-				const reveal = typedCharCount(firstCode.length, pos.t);
+				const reveal = typedCharCount(keystrokeCount(firstCode), pos.t);
 				const { tokens, cursor } = renderTyping(firstCode, built.typing, reveal);
 				const lineCount = built.frames[0]?.lineCount ?? 1;
 				return { tokens, lineCount, lineNumberCount: lineCount, cursor };
@@ -239,7 +240,7 @@ export function LoopingFrames({
 	// width is therefore stated: the longest line across all frames, plus the
 	// gutter's own columns when it is shown.
 	const maxCols = frames.reduce(
-		(n, frame) => Math.max(n, ...frame.split("\n").map((line) => line.length)),
+		(n, frame) => Math.max(n, ...frame.split("\n").map((line) => displayWidth(line))),
 		0,
 	);
 	// `ch` resolves against the element's own font, so the wrapper has to carry

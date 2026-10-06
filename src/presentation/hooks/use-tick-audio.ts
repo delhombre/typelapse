@@ -3,7 +3,7 @@ import {
 	encodeWavBase64,
 	renderTickTrack,
 } from "@/application/audio/tick-synth";
-import { typingHoldIndex } from "@/application/magic-move/typewriter";
+import { keystrokeCount, typingHoldIndex } from "@/application/magic-move/typewriter";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { studioPlaybackTimeline, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect } from "react";
@@ -64,7 +64,7 @@ export function useTickAudio(): void {
 		const typewriterHoldIndex = typingHoldIndex(steps.map((s) => s.code));
 		const events = collectTickEvents({
 			typewriter,
-			firstCodeLength: steps[typewriterHoldIndex]?.code.length ?? 0,
+			firstCodeLength: keystrokeCount(steps[typewriterHoldIndex]?.code ?? ""),
 			holds,
 			transitionMs,
 			typewriterHoldIndex,
