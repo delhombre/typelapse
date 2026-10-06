@@ -19,6 +19,12 @@
 
 import { appendFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import {
+	resolveCommitUrl,
+	resolveCompareUrl,
+	resolvePrUrl,
+	resolveReleaseUrl,
+} from "@/application/import/pr-url";
 import type { HostedResult } from "./pr-comment";
 
 /** How long the Action waits for a hosted render before the runner renders instead. */
@@ -63,6 +69,22 @@ export interface HostedDeps {
 }
 
 const unavailable = (error: string): HostedResult => ({ outcome: "unavailable", error });
+
+/**
+ * Only a bare GitHub link goes to Typelapse's servers: the route renders it and
+ * publishes the page, so a diff passed as text would be made public (next-wave
+ * D11). Anything else is the runner's to render.
+ */
+function isGitHubLink(source: string): boolean {
+	const link = source.trim();
+	return (
+		link !== "" &&
+		!/\s/.test(link) &&
+		[resolvePrUrl, resolveCommitUrl, resolveReleaseUrl, resolveCompareUrl].some((resolve) =>
+			resolve(link),
+		)
+	);
+}
 
 /** One line with no full stop, so the comment can end it and a server's words stay one clause. */
 function oneSentence(text: string): string {
@@ -200,6 +222,11 @@ async function ask(
 	const address = apiBase(input.apiUrl);
 	if ("error" in address) {
 		return unavailable(address.error);
+	}
+	if (!isGitHubLink(input.source)) {
+		return unavailable(
+			"Typelapse renders a GitHub link only, so this source is rendered on the runner",
+		);
 	}
 	const asked = renderOptionsOf(input);
 	if ("error" in asked) {

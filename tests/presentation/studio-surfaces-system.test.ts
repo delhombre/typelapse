@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { TOUCH_CELL } from "@/presentation/utils/playback-readout";
 import { describe, expect, it } from "vitest";
@@ -186,6 +186,73 @@ describe("reduced motion", () => {
 			}
 		}
 		expect(overrides).toEqual([]);
+	});
+});
+
+describe("the stylesheets under components/multimedia (DECISIONS D3, D8, D9)", () => {
+	// The account island, the keys sheet and the cloud projects list live beside their
+	// components, outside the two sheets above, so a raw value written there would pass
+	// every guard. They read the same doctrine: no local reduced-motion switch-off, the
+	// radius scale, and the keyboard's ring.
+	const dir = resolve(__dirname, "../../src/presentation/components/multimedia");
+	const sheets = readdirSync(dir)
+		.filter((name) => name.endsWith(".css"))
+		.map((name) => ({ name, rules: parseCss(readFileSync(resolve(dir, name), "utf8")) }));
+
+	it("find their sheets, so the checks below are not vacuous", () => {
+		expect(sheets.map(({ name }) => name)).toEqual(
+			expect.arrayContaining(["studio-api-keys.css", "studio-cloud-projects.css"]),
+		);
+	});
+
+	it("never turn a transition off under reduced motion: the global allow-list does it", () => {
+		const overrides = sheets.flatMap(({ name, rules }) =>
+			rules
+				.filter((rule) => rule.context.some((prelude) => /prefers-reduced-motion/.test(prelude)))
+				.filter((rule) =>
+					rule.declarations.some(
+						([property, value]) => property === "transition" && value === "none",
+					),
+				)
+				.map((rule) => `${name}: ${rule.selectors.join(", ")}`),
+		);
+		expect(overrides).toEqual([]);
+	});
+
+	// The keys sheet and the cloud list were built on the scale; the account island's
+	// older radii are its own pass.
+	const onTheScale = sheets.filter(({ name }) => name !== "studio-account-control.css");
+
+	it("take every radius from the scale, nested ones as calc() of a step", () => {
+		const step = "var\\(--r-(?:surface|sheet|control|field|pill)\\)";
+		const allowed = new RegExp(`^(?:${step}|calc\\(${step}(?: - \\d+px)+\\)|inherit|0)$`);
+		const raw = onTheScale.flatMap(({ name, rules }) =>
+			rules.flatMap((rule) =>
+				rule.declarations
+					.filter(([property]) => property === "border-radius")
+					.filter(([, value]) => splitTopLevel(value, " ").some((part) => !allowed.test(part)))
+					.map(([, value]) => `${name}: ${rule.selectors.join(", ")} { border-radius: ${value} }`),
+			),
+		);
+		expect(raw).toEqual([]);
+	});
+
+	it("draw the keyboard's ring in the accent token at the global 2px offset, no hex fallback", () => {
+		const found = onTheScale.flatMap(({ name, rules }) =>
+			rules.flatMap((rule) =>
+				rule.declarations
+					.filter(
+						([property, value]) =>
+							(property.startsWith("outline") && /#[0-9a-f]{3,8}\b/i.test(value)) ||
+							(property === "outline-offset" && value !== "2px" && value !== "-2px"),
+					)
+					.map(
+						([property, value]) =>
+							`${name}: ${rule.selectors.join(", ")} { ${property}: ${value} }`,
+					),
+			),
+		);
+		expect(found).toEqual([]);
 	});
 });
 

@@ -298,6 +298,41 @@ describe("the key", () => {
 		});
 	});
 
+	// A route that renders a link publishes the page; a diff passed as text would be
+	// published too, on a public share page (D11): the runner renders it instead.
+	it.each([
+		[
+			"a commit",
+			"https://github.com/octocat/Hello-World/commit/7fd1a60b01f91b314f59955a4e4d4e80d8edf11d",
+		],
+		["a release", "https://github.com/octocat/Hello-World/releases/tag/v1.0.0"],
+		["a compare range", "github.com/octocat/Hello-World/compare/v1.0.0...v1.1.0"],
+	])("goes hosted for %s", async (_case, source) => {
+		const { calls } = await ask({}, { source });
+
+		expect(calls[0]?.body).toMatchObject({ source });
+	});
+
+	it.each([
+		["a unified diff", "diff --git a/a.ts b/a.ts\n--- a/a.ts\n+++ b/a.ts\n@@ -1 +1 @@\n-a\n+b\n"],
+		["a link with a diff after it", `${PR}\ndiff --git a/a.ts b/a.ts\n+secret`],
+		["a link to another host", "https://gitlab.com/o/r/-/merge_requests/1"],
+		[
+			"a GitHub link that is no change",
+			"https://github.com/octocat/Hello-World/blob/main/README.md",
+		],
+		["nothing", "   "],
+	])("leaves %s to the runner, with one sentence and no request", async (_case, source) => {
+		const { result, calls } = await ask({}, { source });
+
+		expect(calls).toEqual([]);
+		expect(result.outcome).toBe("unavailable");
+		if (result.outcome === "unavailable") {
+			expectSentence(result.error);
+			expect(result.error).toContain("GitHub link");
+		}
+	});
+
 	it("asks nothing when it is empty", async () => {
 		const { result, calls } = await ask({}, { apiKey: "  " });
 

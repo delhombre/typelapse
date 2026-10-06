@@ -153,6 +153,20 @@ describe("resolveReleaseUrl", () => {
 		expect(resolveReleaseUrl("https://github.com/o/r/pull/4")).toBeNull();
 		expect(resolveReleaseUrl("https://gitlab.com/o/r/releases/tag/v1")).toBeNull();
 	});
+
+	it.each([
+		[
+			"a dot-dot segment",
+			"github.com/pub/repo/releases/tag/v1%2F..%2F..%2F..%2Frepos%2Fpriv%2Frepo",
+		],
+		["a dot segment", "github.com/o/r/releases/tag/a%2F.%2Fb"],
+		["a backslash", "github.com/o/r/releases/tag/v1%5Cx"],
+		["a space", "github.com/o/r/releases/tag/v%201"],
+		["a lock suffix", "github.com/o/r/releases/tag/v1.lock"],
+		["a double dot", "github.com/o/r/releases/tag/v1..2"],
+	])("refuses a tag with %s", (_case, link) => {
+		expect(resolveReleaseUrl(link)).toBeNull();
+	});
 });
 
 describe("resolveCompareUrl", () => {
@@ -179,5 +193,34 @@ describe("resolveCompareUrl", () => {
 		expect(resolveCompareUrl("https://github.com/o/r/compare/...v2")).toBeNull();
 		expect(resolveCompareUrl("https://github.com/o/r/compare/v1...")).toBeNull();
 		expect(resolveCompareUrl("https://github.com/o/r/compare")).toBeNull();
+	});
+
+	// A ref is a path on api.github.com once it is fetched: %2F decodes to a slash,
+	// and `..` then walks out of the public repository the guard checked.
+	it("refuses a head that climbs out of the repository", () => {
+		expect(
+			resolveCompareUrl(
+				"github.com/pub/repo/compare/a...b%2F..%2F..%2F..%2F..%2F..%2Frepos%2Fpriv%2Frepo%2Fcompare%2Fv1...v2",
+			),
+		).toBeNull();
+	});
+
+	it.each([
+		["a dot segment", "github.com/o/r/compare/main...feature%2F.%2Fx"],
+		["a dot-dot segment", "github.com/o/r/compare/main...a%2F..%2Fb"],
+		["an encoded dot-dot base", "github.com/o/r/compare/%2e%2e%2Fx...main"],
+		["a backslash", "github.com/o/r/compare/main...feat%5Cx"],
+		["a space", "github.com/o/r/compare/main...feat%20x"],
+		["a tilde", "github.com/o/r/compare/main...feat~1"],
+		["a caret", "github.com/o/r/compare/main...feat%5E"],
+		["a colon", "github.com/o/r/compare/main...feat%3Ax"],
+		["a question mark", "github.com/o/r/compare/main...feat%3Fx"],
+		["an at-brace", "github.com/o/r/compare/main...feat@%7Bx%7D"],
+		["a lock suffix", "github.com/o/r/compare/main...feat.lock"],
+		["a trailing dot", "github.com/o/r/compare/main...feat."],
+		["an empty component", "github.com/o/r/compare/main...feat%2F%2Fx"],
+		["a control character", "github.com/o/r/compare/main...feat%00x"],
+	])("refuses a ref with %s", (_case, link) => {
+		expect(resolveCompareUrl(link)).toBeNull();
 	});
 });

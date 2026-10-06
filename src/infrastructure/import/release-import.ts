@@ -12,7 +12,7 @@
  */
 
 import type { DiffChapter } from "@/application/diff";
-import type { CompareRef, ReleaseRef } from "@/application/import/pr-url";
+import { type CompareRef, type ReleaseRef, isSafeGitRef } from "@/application/import/pr-url";
 import { type ReleaseCard, releaseCardText } from "@/application/import/release-project";
 import {
 	type ChapterProgress,
@@ -58,11 +58,19 @@ interface GitHubRelease {
 }
 
 function repoApi(ref: { owner: string; repo: string }): string {
-	return `https://api.github.com/repos/${ref.owner}/${ref.repo}`;
+	return `https://api.github.com/repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}`;
 }
 
-/** A ref in a URL path: each part escaped, the slashes of `release/2.0` kept. */
+/**
+ * A ref in a URL path: each part escaped, the slashes of `release/2.0` kept. A ref
+ * git would refuse (a `.` or `..` part, a backslash) is refused before any request:
+ * fetch folds dot segments out of a path, so one could aim the call at another
+ * repository than the one the caller's public-only guard checked.
+ */
 function pathRef(ref: string): string {
+	if (!isSafeGitRef(ref)) {
+		throw new Error("That ref is not a valid git ref");
+	}
 	return ref.split("/").map(encodeURIComponent).join("/");
 }
 

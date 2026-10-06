@@ -220,10 +220,13 @@ export async function setRenderDuration(jobId: string, durationMs: number): Prom
 /**
  * Better Auth allows three sign-ups or sign-ins per ten seconds per client, and
  * behind the preview proxy every journey is the same client (the API logs that
- * it cannot see an address). A journey that meets the ceiling waits the time
- * the 429 names and tries once more, instead of failing on the suite's pace.
+ * it cannot see an address). One retry remains, after the 429's named window:
+ * the suite's pace alone trips the limiter, a visitor never would. The product
+ * now handles the 429 itself (the island keeps the form and says when to try
+ * again, which rate-limit.spec.ts proves), so a second refusal is a real failure
+ * and no longer something this helper papers over.
  */
-const AUTH_ATTEMPTS = 3;
+const AUTH_ATTEMPTS = 2;
 
 function retryAfterMs(headers: Record<string, string>): number {
 	return (Number(headers["x-retry-after"]) || 10) * 1000 + 250;

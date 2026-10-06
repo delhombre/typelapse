@@ -298,19 +298,33 @@ describe("the Action's comment when Typelapse did not render it", () => {
 		expect(body).toContain("Creator renders it on our servers");
 	});
 
-	it("says nothing of Typelapse's servers when the runner's render failed too", () => {
-		const failed: CliResult = { ok: false, exitCode: 3, error: "That pull request was not found." };
-		const body = commentBody({
-			result: failed,
-			hosted: { outcome: "unavailable", error: "This API key is not valid" },
-			artifactUrl: "",
-			runUrl: RUN,
-			sha: SHA,
-		});
+	it.each([
+		[
+			"a free account",
+			{ outcome: "free", studioUrl: "http://localhost:5173/#import=x" } as const,
+			"free account",
+		],
+		[
+			"a refusal",
+			{ outcome: "unavailable", error: "This API key is not valid" } as const,
+			"API key",
+		],
+	])(
+		"says %s when the runner's render failed too, without a video it did not make",
+		(_case, hosted, said) => {
+			const failed: CliResult = {
+				ok: false,
+				exitCode: 3,
+				error: "That pull request was not found.",
+			};
+			const body = commentBody({ result: failed, hosted, artifactUrl: "", runUrl: RUN, sha: SHA });
 
-		expect(body).toContain(failed.error);
-		expect(body).not.toContain("API key");
-	});
+			expect(body).toContain(failed.error);
+			expect(body).toContain(said);
+			// There is no video above to have rendered anywhere.
+			expect(body).not.toContain("video above");
+		},
+	);
 });
 
 describe("reading what the hosted step wrote", () => {

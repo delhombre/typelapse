@@ -72,11 +72,23 @@ function studioLine(studioUrl: string): string {
 	return `[Open it in the studio](${studioUrl}) to change the scenes, the theme or the format and export again.${local}`;
 }
 
-/** Why the video above came from the runner, when the workflow asked Typelapse and it did not deliver. */
-function hostedNote(hosted: Exclude<HostedResult, { outcome: "rendered" }>): string {
-	return hosted.outcome === "free"
-		? "<sub>This API key belongs to a free account, so the video above rendered on this runner; the hosted video comes with Creator.</sub>"
-		: `<sub>${hosted.error}. The video above rendered on this runner instead.</sub>`;
+/**
+ * Why the video came from the runner, when the workflow asked Typelapse and it did
+ * not deliver. `ranHere` is false when the runner's render failed too: there is no
+ * video above, and the note says only what Typelapse answered.
+ */
+function hostedNote(
+	hosted: Exclude<HostedResult, { outcome: "rendered" }>,
+	ranHere: boolean,
+): string {
+	if (hosted.outcome === "free") {
+		return ranHere
+			? "<sub>This API key belongs to a free account, so the video above rendered on this runner; the hosted video comes with Creator.</sub>"
+			: "<sub>This API key belongs to a free account, so Typelapse did not render it on its servers; the hosted video comes with Creator.</sub>";
+	}
+	return ranHere
+		? `<sub>${hosted.error}. The video above rendered on this runner instead.</sub>`
+		: `<sub>${hosted.error}, so Typelapse did not render it on its servers either.</sub>`;
 }
 
 /** The video lives on its Typelapse page, so there is no artifact to link. */
@@ -101,13 +113,17 @@ export function commentBody({ result, hosted, artifactUrl, runUrl, sha }: Commen
 	}
 	if (!result?.ok) {
 		const reason = result?.error ?? "The command stopped before it printed a result.";
-		return [
+		const lines = [
 			COMMENT_MARKER,
 			`### Typelapse could not render this pull request${at}`,
 			"",
 			`${reason} [See the run](${runUrl}).`,
-			"",
-		].join("\n");
+		];
+		if (hosted) {
+			lines.push("", hostedNote(hosted, false));
+		}
+		lines.push("");
+		return lines.join("\n");
 	}
 
 	const name = result.path.split(/[\\/]/).pop() ?? result.path;
@@ -131,7 +147,7 @@ export function commentBody({ result, hosted, artifactUrl, runUrl, sha }: Commen
 		lines.push("", studioLine(result.studioUrl));
 	}
 	if (hosted) {
-		lines.push("", hostedNote(hosted));
+		lines.push("", hostedNote(hosted, true));
 	} else if (result.studioUrl) {
 		lines.push(
 			"",

@@ -69,7 +69,10 @@ export function StudioCloudProjects({
 			<h2 ref={headingRef} tabIndex={-1}>
 				Cloud projects
 			</h2>
-			<p>Private to your account. Deleting one frees its place in your allowance.</p>
+			<p>
+				Private to your account. Deleting one is for good. Its revisions, media, renders and their
+				share pages go with it.
+			</p>
 
 			{error ? (
 				<p role="alert" className="mm-account-error mm-keys-error">

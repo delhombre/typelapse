@@ -118,6 +118,19 @@ describe("cloud projects in the account island", () => {
 		expect(within(rows[1] as HTMLElement).getByText("Edited 3 days ago")).toBeTruthy();
 	});
 
+	// An automation project is not counted in the allowance (next-wave D10), and the
+	// list does not tell it apart: the sentence says what a delete always does.
+	it("say what a delete takes with it, and promise no place in the allowance", async () => {
+		renderControl(port([LAUNCH]));
+
+		await openList();
+
+		expect(
+			screen.getByText(/Its revisions, media, renders and their share pages go with it\./),
+		).toBeTruthy();
+		expect(screen.queryByText(/allowance/i)).toBeNull();
+	});
+
 	it("say which one is the cloud copy of the project that is open", async () => {
 		renderControl(port([LAUNCH, CHANGELOG]), { openId: "project_b" });
 

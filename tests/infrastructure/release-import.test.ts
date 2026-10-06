@@ -155,6 +155,30 @@ describe("fetchReleaseChapters", () => {
 		expect(calls.some((url) => url.includes("/releases/"))).toBe(false);
 	});
 
+	// The caller's guard checked one public repository; a ref must never be able to
+	// aim the request at another (fetch folds `..` and `%2e%2e` out of a path).
+	it.each([
+		["a head", { base: "a", head: "b/../../../../../repos/priv/repo/compare/v1...v2" }],
+		["a base", { base: "../../priv/repo/x", head: "main" }],
+		["an encoded dot head", { base: "a", head: "%2e%2e/%2e%2e/priv" }],
+	])("never leaves the repository it was asked about, through %s", async (_case, range) => {
+		const calls = github({});
+		await expect(fetchReleaseChapters({ owner: "pub", repo: "repo", ...range })).rejects.toThrow();
+		for (const call of calls) {
+			expect(new URL(call).pathname.startsWith("/repos/pub/repo/")).toBe(true);
+		}
+	});
+
+	it("never leaves the repository through a release tag either", async () => {
+		const calls = github({});
+		await expect(
+			fetchReleaseChapters({ owner: "pub", repo: "repo", tag: "v1/../../../../repos/priv/repo" }),
+		).rejects.toThrow();
+		for (const call of calls) {
+			expect(new URL(call).pathname.startsWith("/repos/pub/repo/")).toBe(true);
+		}
+	});
+
 	it("says a missing or private repository in one sentence", async () => {
 		github({});
 		await expect(fetchReleaseChapters(RELEASE)).rejects.toThrow(
