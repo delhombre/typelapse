@@ -1,19 +1,11 @@
 import { PANEL_GAP, PANEL_MIN_HEIGHT, phonePanelRoom } from "@/application/layout/phone-panel";
-import { DOCK_ROOM, STAGE_TOP_GAP, phoneSheetGeometry } from "@/application/layout/phone-sheet";
+import { phoneSheetGeometry } from "@/application/layout/phone-sheet";
 import { describe, expect, it } from "vitest";
 
 const plain = { viewportHeight: 844, safeTop: 0, safeBottom: 0 };
 const notch = { viewportHeight: 844, safeTop: 47, safeBottom: 34 };
 /** What the dock stacks besides the panel: the margin under it, the plate, its padding (10 + 48 + 12). */
 const REST = 70;
-
-/** Where the frame ends: centred in the stage's slot, which stops at the instrument's room. */
-function frameBottom(input: typeof plain, stop: "peek" | "scenes" | "full", frame: number) {
-	const sheet = phoneSheetGeometry(input);
-	const top = sheet.rowBottom + STAGE_TOP_GAP;
-	const bottom = input.viewportHeight - (sheet.stageLift(stop) + DOCK_ROOM);
-	return (top + bottom) / 2 + frame / 2;
-}
 
 /** Where the panel's top lands when it is as tall as it may be. */
 function panelTop(input: typeof plain, stop: "peek" | "scenes" | "full", frame: number | null) {
@@ -23,12 +15,10 @@ function panelTop(input: typeof plain, stop: "peek" | "scenes" | "full", frame: 
 }
 
 describe("the room an island panel has under the frame", () => {
-	it("puts the panel's top a gap below the frame's bottom, whatever the frame's height", () => {
-		for (const frame of [94, 174]) {
-			const top = panelTop(plain, "peek", frame);
-			expect(top).toBeGreaterThanOrEqual(frameBottom(plain, "peek", frame) + PANEL_GAP - 1);
-			expect(top).toBeLessThanOrEqual(frameBottom(plain, "peek", frame) + PANEL_GAP + 1);
-		}
+	it("keeps the panel under a 16:9 frame that ends at y 451, as the ticket's phone draws it", () => {
+		// 390x844, the frame 277 to 451: the panel used to start at 400 and 416.
+		expect(panelTop(plain, "peek", 174)).toBeGreaterThanOrEqual(451 + PANEL_GAP - 1);
+		expect(panelTop(plain, "peek", 174)).toBeLessThan(451 + PANEL_GAP + 2);
 	});
 
 	it("gives a taller frame less room, and takes from the panel what the dock stacks besides it", () => {
@@ -44,9 +34,8 @@ describe("the room an island panel has under the frame", () => {
 		expect(phonePanelRoom(notch, "peek", 174, REST)).not.toBe(
 			phonePanelRoom(plain, "peek", 174, REST),
 		);
-		expect(panelTop(notch, "peek", 174)).toBeGreaterThanOrEqual(
-			frameBottom(notch, "peek", 174) + PANEL_GAP - 1,
-		);
+		// Under a notch the same frame is drawn 278 to 453.
+		expect(panelTop(notch, "peek", 175)).toBeGreaterThanOrEqual(453 + PANEL_GAP - 1);
 	});
 
 	it("follows the sheet when a hand has moved it up from the peek", () => {

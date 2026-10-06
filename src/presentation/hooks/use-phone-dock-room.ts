@@ -36,6 +36,8 @@ export function usePhoneDockRoom(
 		if (!slot || !panelOpen) return;
 		let written = "";
 		let raf = 0;
+		// A ResizeObserver would be cheaper, but it hears layout boxes and not the
+		// scale the frame's fit is drawn with, so it would never fire for that.
 		const follow = () => {
 			const panel = slot.querySelector<HTMLElement>(".si-sheet");
 			if (panel) {

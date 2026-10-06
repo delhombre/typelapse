@@ -19,7 +19,7 @@ import {
 	hasAuthoredMultimedia,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { Camera } from "reicon-react";
 import { RENDER_BUSY_LABELS, useCloudRenderCta, useCloudTarget } from "./cloud-render";
 import {
@@ -106,17 +106,17 @@ function ClusterControls({ cluster }: { cluster: ClusterId }) {
  * offset and open it with its first rows above the fold.
  */
 function OpensAtTop() {
-	return (
-		<span
-			hidden
-			ref={(marker) => {
-				const body = marker?.closest(".si-sheet-body");
-				if (body) {
-					body.scrollTop = 0;
-				}
-			}}
-		/>
-	);
+	// Stable, so React attaches it once, when the tab mounts, and not again on
+	// every render of the panel: a callback ref made inline is a new function
+	// each time, and would throw a scrolled panel back to its top whenever a
+	// control in it changed a store.
+	const toTop = useCallback((marker: HTMLSpanElement | null) => {
+		const body = marker?.closest(".si-sheet-body");
+		if (body) {
+			body.scrollTop = 0;
+		}
+	}, []);
+	return <span hidden ref={toTop} />;
 }
 
 /* ─────────────────────────────── Frame ─────────────────────────────── */
