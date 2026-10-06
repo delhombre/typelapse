@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { InvalidBillingWebhookSignatureError } from "../../server/billing/billing-service";
 import {
 	createPolarBillingGateway,
+	polarApiUrlFromEnv,
 	polarEnvironmentFromEnv,
 	polarGatewayFromEnv,
 } from "../../server/billing/polar-gateway";
@@ -294,6 +295,15 @@ describe("Polar gateway configuration", () => {
 		});
 
 		expect(api.seen[0]?.auth).toBe("Bearer polar_oat_env");
+	});
+
+	it("honours POLAR_API_URL only against the sandbox, never for production money", () => {
+		const url = "http://127.0.0.1:9999";
+
+		expect(polarApiUrlFromEnv({ POLAR_ENVIRONMENT: "sandbox", POLAR_API_URL: url })).toBe(url);
+		expect(polarApiUrlFromEnv({ POLAR_API_URL: url })).toBeUndefined();
+		expect(polarApiUrlFromEnv({ POLAR_ENVIRONMENT: "production", POLAR_API_URL: url })).toBeUndefined();
+		expect(polarApiUrlFromEnv({ POLAR_ENVIRONMENT: "sandbox" })).toBeUndefined();
 	});
 
 	it("reads the environment, defaulting to production and refusing a typo", () => {

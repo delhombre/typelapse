@@ -128,6 +128,14 @@ export class InvalidBillingWebhookSignatureError extends Error {
 	}
 }
 
+/** One projection row per account: a second paid checkout would start a second subscription beside it. */
+export class AlreadySubscribedError extends Error {
+	constructor() {
+		super("This account already has Creator");
+		this.name = "AlreadySubscribedError";
+	}
+}
+
 function trimTrailingSlash(value: string): string {
 	return value.endsWith("/") ? value.slice(0, -1) : value;
 }
@@ -161,20 +169,22 @@ export function createBillingService(input: {
 	const catalog = async (): Promise<BillingCatalog> => {
 		const entries = await Promise.all(
 			([...config.creatorProductIds] as const).map(async ([cadence, productId]) => {
-				const price = await gateway.retrieveProduct(productId);
+				const product = await gateway.retrieveProduct(productId);
 				const expectedInterval = cadence === "monthly" ? "month" : "year";
 				if (
-					price.id !== productId ||
-					price.recurringInterval !== expectedInterval ||
-					!Number.isSafeInteger(price.unitAmount) ||
-					price.unitAmount <= 0 ||
-					!/^[a-z]{3}$/i.test(price.currency)
+					product.id !== productId ||
+					product.recurringInterval !== expectedInterval ||
+					!Number.isSafeInteger(product.unitAmount) ||
+					product.unitAmount <= 0 ||
+					!/^[a-z]{3}$/i.test(product.currency)
 				) {
-					throw new Error(`Polar product ${productId} does not match the configured cadence`);
+					throw new Error(
+						`Billing product ${productId} does not match the configured cadence`,
+					);
 				}
 				const normalized: BillingPrice = {
-					currency: price.currency.toUpperCase(),
-					unitAmount: price.unitAmount,
+					currency: product.currency.toUpperCase(),
+					unitAmount: product.unitAmount,
 				};
 				return [cadence, normalized] as const;
 			}),
@@ -205,6 +215,9 @@ export function createBillingService(input: {
 			const productId = config.creatorProductIds.get(cadence);
 			if (!productId) {
 				throw new Error(`Creator ${cadence} billing is not configured`);
+			}
+			if ((await store.findByUserId(userId))?.planTier === "creator") {
+				throw new AlreadySubscribedError();
 			}
 			return gateway.createCheckout({
 				userId,
@@ -248,6 +261,17 @@ export function createBillingService(input: {
 				const entitled =
 					configuredProductIds.has(subscription.productId) &&
 					(subscription.status === "active" || subscription.status === "trialing");
+				// An account holds one projection row. A subscription other than the one it
+				// is paying on (an old one revoked late) must not take Creator away.
+				const current = await store.findByUserId(userId);
+				if (
+					!entitled &&
+					current?.planTier === "creator" &&
+					current.providerSubscriptionId !== subscription.subscriptionId
+				) {
+					await store.finishEvent(event.id, "ignored");
+					return { outcome: "ignored" };
+				}
 				await store.applyProjectionIfNewer({
 					userId,
 					planTier: entitled ? "creator" : "free",

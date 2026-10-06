@@ -180,6 +180,18 @@ export function createPolarBillingGateway(input: {
 	};
 }
 
+/**
+ * `POLAR_API_URL` points the SDK at a self-hosted Polar or at the double the
+ * hosted journeys run against. It is honoured only with `POLAR_ENVIRONMENT=sandbox`:
+ * a production deployment cannot be redirected, by a stray variable, away from
+ * the real merchant of record.
+ */
+export function polarApiUrlFromEnv(env: PolarEnvironmentVariables): string | undefined {
+	return polarEnvironmentFromEnv(env) === "sandbox" && env.POLAR_API_URL?.trim()
+		? env.POLAR_API_URL.trim()
+		: undefined;
+}
+
 /** `POLAR_ENVIRONMENT` is `production` unless it says `sandbox`; anything else is a typo and null. */
 export function polarEnvironmentFromEnv(env: PolarEnvironmentVariables): Environment | null {
 	const value = env.POLAR_ENVIRONMENT?.trim().toLowerCase();
@@ -200,12 +212,10 @@ export function polarGatewayFromEnv(
 		return null;
 	}
 	return createPolarBillingGateway({
-		// POLAR_API_URL points the SDK at a self-hosted Polar, or at the double the
-		// hosted journeys run against, instead of the environment's own address.
 		polar: createPolar({
 			accessToken,
 			environment,
-			...(env.POLAR_API_URL ? { baseUrl: env.POLAR_API_URL } : {}),
+			...(polarApiUrlFromEnv(env) ? { baseUrl: polarApiUrlFromEnv(env) as string } : {}),
 		}),
 		webhookSecret,
 		environment,

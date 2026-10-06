@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	AlreadySubscribedError,
 	type BillingProjection,
 	type BillingProjectionStore,
 	createBillingService,
@@ -360,6 +361,54 @@ describe("billing service", () => {
 			cancelAtPeriodEnd: false,
 			since: null,
 		});
+	});
+
+	it("refuses a second checkout for an account that is already Creator", async () => {
+		const { billing, store, polar } = service();
+		store.projections.set("user-1", {
+			userId: "user-1",
+			planTier: "creator",
+			providerStatus: "active",
+			providerCustomerId: "cus_1",
+			providerSubscriptionId: "sub_1",
+			providerProductId: "prod_creator_monthly",
+			currentPeriodEnd: null,
+			cancelAtPeriodEnd: false,
+			lastEventId: "wh_0",
+			lastEventCreatedAt: new Date(0),
+		});
+
+		await expect(billing.startCheckout("user-1", "annual")).rejects.toBeInstanceOf(
+			AlreadySubscribedError,
+		);
+		expect(polar.checkoutInput).toBeNull();
+	});
+
+	it("does not let another subscription's lapse take Creator from an account that is paying on one", async () => {
+		const { billing, store, polar } = service();
+		store.customers.set("cus_1", "user-1");
+		store.projections.set("user-1", {
+			userId: "user-1",
+			planTier: "creator",
+			providerStatus: "active",
+			providerCustomerId: "cus_1",
+			providerSubscriptionId: "sub_paying",
+			providerProductId: "prod_creator_annual",
+			currentPeriodEnd: new Date("2026-12-01T00:00:00.000Z"),
+			cancelAtPeriodEnd: false,
+			lastEventId: "wh_0",
+			lastEventCreatedAt: new Date(EVENT_TIME.getTime() - 60_000),
+		});
+		polar.subscription = { ...polar.subscription, subscriptionId: "sub_old", status: "canceled" };
+		polar.event = { ...polar.event, type: "subscription.revoked", subscriptionId: "sub_old" };
+
+		await expect(billing.processWebhook("raw", HEADERS)).resolves.toEqual({ outcome: "ignored" });
+
+		expect(store.projections.get("user-1")).toMatchObject({
+			planTier: "creator",
+			providerSubscriptionId: "sub_paying",
+		});
+		expect(store.events.get("evt_1")).toBe("ignored");
 	});
 
 	it("retries a previously failed event without treating it as a duplicate", async () => {

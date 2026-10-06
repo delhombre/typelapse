@@ -12,6 +12,7 @@ import type { AuthPort } from "../../src/domain/ports/auth.port";
 import type { BillingCadence } from "../../src/domain/ports/billing.port";
 import type { SubscriptionPort } from "../../src/domain/ports/subscription.port";
 import {
+	AlreadySubscribedError,
 	type BillingService,
 	InvalidBillingWebhookSignatureError,
 } from "../billing/billing-service";
@@ -143,7 +144,13 @@ export function createBillingRoute({
 				return c.json({ error: "Hosted billing is not configured" }, 503);
 			}
 			return c.json({ url: checkout.url, sessionId: checkout.id });
-		} catch {
+		} catch (error) {
+			if (error instanceof AlreadySubscribedError) {
+				return c.json(
+					{ error: "You already have Creator; change or cancel it in Manage billing." },
+					409,
+				);
+			}
 			return c.json({ error: "Checkout is temporarily unavailable" }, 503);
 		}
 	});

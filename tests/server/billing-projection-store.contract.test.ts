@@ -117,4 +117,19 @@ describe.skipIf(!DATABASE_URL)("billing projection store (PostgreSQL)", () => {
 		expect(await store.findUserIdByCustomerId(`cus_${suffix}`)).toBe(accountId);
 		expect(await store.findUserIdByCustomerId("cus_unknown")).toBeNull();
 	});
+
+	it("runs its provider-neutral migration again on a migrated database, and changes nothing", async () => {
+		const { readFileSync } = await import("node:fs");
+		const migration = readFileSync(
+			"server/db/migrations/0009_billing_provider_neutral.sql",
+			"utf8",
+		);
+		await store.applyProjectionIfNewer(projection({ lastEventId: "wh_replay" }));
+
+		for (const statement of migration.split("--> statement-breakpoint")) {
+			await db.$client.query(statement);
+		}
+
+		expect((await store.findByUserId(accountId))?.providerProductId).toBe("prod_monthly");
+	});
 });

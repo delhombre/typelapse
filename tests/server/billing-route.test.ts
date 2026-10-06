@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import {
+	AlreadySubscribedError,
 	type BillingService,
 	InvalidBillingWebhookSignatureError,
 } from "../../server/billing/billing-service";
@@ -166,6 +167,26 @@ describe("billing route", () => {
 			kind: "past-due",
 			sentence:
 				"Your last payment failed and Creator is paused; update your card in Manage billing, and past renders stay downloadable until 28 September 2026.",
+		});
+	});
+
+	it("answers 409, in words, when the account already has Creator", async () => {
+		const billing = new FakeBilling();
+		billing.startCheckout = async () => {
+			throw new AlreadySubscribedError();
+		};
+
+		const response = await appFor({ billing }).request(
+			new Request("http://localhost/api/billing/checkout", {
+				method: "POST",
+				headers: { cookie: "session=valid", "content-type": "application/json" },
+				body: JSON.stringify({ cadence: "monthly" }),
+			}),
+		);
+
+		expect(response.status).toBe(409);
+		expect(await response.json()).toEqual({
+			error: "You already have Creator; change or cancel it in Manage billing.",
 		});
 	});
 

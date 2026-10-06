@@ -1,14 +1,15 @@
 import { request } from "@playwright/test";
 import { createPolar } from "@polar-sh/sdk/2026-10";
 import { HOSTED, accountId, newAccount, openAccountPanel, signUpInIsland } from "../support/hosted";
-import { POLAR_E2E, postSignedEvent, signedWebhookHeaders } from "../support/polar";
+import { POLAR_E2E, postSignedBody, postSignedEvent, signedWebhookHeaders } from "../support/polar";
 import { expect, openStudio, test } from "../support/studio";
 
 /**
  * Billing through Polar, from the account island to the plan. Polar cannot reach
- * a laptop, so the webhook is a signed test event this journey posts to the
- * local API: the route, the signature check, the idempotency ledger and the
- * projection are the real ones; only the delivery is ours.
+ * a laptop, so the journey posts the webhook to the local API itself: the route,
+ * the signature check, the idempotency ledger and the projection are the real
+ * ones; only the delivery is ours. Against the fake the body is synthetic;
+ * against the sandbox it is Polar's own recorded body (see the sandbox journey).
  *
  * Two journeys, one per far end, and only one runs: against the fake Polar
  * (tests/support/fake-polar.ts) when there is no sandbox token, against
@@ -143,11 +144,36 @@ test.describe("Billing against the fake Polar", () => {
 	});
 });
 
+/**
+ * What is real and what is synthetic in the sandbox journey:
+ *  - real: the products and their prices (created through the API), the hosted
+ *    checkout and the 4242 test card, the subscription Polar creates, and the
+ *    webhook BODY: it is read back from Polar's own delivery log
+ *    (webhooks.listWebhookDeliveries), so `customer.external_id`, the timestamp
+ *    and the object shape are exactly what Polar sent.
+ *  - synthetic: the delivery and its signature. Polar cannot reach a laptop, so the
+ *    recorded body is posted to the local API by this journey, signed with the
+ *    journey's own secret (E2E_POLAR_WEBHOOK_SECRET). The webhook-id is Polar's event id.
+ * Everything after the POST (verification, ledger, refresh from the API, projection,
+ * island) is the product's own.
+ */
 test.describe("Billing against the Polar sandbox", () => {
 	test.skip(
 		POLAR_E2E.mode !== "sandbox",
 		"No POLAR_SANDBOX_ACCESS_TOKEN (environment or .env), or E2E_POLAR=fake.",
 	);
+
+	/** A bad token or missing products must fail this journey, never skip it. */
+	const WATCHED_EVENTS = [
+		"subscription.active",
+		"subscription.updated",
+		"subscription.canceled",
+		"subscription.uncanceled",
+		"subscription.revoked",
+		"subscription.past_due",
+		"order.paid",
+	] as const;
+	const ENDPOINT_URL = "https://typelapse-e2e.invalid/api/billing/webhook";
 
 	test("pays on Polar's hosted checkout with the 4242 test card and the plan flips to Creator", async ({
 		page,
@@ -159,13 +185,25 @@ test.describe("Billing against the Polar sandbox", () => {
 		});
 		const account = newAccount("sandbox");
 
+		// An endpoint that exists makes Polar log the real body of every event, even though
+		// it cannot deliver it here. Found by URL, so a second run reuses it.
+		const endpoints = await polar.webhooks.listWebhookEndpoints({ limit: 100 });
+		const endpoint =
+			endpoints.items.find((candidate) => candidate.url === ENDPOINT_URL) ??
+			(await polar.webhooks.createWebhookEndpoint({
+				url: ENDPOINT_URL,
+				name: "Typelapse hosted journey (never delivers)",
+				format: "raw",
+				events: [...WATCHED_EVENTS],
+			}));
+
 		await openStudio(page);
 		await signUpInIsland(page, account);
 		const panel = await openAccountPanel(page, account);
-		test.skip(
-			(await panel.getByRole("button", { name: "Upgrade to Creator" }).count()) === 0,
-			"Billing is off: the sandbox token could not read or create the Creator products (see the API log).",
-		);
+		await expect(
+			panel.getByRole("button", { name: "Upgrade to Creator" }),
+			"billing is off: the sandbox token could not read or create the two Creator products (see the API log)",
+		).toBeVisible();
 		await expect(panel.getByText("$12 / month")).toBeVisible();
 		await expect(panel.getByText("$99 / year")).toBeVisible();
 
@@ -193,27 +231,48 @@ test.describe("Billing against the Polar sandbox", () => {
 			.click();
 		await page.waitForURL(/\/app\?billing=success/, { timeout: 120_000 });
 
-		// Polar cannot call a laptop: read the subscription it made and post the event it would send.
+		// The real delivery Polar logged for this account's subscription.active.
 		const id = await accountId(account.email);
-		let found: { id: string; customer_id: string } | undefined;
+		let recorded: { body: string; eventId: string; subscriptionId: string } | undefined;
 		await expect
 			.poll(
 				async () => {
-					const page1 = await polar.subscriptions.list({ external_customer_id: id, active: true });
-					found = page1.items[0];
-					return Boolean(found);
+					const deliveries = await polar.webhooks.listWebhookDeliveries({
+						endpoint_id: endpoint.id,
+						event_type: ["subscription.active"],
+						limit: 50,
+					});
+					for (const delivery of deliveries.items) {
+						const body = delivery.webhook_event.payload;
+						if (!body) continue;
+						const parsed = JSON.parse(body) as {
+							data?: { id?: string; customer?: { external_id?: string | null } };
+						};
+						if (parsed.data?.customer?.external_id === id && parsed.data.id) {
+							recorded = {
+								body,
+								eventId: delivery.webhook_event.id,
+								subscriptionId: parsed.data.id,
+							};
+							return true;
+						}
+					}
+					return false;
 				},
-				{ timeout: 60_000 },
+				{ timeout: 90_000, message: "Polar logged no subscription.active for this account" },
 			)
 			.toBe(true);
-		expect(
-			await postSignedEvent({
-				type: "subscription.active",
-				subscriptionId: found?.id ?? "",
-				customerId: found?.customer_id ?? "",
-				accountId: id,
-			}),
-		).toMatchObject({ outcome: "processed" });
+		const payload = JSON.parse(recorded?.body ?? "{}") as {
+			timestamp?: string;
+			data?: { customer?: { external_id?: string } };
+		};
+		// Our account id travelled as external_customer_id and came back in Polar's own payload.
+		expect(payload.data?.customer?.external_id).toBe(id);
+		expect(Number.isNaN(Date.parse(payload.timestamp ?? ""))).toBe(false);
+
+		expect(await postSignedBody(recorded?.body ?? "", recorded?.eventId ?? "")).toMatchObject({
+			outcome: "processed",
+		});
 
 		await openStudio(page);
 		const creator = await openAccountPanel(page, account);
@@ -221,6 +280,6 @@ test.describe("Billing against the Polar sandbox", () => {
 		await expect(creator.getByText(/hosted render minutes this month/)).toBeVisible();
 
 		// Leave the sandbox tidy: revoke what this run bought.
-		if (found) await polar.subscriptions.revoke(found.id);
+		await polar.subscriptions.revoke(recorded?.subscriptionId ?? "");
 	});
 });

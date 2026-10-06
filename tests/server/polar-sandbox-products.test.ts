@@ -40,6 +40,17 @@ describe("sandbox products script", () => {
 		expect(fake.requests.filter((r) => r.route === "POST /v1/products")).toHaveLength(2);
 	});
 
+	it("does not reuse a product of the right name whose price is wrong, and says so", async () => {
+		await ensureCreatorProducts(polar);
+		const monthly = [...fake.products.values()].find((p) => p.name === "Creator, monthly");
+		if (monthly?.prices[0]) monthly.prices[0].price_amount = 900;
+
+		await expect(ensureCreatorProducts(polar)).rejects.toThrow(
+			"Creator, monthly is priced 900 USD cents, expected 1200",
+		);
+		expect(fake.products.size).toBe(2);
+	});
+
 	it("creates only the product that is missing", async () => {
 		await ensureCreatorProducts(polar);
 		const yearlyId = [...fake.products.values()].find((p) => p.name === "Creator, yearly")?.id;

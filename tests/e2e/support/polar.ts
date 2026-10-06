@@ -90,19 +90,13 @@ export interface SignedEvent {
 	readonly id?: string;
 }
 
-/** Post a signed test event to the local API's webhook route, as Polar would. */
-export async function postSignedEvent(event: SignedEvent): Promise<{ outcome: string }> {
-	const body = JSON.stringify({
-		type: event.type,
-		timestamp: new Date().toISOString(),
-		api_version: "2026-10",
-		data: {
-			id: event.subscriptionId,
-			customer_id: event.customerId,
-			customer: { id: event.customerId, external_id: event.accountId },
-		},
-	});
-	const id = event.id ?? `wh_e2e_${randomBytes(6).toString("hex")}`;
+/**
+ * Post a body to the local API's webhook route, signed with the journey's secret.
+ * The signature is always ours (Polar cannot reach a laptop); the body is Polar's
+ * own when it comes from a recorded delivery, and synthetic when postSignedEvent
+ * builds it.
+ */
+export async function postSignedBody(body: string, id: string): Promise<{ outcome: string }> {
 	const client = await request.newContext({ baseURL: HOSTED.appUrl });
 	try {
 		const response = await client.post("/api/billing/webhook", {
@@ -114,4 +108,19 @@ export async function postSignedEvent(event: SignedEvent): Promise<{ outcome: st
 	} finally {
 		await client.dispose();
 	}
+}
+
+/** A synthetic event: the fields our gateway reads, in the shape Polar sends. Fake-mode journeys only. */
+export async function postSignedEvent(event: SignedEvent): Promise<{ outcome: string }> {
+	const body = JSON.stringify({
+		type: event.type,
+		timestamp: new Date().toISOString(),
+		api_version: "2026-10",
+		data: {
+			id: event.subscriptionId,
+			customer_id: event.customerId,
+			customer: { id: event.customerId, external_id: event.accountId },
+		},
+	});
+	return postSignedBody(body, event.id ?? `wh_e2e_${randomBytes(6).toString("hex")}`);
 }

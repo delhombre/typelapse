@@ -2,8 +2,10 @@
  * Creates the two Creator products in the Polar SANDBOX organisation, from the
  * command line, never by hand (decision log 2026-10-06-billing-polar, D3):
  * "Creator, monthly" at $12 and "Creator, yearly" at $99, in USD. Idempotent: a
- * product is found by name before it is created, so running it twice leaves two
- * products. Prints the two ids as the variables the API reads.
+ * product is found by name and interval before it is created, so running it twice
+ * leaves two products. One found with a different price is not reused: the run
+ * fails naming the mismatch, so a wrong price is fixed or archived on purpose.
+ * Prints the two ids as the variables the API reads.
  *
  *   pnpm billing:sandbox-products
  *
@@ -43,6 +45,18 @@ export async function ensureCreatorProducts(polar: PolarClient): Promise<Creator
 				!product.is_archived &&
 				product.recurring_interval === spec.interval,
 		);
+		if (existing) {
+			const fixed = existing.prices.find(
+				(price) =>
+					price.amount_type === "fixed" && price.price_currency === "usd" && !price.is_archived,
+			);
+			const amount = fixed && "price_amount" in fixed ? fixed.price_amount : undefined;
+			if (amount !== spec.amount) {
+				throw new Error(
+					`${spec.name} is priced ${amount ?? "without a USD fixed price"} USD cents, expected ${spec.amount}: archive it or fix its price in the sandbox, then run again.`,
+				);
+			}
+		}
 		const product =
 			existing ??
 			(await polar.products.create({
