@@ -108,6 +108,14 @@ export function useStudioCloudProject({
 	readonly saveToCloud: () => void;
 	/** The same save, answering with the canonical revision a cloud render needs. */
 	readonly saveRevision: () => Promise<CloudSaveResult>;
+	/** The cloud copy this studio saves to, once the cloud has confirmed it. */
+	readonly cloudProjectId: string | null;
+	/**
+	 * A cloud project was deleted. If it is this studio's copy, the studio is on
+	 * this device again: the next save makes a new copy, and the work on this
+	 * device is untouched.
+	 */
+	readonly forgetCloudProject: (projectId: string) => void;
 } {
 	const [syncState, setSyncState] = useState<HostedProjectSyncState>({ kind: "disconnected" });
 	const [copy, setCopy] = useState<CloudCopy | null>(null);
@@ -259,6 +267,21 @@ export function useStudioCloudProject({
 		}
 	}, [remember, runtime, start, stop]);
 
+	const forgetCloudProject = useCallback(
+		(projectId: string) => {
+			const live = sessionRef.current;
+			const referenced = runtime && live ? runtime.references.load(live.account.id) : null;
+			if (copyRef.current?.projectId !== projectId && referenced !== projectId) return;
+			// The same road as a copy deleted elsewhere: the stored reference is
+			// stale, so the next save starts a new copy instead of asking for it.
+			ignoreReference.current = true;
+			stop();
+			remember(null);
+			setSyncState({ kind: "disconnected" });
+		},
+		[remember, runtime, stop],
+	);
+
 	const view = useMemo(() => (copy ? hostedView(document, copy) : null), [copy, document]);
 	const cloudProjectState: StudioCloudProjectState = (() => {
 		if (
@@ -279,5 +302,11 @@ export function useStudioCloudProject({
 		return view && canonicalJson(view) === copy.fingerprint ? "synced" : "unsaved";
 	})();
 
-	return { cloudProjectState, saveToCloud: () => void saveToCloud(), saveRevision: saveToCloud };
+	return {
+		cloudProjectState,
+		saveToCloud: () => void saveToCloud(),
+		saveRevision: saveToCloud,
+		cloudProjectId: copy?.projectId ?? null,
+		forgetCloudProject,
+	};
 }

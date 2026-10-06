@@ -159,7 +159,8 @@ export type ParsedProjectDocument =
 	| { schemaVersion: 1; document: ProjectDocumentV1 }
 	| { schemaVersion: 2; document: ProjectDocumentV2 };
 
-const THEMES = new Set([
+/** The themes a project may carry, in the order the studio's picker lists them. */
+export const THEME_NAMES = [
 	"midnight",
 	"aurora",
 	"frost",
@@ -167,7 +168,8 @@ const THEMES = new Set([
 	"one-dark",
 	"catppuccin",
 	"nord",
-]);
+] as const;
+const THEMES: ReadonlySet<string> = new Set(THEME_NAMES);
 const MARGINS = [16, 24, 32, 48, 64] as const;
 
 /**

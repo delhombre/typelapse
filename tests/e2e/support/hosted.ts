@@ -158,6 +158,28 @@ export async function cloudProjectCount(email: string): Promise<number> {
 	return Number(row.count);
 }
 
+/** The account's newest cloud project: what a script names when it asks for a render. */
+export async function newestCloudProject(email: string): Promise<{ id: string; revision: number }> {
+	const id = await accountId(email);
+	return one<{ id: string; revision: number }>(
+		"SELECT id, revision FROM projects WHERE owner_id = $1 ORDER BY created_at DESC LIMIT 1",
+		[id],
+	);
+}
+
+/** The API keys the account holds, as the database keeps them: a prefix and a hash, never a secret. */
+export async function apiKeysOf(
+	email: string,
+): Promise<{ prefix: string; name: string; secretHash: string; lastUsedAt: Date | null }[]> {
+	const id = await accountId(email);
+	const result = await database().query(
+		`SELECT prefix, name, secret_hash AS "secretHash", last_used_at AS "lastUsedAt"
+		FROM api_keys WHERE owner_id = $1 ORDER BY created_at DESC`,
+		[id],
+	);
+	return result.rows;
+}
+
 /** The account's render jobs, newest first. */
 export async function renderJobsOf(
 	email: string,
@@ -172,12 +194,39 @@ export async function renderJobsOf(
 }
 
 /**
+ * The account's cloud projects, newest first: what a script that rendered by URL
+ * can see of the project it left behind.
+ */
+export async function cloudProjectsOf(
+	email: string,
+): Promise<{ id: string; title: string; revision: number; scenes: number }[]> {
+	const id = await accountId(email);
+	const result = await database().query(
+		`SELECT id, title, revision, jsonb_array_length(document -> 'project' -> 'scenes') AS scenes
+		FROM projects WHERE owner_id = $1 ORDER BY created_at DESC`,
+		[id],
+	);
+	return result.rows.map((row) => ({ ...row, scenes: Number(row.scenes) }));
+}
+
+/** What a render counts against the month's minutes, as if it had played that long. */
+export async function setRenderDuration(jobId: string, durationMs: number): Promise<void> {
+	await one("UPDATE render_jobs SET duration_ms = $2 WHERE id = $1 RETURNING id", [
+		jobId,
+		durationMs,
+	]);
+}
+
+/**
  * Better Auth allows three sign-ups or sign-ins per ten seconds per client, and
  * behind the preview proxy every journey is the same client (the API logs that
- * it cannot see an address). A journey that meets the ceiling waits the time
- * the 429 names and tries once more, instead of failing on the suite's pace.
+ * it cannot see an address). One retry remains, after the 429's named window:
+ * the suite's pace alone trips the limiter, a visitor never would. The product
+ * now handles the 429 itself (the island keeps the form and says when to try
+ * again, which rate-limit.spec.ts proves), so a second refusal is a real failure
+ * and no longer something this helper papers over.
  */
-const AUTH_ATTEMPTS = 3;
+const AUTH_ATTEMPTS = 2;
 
 function retryAfterMs(headers: Record<string, string>): number {
 	return (Number(headers["x-retry-after"]) || 10) * 1000 + 250;
@@ -215,6 +264,11 @@ export async function signUpInIsland(page: Page, account: TestAccount): Promise<
 		await panel.getByRole("button", { name: "Create account" }).click();
 		const response = await answer;
 		if (response.status() !== 429 || attempt === AUTH_ATTEMPTS) break;
+		// A refused sign-up keeps the island's form and says so (rate-limit.spec.ts holds
+		// the sentence), so this does what a visitor does: waits out the window the 429
+		// names and presses the same button again.
+		await expect(panel.getByRole("alert")).toBeVisible();
+		await expect(panel.getByLabel("Email")).toHaveValue(account.email);
 		await page.waitForTimeout(retryAfterMs(response.headers()));
 	}
 	// Signed in, the panel closes on its own and the trigger names the account.
@@ -250,6 +304,16 @@ export async function signUpByApi(account: TestAccount): Promise<APIRequestConte
 		password: account.password,
 	});
 	return client;
+}
+
+/**
+ * A key made the way the island makes one: by the signed-in account, shown once.
+ * A script then holds only the key, with no cookie.
+ */
+export async function createApiKeyByApi(client: APIRequestContext, name: string): Promise<string> {
+	const response = await client.post("/api/keys", { data: { name } });
+	expect(response.status(), await response.text()).toBe(201);
+	return ((await response.json()) as { key: string }).key;
 }
 
 /** A signed-in API client for an account that already exists. */

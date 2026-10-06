@@ -1,0 +1,33 @@
+/*
+ * The cloud projects view is the keys view's sibling: it takes its back button,
+ * rows, notes and scroller from `studio-api-keys.css` (its root carries both
+ * `mm-keys` and `mm-projects`), and only says here what a project row adds.
+ */
+
+/* Two facts a line, set off by a dot as the keys' prefix and last use are. */
+.mm-projects-row .mm-keys-meta > span + span::before {
+	content: "\00b7";
+	margin-right: 6px;
+}
+
+/* The panel is a surface already, so the question is its content and not a card
+   inside it: a second ring and fill read as two surfaces (the source popover's
+   rule, for the same reason). */
+.mm-projects-row [data-confirm-discard] {
+	padding: 6px 0 2px;
+	background: transparent;
+	box-shadow: none;
+}
+
+/* Under a finger the question's answers are 44px (`.sc-confirm-actions`); the row
+   makes room instead of clipping them in the scroller. */
+.mm-projects-row[data-confirming] {
+	display: block;
+}
+
+/* "Deleting…" is wider than "Delete": the button keeps one width and one right edge,
+   so the title beside it never gives up a letter while the request is open. */
+.mm-projects-row .mm-keys-revoke {
+	min-width: 70px;
+	text-align: right;
+}

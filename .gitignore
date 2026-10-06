@@ -31,3 +31,7 @@ docs/demo.mp4
 # Playwright journeys (tests/e2e): traces, videos and the HTML report of a run
 test-results/
 playwright-report/
+
+# craft-harness: tester.army artifacts and verification rounds
+.e2e/
+.craft/rounds/

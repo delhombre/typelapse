@@ -1,5 +1,9 @@
 import { createApp } from "../index";
-import { assessHostedReadiness, type RuntimeHealth } from "./hosted-readiness";
+import {
+	assessHostedReadiness,
+	optionalHostedSettings,
+	type RuntimeHealth,
+} from "./hosted-readiness";
 
 async function main(): Promise<void> {
 	const app = await createApp({ deploymentMode: "hosted" });
@@ -8,10 +12,18 @@ async function main(): Promise<void> {
 	const result = assessHostedReadiness(health);
 	if (!result.ready) {
 		console.error(`Hosted configuration incomplete: ${result.missing.join(", ")}`);
-		process.exitCode = 1;
-		return;
+	} else {
+		console.log(
+			"Hosted configuration ready: auth, projects, private assets, billing, rendering and API keys",
+		);
 	}
-	console.log("Hosted configuration ready: auth, projects, private assets, billing and rendering");
+	// Said either way, and never a reason to fail: the operator fixing the rest sees them too.
+	for (const line of optionalHostedSettings(process.env)) {
+		console.log(`Optional: ${line}`);
+	}
+	if (!result.ready) {
+		process.exitCode = 1;
+	}
 }
 
 void main();

@@ -444,6 +444,8 @@
 	color: var(--mm-danger, #c53a3a);
 	font-size: 11px;
 	line-height: 1.4;
+	/* A refusal that names a wait can wrap on a phone: no lone "seconds" on the second line. */
+	text-wrap: pretty;
 }
 
 @media (prefers-reduced-motion: reduce) {

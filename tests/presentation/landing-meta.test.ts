@@ -76,8 +76,9 @@ describe("the share image", () => {
 		expect(built).toContain(
 			'<meta name="twitter:image" content="https://typelapse.example/og.png" />',
 		);
-		// Only the images: the favicon and the font preload stay same-origin paths.
+		// Only the images: the icons and the font preload stay same-origin paths.
 		expect(built).toContain('href="/favicon.svg"');
+		expect(built).toContain('href="/apple-touch-icon.png"');
 		expect(built).toContain('href="/fonts/IoskeleyMono-Regular.woff2"');
 	});
 
@@ -87,5 +88,39 @@ describe("the share image", () => {
 		expect(socialOriginWarning("http://localhost:5173")).toMatch(/local address/);
 		expect(socialOriginWarning("http://127.0.0.1:4173")).toMatch(/local address/);
 		expect(socialOriginWarning("https://typelapse.example")).toBeNull();
+	});
+});
+
+describe("the share image's alt text", () => {
+	it("describes the card on both networks, in one plain sentence", () => {
+		const alt = meta("property", "og:image:alt");
+
+		// X cuts an alt at 420 characters; one sentence about one card needs a third.
+		expect(alt.length).toBeGreaterThan(40);
+		expect(alt.length).toBeLessThanOrEqual(420);
+		expect(alt).toMatch(/^[^.!?]+\.$/);
+		expect(alt).not.toMatch(/[\u2013\u2014!]/);
+		expect(meta("name", "twitter:image:alt")).toBe(alt);
+	});
+});
+
+describe("the home-screen icon", () => {
+	const tag = HTML.match(/<link\s[^>]*rel="apple-touch-icon"[^>]*>/)?.[0] ?? "";
+
+	it("is declared at the size iOS asks for, on the site's own origin", () => {
+		expect(tag, "index.html should declare an apple-touch-icon").not.toBe("");
+		expect(tag).toMatch(/sizes="180x180"/);
+		expect(tag).toMatch(/href="\/[^"]+\.png"/);
+	});
+
+	it("is a 180 by 180 PNG with no alpha channel, which iOS would paint black", () => {
+		const href = tag.match(/href="\/([^"]+)"/)?.[1] ?? "";
+		const png = readFileSync(resolve(__dirname, "../../public", href));
+
+		expect([...png.subarray(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+		// IHDR: width, height, bit depth, then colour type 2 (truecolour, no alpha).
+		expect(png.readUInt32BE(16)).toBe(180);
+		expect(png.readUInt32BE(20)).toBe(180);
+		expect(png[25]).toBe(2);
 	});
 });

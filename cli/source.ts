@@ -5,7 +5,8 @@
  * (`infrastructure/import/pr-import`, plain fetch, so it runs in Node as is) and
  * the studio's own diff-to-project step. A release or a compare range goes
  * through the release import and becomes the chaptered project behind its
- * title card. A file is a project or a diff. The
+ * title card. Those links are read by `application/import/import-source`, the
+ * cascade the hosted render route shares. A file is a project or a diff. The
  * disk and the network are injected, so the decisions are tested without
  * either; `typelapse.ts` wires the real ones.
  */
@@ -14,32 +15,26 @@ import { isAbsolute, resolve } from "node:path";
 import { looksLikeUnifiedDiff } from "@/application/import/classify-source";
 import { projectFromDiff } from "@/application/import/diff-project";
 import {
-	type CommitRef,
-	type CompareRef,
-	type PrRef,
-	type ReleaseRef,
-	resolveCommitUrl,
-	resolveCompareUrl,
-	resolvePrUrl,
-	resolveReleaseUrl,
-} from "@/application/import/pr-url";
-import { type ReleaseCard, releaseProject } from "@/application/import/release-project";
+	type ImportFetchers,
+	type RemoteKind,
+	type RemoteSource,
+	importFailureOf,
+	importSource,
+	remoteSourceOf,
+} from "@/application/import/import-source";
+import type { ReleaseCard } from "@/application/import/release-project";
 import { projectV2ToV1 } from "@/application/project/migrate-v1-project";
 import {
 	type ProjectDocumentV2,
 	parseProjectDocument,
 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
-import type { Walkthrough } from "@/infrastructure/import/pr-import";
-import type { ReleaseWalkthrough } from "@/infrastructure/import/release-import";
+import { withTheme } from "@/application/project/with-theme";
 import { THEMES } from "@/presentation/components/controls/control-presets";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { CliError, EXIT_SOURCE, EXIT_USAGE } from "./errors";
 
 export type SourceKind = "pr" | "commit" | "release" | "compare" | "diff" | "project";
-
-/** The sources read from GitHub, each named in the sentence that says it failed. */
-type RemoteKind = "pr" | "commit" | "release" | "compare";
 
 export type ResolvedSource =
 	| {
@@ -65,35 +60,20 @@ export type ResolvedSource =
 			project?: undefined;
 	  };
 
-export interface SourceDeps {
+export interface SourceDeps extends ImportFetchers {
 	/** Where relative paths are read from: the directory the command was typed in. */
 	cwd: string;
 	readText: (path: string) => Promise<string>;
 	readStdin: () => Promise<string>;
-	fetchPr: (ref: PrRef) => Promise<Walkthrough>;
-	fetchCommit: (ref: CommitRef) => Promise<Walkthrough>;
-	fetchRelease: (ref: ReleaseRef | CompareRef) => Promise<ReleaseWalkthrough>;
 }
 
 /** Any http(s) address, or a host path someone typed without the scheme. */
 const LINK = /^(?:https?:\/\/|www\.)|^(?:[a-z0-9-]+\.)+[a-z]{2,}\//i;
 
 export async function resolveSource(arg: string, deps: SourceDeps): Promise<ResolvedSource> {
-	const pr = resolvePrUrl(arg);
-	if (pr) {
-		return fromGitHub(arg, "pr", () => deps.fetchPr(pr));
-	}
-	const commit = resolveCommitUrl(arg);
-	if (commit) {
-		return fromGitHub(arg, "commit", () => deps.fetchCommit(commit));
-	}
-	const release = resolveReleaseUrl(arg);
-	if (release) {
-		return fromRelease(arg, "release", () => deps.fetchRelease(release));
-	}
-	const compare = resolveCompareUrl(arg);
-	if (compare) {
-		return fromRelease(arg, "compare", () => deps.fetchRelease(compare));
+	const remote = remoteSourceOf(arg);
+	if (remote) {
+		return fromGitHub(arg, remote, deps);
 	}
 	if (LINK.test(arg)) {
 		throw new CliError(
@@ -165,32 +145,17 @@ function projectFromJson(text: string): ProjectPayload | ProjectDocumentV2 {
 	}
 }
 
+/** The studio's own import of a link, with the CLI's sentence when it fails. */
 async function fromGitHub(
 	arg: string,
-	kind: "pr" | "commit",
-	fetchChange: () => Promise<Walkthrough>,
+	remote: RemoteSource,
+	fetchers: ImportFetchers,
 ): Promise<ResolvedSource> {
 	try {
-		const { diffText, title } = await fetchChange();
-		return { kind, project: projectFromDiff(diffText, { title }), arg };
+		return { ...(await importSource(remote, fetchers)), arg };
 	} catch (error) {
 		const message = error instanceof Error ? error.message : "";
-		throw new CliError(remoteSentence(message, kind), EXIT_SOURCE);
-	}
-}
-
-async function fromRelease(
-	arg: string,
-	kind: "release" | "compare",
-	fetchRange: () => Promise<ReleaseWalkthrough>,
-): Promise<ResolvedSource> {
-	try {
-		const { card, chapters, notice } = await fetchRange();
-		const project = releaseProject(card, chapters);
-		return notice ? { kind, project, card, notice, arg } : { kind, project, card, arg };
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "";
-		throw new CliError(remoteSentence(message, kind), EXIT_SOURCE);
+		throw new CliError(remoteSentence(message, remote.kind), EXIT_SOURCE);
 	}
 }
 
@@ -207,30 +172,28 @@ const SUBJECTS: Record<RemoteKind, string> = {
  */
 function remoteSentence(message: string, kind: RemoteKind): string {
 	const subject = SUBJECTS[kind];
-	if (/not found/i.test(message)) {
-		return `${subject} was not found, or its repository is private; set GITHUB_TOKEN to read a private one`;
+	switch (importFailureOf(message)) {
+		case "not-found":
+			return `${subject} was not found, or its repository is private; set GITHUB_TOKEN to read a private one`;
+		case "rate-limit":
+			return "GitHub's rate limit was hit; set GITHUB_TOKEN, or pass the diff as a file";
+		case "range-too-large":
+			return "GitHub will not compare a range this large; pass a smaller range as a compare link";
+		case "too-large":
+			return "GitHub will not serve a diff this large; pass a smaller diff as a file";
+		case "timeout":
+			return "GitHub did not answer within 10 seconds; try again, or pass the diff as a file";
+		case "unreachable":
+			return "Could not reach GitHub; check the connection, or pass the diff as a file";
+		case "unfetchable":
+			return `${subject} could not be fetched from GitHub`;
+		// The CLI sets no budget, so this is only here to say what a caller that did meant.
+		case "budget":
+		case "other":
+			return message
+				? `${subject} could not be animated: ${lowerFirst(message.replace(/\.$/, ""))}`
+				: `${subject} could not be fetched from GitHub`;
 	}
-	if (/rate limit/i.test(message)) {
-		return "GitHub's rate limit was hit; set GITHUB_TOKEN, or pass the diff as a file";
-	}
-	// Before the diff-size reading below: a range too big to compare asks for a
-	// smaller range, which a diff file is not.
-	if (/will not compare/i.test(message)) {
-		return "GitHub will not compare a range this large; pass a smaller range as a compare link";
-	}
-	if (/large/i.test(message)) {
-		return "GitHub will not serve a diff this large; pass a smaller diff as a file";
-	}
-	if (/timed out/i.test(message)) {
-		return "GitHub did not answer within 10 seconds; try again, or pass the diff as a file";
-	}
-	if (/reach GitHub/i.test(message)) {
-		return "Could not reach GitHub; check the connection, or pass the diff as a file";
-	}
-	if (message) {
-		return `${subject} could not be animated: ${lowerFirst(message.replace(/\.$/, ""))}`;
-	}
-	return `${subject} could not be fetched from GitHub`;
 }
 
 function lowerFirst(text: string): string {
@@ -252,8 +215,7 @@ export function applyOverrides(
 ): ProjectPayload {
 	let next = project;
 	if (overrides.theme !== undefined) {
-		const { fontFamily: _font, borderRadius: _radius, ...rest } = next;
-		next = { ...rest, themeName: overrides.theme };
+		next = withTheme(next, overrides.theme);
 	}
 	if (overrides.size !== undefined) {
 		next = { ...next, width: overrides.size.width, height: overrides.size.height };

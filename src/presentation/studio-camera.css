@@ -6,11 +6,14 @@
  * its own vocabulary, brand colour and code-video controls.
  */
 
-.studio-camera-root {
-	--camera-header: 80px;
-	--camera-timeline-height: 218px;
-	--camera-timeline-bottom: 16px;
-	--camera-rail-bottom: 246px;
+/* The studio's tokens, published on both shells. The desktop root and the phone
+   root each carry `.studio-root`, so the ramp and the hairline below resolve on
+   either; the phone used to hold a cool, partial copy of these in app.css, and
+   its menus painted no material at all. The phone's sheet is portaled out of
+   `.studio-root` and keeps a copy of its own there. The strip an import link
+   raises is rendered beside the shell, not in it, so it carries `.studio-root
+   .sc-tokens` to read them too. */
+:is(.studio-camera-root, .sc-root-mobile, .sc-tokens) {
 	/* One accent and one primary for the whole product (SYSTEM.md, drift 1 and
 	   2, settled by the studio desktop pass): the timeline's selection and the
 	   island's CTA wear the same yellow as every other filled action, and every
@@ -46,7 +49,12 @@
 	--camera-control-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 3px 9px rgb(15 23 42 / 0.024);
 	--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024);
 	--camera-dark-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 5px 16px rgb(0 0 0 / 0.07);
-	/* The studio's type scale (drift 9): five sizes, three weights. Anything
+	/* A bottom sheet's depth: a ring and a shadow cast upward, since it rises from
+	   the bottom edge. */
+	--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18);
+	/* An error in a field's own words: 5.0:1 on the paper, 7.3:1 on the dark paper. */
+	--camera-danger: #c53a3a;
+	/* The studio's type scale: five sizes, three weights, on both shells. Anything
 	   smaller than 9px is a texture (the clips' code), not text. */
 	--sc-text-2xs: 9px;
 	--sc-text-xs: 10px;
@@ -56,6 +64,13 @@
 	--sc-weight-regular: 500;
 	--sc-weight-medium: 600;
 	--sc-weight-strong: 650;
+}
+
+.studio-camera-root {
+	--camera-header: 80px;
+	--camera-timeline-height: 218px;
+	--camera-timeline-bottom: 16px;
+	--camera-rail-bottom: 246px;
 	isolation: isolate;
 	/* Clip, not hidden. With the card open, the stage and the dock overhang the
 	   window by up to 160px, and a hidden overflow is still a scroll container:
@@ -80,7 +95,7 @@
 
 /* The ink was never redefined here, so every field value, chip label and
    inspector title painted #1d1d20 on a dark surface. */
-.dark .studio-camera-root {
+.dark :is(.studio-camera-root, .sc-root-mobile, .sc-tokens) {
 	--camera-ink: #f5f3ef;
 	--camera-muted: #a8a39a;
 	--camera-pill: #292624;
@@ -90,7 +105,26 @@
 	--camera-raised: 0 0 0 1px var(--camera-line), 0 10px 32px rgb(0 0 0 / 0.28);
 	--camera-material: color-mix(in oklch, var(--color-neutral-900) 82%, transparent);
 	--camera-material-shadow: 0 0 0 1px var(--sc-hairline), 0 20px 44px -18px rgb(0 0 0 / 0.6);
+	--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -22px 56px rgb(0 0 0 / 0.42);
+	--camera-danger: #f28b82;
+}
+
+.dark .studio-camera-root {
 	background: var(--camera-paper);
+}
+
+/* Reduced transparency: the global rule drops the blur, and the 88% fill would
+   then leave an unblurred 12% of the scene showing behind every capsule and
+   popover that still wears the material. It goes opaque in the same step. */
+/* biome-ignore lint/correctness/noUnknownMediaFeatureName: prefers-reduced-transparency is a valid Media Queries Level 5 feature */
+@media (prefers-reduced-transparency: reduce) {
+	:is(.studio-camera-root, .sc-root-mobile) {
+		--camera-material: var(--camera-paper);
+	}
+
+	.dark :is(.studio-camera-root, .sc-root-mobile) {
+		--camera-material: var(--color-neutral-900);
+	}
 }
 
 /* ui.camera's helpers are tiny floating labels, not browser-native `title`
@@ -323,6 +357,7 @@
 	outline-offset: 2px;
 }
 
+/* Rows of text on the opaque studio surface, as the source menu below (DECISIONS D5). */
 .sc-project-menu {
 	position: absolute;
 	top: calc(100% + 10px);
@@ -331,11 +366,9 @@
 	width: 310px;
 	overflow: hidden;
 	border-radius: var(--r-surface);
-	background: var(--camera-material);
+	background: var(--camera-surface);
 	box-shadow: var(--camera-material-shadow);
 	color: var(--camera-ink);
-	-webkit-backdrop-filter: var(--camera-material-blur);
-	backdrop-filter: var(--camera-material-blur);
 }
 
 .sc-project-menu-head {
@@ -507,37 +540,35 @@
 	pointer-events: none;
 }
 
+/* A header trigger wears the material of the capsules beside it: its fill, a ring
+   and a soft shadow in place of a border, and a pill because it is 40px tall. It
+   sits on flat paper, where a blur shows nothing and costs a layer (D5), so it
+   keeps the fill and leaves the blur to the menus that open over the stage. */
 .sc-island-trigger {
 	display: inline-flex;
 	height: 40px;
 	align-items: center;
 	justify-content: center;
 	gap: 7px;
-	padding: 0 15px;
-	border: 1px solid var(--camera-line);
-	border-radius: 20px;
-	background: #fff;
-	box-shadow: var(--camera-surface-shadow);
+	/* The glyph side is 2px tighter than the label side: a round glyph reads as
+	   further in than its box. */
+	padding: 0 15px 0 13px;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: var(--camera-material);
+	box-shadow: var(--camera-material-shadow);
 	color: var(--camera-muted);
 	font-family: inherit;
-	font-size: 11.5px;
-	font-weight: 600;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
 	letter-spacing: -0.01em;
-}
-
-.dark .sc-island-trigger {
-	background: #1b1c20;
-	box-shadow: 0 1px 2px rgb(0 0 0 / 0.2), 0 5px 18px rgb(0 0 0 / 0.18);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
 	.sc-island-trigger:hover {
 		background: var(--camera-pill);
 		color: var(--camera-ink);
-	}
-
-	.dark .sc-island-trigger:hover {
-		color: #f5f5f7;
 	}
 }
 
@@ -551,16 +582,16 @@
 	color: var(--camera-ink);
 }
 
-/* --camera-ink is not themed, so open on the dark paper the label was ink on
-   the dark pill: the trigger went blank the moment its menu opened. */
-.dark .sc-island-trigger[aria-expanded="true"] {
-	color: #f5f5f7;
-}
-
 .sc-source-root {
 	position: relative;
 }
 
+/* The menu and its two form popovers hold rows of text, so they are the opaque
+   studio surface and not the floating material: on a phone they cover the stage,
+   and the 12% of the 88% paper that was not paper showed the mesh through the
+   lower rows as a blotch (DECISIONS D5). A 16px surface with a ring inside its
+   shadow stack rather than a border tuned to one paper, and no blur, since an
+   opaque fill leaves nothing behind it to blur. */
 .sc-source-menu,
 .sc-source-form-popover {
 	position: absolute;
@@ -570,20 +601,10 @@
 	width: 278px;
 	overflow: hidden;
 	border: 0;
-	border-radius: 18px;
-	background: #fff;
-	/* Raised, so depth is a ring inside a shadow stack rather than a border
-	   tuned to one paper: crisp under the edge, soft below it. */
-	box-shadow: 0 0 0 1px rgb(29 29 32 / 0.08), 0 2px 6px rgb(20 20 24 / 0.05), 0 16px 40px -12px
-		rgb(20 20 24 / 0.16);
-	color: #1d1d20;
-}
-
-.dark .sc-source-menu,
-.dark .sc-source-form-popover {
-	background: #1b1c20;
-	box-shadow: 0 0 0 1px rgb(255 255 255 / 0.09), 0 18px 48px -12px rgb(0 0 0 / 0.6);
-	color: #f5f5f7;
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-material-shadow);
+	color: var(--camera-ink);
 }
 
 /* Empty until media is being added; then one line under the choices. */
@@ -592,7 +613,7 @@
 	margin: 0;
 	padding: 2px 14px 10px;
 	color: var(--camera-muted);
-	font-size: 11px;
+	font-size: var(--sc-text-sm);
 }
 
 .sc-source-status:empty {
@@ -620,7 +641,8 @@
 	margin: 4px;
 	padding: 0 10px 0 7px;
 	border: 0;
-	border-radius: 14px;
+	/* Concentric with the menu: its corner less the 4px the row sits in. */
+	border-radius: calc(var(--r-surface) - 4px);
 	background: transparent;
 	color: inherit;
 	font-family: inherit;
@@ -633,7 +655,7 @@
 }
 
 .sc-source-choice:active {
-	transform: scale(0.985);
+	transform: scale(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -644,11 +666,7 @@
 
 @media (hover: hover) and (pointer: fine) {
 	.sc-source-choice:hover {
-		background: #f1f2f4;
-	}
-
-	.dark .sc-source-choice:hover {
-		background: rgb(255 255 255 / 0.07);
+		background: var(--camera-pill);
 	}
 }
 
@@ -663,17 +681,12 @@
 	height: 34px;
 	align-items: center;
 	justify-content: center;
-	/* Concentric with the row: its 14px corner less the 7px it sits in. */
-	border-radius: 7px;
-	background: #f1f2f4;
-	color: #55535b;
-	box-shadow: inset 0 0 0 1px rgb(29 29 32 / 0.025);
-}
-
-.dark .sc-source-choice-icon {
-	background: rgb(255 255 255 / 0.07);
-	color: #c7c5cc;
-	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.04);
+	/* Concentric with the row: the menu's corner less the row's 4px and the 7px
+	   the tile sits in. */
+	border-radius: calc(var(--r-surface) - 11px);
+	background: var(--camera-surface);
+	color: var(--camera-muted);
+	box-shadow: inset 0 0 0 1px var(--camera-line);
 }
 
 .sc-source-choice > span:nth-child(2) {
@@ -683,15 +696,15 @@
 }
 
 .sc-source-choice strong {
-	font-size: 12px;
-	font-weight: 600;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
 	letter-spacing: -0.008em;
 }
 
 .sc-source-choice small {
 	overflow: hidden;
 	color: var(--camera-muted);
-	font-size: 11px;
+	font-size: var(--sc-text-sm);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -705,36 +718,311 @@
 	width: 320px;
 	margin-top: 0;
 	padding: 9px;
-	border-radius: 18px;
 }
 
 /* A refusal, under the field it is about. */
 .sc-source-error {
 	margin: 6px 2px 0;
-	color: #c53a3a;
-	font-size: 11px;
+	color: var(--camera-danger);
+	font-size: var(--sc-text-sm);
 	line-height: 1.45;
 	text-wrap: pretty;
 }
 
-.dark .sc-source-error {
-	color: #f28b82;
+/* The link field and the diff box, drawn like the inspector's fields
+   (`.sc-layer-field`): the pill fill, a hairline, the field radius, and the
+   accent with a halo for focus instead of a second ring. The edge is the whole
+   accent: at 60% it measured 2.1:1 against the paper, and D9 asks 3:1 of a ring. */
+.sc-source-field {
+	min-width: 0;
+	border: 1px solid var(--camera-line);
+	/* In the popover's corner: its radius less the 9px it is padded by. */
+	border-radius: calc(var(--r-surface) - 9px);
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+	font-family: var(--font-mono);
+	font-size: var(--sc-text-sm);
+	/* Transparent rather than none, so forced-colours mode still draws a ring. */
+	outline: 2px solid transparent;
+	transition: border-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
 }
 
-/* The replace question is the popover's content, not a card inside it: a
-   second border and fill inside the first read as two surfaces. */
-.sc-source-form-popover [data-confirm-discard] {
-	padding: 6px 4px 2px;
+.sc-source-field::placeholder {
+	color: var(--camera-muted);
+}
+
+.sc-source-field:focus {
+	border-color: var(--color-accent);
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent) 16%, transparent);
+}
+
+/* A refused link or diff: the edge says it as well as the sentence under it. */
+.sc-source-field[aria-invalid="true"],
+.sc-source-field[aria-invalid="true"]:focus {
+	border-color: var(--camera-danger);
+}
+
+.sc-source-field[aria-invalid="true"]:focus {
+	box-shadow: 0 0 0 3px color-mix(in oklch, var(--camera-danger) 16%, transparent);
+}
+
+input.sc-source-field {
+	height: 32px;
+	flex: 1 1 auto;
+	padding: 0 10px;
+}
+
+textarea.sc-source-field {
+	display: block;
+	width: 100%;
+	resize: none;
+	padding: 8px 10px;
+	line-height: 1.5;
+}
+
+/* The popover's one filled shape (DECISIONS D2): Fetch and Apply wear the primary. */
+.sc-source-submit {
+	position: relative;
+	display: flex;
+	height: 32px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	gap: 4px;
+	padding: 0 12px;
 	border: 0;
-	background: transparent;
+	border-radius: calc(var(--r-surface) - 9px);
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	font-family: inherit;
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-medium);
+	transition: background-color 150ms var(--ease-out), opacity 150ms var(--ease-out);
 }
 
-.sc-source-form-popover [data-confirm-discard] p:first-child {
+/* 32px drawn, 40px tall to a mouse; the extension is vertical only, so it never
+   reaches the field beside it. */
+.sc-source-submit::after {
+	content: "";
+	position: absolute;
+	inset: -4px 0;
+}
+
+/* Nothing to send is a muted fill, not the primary at 60% (the export button's
+   rule); a request in flight keeps the fill and says so with its cursor. */
+.sc-source-submit:disabled {
+	background: var(--camera-pill);
+	color: var(--camera-muted);
+}
+
+.sc-source-submit[aria-busy="true"] {
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	cursor: progress;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-source-submit:not(:disabled):hover {
+		background: var(--color-primary-hover);
+	}
+}
+
+.sc-source-hint {
+	color: var(--camera-muted);
+	font-family: var(--font-mono);
+	font-size: var(--sc-text-sm);
+}
+
+/* Whole change or one chapter per commit: a two-option segment whose selected
+   plate is the ink, as Preview and Edit are. Concentric: the field's 8px less
+   the 2px it holds and the 1px ring. */
+.sc-source-modes {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: 2px;
+	margin: 0;
+	padding: 2px;
+	border: 1px solid var(--camera-line);
+	border-radius: var(--r-field);
+}
+
+.sc-source-mode {
+	position: relative;
+	padding: 4px 8px;
+	border: 0;
+	border-radius: calc(var(--r-field) - 3px);
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-regular);
+	transition: color 150ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-source-mode:hover {
+		color: var(--camera-ink);
+	}
+}
+
+.sc-source-mode[aria-pressed="true"] {
+	color: var(--camera-paper);
+}
+
+/* The segment is 24px tall; the target reaches 40px up and down only, so the two
+   options never share one. */
+.sc-source-mode::after {
+	content: "";
+	position: absolute;
+	inset: -8px 0;
+}
+
+.sc-source-mode-plate {
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: var(--camera-ink);
+}
+
+.sc-source-mode-label {
+	position: relative;
+	z-index: 1;
+}
+
+/* The replace question (ConfirmDiscard), asked in four places: a source popover,
+   the Showcase, a modal of its own for a project file, and the strip an import
+   link raises. One card on the opaque studio surface with its ring inside the
+   shadow stack, and its one filled shape wears the primary (DECISIONS D2) with no
+   glow under it: the card already lifts it. */
+.sc-confirm {
+	padding: 16px;
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-raised);
+	color: var(--camera-ink);
+}
+
+/* The strip floats over the studio, so it takes the floating material's depth. */
+.sc-confirm-float {
+	box-shadow: var(--camera-material-shadow);
+}
+
+.sc-confirm-title {
+	margin: 0;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-medium);
 	text-wrap: balance;
 }
 
-.sc-source-form-popover [data-confirm-discard] button {
+.sc-confirm-text {
+	margin: 4px 0 0;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+.sc-confirm-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+/* 32px drawn, 40px tall to a pointer (the extension reaches only up and down, so
+   the two buttons never share a target) and 44px under a finger. Neither ring
+   is restyled: a keyboard gets the global accent on the button it is on (D9). */
+.sc-confirm-actions button {
+	position: relative;
+	height: 32px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: var(--r-control);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
 	white-space: nowrap;
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+
+.sc-confirm-actions button::after {
+	content: "";
+	position: absolute;
+	inset: -4px 0;
+}
+
+.sc-confirm-keep {
+	background: transparent;
+	color: var(--camera-muted);
+	font-weight: var(--sc-weight-regular);
+}
+
+.sc-confirm-go {
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	font-weight: var(--sc-weight-medium);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-confirm-keep:hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+
+	.sc-confirm-go:hover {
+		background: var(--color-primary-hover);
+	}
+}
+
+@media (pointer: coarse) {
+	.sc-confirm-actions button {
+		height: 44px;
+	}
+
+	.sc-confirm-actions button::after {
+		inset: 0;
+	}
+}
+
+/* The popover and the modal are surfaces already, so the question is their
+   content and not a card inside them: a second ring and fill inside the first
+   read as two surfaces. */
+.sc-source-form-popover [data-confirm-discard] {
+	padding: 6px 4px 2px;
+	background: transparent;
+	box-shadow: none;
+}
+
+/* The modal a project file asks in: the card is the surface, and a focus that
+   script puts on it, so a Tab starts at "Keep my snippet", marks nothing to
+   press, so it draws no ring (DECISIONS D9). Its scrim is the one the sheets
+   draw, the dark paper at 40% in either theme. */
+.sc-confirm-card {
+	padding: 8px;
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-material-shadow);
+}
+
+.sc-confirm-card:focus-visible {
+	outline: none;
+}
+
+.sc-confirm-card [data-confirm-discard] {
+	background: transparent;
+	box-shadow: none;
+}
+
+.sc-confirm-scrim {
+	position: fixed;
+	inset: 0;
+	padding: 0;
+	border: 0;
+	cursor: default;
+	background: color-mix(in oklch, var(--color-neutral-950) 40%, transparent);
+	-webkit-backdrop-filter: blur(2px);
+	backdrop-filter: blur(2px);
 }
 
 .sc-source-form-popover[aria-label="Import a git diff"] {
@@ -758,10 +1046,10 @@
 	flex: none;
 	padding: 0;
 	border: 0;
-	/* The popover's 18px corner less its 9px padding. */
-	border-radius: 9px;
-	background: #f1f2f4;
-	color: #55535b;
+	/* The popover's corner less its 9px padding. */
+	border-radius: calc(var(--r-surface) - 9px);
+	background: transparent;
+	color: var(--camera-muted);
 	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
 }
 
@@ -774,19 +1062,14 @@
 
 @media (hover: hover) and (pointer: fine) {
 	.sc-source-view-head > button:hover {
-		background: #e8e9ec;
-		color: #1d1d20;
-	}
-
-	.dark .sc-source-view-head > button:hover {
-		background: rgb(255 255 255 / 0.11);
-		color: #f5f5f7;
+		background: var(--camera-pill);
+		color: var(--camera-ink);
 	}
 }
 
-.dark .sc-source-view-head > button {
-	background: rgb(255 255 255 / 0.07);
-	color: #c7c5cc;
+.sc-source-view-head > button:active {
+	background: var(--camera-pill);
+	color: var(--camera-ink);
 }
 
 .sc-source-view-head > div {
@@ -795,13 +1078,39 @@
 }
 
 .sc-source-view-head strong {
-	font-size: 12px;
-	font-weight: 600;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
 }
 
 .sc-source-view-head span {
 	color: var(--camera-muted);
-	font-size: 11px;
+	font-size: var(--sc-text-sm);
+}
+
+/* Under a finger the fields type at 16px, so iOS does not zoom into them, and the
+   controls beside them are 44px tall; the back button and the segment reach 44px
+   without growing what is drawn. */
+@media (pointer: coarse) {
+	.sc-source-field {
+		font-size: 16px;
+	}
+
+	input.sc-source-field,
+	.sc-source-submit {
+		height: 44px;
+	}
+
+	.sc-source-view-head > button::after {
+		inset: -7px;
+	}
+
+	.sc-source-mode::after {
+		inset: -10px 0;
+	}
+
+	.sc-source-submit::after {
+		inset: 0;
+	}
 }
 
 /* ─────────────────────────── Bottom sheets ─────────────────────────── */
@@ -830,7 +1139,9 @@
 	height: 100%;
 	padding: 0;
 	border: 0;
-	background: rgb(27 27 30 / 0.38);
+	/* The scrim ConfirmDiscardOverlay draws: the dark paper at 40% in either theme,
+	   since a scrim darkens whichever page it covers. */
+	background: color-mix(in oklch, var(--color-neutral-950) 40%, transparent);
 	-webkit-backdrop-filter: blur(2px);
 	backdrop-filter: blur(2px);
 }
@@ -846,22 +1157,38 @@
 	max-height: 74vh;
 	flex-direction: column;
 	overflow: hidden;
-	border: 1px solid rgb(29 29 32 / 0.06);
-	border-bottom: 0;
-	border-radius: 24px 24px 0 0;
-	background: #f9fafc;
-	box-shadow: 0 -18px 48px rgb(18 18 20 / 0.18);
-	color: #1d1d20;
+	border: 0;
+	border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+	background: var(--camera-paper);
+	box-shadow: var(--camera-sheet-shadow);
+	color: var(--camera-ink);
+	/* The header and the content share one side gutter, so a title lines up with
+	   the first card under it; each sheet sets its own. */
+	--sheet-inline: 28px;
+	/* The paper a desktop sheet leaves on each side once it is narrower than the window. */
+	--sheet-margin: 24px;
 	outline: none;
 	transform-origin: center bottom;
 	will-change: transform;
 }
 
-.dark .studio-sheet-panel {
-	border-color: rgb(255 255 255 / 0.08);
-	background: #151517;
-	box-shadow: 0 -22px 56px rgb(0 0 0 / 0.42);
-	color: #f5f5f7;
+/* On a desktop a sheet is as wide as its content, centred, with paper on both sides:
+   a sheet the width of a 1440px window put its title 1352px from its close button and
+   a capture or two against one edge. Each sheet names its content's width in
+   `--sheet-width` (without one it takes the window less its margins); a phone's sheet
+   spans the screen, as a bottom sheet does. The 720px is the showcase's single column. */
+@media (min-width: 721px) {
+	.studio-sheet-panel {
+		width: min(var(--sheet-width, 100%), calc(100% - 2 * var(--sheet-margin)));
+		margin-inline: auto;
+	}
+}
+
+.showcase-sheet {
+	--sheet-inline: 18px;
+	/* Two cards of 440px and the grid's gap: the six projects read at the size they are
+	   explored at, and the title lines up with the first card. */
+	--sheet-width: calc(2 * 440px + 12px + 2 * var(--sheet-inline));
 }
 
 .studio-sheet-grip {
@@ -869,8 +1196,8 @@
 	height: 5px;
 	flex: none;
 	margin: 12px auto 4px;
-	border-radius: 999px;
-	background: rgb(116 113 122 / 0.22);
+	border-radius: var(--r-pill);
+	background: color-mix(in oklch, var(--camera-muted) 30%, transparent);
 }
 
 .studio-sheet-header {
@@ -879,172 +1206,263 @@
 	align-items: flex-start;
 	justify-content: space-between;
 	gap: 24px;
-	padding: 10px 28px 16px;
-	border-bottom: 1px solid rgb(29 29 32 / 0.06);
-}
-
-.dark .studio-sheet-header {
-	border-color: rgb(255 255 255 / 0.08);
+	/* A landscape phone's notch sits on a side: the title clears it. */
+	padding: 10px max(var(--sheet-inline), env(safe-area-inset-right, 0px)) 16px
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
+	border-bottom: 1px solid var(--camera-line);
 }
 
 .studio-sheet-header h2 {
 	margin: 0;
-	font-size: 14px;
-	font-weight: 680;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
 	letter-spacing: -0.018em;
 }
 
 .studio-sheet-header p {
 	margin: 3px 0 0;
-	color: #74717a;
-	font-size: 11px;
-}
-
-.dark .studio-sheet-header p {
-	color: #a09da6;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+	text-wrap: pretty;
 }
 
 .studio-sheet-header > button {
+	position: relative;
 	display: inline-flex;
 	width: 34px;
 	height: 34px;
+	flex: none;
 	align-items: center;
 	justify-content: center;
 	margin: -2px -5px 0 0;
 	padding: 0;
 	border: 0;
-	border-radius: 999px;
-	background: rgb(29 29 32 / 0.045);
-	color: #74717a;
+	border-radius: var(--r-pill);
+	background: transparent;
+	color: var(--camera-muted);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
 }
 
-.dark .studio-sheet-header > button {
-	background: rgb(255 255 255 / 0.07);
-	color: #aaa8b0;
+/* 34px drawn, 44px to a finger. */
+.studio-sheet-header > button::after {
+	content: "";
+	position: absolute;
+	inset: -5px;
 }
 
-.studio-sheet-header > button:focus-visible,
-.capture-card button:focus-visible {
-	outline: 2px solid currentColor;
+@media (hover: hover) and (pointer: fine) {
+	.studio-sheet-header > button:hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+}
+
+.studio-sheet-header > button:active {
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+}
+
+.studio-sheet-header > button:focus-visible {
+	outline: 2px solid var(--camera-focus);
 	outline-offset: 2px;
+}
+
+/* As wide as its captures: one to three columns of cards, and never narrower than the
+   empty state and the header's sentence need. The width is the sheet's alone; the grid
+   fills it (below), so a lone capture is one large card, not a small one at an edge.
+   The height follows the content too, up to the shell's 74vh. */
+.capture-library-sheet {
+	--capture-card: 256px;
+	--capture-gap: 12px;
+	--capture-columns: 1;
+	--sheet-width: max(
+		440px,
+		calc(
+			var(--capture-columns) *
+			var(--capture-card) +
+			(var(--capture-columns) - 1) *
+			var(--capture-gap) +
+			2 *
+			var(--sheet-inline)
+		)
+	);
+	min-height: 0;
+}
+
+.capture-library-sheet:has(.capture-card:nth-child(2)) {
+	--capture-columns: 2;
+}
+
+.capture-library-sheet:has(.capture-card:nth-child(3)) {
+	--capture-columns: 3;
 }
 
 .capture-library-empty {
 	display: flex;
-	min-height: 280px;
 	flex: 1;
 	align-items: center;
 	justify-content: center;
 	flex-direction: column;
-	color: #74717a;
+	gap: 12px;
+	/* The sheet's gutters, and clear of the notch and the home indicator on a phone. */
+	padding: 36px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
+		max(40px, calc(env(safe-area-inset-bottom, 0px) + 24px))
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
 	text-align: center;
 }
 
 .capture-library-empty-icon {
 	display: inline-flex;
-	width: 52px;
-	height: 52px;
+	width: 40px;
+	height: 40px;
 	align-items: center;
 	justify-content: center;
-	margin-bottom: 13px;
-	border-radius: 17px;
-	background: rgb(29 29 32 / 0.05);
-	box-shadow: inset 0 0 0 1px rgb(29 29 32 / 0.025);
+	border-radius: var(--r-control);
+	background: var(--camera-pill);
+	color: var(--camera-muted);
+	box-shadow: inset 0 0 0 1px var(--camera-line);
 }
 
-.dark .capture-library-empty-icon {
-	background: rgb(255 255 255 / 0.07);
-	box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.04);
-}
-
-.capture-library-empty strong {
-	color: #1d1d20;
-	font-size: 13px;
-	font-weight: 650;
-	letter-spacing: -0.01em;
-}
-
-.dark .capture-library-empty strong {
-	color: #f5f5f7;
-}
-
+/* The one sentence is the content, so it is the ink; the header's line above it is the
+   muted one. */
 .capture-library-empty p {
-	max-width: 320px;
-	margin: 5px 0 0;
-	font-size: 11px;
+	max-width: 30ch;
+	margin: 0;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-md);
+	line-height: 1.5;
+	text-wrap: balance;
 }
 
-.capture-library-spinner {
-	width: 24px;
-	height: 24px;
-	margin-bottom: 12px;
-	border: 2px solid rgb(116 113 122 / 0.18);
-	border-top-color: #74717a;
-	border-radius: 999px;
-	animation: capture-library-spin 0.8s linear infinite;
+/* The state's one filled shape (DECISIONS D2): the island's own Export, one press away. */
+.capture-library-action {
+	position: relative;
+	display: inline-flex;
+	height: 32px;
+	align-items: center;
+	justify-content: center;
+	margin-top: 4px;
+	padding: 0 14px;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	font-family: inherit;
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-medium);
+	transition: background-color 150ms var(--ease-out);
 }
 
-@keyframes capture-library-spin {
-	to {
-		transform: rotate(360deg);
+/* 32px drawn, 40px tall to a mouse (the extension is vertical only), 44px under a finger. */
+.capture-library-action::after {
+	content: "";
+	position: absolute;
+	inset: -4px 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.capture-library-action:hover {
+		background: var(--color-primary-hover);
 	}
 }
 
+.capture-library-action:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+	.capture-library-action {
+		height: 44px;
+	}
+
+	.capture-library-action::after {
+		inset: 0;
+	}
+}
+
+/* A phone fits as many cards as it can; a desktop's columns are the sheet's width
+   divided, counted from the captures above. */
 .capture-library-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-	gap: 12px;
+	min-height: 0;
+	/* A row is as tall as its cards. The grid is a shrinkable flex item, and a row that
+	   could shrink was squeezed to a share of the sheet's height: with more cards than the
+	   sheet holds, every footer (title, size, download) was clipped instead of scrolled. */
+	align-content: start;
+	grid-auto-rows: max-content;
+	grid-template-columns: repeat(auto-fill, minmax(var(--capture-card), 1fr));
+	gap: var(--capture-gap);
 	overflow-y: auto;
-	padding: 18px 28px 28px;
+	/* The sheet's gutter, and clear of the notch and the home indicator on a phone. */
+	padding: 16px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
+		max(28px, calc(env(safe-area-inset-bottom, 0px) + 16px))
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
+	scrollbar-gutter: stable;
 }
 
+@media (min-width: 721px) {
+	.capture-library-grid {
+		grid-template-columns: repeat(var(--capture-columns), minmax(0, 1fr));
+	}
+}
+
+/* The opaque card of the showcase (SYSTEM.md, Shadows): the ring is inside the shadow
+   stack, not a border, and the tokens flip it in the dark theme. */
 .capture-card {
 	overflow: hidden;
-	border: 1px solid rgb(29 29 32 / 0.07);
-	border-radius: 16px;
-	background: #fff;
-	box-shadow: 0 1px 2px rgb(20 20 24 / 0.03);
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-raised);
 }
 
-.dark .capture-card {
-	border-color: rgb(255 255 255 / 0.08);
-	background: #1d1d20;
-}
-
+/* A 16:9 holder, so the exports that are 16:9 (nearly all) fill it and a portrait or a
+   square one sits in it with the paper's grey at its sides. The card's corner on top and
+   a preview holder below, as the showcase's picture. */
 .capture-card-preview {
 	position: relative;
 	display: flex;
-	height: 164px;
+	aspect-ratio: 16 / 9;
 	align-items: center;
 	justify-content: center;
 	overflow: hidden;
-	background: #f1f2f4;
+	border-radius: var(--r-surface) var(--r-surface) var(--r-control) var(--r-control);
+	background: var(--camera-pill);
+	/* The glyph shown until the picture is read; the badge sets its own ink. */
+	color: var(--camera-muted);
 }
 
-.dark .capture-card-preview {
-	background: #101114;
-}
-
+/* An image's edge: pure black or white at 10%, inside its own bounds. The picture is
+   sized by its own aspect, not stretched to the holder, so the line follows the picture
+   and not the letterbox around it. */
 .capture-card-preview img,
 .capture-card-preview video {
-	width: 100%;
-	height: 100%;
-	object-fit: contain;
+	max-width: 100%;
+	max-height: 100%;
+	outline: 1px solid rgb(0 0 0 / 0.1);
+	outline-offset: -1px;
 }
 
+.dark .capture-card-preview :is(img, video) {
+	outline-color: rgb(255 255 255 / 0.1);
+}
+
+/* The format, on a plate that reads over a picture of any brightness: the island's
+   fixed dark, never themed, and opaque enough that it needs no blur behind it. */
 .capture-card-format {
 	position: absolute;
 	top: 10px;
 	right: 10px;
 	padding: 3px 6px;
-	border-radius: 7px;
-	background: rgb(21 21 23 / 0.72);
-	color: #fff;
-	font-size: 8.5px;
-	font-weight: 700;
+	/* In the card's corner: its radius less the 10px the badge sits in. */
+	border-radius: calc(var(--r-surface) - 10px);
+	background: color-mix(in oklch, var(--color-neutral-950) 78%, transparent);
+	color: var(--color-neutral-50);
+	font-size: var(--sc-text-2xs);
+	font-weight: var(--sc-weight-strong);
 	letter-spacing: 0.06em;
-	-webkit-backdrop-filter: blur(8px);
-	backdrop-filter: blur(8px);
+	pointer-events: none;
+	user-select: none;
 }
 
 .capture-card footer {
@@ -1053,7 +1471,7 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
-	padding: 0 11px 0 13px;
+	padding: 0 12px;
 }
 
 .capture-card footer > div {
@@ -1064,18 +1482,22 @@
 
 .capture-card footer strong {
 	overflow: hidden;
-	font-size: 11.5px;
-	font-weight: 650;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-strong);
+	/* The showcase card's title, so the two galleries set one role one way. */
+	letter-spacing: -0.01em;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
 
 .capture-card footer span {
-	color: #74717a;
-	font-size: 10px;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-xs);
+	font-variant-numeric: tabular-nums;
 }
 
 .capture-card footer button {
+	position: relative;
 	display: inline-flex;
 	width: 34px;
 	height: 34px;
@@ -1084,14 +1506,36 @@
 	flex: none;
 	padding: 0;
 	border: 0;
-	border-radius: 11px;
-	background: #f1f2f4;
-	color: #55535b;
+	/* In the card's corner: its radius less the 12px the button sits in, on the right and
+	   under it (the footer is 58px, the button 34px). */
+	border-radius: calc(var(--r-surface) - 12px);
+	background: transparent;
+	color: var(--camera-muted);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
 }
 
-.dark .capture-card footer button {
-	background: rgb(255 255 255 / 0.07);
-	color: #c7c5cc;
+/* 34px drawn, 44px to a finger; nothing else in the footer is within reach of it. */
+.capture-card footer button::after {
+	content: "";
+	position: absolute;
+	inset: -5px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.capture-card footer button:not(:disabled):hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+}
+
+.capture-card footer button:not(:disabled):active {
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+}
+
+.capture-card footer button:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
 }
 
 .capture-card footer button:disabled {
@@ -1108,7 +1552,10 @@
 	grid-auto-rows: max-content;
 	gap: 12px;
 	overflow-y: auto;
-	padding: 16px 18px 30px;
+	/* The sheet's gutter, and clear of the notch and the home indicator on a phone. */
+	padding: 16px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
+		max(30px, calc(env(safe-area-inset-bottom, 0px) + 16px))
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
 	scrollbar-gutter: stable;
 }
 
@@ -1118,42 +1565,28 @@
 	flex-direction: column;
 	overflow: hidden;
 	padding: 0;
-	border: 1px solid rgb(29 29 32 / 0.075);
-	border-radius: 18px;
-	background: #fff;
-	box-shadow: 0 1px 2px rgb(20 20 24 / 0.025);
-	color: #1d1d20;
+	border: 0;
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	/* The opaque card's depth (SYSTEM.md, Shadows): a ring inside the stack, not a
+	   border. A hovered card rises into the floating material's depth. */
+	box-shadow: var(--camera-raised);
+	color: var(--camera-ink);
 	font-family: inherit;
 	text-align: left;
 	transform-origin: center bottom;
-	transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
-}
-
-.dark .showcase-card {
-	border-color: rgb(255 255 255 / 0.08);
-	background: #1d1d20;
-	color: #f5f5f7;
+	transition: box-shadow 150ms var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {
 	.showcase-card:hover {
-		border-color: rgb(29 29 32 / 0.13);
-		box-shadow: 0 1px 2px rgb(20 20 24 / 0.035), 0 12px 28px rgb(20 20 24 / 0.07);
-	}
-
-	.dark .showcase-card:hover {
-		border-color: rgb(255 255 255 / 0.15);
-		box-shadow: 0 12px 30px rgb(0 0 0 / 0.3);
+		box-shadow: var(--camera-material-shadow);
 	}
 }
 
 .showcase-card:focus-visible {
-	outline: 2px solid #1d1d20;
-	outline-offset: 3px;
-}
-
-.dark .showcase-card:focus-visible {
-	outline-color: #f5f5f7;
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
 }
 
 .showcase-artwork {
@@ -1166,12 +1599,10 @@
 	overflow: hidden;
 	padding: 0;
 	aspect-ratio: 16 / 9;
-	border-radius: 17px 17px 13px 13px;
-	background: #eef0f3;
-}
-
-.dark .showcase-artwork {
-	background: #232428;
+	/* The card's corner on top, where the picture is flush with it; a preview
+	   holder's own step below. */
+	border-radius: var(--r-surface) var(--r-surface) var(--r-control) var(--r-control);
+	background: var(--camera-pill);
 }
 
 .showcase-video-canvas {
@@ -1186,7 +1617,6 @@
 	border-radius: inherit;
 	box-shadow: none;
 	transform: translateZ(0);
-	transition: transform 220ms var(--ease-out), filter 220ms var(--ease-out);
 }
 
 .showcase-artwork[data-orientation="landscape"] .showcase-video-canvas {
@@ -1196,7 +1626,20 @@
 .showcase-artwork[data-orientation="portrait"] {
 	height: auto;
 	padding: 20px;
-	background: radial-gradient(circle at 50% 42%, rgb(255 255 255 / 0.11), transparent 44%), #1b1c20;
+	/* The highlight fades on an ease-in-out curve: a straight fade across this
+	   width bands on a dark ground. */
+	background: radial-gradient(
+			circle at 50% 42%,
+			rgb(255 255 255 / 0.11) 0%,
+			rgb(255 255 255 / 0.109) 5.5%,
+			rgb(255 255 255 / 0.103) 11%,
+			rgb(255 255 255 / 0.087) 16.5%,
+			rgb(255 255 255 / 0.055) 22%,
+			rgb(255 255 255 / 0.023) 27.5%,
+			rgb(255 255 255 / 0.007) 33%,
+			rgb(255 255 255 / 0.001) 38.5%,
+			transparent 44%
+		), var(--color-neutral-900);
 }
 
 .showcase-artwork[data-orientation="portrait"] .showcase-video-canvas {
@@ -1204,13 +1647,8 @@
 	height: 100%;
 	max-width: 78%;
 	border: 1px solid rgb(255 255 255 / 0.14);
-	border-radius: 16px;
+	border-radius: var(--r-surface);
 	box-shadow: 0 14px 34px -14px rgb(0 0 0 / 0.48), 0 34px 56px -28px rgb(0 0 0 / 0.42);
-}
-
-.showcase-artwork[data-active] .showcase-video-canvas {
-	filter: saturate(1.04) contrast(1.015);
-	transform: scale(1.006);
 }
 
 .showcase-real-frame {
@@ -1246,6 +1684,16 @@
 	overflow: hidden;
 }
 
+/* The poster gives way to the live frames over it rather than printing under
+   them: two frames of code on one card read as a smear. */
+.showcase-static-code {
+	transition: opacity 150ms var(--ease-out);
+}
+
+.showcase-code-viewport:has(.showcase-live-code[data-looping-ready]) .showcase-static-code {
+	opacity: 0;
+}
+
 .showcase-static-code pre,
 .showcase-static-code .shiki {
 	margin: 0;
@@ -1255,8 +1703,13 @@
 	line-height: inherit;
 }
 
+/* A column of lines, not a block of them: Shiki puts a newline text node between
+   its line spans, and each one drew a blank line box, so the poster ran at
+   double leading. A flex container drops whitespace-only text (the same fix as
+   the landing's static frames, `.studio-code code`). */
 .showcase-static-code code {
-	display: block;
+	display: flex;
+	flex-direction: column;
 	counter-reset: showcase-line;
 	font: inherit;
 	line-height: inherit;
@@ -1286,7 +1739,7 @@
 .showcase-live-layer {
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity 120ms var(--ease-out);
+	transition: opacity 150ms var(--ease-out);
 }
 
 .showcase-live-layer:has(.showcase-live-code[data-looping-ready]) {
@@ -1303,7 +1756,7 @@
 	z-index: 3;
 	inset: 10% 8%;
 	border: 1px dashed rgb(255 255 255 / 0.2);
-	border-radius: 11px;
+	border-radius: var(--r-control);
 	pointer-events: none;
 }
 
@@ -1324,8 +1777,8 @@
 
 .showcase-card footer strong {
 	overflow: hidden;
-	font-size: 12px;
-	font-weight: 660;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-strong);
 	letter-spacing: -0.01em;
 	line-height: 1.2;
 	text-overflow: ellipsis;
@@ -1336,9 +1789,10 @@
 	display: flex;
 	align-items: center;
 	gap: 5px;
-	color: #85828b;
+	color: var(--camera-muted);
 	font-family: var(--font-mono);
-	font-size: 8.5px;
+	font-size: var(--sc-text-2xs);
+	font-variant-numeric: tabular-nums;
 	letter-spacing: 0.025em;
 	line-height: 1;
 }
@@ -1347,35 +1801,36 @@
 	width: 4px;
 	height: 4px;
 	flex: none;
-	border-radius: 999px;
-	background: #bbb8c0;
-	transition: background-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+	border-radius: var(--r-pill);
+	background: color-mix(in oklch, var(--camera-muted) 50%, transparent);
+	transition: background-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
 }
 
+/* Playing: the studio's one red, the same coral as the playhead. */
 .showcase-motion-dot[data-active] {
-	background: #ff5148;
-	box-shadow: 0 0 0 2px rgb(255 81 72 / 0.14);
+	background: var(--camera-coral);
+	box-shadow: 0 0 0 2px color-mix(in oklch, var(--camera-coral) 16%, transparent);
 }
 
 .showcase-card-action {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
-	color: #74717a;
-	font-size: 10px;
-	font-weight: 620;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-xs);
+	font-weight: var(--sc-weight-medium);
 	opacity: 0.62;
 	transition: color 150ms var(--ease-out), opacity 150ms var(--ease-out), transform 150ms
 		var(--ease-out);
 }
 
 .showcase-card-action svg {
-	transition: transform 180ms var(--ease-out);
+	transition: transform 150ms var(--ease-out);
 }
 
 /* A tap must not leave the arrow nudged: hover only where a pointer hovers. */
 .showcase-card:focus-visible .showcase-card-action {
-	color: #1d1d20;
+	color: var(--camera-ink);
 	opacity: 1;
 }
 
@@ -1383,88 +1838,103 @@
 	transform: translate(1px, -1px);
 }
 
-.dark .showcase-card:focus-visible .showcase-card-action {
-	color: #f5f5f7;
-}
-
 @media (hover: hover) and (pointer: fine) {
 	.showcase-card:hover .showcase-card-action {
-		color: #1d1d20;
+		color: var(--camera-ink);
 		opacity: 1;
 	}
 
 	.showcase-card:hover .showcase-card-action svg {
 		transform: translate(1px, -1px);
 	}
-
-	.dark .showcase-card:hover .showcase-card-action {
-		color: #f5f5f7;
-	}
-}
-
-.dark .showcase-card-feature,
-.dark .showcase-card-action {
-	color: #a09da6;
-}
-
-.dark .showcase-motion-dot {
-	background: #625f68;
-}
-
-.dark .showcase-motion-dot[data-active] {
-	background: #ff625a;
-	box-shadow: 0 0 0 2px rgb(255 98 90 / 0.16);
 }
 
 .showcase-confirm {
 	display: grid;
-	width: min(940px, calc(100% - 56px));
+	width: 100%;
 	grid-template-columns: minmax(380px, 1.25fr) minmax(260px, 0.75fr);
 	align-items: center;
 	gap: 34px;
+	/* A row is as tall as its content, never less. The block is a shrinkable flex item of
+	   the sheet, and a track whose item clips its own overflow (the picture) may shrink to
+	   nothing, so the picture kept its aspect height, overflowed its row and ran over the
+	   title (375x812). The block scrolls instead, below. */
+	grid-auto-rows: max-content;
 	margin: auto;
-	padding: 26px 0 34px;
+	/* The sheet's gutters, like the grid and the title: the sheet is as wide as the grid
+	   now, so the question no longer centres itself in a field of paper. They are padding,
+	   not margin, so the rings and shadows of the picture and the card, which fall outside
+	   their boxes, stay inside the clip of a block that scrolls. */
+	padding: 26px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
+		max(34px, calc(env(safe-area-inset-bottom, 0px) + 20px))
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
+	/* A short phone cannot hold the picture, the words and the question at once:
+	   the block scrolls inside the sheet, which clips whatever it cannot show and
+	   cannot be scrolled by a finger itself. */
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
 
 .showcase-confirm .showcase-artwork {
-	border-radius: 20px;
-	box-shadow: 0 18px 44px rgb(20 20 24 / 0.11);
+	border-radius: var(--r-surface);
+	box-shadow: var(--camera-raised);
 }
 
 .showcase-confirm .showcase-artwork[data-orientation="landscape"] .showcase-video-canvas {
 	width: 100%;
-	border-radius: 20px;
+	border-radius: var(--r-surface);
 }
 
 .showcase-confirm .showcase-artwork[data-orientation="portrait"] {
 	height: 380px;
+	/* A height and the card's 16:9 ratio made this box 675px wide, over the words beside
+	   it on a desktop and off the screen on a phone. */
+	aspect-ratio: auto;
 }
 
 .showcase-confirm h3 {
 	margin: 0;
-	font-size: 18px;
-	font-weight: 700;
-	letter-spacing: -0.025em;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	letter-spacing: -0.018em;
+	text-wrap: balance;
 }
 
 .showcase-confirm > div > p {
 	margin: 6px 0 0;
-	color: #74717a;
-	font-size: 12px;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
 	line-height: 1.5;
+	text-wrap: pretty;
 }
 
 @media (max-width: 960px) {
 	.showcase-confirm {
 		grid-template-columns: 1fr;
 	}
+
+	/* One column: the picture is a banner, so the question under it stays in reach on a
+	   phone (the 16:9 slab left the buttons below the fold at 375x812). */
+	.showcase-confirm .showcase-artwork {
+		aspect-ratio: 3 / 1;
+	}
+
+	.showcase-confirm .showcase-artwork[data-orientation="portrait"] {
+		height: 136px;
+		padding: 12px;
+	}
 }
 
 @media (max-width: 720px) {
+	.showcase-sheet {
+		--sheet-inline: 16px;
+	}
+
 	.showcase-grid {
 		grid-template-columns: 1fr;
-		gap: 11px;
-		padding: 12px 12px 28px;
+		gap: 12px;
+		padding-top: 12px;
 	}
 
 	.showcase-card-action {
@@ -1472,24 +1942,8 @@
 	}
 
 	.showcase-confirm {
-		width: calc(100% - 28px);
-		gap: 22px;
-	}
-
-	.showcase-confirm .showcase-artwork[data-orientation="portrait"] {
-		height: 360px;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.studio-sheet-panel,
-	.studio-sheet-backdrop,
-	.showcase-video-canvas,
-	.showcase-live-layer,
-	.showcase-card-action,
-	.showcase-card-action svg,
-	.showcase-motion-dot {
-		transition: none;
+		gap: 18px;
+		padding-top: 20px;
 	}
 }
 
@@ -2248,6 +2702,15 @@
 	--island-gap: 2px;
 }
 
+/* The rail's last control is usually the 34px export pill, 3px from the cap above
+   and below it, so the island ends 3px after it and the pill is concentric with
+   the capsule. The 6px of padding on the left stays: that end holds a control
+   whose wash only shows under a hover. The island springs to the row's width plus
+   whatever padding it has (preview-island.tsx), so this is the whole rule. */
+.studio-camera-root .si-island {
+	padding-right: 3px;
+}
+
 .studio-camera-root .si-button {
 	min-width: 38px;
 	height: 34px;
@@ -2274,14 +2737,14 @@
 	margin-left: 3px;
 	padding: 0 16px;
 	background: var(--camera-amber);
-	color: #181713;
+	color: var(--color-on-primary);
 	font-size: 11px;
 	font-weight: 680;
 }
 
 @media (hover: hover) and (pointer: fine) {
 	.studio-camera-root .si-cta:hover:not(:disabled):not([aria-disabled="true"]):not([data-open]) {
-		background: #ffd326;
+		background: var(--color-primary-hover);
 	}
 }
 
@@ -2337,7 +2800,9 @@
 
 /* ui.camera marks truth with a warm instrument colour, not a white slab. The
    plate stays in the DOM for the shared-layout spring, but becomes a quiet
-   illuminated well behind the label. */
+   illuminated well behind the label. The well is the primary itself at a
+   fraction of its alpha, so a selected segment and the export button beside it
+   are one yellow (DECISIONS D2), not two. */
 .studio-camera-root .si-dock-timeline .si-button[data-selected] {
 	color: var(--camera-amber);
 	background: transparent;
@@ -2345,8 +2810,8 @@
 
 .studio-camera-root .si-dock-timeline .si-button[data-selected] .si-plate {
 	inset: 2px;
-	background: rgb(255 213 11 / 0.1);
-	box-shadow: inset 0 0 0 1px rgb(255 213 11 / 0.14);
+	background: color-mix(in oklch, var(--camera-amber) 10%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--camera-amber) 14%, transparent);
 }
 
 .studio-camera-root .si-dock-timeline .si-toggle[aria-pressed="true"] {
@@ -2355,13 +2820,16 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+	/* The app's selected-hover rule paints the dark ink of a white plate, which would
+	   vanish on this well, so the rail restates its resting ink. A hover moves the
+	   fill one step and never the word (DECISIONS D4). */
 	.studio-camera-root .si-dock-timeline .si-button[data-selected]:hover:not(:disabled) {
-		color: #ffe35c;
+		color: var(--camera-amber);
 		background: transparent;
 	}
 
 	.studio-camera-root .si-dock-timeline .si-button[data-selected]:hover:not(:disabled) .si-plate {
-		background: rgb(255 213 11 / 0.15);
+		background: color-mix(in oklch, var(--camera-amber) 15%, transparent);
 	}
 }
 
@@ -2378,8 +2846,8 @@
 
 .studio-camera-root .si-mode-row .si-plate-soft {
 	inset: 2px;
-	background: rgb(255 213 11 / 0.08);
-	box-shadow: inset 0 0 0 1px rgb(255 213 11 / 0.2);
+	background: color-mix(in oklch, var(--camera-amber) 8%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--camera-amber) 20%, transparent);
 }
 
 .studio-camera-root .si-mode-door {
@@ -2425,7 +2893,11 @@
 .studio-camera-root .si-rail-range::-webkit-slider-runnable-track {
 	height: 3px;
 	border-radius: 999px;
-	background: linear-gradient(90deg, rgb(255 213 11 / 0.72), rgb(255 255 255 / 0.16));
+	background: linear-gradient(
+		90deg,
+		color-mix(in oklch, var(--camera-amber) 72%, transparent),
+		rgb(255 255 255 / 0.16)
+	);
 }
 
 .studio-camera-root .si-rail-range::-webkit-slider-thumb {
@@ -2442,7 +2914,11 @@
 .studio-camera-root .si-rail-range::-moz-range-track {
 	height: 3px;
 	border-radius: 999px;
-	background: linear-gradient(90deg, rgb(255 213 11 / 0.72), rgb(255 255 255 / 0.16));
+	background: linear-gradient(
+		90deg,
+		color-mix(in oklch, var(--camera-amber) 72%, transparent),
+		rgb(255 255 255 / 0.16)
+	);
 }
 
 .studio-camera-root .si-rail-range::-moz-range-thumb {
@@ -2508,7 +2984,7 @@
 
 .studio-camera-root .si-input:focus {
 	background: rgb(255 255 255 / 0.11);
-	box-shadow: inset 0 0 0 1px rgb(255 213 11 / 0.32);
+	box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--camera-amber) 32%, transparent);
 }
 
 /* The export status, in the rail's own material: the same fill, edge, shadow
@@ -3926,7 +4402,7 @@
 		animation: none;
 	}
 
-	/* No `transition: none` here (SYSTEM.md drift 8): the global rule already
+	/* No `transition: none` here (DECISIONS D8): the global rule already
 	   drops every moving property, and zeroing the rest killed the colour fades
 	   it keeps. What stays is the press and the lifts, which land as no move. */
 	.studio-camera-mode button:active,
@@ -3948,34 +4424,39 @@
 }
 
 /* A file dragged over the studio: the whole paper becomes the target, quietly,
-   under the notices. Pointer events pass through; the window owns the drop. */
-.studio-camera-root .sc-drop-veil {
+   under the notices. Pointer events pass through; the window owns the drop.
+   One veil for both shells: on a phone it stays clear of the notch and the home
+   indicator, and on a desktop `env()` is 0, so it is the 10px it always was. It
+   sits over the phone's sheet and under the menus and notices. Its blue is the
+   accent, the studio's one blue. */
+:is(.studio-camera-root, .sc-root-mobile) .sc-drop-veil {
 	position: fixed;
-	inset: 10px;
+	inset: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px))
+		max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
 	z-index: 60;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border: 1.5px dashed rgb(47 128 255 / 0.75);
-	border-radius: 22px;
-	background: rgb(47 128 255 / 0.05);
+	border: 1.5px dashed color-mix(in oklch, var(--camera-accent) 75%, transparent);
+	border-radius: var(--r-sheet);
+	background: color-mix(in oklch, var(--camera-accent) 5%, transparent);
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity 140ms ease-out;
+	transition: opacity 150ms var(--ease-out);
 }
 
-.studio-camera-root .sc-drop-veil[data-active] {
+:is(.studio-camera-root, .sc-root-mobile) .sc-drop-veil[data-active] {
 	opacity: 1;
 }
 
-.studio-camera-root .sc-drop-veil p {
+:is(.studio-camera-root, .sc-root-mobile) .sc-drop-veil p {
 	padding: 8px 14px;
-	border-radius: 12px;
-	background: var(--camera-paper);
-	box-shadow: var(--camera-surface-shadow);
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-raised);
 	color: var(--camera-ink);
-	font-size: 13px;
-	font-weight: 560;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-medium);
 }
 
 /* Media chips carry file names now; a long one ends in an ellipsis and its

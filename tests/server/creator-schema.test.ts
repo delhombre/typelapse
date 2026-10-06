@@ -3,6 +3,7 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 import { describe, expect, it } from "vitest";
 import {
 	account,
+	apiKeys,
 	assetKind,
 	assetUploadStatus,
 	assets,
@@ -59,6 +60,14 @@ describe("Creator hosted database schema", () => {
 		);
 	});
 
+	it("tells a regular project from an automation one with a flag a writer must ask for", () => {
+		expect(projects.automation.notNull).toBe(true);
+		expect(projects.automation.hasDefault).toBe(true);
+		// A writer that says nothing writes a regular project, which counts toward the
+		// ceiling: the exemption is opt-in.
+		expect(projects.automation.default).toBe(false);
+	});
+
 	it("models asset identity, object storage and verification lifecycle", () => {
 		expect(assetKind.enumValues).toEqual(["image", "video", "audio"]);
 		expect(assetUploadStatus.enumValues).toEqual([
@@ -109,6 +118,28 @@ describe("Creator hosted database schema", () => {
 				"stripe_webhook_events_attempts_check",
 				"stripe_webhook_events_payload_hash_check",
 				"stripe_webhook_events_outcome_check",
+			]),
+		);
+	});
+
+	it("keeps an API key as a public prefix and the hash of its secret, owned by an account", () => {
+		expect(apiKeys.prefix.primary).toBe(true);
+		expect(apiKeys.ownerId.notNull).toBe(true);
+		expect(apiKeys.secretHash.notNull).toBe(true);
+		expect(apiKeys.expiresAt.notNull).toBe(false);
+		expect(apiKeys.lastUsedAt.notNull).toBe(false);
+		// Nothing in the table can hold the secret itself.
+		expect(Object.keys(apiKeys).filter((column) => /secret|token|^key$/i.test(column))).toEqual([
+			"secretHash",
+		]);
+		expect(constraintNames(apiKeys)).toEqual(
+			expect.arrayContaining([
+				"api_keys_owner_id_user_id_fk",
+				"api_keys_prefix_format_check",
+				"api_keys_name_check",
+				"api_keys_secret_hash_check",
+				"api_keys_expiry_check",
+				"api_keys_owner_created_idx",
 			]),
 		);
 	});

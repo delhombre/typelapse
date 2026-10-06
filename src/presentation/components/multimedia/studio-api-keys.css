@@ -1,0 +1,473 @@
+/*
+ * The keys view and the row that leads to it, in the account panel's own
+ * material: its hairline, its fields (the form reuses `.mm-account-form`), its
+ * one filled action and its press. The island tokens (`--mm-*`) come from
+ * `.sc-account-island`, so both themes follow without a rule of their own.
+ */
+
+/* A list row between two hairlines, not a card: the sync section's own rule closes it. */
+.mm-keys-entry {
+	display: flex;
+	width: 100%;
+	height: 44px;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-top: 1px solid var(--mm-hairline);
+	background: transparent;
+	color: var(--mm-ink);
+	font-size: 12px;
+	font-weight: 600;
+	text-align: left;
+	transition: background-color 150ms var(--ease-out);
+}
+
+.mm-keys-entry svg {
+	flex: none;
+	color: var(--mm-muted);
+}
+
+.mm-keys-entry svg:last-child {
+	margin-left: auto;
+}
+
+/* Arriving from the account is rare and spatial: a short slide in from the side it
+   came from. The account view leaves with no ceremony at all. */
+.mm-keys {
+	animation: mm-keys-in 160ms var(--ease-out) both;
+}
+
+@keyframes mm-keys-in {
+	from {
+		opacity: 0;
+		transform: translateX(8px);
+	}
+}
+
+/* The panel is a dialog sized to its content; a tall keys view gives way, not the page. */
+.mm-account-popover:has(.mm-keys) {
+	max-height: calc(100dvh - 96px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+/* The way back sits where the close sits, on the same line. */
+.mm-keys-back {
+	position: relative;
+	display: inline-flex;
+	height: 32px;
+	align-items: center;
+	gap: 2px;
+	margin: -8px 0 6px -8px;
+	padding: 0 10px 0 6px;
+	border: 0;
+	border-radius: var(--r-control);
+	background: transparent;
+	color: var(--mm-muted);
+	font-size: 11px;
+	font-weight: 600;
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), transform 100ms
+		var(--ease-out);
+}
+
+/* 32px drawn, 44px to the pointer; the 8px gaps between neighbours are never crossed. */
+.mm-keys-back::after,
+.mm-keys-quiet::after,
+.mm-keys-danger::after {
+	content: "";
+	position: absolute;
+	inset: -6px -3px;
+}
+
+/* The heading takes focus when the view opens; it is not a control, so it draws no ring. */
+.mm-keys h2:focus {
+	outline: none;
+}
+
+/* Three classes: the panel's own `.mm-account-copy > p` rule is two and an element. */
+.mm-account-copy.mm-keys > .mm-keys-note {
+	display: block;
+	margin: 0 0 12px;
+	color: var(--mm-muted);
+	font-size: 11px;
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+.mm-account-copy.mm-keys > .mm-keys-note[data-tone="danger"],
+.mm-keys-secret > .mm-keys-note[data-tone="danger"] {
+	color: var(--mm-danger);
+}
+
+.mm-account-copy.mm-keys > .mm-keys-error {
+	margin: 0 0 12px;
+	padding: 9px 10px;
+	color: var(--mm-danger);
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+.mm-account-copy.mm-keys > .mm-keys-quiet {
+	margin: 0 0 12px -10px;
+}
+
+.mm-keys-form {
+	margin: 0 0 14px;
+}
+
+.mm-keys-lifetime {
+	display: grid;
+	min-width: 0;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.mm-keys-lifetime legend {
+	padding: 0;
+	margin: 0 0 6px;
+	color: var(--mm-muted);
+	font-size: 11px;
+	font-weight: 600;
+}
+
+/* The island's own segmented control, as the billing cadence draws it. */
+.mm-keys-lifetime-options {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 3px;
+	padding: 3px;
+	border-radius: var(--r-control);
+	background: rgb(28 27 25 / 0.055);
+}
+
+.dark .mm-keys-lifetime-options {
+	background: rgb(255 255 255 / 0.06);
+}
+
+.mm-account-form .mm-keys-lifetime-options label {
+	position: relative;
+	display: grid;
+	height: 34px;
+	place-items: center;
+	border-radius: calc(var(--r-control) - 3px);
+	color: var(--mm-muted);
+	font-size: 10px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), box-shadow 150ms
+		var(--ease-out), transform 100ms var(--ease-out);
+}
+
+/* The radio fills its segment, so the whole segment is the target and arrow keys still work. */
+.mm-account-form .mm-keys-lifetime-options input {
+	position: absolute;
+	inset: -3px -1.5px;
+	width: calc(100% + 3px);
+	height: calc(100% + 6px);
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: inherit;
+	background: transparent;
+	opacity: 0;
+	cursor: pointer;
+}
+
+/* Under a finger the track is 44px: 38px segments, 3px of padding above and below. */
+@media (pointer: coarse) {
+	.mm-account-form .mm-keys-lifetime-options label {
+		height: 38px;
+	}
+}
+
+.mm-keys-lifetime-options label:has(input:checked) {
+	background: var(--mm-surface);
+	box-shadow: 0 1px 3px rgb(28 27 25 / 0.12);
+	color: var(--mm-ink);
+}
+
+.mm-keys-lifetime-options label:has(input:focus-visible) {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+.mm-keys-lifetime-options label:active {
+	transform: scale(0.97);
+}
+
+/* The one copy of a new key: the key to read, one fill to copy it, one way to be done. */
+.mm-keys-secret {
+	display: grid;
+	gap: 10px;
+	margin: 0 0 14px;
+}
+
+.mm-keys-secret h3 {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 650;
+	letter-spacing: -0.01em;
+}
+
+.mm-keys-secret > p {
+	margin: 0;
+	color: var(--mm-muted);
+	font-size: 12px;
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+.mm-keys-key {
+	display: block;
+	cursor: text;
+	padding: 10px 12px;
+	border: 1px solid var(--mm-hairline);
+	border-radius: var(--r-control);
+	background: rgb(28 27 25 / 0.035);
+	color: var(--mm-ink);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	line-height: 1.55;
+	overflow-wrap: anywhere;
+	-webkit-user-select: all;
+	user-select: all;
+}
+
+.dark .mm-keys-key {
+	background: rgb(255 255 255 / 0.055);
+}
+
+.mm-keys-secret > .mm-keys-copy {
+	display: inline-flex;
+	width: 100%;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	margin: 2px 0 0;
+}
+
+.mm-keys-secret > .mm-keys-quiet {
+	justify-self: center;
+}
+
+/* One 14px slot, so the two icons swap in the same place and the label never moves. */
+.mm-keys-icon {
+	position: relative;
+	display: inline-grid;
+	width: 14px;
+	height: 14px;
+	place-items: center;
+}
+
+.mm-keys-icon > span {
+	display: grid;
+	place-items: center;
+}
+
+/* Wider than the panel's content by the 10px a Revoke label reaches past it, so the
+   scroller never has sideways overflow; the rows' own hairlines keep the content's width. */
+@property --keys-fade-start {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
+@property --keys-fade-end {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
+.mm-keys-list {
+	--keys-fade-start: 0px;
+	--keys-fade-end: 0px;
+	position: relative;
+	max-height: min(228px, 34dvh);
+	margin: 4px -10px 0;
+	padding: 0 10px;
+	overflow: hidden auto;
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		transparent,
+		#000 var(--keys-fade-start),
+		#000 calc(100% - var(--keys-fade-end)),
+		transparent
+	);
+	mask-image: linear-gradient(
+		to bottom,
+		transparent,
+		#000 var(--keys-fade-start),
+		#000 calc(100% - var(--keys-fade-end)),
+		transparent
+	);
+	transition: --keys-fade-start 200ms var(--ease-out), --keys-fade-end 200ms var(--ease-out);
+	overscroll-behavior: contain;
+	list-style: none;
+	scrollbar-width: thin;
+}
+
+/* Set from the scroll position: only the side with more to show fades. */
+.mm-keys-list[data-more-above="true"] {
+	--keys-fade-start: 18px;
+}
+
+.mm-keys-list[data-more-below="true"] {
+	--keys-fade-end: 18px;
+}
+
+.mm-keys-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 10px 0;
+	border-top: 1px solid var(--mm-hairline);
+}
+
+.mm-keys-main {
+	display: grid;
+	min-width: 0;
+	gap: 1px;
+}
+
+.mm-keys-name {
+	margin: 0;
+	overflow: hidden;
+	color: var(--mm-ink);
+	font-size: 12px;
+	font-weight: 650;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mm-keys-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0 6px;
+	margin: 0;
+	color: var(--mm-muted);
+	font-size: 10px;
+	line-height: 1.5;
+	font-variant-numeric: tabular-nums;
+}
+
+.mm-keys-meta code {
+	font-family: var(--font-mono);
+}
+
+.mm-keys-meta > code + span::before {
+	content: "\00b7";
+	margin-right: 6px;
+}
+
+.mm-keys-meta[data-tone="danger"] {
+	color: var(--mm-danger);
+}
+
+/* Asked to revoke, the row says what it will do and gives the two answers. */
+.mm-keys-row[data-confirming] {
+	display: grid;
+	align-items: start;
+	gap: 10px;
+}
+
+.mm-keys-confirm {
+	margin: 0;
+	color: var(--mm-ink);
+	font-size: 12px;
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+.mm-keys-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+.mm-keys-quiet,
+.mm-keys-danger {
+	position: relative;
+	height: 32px;
+	padding: 0 10px;
+	border: 1px solid transparent;
+	border-radius: var(--r-control);
+	background: transparent;
+	font-size: 11px;
+	font-weight: 600;
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out), transform 100ms
+		var(--ease-out);
+}
+
+.mm-keys-quiet {
+	color: var(--mm-muted);
+}
+
+.mm-keys-revoke {
+	flex: none;
+	margin-right: -10px;
+}
+
+/* A destructive answer is outlined in the danger red, never the panel's one fill. */
+.mm-keys-danger {
+	border-color: color-mix(in srgb, var(--mm-danger) 40%, transparent);
+	color: var(--mm-danger);
+}
+
+.mm-keys-quiet:disabled,
+.mm-keys-danger:disabled {
+	opacity: 0.6;
+	cursor: progress;
+}
+
+.mm-keys-quiet:active:not(:disabled),
+.mm-keys-danger:active:not(:disabled),
+.mm-keys-back:active {
+	transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.mm-keys-entry:hover {
+		background: rgb(28 27 25 / 0.04);
+	}
+
+	.dark .mm-keys-entry:hover {
+		background: rgb(255 255 255 / 0.055);
+	}
+
+	.mm-keys-quiet:hover:not(:disabled),
+	.mm-keys-back:hover {
+		background: rgb(28 27 25 / 0.055);
+		color: var(--mm-ink);
+	}
+
+	.dark .mm-keys-quiet:hover:not(:disabled),
+	.dark .mm-keys-back:hover {
+		background: rgb(255 255 255 / 0.075);
+	}
+
+	.mm-keys-danger:hover:not(:disabled) {
+		background: color-mix(in srgb, var(--mm-danger) 10%, transparent);
+	}
+
+	.mm-keys-lifetime-options label:hover:not(:has(input:checked)) {
+		color: var(--mm-ink);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.mm-keys {
+		animation: none;
+	}
+
+	.mm-keys-quiet:active:not(:disabled),
+	.mm-keys-danger:active:not(:disabled),
+	.mm-keys-back:active,
+	.mm-keys-lifetime-options label:active {
+		transform: none;
+	}
+}

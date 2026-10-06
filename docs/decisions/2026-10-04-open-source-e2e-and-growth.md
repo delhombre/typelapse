@@ -127,6 +127,8 @@ an Anthropic API key is, and the owner decides whether to provide one.
    lived object URL. It is the Creator plan's shareable output and the viral
    loop: every shared video is a link back. A free account never has one,
    since it has no Cloud render. The owner can disable a page.
+   Amended 2026-10-05: the page is private until the owner publishes it
+   ([next-wave](2026-10-05-next-wave.md) D8).
 2. A GitHub release or tag URL renders a changelog video: the CLI, the
    Action (`on: release`) and the studio import accept
    `github.com/<owner>/<repo>/releases/tag/<tag>` and compare it with the

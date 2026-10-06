@@ -9,6 +9,7 @@ const MINUTE_MS = 60_000;
 
 /** What an account currently holds against the hosted ceilings. */
 export interface AccountUsage {
+	/** Regular projects: the ones the ceiling counts, not those only render by URL has saved. */
 	readonly cloudProjects: number;
 	readonly mediaBytes: number;
 	/** Output of hosted jobs queued, running or succeeded since the period start. */
@@ -42,6 +43,26 @@ export function hostedTierName(plan: Plan): HostedTierName {
 /** Hosted minutes reset on the first of the calendar month, in UTC. */
 export function renderPeriodStart(now: Date): Date {
 	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+/**
+ * The hosted render ceiling a new render of `durationMs` would cross, or null
+ * when it fits. The render queue enforces the same two ceilings, in this order,
+ * under its owner lock (`enqueueOrGet`); this is for a caller that wants to know
+ * before it writes anything on the account's behalf.
+ */
+export function renderCeilingCrossed(
+	plan: Plan,
+	usage: Pick<AccountUsage, "activeRenders" | "hostedRenderMsThisMonth">,
+	durationMs: number,
+): { readonly ceiling: "concurrentRenders" | "hostedRenderTime"; readonly used: number } | null {
+	if (usage.activeRenders >= plan.limitFor("concurrentRenders")) {
+		return { ceiling: "concurrentRenders", used: usage.activeRenders };
+	}
+	if (usage.hostedRenderMsThisMonth + durationMs > plan.limitFor("hostedRenderTime")) {
+		return { ceiling: "hostedRenderTime", used: usage.hostedRenderMsThisMonth };
+	}
+	return null;
 }
 
 function oneDecimal(value: number): string {

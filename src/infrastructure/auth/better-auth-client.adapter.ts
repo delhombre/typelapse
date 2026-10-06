@@ -32,7 +32,11 @@ interface BetterAuthProviderSession {
 }
 
 interface BetterAuthFetchOptions {
-	readonly fetchOptions?: { readonly signal?: AbortSignal };
+	readonly fetchOptions?: {
+		readonly signal?: AbortSignal;
+		/** Better Fetch awaits this with the raw response before it hands back the error. */
+		readonly onError?: (context: { readonly response: Response }) => void;
+	};
 }
 
 /** Structural slice of `createAuthClient()` kept injectable for adapter tests. */
@@ -49,23 +53,51 @@ export interface BetterAuthBrowserClient {
 	): Promise<BetterAuthResponse<BetterAuthProviderSession | null>>;
 }
 
-function inputWithSignal<T extends object>(
-	input: T,
-	options?: ClientAuthRequestOptions,
-): T & BetterAuthFetchOptions {
-	if (!options?.signal) {
-		return { ...input };
+/**
+ * The seconds a refusal asks the caller to wait. `Retry-After` is the standard
+ * header and Better Auth's limiter sends `X-Retry-After`. Only a whole number of
+ * seconds counts: an HTTP date, zero or anything else reads as "not said".
+ */
+function waitFromHeaders(headers: Headers): number | null {
+	for (const name of ["retry-after", "x-retry-after"]) {
+		const value = headers.get(name)?.trim() ?? "";
+		const seconds = Number(value);
+		if (/^\d+$/.test(value) && seconds > 0 && Number.isSafeInteger(seconds)) {
+			return seconds;
+		}
 	}
-	return { ...input, fetchOptions: { signal: options.signal } };
+	return null;
 }
 
-function requestWithSignal(options?: ClientAuthRequestOptions): BetterAuthFetchOptions | undefined {
-	return options?.signal ? { fetchOptions: { signal: options.signal } } : undefined;
+/**
+ * The options of one provider call. Better Auth's error object carries a status
+ * and a body but not the response headers, so the wait a limiter asks for is
+ * caught from the raw response as it passes through `onError`.
+ */
+function providerCall(options?: ClientAuthRequestOptions) {
+	let retryAfterSeconds: number | null = null;
+	return {
+		fetchOptions: {
+			...(options?.signal ? { signal: options.signal } : {}),
+			onError: ({ response }: { readonly response: Response }) => {
+				retryAfterSeconds = waitFromHeaders(response.headers);
+			},
+		},
+		get retryAfterSeconds() {
+			return retryAfterSeconds;
+		},
+	};
 }
 
-function providerFailure(error: BetterAuthErrorResponse): ClientAuthFailure {
+function providerFailure(
+	error: BetterAuthErrorResponse,
+	retryAfterSeconds: number | null,
+): ClientAuthFailure {
 	if (error.status === 404) {
 		return new ClientAuthFailure("not-configured");
+	}
+	if (error.status === 429) {
+		return new ClientAuthFailure("rate-limited", { retryAfterSeconds });
 	}
 	if (error.code === "INVALID_EMAIL_OR_PASSWORD") {
 		return new ClientAuthFailure("invalid-credentials");
@@ -102,39 +134,45 @@ export class BetterAuthClientAdapter implements ClientAuthPort {
 	constructor(private readonly client: BetterAuthBrowserClient) {}
 
 	async signUpEmail(input: SignUpWithEmail, options?: ClientAuthRequestOptions): Promise<void> {
+		const call = providerCall(options);
 		const response = await providerRequest(() =>
-			this.client.signUp.email(inputWithSignal(input, options)),
+			this.client.signUp.email({ ...input, fetchOptions: call.fetchOptions }),
 		);
 		if (response.error) {
-			throw providerFailure(response.error);
+			throw providerFailure(response.error, call.retryAfterSeconds);
 		}
 	}
 
 	async signInEmail(input: EmailCredentials, options?: ClientAuthRequestOptions): Promise<void> {
+		const call = providerCall(options);
 		const response = await providerRequest(() =>
-			this.client.signIn.email(inputWithSignal(input, options)),
+			this.client.signIn.email({ ...input, fetchOptions: call.fetchOptions }),
 		);
 		if (response.error) {
-			throw providerFailure(response.error);
+			throw providerFailure(response.error, call.retryAfterSeconds);
 		}
 	}
 
 	async signOut(options?: ClientAuthRequestOptions): Promise<void> {
-		const response = await providerRequest(() => this.client.signOut(requestWithSignal(options)));
+		const call = providerCall(options);
+		const response = await providerRequest(() =>
+			this.client.signOut({ fetchOptions: call.fetchOptions }),
+		);
 		if (response.error) {
-			throw providerFailure(response.error);
+			throw providerFailure(response.error, call.retryAfterSeconds);
 		}
 	}
 
 	async getSession(options?: ClientAuthRequestOptions): Promise<ClientSession | null> {
+		const call = providerCall(options);
 		const response = await providerRequest(() =>
-			this.client.getSession(requestWithSignal(options)),
+			this.client.getSession({ fetchOptions: call.fetchOptions }),
 		);
 		if (response.error) {
 			if (response.error.status === 401) {
 				return null;
 			}
-			throw providerFailure(response.error);
+			throw providerFailure(response.error, call.retryAfterSeconds);
 		}
 		if (!response.data) {
 			return null;

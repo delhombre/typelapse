@@ -5,16 +5,15 @@ import type {
 	HostedProjectAssetResolverPort,
 	ReadyHostedProjectAsset,
 } from "../../src/application/assets/hosted-project-asset-resolver.port";
-import type {
-	CreateProjectDocumentResult,
-	ProjectDocumentRepositoryPort,
-	ProjectDocumentSummary,
-	StoredProjectDocument,
-	UpdateProjectDocumentResult,
-} from "../../src/application/project/project-document-repository.port";
-import type { ProjectDocumentV2 } from "../../src/application/project/project-document";
+import type { StoredProjectDocument } from "../../src/application/project/project-document-repository.port";
+import { migrateV1ToV2 } from "../../src/application/project/migrate-v1-project";
+import {
+	type ProjectDocumentV2,
+	parseProjectDocument,
+} from "../../src/application/project/project-document";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
 import { Plan } from "../../src/domain/value-objects/plan";
+import { MemoryProjectRepository } from "../application/support/memory-project-repository";
 
 const NOW = new Date("2026-08-30T20:00:00.000Z");
 const LEGACY = {
@@ -73,78 +72,6 @@ function projectWithImageAsset(): ProjectDocumentV2 {
 	};
 }
 
-class MemoryProjects implements ProjectDocumentRepositoryPort {
-	readonly records = new Map<string, StoredProjectDocument>();
-
-	async listByOwner(ownerId: string): Promise<readonly ProjectDocumentSummary[]> {
-		return [...this.records.values()]
-			.filter((record) => record.ownerId === ownerId)
-			.map((record) => ({
-				id: record.id,
-				title: record.document.project.title,
-				revision: record.revision,
-				sceneCount: record.document.project.scenes.length,
-				updatedAt: record.updatedAt,
-			}));
-	}
-
-	async findOwnedById(ownerId: string, id: string): Promise<StoredProjectDocument | null> {
-		const record = this.records.get(id);
-		return record?.ownerId === ownerId ? record : null;
-	}
-
-	async create(input: {
-		readonly ownerId: string;
-		readonly document: ProjectDocumentV2;
-		readonly maxProjects: number;
-	}): Promise<CreateProjectDocumentResult> {
-		const owned = [...this.records.values()].filter((record) => record.ownerId === input.ownerId);
-		if (owned.length >= input.maxProjects) {
-			return { outcome: "limit-reached", projectCount: owned.length };
-		}
-		const record: StoredProjectDocument = {
-			id: input.document.project.id,
-			ownerId: input.ownerId,
-			revision: 1,
-			document: input.document,
-			createdAt: NOW,
-			updatedAt: NOW,
-		};
-		this.records.set(record.id, record);
-		return { outcome: "created", project: record };
-	}
-
-	async update(input: {
-		readonly ownerId: string;
-		readonly id: string;
-		readonly expectedRevision: number;
-		readonly document: ProjectDocumentV2;
-	}): Promise<UpdateProjectDocumentResult> {
-		const current = await this.findOwnedById(input.ownerId, input.id);
-		if (!current) {
-			return { outcome: "not-found" };
-		}
-		if (current.revision !== input.expectedRevision) {
-			return { outcome: "conflict", currentRevision: current.revision };
-		}
-		const project: StoredProjectDocument = {
-			...current,
-			revision: current.revision + 1,
-			document: input.document,
-			updatedAt: NOW,
-		};
-		this.records.set(project.id, project);
-		return { outcome: "updated", project };
-	}
-
-	async deleteOwnedById(ownerId: string, id: string): Promise<boolean> {
-		if (!(await this.findOwnedById(ownerId, id))) {
-			return false;
-		}
-		return this.records.delete(id);
-	}
-}
-
 interface MemoryAssetRecord extends ReadyHostedProjectAsset {
 	readonly ownerId: string;
 	readonly projectId: string;
@@ -198,7 +125,7 @@ function signedInAs(accountId: string): AuthPort {
 }
 
 function appFor(
-	projects: MemoryProjects,
+	projects: MemoryProjectRepository,
 	auth: AuthPort = signedInAs("account-1"),
 	assets: HostedProjectAssetResolverPort = new MemoryAssets(),
 	plan: Plan = Plan.free(),
@@ -228,7 +155,7 @@ function request(path: string, init?: RequestInit): Request {
 
 describe("hosted project documents", () => {
 	it("requires an active account session on every endpoint", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects, { verify: async () => null });
 
 		const response = await app.request("http://localhost/api/projects");
@@ -237,7 +164,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("migrates a V1 project and assigns its hosted identity on create", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);
 
 		const response = await app.request(
@@ -258,7 +185,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("refuses a free account's fourth cloud project with the ceiling and the plan that lifts it", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);
 		const create = () =>
 			app.request(
@@ -286,7 +213,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("lets a Creator account keep more than three cloud projects", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects, signedInAs("account-1"), new MemoryAssets(), Plan.pro());
 
 		for (let index = 0; index < 4; index += 1) {
@@ -298,7 +225,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("requires the hosted project to exist before any asset can be attached", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);
 
 		const response = await app.request(
@@ -316,7 +243,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("lists only the caller's projects", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);
 		await app.request(
 			request("/api/projects", {
@@ -347,7 +274,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("does not reveal whether a foreign project id exists", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const firstApp = appFor(projects, signedInAs("account-1"));
 		await firstApp.request(
 			request("/api/projects", {
@@ -381,7 +308,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("uses an expected revision to reject lost updates", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);
 		const createResponse = await app.request(
 			request("/api/projects", {
@@ -408,7 +335,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("keeps a code-only V2 update valid without an asset resolver result", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);
 		const createdResponse = await app.request(
 			request("/api/projects", {
@@ -437,7 +364,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("updates with canonical metadata from ready assets owned by this project", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const assets = new MemoryAssets();
 		assets.records.set("asset-image", verifiedImageAsset());
 		const app = appFor(projects, signedInAs("account-1"), assets);
@@ -468,7 +395,7 @@ describe("hosted project documents", () => {
 		["another project", verifiedImageAsset({ projectId: "project-other" })],
 		["pending", verifiedImageAsset({ status: "pending" })],
 	] as const)("collapses a %s asset into the same BOLA-safe refusal", async (_case, asset) => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const assets = new MemoryAssets();
 		if (asset) {
 			assets.records.set(asset.id, asset);
@@ -496,7 +423,7 @@ describe("hosted project documents", () => {
 	});
 
 	it("rejects malformed documents before they reach persistence", async () => {
-		const projects = new MemoryProjects();
+		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);
 
 		const response = await app.request(
@@ -508,5 +435,107 @@ describe("hosted project documents", () => {
 
 		expect(response.status).toBe(400);
 		expect(projects.records.size).toBe(0);
+	});
+});
+
+describe("automation projects and the ceiling, as the studio's save meets them", () => {
+	const SOURCE_ID = "import_0123456789abcdef0123456789abcdef";
+
+	/** What render by URL saved: a project of the account that only it has written. */
+	async function renderedByUrl(projects: MemoryProjectRepository, ownerId = "account-1") {
+		const parsed = parseProjectDocument(LEGACY);
+		if (parsed.schemaVersion !== 1) throw new Error("expected a V1 fixture");
+		const document = migrateV1ToV2(parsed.document);
+		return projects.createAutomation({
+			ownerId,
+			document: { ...document, project: { ...document.project, id: SOURCE_ID } },
+		});
+	}
+
+	const post = (app: ReturnType<typeof appFor>) =>
+		app.request(
+			request("/api/projects", { method: "POST", body: JSON.stringify({ document: LEGACY }) }),
+		);
+
+	const put = (app: ReturnType<typeof appFor>, id: string, revision: number, title: string) =>
+		app.request(
+			request(`/api/projects/${id}`, {
+				method: "PUT",
+				body: JSON.stringify({
+					expectedRevision: revision,
+					document: {
+						...migrateV1ToV2(parseProjectDocument(LEGACY).document as never),
+						project: {
+							...migrateV1ToV2(parseProjectDocument(LEGACY).document as never).project,
+							id,
+							title,
+						},
+					},
+				}),
+			}),
+		);
+
+	it("lets an account create its third project while render by URL's projects fill nothing", async () => {
+		const projects = new MemoryProjectRepository(NOW);
+		const app = appFor(projects);
+		await renderedByUrl(projects);
+		await post(app);
+		await post(app);
+
+		const third = await post(app);
+
+		expect(third.status).toBe(201);
+	});
+
+	it("counts a render-by-URL project once the studio has saved it", async () => {
+		const projects = new MemoryProjectRepository(NOW);
+		const app = appFor(projects);
+		await renderedByUrl(projects);
+		await post(app);
+		await post(app);
+
+		const saved = await put(app, SOURCE_ID, 1, "Polished in the studio");
+		const fourth = await post(app);
+
+		expect(saved.status).toBe(200);
+		expect((await saved.json()).project).toMatchObject({ id: SOURCE_ID, revision: 2 });
+		expect(fourth.status).toBe(402);
+		expect(await fourth.json()).toMatchObject({ ceiling: "cloudProjects", used: 3, limit: 3 });
+	});
+
+	it("refuses the save that would be a project past the ceiling, naming the plan, and writes nothing", async () => {
+		const projects = new MemoryProjectRepository(NOW);
+		const app = appFor(projects);
+		await post(app);
+		await post(app);
+		await post(app);
+		await renderedByUrl(projects);
+
+		const refused = await put(app, SOURCE_ID, 1, "Polished in the studio");
+
+		expect(refused.status).toBe(402);
+		expect(await refused.json()).toEqual({
+			error: "Free keeps 3 cloud projects; Creator keeps 100",
+			code: "plan-limit",
+			ceiling: "cloudProjects",
+			limit: 3,
+			used: 3,
+			plan: "free",
+			upgradeTo: "creator",
+		});
+		expect(projects.records.get(SOURCE_ID)?.revision).toBe(1);
+		expect(projects.automation.has(SOURCE_ID)).toBe(true);
+	});
+
+	it("still saves a regular project at the ceiling", async () => {
+		const projects = new MemoryProjectRepository(NOW);
+		const app = appFor(projects);
+		await post(app);
+		await post(app);
+		await post(app);
+
+		const saved = await put(app, "project-server-1", 1, "Renamed");
+
+		expect(saved.status).toBe(200);
 	});
 });

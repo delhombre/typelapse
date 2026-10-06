@@ -6,7 +6,9 @@ import {
 	type StudioCloudRuntime,
 	useStudioCloudProject,
 } from "@/presentation/hooks/use-studio-cloud-project";
+import { useApiKeyStore } from "@/presentation/stores/api-key.store";
 import { useAuthStore } from "@/presentation/stores/auth.store";
+import { useCloudProjectsStore } from "@/presentation/stores/cloud-projects.store";
 import { useHostedRenderJobsStore } from "@/presentation/stores/hosted-render-jobs.store";
 import { usePlanStore } from "@/presentation/stores/plan.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -38,14 +40,16 @@ function defaultCloudRuntime(): StudioCloudRuntime | null {
 export interface StudioAccountIslandProps {
 	readonly authStore?: typeof useAuthStore;
 	readonly planStore?: typeof usePlanStore;
+	readonly apiKeyStore?: typeof useApiKeyStore;
+	readonly cloudProjectsStore?: typeof useCloudProjectsStore;
 	readonly compositionStore?: typeof useStudioCompositionStore;
 	/** `undefined` resolves the browser runtime; `null` disables cloud save. */
 	readonly cloudRuntime?: StudioCloudRuntime | null;
 }
 
 /**
- * The Studio's account island: sign up, sign in, cloud save and billing. It
- * exists only where accounts do; the local profile renders nothing at all.
+ * The Studio's account island: sign up, sign in, cloud save, billing and API
+ * keys. It exists only where accounts do; the local profile renders nothing.
  */
 export function StudioAccountIsland({
 	authStore = useAuthStore,
@@ -59,6 +63,8 @@ export function StudioAccountIsland({
 function HostedAccountIsland({
 	authStore = useAuthStore,
 	planStore = usePlanStore,
+	apiKeyStore = useApiKeyStore,
+	cloudProjectsStore = useCloudProjectsStore,
 	compositionStore = useStudioCompositionStore,
 	cloudRuntime,
 }: StudioAccountIslandProps) {
@@ -69,11 +75,12 @@ function HostedAccountIsland({
 	// compared with what a reload rebuilds, render settings and live code included.
 	const document = useMemo(() => studioDocumentOf(value, liveCode), [value, liveCode]);
 	const runtime = cloudRuntime === undefined ? defaultCloudRuntime() : cloudRuntime;
-	const { cloudProjectState, saveToCloud, saveRevision } = useStudioCloudProject({
-		authStatus,
-		document,
-		runtime,
-	});
+	const { cloudProjectState, saveToCloud, saveRevision, cloudProjectId, forgetCloudProject } =
+		useStudioCloudProject({
+			authStatus,
+			document,
+			runtime,
+		});
 	// A cloud render renders the canonical revision, so it saves through this
 	// same cloud copy rather than a second one of its own.
 	useEffect(
@@ -108,6 +115,18 @@ function HostedAccountIsland({
 				cloudProjectState={cloudProjectState}
 				{...(runtime ? { onSaveToCloud: saveToCloud } : {})}
 				allowance={allowance}
+				apiKeys={{ store: apiKeyStore }}
+				cloudProjects={{
+					store: cloudProjectsStore,
+					openId: cloudProjectId,
+					onDeleted: (id) => {
+						forgetCloudProject(id);
+						// Its renders went with it: a finished one on screen has nothing to offer.
+						void useHostedRenderJobsStore.getState().recheck();
+						// The allowance says how many projects the account keeps.
+						void refreshPlan({ signedIn: true });
+					},
+				}}
 				billing={{
 					planLabel: plan.label,
 					paid: plan.isPaid,

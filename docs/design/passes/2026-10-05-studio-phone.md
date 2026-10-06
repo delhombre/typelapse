@@ -150,19 +150,151 @@ unnamed control, in all 44 shots.
 Nits left: the sheet keeps its scroll position when lowered to the peek, so
 the peek can show a faded middle of the list rather than "Scenes".
 
+## Follow-up, ticket #141 (2026-10-06)
+
+Decision log `docs/decisions/2026-10-05-next-wave.md` D1. Gate 4 ran in Emil's
+order: `emil-design-foundations`, `emil-touch-and-accessibility` (the material),
+`emil-animations` for the drag, `emil-ui-polish`, `craft-design-engineering`
+(Interruptibility, Hit Areas, Easings), then `emil-ui-review`. Out of scope: the
+island's own geometry, Drift 18 and 19 of SYSTEM.md (the sheet's cool tokens, the
+More menu), the stage's fit.
+
+### Screen
+
+Route `/app` below the desktop breakpoint, light and dark: the sheet's handle and
+its content (`layout/mobile-shell.tsx`), the instrument's slot (`.sc-dock-slot`),
+the Showcase's replace question (`.showcase-confirm`, `studio-camera.css`).
+
+### Before
+
+Production build behind `vite preview` on 5240, ms-playwright Chromium 1243, 375x812
+at DPR 2, touch, notch forced through CDP (47 top, 34 bottom). A touch drag is CDP
+`Input.dispatchTouchEvent` every 16ms; an in-page recorder takes one row per
+animation frame (`scratchpad/141/drag.mjs`, rows in `before/drag-*.json`).
+
+- **The instrument stayed where it was while the finger dragged.** From the peek
+  to the scenes stop (sheet top 722 to 364): at t=185ms the sheet is at 674.3 and
+  the instrument's bottom at 710 (the sheet's top 35.7px above it, over its
+  controls), at t=585 531.1 and 710, at t=985 387.9 and 710 (322px of sheet over
+  it). It moved only after the release (521.8 at t=1284, 353.0 at t=1685). Gap of
+  the sheet's top over the instrument's bottom, every moving frame: from -346 to 12.
+  (`before/sheet-light-02-drag-between.png`: the island over the "Edit the code above"
+  sentence.)
+- **The handle was not a control.** The drawer renders it `aria-hidden`, with no tab
+  stop and no key, so a keyboard or a screen reader could not raise the sheet. The
+  content below the peek, clipped under the screen's edge, stayed in the tab order.
+- **The Showcase's replace question ran its picture into its title** (375x812, all
+  four landscape projects): the picture 293.3 to 486.3, the title 469.5 to 489, and
+  the picture 13px above its block. The block is a shrinkable flex item and its grid
+  rows were `auto`: a track whose item clips its own overflow may shrink to nothing,
+  so row 1 got 115.4px for a 192.9px picture (the leftover of 506px), which overflowed
+  it centred. The portrait project's picture was 640px wide (a 360px height under the
+  card's 16:9 ratio), cut by the screen, and 675px wide on a desktop at 1440, over the
+  title and the question (`before/showcase-375-light-0-react-hook.png`,
+  `-4-batch-the-query.png`, `showcase-desktop-1440-4.png`).
+
+### Decisions
+
+- **The drawer's own style is the signal** (`hooks/use-dock-follows-sheet.ts`).
+  `onDrag` gives a share of the distance between two stops and is called only at the
+  full stop and the one before it (never from the peek), so it cannot place anything.
+  The drawer writes `transform` and `transition` on the sheet for every pointer move
+  and for every settle, whoever asks (finger, key, rotation). A mutation observer
+  reads them in the same task, before the frame is drawn, and sets the instrument from
+  the sheet's height. The instrument takes the sheet's `transition` string, so a settle
+  runs both on one curve and clock, and the 500ms curve constant in `mobile-shell.tsx`
+  is gone. React no longer writes the instrument's transform. A fresh load is
+  unchanged: the instrument rests on the peek while the sheet slides in.
+- **One function says where the instrument is for any sheet height**
+  (`phoneSheetGeometry().dockLiftAt`): 12px above the sheet's edge from the peek to
+  the scenes stop (the peek when there is no scenes stop), then a straight line down to
+  the full stop's rest, never below `max(12px, inset-bottom)`. It equals `dockLift` on
+  every stop. Tested in `tests/application/phone-sheet.test.ts`.
+- **The handle is a vertical slider** (`role="slider"`, name "Sheet height",
+  `aria-valuemin` 0, `aria-valuemax` the last stop, `aria-valuenow`, `aria-valuetext`
+  "Collapsed", "Half open", "Open", `aria-controls` the content). A slider is what
+  VoiceOver and TalkBack offer raise and lower on (swipe up and down). Keys: Enter and
+  Space step up and come back to the peek from the top, the arrows and Page Up and Down
+  one stop, Home and End the ends (`phoneSheetGeometry().step`). A tap on the handle
+  asks the drawer for "the stop after the last"; that now answers the peek, so tap,
+  Enter and Space cycle alike (it did nothing at the top).
+- **Collapsed means unreachable** (`emil-touch-and-accessibility`, tab order): at the
+  peek the content is `inert`, out of the tab order and the tree, so focus never lands
+  below the screen. At the half stop the sheet's lower part is also below the screen's
+  edge (it is as tall as the screen and slides), so a focus on anything whose bottom is
+  past the window raises the sheet to the full stop.
+- The handle's keyboard ring is the accent, 2px at 2px offset (D9), at full opacity (the
+  drawer's 70% made it faint); its hit area stays the drawer's 44px.
+- `emil-animations`: a key moves the sheet with the same 500ms settle as a tap (a
+  large travel, rare, and reduced motion drops it); the dock animates `transform` only.
+- **Replace question** (`studio-camera.css`): `grid-auto-rows: max-content` (a row is
+  never less than its content, as the Showcase grid and the library already say; the
+  block scrolls instead), `aspect-ratio: auto` on the portrait picture, and from one
+  column down (960px) the picture is a 3:1 banner (136px high for the portrait one,
+  12px of padding) with 18px gaps and 20px on top at 720px, so the question stays in
+  reach. Chosen by injecting candidates into the before build: 5:2 left 18px of scroll at
+  375x812, 3:1 fits.
+
+### After
+
+`scratchpad/141/after/`, build `scratchpad/141/dist` on 4240.
+
+- Drag, 135 moving frames per run, rows in `after/drag-*.json`: the instrument's
+  bottom against the mapping, largest difference 0.01px, in the riding range, past the
+  scenes stop, through the settle and when the drag is taken over 150ms into a settle.
+  From the peek to the scenes stop: t=242ms sheet 582.8, instrument 570.8; t=325 419.6,
+  407.6; t=409 384.7, 372.7; t=492 371.9, 359.9; settle 365.0, 353.0 (gap 12.0 on every
+  frame). Held a third of the way past the scenes stop (frames from `up-between`): t=814
+  sheet 347.9, instrument 380.0; t=931 282.8, 482.4; t=1048 234.0, 559.2; the full stop
+  778 (812 - 34). A quick flick from the peek ends at the full stop (95 and 778) as
+  before, with no second step. Landscape 844x390: peek 313 and 301, full 58 and 369
+  (390 - 21).
+  `after/sheet-light-02-drag-between.png` against `before/`.
+- Keyboard (`mobile-shell.spec.ts`): 12 Tab presses from the page start reach the handle
+  without passing through the content; Enter, Space, the arrows, Home and End move it
+  (sheet tops 722, 365, 95); the next Tab after raising goes into the content. Focus
+  ring: `oklch(0.62 0.19 268) solid 2px`, offset 2px (`after/handle-focus-light.png`).
+- Accessibility tree (CDP `Accessibility.getFullAXTree`): role `slider`, name "Sheet
+  height", focusable, orientation vertical, valuemin 0, valuemax 2, value 0 then 1 after
+  an arrow. Chromium leaves `valuetext` empty for every ARIA slider (a bare page shows the
+  same), so the words are asserted on the attribute.
+- Replace question at 375x812, all six projects, light and dark: the picture ends 18px
+  above its title (was a 16.8px overlap), nothing scrolls (495/495, 497/497, 475/475),
+  none wider than its column; at 390x844 the same; at 1440x900 the portrait picture
+  ends at 810.3, the title starts at 844.3 (was 949.5). `after/showcase-375-light-*.png`.
+
+Tests, red first: `tests/application/phone-sheet.test.ts` (11 red on the missing
+`dockLiftAt`, `order`, `step`), `tests/presentation/mobile-shell.test.tsx` (6 red on the
+baseline shell: the slider, its keys, the inert content, the instrument's transform and
+transition), `tests/e2e/mobile-shell.spec.ts` and `showcase.spec.ts` (8 red on the before
+build: the handle absent, the picture 949.5 against 844.3, 497.3 against 489.5; the focus
+raise red on the build before it).
+`pnpm exec vitest run tests/application/phone-sheet.test.ts
+tests/presentation/mobile-shell.test.tsx tests/presentation/studio-surfaces-system.test.ts
+tests/docs/design-system.test.ts tests/presentation/layer-editor-in-sheet.test.ts`: 5
+files, 72 tests green. `E2E_SKIP_BUILD=1 E2E_PORT=4240 E2E_OUT_DIR=<scratchpad>/dist pnpm
+exec playwright test tests/e2e/mobile-shell.spec.ts tests/e2e/showcase.spec.ts`: 23 passed.
+
+### Review verdict
+
+`emil-ui-review` on the diff: **approve with changes**, all made. Should fix: the
+handle's ring was 70% opaque (the drawer's opacity), now full; focus could land below
+the screen at the half stop, now raises the sheet; a redundant `aspect-ratio` in the
+single-column rule, removed. Nits left: a key moves the sheet over 500ms, over the 300ms
+of the guide, as the tap does.
+
 ## Open
 
-- The instrument does not follow the sheet during a drag, only on release
-  (vaul's `onDrag` gives a percentage, not the sheet's offset). Owner: this
-  screen, next pass.
-- The island's scene dots (24x40) and Export (64x30) under a finger: U3's
-  island geometry.
-- The sheet's handle is not reachable by keyboard or a screen reader's
-  actions; content below the peek is reachable only by raising the sheet.
-- Proposed standing rule for `DECISIONS.md` (at 247 of its 250 lines, so not
-  added here): "Phone chrome clears the safe areas: the row from
-  `max(10px, inset-top)`, the sheet's stops from `phone-sheet.ts`, the
-  instrument above `inset-bottom`." Enforced by
-  `tests/application/phone-sheet.test.ts`. Orchestrator's call.
-- Real hardware: the notch, the home indicator and the keyboard were forced
-  through CDP, not seen on an iPhone.
+- The island's scene dots (24x40) and Export (64x30) under a finger: U3's island
+  geometry (done by #140; see its follow-up).
+- The sheet keeps its scroll position when lowered to the peek, so the peek can show a
+  faded middle of the list rather than "Scenes" (the content is inert there now).
+- Drift 18 (the sheet's cool tokens, the ink ring on the layer inspector's controls) and
+  Drift 19 (the More menu) still name the phone pass: neither was in #141's brief.
+- The sheet cannot be pulled below the peek (the drawer stops it), so the floor under the
+  instrument is `max(12px, inset-bottom)` by construction and by `dockLiftAt`.
+- Not verifiable here: VoiceOver and TalkBack announcing "Sheet height, Collapsed,
+  adjustable" and the swipe up and down raising it (a slider is what they adjust, but
+  nothing was heard); the drag on an iPhone (Safari delivers touch moves between frames,
+  and the compositor's clock may differ from Chromium's by a frame); the notch, the home
+  indicator and the keyboard, forced through CDP; WebKit's `inert`.

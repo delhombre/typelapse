@@ -69,6 +69,71 @@ file was written, `2` bad arguments or a bad file, `3` GitHub could not serve
 the source (private, missing, rate-limited, offline), `4` the render failed.
 Every error is one sentence.
 
+## Render by URL
+
+The same sources, rendered on Typelapse's servers instead of your machine, by any
+script that holds an [API key](#api-keys); `$TYPELAPSE_URL` is the address of the
+hosted deployment. It needs a Creator account; a free account gets the link that
+opens the import in the studio.
+
+```bash
+curl -sS "$TYPELAPSE_URL/api/cloud/render/source" \
+  -H "Authorization: Bearer $TYPELAPSE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"source": "https://github.com/octocat/Hello-World/pull/1"}'
+```
+
+`source` is what the CLI takes, files aside: a pull request, commit, release
+(`/releases/tag/<tag>`) or compare (`/compare/<a>...<b>`) URL of a public
+repository, or a unified diff as text. They are read by the same importers as
+the CLI and the studio, so the video is the one they would make. A private
+repository is refused like a missing one, whatever credential the server holds:
+send its diff as `source` instead. A source is read inside 30 seconds; past
+that it is refused rather than held. `renderOptions` is optional and changes only
+what it names: `format` (`mp4` or `webm`), `width` and `height` (both together),
+`fps` (24, 30 or 60), `loop` and `theme` (`midnight`, `aurora`, `frost`,
+`dracula`, `one-dark`, `catppuccin` or `nord`, swapped whole as the CLI's
+`--theme` does; another theme for the same source is a new revision of its
+project). Without it the render is the studio's own, MP4 at 1920x1080 and 60 fps.
+
+A Creator gets `202`, the job and the link that opens the same import in the
+studio. `notice`, when there is one, says that a release plays from the first
+commit or as one change, or that a diff is too long to travel in a link, so the
+studio opens empty:
+
+```json
+{
+  "job": { "id": "job_...", "projectId": "import_...", "revision": 1, "status": "queued" },
+  "studioUrl": "https://studio.example/app#import=..."
+}
+```
+
+The source is saved as a cloud project of the account, one for each source. The
+same source sent again is the same job, so a retry costs nothing; a pull request
+that has gained commits since is a new revision of its project, and a new job.
+These projects do not count toward your plan's cloud projects until you save one
+from the studio, so rendering every pull request never locks you out of saving.
+Follow the job with the same key, `GET /api/cloud/jobs/<id>`: once `status` is
+`succeeded` it carries `download` (a signed link) and `page`, the render's share
+page. Every render starts private, so the page answers `404` until
+`PUT /api/cloud/jobs/<id>/public` with `{"public": true}` turns it on.
+
+A free account's call is answered with `200`, `studioUrl` and `reason` (hosted
+renders come with Creator) and no job. Nothing is fetched or saved for it. A
+refused request creates nothing:
+
+- `400` the source or the options are not usable, `413` the body is past 4 MiB,
+  `415` it is not JSON.
+- `401` the key is not valid, `429` the key made 120 requests in a minute (see
+  `Retry-After`) or the plan's renders are all running.
+- `402` a ceiling of the plan: `ceiling` is `hostedRenderTime` (the month's
+  minutes); a size past the plan has the `code` `resolution-limit`.
+- `422` the source could not be read: `source-not-found` (missing or private),
+  `source-too-large` or `source-unusable`. `502` or `503` GitHub did not answer
+  or limited this server's reads, and the message gives the limit, what is left
+  and when it resets; `504` `source-too-slow` the read outlasted its 30 seconds,
+  and the message names them. Try again, send a smaller range, or send a diff.
+
 ## Render every pull request
 
 ```yaml
@@ -125,11 +190,41 @@ works on a push), `format`, `size`, `fps` and
 a local one at `http://localhost:5173/app`), `comment` (`false` writes the job
 summary only), `github-token` and `fail-on-render-error` (`false` keeps the job
 green when the render fails and leaves the comment as the only signal, for a
-demo or a non-blocking check). Outputs: `path`, `studio-url`,
-`artifact-url` and `exit-code`. A pull request from a fork runs with a read-only
-token, so its link lands in the job summary instead of a comment. This
-repository runs the action on its own pull requests
+demo or a non-blocking check), `api-key` and `api-url` (below). Outputs: `path`,
+`studio-url`, `artifact-url`, `exit-code` and `share-url`. A pull request from a
+fork runs with a read-only token, so its link lands in the job summary instead of
+a comment. This repository runs the action on its own pull requests
 ([`.github/workflows/render-pr.yml`](.github/workflows/render-pr.yml)).
+
+### Let Typelapse render it
+
+```yaml
+      - uses: delhombre/typelapse@main
+        with:
+          api-key: ${{ secrets.TYPELAPSE_API_KEY }}
+          # Until Typelapse has a public address: the deployment the key belongs to.
+          api-url: https://api.example.com
+```
+
+With a Creator [API key](#api-keys), the action asks [render by URL](#render-by-url)
+to render the pull request on Typelapse's servers instead of on the runner, with
+the same `format`, `size`, `fps` and `theme`. It waits up to ten minutes for the
+job, publishes the render's page (a page is private until its owner publishes it,
+and render by URL reads public repositories only), and the one comment, which
+each push edits, links that share page and the studio; the job summary says the
+same. A GIF stays on the runner, since hosted renders are MP4 or WebM.
+
+The hosted output replaces the runner's render only when it ends in a published
+page. A free account's key, a refusal (a private repository, a ceiling of the
+plan, a key that is not valid) or an outage leaves the render to the runner as
+without a key, and the comment says why in one line; for a free account it says
+the hosted video comes with Creator. A hosted problem never fails the job.
+
+The key is read from a secret, masked in the log before any other step runs,
+sent only as `Authorization: Bearer` to `api-url` (https, or http on localhost;
+redirects are refused) and never put in a URL, an argument or a file. GitHub gives
+a pull request from a fork no secrets, so it renders on the runner, and the job
+summary says so when `api-url` is set.
 
 ## Let an agent render it
 
@@ -162,6 +257,8 @@ CLI and answers with the file and the studio link; see
 - Hosted owner-scoped project CRUD with optimistic revisions.
 - Private R2 media upload/finalization with MIME, size and SHA-256 verification.
 - Better Auth email/password sessions in the hosted account island.
+- API keys made in the account island: a script renders on the hosted render
+  routes with a key, no browser.
 - Stripe monthly/annual Checkout, Customer Portal and signed webhook projection.
 - Postgres-backed render and object-deletion workers with leased retries. In a
   hosted build, a signed-in account renders on them from the export panel's
@@ -197,8 +294,20 @@ until every required adapter is configured.
    ```
 
 `GET /health` is the runtime source of truth for `auth`, `projectSync`,
-`privateAssets`, `billing` and `hostedRendering`. Anonymous synchronous Remotion
-compute is never mounted in hosted mode.
+`privateAssets`, `billing`, `hostedRendering` and `apiKeys`. Anonymous
+synchronous Remotion compute is never mounted in hosted mode.
+
+### API keys
+
+A signed-in account makes, copies once and revokes keys in the account island
+(Account, then API keys). A key is `tlk_`, eight characters and a 256-bit
+secret; the database keeps the prefix and a SHA-256 hash, never the secret, so a
+lost key is revoked and replaced. A script sends it as
+`Authorization: Bearer <key>` to the hosted render routes under `/api/cloud`,
+and to nothing else: account, billing, projects, assets and key management
+accept the session cookie alone. The account's plan still decides what a key may
+start. A key is limited to 120 requests a minute (the 429 carries `Retry-After`),
+and a key that is unknown, revoked or expired gets one and the same 401.
 
 ### Browser configuration
 
@@ -228,6 +337,19 @@ Two addresses are not known until the studio is deployed:
   variables, Actions, Variables). The render workflow passes it as `studio-url`,
   so the pull request comment links the deployed studio; left empty, the link
   opens a local one. The CLI reads the same name from the environment.
+
+- `TYPELAPSE_GITHUB_TOKEN` is optional, and it only changes render by URL. Without
+  it the server reads GitHub with no credential, at the anonymous 60 requests an
+  hour for its address, and a release of 30 commits costs about 33. With it, every
+  read is signed and the limit is the token's (5,000 an hour). Public repositories
+  stay the only ones read: before the token reads anything of a repository, that
+  repository's own record must say it is public, so a token set too wide changes
+  nothing, and `pnpm hosted:check` says whether the token is set. Create it at
+  GitHub, Settings, Developer settings, Fine-grained personal access tokens:
+  resource owner is the account that will hold it, repository access is "Public
+  repositories", no permission is added (public data needs none), an expiry you
+  will remember to renew. It is not the CLI's `GITHUB_TOKEN`, which reads
+  private repositories on purpose.
 
 ## Business model encoded in the product
 
@@ -286,6 +408,19 @@ pnpm exec playwright show-trace test-results/e2e/<test>/trace.zip
 A failing journey keeps its trace, video and screenshot under `test-results/e2e/`;
 CI uploads them as an artifact. Each spec names the promise it protects in its
 `describe`, and a journey that lands gets its spec (Quality loop, gate 5).
+
+The store's guarantees (ceilings under concurrent requests, revisions, the API key
+table) are checked on a real PostgreSQL by the contract tests, the files named
+`tests/**/*.contract.test.ts`. They skip unless `TYPELAPSE_TEST_DATABASE_URL` names a
+database, so `pnpm test` needs no service. The Quality gate runs them on every pull
+request against PostgreSQL 16, the migrations applied first.
+
+```bash
+tests/e2e/hosted/services.sh up   # PostgreSQL 16 on 54381 (and MinIO)
+export TYPELAPSE_TEST_DATABASE_URL=postgres://postgres:typelapse@127.0.0.1:54381/typelapse
+DATABASE_URL=$TYPELAPSE_TEST_DATABASE_URL pnpm db:migrate   # once, on an empty database
+pnpm exec vitest run .contract.test.
+```
 
 ## License
 

@@ -38,11 +38,15 @@ export function captionBlockHeight(hasCaption: boolean, scale: number): number {
 }
 
 /**
- * The chrome bar's font stack, which is *not* the theme's.
+ * The chrome bar's font stack, which is neither the theme's nor the UI's.
  *
- * `FrameChrome` sets its title and its glyphs in the app's own mono regardless
- * of what the code is set in, so a canvas painting the same bar has to ask for
- * the same stack — and the renderer has to load it alongside the theme's font.
+ * The bar is drawn inside the video frame, so it is content and not studio
+ * chrome: the UI's mono is Ioskeley Mono (docs/design/DECISIONS.md D11), and
+ * JetBrains Mono is the registry code font this bar has always been set in.
+ * `FrameChrome` sets its title and its glyphs in it regardless of what the code
+ * is set in, so a canvas painting the same bar has to ask for the same stack, and
+ * the renderer has to load it alongside the theme's font. Changing it changes
+ * every export's bar, and the height measured from it, in all three renderers.
  */
 export const CHROME_FONT_STACK = "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace";
 

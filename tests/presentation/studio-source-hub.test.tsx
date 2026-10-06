@@ -150,6 +150,81 @@ describe("StudioSourceHub media import", () => {
 	});
 });
 
+describe("StudioSourceHub trigger", () => {
+	afterEach(() => cleanup());
+
+	// The header's other controls draw their glyphs at 14px (history, utilities,
+	// Library); the trigger beside them was the one at 13.
+	it("draws its glyph at the header's 14px", () => {
+		const view = render(
+			<MemoryRouter>
+				<StudioSourceHub />
+			</MemoryRouter>,
+		);
+		const glyph = view.getByRole("button", { name: "Add source" }).querySelector("svg");
+		expect(glyph?.getAttribute("width")).toBe("14");
+		expect(glyph?.getAttribute("height")).toBe("14");
+	});
+});
+
+describe("StudioSourceHub popovers", () => {
+	afterEach(() => {
+		cleanup();
+		vi.restoreAllMocks();
+	});
+
+	function openView(label: string) {
+		const view = render(
+			<MemoryRouter>
+				<StudioSourceHub />
+			</MemoryRouter>,
+		);
+		fireEvent.click(view.getByRole("button", { name: "Add source" }));
+		fireEvent.click(view.getByRole("menuitem", { name: label }));
+		return view;
+	}
+
+	// The segment used to say which option was on only by its colour.
+	it("says which way a pull request will play, to a screen reader as well as to the eye", () => {
+		const view = openView("Import a git diff");
+		fireEvent.change(view.getByRole("textbox", { name: "Git diff or GitHub pull request link" }), {
+			target: { value: "https://github.com/acme/widgets/pull/42" },
+		});
+
+		expect(view.getByRole("group", { name: "Play as" })).toBeTruthy();
+		const whole = view.getByRole("button", { name: "Whole change" });
+		const byCommit = view.getByRole("button", { name: "By commit" });
+		expect(whole.getAttribute("aria-pressed")).toBe("true");
+		expect(byCommit.getAttribute("aria-pressed")).toBe("false");
+
+		fireEvent.click(byCommit);
+
+		expect(view.getByRole("button", { name: "Whole change" }).getAttribute("aria-pressed")).toBe(
+			"false",
+		);
+		expect(view.getByRole("button", { name: "By commit" }).getAttribute("aria-pressed")).toBe(
+			"true",
+		);
+	});
+
+	// A request in flight keeps the primary's fill and says so; a button that is
+	// merely disabled is muted. The two used to look the same, at 60% opacity.
+	it("marks the primary busy while a link is being fetched", async () => {
+		vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => undefined));
+		const view = openView("Import from URL");
+		const submit = view.container.querySelector<HTMLButtonElement>('button[type="submit"]');
+		expect(submit?.getAttribute("aria-busy")).toBeNull();
+
+		fireEvent.change(view.getByRole("textbox", { name: "Gist or GitHub link" }), {
+			target: { value: "https://gist.github.com/someone/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+		});
+		fireEvent.click(submit as HTMLButtonElement);
+
+		await waitFor(() => expect(submit?.getAttribute("aria-busy")).toBe("true"));
+		expect(submit?.disabled).toBe(true);
+	});
+});
+
 describe("StudioSourceHub keyboard exits", () => {
 	afterEach(() => cleanup());
 

@@ -12,11 +12,13 @@
  */
 
 import type { DiffChapter } from "@/application/diff";
-import type { CompareRef, ReleaseRef } from "@/application/import/pr-url";
+import { type CompareRef, type ReleaseRef, isSafeGitRef } from "@/application/import/pr-url";
 import { type ReleaseCard, releaseCardText } from "@/application/import/release-project";
 import {
 	type ChapterProgress,
+	type GitHubRead,
 	MAX_CHAPTER_COMMITS,
+	RateLimitError,
 	commitApiUrl,
 	fetchDiff,
 	fetchJson,
@@ -56,11 +58,19 @@ interface GitHubRelease {
 }
 
 function repoApi(ref: { owner: string; repo: string }): string {
-	return `https://api.github.com/repos/${ref.owner}/${ref.repo}`;
+	return `https://api.github.com/repos/${encodeURIComponent(ref.owner)}/${encodeURIComponent(ref.repo)}`;
 }
 
-/** A ref in a URL path: each part escaped, the slashes of `release/2.0` kept. */
+/**
+ * A ref in a URL path: each part escaped, the slashes of `release/2.0` kept. A ref
+ * git would refuse (a `.` or `..` part, a backslash) is refused before any request:
+ * fetch folds dot segments out of a path, so one could aim the call at another
+ * repository than the one the caller's public-only guard checked.
+ */
 function pathRef(ref: string): string {
+	if (!isSafeGitRef(ref)) {
+		throw new Error("That ref is not a valid git ref");
+	}
 	return ref.split("/").map(encodeURIComponent).join("/");
 }
 
@@ -73,11 +83,13 @@ function isRelease(ref: ReleaseRef | CompareRef): ref is ReleaseRef {
  * the last one (the repository's first tag). Throws "not found" when the tag is
  * not in the list at all.
  */
-async function previousTag(ref: ReleaseRef): Promise<string | null> {
+async function previousTag(ref: ReleaseRef, read?: GitHubRead): Promise<string | null> {
 	const page = async (n: number) => {
 		const tags = await fetchJsonStrict<{ name: string }[]>(
 			`${repoApi(ref)}/tags?per_page=${TAG_PAGE_SIZE}&page=${n}`,
 			RELEASE_NOT_FOUND,
+			undefined,
+			read,
 		);
 		return Array.isArray(tags) ? tags : [];
 	};
@@ -117,6 +129,7 @@ async function rangeWalkthrough(
 	head: string,
 	what: string,
 	onProgress?: ChapterProgress,
+	read?: GitHubRead,
 ): Promise<RangeWalkthrough> {
 	const url = `${repoApi(ref)}/compare/${pathRef(base)}...${pathRef(head)}`;
 	const notFound = what === "release" ? RELEASE_NOT_FOUND : "Comparison not found";
@@ -124,15 +137,16 @@ async function rangeWalkthrough(
 		url,
 		notFound,
 		TOO_LARGE,
+		read,
 	);
 	const listed = compare.commits ?? [];
 	// GitHub lists at most 250 commits of a range; the rest only count.
 	const unlisted = Math.max(0, (compare.total_commits ?? 0) - listed.length);
 	const commits = listed.filter((commit) => !isMerge(commit));
 	if (commits.length + unlisted <= MAX_CHAPTER_COMMITS) {
-		return { chapters: await chaptersOf(ref, commits, what, onProgress) };
+		return { chapters: await chaptersOf(ref, commits, what, onProgress, read) };
 	}
-	const diffText = await fetchDiff(url, notFound, TOO_LARGE);
+	const diffText = await fetchDiff(url, notFound, TOO_LARGE, read);
 	// GitHub's own count, merges included: the number the release page shows.
 	const count = compare.total_commits ?? commits.length + unlisted;
 	return {
@@ -142,10 +156,12 @@ async function rangeWalkthrough(
 }
 
 /** Every commit up to `tag`, oldest first, merges left out: the first tag's range. */
-async function historyCommits(ref: ReleaseRef): Promise<GitHubCommit[]> {
+async function historyCommits(ref: ReleaseRef, read?: GitHubRead): Promise<GitHubCommit[]> {
 	const listed = await fetchJsonStrict<GitHubCommit[]>(
 		`${repoApi(ref)}/commits?sha=${encodeURIComponent(ref.tag)}&per_page=${MAX_CHAPTER_COMMITS + 1}`,
 		RELEASE_NOT_FOUND,
+		undefined,
+		read,
 	);
 	// A full page means the history goes on past it. With no tag before it there
 	// is no range to diff as one change, so the way out is a range of one's own.
@@ -163,6 +179,7 @@ async function chaptersOf(
 	commits: GitHubCommit[],
 	what: string,
 	onProgress?: ChapterProgress,
+	read?: GitHubRead,
 ): Promise<DiffChapter[]> {
 	if (commits.length === 0) {
 		throw new Error(`This ${what} has no commits to chapter`);
@@ -172,6 +189,8 @@ async function chaptersOf(
 		const diffText = await fetchDiff(
 			commitApiUrl(ref.owner, ref.repo, commit.sha),
 			"Commit not found",
+			undefined,
+			read,
 		);
 		const subject = commit.commit?.message?.split("\n")[0]?.trim();
 		chapters.push({ title: subject || commit.sha.slice(0, 7), diffText });
@@ -190,32 +209,36 @@ async function chaptersOf(
 export async function fetchReleaseChapters(
 	ref: ReleaseRef | CompareRef,
 	onProgress?: ChapterProgress,
+	read?: GitHubRead,
 ): Promise<ReleaseWalkthrough> {
 	try {
 		if (!isRelease(ref)) {
 			return {
 				card: { title: `${ref.base}...${ref.head}` },
-				...(await rangeWalkthrough(ref, ref.base, ref.head, "comparison", onProgress)),
+				...(await rangeWalkthrough(ref, ref.base, ref.head, "comparison", onProgress, read)),
 			};
 		}
 		// A bare tag has no release: the card falls back to the tag's own name.
 		const [release, previous] = await Promise.all([
-			fetchJson<GitHubRelease>(`${repoApi(ref)}/releases/tags/${pathRef(ref.tag)}`),
-			previousTag(ref),
+			fetchJson<GitHubRelease>(`${repoApi(ref)}/releases/tags/${pathRef(ref.tag)}`, read),
+			previousTag(ref, read),
 		]);
 		const card = releaseCardText({ name: release?.name, tag: ref.tag, body: release?.body });
 		if (previous) {
-			return { card, ...(await rangeWalkthrough(ref, previous, ref.tag, "release", onProgress)) };
+			return {
+				card,
+				...(await rangeWalkthrough(ref, previous, ref.tag, "release", onProgress, read)),
+			};
 		}
 		return {
 			card,
-			chapters: await chaptersOf(ref, await historyCommits(ref), "release", onProgress),
+			chapters: await chaptersOf(ref, await historyCommits(ref, read), "release", onProgress, read),
 			notice: `${ref.tag} is the first tag, so the video runs from the first commit`,
 		};
 	} catch (err) {
 		// The pull request's way out ("paste the diff") is no answer to a release.
-		if (err instanceof Error && err.message.startsWith("GitHub rate limit")) {
-			throw new Error("GitHub rate limit hit: try again later");
+		if (err instanceof RateLimitError) {
+			throw err.withAdvice("try again later");
 		}
 		throw err;
 	}

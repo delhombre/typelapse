@@ -36,6 +36,8 @@ minimumReleaseAgeExclude:
   - '@esbuild/win32-ia32@0.28.2'
   - '@esbuild/win32-x64@0.28.2'
   - esbuild@0.28.2
+  - '@e2e-dev/web@0.13.0'
+  - e2e@0.18.0
 
 # Transitive dependencies pinned past a published advisory. Each entry exists
 # because a direct dependency still resolves a vulnerable range; drop the entry

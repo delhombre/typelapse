@@ -288,6 +288,52 @@ describe("StudioCompositionBridge restore", () => {
 		expect(library.saveProject).toHaveBeenCalledOnce();
 	});
 
+	// An undo then a redo inside one debounce window ends on the state already stored.
+	// The save that was waiting for the undone state used to fire anyway, so the
+	// stored project lagged the studio by the last edit until the next change.
+	it("never writes a state the studio has already left, when the edit is undone inside the window", async () => {
+		library.loadProject.mockResolvedValue(null);
+		render(<StudioCompositionBridge />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1_000);
+		});
+		const sceneId = useStudioCompositionStore.getState().value.project.scenes[0]?.id ?? "";
+		const addText = (id: string) =>
+			act(() => {
+				useStudioCompositionStore.getState().transact((project) =>
+					addTextLayer(project, sceneId, {
+						id,
+						text: id,
+						placement: { x: 0, y: 0, width: 1, height: 0.2 },
+					}),
+				);
+			});
+
+		addText("one");
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(300);
+		});
+		library.saveProject.mockClear();
+
+		// "two" is made, then gone again before the debounce fires.
+		addText("two");
+		act(() => {
+			useStudioCompositionStore
+				.getState()
+				.transact((project) => project.removeBlock(sceneId, "two"));
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(1_000);
+		});
+
+		const written = library.saveProject.mock.calls.map(([document]) =>
+			(document as ProjectDocumentV2).project.scenes.flatMap((scene) =>
+				scene.blocks.map((block) => block.id),
+			),
+		);
+		expect(written.filter((ids) => ids.includes("two"))).toEqual([]);
+	});
+
 	it("holds an import until the stored project has been put back", async () => {
 		const pending = deferred<ProjectDocumentV2 | null>();
 		library.loadProject.mockReturnValue(pending.promise);

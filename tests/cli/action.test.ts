@@ -25,6 +25,8 @@ const INPUTS = [
 	"comment",
 	"github-token",
 	"fail-on-render-error",
+	"api-key",
+	"api-url",
 ];
 
 /** The block of one top-level key, up to the next top-level key. */
@@ -124,6 +126,114 @@ describe("the render-pr GitHub Action", () => {
 		const steps = ACTION.slice(ACTION.indexOf("actions/github-script@"));
 
 		expect(steps).toMatch(/exit "\$TYPELAPSE_EXIT"/);
+	});
+});
+
+/** The steps of `runs`, each as its own block of YAML. */
+function steps(): string[] {
+	return section(ACTION, "runs")
+		.split(/^ {4}- /m)
+		.slice(1)
+		.map((block) => `- ${block}`);
+}
+
+const stepNamed = (name: string) => {
+	const found = steps().find((block) => block.includes(`name: ${name}`));
+	expect(found, name).toBeDefined();
+	return found ?? "";
+};
+
+describe("the hosted output", () => {
+	it("masks the key in the first step of all, before anything else can print it", () => {
+		const [first = ""] = steps();
+
+		expect(first).toContain("name: Mask the API key");
+		expect(first).toContain("if: inputs.api-key != ''");
+		expect(first).toContain('echo "::add-mask::$key"');
+	});
+
+	it("gives the key to the mask step and the hosted step only, through the environment", () => {
+		const holders = steps().filter((block) => block.includes("inputs.api-key"));
+
+		expect(holders.map((block) => block.match(/name: (.+)/)?.[1])).toEqual([
+			"Mask the API key",
+			"Render on Typelapse",
+		]);
+		for (const block of holders) {
+			expect(block).toContain("TYPELAPSE_API_KEY: ${{ inputs.api-key }}");
+		}
+		// Never an argument, a URL, an output or a file: no step but these two names it at all.
+		const named = steps().filter((block) => /API_KEY/.test(block));
+		expect(named).toHaveLength(2);
+		expect(stepNamed("Render on Typelapse")).not.toMatch(/GITHUB_OUTPUT|GITHUB_ENV|--|\?/);
+	});
+
+	it("asks Typelapse after the install and before anything is rendered, and never fails the job", () => {
+		const hosted = stepNamed("Render on Typelapse");
+
+		expect(hosted).toContain("id: hosted");
+		expect(hosted).toContain("continue-on-error: true");
+		expect(hosted).toContain("if: inputs.api-key != '' || inputs.api-url != ''");
+		expect(hosted).toContain("run: pnpm exec tsx cli/hosted-render.ts");
+		expect(hosted).toMatch(/working-directory: \$\{\{ github\.action_path \}\}/);
+		expect(ACTION.indexOf("name: Install Typelapse")).toBeLessThan(
+			ACTION.indexOf("name: Render on Typelapse"),
+		);
+		expect(ACTION.indexOf("name: Render on Typelapse")).toBeLessThan(ACTION.indexOf("id: render"));
+	});
+
+	it("hands the hosted step the inputs the CLI takes, and whether the pull request is a fork's", () => {
+		const hosted = stepNamed("Render on Typelapse");
+
+		for (const input of ["source", "format", "size", "fps", "theme", "api-url"]) {
+			expect(hosted, input).toContain(`inputs.${input} }}`);
+		}
+		expect(hosted).toContain("github.event.pull_request.head.repo.fork");
+	});
+
+	it("leaves the runner's render, cache and libraries to the runs Typelapse did not deliver", () => {
+		const gated = ACTION.slice(ACTION.indexOf("name: Render on Typelapse")).split("\n    - ");
+
+		const skippable = gated.filter((block) =>
+			/typelapse-remotion-|Install the browser's libraries|id: render/.test(block),
+		);
+		expect(skippable).toHaveLength(3);
+		for (const block of skippable) {
+			expect(block).toContain("steps.hosted.outputs.rendered != 'true'");
+		}
+	});
+
+	it("links a deployed studio from the key's own server unless the workflow names one", () => {
+		expect(ACTION).toContain(
+			"STUDIO_URL: ${{ inputs.studio-url || steps.hosted.outputs.studio-base }}",
+		);
+	});
+
+	it("writes and posts the comment for a hosted render, which has no render step", () => {
+		for (const name of ["Write the comment", "Comment on the pull request"]) {
+			const block = stepNamed(name);
+			expect(block, name).toContain(
+				"(steps.render.outcome == 'success' || steps.hosted.outputs.rendered == 'true')",
+			);
+		}
+		expect(stepNamed("Write the comment")).toContain(
+			"TYPELAPSE_HOSTED: ${{ runner.temp }}/typelapse-hosted.json",
+		);
+	});
+
+	it("fails the job only for the runner's own render", () => {
+		const fail = stepNamed("Fail when the render failed");
+
+		expect(fail).toContain("steps.render.outcome == 'success'");
+		expect(fail).not.toContain("hosted");
+	});
+
+	it("keeps the demo workflow on the free path: no key, no address", () => {
+		expect(WORKFLOW).not.toMatch(/api-key|api-url/);
+	});
+
+	it("names the share page among its outputs", () => {
+		expect(section(ACTION, "outputs")).toContain("share-url:");
 	});
 });
 

@@ -77,6 +77,11 @@ export interface HostedRenderJobsState {
 	submit(request: CloudRenderRequest): Promise<void>;
 	/** Follow the job a previous page left behind, if any. */
 	resume(): void;
+	/**
+	 * Ask the server once more about the render on screen, and let it go if the
+	 * server no longer has it: deleting a project takes its renders with it.
+	 */
+	recheck(): Promise<void>;
 	download(): Promise<void>;
 	/** Turn the render's public page on if it is off, then copy its address. */
 	copyPublicLink(): Promise<void>;
@@ -349,6 +354,17 @@ export function createHostedRenderJobsStore({
 				const run = ++generation;
 				set({ phase: { kind: "reconnecting", jobId } });
 				schedule(jobId, run, 0, 0);
+			},
+
+			recheck: async () => {
+				const phase = get().phase;
+				if (!("jobId" in phase)) return;
+				const answer = await client.job(phase.jobId);
+				if (get().phase !== phase || answer.kind !== "not-found") return;
+				generation += 1;
+				stopPolling();
+				remember(null);
+				set({ phase: failed("This cloud render is no longer available.") });
 			},
 
 			download: async () => {

@@ -286,11 +286,12 @@ async function measureAdvance(
 	fontSize: number,
 	textStacks: string[],
 ): Promise<number> {
-	// The chrome bar is set in the app's own mono whatever the code is set in, so
-	// it is a second family this scope has to have before it paints anything; a
-	// text layer's face (Geist) is a third. FontFace works in a Chromium worker,
-	// so the faces are loaded here rather than pre-rasterized in the tab: text
-	// rasterized at one size and scaled would not be the preview's glyphs.
+	// The chrome bar is set in its own mono (JetBrains Mono, not the UI's) whatever
+	// the code is set in, so it is a second family this scope has to have before it
+	// paints anything; a text layer's face (Geist) is a third. FontFace works in a
+	// Chromium worker, so the faces are loaded here rather than pre-rasterized in
+	// the tab: text rasterized at one size and scaled would not be the preview's
+	// glyphs.
 	await loadExportFonts(scope.fonts, fontFamily, CHROME_FONT_STACK, ...textStacks);
 	// The same probe the document and the server take, at the same size, so the
 	// three answers are comparable and the card is sized on this scope's glyphs.

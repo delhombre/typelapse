@@ -1,9 +1,7 @@
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ComponentType, type ErrorInfo, type ReactNode, useState } from "react";
 
 interface RouteErrorBoundaryState {
 	readonly failed: boolean;
-	/** The theme the page was in when it threw, read once (see `darkAtFailure`). */
-	readonly dark: boolean;
 }
 
 /**
@@ -24,17 +22,20 @@ export const ROUTE_STATE = {
 		"inline-flex h-11 items-center justify-center rounded-full px-4 text-[15px] font-medium text-ash transition-[color,scale] duration-150 ease-out hover:text-ink active:scale-[0.97] motion-reduce:active:scale-100",
 } as const;
 
+/** What a route may put its fallback in. */
+export type FallbackShell = ComponentType<{ readonly children: ReactNode }>;
+
 /**
- * The studio's dark theme is a `.dark` class on the root, which `.route-state`
- * reads. The landing's is a `data-landing-theme` attribute instead, and the
- * landing removes it as it unmounts, so the fallback that replaces it opened on
- * light paper for a dark-theme visitor. Read both at the moment of the throw,
- * before that cleanup runs.
+ * What the fallback sits in unless the route says otherwise. The studio's dark
+ * theme is a `.dark` class on the root, which `.route-state` reads. It is read
+ * as the fallback renders, which is before the failed page's cleanups run, so a
+ * page that takes its theme down as it unmounts still hands it over.
  */
-function darkAtFailure(): boolean {
-	if (typeof document === "undefined") return false;
-	const root = document.documentElement;
-	return root.classList.contains("dark") || root.dataset.landingTheme === "dark";
+function DarkShell({ children }: { readonly children: ReactNode }) {
+	const [dark] = useState(
+		() => typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
+	);
+	return <div className={dark ? "dark" : undefined}>{children}</div>;
 }
 
 interface RouteErrorBoundaryProps {
@@ -44,6 +45,13 @@ interface RouteErrorBoundaryProps {
 	readonly message?: string;
 	/** Offer the studio beside Reload: a page that is not the studio can still send people there. */
 	readonly offerStudio?: boolean;
+	/**
+	 * The route's own shell for the fallback, for a page that puts more on the
+	 * document than the studio's `.dark` (the landing's overscroll paint and
+	 * status bar colour). It reads what it needs as it renders, before the failed
+	 * page's cleanups, and keeps it for as long as the fallback is on screen.
+	 */
+	readonly Shell?: FallbackShell;
 }
 
 /**
@@ -56,10 +64,10 @@ export class RouteErrorBoundary extends Component<
 	RouteErrorBoundaryProps,
 	RouteErrorBoundaryState
 > {
-	override state: RouteErrorBoundaryState = { failed: false, dark: false };
+	override state: RouteErrorBoundaryState = { failed: false };
 
 	static getDerivedStateFromError(): RouteErrorBoundaryState {
-		return { failed: true, dark: darkAtFailure() };
+		return { failed: true };
 	}
 
 	override componentDidCatch(error: Error, info: ErrorInfo): void {
@@ -70,8 +78,9 @@ export class RouteErrorBoundary extends Component<
 		if (!this.state.failed) {
 			return this.props.children;
 		}
+		const Shell = this.props.Shell ?? DarkShell;
 		return (
-			<div className={this.state.dark ? "dark" : undefined}>
+			<Shell>
 				<main role="alert" className={ROUTE_STATE.main}>
 					<h1 className={ROUTE_STATE.heading}>{this.props.heading ?? "Typelapse hit a problem"}</h1>
 					<p className={ROUTE_STATE.body}>
@@ -95,7 +104,7 @@ export class RouteErrorBoundary extends Component<
 						) : null}
 					</div>
 				</main>
-			</div>
+			</Shell>
 		);
 	}
 }

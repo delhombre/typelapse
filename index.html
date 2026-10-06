@@ -10,6 +10,9 @@
 			content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
 		/>
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<!-- iOS takes no SVG icon: the favicon's mark again, as a 180px PNG on a full-bleed
+		     square (iOS rounds the corners itself and paints transparency black). -->
+		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" />
 		<title>Typelapse: sharp code videos from a pull request</title>
@@ -51,9 +54,17 @@
 		<meta property="og:image" content="/og.png" />
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
+		<meta
+			property="og:image:alt"
+			content="A code window on a purple and blue gradient, showing a function that captures code, morphs its steps and renders the video."
+		/>
 		<!-- Twitter -->
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:image" content="/og.png" />
+		<meta
+			name="twitter:image:alt"
+			content="A code window on a purple and blue gradient, showing a function that captures code, morphs its steps and renders the video."
+		/>
 		<meta name="twitter:title" content="Typelapse: code videos as sharp as their preview" />
 		<meta
 			name="twitter:description"

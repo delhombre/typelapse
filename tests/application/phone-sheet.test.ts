@@ -58,3 +58,89 @@ describe("the phone sheet's stops", () => {
 		expect(landscape.resolve("full")).toBe("full");
 	});
 });
+
+describe("the instrument while the sheet is dragged", () => {
+	const notch = phoneSheetGeometry({ viewportHeight: 812, safeTop: 47, safeBottom: 34 });
+	const { peek, scenes, full } = notch.stops;
+	const scenesAt = scenes ?? 0;
+
+	it("sits where the stops put it when the sheet rests on one", () => {
+		expect(notch.dockLiftAt(peek)).toBe(notch.dockLift("peek"));
+		expect(notch.dockLiftAt(scenesAt)).toBe(notch.dockLift("scenes"));
+		expect(notch.dockLiftAt(full)).toBe(notch.dockLift("full"));
+	});
+
+	it("rides the sheet's edge, 12px above it, from the peek to the scenes stop", () => {
+		for (const visible of [peek, peek + 40, (peek + scenesAt) / 2, scenesAt]) {
+			expect(notch.dockLiftAt(visible)).toBe(visible + 12);
+		}
+	});
+
+	it("comes down to the bottom as the sheet goes on to the full stop, one way and without a jump", () => {
+		let previous = notch.dockLiftAt(scenesAt);
+		for (let visible = scenesAt; visible <= full; visible += 10) {
+			const lift = notch.dockLiftAt(visible);
+			expect(lift).toBeLessThanOrEqual(previous);
+			// It has further to go than the sheet has, so it moves faster, but evenly.
+			expect(previous - lift).toBeLessThan(20);
+			previous = lift;
+		}
+		expect(notch.dockLiftAt(full)).toBe(34);
+	});
+
+	it("never goes below the home indicator, however far the sheet is pulled down", () => {
+		expect(notch.dockLiftAt(0)).toBe(34);
+		expect(notch.dockLiftAt(-200)).toBe(34);
+		const plain = phoneSheetGeometry({ viewportHeight: 844, safeTop: 0, safeBottom: 0 });
+		expect(plain.dockLiftAt(0)).toBe(12);
+	});
+
+	it("on a phone on its side, rides the peek and comes down to the full stop", () => {
+		const landscape = phoneSheetGeometry({ viewportHeight: 390, safeTop: 0, safeBottom: 21 });
+		const { peek: low, full: high } = landscape.stops;
+		expect(landscape.dockLiftAt(low)).toBe(low + 12);
+		expect(landscape.dockLiftAt(high)).toBe(landscape.dockLift("full"));
+		const half = landscape.dockLiftAt((low + high) / 2);
+		expect(half).toBeLessThan(low + 12);
+		expect(half).toBeGreaterThan(21);
+	});
+
+	it("does not ask for more than the full stop", () => {
+		expect(notch.dockLiftAt(full + 50)).toBe(34);
+	});
+});
+
+describe("moving between the stops without a finger", () => {
+	const portrait = phoneSheetGeometry({ viewportHeight: 812, safeTop: 47, safeBottom: 34 });
+	const landscape = phoneSheetGeometry({ viewportHeight: 390, safeTop: 0, safeBottom: 21 });
+
+	it("lists the stops that exist, lowest first", () => {
+		expect(portrait.order).toEqual(["peek", "scenes", "full"]);
+		expect(landscape.order).toEqual(["peek", "full"]);
+	});
+
+	it("raises and lowers one stop at a time and stops at the ends", () => {
+		expect(portrait.step("peek", "raise")).toBe("scenes");
+		expect(portrait.step("scenes", "raise")).toBe("full");
+		expect(portrait.step("full", "raise")).toBe("full");
+		expect(portrait.step("full", "lower")).toBe("scenes");
+		expect(portrait.step("peek", "lower")).toBe("peek");
+		expect(landscape.step("peek", "raise")).toBe("full");
+	});
+
+	it("cycles upward and comes back to the peek from the top", () => {
+		expect(portrait.step("peek", "cycle")).toBe("scenes");
+		expect(portrait.step("scenes", "cycle")).toBe("full");
+		expect(portrait.step("full", "cycle")).toBe("peek");
+		expect(landscape.step("full", "cycle")).toBe("peek");
+	});
+
+	it("jumps to the ends", () => {
+		expect(portrait.step("scenes", "first")).toBe("peek");
+		expect(portrait.step("scenes", "last")).toBe("full");
+	});
+
+	it("moves on from a stop that is not there as from the peek", () => {
+		expect(landscape.step("scenes", "raise")).toBe("full");
+	});
+});

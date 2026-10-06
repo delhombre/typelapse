@@ -47,10 +47,70 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
     work; with the job and the downgrade dated past the grace period, the
     download is a 402 with the plan's sentence and the page is a 404.
 
-`support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job) and the
-sign-up helpers. Better Auth allows three sign-ups per ten seconds per client,
-and behind the preview every journey is one client, so the helpers wait out a
-429 instead of failing.
+- `api-keys.spec.ts` (one account, one sign-up): the island makes a key (shown
+  once, copied, gone from the page, kept as a prefix and a hash); while the
+  account is free the key signs it in and the plan refuses the render (402, not
+  a 401); as a Creator the same key, from a caller with no cookie, starts a Cloud
+  render and fetches the file; the key opens no account, billing, project, asset
+  or key route; the island shows when it was last used; and once it is revoked
+  the next request is the same 401 an unknown key gets.
+
+- `render-by-url.spec.ts` (serial, no browser for the calls: a script holds only
+  a key): a Creator's key and the repository's own diff queue one render at the
+  size asked for (1280x720, 24 fps, read back with ffprobe) and save the project;
+  the same request again is the same job and not a second project; the job is
+  followed with the key until it is done, and its page is private until the key
+  publishes it, then reachable by anyone; the studio link opens the same import
+  in the studio. A free account's key gets the studio link and the reason, with
+  no project and no job. An account at the month's minutes is refused with the
+  ceiling it hit and nothing is created, while the render it already asked for
+  still answers with its job. A text that is no source is refused, and a
+  repository GitHub does not show (private or missing) is refused in plain words;
+  that one is tagged `@network` and skips when GitHub cannot be reached.
+
+- `github-action.spec.ts` (serial, no browser: the Action's own scripts run as a
+  runner runs them, `cli/hosted-render.ts` then `cli/pr-comment.ts`, with a key in
+  the environment): a Creator's key renders the repository's diff at 1280x720, 24
+  fps in the nord theme, publishes the page, and leaves the share page and the
+  studio link in the outputs; the page is reachable by anyone, the file is read
+  back with ffprobe and its card is nord's colour and not midnight's, the saved
+  project carries the theme, and the comment links the page with no artifact. The
+  same run again is the same job and page. A free account's key leaves the runner
+  to render, with the studio base for its link and the sentence that the hosted
+  video comes with Creator, and nothing saved or queued; a key that is not valid
+  is a warning and a line in the comment; no key and no address writes nothing,
+  and an address without a key says so in the job summary.
+
+- `rate-limit.spec.ts`: a sign-up the limiter refuses (a script spends the window
+  first, up to the first 429) keeps the island's form with what was typed, says in
+  one sentence how long to wait, using the seconds the server named in
+  `X-Retry-After`, and never reads "Cloud unavailable"; pressing again after that
+  window signs the visitor up.
+
+- `automation-projects.spec.ts` (one Creator, a script and a session): with a
+  hundred regular projects in the table, a key renders a 101st source by URL and
+  the project it saves takes no place; the studio's save of a 101st project is
+  refused with the ceiling it hit; the allowance counts what the ceiling counts;
+  saving the render-by-URL project from the studio is refused at the ceiling and
+  writes nothing, and once a place is free the same save makes it regular, so
+  that it counts.
+
+- `delete-cloud-project.spec.ts` (one Creator render): the island lists the cloud
+  copy of the open project, Delete asks with the shared question and one sentence
+  on what goes, and keeping deletes nothing; deleting removes the project, the
+  render and its public page (the page and its video answer 404), leaves a note
+  for each file the render stored, and leaves the studio on its own project, on
+  this device, with the render status saying the render is gone; a new save makes
+  a new project. Another account's delete answers 404, as for a project that is
+  not there.
+
+`support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job, the keys, the
+projects, the minutes a render counts) and the sign-up helpers. Better Auth allows
+three sign-ups per ten seconds per client, the ten seconds counted from the last
+accepted one, and behind the preview every journey is one client, so the helpers
+wait out a 429 instead of failing. The island keeps its form when that happens, so
+its helper does what a visitor does: waits the window the 429 names and presses the
+same button again. The API helpers have no island and wait the same way.
 
 ## Reload with no edit (#127)
 

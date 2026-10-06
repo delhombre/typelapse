@@ -15,6 +15,11 @@
  * travel in it.
  */
 
+import {
+	IMPORT_HASH_KEY,
+	importIntentFragment,
+	importIntentPayload,
+} from "@/application/import/import-link";
 import type { ImportPlayMode } from "@/presentation/hooks/use-source-import";
 
 /** A paste the studio has not read yet, plus how the user wants it played. */
@@ -25,24 +30,12 @@ export interface ImportIntent {
 	playMode?: ImportPlayMode;
 }
 
-const HASH_KEY = "#import=";
-
-/** Beyond this the payload goes to sessionStorage and the URL keeps a marker. */
-const MAX_URL_PAYLOAD = 6000;
+const HASH_KEY = IMPORT_HASH_KEY;
 
 /** Marks "the payload is in sessionStorage, not in this URL". */
 const STASH_MARKER = "~";
 
 export const IMPORT_INTENT_STASH_KEY = "typelapse:import-intent";
-
-function toBase64Url(json: string): string {
-	const bytes = new TextEncoder().encode(json);
-	let binary = "";
-	for (const byte of bytes) {
-		binary += String.fromCharCode(byte);
-	}
-	return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
 
 function fromBase64Url(value: string): string {
 	const padded = value.replace(/-/g, "+").replace(/_/g, "/");
@@ -67,18 +60,18 @@ function parseIntent(json: string): ImportIntent | null {
  * comes back as {@link STASH_MARKER}.
  */
 export function encodeImportIntent(intent: ImportIntent): string {
-	const json = JSON.stringify(intent);
-	const encoded = toBase64Url(json);
-	if (encoded.length <= MAX_URL_PAYLOAD) {
-		return `${HASH_KEY}${encoded}`;
+	// Past the budget the payload goes to sessionStorage and the URL keeps a marker.
+	const fragment = importIntentFragment(intent);
+	if (fragment) {
+		return fragment;
 	}
 	try {
-		window.sessionStorage.setItem(IMPORT_INTENT_STASH_KEY, json);
+		window.sessionStorage.setItem(IMPORT_INTENT_STASH_KEY, JSON.stringify(intent));
 		return `${HASH_KEY}${STASH_MARKER}`;
 	} catch {
 		// Private mode, or a full quota. The long URL is the worse option but it
 		// is the one that still works.
-		return `${HASH_KEY}${encoded}`;
+		return `${HASH_KEY}${importIntentPayload(intent)}`;
 	}
 }
 

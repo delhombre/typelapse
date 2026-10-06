@@ -7,8 +7,10 @@ import { requestId } from "hono/request-id";
 import type { AssetRepositoryPort } from "../src/application/assets/asset-repository.port";
 import type { HostedProjectAssetResolverPort } from "../src/application/assets/hosted-project-asset-resolver.port";
 import type { ObjectStoragePort } from "../src/application/assets/object-storage.port";
+import type { ApiKeyRepositoryPort } from "../src/application/auth/api-key-repository.port";
 import type { ProjectDocumentRepositoryPort } from "../src/application/project/project-document-repository.port";
 import type { HostedRenderJobService } from "../src/application/render/hosted-render-job";
+import type { RenderBySourceService } from "../src/application/render/render-by-source";
 import {
 	createHostedRenderDownloadService,
 	type HostedRenderDownloadService,
@@ -21,6 +23,7 @@ import type { AuthPort } from "../src/domain/ports/auth.port";
 import type { SubscriptionPort } from "../src/domain/ports/subscription.port";
 import { Plan } from "../src/domain/value-objects/plan";
 import { betterAuthAdapter } from "../src/infrastructure/auth/better-auth.adapter";
+import { createApiKeyService } from "./auth/api-keys";
 import { authInstance, type AuthInstance } from "./auth/auth-instance";
 import type { HostedRenderDeps } from "./auth/hosted-render-guard";
 import { createAccountPlanResolver } from "./billing/account-plan";
@@ -28,6 +31,7 @@ import { billingServiceFromEnv } from "./billing/billing-from-env";
 import type { BillingService } from "./billing/billing-service";
 import { type DeploymentMode, deploymentModeFrom } from "./config/deployment-mode";
 import { createAccountUsageRepository } from "./db/account-usage.repository";
+import { createApiKeyRepository } from "./db/api-key.repository";
 import {
 	createAssetRepository,
 	createHostedProjectAssetResolver,
@@ -39,12 +43,14 @@ import {
 	createRenderOutputRepository,
 	createRenderPageRepository,
 } from "./db/render-job.repository";
+import { createApiKeysRoute } from "./routes/api-keys";
 import { createAssetsRoute } from "./routes/assets";
 import { createBillingRoute } from "./routes/billing";
 import { createCloudRoute } from "./routes/cloud";
 import { createLocalMultimediaRenderRoute } from "./routes/local-multimedia-render";
 import { createProjectsRoute } from "./routes/projects";
 import { createRenderPageRoute } from "./routes/render-page";
+import { renderBySourceServiceFor } from "./render/render-by-source-service";
 import { hostedRenderJobServiceFromEnv } from "./render/render-job-service";
 import { r2ObjectStorageFromEnv } from "./storage/r2-object-storage";
 
@@ -59,6 +65,7 @@ export interface CreateAppOptions {
 	readonly database?: CreatorDatabase | null;
 	readonly auth?: AuthInstance | null;
 	readonly authPort?: AuthPort | null;
+	readonly apiKeyRepository?: ApiKeyRepositoryPort | null;
 	readonly projectRepository?: ProjectDocumentRepositoryPort | null;
 	readonly projectAssetResolver?: HostedProjectAssetResolverPort | null;
 	readonly assetRepository?: AssetRepositoryPort | null;
@@ -67,6 +74,7 @@ export interface CreateAppOptions {
 	readonly renderJobs?: HostedRenderJobService | null;
 	readonly renderDownloads?: HostedRenderDownloadService | null;
 	readonly renderPages?: HostedRenderPageService | null;
+	readonly renderSources?: RenderBySourceService | null;
 	readonly logger?: { error(message: string): void };
 }
 
@@ -89,7 +97,9 @@ export async function createApp(
 		cors({
 			origin: process.env.CORS_ORIGIN || "http://localhost:5173",
 			credentials: true,
-			exposeHeaders: ["X-Request-Id"],
+			// X-Retry-After is how Better Auth's limiter names the wait. The studio's
+			// account island reads it, and a browser on another origin hides what is not listed.
+			exposeHeaders: ["X-Request-Id", "X-Retry-After"],
 		}),
 	);
 
@@ -97,6 +107,13 @@ export async function createApp(
 	const auth = options.auth === undefined ? authInstance(database) : options.auth;
 	const authPort =
 		options.authPort === undefined ? (auth ? betterAuthAdapter(auth) : null) : options.authPort;
+	const apiKeyRepository =
+		options.apiKeyRepository === undefined && database
+			? createApiKeyRepository(database)
+			: (options.apiKeyRepository ?? null);
+	// A key needs an account to belong to, so it is mounted with auth or not at all.
+	const apiKeys =
+		authPort && apiKeyRepository ? createApiKeyService({ repository: apiKeyRepository }) : null;
 	const projectRepository =
 		options.projectRepository === undefined && database
 			? createProjectDocumentRepository(database)
@@ -152,6 +169,18 @@ export async function createApp(
 					subscriptions,
 				})
 			: (options.renderPages ?? null);
+	// Render by URL saves a project and queues a job, so it needs the stores and the queue.
+	const renderSources =
+		options.renderSources === undefined
+			? database && projectRepository && renderJobs
+				? renderBySourceServiceFor({
+					db: database,
+					projects: projectRepository,
+					jobs: renderJobs,
+					githubToken: process.env.TYPELAPSE_GITHUB_TOKEN,
+				})
+				: null
+			: options.renderSources;
 	const appUrl = process.env.TYPELAPSE_APP_URL?.trim() || undefined;
 	const projectSync = Boolean(authPort && projectRepository && projectAssetResolver);
 	const privateAssets = Boolean(authPort && assetRepository && objectStorage);
@@ -167,6 +196,7 @@ export async function createApp(
 				privateAssets,
 				billing: Boolean(authPort && billing),
 				hostedRendering,
+				apiKeys: Boolean(apiKeys),
 				localMultimediaRendering: deploymentMode === "local",
 			},
 		}),
@@ -208,8 +238,13 @@ export async function createApp(
 		);
 	}
 
+	if (authPort && apiKeys) {
+		app.route("/api/keys", createApiKeysRoute({ auth: authPort, keys: apiKeys }));
+	}
+
+	// A key opens the hosted render routes below and nothing else.
 	const hostedRenderDeps: HostedRenderDeps | undefined = authPort
-		? { auth: authPort, subscriptions }
+		? { auth: authPort, subscriptions, ...(apiKeys ? { apiKeys } : {}) }
 		: undefined;
 
 	if (deploymentMode === "local") {
@@ -232,6 +267,7 @@ export async function createApp(
 			}),
 			...(renderJobs && renderDownloads ? { renderJobs, renderDownloads } : {}),
 			...(renderPages ? { renderPages } : {}),
+			...(renderSources ? { renderSources } : {}),
 			...(appUrl ? { appUrl } : {}),
 		}),
 	);

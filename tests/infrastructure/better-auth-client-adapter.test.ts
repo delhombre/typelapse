@@ -13,6 +13,22 @@ const failed = (status: number, code: string, message: string) =>
 		error: { status, statusText: "Request failed", code, message },
 	}) as const;
 
+/**
+ * Better Fetch's error object carries a status and a body, not the headers: it
+ * hands the raw response to `onError` first and returns the error after.
+ */
+const refusedWith =
+	(status: number, headers: Record<string, string> = {}) =>
+	async (input?: {
+		fetchOptions?: { onError?: (context: { response: Response }) => void | Promise<void> };
+	}) => {
+		await input?.fetchOptions?.onError?.({ response: new Response(null, { status, headers }) });
+		return {
+			data: null,
+			error: { status, statusText: "Too Many Requests", message: "Too many requests." },
+		} as const;
+	};
+
 const clientWith = (overrides: Partial<BetterAuthBrowserClient> = {}): BetterAuthBrowserClient => ({
 	signUp: { email: async () => successful({}) },
 	signIn: { email: async () => successful({}) },
@@ -65,10 +81,12 @@ describe("the Better Auth browser adapter", () => {
 			password: "correct horse battery staple",
 		});
 
+		// The one thing the adapter adds is the hook that reads a limiter's wait.
 		expect(received).toEqual({
 			email: "ada@example.com",
 			name: "Ada",
 			password: "correct horse battery staple",
+			fetchOptions: { onError: expect.any(Function) },
 		});
 	});
 
@@ -87,7 +105,11 @@ describe("the Better Auth browser adapter", () => {
 
 		await adapter.signInEmail({ email: "ada@example.com", password: "password" });
 
-		expect(received).toEqual({ email: "ada@example.com", password: "password" });
+		expect(received).toEqual({
+			email: "ada@example.com",
+			password: "password",
+			fetchOptions: { onError: expect.any(Function) },
+		});
 	});
 
 	it("passes cancellation through Better Auth fetch options", async () => {
@@ -195,6 +217,77 @@ describe("the Better Auth browser adapter", () => {
 		await expect(adapter.signOut()).rejects.toMatchObject({
 			code: "unavailable",
 			message: "Account service is temporarily unavailable.",
+		});
+	});
+
+	describe("when the provider's rate limiter answers 429", () => {
+		const limitedWith = (headers?: Record<string, string>) =>
+			new BetterAuthClientAdapter(
+				clientWith({
+					signUp: { email: refusedWith(429, headers) },
+					signIn: { email: refusedWith(429, headers) },
+					signOut: refusedWith(429, headers),
+					getSession: refusedWith(429, headers),
+				}),
+			);
+
+		it.each([
+			[
+				"a sign-up",
+				(adapter: BetterAuthClientAdapter) =>
+					adapter.signUpEmail({ email: "ada@example.com", name: "Ada", password: "password" }),
+			],
+			[
+				"a sign-in",
+				(adapter: BetterAuthClientAdapter) =>
+					adapter.signInEmail({ email: "ada@example.com", password: "password" }),
+			],
+			["a sign-out", (adapter: BetterAuthClientAdapter) => adapter.signOut()],
+			["a session read", (adapter: BetterAuthClientAdapter) => adapter.getSession()],
+		])("refuses %s as rate limited, not as an outage", async (_call, attempt) => {
+			await expect(attempt(limitedWith({ "x-retry-after": "8" }))).rejects.toMatchObject({
+				code: "rate-limited",
+				retryAfterSeconds: 8,
+				message: "Too many attempts. Try again in 8 seconds.",
+			});
+		});
+
+		it.each([
+			["Better Auth's X-Retry-After", { "x-retry-after": "9" }, 9, "9 seconds"],
+			["the standard Retry-After", { "retry-after": "30" }, 30, "30 seconds"],
+			[
+				"the standard header over the other",
+				{ "retry-after": "5", "x-retry-after": "9" },
+				5,
+				"5 seconds",
+			],
+			["a single second", { "x-retry-after": "1" }, 1, "1 second"],
+			["a whole minute", { "x-retry-after": "60" }, 60, "1 minute"],
+			["minutes, rounded up", { "x-retry-after": "125" }, 125, "3 minutes"],
+		])("reads the wait from %s", async (_name, headers, seconds, phrase) => {
+			await expect(
+				limitedWith(headers).signInEmail({ email: "a@b.co", password: "x" }),
+			).rejects.toMatchObject({
+				code: "rate-limited",
+				retryAfterSeconds: seconds,
+				message: `Too many attempts. Try again in ${phrase}.`,
+			});
+		});
+
+		it.each([
+			["no header", {}],
+			["a date instead of seconds", { "retry-after": "Wed, 21 Oct 2026 07:28:00 GMT" }],
+			["zero", { "x-retry-after": "0" }],
+			["a negative number", { "x-retry-after": "-3" }],
+			["words", { "x-retry-after": "soon" }],
+		])("says to try again in a moment when it gets %s", async (_name, headers) => {
+			await expect(
+				limitedWith(headers).signInEmail({ email: "a@b.co", password: "x" }),
+			).rejects.toMatchObject({
+				code: "rate-limited",
+				retryAfterSeconds: null,
+				message: "Too many attempts. Try again in a moment.",
+			});
 		});
 	});
 

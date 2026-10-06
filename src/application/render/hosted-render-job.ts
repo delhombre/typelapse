@@ -99,6 +99,12 @@ export interface HostedRenderJobService {
 
 const RENDER_FORMATS = new Set<HostedRenderFormat>(["mp4", "webm"]);
 
+/** What a size past the plan's rectangle is told, by the job queue and by anyone who asks first. */
+export function resolutionLimitMessage(plan: Plan, width: number, height: number): string {
+	const { maxLongEdge, maxShortEdge } = plan.capabilities;
+	return `${plan.label} renders up to ${maxLongEdge}×${maxShortEdge} in either orientation, and ${width}×${height} is larger`;
+}
+
 export function parseHostedRenderOptions(input: unknown): HostedRenderOptions {
 	if (typeof input !== "object" || input === null || Array.isArray(input)) {
 		throw new Error("Render options must be an object");
@@ -159,10 +165,9 @@ export function createHostedRenderJobService(input: {
 			// rectangle, so 3840x3840 is twice the pixels Creator's 4K pays for.
 			const { width, height } = request.renderOptions;
 			if (!request.plan.allowsResolution(width, height)) {
-				const { maxLongEdge, maxShortEdge } = request.plan.capabilities;
 				return {
 					outcome: "resolution-limit",
-					message: `${request.plan.label} renders up to ${maxLongEdge}×${maxShortEdge} in either orientation, and ${width}×${height} is larger`,
+					message: resolutionLimitMessage(request.plan, width, height),
 				};
 			}
 			const project = await projects.findOwnedById(request.ownerId, request.projectId);

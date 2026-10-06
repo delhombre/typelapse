@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	COMMENT_MARKER,
 	type CliResult,
+	type HostedResult,
 	commentBody,
 	writeCommentFromEnv,
 } from "../../cli/pr-comment";
@@ -160,5 +161,214 @@ describe("writing the comment from the Action's environment", () => {
 		});
 
 		expect(readFileSync(out, "utf8")).toContain("could not render");
+	});
+});
+
+describe("the Action's comment when Typelapse rendered it", () => {
+	const PAGE = "https://typelapse.example/v/job_1";
+	const STUDIO = "https://typelapse.example/app#import=abc";
+	const RENDERED: HostedResult = {
+		outcome: "rendered",
+		jobId: "job_1",
+		pageUrl: PAGE,
+		studioUrl: STUDIO,
+	};
+
+	it("links the share page and the studio, under the marker the next push finds again", () => {
+		const body = commentBody({
+			result: null,
+			hosted: RENDERED,
+			artifactUrl: "",
+			runUrl: RUN,
+			sha: SHA,
+		});
+
+		expect(body.startsWith(`${COMMENT_MARKER}\n`)).toBe(true);
+		expect(body).toContain("### Typelapse video at 0123456");
+		expect(body).toContain(`](${PAGE})`);
+		expect(body).toContain(`](${STUDIO})`);
+	});
+
+	it("has no artifact to download and no promise of one", () => {
+		const body = commentBody({
+			result: OK,
+			hosted: RENDERED,
+			artifactUrl: ARTIFACT,
+			runUrl: RUN,
+			sha: SHA,
+		});
+
+		expect(body).not.toContain("Download");
+		expect(body).not.toContain(ARTIFACT);
+		expect(body).not.toContain("Creator");
+		expect(body).not.toMatch(/[$€£]/);
+	});
+
+	it("says the importer's notice under the link, as one sentence", () => {
+		const body = commentBody({
+			result: null,
+			hosted: { ...RENDERED, notice: "46 commits, shown as one change" },
+			artifactUrl: "",
+			runUrl: RUN,
+		});
+		const lines = body.split("\n");
+		const page = lines.findIndex((line) => line.includes(`](${PAGE})`));
+
+		expect(lines.slice(page + 1, page + 3)).toEqual(["", "46 commits, shown as one change."]);
+	});
+
+	it("is the same body for the job summary as for the pull request", () => {
+		const dir = mkdtempSync(join(tmpdir(), "typelapse-comment-hosted-"));
+		try {
+			writeFileSync(join(dir, "hosted.json"), `${JSON.stringify(RENDERED)}\n`);
+			const out = join(dir, "comment.md");
+
+			const body = writeCommentFromEnv({
+				TYPELAPSE_HOSTED: join(dir, "hosted.json"),
+				TYPELAPSE_COMMENT: out,
+				TYPELAPSE_RUN_URL: RUN,
+				TYPELAPSE_SHA: SHA,
+			});
+
+			expect(readFileSync(out, "utf8")).toBe(body);
+			expect(body).toContain(`](${PAGE})`);
+			expect(body).toContain(`](${STUDIO})`);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe("the Action's comment when Typelapse did not render it", () => {
+	const FREE: HostedResult = {
+		outcome: "free",
+		studioUrl: "https://typelapse.example/app#import=abc",
+	};
+
+	it("keeps the runner's video and says, for a free account, that the hosted video comes with Creator", () => {
+		const body = commentBody({
+			result: OK,
+			hosted: FREE,
+			artifactUrl: ARTIFACT,
+			runUrl: RUN,
+			sha: SHA,
+		});
+		const creator = body.split("\n").filter((line) => line.includes("Creator"));
+
+		expect(body).toContain(`[Download Trim_the_name.mp4](${ARTIFACT})`);
+		expect(body).toContain(`](${OK.studioUrl})`);
+		expect(creator).toHaveLength(1);
+		const [line = ""] = creator;
+		expect(line).toContain("free account");
+		expect(line).toContain("hosted video comes with Creator");
+		// No marketing numbers in copy: no price, no minutes, no count.
+		expect(line.replace(/<\/?sub>/g, "")).not.toMatch(/[$€£]|\d/);
+		expect(line.replace(/<\/?sub>/g, "").match(/[.!?](\s|$)/g)).toHaveLength(1);
+	});
+
+	it("says why there is no hosted video, in the server's own words and one sentence of ours", () => {
+		const body = commentBody({
+			result: OK,
+			hosted: {
+				outcome: "unavailable",
+				error: "This API key is not valid: it may be unknown, revoked or expired",
+			},
+			artifactUrl: ARTIFACT,
+			runUrl: RUN,
+			sha: SHA,
+		});
+
+		expect(body).toContain(`[Download Trim_the_name.mp4](${ARTIFACT})`);
+		expect(body).toContain(
+			"<sub>This API key is not valid: it may be unknown, revoked or expired. The video above rendered on this runner instead.</sub>",
+		);
+		expect(body).not.toContain("Creator renders it on our servers");
+	});
+
+	it("keeps the generic line about Creator when there was no key to ask with", () => {
+		const body = commentBody({
+			result: OK,
+			hosted: null,
+			artifactUrl: ARTIFACT,
+			runUrl: RUN,
+			sha: SHA,
+		});
+
+		expect(body).toBe(commentBody({ result: OK, artifactUrl: ARTIFACT, runUrl: RUN, sha: SHA }));
+		expect(body).toContain("Creator renders it on our servers");
+	});
+
+	it.each([
+		[
+			"a free account",
+			{ outcome: "free", studioUrl: "http://localhost:5173/#import=x" } as const,
+			"free account",
+		],
+		[
+			"a refusal",
+			{ outcome: "unavailable", error: "This API key is not valid" } as const,
+			"API key",
+		],
+	])(
+		"says %s when the runner's render failed too, without a video it did not make",
+		(_case, hosted, said) => {
+			const failed: CliResult = {
+				ok: false,
+				exitCode: 3,
+				error: "That pull request was not found.",
+			};
+			const body = commentBody({ result: failed, hosted, artifactUrl: "", runUrl: RUN, sha: SHA });
+
+			expect(body).toContain(failed.error);
+			expect(body).toContain(said);
+			// There is no video above to have rendered anywhere.
+			expect(body).not.toContain("video above");
+		},
+	);
+});
+
+describe("reading what the hosted step wrote", () => {
+	let dir: string;
+	beforeEach(() => {
+		dir = mkdtempSync(join(tmpdir(), "typelapse-comment-read-"));
+	});
+	afterEach(() => {
+		rmSync(dir, { recursive: true, force: true });
+	});
+
+	function written(env: Record<string, string>) {
+		return writeCommentFromEnv({
+			TYPELAPSE_RESULT: join(dir, "result.json"),
+			TYPELAPSE_COMMENT: join(dir, "comment.md"),
+			TYPELAPSE_ARTIFACT_URL: ARTIFACT,
+			TYPELAPSE_RUN_URL: RUN,
+			TYPELAPSE_SHA: SHA,
+			...env,
+		});
+	}
+
+	it("leaves the artifact comment exactly as it was when the step wrote nothing", () => {
+		writeFileSync(join(dir, "result.json"), `${JSON.stringify(OK)}\n`);
+
+		const withoutStep = written({});
+		const missing = written({ TYPELAPSE_HOSTED: join(dir, "nothing.json") });
+		writeFileSync(join(dir, "hosted.json"), "");
+		const empty = written({ TYPELAPSE_HOSTED: join(dir, "hosted.json") });
+
+		expect(withoutStep).toContain(`[Download Trim_the_name.mp4](${ARTIFACT})`);
+		expect(missing).toBe(withoutStep);
+		expect(empty).toBe(withoutStep);
+	});
+
+	it("puts a free account's note under the runner's video", () => {
+		writeFileSync(join(dir, "result.json"), `${JSON.stringify(OK)}\n`);
+		writeFileSync(
+			join(dir, "hosted.json"),
+			`${JSON.stringify({ outcome: "free", studioUrl: "https://typelapse.example/app#import=x" })}\n`,
+		);
+
+		const body = written({ TYPELAPSE_HOSTED: join(dir, "hosted.json") });
+
+		expect(body).toContain("free account");
 	});
 });

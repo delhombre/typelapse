@@ -1,4 +1,4 @@
-import { assessHostedReadiness } from "../../server/config/hosted-readiness";
+import { assessHostedReadiness, optionalHostedSettings } from "../../server/config/hosted-readiness";
 import { describe, expect, it } from "vitest";
 
 describe("hosted configuration readiness", () => {
@@ -12,13 +12,14 @@ describe("hosted configuration readiness", () => {
 				privateAssets: false,
 				billing: false,
 				hostedRendering: false,
+				apiKeys: false,
 				localMultimediaRendering: false,
 			},
 		});
 
 		expect(result).toEqual({
 			ready: false,
-			missing: ["privateAssets", "billing", "hostedRendering"],
+			missing: ["privateAssets", "billing", "hostedRendering", "apiKeys"],
 		});
 	});
 
@@ -33,6 +34,7 @@ describe("hosted configuration readiness", () => {
 					privateAssets: true,
 					billing: true,
 					hostedRendering: true,
+					apiKeys: true,
 					localMultimediaRendering: false,
 				},
 			}),
@@ -49,11 +51,33 @@ describe("hosted configuration readiness", () => {
 				privateAssets: true,
 				billing: true,
 				hostedRendering: true,
+				apiKeys: true,
 				localMultimediaRendering: true,
 			},
 		});
 
 		expect(result.ready).toBe(false);
 		expect(result.missing).toEqual(["deploymentMode"]);
+	});
+});
+
+describe("optional hosted settings", () => {
+	it("says what render by URL reads GitHub with when no token is set", () => {
+		expect(optionalHostedSettings({})).toEqual([
+			"TYPELAPSE_GITHUB_TOKEN is not set: render by URL reads GitHub without a credential, at 60 requests an hour for this server's address. Set a read-only fine-grained token limited to public repositories to raise it.",
+		]);
+		expect(optionalHostedSettings({ TYPELAPSE_GITHUB_TOKEN: "  " })).toHaveLength(1);
+	});
+
+	it("says it is set, and that public repositories are still the only ones read", () => {
+		expect(optionalHostedSettings({ TYPELAPSE_GITHUB_TOKEN: "github_pat_x" })).toEqual([
+			"TYPELAPSE_GITHUB_TOKEN is set: render by URL reads GitHub with it, and still only repositories that are public.",
+		]);
+	});
+
+	it("never prints the token", () => {
+		expect(optionalHostedSettings({ TYPELAPSE_GITHUB_TOKEN: "github_pat_secret" }).join("")).not.toContain(
+			"github_pat_secret",
+		);
 	});
 });

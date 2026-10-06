@@ -423,8 +423,8 @@ function paintWindow(ctx: PaintContext, scene: FrameScene): void {
  * the centred flex row it is in the DOM — padding, then one gap between each
  * child — from the same `CHROME_STYLE` table the component styles itself from.
  *
- * The type is the app's own mono rather than the theme's, because that is what
- * `FrameChrome` sets it in whatever the code is set in.
+ * The type is the chrome mono (`CHROME_FONT_STACK`) rather than the theme's,
+ * because that is what `FrameChrome` sets it in whatever the code is set in.
  */
 function paintChrome(ctx: PaintContext, scene: FrameScene, baselines: CssBaselines): void {
 	const { chrome, theme } = scene.style;

@@ -15,8 +15,7 @@ import { migrateV1ToV2 } from "@/application/project/migrate-v1-project";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import type { HostedRenderOptions } from "@/application/render/hosted-render-job";
-import { fetchCommitDiff, fetchPrWalkthrough } from "@/infrastructure/import/pr-import";
-import { fetchReleaseChapters } from "@/infrastructure/import/release-import";
+import { createGitHubFetchers } from "@/infrastructure/import/github-fetchers";
 import { outputSettingsFor } from "../server/remotion/output-settings";
 import { type CliFormat, type RenderOptions, parseCliArgs } from "./args";
 import { CliError, EXIT_RENDER, EXIT_USAGE, type FailureCode } from "./errors";
@@ -367,9 +366,8 @@ export function defaultIO(): CliIO {
 		stderr: (text) => process.stderr.write(`${text}\n`),
 		readText: (path) => readFile(path, "utf8"),
 		readStdin,
-		fetchPr: fetchPrWalkthrough,
-		fetchCommit: fetchCommitDiff,
-		fetchRelease: fetchReleaseChapters,
+		// No token here: the CLI signs its own requests (githubFetch), and may read what it is allowed to.
+		...createGitHubFetchers(),
 		render: renderProject,
 		renderLayered: renderLayeredDocument,
 		measure: measureVideo,

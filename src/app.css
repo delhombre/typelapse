@@ -1109,7 +1109,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 /* 0.97, the landing's one press (PRESS_SCALE, the field's button, Replay);
-   this was the page's lone 0.96 (SYSTEM.md Drift 7). */
+   this was the page's lone 0.96 (SYSTEM.md, Motion: Press). */
 .landing-root .lp-island-button:active {
 	transform: scale(0.97);
 }
@@ -1255,7 +1255,7 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* 0.97, the landing's one press value (it was 0.98 here, SYSTEM.md Drift 7). */
+/* 0.97, the landing's one press value (it was 0.98 here, SYSTEM.md, Motion: Press). */
 .landing-root .lp-island-cta:active {
 	transform: scale(0.97);
 }
@@ -1384,6 +1384,22 @@ html.dark:not([data-landing-theme]) {
 	.landing-root .lp-island-helper {
 		display: none;
 	}
+}
+
+/* The export fan's phone row, edge to edge: it takes back the whole gutter its
+   section sits in (the same max() as `.lp-gutter`, so a notch is cleared on
+   each side) and pads its first and last card with it. The cards start on the
+   text's column and run off the screen, which is what says the row scrolls.
+   `overflow-x: auto` clips on y too, and the cards' shadows reach 60px under
+   them: the room for them is padding, given back to the layout as a negative
+   margin so the page does not grow. */
+.landing-root .lp-fan-row {
+	margin-right: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px)));
+	margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)));
+	padding-right: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px));
+	padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
+	margin-block: -1rem -4rem;
+	padding-block: 1rem 4rem;
 }
 
 /* The export fan's phone row runs edge to edge, so a ring drawn outside it
@@ -2389,12 +2405,6 @@ html.dark:not([data-landing-theme]) {
 /* A press that answers the finger is worth keeping; a press that moves the
    control under it is not, once motion has been declined. */
 @media (prefers-reduced-motion: reduce) {
-	.studio-root .si-button,
-	.studio-root .si-cta,
-	.studio-root .si-dot > span {
-		transition: none;
-	}
-
 	.studio-root .si-button:active:not(:disabled),
 	.studio-root .si-cta:active:not(:disabled),
 	.sc-glyph-button:active {
@@ -2750,10 +2760,6 @@ html.dark:not([data-landing-theme]) {
 
 /* Unmoving, it still says "working": the whole track, dimmed. */
 @media (prefers-reduced-motion: reduce) {
-	.studio-root .si-status-fill {
-		transition: none;
-	}
-
 	.studio-root .si-status-fill[data-indeterminate] {
 		width: 100%;
 		opacity: 0.45;
@@ -2832,7 +2838,9 @@ html.dark:not([data-landing-theme]) {
 	position: relative;
 	width: 100%;
 	height: 100dvh;
-	overflow: hidden;
+	/* Clip, never hidden: a hidden box is still a scroll container, so one focus or
+	   scrollIntoView could slide the whole scene under its own corner row. */
+	overflow: clip;
 	background: var(--color-neutral-50);
 	color: var(--color-neutral-900);
 	font-family: var(--font-sans);
@@ -2869,9 +2877,10 @@ html.dark:not([data-landing-theme]) {
 		max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
 }
 
-/* The sheet is portaled to the body, out of the root's reach: it takes the
-   same tokens so the layer inspector inside it reads as it does on a desktop. */
-.sc-root-mobile,
+/* The sheet is portaled to the body, out of the root's reach, so it keeps a copy
+   of the tokens the layer inspector inside it reads. The root's own come from
+   studio-camera.css and are the warm set; these are the older cool values, left
+   for the phone sheet's pass (docs/design/passes/2026-10-05-studio-drift.md). */
 .sc-sheet {
 	--camera-focus: #1d1d20;
 	--camera-ink: #1d1d20;
@@ -2881,7 +2890,6 @@ html.dark:not([data-landing-theme]) {
 	--camera-surface-shadow: 0 1px 2px rgb(15 23 42 / 0.035), 0 4px 12px rgb(15 23 42 / 0.024);
 }
 
-.dark .sc-root-mobile,
 .dark .sc-sheet {
 	--camera-focus: #f5f5f7;
 	--camera-ink: #f5f5f7;
@@ -2990,13 +2998,9 @@ html.dark:not([data-landing-theme]) {
 	/* A filtered ancestor becomes the containing block of fixed descendants.
 	   Source uses a viewport-width mobile menu, so this small island stays
 	   opaque instead of trapping that menu inside its own 98px pill. */
-	background: #fff;
+	background: var(--camera-surface);
 	-webkit-backdrop-filter: none;
 	backdrop-filter: none;
-}
-
-.dark .sc-chip.sc-mobile-resources {
-	background: #1b1c20;
 }
 
 .sc-mobile-resources .sc-source-root {
@@ -3012,13 +3016,7 @@ html.dark:not([data-landing-theme]) {
 	border-radius: var(--r-control);
 	background: transparent;
 	box-shadow: none;
-	color: var(--color-neutral-500);
-}
-
-.dark .sc-mobile-resources .sc-island-trigger {
-	background: transparent;
-	box-shadow: none;
-	color: var(--color-neutral-400);
+	color: var(--camera-muted);
 }
 
 .sc-mobile-resources .sc-island-trigger > span {
@@ -3026,11 +3024,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 .sc-mobile-resources .sc-island-trigger[aria-expanded="true"] {
-	background: rgb(28 27 25 / 0.06);
-}
-
-.dark .sc-mobile-resources .sc-island-trigger[aria-expanded="true"] {
-	background: rgb(255 255 255 / 0.08);
+	background: var(--camera-pill);
 }
 
 /* A top-row source form should use the phone's safe page margins, not inherit
@@ -3107,43 +3101,6 @@ html.dark:not([data-landing-theme]) {
 	.sc-corner-row .sc-title {
 		height: 40px;
 	}
-}
-
-/* A file dragged over a tablet in portrait: the same quiet veil as the desktop,
-   over the sheet and under the menus and notices. Pointer events pass through;
-   the window owns the drop. */
-.sc-root-mobile .sc-drop-veil {
-	position: fixed;
-	inset: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px))
-		max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
-	z-index: 60;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border: 1.5px dashed rgb(47 128 255 / 0.75);
-	border-radius: 22px;
-	background: rgb(47 128 255 / 0.05);
-	opacity: 0;
-	pointer-events: none;
-	transition: opacity 140ms ease-out;
-}
-
-.sc-root-mobile .sc-drop-veil[data-active] {
-	opacity: 1;
-}
-
-.sc-root-mobile .sc-drop-veil p {
-	padding: 8px 14px;
-	border-radius: 12px;
-	background: #fff;
-	box-shadow: var(--camera-surface-shadow);
-	color: var(--camera-ink);
-	font-size: 13px;
-	font-weight: 560;
-}
-
-.dark .sc-root-mobile .sc-drop-veil p {
-	background: #1b1c20;
 }
 
 .sc-utilities {
@@ -3655,6 +3612,80 @@ html.dark:not([data-landing-theme]) {
 	flex-direction: column;
 	align-items: center;
 	pointer-events: auto;
+}
+
+/* The phone's instrument under a thumb. The island's 35px pitch is a mouse's
+   target: the scene dots were 24px wide and Export 31px tall, so a press landed
+   on the next control or on nothing. The landing's island takes the same step
+   under a coarse pointer (a 48px plate, 36px controls, 44px cells). This one has
+   more to hold, so its root row tiles: every control is a 44px cell with no gap,
+   the glyph keeps the size it had and only the target grows, and the island
+   clips the 6px above and below that make the cell 48px tall. The dots that fit
+   at 44px each are counted in `dotBudget` (three at 375, two at 360), so below
+   that the dots give way to the counter before a target shrinks. Scoped to the
+   phone's root: the rail on a touch laptop is not this island. */
+@media (pointer: coarse) and (max-width: 639px) {
+	.sc-root-mobile .si-island {
+		height: 48px;
+	}
+
+	.sc-root-mobile .si-row .si-button,
+	.sc-root-mobile .si-row .si-cta {
+		height: 36px;
+	}
+
+	.sc-root-mobile .si-row .si-button::after {
+		inset-block: -6px;
+	}
+
+	.sc-root-mobile .si-row[data-dots] {
+		--island-cell: 44px;
+		--island-gap: 0px;
+	}
+
+	.sc-root-mobile .si-row[data-dots] .si-button {
+		min-width: var(--island-cell);
+	}
+
+	/* Round inside a round island (DECISIONS D3): the ring a keyboard draws on a dot
+	   follows the capsule it is in, like the controls beside it. */
+	.sc-root-mobile .si-row[data-dots] .si-dot {
+		width: var(--island-cell);
+		height: 36px;
+		border-radius: var(--r-pill);
+	}
+
+	.sc-root-mobile .si-row[data-dots] .si-dot::after {
+		inset: -6px 0;
+	}
+
+	/* The cells are the spacing now: the 7px that set the playback group apart
+	   would cost the third dot at 375. */
+	.sc-root-mobile .si-row[data-dots] .si-gap {
+		display: none;
+	}
+
+	/* Export is the one control that is not a cell. It has no extension of its
+	   own, so it reaches the island's height and the 6px of padding at its end. */
+	.sc-root-mobile .si-row[data-dots] .si-cta {
+		position: relative;
+		margin-left: 0;
+		padding: 0 12px;
+	}
+
+	.sc-root-mobile .si-row[data-dots] .si-cta::after {
+		content: "";
+		position: absolute;
+		inset: -6px -6px -6px 0;
+	}
+}
+
+/* Below 360 the bar goes before the counter does: the position is the words, and
+   the bar is an impression. */
+@media (pointer: coarse) and (max-width: 359px) {
+	.sc-root-mobile .si-track {
+		display: none;
+	}
 }
 
 /* ─────────────────────────── The phone's sheet ─────────────────────────── */

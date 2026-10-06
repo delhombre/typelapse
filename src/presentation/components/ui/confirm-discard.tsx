@@ -2,18 +2,28 @@ import { springs } from "@/presentation/motion";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type SyntheticEvent, useCallback, useEffect, useId, useRef } from "react";
 
+const SNIPPET_DETAIL =
+	"Your snippet has changes only this browser remembers. Loading this replaces them, and the autosaved draft with them. Export or copy a share link first if you want to keep them.";
+
 /**
  * The one confirm every destructive load walks through.
  *
  * The template gallery grew this pattern first: ask in place, only when there
  * is work to lose, and name what would replace it. Now that a diff paste, a
  * URL fetch and a JSON file can all wipe the studio too, the card lives here
- * so all four ask with the same voice — and so the copy can tell the truth
- * about the autosaved draft in exactly one place.
+ * so all four ask with the same voice, and so the copy can tell the truth
+ * about the autosaved draft in exactly one place. Its look lives with the
+ * studio's other surfaces (`.sc-confirm` in studio-camera.css), read from the
+ * studio's tokens, so a host that is already a surface can flatten it. A host
+ * asking about something other than the snippet gives its own `detail` and
+ * `keepLabel`.
  */
 export function ConfirmDiscard({
 	message,
 	messageId,
+	detail = SNIPPET_DETAIL,
+	keepLabel = "Keep my snippet",
+	focusKeep = false,
 	confirmLabel,
 	onCancel,
 	onConfirm,
@@ -23,13 +33,24 @@ export function ConfirmDiscard({
 	message: string;
 	/** Lets a hosting dialog point `aria-labelledby` at the question itself. */
 	messageId?: string;
+	/** What else is lost, in one sentence; absent says the snippet's. */
+	detail?: string;
+	/** The safe answer's label; absent is the snippet's. */
+	keepLabel?: string;
+	/** Puts the keyboard on the safe answer when the question appears under the person's hand. */
+	focusKeep?: boolean;
 	confirmLabel: string;
 	onCancel: () => void;
 	onConfirm: () => void;
-	/** Outer spacing only: the host decides how the card sits in its surface. */
+	/** Outer spacing, width and lift: the host decides how the card sits in its surface. */
 	className?: string;
 }) {
 	const reduce = useReducedMotion();
+	const keepRef = useRef<HTMLButtonElement>(null);
+
+	useEffect(() => {
+		if (focusKeep) keepRef.current?.focus({ preventScroll: true });
+	}, [focusKeep]);
 
 	return (
 		<motion.div
@@ -38,24 +59,22 @@ export function ConfirmDiscard({
 			animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
 			exit={reduce ? { opacity: 0 } : { opacity: 0, y: -4 }}
 			transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-			className={`rounded-xl border border-neutral-200/80 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950/40 ${className}`}
+			className={`sc-confirm ${className}`}
 		>
-			<p id={messageId} className="text-[13px] font-medium text-neutral-900 dark:text-neutral-50">
+			<p id={messageId} className="sc-confirm-title">
 				{message}
 			</p>
-			<p className="mt-1 text-[12px] leading-relaxed text-neutral-500 dark:text-neutral-400">
-				Your snippet has changes only this browser remembers. Loading this replaces them, and the
-				autosaved draft with them. Export or copy a share link first if you want to keep them.
-			</p>
-			<div className="mt-4 flex items-center justify-end gap-2">
+			<p className="sc-confirm-text">{detail}</p>
+			<div className="sc-confirm-actions">
 				<motion.button
+					ref={keepRef}
 					type="button"
 					onClick={onCancel}
 					whileTap={{ scale: 0.97 }}
 					transition={springs.snappy}
-					className="h-8 rounded-xl px-3 text-[12px] font-medium text-neutral-600 transition-colors hover:bg-neutral-200/60 dark:text-neutral-300 dark:hover:bg-neutral-800"
+					className="sc-confirm-keep"
 				>
-					Keep my snippet
+					{keepLabel}
 				</motion.button>
 				<motion.button
 					type="button"
@@ -63,7 +82,7 @@ export function ConfirmDiscard({
 					data-confirm-discard-confirm
 					whileTap={{ scale: 0.97 }}
 					transition={springs.snappy}
-					className="h-8 rounded-xl bg-[var(--color-primary)] px-3 text-[12px] font-semibold text-[var(--color-on-primary)] shadow-[inset_0_1px_0_rgb(255_255_255/0.3),0_4px_16px_-4px_var(--color-primary-glow)] transition-colors duration-200 hover:bg-[var(--color-primary-hover)]"
+					className="sc-confirm-go"
 				>
 					{confirmLabel}
 				</motion.button>
@@ -81,7 +100,7 @@ export function ConfirmDiscard({
  * inside the top bar, and the top bar is `backdrop-blur`. A backdrop filter
  * makes its element the containing block for every `fixed` descendant, so a
  * plain `fixed inset-0` scrim here covers the 56px nav strip and nothing else.
- * The top layer is outside that trap — and it also traps Tab and makes the
+ * The top layer is outside that trap, and it also traps Tab and makes the
  * studio behind genuinely inert, which a div with role="dialog" cannot.
  *
  * The dialog element itself stays mounted so the card can animate both ways:
@@ -139,15 +158,20 @@ export function ConfirmDiscardOverlay({
 			<AnimatePresence onExitComplete={() => dialogRef.current?.close()}>
 				{open && (
 					<>
+						{/* The scrim is for a pointer: it fills the window, so its focus ring falls
+						    outside it and a Tab onto it showed no focus at all. A keyboard leaves by
+						    Escape or by "Keep my snippet", which is also why it is hidden from a
+						    screen reader, where it would read as a second copy of that button. */}
 						<motion.button
 							type="button"
-							aria-label="Keep my snippet"
+							tabIndex={-1}
+							aria-hidden="true"
 							onClick={onCancel}
 							initial={{ opacity: 0 }}
 							animate={{ opacity: 1 }}
 							exit={{ opacity: 0 }}
 							transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-							className="fixed inset-0 cursor-default bg-neutral-950/40 backdrop-blur-[2px]"
+							className="sc-confirm-scrim"
 						/>
 						<div className="pointer-events-none fixed inset-0 flex items-start justify-center p-4 pt-24">
 							<motion.div
@@ -163,7 +187,7 @@ export function ConfirmDiscardOverlay({
 									reduce ? { opacity: 0 } : { opacity: 0, scale: 0.98, y: 4, filter: "blur(4px)" }
 								}
 								transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
-								className="pointer-events-auto w-full max-w-sm rounded-2xl border border-neutral-200 bg-white p-2 shadow-[0_24px_64px_-16px_rgb(0_0_0/0.35)] outline-none dark:border-neutral-800 dark:bg-neutral-900"
+								className="sc-confirm-card pointer-events-auto w-full max-w-sm"
 							>
 								<ConfirmDiscard
 									message={message}

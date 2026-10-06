@@ -267,4 +267,26 @@ describe("hosted render entitlement", () => {
 
 		expect(response.status).toBe(401);
 	});
+
+	it("ends a session at its expiry by the clock the route is given, not the machine's", async () => {
+		const expiresAt = new Date("2026-10-05T12:00:00.000Z");
+		const provider: AuthPort = { verify: async () => ({ accountId: "acc_1", expiresAt }) };
+		const at = (now: Date) =>
+			hostedApp(
+				createCloudRoute({
+					auth: provider,
+					subscriptions: on(Plan.pro()),
+					renderJobs,
+					now: () => now,
+				}),
+			);
+
+		const justBefore = await at(new Date(expiresAt.getTime() - 1)).request(
+			renderRequest({ cookie: "session=valid" }),
+		);
+		const atExpiry = await at(expiresAt).request(renderRequest({ cookie: "session=valid" }));
+
+		expect(justBefore.status).toBe(202);
+		expect(atExpiry.status).toBe(401);
+	});
 });

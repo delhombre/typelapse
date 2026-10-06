@@ -8,8 +8,10 @@ second round comparing themes on the winner.
 **Direction: Terminal.** The mono carries the page, left aligned, no centred
 display type.
 
-- Headline set in Ioskeley Mono, `clamp(2rem, 4.2vw, 3.25rem)`, weight 600,
-  line-height 1.12, tracking -0.02em.
+- Headline set in Ioskeley Mono, `clamp(2rem, 1.2rem + 3vw, 3.25rem)`, weight
+  600, line-height 1.12, tracking -0.02em. (Corrected on 2026-10-05, ticket
+  #139: this line first read `clamp(2rem, 4.2vw, 3.25rem)`, and the stylesheet
+  ships the fluid form above.)
 - Headline copy shortened to one line: "Your pull request, as a video".
 - Typefaces cut from four to two: **Geist** (sans) and **Ioskeley Mono** (mono),
   replacing Inter, JetBrains Mono, Newsreader and Bricolage Grotesque.

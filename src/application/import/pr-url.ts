@@ -112,6 +112,27 @@ function decodeSegment(segment: string): string {
 }
 
 /**
+ * Whether `ref` is a name git itself would accept (`git check-ref-format`): no
+ * `.` or `..` path component, no component starting with a dot or ending in
+ * `.lock`, no `..`, `@{`, empty component, trailing dot or slash, and none of
+ * space, control characters, `~ ^ : ? * [ \\`. A ref ends up in a request path
+ * on api.github.com, where `%2F..%2F` decodes into a walk out of the repository
+ * the caller's guard checked, so anything git would refuse is refused here too.
+ */
+export function isSafeGitRef(ref: string): boolean {
+	if (ref === "" || ref === "@" || ref.endsWith(".") || ref.includes("..") || ref.includes("@{")) {
+		return false;
+	}
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are what git refuses
+	if (/[\u0000-\u0020\u007f~^:?*[\\]/.test(ref)) {
+		return false;
+	}
+	return ref
+		.split("/")
+		.every((part) => part !== "" && !part.startsWith(".") && !part.endsWith(".lock"));
+}
+
+/**
  * Resolve `github.com/{owner}/{repo}/releases/tag/{tag}` (the page a release
  * event's `html_url` points at) to a {@link ReleaseRef}. A tag may hold a slash
  * (`release/2.0`), so everything after `tag/` is the tag. The releases list and
@@ -126,7 +147,8 @@ export function resolveReleaseUrl(input: string): ReleaseRef | null {
 	if (!owner || !repo || kind !== "releases" || sub !== "tag" || rest.length === 0) {
 		return null;
 	}
-	return { owner, repo, tag: rest.map(decodeSegment).join("/") };
+	const tag = rest.map(decodeSegment).join("/");
+	return isSafeGitRef(tag) ? { owner, repo, tag } : null;
 }
 
 /**
@@ -148,7 +170,7 @@ export function resolveCompareUrl(input: string): CompareRef | null {
 	const at = range.indexOf(separator);
 	const base = range.slice(0, at);
 	const head = range.slice(at + separator.length);
-	if (at <= 0 || head === "") {
+	if (at <= 0 || head === "" || !isSafeGitRef(base) || !isSafeGitRef(head)) {
 		return null;
 	}
 	return { owner, repo, base, head };

@@ -34,6 +34,7 @@ import {
 	TextInputFocus,
 } from "reicon-react";
 import { DiffImportMenu } from "./diff-import-menu";
+import { sourcePopoverMotion } from "./source-popover-motion";
 import { UrlImportMenu } from "./url-import-menu";
 
 type SourceView = "menu" | "url" | "diff" | null;
@@ -248,7 +249,7 @@ export function StudioSourceHub() {
 					setView((current) => (current === "menu" ? null : "menu"));
 				}}
 			>
-				<Add size={13} aria-hidden="true" />
+				<Add size={14} aria-hidden="true" />
 				<span>Add source</span>
 			</motion.button>
 
@@ -260,23 +261,7 @@ export function StudioSourceHub() {
 						aria-label="Source options"
 						onKeyDown={walkMenu}
 						className="sc-source-menu"
-						initial={
-							reduce ? { opacity: 0 } : { opacity: 0, y: -5, scale: 0.97, filter: "blur(4px)" }
-						}
-						animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-						// Leaving is quicker than arriving and accelerates away.
-						exit={
-							reduce
-								? { opacity: 0 }
-								: {
-										opacity: 0,
-										y: -3,
-										scale: 0.98,
-										filter: "blur(2px)",
-										transition: { duration: 0.12, ease: [0.4, 0, 1, 1] },
-									}
-						}
-						transition={{ duration: reduce ? 0.01 : 0.18, ease: [0.23, 1, 0.32, 1] }}
+						{...sourcePopoverMotion(reduce)}
 						style={{ transformOrigin: "top left" }}
 					>
 						{/* No title: the button that opened the menu already says "Add source".

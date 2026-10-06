@@ -102,6 +102,60 @@ test.describe(
 			await expect(stillPage.getByRole("button", { name: "Pause", exact: true })).toHaveCount(0);
 			await Promise.all([moving.close(), still.close()]);
 		});
+
+		test("the export row on a phone leads with its tallest card and runs to the screen's edges", async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width: 375, height: 812 });
+			await page.goto("/");
+			const row = page.getByRole("region", { name: "Export ratios" });
+			await row.scrollIntoViewIfNeeded();
+			const rowBox = await row.boundingBox();
+			expect(rowBox?.x).toBe(0);
+			expect(rowBox?.width).toBe(375);
+
+			const cards = await row.locator(":scope > *").evaluateAll((nodes) =>
+				nodes.map((node) => {
+					const { x, y, width, height } = node.getBoundingClientRect();
+					return {
+						x,
+						width,
+						height,
+						bottom: y + height,
+						userSelect: getComputedStyle(node).userSelect,
+					};
+				}),
+			);
+			expect(cards).toHaveLength(5);
+			const [first, second] = cards;
+			if (!first || !second) {
+				throw new Error("the row should hold five cards");
+			}
+			// Starts on the text's column, and is the card that sets the row's height.
+			expect(first.x).toBeCloseTo(24, 0);
+			expect(first.height).toBe(Math.max(...cards.map((card) => card.height)));
+			// The next card runs off the screen: that is what says the row scrolls.
+			expect(second.x).toBeLessThan(375);
+			expect(second.x + second.width).toBeGreaterThan(375);
+			// Every card stands on one baseline, and none of them is a text selection.
+			const bottoms = cards.map((card) => card.bottom);
+			expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(1);
+			expect(cards.map((card) => card.userSelect)).toEqual(Array(5).fill("none"));
+		});
+
+		test("the head carries the share card's alt text and a home-screen icon", async ({
+			page,
+			request,
+		}) => {
+			await page.goto("/");
+			await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute("content", /\S/);
+			await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute("content", /\S/);
+			const icon = page.locator('link[rel="apple-touch-icon"]');
+			await expect(icon).toHaveAttribute("sizes", "180x180");
+			const response = await request.get((await icon.getAttribute("href")) ?? "");
+			expect(response.status()).toBe(200);
+			expect(response.headers()["content-type"]).toBe("image/png");
+		});
 	},
 );
 

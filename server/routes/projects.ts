@@ -160,14 +160,21 @@ export function createProjectsRoute({
 						assets,
 					})
 				: withProjectId(normalizeDocument(input.document), id);
+			// A save is the studio's: it makes a project that only render by URL wrote
+			// regular, which counts, so it meets the same ceiling as a new project.
+			const plan = await subscriptions.planFor(ownerId);
 			const result = await projects.update({
 				ownerId,
 				id,
 				expectedRevision: input.expectedRevision,
 				document,
+				maxProjects: plan.limitFor("cloudProjects"),
 			});
 			if (result.outcome === "not-found") {
 				return c.json({ error: "Project not found" }, 404);
+			}
+			if (result.outcome === "limit-reached") {
+				return c.json(planLimitRefusal(plan, "cloudProjects", result.projectCount), 402);
 			}
 			if (result.outcome === "conflict") {
 				return c.json(

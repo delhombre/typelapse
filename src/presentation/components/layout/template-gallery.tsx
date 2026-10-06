@@ -107,7 +107,7 @@ export function TemplateGallery() {
 				aria-label="Showcase"
 				className="sc-island-trigger sc-showcase-trigger"
 			>
-				<Grid size={13} strokeWidth={1.65} aria-hidden="true" />
+				<Grid size={14} aria-hidden="true" />
 				<span>Showcase</span>
 			</motion.button>
 

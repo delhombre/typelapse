@@ -137,6 +137,7 @@ describe("resolveSource", () => {
 		["GitHub rate limit hit: paste the diff instead", /GITHUB_TOKEN/],
 		["Could not reach GitHub: check your connection, or paste the diff instead", /connection/],
 		["Request timed out", /answer/],
+		["Could not fetch the change", /could not be fetched from GitHub/],
 		["This change has no file differences to animate", /no file differences/],
 	])("says '%s' as one CLI sentence with exit code 3", async (thrown, said) => {
 		const io = deps({ fetchPr: async () => Promise.reject(new Error(thrown)) });

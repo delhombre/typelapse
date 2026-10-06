@@ -50,6 +50,7 @@ describe("project document repository mapping", () => {
 			title: "Mixed launch",
 			document: V2,
 			revision: 3,
+			automation: false,
 			createdAt,
 			updatedAt: createdAt,
 		});
@@ -71,6 +72,7 @@ describe("project document repository mapping", () => {
 				title: "Malformed",
 				document: { schemaVersion: 2, project: {} },
 				revision: 1,
+				automation: false,
 				createdAt,
 				updatedAt: createdAt,
 			}),

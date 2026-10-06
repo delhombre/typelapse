@@ -44,12 +44,11 @@ const resolveTheme = (): LandingTheme => {
 	return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 };
 
-export function useLandingTheme(): [LandingTheme, () => void] {
-	// Resolved during the first render rather than in an effect: starting on
-	// light and correcting afterwards flashes a white page at every dark-theme
-	// visitor, which is the one moment they are guaranteed to notice.
-	const [theme, setTheme] = useState<LandingTheme>(resolveTheme);
-
+/**
+ * What the landing puts on the document outside its own element, for as long
+ * as the landing is on screen.
+ */
+export function useLandingChrome(theme: LandingTheme): void {
 	// The page element cannot colour what sits outside it: overscroll rubber-band
 	// on macOS, and any viewport the layout does not fill, both fall through to
 	// the document's own background, which is white by default. Marking the root
@@ -81,6 +80,15 @@ export function useLandingTheme(): [LandingTheme, () => void] {
 			});
 		};
 	}, [theme]);
+}
+
+export function useLandingTheme(): [LandingTheme, () => void] {
+	// Resolved during the first render rather than in an effect: starting on
+	// light and correcting afterwards flashes a white page at every dark-theme
+	// visitor, which is the one moment they are guaranteed to notice.
+	const [theme, setTheme] = useState<LandingTheme>(resolveTheme);
+
+	useLandingChrome(theme);
 
 	const toggle = useCallback(() => {
 		const flip = () => {

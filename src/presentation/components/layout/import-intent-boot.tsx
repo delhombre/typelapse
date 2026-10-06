@@ -69,10 +69,13 @@ export function ImportIntentBoot() {
 	if (asking) {
 		const kind = classifySource(intent.source.trim());
 		return (
+			// Rendered beside the shell, not in it: `studio-root sc-tokens` hands the strip the
+			// studio's warm ramp and colour tokens, which the question's card reads. On a phone it
+			// starts below the status bar like the rest of the chrome (DECISIONS D14).
 			<div
 				role="alertdialog"
 				aria-labelledby={questionId}
-				className="fixed inset-x-0 top-3 z-[60] flex justify-center px-4"
+				className="studio-root sc-tokens fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-[60] flex justify-center px-4"
 			>
 				<ConfirmDiscard
 					messageId={questionId}
@@ -86,7 +89,7 @@ export function ImportIntentBoot() {
 						setAsking(false);
 						void run(intent.source, intent.playMode);
 					}}
-					className="w-full max-w-sm shadow-[0_16px_40px_-12px_rgb(0_0_0/0.28)]"
+					className="sc-confirm-float w-full max-w-sm"
 				/>
 			</div>
 		);

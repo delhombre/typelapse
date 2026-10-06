@@ -4,6 +4,39 @@ import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(resolve("server/db/migrations/0001_long_sprite.sql"), "utf8");
 
+const apiKeysMigration = readFileSync(resolve("server/db/migrations/0006_api_keys.sql"), "utf8");
+
+const automationMigration = readFileSync(
+	resolve("server/db/migrations/0007_automation_projects.sql"),
+	"utf8",
+);
+
+describe("API keys migration", () => {
+	it("adds one table owned by an account and drops nothing", () => {
+		expect(apiKeysMigration).toContain('CREATE TABLE "api_keys"');
+		expect(apiKeysMigration).toContain(
+			'FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade',
+		);
+		expect(apiKeysMigration).not.toMatch(/DROP |ALTER TABLE "(?!api_keys)/);
+	});
+
+	it("stores a hash of the secret and no column that could hold the secret", () => {
+		expect(apiKeysMigration).toContain('"secret_hash" text NOT NULL');
+		expect(apiKeysMigration).toContain("secret_hash\" ~ '^[0-9a-f]{64}$'");
+		expect(apiKeysMigration).not.toMatch(/"(?:key|secret|token|api_key)" /);
+	});
+});
+
+describe("automation projects migration", () => {
+	it("adds one flag to projects and leaves every project already there regular", () => {
+		expect(automationMigration).toMatch(
+			/ALTER TABLE "projects" ADD COLUMN (?:IF NOT EXISTS )?"automation" boolean DEFAULT false NOT NULL/,
+		);
+		// The default is what makes the rows that exist count: nothing is rewritten or dropped.
+		expect(automationMigration).not.toMatch(/DROP |UPDATE |DELETE |TRUNCATE /);
+	});
+});
+
 describe("Creator hosted migration", () => {
 	it("creates the complete persistence slice", () => {
 		for (const table of [

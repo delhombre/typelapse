@@ -104,6 +104,34 @@ or it does not land.
   (`application/import/release-project`).
 - **Hosted render job**: a queued, leased, fenced job on a canonical revision,
   entitlement-gated, with expiring result access.
+- **Render by URL**: the hosted call that turns a **source** (a pull request,
+  commit, release or compare link of a public repository, or a unified diff)
+  into a cloud project of the caller and a hosted render job. The importers the
+  studio and the headless render use read the source, and the project is the one
+  they would build. The caller holds one project for each source: the same
+  source sent twice is the same project and the same job, and a source that has
+  changed since is a new revision of it. The answer names the job and the
+  **studio link** (`/app#import=`, which opens the same import in the studio;
+  a diff too long for an address opens the studio empty). A free account gets
+  the studio link and the reason there is no job, and nothing is fetched or
+  saved. A request over a ceiling creates nothing, and the project it saves
+  is an automation project, which the cloud-projects ceiling does not count.
+  Its options carry the encode (format, size, rate, loop) and a **theme**, one
+  of the studio's, swapped whole by the same function as the CLI's `--theme`
+  (`application/project/with-theme`) before the project is saved: the theme is
+  part of the project, so another theme for one source is a new revision.
+  Its reads of GitHub carry the server's optional token
+  (`TYPELAPSE_GITHUB_TOKEN`, fine-grained, public repositories) when there is
+  one, and each source is read inside a time budget (30 seconds): the budget
+  lives in the import cascade, which stops the fetchers when it is spent.
+- **Hosted output** (of the Action): with an API key, the Action asks render by
+  URL for the pull request, waits at most ten minutes, publishes the render's
+  page itself (a page is private until published, and render by URL reads
+  public repositories only) and its one comment links the share page and the
+  studio (`cli/hosted-render.ts`). It replaces the runner's render only when it
+  ends in a published page; a free account, a refusal, an outage or a GIF
+  leaves the runner to render, and the comment says why. A hosted problem never
+  fails the job, and a fork, which gets no secrets, renders on the runner.
 - **Where**: the export panel's choice of machine. **Device** (WebCodecs in
   this tab), **Server** (the local Remotion routes) and, in a hosted build for
   a signed-in account only, **Cloud**: Render saves the canonical revision
@@ -131,13 +159,30 @@ or it does not land.
   rendering; anonymous synchronous compute is disabled). Separate from
   entitlement.
 - **Capability**: a hosted feature the API can mount (`auth`, `projectSync`,
-  `privateAssets`, `billing`, `hostedRendering`). Each fails closed when its
-  configuration is absent; `pnpm hosted:check` lists what is missing.
+  `privateAssets`, `billing`, `hostedRendering`, `apiKeys`). Each fails closed
+  when its configuration is absent; `pnpm hosted:check` lists what is missing.
 - **Plan**: `free` or `creator` (paid). Resolved server-side from the Stripe
   projection; never from a header or a body field.
 - **Ceiling**: a hosted limit carried by the Plan (cloud projects, media
   bytes, hosted render minutes per UTC month, concurrent render jobs). A
   refusal names the ceiling, its value, the usage and the plan that lifts it.
+- **Regular project** and **automation project**: the two kinds of cloud
+  project. A regular project is one a person has saved from the studio, and
+  the cloud-projects ceiling counts it. An automation project is one only
+  render by URL has written, one for each account and source; the ceiling
+  does not count it, so a busy repository cannot lock its owner out. A save
+  from the studio makes it regular and from then on it counts, and that save
+  is refused, like a new project, when the account is already at the ceiling.
+  Nothing deletes an automation project for being one.
+- **Delete a cloud project**: what the account island's Cloud projects view
+  offers on each project, behind the shared confirmation. It takes the project
+  with its media, its render jobs and their public pages; the files they stored
+  get a durable note for the object-deletion worker in the same transaction.
+  A render a worker still holds is fenced out and removes what it stored. The
+  studio never opened the cloud copy, so deleting the open project's copy leaves
+  the open local project as it was, on this device, and the next save makes a
+  new copy. Only the session may delete, and another account's project answers
+  404 like one that does not exist.
 - **Allowance**: the one sentence the server writes about an account's
   ceilings and usage; the account island shows it verbatim.
 - **Grace period**: how long past hosted outputs stay downloadable once the
@@ -148,6 +193,15 @@ or it does not land.
   private). It lives while the owner's plan keeps the output; anything else is
   the same 404. Its video and poster addresses re-sign a one-hour object URL on
   each request, so making it private takes effect at once.
+- **API key**: a credential an account makes in the account island for a
+  script that has no browser. Named, optionally expiring, shown once and kept
+  only as a hash, rate limited per key, revoked by deleting it. It stands in
+  for the session on the hosted render routes (render by URL included) and on
+  nothing else: account, billing, projects, assets and key management accept
+  the session alone. The account's plan still decides what a key may start.
+- **Key prefix**: the public start of a key (`tlk_` and eight characters). It
+  names the key in the island and in a log line and is how the server finds
+  it; the secret is the rest, and it is never stored.
 - **The rule that settles pricing edge cases**: what runs on the user's
   machine is free and stays free; what runs on our servers is paid.
 
@@ -176,6 +230,13 @@ or it does not land.
 - **Edit burst**: edits to the same values within a second (typing, dragging a
   layer, scrubbing a number) are one history entry. Adding or removing a scene,
   a layer or a cue is always an entry of its own.
+- **Capture library**: what the Library button opens, a sheet of the
+  **captures** this device kept: each finished export (a PNG, GIF, MP4 or WebM
+  from the device or the local server) with its project's title, date and size,
+  newest first, across local projects, at most 24 and 150 MB. A capture here is
+  a kept export, not the step builder's Capture, which turns live code into a
+  step. On a desktop the sheet is as wide as its captures (one to three
+  columns); its empty state says what a capture is and opens the export panel.
 
 ## Invariants worth a test
 
@@ -183,6 +244,23 @@ or it does not land.
 - Preview duration equals export duration equals the sum of scene durations
   plus transitions (plus audio-only tail).
 - Nothing uploads before the user consents; local mode makes no account calls.
+- A key opens the hosted render routes and nothing else; a request with a valid
+  session and a key is the session's; a key that is unknown, revoked or expired
+  is refused with one answer, whichever it is.
+- A key never leaves the Authorization header of a request to the address the
+  workflow named: not a URL, an argument, a file, a log line or a comment.
+- A source rendered by URL twice is one project and one job; a request refused
+  for a ceiling, a size or a source that cannot be read leaves no project and no
+  job behind.
+- Render by URL reads public repositories only, with or without a token on the
+  server: a repository whose own record does not say it is public is refused in
+  the words a missing one gets, before the token reads any of it.
+- The cloud-projects ceiling counts regular projects: an account at it still
+  renders a new source by URL, and the studio's save of one project more, a
+  new one or an automation project made regular, is refused.
+- A deleted cloud project leaves no row of its own (media, render jobs, public
+  page) and no render job a worker could still finish; every file it stored is
+  noted for deletion, and the open local project is untouched.
 - The export note never promises what the file does not contain.
 - Undo then redo returns the exact project document; an undo never resets the
   unsaved-work baseline, and the composition shows the timeline's scene.
