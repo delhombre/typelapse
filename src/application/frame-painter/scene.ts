@@ -108,11 +108,11 @@ export interface FrameSceneInput {
 	progress?: SceneProgress | null;
 	watermark?: SceneWatermark | null;
 	/**
-	 * Whether any scene has a caption. The painter bakes none yet, but both DOM
-	 * renderers centre the window and its caption band as one unit, so the card
-	 * has to budget the band to land where theirs does.
+	 * Every scene's caption. The painter bakes none yet, but both DOM renderers
+	 * centre the window and its caption band as one unit, so the card has to
+	 * budget the band (its lines, from these) to land where theirs does.
 	 */
-	hasCaption?: boolean;
+	captions?: readonly string[];
 }
 
 export interface FrameScene {
@@ -161,7 +161,7 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 		cardMargin: input.cardMargin,
 		showLineNumbers: input.showLineNumbers,
 		lineNumberStart: input.lineNumberStart,
-		hasCaption: input.hasCaption ?? false,
+		captions: input.captions ?? [],
 		scale,
 		canvasWidth: input.canvasWidth,
 		canvasHeight: input.canvasHeight,
@@ -172,7 +172,7 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 	const cardWidth = fit.natural.width + 2 * cardPadding;
 	const cardHeight = fit.natural.height + 2 * cardPadding;
 	// The window is the unit less its caption band, which hangs below it.
-	const windowHeight = fit.natural.height - captionBlockHeight(input.hasCaption ?? false, scale);
+	const windowHeight = fit.natural.height - captionBlockHeight(fit.captionLines, scale);
 	const chromeHeight = chromeBarHeight(input.chrome, scale);
 	const gutterWidth = gutterColumnWidth(input, charWidth, fontSize);
 

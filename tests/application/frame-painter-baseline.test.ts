@@ -131,9 +131,12 @@ describe("watermark", () => {
 	});
 });
 
+/** A one-line caption on this card: the band keeps the one line it always had. */
+const CAPTIONS = ["Reads the config"];
+
 describe("caption budget", () => {
 	it("sizes the card on the window plus the caption block, as the composition does", () => {
-		const withCaption = frameScene({ ...INPUT, hasCaption: true });
+		const withCaption = frameScene({ ...INPUT, captions: CAPTIONS });
 		const fit = fitCardToCanvas({
 			plan: INPUT.plan,
 			chrome: INPUT.chrome,
@@ -142,7 +145,7 @@ describe("caption budget", () => {
 			cardMargin: INPUT.cardMargin,
 			showLineNumbers: INPUT.showLineNumbers,
 			lineNumberStart: INPUT.lineNumberStart,
-			hasCaption: true,
+			captions: CAPTIONS,
 			scale: INPUT.scale,
 			canvasWidth: INPUT.canvasWidth,
 			canvasHeight: INPUT.canvasHeight,
@@ -155,12 +158,12 @@ describe("caption budget", () => {
 
 	it("keeps the window its own height, at the top of the window and caption unit", () => {
 		const without = frameScene(INPUT);
-		const withCaption = frameScene({ ...INPUT, hasCaption: true });
+		const withCaption = frameScene({ ...INPUT, captions: CAPTIONS });
 		expect(withCaption.window.height).toBeCloseTo(without.window.height, 6);
 		// The unit is centred on the canvas, so the window sits half a caption higher.
 		const windowCentre = (scene: typeof without) =>
 			scene.card.originY + (scene.window.y + scene.window.height / 2) * scene.card.scale;
-		const captionBlock = (14 + 2 * 20) * 2.2;
+		const captionBlock = (14 + 20) * 2.2;
 		expect(windowCentre(withCaption)).toBeCloseTo(
 			1080 / 2 - (captionBlock * withCaption.card.scale) / 2,
 			6,

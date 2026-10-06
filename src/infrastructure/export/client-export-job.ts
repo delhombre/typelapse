@@ -73,8 +73,8 @@ export interface ClientExportJob {
 	lineNumberStart: number;
 	progress: SceneProgress | null;
 	watermark: SceneWatermark | null;
-	/** Whether any scene has a caption, which the card budgets room for. */
-	hasCaption?: boolean;
+	/** Every scene's caption, which the card budgets a band for. */
+	captions?: readonly string[];
 	/** The text and image layers around the card; absent for code alone. */
 	composition?: ClientExportComposition | null;
 	/**

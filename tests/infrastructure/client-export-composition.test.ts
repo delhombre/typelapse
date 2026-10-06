@@ -290,9 +290,9 @@ describe("sceneInputFor", () => {
 			progress: null,
 			watermark: null,
 			documentCharWidthRatio: 0.6,
-			hasCaption: true,
+			captions: ["One", ""],
 		} satisfies ClientExportJob;
 		const input = sceneInputFor(job, 0.6, { grain: null, backdropImage: null });
-		expect(input.hasCaption).toBe(true);
+		expect(input.captions).toEqual(["One", ""]);
 	});
 });

@@ -57,7 +57,7 @@ describe("fitCardToCanvas", () => {
 		cardMargin: 32,
 		showLineNumbers: true,
 		lineNumberStart: 1,
-		hasCaption: false,
+		captions: [],
 		scale: 2.2,
 		canvasMargin: 0.05,
 		charWidthRatio: 0.6,
@@ -76,7 +76,7 @@ describe("fitCardToCanvas", () => {
 			padding: 24 * 2.2,
 			showLineNumbers: true,
 			lineNumberStart: 1,
-			hasCaption: false,
+			captions: [],
 			scale: 2.2,
 			charWidthRatio: 0.6,
 		});
@@ -154,7 +154,7 @@ describe("framing is resolution-independent", () => {
 		cardMargin: 32,
 		showLineNumbers: true,
 		lineNumberStart: 1,
-		hasCaption: false,
+		captions: [],
 		canvasMargin: 0.05,
 		charWidthRatio: 0.6,
 	};

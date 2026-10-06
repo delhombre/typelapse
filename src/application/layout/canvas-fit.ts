@@ -160,7 +160,8 @@ export interface CardCanvasFitInput {
 	cardMargin: number;
 	showLineNumbers: boolean;
 	lineNumberStart: number;
-	hasCaption: boolean;
+	/** Every scene's caption (blank for none), which the card budgets a band for. */
+	captions: readonly string[];
 	/** Upscale factor the target renders at (see `renderScaleFor`). */
 	scale: number;
 	canvasWidth: number;
@@ -187,6 +188,8 @@ export interface CardCanvasFit {
 	natural: { width: number; height: number };
 	/** The window alone: `natural.height` less the caption band under it. */
 	windowHeight: number;
+	/** Lines the caption band reserves (0, 1 or 2); `StepCaption` is drawn at this count. */
+	captionLines: number;
 	/** The edges the window clips at the floor, or null when everything fits. */
 	clip: CardClip | null;
 	/** Fit factor of the padded card into the safe-area canvas. */
@@ -214,7 +217,7 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 		showLineNumbers: input.showLineNumbers,
 		// The gutter is as wide as the deepest label a moved window shows.
 		lineNumberStart: input.lineNumberStart + deepestRow(input.plan) - tallestFrame(input.plan),
-		hasCaption: input.hasCaption,
+		captions: input.captions,
 		scale: input.scale,
 		charWidthRatio: input.charWidthRatio,
 	});
@@ -247,7 +250,8 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 			: { right: drawn.width < natural.width, bottom: drawn.height < natural.height };
 	return {
 		natural: drawn,
-		windowHeight: drawn.height - captionBlockHeight(input.hasCaption, input.scale),
+		windowHeight: drawn.height - captionBlockHeight(natural.captionLines, input.scale),
+		captionLines: natural.captionLines,
 		clip,
 		scale,
 		widthFraction: ((drawn.width + 2 * cardPadding) * scale) / input.canvasWidth,
@@ -314,6 +318,8 @@ export interface PreviewCardPlacementInput
 }
 
 export interface PreviewCardPlacement {
+	/** Lines the caption band reserves, as the exporters draw it. */
+	captionLines: number;
 	/** The window's width at editor size (unscaled px), before `cardScale`. */
 	windowWidth: number;
 	/** The window's height at editor size: the most it may grow before it clips. */
@@ -350,6 +356,7 @@ export function previewCardPlacement(input: PreviewCardPlacementInput): PreviewC
 	return {
 		windowWidth: fit.natural.width / unit,
 		windowHeight: fit.windowHeight / unit,
+		captionLines: fit.captionLines,
 		clip: fit.clip,
 		cardScale: (unit * fit.scale * input.boxWidth) / input.canvasWidth,
 		layoutScale: unit,

@@ -1,4 +1,4 @@
-import { captionBlockHeight } from "@/application/layout/frame-metrics";
+import { captionBandLines, captionBlockHeight } from "@/application/layout/frame-metrics";
 import { StepCaption } from "@/presentation/components/preview/step-caption";
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -9,10 +9,12 @@ const EIGHTY = "Sanity checks the reconciled workspace membership invitations ta
 	80,
 	".",
 );
+/** The narrow card of the ticket: 221px of window under a 13px caption. */
+const NARROW_WIDTH = 221;
 
-function band(scale: number) {
+function band(scale: number, lines: number) {
 	const { container } = render(
-		<StepCaption text={EIGHTY} opacity={1} color="#fff" scale={scale} />,
+		<StepCaption text={EIGHTY} opacity={1} color="#fff" scale={scale} lines={lines} />,
 	);
 	const box = container.firstElementChild as HTMLElement;
 	const line = box.firstElementChild as HTMLElement;
@@ -20,8 +22,8 @@ function band(scale: number) {
 }
 
 describe("the step caption", () => {
-	it("wraps to the card instead of staying on one line and cutting at its edge", () => {
-		const { box, line } = band(1);
+	it("wraps to the lines it is given instead of cutting flat at the card's edge", () => {
+		const { box, line } = band(1, 2);
 
 		expect(box.style.whiteSpace).not.toBe("nowrap");
 		expect(line.style.whiteSpace).not.toBe("nowrap");
@@ -30,19 +32,35 @@ describe("the step caption", () => {
 		expect(line.style.overflow).toBe("hidden");
 	});
 
-	it.each([1, 2.2])("takes exactly the band the layout reserves, at scale %s", (scale) => {
-		const { box } = band(scale);
+	it("keeps a one-line caption to one line, with the band it always had", () => {
+		const { box, line } = band(1, 1);
 
-		// The painter, the preview and the video all fit the card around this one
-		// number: the margin above the band plus the band itself.
-		const reserved = captionBlockHeight(true, scale);
-		const taken = Number.parseFloat(box.style.marginTop) + Number.parseFloat(box.style.height);
-		expect(taken).toBeCloseTo(reserved, 6);
+		expect(line.style.getPropertyValue("-webkit-line-clamp")).toBe("1");
+		expect(Number.parseFloat(box.style.height)).toBe(20);
 	});
 
-	it("reserves two lines, so the line height is a half of the band", () => {
-		const { box, line } = band(1);
+	it.each([1, 2.2])(
+		"is cut at the same count the band function reserves for the 80-character caption, at scale %s",
+		(scale) => {
+			const lines = captionBandLines([EIGHTY], NARROW_WIDTH * scale, scale);
+			const { box, line } = band(scale, lines);
 
-		expect(Number.parseFloat(box.style.height)).toBe(2 * Number.parseFloat(line.style.lineHeight));
+			expect(lines).toBe(2);
+			expect(line.style.getPropertyValue("-webkit-line-clamp")).toBe(String(lines));
+			// The painter, the preview and the video all fit the card around this one
+			// number: the margin above the band plus the band itself.
+			const taken = Number.parseFloat(box.style.marginTop) + Number.parseFloat(box.style.height);
+			expect(taken).toBeCloseTo(captionBlockHeight(lines, scale), 6);
+		},
+	);
+
+	it("takes the lines a short caption on a wide card needs: one", () => {
+		const lines = captionBandLines(["Reads the config"], 600, 1);
+		const { box } = band(1, lines);
+
+		expect(lines).toBe(1);
+		expect(
+			Number.parseFloat(box.style.marginTop) + Number.parseFloat(box.style.height),
+		).toBeCloseTo(captionBlockHeight(1, 1), 6);
 	});
 });
