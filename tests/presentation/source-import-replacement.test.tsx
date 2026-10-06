@@ -278,6 +278,15 @@ describe("a paste carried in from the landing hero", () => {
 		await waitFor(() => expect(useSnippetStore.getState().snippet.steps.length).toBe(2));
 	});
 
+	it("says why when the paste is over the studio's ceiling, and keeps the studio as it was", async () => {
+		render(<ImportIntentBoot />);
+
+		arriveWith(Array.from({ length: 5001 }, (_, i) => `const a${i} = ${i};`).join("\n"));
+
+		expect(await screen.findByText(/too long to animate \(over 5,000 lines\)/)).toBeTruthy();
+		expect(useSnippetStore.getState().snippet.steps).toHaveLength(0);
+	});
+
 	it("leaves a paste made inside the studio exactly as it was: code, no scene yet", async () => {
 		const { result } = renderHook(() => useSourceImport());
 

@@ -5,13 +5,11 @@ import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import {
 	Fragment,
 	type KeyboardEvent as ReactKeyboardEvent,
-	useEffect,
 	useMemo,
 	useRef,
 	useState,
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { takeBulkInsert } from "./bulk-insert";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
 
@@ -117,24 +115,6 @@ export function Hero() {
 		   studio it has always been. Anything else travels. */
 		navigate(value.trim() === "" ? "/app" : `/app${encodeImportIntent({ source: value })}`);
 	}
-
-	/* Native rather than `onBeforeInput`: React's version is synthesised from
-	   keypress and textInput and does not see an insertion that comes from an
-	   input method or a script, which are the ones this exists for. */
-	useEffect(() => {
-		const element = field.current;
-		if (!element) {
-			return;
-		}
-		const onBeforeInput = (event: InputEvent) => {
-			const next = takeBulkInsert(event, element);
-			if (next !== null) {
-				onChange(next);
-			}
-		};
-		element.addEventListener("beforeinput", onBeforeInput);
-		return () => element.removeEventListener("beforeinput", onBeforeInput);
-	}, []);
 
 	function onChange(next: string) {
 		setValue(next);
