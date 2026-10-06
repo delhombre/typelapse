@@ -39,7 +39,7 @@ the one exception (DECISIONS D5).
 | Desktop muted, the landing's ash (4.87:1 on the pill) | `--camera-muted: #6e6b64` `src/presentation/studio-camera.css:28` | `--camera-muted: #a8a39a` `src/presentation/studio-camera.css:85` |
 | Desktop line, the scene hairline | `--camera-line: var(--sc-hairline)` `src/presentation/studio-camera.css:27` | same |
 | Desktop pill (fields, selection plate) | `--camera-pill: var(--color-neutral-100)` `src/presentation/studio-camera.css:29` | `--camera-pill: #292624` `src/presentation/studio-camera.css:86` |
-| Desktop opaque surface (card, timeline), and the menus that hold rows of text: the source menu, its popovers, the project menu (D5) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css:38` `background: var(--camera-surface)` `src/presentation/studio-camera.css:605` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css:103` |
+| Desktop opaque surface (card, timeline), and the menus that hold rows of text: the source menu, its popovers, the project menu, the phone's More menu and the account panel (D5) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css:38` `background: var(--camera-surface)` `src/presentation/studio-camera.css:605` `background: var(--camera-surface)` `src/app.css:3109` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css:103` |
 | Desktop CTA, timeline selection, a selected rail segment's well at 10% | `--camera-amber: var(--color-primary)` `src/presentation/studio-camera.css:22` `color-mix(in oklch, var(--camera-amber) 10%, transparent)` `src/presentation/studio-camera.css:2793` | same |
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css:18` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css:20` | same |
@@ -49,8 +49,8 @@ the one exception (DECISIONS D5).
 
 The `--camera-*` tokens are published on both shells, the desktop root and the
 phone root, by one rule (`:is(.studio-camera-root, .sc-root-mobile, .sc-tokens)`,
-the last for the strip an import link raises, rendered beside the shell); only
-the phone's sheet, portaled to the body, keeps an older cool copy (Drift 18).
+the last for the strip an import link raises, rendered beside the shell, and the
+phone's sheet, portaled to the body, which draws only its own hairline and radius).
 
 Theme switch: the landing sets `data-theme` on `.landing-root` and
 `data-landing-theme` on `<html>`; the studio toggles `.dark` on `<html>`. The
@@ -222,10 +222,10 @@ starts at 0.985.
 | --- | --- |
 | 44px hit area, visual size unchanged | `width: 44px` `src/app.css:912` |
 | Hit extension for any control | `width: max(100%, 44px)` `src/app.css:1924` |
-| Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css:1275` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css:1280` `--island-cell: 44px` `src/app.css:3642` |
+| Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css:1275` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css:1280` `--island-cell: 44px` `src/app.css:3618` |
 | Sheet chips under a finger | `height: 44px` `src/presentation/studio-camera.css:2101` |
 | A picture built from code is not text to select | `select-none` `src/presentation/landing/frame-fan.tsx:308` |
-| Popover controls, the sheet's close and the replace question's buttons under a finger | `height: 44px` `src/presentation/studio-camera.css:978` `inset: -5px` `src/presentation/studio-camera.css:1111` |
+| Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css:978` `inset: -5px` `src/presentation/studio-camera.css:1111` `height: 44px` `src/app.css:3116` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css:407` |
 | Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css:569` `font-size: 16px` `src/presentation/studio-camera.css:2031` |
 | Hover exists only here | `@media (hover: hover) and (pointer: fine)` `src/app.css:1104` |
 | Hover-only helpers vanish on touch | `@media (hover: none)` `src/app.css:1383` |
@@ -242,7 +242,5 @@ decides, then updates the tables above and deletes the row.
 
 | # | Role | What ships | Recommendation |
 | --- | --- | --- | --- |
-| 5 | Radius | The source hub, the showcase, the drop veil, the capture library and the header triggers read the radius tokens (passes 2026-10-05-studio-drift and 2026-10-05-capture-library). Raw px remain in the phone's More menu, `border-radius: 18px` `src/app.css:3124`, and in the timeline's easing and transition panels, `border-radius: 12px` `src/presentation/studio-camera.css:3545`, and in its tempo buttons, `border-radius: 12px` `src/presentation/studio-camera.css:3683` | The menu and the panels: map them as each is next touched |
+| 5 | Radius | The source hub, the showcase, the drop veil, the capture library and the header triggers read the radius tokens (passes 2026-10-05-studio-drift and 2026-10-05-capture-library). Raw px remain in the timeline's easing and transition panels, `border-radius: 12px` `src/presentation/studio-camera.css:3545`, and in its tempo buttons, `border-radius: 12px` `src/presentation/studio-camera.css:3683` | The menu and the panels: map them as each is next touched |
 | 9 | Studio type | The scale is on both shells and the source hub, the showcase, the drop veil and the capture library read it. Sizes of their own remain in the project menu, `font-size: 10.5px` `src/presentation/studio-camera.css:395`, and in the easing and transition panels, `font-size: 8px` `src/presentation/studio-camera.css:3523` | Adopt the scale as each is next touched |
-| 18 | Phone sheet tokens | The portaled sheet keeps the older cool copy of the camera tokens, `--camera-focus: #1d1d20` `src/app.css:2885`, with an ink ring, against the warm ink and the accent ring of D6 and D9 | The phone sheet pass (ticket #141): the warm values, and the accent for focus |
-| 19 | Phone More menu | `.sc-utility-overflow-menu` writes its own material, `border: 1px solid #e5e5e8` `src/app.css:3123`, where the source hub's menu wears the opaque surface (D5) | The phone pass that next touches the header: the opaque surface, `--r-surface` and the scale |
