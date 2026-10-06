@@ -75,19 +75,6 @@ function HostedAccountIsland({
 	// compared with what a reload rebuilds, render settings and live code included.
 	const document = useMemo(() => studioDocumentOf(value, liveCode), [value, liveCode]);
 	const runtime = cloudRuntime === undefined ? defaultCloudRuntime() : cloudRuntime;
-	const { cloudProjectState, saveToCloud, saveRevision, cloudProjectId, forgetCloudProject } =
-		useStudioCloudProject({
-			authStatus,
-			document,
-			runtime,
-		});
-	// A cloud render renders the canonical revision, so it saves through this
-	// same cloud copy rather than a second one of its own.
-	useEffect(
-		() =>
-			runtime ? useHostedRenderJobsStore.getState().connectCloudSave(saveRevision) : undefined,
-		[runtime, saveRevision],
-	);
 	const {
 		plan,
 		catalog,
@@ -102,7 +89,21 @@ function HostedAccountIsland({
 		upgrade,
 		manageBilling,
 	} = planStore();
-
+	const { cloudProjectState, saveToCloud, saveRevision, cloudProjectId, forgetCloudProject } =
+		useStudioCloudProject({
+			authStatus,
+			document,
+			runtime,
+			// The allowance says how many projects the account keeps: a new copy counts.
+			onSaved: () => void refreshPlan({ signedIn: true }),
+		});
+	// A cloud render renders the canonical revision, so it saves through this
+	// same cloud copy rather than a second one of its own.
+	useEffect(
+		() =>
+			runtime ? useHostedRenderJobsStore.getState().connectCloudSave(saveRevision) : undefined,
+		[runtime, saveRevision],
+	);
 	useEffect(() => {
 		if (authStatus.kind !== "checking") {
 			void refreshPlan({ signedIn: authStatus.kind === "authenticated" });

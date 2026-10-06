@@ -90,6 +90,9 @@ const TIMEOUT_MS = 10_000;
 /** More commits than this and chaptering is unwieldy: fall back to the whole change. */
 export const MAX_CHAPTER_COMMITS = 30;
 
+/** GitHub failed, or answered with nothing the importer maps: a pasted diff is the way round, for every import kind. */
+const COULD_NOT_FETCH = "Could not fetch the change: paste the diff instead";
+
 const DIFF_ACCEPT = "application/vnd.github.diff";
 const JSON_ACCEPT = "application/vnd.github+json";
 
@@ -123,7 +126,7 @@ function errorForStatus(
 		// GitHub refuses to render very large diffs as text.
 		return new Error("GitHub will not serve a diff this large: paste a smaller diff instead");
 	}
-	return new Error("Could not fetch the change");
+	return new Error(COULD_NOT_FETCH);
 }
 
 /**
@@ -171,7 +174,7 @@ async function requestGitHub<T>(
 		if (err instanceof TypeError) {
 			throw new Error("Could not reach GitHub: check your connection, or paste the diff instead");
 		}
-		throw err instanceof Error ? err : new Error("Could not fetch the change");
+		throw err instanceof Error ? err : new Error(COULD_NOT_FETCH);
 	} finally {
 		release();
 	}
@@ -310,7 +313,7 @@ function chapterError(err: unknown): Error {
 	if (err instanceof RateLimitError) {
 		return err.withAdvice("import the whole change instead");
 	}
-	return err instanceof Error ? err : new Error("Could not fetch the change");
+	return err instanceof Error ? err : new Error(COULD_NOT_FETCH);
 }
 
 /**

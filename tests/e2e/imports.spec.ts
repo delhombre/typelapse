@@ -15,9 +15,9 @@ import {
 const MOCK_PR = "https://github.com/acme/widgets/pull/42";
 const MOCK_PR_TITLE = "Trim names before greeting";
 
-/** A merged, two-file pull request on a public repository that will not move. */
-const REAL_PR = "https://github.com/sindresorhus/is/pull/200";
-const REAL_PR_TITLE = "feat: ensure there's at least 1 char in non-empty string";
+/** A merged pull request on a public repository that will not move, and whose diff GitHub serves. */
+const REAL_PR = "https://github.com/honojs/hono/pull/5189";
+const REAL_PR_TITLE = "fix(trie-router): count every slash a pattern consumes";
 
 async function pasteChange(page: Page, source: string): Promise<void> {
 	await addSource(page, "Import a git diff");
@@ -91,7 +91,7 @@ test.describe("Imports: a change, a pull request or a project file becomes the p
 					timeout: 20_000,
 				},
 			)
-			.toMatch(/^(rate limited|feat: .*)$/);
+			.toMatch(/^(rate limited|fix\(trie-router\): .*)$/);
 		// Without a token a spent quota says nothing about the product; with one, it fails.
 		test.skip(!token && (await rateLimited.count()) > 0, "GitHub's anonymous rate limit is spent");
 		await expect(projectName(page)).toHaveValue(REAL_PR_TITLE);

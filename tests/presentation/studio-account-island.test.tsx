@@ -265,6 +265,55 @@ describe("StudioAccountIsland", () => {
 		});
 	});
 
+	it("counts the cloud copy it just saved in the allowance, without a reload", async () => {
+		const { runtime } = cloudRuntime();
+		let stored = 0;
+		const getAllowance = vi.fn(async () => `${stored} of 3 cloud projects`);
+		const billing: BillingPort = {
+			getCatalog: async () => {
+				throw new Error("Billing is not configured");
+			},
+			getCurrentPlan: async () => Plan.free(),
+			getAllowance,
+			startCheckout: async () => {
+				throw new Error("Unexpected checkout");
+			},
+			openPortal: async () => {
+				throw new Error("Unexpected portal");
+			},
+		};
+		// The server counts the copy once the save has landed.
+		const counting: StudioCloudRuntime = {
+			...runtime,
+			createHostedSync: () => {
+				const sync = runtime.createHostedSync();
+				return {
+					...sync,
+					flush: async () => {
+						const result = await sync.flush();
+						stored = 1;
+						return result;
+					},
+				} as BrowserHostedProjectSyncRuntime;
+			},
+		};
+		render(
+			<StudioAccountIsland
+				authStore={createAuthStore({ kind: "hosted", port: authPort(SESSION) }, { now: () => NOW })}
+				planStore={createPlanStore({ deploymentMode: "hosted", billing })}
+				compositionStore={createProjectStore(localDocument())}
+				cloudRuntime={counting}
+			/>,
+		);
+
+		fireEvent.click(await screen.findByRole("button", { name: "Account for Ada Lovelace" }));
+		expect(await screen.findByText("0 of 3 cloud projects")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Save this project to cloud" }));
+
+		await waitFor(() => expect(screen.getByText("Cloud copy saved")).toBeTruthy());
+		expect(await screen.findByText("1 of 3 cloud projects")).toBeTruthy();
+	});
+
 	it("opens no cloud connection for an account that never saved this project", async () => {
 		const { api, runtime } = cloudRuntime();
 		const createHostedSync = vi.fn(runtime.createHostedSync);
