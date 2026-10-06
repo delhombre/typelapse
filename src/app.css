@@ -2486,15 +2486,35 @@ html.dark:not([data-landing-theme]) {
 	flex: none;
 }
 
+@property --si-sheet-fade-start {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
 .sc-root-mobile .si-sheet-body {
+	--si-sheet-fade-start: 0px;
 	min-height: 0;
 	flex: 1 1 auto;
 	overflow-y: auto;
 	overscroll-behavior: contain;
 	/* Rows still to scroll to dissolve into the sheet's foot instead of being cut
 	   flat. The fade is the cluster's own 16px of bottom padding, so at the end of
-	   the scroll nothing is faded. */
-	mask-image: linear-gradient(to bottom, black calc(100% - 16px), transparent);
+	   the scroll nothing is faded. The top does the same under the tabs, but only
+	   once the controls have scrolled (data-more-above, from the scroller's own
+	   position): at rest the first row sits sharp against the tab row. */
+	mask-image: linear-gradient(
+		to bottom,
+		transparent,
+		black var(--si-sheet-fade-start),
+		black calc(100% - 16px),
+		transparent
+	);
+	transition: --si-sheet-fade-start 200ms var(--ease-out);
+}
+
+.sc-root-mobile .si-sheet-body[data-more-above="true"] {
+	--si-sheet-fade-start: 16px;
 }
 
 .studio-root .si-cluster-group {
