@@ -5,7 +5,7 @@
  * export both run these same functions on the same timeline numbers, so the
  * sound you hear in the preview is byte-for-byte the sound baked into the video.
  */
-import { TYPE_COMPLETE_AT } from "../magic-move/typewriter";
+import { TYPE_COMPLETE_AT, keystrokeCount, typingHoldIndex } from "../magic-move/typewriter";
 
 /** A single audible moment: a key press while typing, or a step-to-step morph. */
 export interface TickEvent {
@@ -61,6 +61,29 @@ export function collectTickEvents(opts: TickEventOptions): TickEvent[] {
 	}
 
 	return events;
+}
+
+/**
+ * The tick events for a project's scenes: the one place that says which scene
+ * the typewriter types (the first with code, `typingHoldIndex`) and how many keys
+ * that takes. The preview and the server's render both come through here, so a
+ * video that opens on a blank scene ticks over the scene that is actually typed.
+ */
+export function collectSceneTickEvents(opts: {
+	typewriter: boolean;
+	sceneCodes: readonly string[];
+	holds: number[];
+	transitionMs: number;
+}): TickEvent[] {
+	const { typewriter, sceneCodes, holds, transitionMs } = opts;
+	const typewriterHoldIndex = typingHoldIndex(sceneCodes);
+	return collectTickEvents({
+		typewriter,
+		firstCodeLength: keystrokeCount(sceneCodes[typewriterHoldIndex] ?? ""),
+		holds,
+		transitionMs,
+		typewriterHoldIndex,
+	});
 }
 
 // ── Synthesis ────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import {
 	type TickEvent,
+	collectSceneTickEvents,
 	collectTickEvents,
 	encodeWavBase64,
 	renderTickTrack,
@@ -26,6 +27,50 @@ function ascii(bytes: Uint8Array, offset: number, len: number): string {
 	}
 	return s;
 }
+
+describe("collectSceneTickEvents", () => {
+	it("types over the first scene with code, so a blank opening scene stays silent", () => {
+		const events = collectSceneTickEvents({
+			typewriter: true,
+			sceneCodes: ["", "abcd"],
+			holds: [1000, 2000],
+			transitionMs: 500,
+		});
+		const keys = events.filter((event) => event.kind === "key");
+
+		expect(keys).toHaveLength(4);
+		// The blank hold and the morph out of it come first: no key sounds before 1500 ms.
+		expect(Math.min(...keys.map((event) => event.timeMs))).toBe(1500);
+		expect(events.filter((event) => event.kind === "morph").map((event) => event.timeMs)).toEqual([
+			1000,
+		]);
+	});
+
+	it("counts the keys of the typed scene, not of the first", () => {
+		const events = collectSceneTickEvents({
+			typewriter: true,
+			sceneCodes: ["", "ab"],
+			holds: [1000, 1000],
+			transitionMs: 0,
+		});
+		expect(events.filter((event) => event.kind === "key")).toHaveLength(2);
+	});
+
+	it("is the plain first-scene case when the first scene has code", () => {
+		const sceneCodes = ["abc", "abcdef"];
+		const holds = [1000, 1000];
+		expect(
+			collectSceneTickEvents({ typewriter: true, sceneCodes, holds, transitionMs: 400 }),
+		).toEqual(
+			collectTickEvents({
+				typewriter: true,
+				firstCodeLength: 3,
+				holds,
+				transitionMs: 400,
+			}),
+		);
+	});
+});
 
 describe("collectTickEvents", () => {
 	it("ticks once per typed glyph on the #188 sample, an emoji included", () => {

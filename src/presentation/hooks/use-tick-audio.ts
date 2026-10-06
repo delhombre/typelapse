@@ -1,9 +1,8 @@
 import {
-	collectTickEvents,
+	collectSceneTickEvents,
 	encodeWavBase64,
 	renderTickTrack,
 } from "@/application/audio/tick-synth";
-import { keystrokeCount, typingHoldIndex } from "@/application/magic-move/typewriter";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { studioPlaybackTimeline, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect } from "react";
@@ -61,13 +60,11 @@ export function useTickAudio(): void {
 		}
 		const { transitionMs, typewriter } = useExportStore.getState();
 		const holds = steps.map((s) => s.duration);
-		const typewriterHoldIndex = typingHoldIndex(steps.map((s) => s.code));
-		const events = collectTickEvents({
+		const events = collectSceneTickEvents({
 			typewriter,
-			firstCodeLength: keystrokeCount(steps[typewriterHoldIndex]?.code ?? ""),
+			sceneCodes: steps.map((s) => s.code),
 			holds,
 			transitionMs,
-			typewriterHoldIndex,
 		});
 		// The playhead's own total, so a resumed track lands on the held frame.
 		const totalMs = timeline.totalMs;

@@ -9,14 +9,13 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { type BundledLanguage, type Highlighter, createHighlighter } from "shiki";
 import {
-	collectTickEvents,
+	collectSceneTickEvents,
 	encodeWavBase64,
 	renderTickTrack,
 } from "../../src/application/audio/tick-synth";
 import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradient";
 import { clampRenderDimension } from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
-import { keystrokeCount } from "../../src/application/magic-move/typewriter";
 import {
 	DEFAULT_TRANSITION_EASING,
 	isCubicBezier,
@@ -279,9 +278,9 @@ renderRoute.post(
 			// so skip it there silently.
 			let audioDataUrl: string | undefined;
 			if (sound && fmt !== "gif") {
-				const events = collectTickEvents({
+				const events = collectSceneTickEvents({
 					typewriter,
-					firstCodeLength: keystrokeCount(clampedSteps[0]?.code ?? ""),
+					sceneCodes: clampedSteps.map((s) => s.code),
 					holds: clampedSteps.map((s) => s.duration),
 					transitionMs,
 				});
