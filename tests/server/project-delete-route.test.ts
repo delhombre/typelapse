@@ -109,6 +109,27 @@ describe("deleting a cloud project", () => {
 		expect(again.status).toBe(404);
 	});
 
+	it("keeps a project with a render still running and says why in one sentence", async () => {
+		const projects = new MemoryProjectRepository(NOW);
+		const app = appFor(projects);
+		const busy = await save(app);
+		projects.rendering.add(busy);
+
+		const response = await app.request(withSession(`/api/projects/${busy}`, { method: "DELETE" }));
+
+		expect(response.status).toBe(409);
+		expect(await response.json()).toEqual({
+			error: "A render is still running on this project. Delete it once the render ends.",
+			code: "render-active",
+		});
+		expect(await listed(app)).toEqual([busy]);
+
+		projects.rendering.delete(busy);
+		expect(
+			(await app.request(withSession(`/api/projects/${busy}`, { method: "DELETE" }))).status,
+		).toBe(204);
+	});
+
 	it("takes the session and nothing else: no cookie, and a key is no way in", async () => {
 		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);

@@ -304,6 +304,13 @@ export class HostedProjectHttpAdapter implements HostedProjectApiPort {
 		);
 		if (response.status === 404) return false;
 		if (response.status === 204) return true;
+		if (response.status === 409) {
+			throw new HostedProjectApiError(
+				"render-active",
+				"A render is still running on this project.",
+				409,
+			);
+		}
 		if (!response.ok) return throwForStatus(response.status);
 		return invalidResponse();
 	}

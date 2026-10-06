@@ -29,7 +29,7 @@ const projects: ProjectDocumentRepositoryPort = {
 		throw new Error("not needed");
 	},
 	updateAutomation: async () => ({ outcome: "not-found" }),
-	deleteOwnedById: async () => false,
+	deleteOwnedById: async () => "not-found",
 };
 
 const assets: AssetRepositoryPort = {

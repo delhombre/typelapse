@@ -38,6 +38,18 @@ function signedOut(error: unknown): boolean {
 	return error instanceof HostedProjectApiError && error.code === "unauthorized";
 }
 
+function rendering(error: unknown): boolean {
+	return error instanceof HostedProjectApiError && error.code === "render-active";
+}
+
+function deleteRefusal(error: unknown): string {
+	if (signedOut(error)) return "Sign in again to delete projects.";
+	if (rendering(error)) {
+		return "A render is still running on this project. Delete it once the render ends.";
+	}
+	return "The project could not be deleted. Try again in a moment.";
+}
+
 export function createCloudProjectsStore({
 	port = new HostedProjectHttpAdapter(),
 }: CloudProjectsStoreOptions = {}) {
@@ -79,9 +91,7 @@ export function createCloudProjectsStore({
 				if (started === epoch) {
 					set({
 						deleting: null,
-						error: signedOut(error)
-							? "Sign in again to delete projects."
-							: "The project could not be deleted. Try again in a moment.",
+						error: deleteRefusal(error),
 					});
 				}
 				return false;

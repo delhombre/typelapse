@@ -1,5 +1,6 @@
 import { and, desc, eq, type SQL, sql } from "drizzle-orm";
 import type {
+	DeleteProjectDocumentResult,
 	ProjectDocumentRepositoryPort,
 	ProjectDocumentSummary,
 	StoredProjectDocument,
@@ -236,10 +237,10 @@ export function createProjectDocumentRepository(
 				: refusalOf(db, input);
 		},
 
-		async deleteOwnedById(ownerId, id) {
+		async deleteOwnedById(ownerId, id): Promise<DeleteProjectDocumentResult> {
 			// The owner lock every other writer of the account takes, so a delete never
 			// interleaves with a reservation or an enqueue.
-			return db.transaction(async (tx) => {
+			return db.transaction(async (tx): Promise<DeleteProjectDocumentResult> => {
 				await lockOwner(tx, ownerId);
 				const [owned] = await tx
 					.select({ id: projects.id })
@@ -247,14 +248,22 @@ export function createProjectDocumentRepository(
 					.where(and(eq(projects.id, id), eq(projects.ownerId, ownerId)))
 					.for("update");
 				if (!owned) {
-					return false;
+					return "not-found";
+				}
+				// The jobs are held first, so no worker ends one between this read and the
+				// delete: a job still queued or running keeps its project, and the slot it
+				// holds is counted until it ends. Its minutes are in the usage ledger
+				// either way, which the delete does not touch.
+				const held = await tx.execute<{ readonly status: string }>(
+					sql`SELECT status FROM render_jobs WHERE project_id = ${id} FOR UPDATE`,
+				);
+				if (held.rows.some((job) => job.status === "queued" || job.status === "running")) {
+					return "render-active";
 				}
 				// Its media and renders go with it by cascade, but the files they name sit
 				// in the bucket, which a cascade cannot reach: each gets a note for the
 				// cleanup worker, written in this transaction so it is as durable as the
-				// delete. The jobs are held first so a worker cannot store a result between
-				// this read and the delete; its next write finds no job and removes the result.
-				await tx.execute(sql`SELECT id FROM render_jobs WHERE project_id = ${id} FOR UPDATE`);
+				// delete.
 				await tx.execute(
 					sql`INSERT INTO object_deletion_outbox (id, object_key)
 						SELECT stored.id, stored.object_key FROM (
@@ -273,7 +282,7 @@ export function createProjectDocumentRepository(
 						ON CONFLICT DO NOTHING`,
 				);
 				await tx.delete(projects).where(and(eq(projects.id, id), eq(projects.ownerId, ownerId)));
-				return true;
+				return "deleted";
 			});
 		},
 	};

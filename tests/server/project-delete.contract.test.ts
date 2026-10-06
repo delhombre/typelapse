@@ -5,7 +5,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase } from "../../server/db/database";
 import { createProjectDocumentRepository } from "../../server/db/project-document.repository";
 import {
-	createRenderJobQueue,
 	createRenderJobRepository,
 	createRenderOutputRepository,
 	createRenderPageRepository,
@@ -38,7 +37,6 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 	const db = createDatabase(DATABASE_URL ?? "postgres://unused");
 	const projects = createProjectDocumentRepository(db);
 	const jobs = createRenderJobRepository(db);
-	const queue = createRenderJobQueue(db);
 	const pages = createRenderPageRepository(db);
 	const outputs = createRenderOutputRepository(db);
 	const made: string[] = [];
@@ -157,6 +155,16 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 		);
 	}
 
+	/** A render that ended without output: the worker gave up on it. */
+	async function gaveUp(jobId: string) {
+		await query(
+			`UPDATE render_jobs SET status = 'failed', attempts = 3, completed_at = now(),
+				error_code = 'render-failed'
+			WHERE id = $1`,
+			[jobId],
+		);
+	}
+
 	const count = async (table: "assets" | "render_jobs" | "projects", projectId: string) => {
 		const column = table === "projects" ? "id" : "project_id";
 		const result = await query(`SELECT count(*)::int AS n FROM ${table} WHERE ${column} = $1`, [
@@ -181,11 +189,12 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 		const shared = await queued(owner, doomed, "shared");
 		await finished(shared.id, shared.keys, true);
 		const waiting = await queued(owner, doomed, "waiting");
+		await gaveUp(waiting.id);
 		expect((await pages.findPublished(shared.id))?.jobId).toBe(shared.id);
 
 		const deleted = await projects.deleteOwnedById(owner, doomed);
 
-		expect(deleted).toBe(true);
+		expect(deleted).toBe("deleted");
 		expect(await projects.findOwnedById(owner, doomed)).toBeNull();
 		expect(await count("projects", doomed)).toBe(0);
 		expect(await count("assets", doomed)).toBe(0);
@@ -198,28 +207,6 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 		expect(await projects.listByOwner(owner)).toEqual([]);
 	});
 
-	it("leaves no render job alive: a worker holding one is fenced out the moment its project goes", async () => {
-		const owner = await account("fenced");
-		const doomed = await project(owner, "Running");
-		const job = await queued(owner, doomed, "running");
-		await leased(job.id, "worker-a");
-		const now = new Date();
-		const lease = { jobId: job.id, workerId: "worker-a", attempt: 1, now };
-		const later = new Date(now.getTime() + 60_000);
-		expect(await queue.heartbeat({ ...lease, leaseExpiresAt: later })).toBe(true);
-
-		await projects.deleteOwnedById(owner, doomed);
-
-		expect(await queue.heartbeat({ ...lease, leaseExpiresAt: later })).toBe(false);
-		expect(
-			await queue.succeed({
-				...lease,
-				output: { objectKey: job.keys.video, mimeType: "video/mp4", byteSize: 4096 },
-			}),
-		).toBe(false);
-		expect(await count("render_jobs", doomed)).toBe(0);
-	});
-
 	it("leaves a note to delete each stored object, in the same step as the rows", async () => {
 		const owner = await account("notes");
 		const doomed = await project(owner, "Stored");
@@ -230,7 +217,7 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 		const finishedJob = await queued(owner, doomed, "finished");
 		await finished(finishedJob.id, finishedJob.keys, false);
 		// A render that has produced nothing has nothing stored.
-		await queued(owner, doomed, "waiting");
+		await gaveUp((await queued(owner, doomed, "waiting")).id);
 
 		await projects.deleteOwnedById(owner, doomed);
 
@@ -250,7 +237,7 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 		const job = await queued(owner, doomed, "racing");
 		await leased(job.id, "worker-a");
 		const worker = await db.$client.connect();
-		let deleting: Promise<boolean>;
+		let deleting: ReturnType<typeof projects.deleteOwnedById>;
 		try {
 			// The worker has stored its result and is writing it down: it holds the job's row.
 			await worker.query("BEGIN");
@@ -276,7 +263,7 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 			worker.release();
 		}
 
-		expect(await deleting).toBe(true);
+		expect(await deleting).toBe("deleted");
 		expect(await outboxKeys(owner)).toEqual([job.keys.poster, job.keys.video].sort());
 	});
 
@@ -289,7 +276,7 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 			[`earlier-${randomBytes(3).toString("hex")}`, key],
 		);
 
-		expect(await projects.deleteOwnedById(owner, doomed)).toBe(true);
+		expect(await projects.deleteOwnedById(owner, doomed)).toBe("deleted");
 
 		expect(await outboxKeys(owner)).toEqual([key]);
 	});
@@ -304,7 +291,7 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 
 		const deleted = await projects.deleteOwnedById(stranger, kept);
 
-		expect(deleted).toBe(false);
+		expect(deleted).toBe("not-found");
 		expect(await count("projects", kept)).toBe(1);
 		expect(await count("assets", kept)).toBe(1);
 		expect(await count("render_jobs", kept)).toBe(1);
@@ -319,8 +306,8 @@ describe.skipIf(!DATABASE_URL)("deleting a cloud project on PostgreSQL", () => {
 		await media(owner, spared, "ready");
 		const job = await queued(owner, spared, "spared");
 
-		expect(await projects.deleteOwnedById(owner, doomed)).toBe(true);
-		expect(await projects.deleteOwnedById(owner, doomed)).toBe(false);
+		expect(await projects.deleteOwnedById(owner, doomed)).toBe("deleted");
+		expect(await projects.deleteOwnedById(owner, doomed)).toBe("not-found");
 
 		expect((await projects.listByOwner(owner)).map((entry) => entry.id)).toEqual([spared]);
 		expect(await count("assets", spared)).toBe(1);

@@ -225,7 +225,8 @@ describe.skipIf(!DATABASE_URL)("render by URL on PostgreSQL", () => {
 		const owner = await account("minutes");
 		const rendering = service({ diff: DIFF });
 		await submit(rendering, owner);
-		await db.$client.query("UPDATE render_jobs SET duration_ms = $2 WHERE owner_id = $1", [
+		// The month's minutes are read from the usage ledger, one entry for each job.
+		await db.$client.query("UPDATE render_usage SET duration_ms = $2 WHERE owner_id = $1", [
 			owner,
 			3_600_000 - 1_000,
 		]);

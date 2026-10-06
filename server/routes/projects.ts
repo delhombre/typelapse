@@ -195,9 +195,18 @@ export function createProjectsRoute({
 	});
 
 	route.delete("/:id", async (c) => {
-		const deleted = await projects.deleteOwnedById(c.get("accountId"), c.req.param("id"));
-		if (!deleted) {
+		const outcome = await projects.deleteOwnedById(c.get("accountId"), c.req.param("id"));
+		if (outcome === "not-found") {
 			return c.json({ error: "Project not found" }, 404);
+		}
+		if (outcome === "render-active") {
+			return c.json(
+				{
+					error: "A render is still running on this project. Delete it once the render ends.",
+					code: "render-active",
+				},
+				409,
+			);
 		}
 		return c.body(null, 204);
 	});

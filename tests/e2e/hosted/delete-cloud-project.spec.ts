@@ -1,4 +1,6 @@
 import pg from "pg";
+import { allowanceSentence } from "../../../src/application/billing/plan-allowance";
+import { Plan } from "../../../src/domain/value-objects/plan";
 import {
 	HOSTED,
 	cloudProjectCount,
@@ -7,6 +9,8 @@ import {
 	newestCloudProject,
 	openAccountPanel,
 	renderJobsOf,
+	setRenderDuration,
+	signInByApi,
 	signUpByApi,
 	signUpInIsland,
 	signedOut,
@@ -20,9 +24,23 @@ import { expect, openStudio, test } from "../support/studio";
  * island deletes it. What the person was told goes with it (the revisions, the
  * renders and their share pages) is read back from the service database and
  * from the public routes, and the studio is shown still standing on its own
- * project.
+ * project. The month's hosted minutes survive the delete: the allowance reads the
+ * same number before and after, and the next render over it is refused.
  */
 const owner = newAccount("deleter");
+
+/** Half a second short of the Creator's 60 minutes, so the one-second render of the studio crosses them. */
+const SPENT_MS = 3_600_000 - 500;
+
+/** What the island says about the Creator's allowance with that render spent. */
+function allowance(cloudProjects: number): string {
+	return allowanceSentence(Plan.pro(), {
+		cloudProjects,
+		mediaBytes: 0,
+		hostedRenderMsThisMonth: SPENT_MS,
+		activeRenders: 0,
+	});
+}
 
 /** What the database keeps that a person cannot see: the files a render stored, and the notes to delete them. */
 async function storedFilesOf(jobId: string): Promise<{ video: string; poster: string }> {
@@ -94,7 +112,12 @@ test("a person deletes a cloud project from the island, and its renders and thei
 		await stranger.dispose();
 	});
 
+	// As if that render had played for nearly the whole month's minutes.
+	await setRenderDuration(jobId, SPENT_MS);
+	// The island reads its allowance on load, so a fresh load reads this render in it.
+	await page.reload();
 	const panel = await openAccountPanel(page, owner);
+	await expect(panel.getByText(allowance(1), { exact: true })).toBeVisible();
 
 	await test.step("the island lists it as the cloud copy of the open project", async () => {
 		await panel.getByRole("button", { name: "Cloud projects" }).click();
@@ -138,6 +161,8 @@ test("a person deletes a cloud project from the island, and its renders and thei
 	await test.step("the studio stays on its own project, on this device, and offers to save again", async () => {
 		await panel.getByRole("button", { name: "Back to account" }).click();
 		await expect(panel.getByText("On this device")).toBeVisible();
+		// The project count fell with the delete; the minutes did not.
+		await expect(panel.getByText(allowance(0), { exact: true })).toBeVisible();
 		await expect(panel.getByText("Cloud copy needs attention")).toHaveCount(0);
 		await page.keyboard.press("Escape");
 		await expect(page.getByText("1 scene", { exact: true }).first()).toBeVisible();
@@ -151,5 +176,26 @@ test("a person deletes a cloud project from the island, and its renders and thei
 		await expect(again.getByText("Cloud copy saved")).toBeVisible();
 		expect(await cloudProjectCount(owner.email)).toBe(1);
 		expect((await newestCloudProject(owner.email)).id).not.toBe(projectId);
+	});
+
+	await test.step("the next render is refused for the minutes the deleted project spent", async () => {
+		const api = await signInByApi(owner);
+		const fresh = await newestCloudProject(owner.email);
+		const refused = await api.post("/api/cloud/render", {
+			data: {
+				projectId: fresh.id,
+				revision: fresh.revision,
+				renderOptions: { format: "mp4", width: 1280, height: 720, fps: 24, includeAudio: true },
+			},
+		});
+
+		expect(refused.status(), await refused.text()).toBe(402);
+		expect(await refused.json()).toMatchObject({
+			code: "plan-limit",
+			ceiling: "hostedRenderTime",
+			used: SPENT_MS,
+		});
+		expect(await renderJobsOf(owner.email)).toEqual([]);
+		await api.dispose();
 	});
 });

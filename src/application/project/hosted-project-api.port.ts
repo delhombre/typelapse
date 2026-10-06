@@ -47,6 +47,7 @@ export type HostedProjectApiErrorCode =
 	| "unauthorized"
 	| "rejected"
 	| "unavailable"
+	| "render-active"
 	| "invalid-response";
 
 export class HostedProjectApiError extends Error {

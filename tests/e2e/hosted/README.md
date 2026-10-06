@@ -101,8 +101,10 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
   render and its public page (the page and its video answer 404), leaves a note
   for each file the render stored, and leaves the studio on its own project, on
   this device, with the render status saying the render is gone; a new save makes
-  a new project. Another account's delete answers 404, as for a project that is
-  not there.
+  a new project. The month's minutes survive the delete: the island's allowance
+  reads the same minutes before and after, and the next render over them is
+  refused with the ceiling named. Another account's delete answers 404, as for a
+  project that is not there.
 
 `support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job, the keys, the
 projects, the minutes a render counts) and the sign-up helpers. Better Auth allows

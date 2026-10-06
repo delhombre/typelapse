@@ -21,9 +21,10 @@ import type {
 	RenderJobLease,
 	RenderJobQueuePort,
 } from "../../src/application/render/hosted-render-worker";
-import { assets, projects, renderJobs } from "./creator-schema";
+import { assets, projects, renderJobs, renderUsage } from "./creator-schema";
 import type { CreatorDatabase } from "./database";
 import type { RenderOptions } from "./persistence-values";
+import { hostedRenderMsSince } from "./render-usage";
 
 type RenderJobRow = typeof renderJobs.$inferSelect;
 
@@ -153,6 +154,18 @@ function currentLeaseWhere(input: {
 		AND job.lease_expires_at > ${input.now}`;
 }
 
+/**
+ * The ledger side of a job that ended for good without output, as one more step
+ * of the statement that ended it (a CTE named `ended`): the job's state and its
+ * minutes change together or not at all.
+ */
+function releasedWith(now: Date): SQL {
+	return sql`, released AS (
+		UPDATE render_usage SET released_at = ${now}
+		WHERE job_id IN (SELECT id FROM ended) AND released_at IS NULL
+	)`;
+}
+
 export function hostedRenderJobFromRow(row: RenderJobRow): HostedRenderJob {
 	return {
 		id: row.id,
@@ -190,16 +203,13 @@ export function createRenderJobRepository(db: CreatorDatabase): RenderJobReposit
 				if (existing) {
 					return { outcome: "enqueued" as const, job: hostedRenderJobFromRow(existing) };
 				}
-				// Failed and canceled jobs produced nothing, so they spend no minutes.
+				// Failed and canceled jobs produced nothing, so the ledger has released them.
+				// The minutes come from the ledger, not from the jobs: a delete takes the jobs.
 				const usage = await tx.execute<RenderUsageRow>(
 					sql`SELECT
-						count(*) FILTER (WHERE status IN ('queued', 'running')) AS "activeRenders",
-						COALESCE(SUM(duration_ms) FILTER (
-							WHERE status IN ('queued', 'running', 'succeeded')
-								AND created_at >= ${input.quota.periodStart}
-						), 0) AS "renderMsInPeriod"
-					FROM render_jobs
-					WHERE owner_id = ${input.ownerId}`,
+						(SELECT count(*) FROM render_jobs
+							WHERE owner_id = ${input.ownerId} AND status IN ('queued', 'running')) AS "activeRenders",
+						${hostedRenderMsSince(input.ownerId, input.quota.periodStart)} AS "renderMsInPeriod"`,
 				);
 				const activeRenders = Number(usage.rows[0]?.activeRenders ?? 0);
 				const renderMsInPeriod = Number(usage.rows[0]?.renderMsInPeriod ?? 0);
@@ -234,6 +244,12 @@ export function createRenderJobRepository(db: CreatorDatabase): RenderJobReposit
 				if (!created) {
 					throw new Error("Render job persistence returned no created row");
 				}
+				await tx.insert(renderUsage).values({
+					jobId: created.id,
+					ownerId: input.ownerId,
+					durationMs: input.durationMs,
+					acceptedAt: created.createdAt,
+				});
 				return { outcome: "enqueued" as const, job: hostedRenderJobFromRow(created) };
 			});
 		},
@@ -386,22 +402,26 @@ export function createRenderJobQueue(db: CreatorDatabase): RenderJobQueuePort {
 		async claim(input) {
 			await executeRows<AppliedRow>(
 				db,
-				sql`UPDATE render_jobs AS job
-				SET status = 'failed',
-					lease_owner = NULL,
-					lease_expires_at = NULL,
-					output_object_key = NULL,
-					output_mime_type = NULL,
-					output_byte_size = NULL,
-					output_poster_key = NULL,
-					error_code = 'lease-expired',
-					error_message = 'Render worker lease expired after maximum attempts',
-					updated_at = ${input.now},
-					completed_at = ${input.now}
-				WHERE job.status = 'running'
-					AND job.attempts >= ${input.maxAttempts}
-					AND job.lease_expires_at <= ${input.now}
-				RETURNING job.id AS "id"`,
+				sql`WITH ended AS (
+					UPDATE render_jobs AS job
+					SET status = 'failed',
+						lease_owner = NULL,
+						lease_expires_at = NULL,
+						output_object_key = NULL,
+						output_mime_type = NULL,
+						output_byte_size = NULL,
+						output_poster_key = NULL,
+						error_code = 'lease-expired',
+						error_message = 'Render worker lease expired after maximum attempts',
+						updated_at = ${input.now},
+						completed_at = ${input.now}
+					WHERE job.status = 'running'
+						AND job.attempts >= ${input.maxAttempts}
+						AND job.lease_expires_at <= ${input.now}
+					RETURNING job.id AS "id"
+				)
+				${releasedWith(input.now)}
+				SELECT id AS "id" FROM ended`,
 			);
 			const rows = await executeRows<RawRenderLeaseRow>(
 				db,
@@ -496,19 +516,24 @@ export function createRenderJobQueue(db: CreatorDatabase): RenderJobQueuePort {
 					completed_at = ${input.now},
 					error_code = ${input.error.code},
 					error_message = ${input.error.message}`;
+			// A retry is the same job back in line, so its minutes stay spent.
 			const rows = await executeRows<AppliedRow>(
 				db,
-				sql`UPDATE render_jobs AS job
-				SET ${failureTransition},
-					lease_owner = NULL,
-					lease_expires_at = NULL,
-					output_object_key = NULL,
-					output_mime_type = NULL,
-					output_byte_size = NULL,
-					output_poster_key = NULL,
-					updated_at = ${input.now}
-				WHERE ${currentLeaseWhere(input)}
-				RETURNING job.id AS "id"`,
+				sql`WITH ended AS (
+					UPDATE render_jobs AS job
+					SET ${failureTransition},
+						lease_owner = NULL,
+						lease_expires_at = NULL,
+						output_object_key = NULL,
+						output_mime_type = NULL,
+						output_byte_size = NULL,
+						output_poster_key = NULL,
+						updated_at = ${input.now}
+					WHERE ${currentLeaseWhere(input)}
+					RETURNING job.id AS "id"
+				)
+				${input.retryAt ? sql`` : releasedWith(input.now)}
+				SELECT id AS "id" FROM ended`,
 			);
 			return rows.length === 1;
 		},

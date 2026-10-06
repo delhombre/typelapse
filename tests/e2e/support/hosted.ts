@@ -139,6 +139,11 @@ export async function downgradeToFree(email: string, at: Date): Promise<void> {
 /** Move a finished render back in time, as if it had completed `days` ago. */
 export async function ageRender(jobId: string, days: number): Promise<void> {
 	await one(
+		`UPDATE render_usage SET accepted_at = accepted_at - make_interval(days => $2)
+		WHERE job_id = $1 RETURNING job_id`,
+		[jobId, days],
+	);
+	await one(
 		`UPDATE render_jobs SET
 			created_at = created_at - make_interval(days => $2),
 			started_at = started_at - make_interval(days => $2),
@@ -212,6 +217,11 @@ export async function cloudProjectsOf(
 /** What a render counts against the month's minutes, as if it had played that long. */
 export async function setRenderDuration(jobId: string, durationMs: number): Promise<void> {
 	await one("UPDATE render_jobs SET duration_ms = $2 WHERE id = $1 RETURNING id", [
+		jobId,
+		durationMs,
+	]);
+	// The month's minutes are read from the usage ledger, which a job's own row does not feed.
+	await one("UPDATE render_usage SET duration_ms = $2 WHERE job_id = $1 RETURNING job_id", [
 		jobId,
 		durationMs,
 	]);

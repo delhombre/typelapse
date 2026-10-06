@@ -430,3 +430,28 @@ export const renderJobs = pgTable(
 		index("render_jobs_owner_created_idx").on(table.ownerId, table.createdAt),
 	],
 );
+
+/**
+ * The usage ledger: one entry for each hosted render job accepted, kept when the
+ * job's project is deleted. The month's render minutes are summed from here, not
+ * from `render_jobs`, whose rows go with their project. `job_id` is deliberately
+ * not a foreign key for that reason; the account owns the entry, so deleting the
+ * account takes it.
+ */
+export const renderUsage = pgTable(
+	"render_usage",
+	{
+		jobId: text("job_id").primaryKey(),
+		ownerId: text("owner_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		durationMs: integer("duration_ms").notNull(),
+		acceptedAt: hostedTimestamp("accepted_at").defaultNow().notNull(),
+		/** Set when the job ended in failure or was canceled: it produced nothing, so it spent nothing. */
+		releasedAt: hostedTimestamp("released_at"),
+	},
+	(table) => [
+		check("render_usage_duration_check", sql`${table.durationMs} >= 0`),
+		index("render_usage_owner_accepted_idx").on(table.ownerId, table.acceptedAt),
+	],
+);
