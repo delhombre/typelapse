@@ -303,6 +303,38 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		});
 	}
 
+	// The sheet holds text at every stop, so it is the opaque studio surface too (#160): at 92%
+	// with a blur the stage's mesh showed through it. Read at the peek, the scenes stop and the
+	// full stop, where the drawer has moved it, in both themes.
+	for (const theme of ["light", "dark"] as const) {
+		test(`the sheet is opaque at every stop, ${theme}`, async ({ page }) => {
+			await page.addInitScript(
+				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				theme,
+			);
+			await openStudio(page);
+			const handle = page.locator("[data-vaul-handle]");
+			await handle.focus();
+			for (const text of ["Collapsed", "Half open", "Open"]) {
+				await expect(handle).toHaveAttribute("aria-valuetext", text);
+				const paint = await page.locator(".sc-sheet").evaluate((element) => {
+					const style = getComputedStyle(element);
+					return {
+						background: style.backgroundColor,
+						blur: style.backdropFilter,
+						border: style.borderTopWidth,
+					};
+				});
+				expect(paint, text).toEqual({
+					background: theme === "light" ? "rgb(255, 255, 255)" : "rgb(30, 28, 26)",
+					blur: "none",
+					border: "0px",
+				});
+				await handle.press("ArrowUp");
+			}
+		});
+	}
+
 	test("a short phone can still answer the Showcase's replace question", async ({ page }) => {
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await page.setViewportSize({ width: 375, height: 600 });

@@ -39,7 +39,7 @@ the one exception (DECISIONS D5).
 | Desktop muted, the landing's ash (4.87:1 on the pill) | `--camera-muted: #6e6b64` `src/presentation/studio-camera.css:28` | `--camera-muted: #a8a39a` `src/presentation/studio-camera.css:85` |
 | Desktop line, the scene hairline | `--camera-line: var(--sc-hairline)` `src/presentation/studio-camera.css:27` | same |
 | Desktop pill (fields, selection plate) | `--camera-pill: var(--color-neutral-100)` `src/presentation/studio-camera.css:29` | `--camera-pill: #292624` `src/presentation/studio-camera.css:86` |
-| Desktop opaque surface (card, timeline), and the menus that hold rows of text: the source menu, its popovers, the project menu, the phone's More menu and the account panel (D5) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css:38` `background: var(--camera-surface)` `src/presentation/studio-camera.css:605` `background: var(--camera-surface)` `src/app.css:3109` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css:103` |
+| Desktop opaque surface (card, timeline), and the menus that hold rows of text: the source menu, its popovers, the project menu, the phone's More menu, the account panel and the phone's sheet at every stop (D5) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css:38` `background: var(--camera-surface)` `src/presentation/studio-camera.css:605` `background: var(--camera-surface)` `src/app.css:3109` `background: var(--camera-surface)` `src/app.css:3690` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css:103` |
 | Desktop CTA, timeline selection, a selected rail segment's well at 10% | `--camera-amber: var(--color-primary)` `src/presentation/studio-camera.css:22` `color-mix(in oklch, var(--camera-amber) 10%, transparent)` `src/presentation/studio-camera.css:2793` | same |
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css:18` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css:20` | same |
@@ -163,7 +163,7 @@ Which radius?
 | Desktop raised (card, timeline): ring inside the stack | `--camera-raised: 0 0 0 1px var(--camera-line), 0 1px 2px rgb(28 27 25 / 0.04)` `src/presentation/studio-camera.css:38` |
 | Desktop raised on dark | `--camera-raised: 0 0 0 1px var(--camera-line), 0 10px 32px rgb(0 0 0 / 0.28)` `src/presentation/studio-camera.css:90` |
 | Header capsules and the easing popover: the floating material | `--camera-material: color-mix(in oklch, var(--color-neutral-50) 88%, transparent)` `src/presentation/studio-camera.css:45` |
-| Bottom sheet: a ring and a shadow cast upward | `--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18)` `src/presentation/studio-camera.css:52` |
+| Bottom sheet, desktop panel and the phone's, no border and no blur: a ring and a shadow cast upward | `--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18)` `src/presentation/studio-camera.css:52` `box-shadow: var(--camera-sheet-shadow)` `src/app.css:3691` |
 | A hovered showcase card rises into the floating material's depth | `transition: box-shadow 150ms var(--ease-out)` `src/presentation/studio-camera.css:1339` |
 | Landing code card | `0 8px 20px -8px rgb(0 0 0 / 0.16)` `src/presentation/landing/static-frame.tsx:32` |
 | Code frame on the landing | `0 12px 32px -10px oklch(0 0 0 / 0.16)` `src/app.css:250` |
