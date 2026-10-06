@@ -1,6 +1,7 @@
 import { referencedAssetIds } from "@/application/project/multimedia-authoring";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { STUDIO_LIVE_SCENE_ID } from "@/application/project/studio-composition";
+import { useStudioBoot } from "@/presentation/components/layout/studio-boot-guard";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
@@ -33,6 +34,9 @@ function bootProjectId(): string {
  * multimedia aggregate; layer edits never push a competing UI state back.
  */
 export function StudioCompositionBridge() {
+	// Held while the boot guard tries the default project: the composition still
+	// follows the code, but nothing is restored from or written to the device.
+	const { held } = useStudioBoot();
 	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
 	const steps = useSnippetStore((state) => state.snippet.steps);
 	const currentSceneId = steps[currentStepIndex]?.id ?? STUDIO_LIVE_SCENE_ID;
@@ -99,7 +103,7 @@ export function StudioCompositionBridge() {
 		const unsubscribeComposition = useStudioCompositionStore.subscribe(persist);
 		const unsubscribeRelease = onStudioPersistenceRelease(persist);
 		setStudioCompositionRestored(false);
-		if (typeof indexedDB !== "undefined") {
+		if (typeof indexedDB !== "undefined" && !held) {
 			void restoreStudioProject(bootProjectId(), () => active, { adoptLegacy: true })
 				.catch(() => undefined)
 				.then(() => {
@@ -131,7 +135,7 @@ export function StudioCompositionBridge() {
 			unsubscribeComposition();
 			unsubscribeRelease();
 		};
-	}, []);
+	}, [held]);
 
 	useEffect(() => {
 		const composition = useStudioCompositionStore.getState();

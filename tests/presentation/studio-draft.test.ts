@@ -1,9 +1,13 @@
 import type { ProjectPayload } from "@/application/project/project-payload";
+import { StoredProjectError } from "@/presentation/components/ui/route-error-boundary";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
-	DRAFT_STORAGE_KEY,
+	LOCAL_PROJECTS_STORAGE_KEY,
+	readLocalProjects,
+} from "@/presentation/utils/local-project-storage";
+import {
 	clearDraft,
 	hasArrivalPayload,
 	readDraft,
@@ -17,6 +21,7 @@ import {
 	RECOVERY_STORAGE_KEY,
 	readKeptProjects,
 } from "@/presentation/utils/studio-recovery";
+import { DRAFT_STORAGE_KEY } from "@/presentation/utils/studio-storage-keys";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -46,6 +51,7 @@ function currentPayloadJson(): string {
 beforeEach(() => {
 	clearDraft();
 	window.localStorage.removeItem(RECOVERY_STORAGE_KEY);
+	window.localStorage.removeItem(LOCAL_PROJECTS_STORAGE_KEY);
 	useNoticeStore.setState({ notices: [] });
 });
 
@@ -160,6 +166,53 @@ describe("restoreDraftOnBoot", () => {
 		expect(useNoticeStore.getState().notices.map((notice) => notice.message)).toEqual([
 			RECOVERY_NOTICE,
 		]);
+	});
+
+	it("sets aside the open project only, by its id, and leaves the rest of the library", () => {
+		const record = (id: string, title: string, updatedAt: number) => ({
+			id,
+			updatedAt,
+			project: JSON.parse(payload({ title })) as ProjectPayload,
+		});
+		window.localStorage.setItem(
+			LOCAL_PROJECTS_STORAGE_KEY,
+			JSON.stringify({
+				version: 1,
+				activeId: "p",
+				projects: [record("p", "open.ts", 2), record("q", "other.ts", 1)],
+			}),
+		);
+		writeDraft('{"title":""}');
+
+		expect(restoreDraftOnBoot("")).toBe(false);
+
+		expect(readKeptProjects().map((kept) => [kept.id, kept.project?.title, kept.draft])).toEqual([
+			["p", "open.ts", '{"title":""}'],
+		]);
+		const library = readLocalProjects();
+		expect(library.projects.map((entry) => entry.id)).toContain("q");
+		expect(library.projects.map((entry) => entry.id)).not.toContain("p");
+		expect(library.activeId).not.toBe("q");
+	});
+
+	it("says nothing was kept when nothing could be copied, and leaves the draft where it is", () => {
+		writeDraft('{"title":""}');
+		const setItem = Storage.prototype.setItem;
+		vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+			this: Storage,
+			key: string,
+			value: string,
+		) {
+			if (key === RECOVERY_STORAGE_KEY) {
+				throw new DOMException("full", "QuotaExceededError");
+			}
+			setItem.call(this, key, value);
+		});
+
+		expect(() => restoreDraftOnBoot("")).toThrow(StoredProjectError);
+		expect(readDraft()).toBe('{"title":""}');
+		expect(useNoticeStore.getState().notices).toHaveLength(0);
+		vi.restoreAllMocks();
 	});
 });
 

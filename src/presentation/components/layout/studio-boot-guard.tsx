@@ -1,76 +1,213 @@
+import type { ProjectPayload } from "@/application/project/project-payload";
 import { StoredProjectError } from "@/presentation/components/ui/route-error-boundary";
-import { recoverFromStoredProject } from "@/presentation/utils/studio-recovery";
-import { Component, type ErrorInfo, Fragment, type ReactNode } from "react";
+import {
+	announceKeptProject,
+	downloadKeptProject,
+	setAsideActiveProject,
+	startDefaultProject,
+} from "@/presentation/utils/studio-recovery";
+import {
+	Component,
+	type ErrorInfo,
+	Fragment,
+	type ReactNode,
+	createContext,
+	useContext,
+} from "react";
 
-/** How long after the studio opens a failure is the stored project's, not an edit's. */
-export const BOOT_WINDOW_MS = 3_000;
-
-interface StudioBootGuardProps {
-	readonly children: ReactNode;
-	/** Overridable so a test need not wait. */
-	readonly bootWindowMs?: number;
+/**
+ * What the studio's storage-facing parts (the draft persistence, the
+ * composition bridge) learn from the guard. One per mount of the studio.
+ */
+export interface StudioBoot {
+	/**
+	 * True while the guard tries the default project after a stored one threw:
+	 * nothing is restored, saved or flushed, so storage still holds exactly what
+	 * the person left until the guard has decided what to set aside.
+	 */
+	readonly held: boolean;
+	/**
+	 * Run the restore of the stored project under the guard. When it returns
+	 * true (a stored project was put on screen), a throw before the studio next
+	 * commits is that project's.
+	 */
+	readonly guardRestore: (restore: () => boolean) => boolean;
+	/**
+	 * True once this mount of the studio has thrown. Its unmount must not write
+	 * what is in memory to the device: that is the state that threw, and a
+	 * reload would replay it.
+	 */
+	readonly hasCrashed: () => boolean;
 }
 
+const UNGUARDED: StudioBoot = {
+	held: false,
+	guardRestore: (restore) => restore(),
+	hasCrashed: () => false,
+};
+
+const StudioBootContext = createContext<StudioBoot>(UNGUARDED);
+
+export function useStudioBoot(): StudioBoot {
+	return useContext(StudioBootContext);
+}
+
+interface MountedBoot extends StudioBoot {
+	crashed: boolean;
+}
+
+type Phase =
+	/** The studio, with its storage. */
+	| "live"
+	/** A stored project threw: the default project is tried with storage held. */
+	| "probe";
+
 interface StudioBootGuardState {
-	/** Bumped on each recovery so the studio remounts on the default project. */
-	readonly attempt: number;
+	readonly phase: Phase;
+	/** Bumped to remount the studio from scratch. */
+	readonly generation: number;
+	/** Bumped once a restore has put a stored project on screen. */
+	readonly restoreTick: number;
 	readonly error: Error | null;
 }
 
 /**
  * The boot guard: the last line between a stored project that throws and a
- * studio nobody can open. The project is restored from storage as the studio
- * mounts, so a failure in that first moment is the stored project's, and a
- * reload would only replay it. The guard then sets the project aside under the
- * recovery key, starts the default project and says so in one line.
+ * studio nobody can open.
  *
- * It recovers once. A second failure (the default project itself) goes up to the
- * route's error screen as a `StoredProjectError`, which does not promise that a
- * reload helps; a failure after the boot window is an edit's, not the stored
- * project's, and goes up as it is.
+ * It only blames the stored project when it can be the stored project: from the
+ * moment the persistence restore puts one on screen until the studio has
+ * committed it once. A throw anywhere else (the first render, a share link, a
+ * lazy chunk, an edit) is not the stored project's and goes up untouched, with
+ * the route's Reload; either way the studio that threw writes nothing on its
+ * way out.
+ *
+ * On a throw it can blame, it moves nothing at first: the default project is
+ * mounted with storage held. Only when that commits is the open project set
+ * aside under the recovery key (`studio-recovery`), a fresh one opened, and the
+ * studio remounted on it with one line and a Download action. If the default
+ * project throws too, the stored project was not the cause: nothing moves and
+ * the error goes up. If the copy cannot be written, the project stays where it
+ * is and the screen offers it as a download instead of a reload that would
+ * replay it.
  */
-export class StudioBootGuard extends Component<StudioBootGuardProps, StudioBootGuardState> {
-	override state: StudioBootGuardState = { attempt: 0, error: null };
+export class StudioBootGuard extends Component<
+	{ readonly children: ReactNode },
+	StudioBootGuardState
+> {
+	override state: StudioBootGuardState = {
+		phase: "live",
+		generation: 0,
+		restoreTick: 0,
+		error: null,
+	};
 
-	private readonly openedAt = Date.now();
-	private recovered = false;
-	/** Set by the render that held the studio back, read by the catch that follows it. */
-	private recovering = false;
+	/** A restored project is on screen and has not committed yet. */
+	private armed = false;
+	/** The default project the probe opened, as a payload, to tell work from it. */
+	private defaultProject: ProjectPayload | null = null;
+	private stuck: StoredProjectError | null = null;
+	private boot: MountedBoot = this.mount(false);
+
+	private mount(held: boolean): MountedBoot {
+		const boot: MountedBoot = {
+			held,
+			crashed: false,
+			hasCrashed: () => boot.crashed,
+			guardRestore: held ? () => false : (restore) => this.guardRestore(restore),
+		};
+		return boot;
+	}
+
+	private guardRestore(restore: () => boolean): boolean {
+		this.armed = true;
+		let restored = false;
+		try {
+			restored = restore();
+		} finally {
+			this.armed = restored;
+		}
+		if (restored) {
+			// Its commit is what disarms the guard (componentDidUpdate).
+			this.setState((state) => ({ restoreTick: state.restoreTick + 1 }));
+		}
+		return restored;
+	}
 
 	static getDerivedStateFromError(error: Error): Partial<StudioBootGuardState> {
 		return { error };
 	}
 
-	private canRecover(): boolean {
-		return (
-			!this.recovered && Date.now() - this.openedAt <= (this.props.bootWindowMs ?? BOOT_WINDOW_MS)
-		);
-	}
-
 	override componentDidCatch(error: Error, info: ErrorInfo): void {
-		if (!this.recovering) {
+		if (this.state.phase !== "live" || !this.armed) {
 			return;
 		}
-		this.recovering = false;
-		this.recovered = true;
+		this.armed = false;
 		console.warn(
-			"Typelapse set the stored project aside because it could not be opened",
+			"Typelapse could not open the stored project; trying the default one",
 			error,
 			info.componentStack,
 		);
-		recoverFromStoredProject();
-		this.setState((state) => ({ attempt: state.attempt + 1, error: null }));
+		this.defaultProject = startDefaultProject();
+		this.boot = this.mount(true);
+		this.setState((state) => ({
+			phase: "probe",
+			generation: state.generation + 1,
+			error: null,
+		}));
+	}
+
+	override componentDidUpdate(_props: unknown, previous: StudioBootGuardState): void {
+		const { phase, restoreTick, error } = this.state;
+		if (error) {
+			return;
+		}
+		if (phase === "live" && restoreTick !== previous.restoreTick) {
+			// The restored project is on screen: from here a throw is not its.
+			this.armed = false;
+			return;
+		}
+		if (phase === "probe" && previous.phase !== "probe") {
+			this.settle();
+		}
+	}
+
+	/** The default project committed: the stored one was the cause. */
+	private settle(): void {
+		const outcome = setAsideActiveProject(this.defaultProject ?? startDefaultProject());
+		if (outcome.status === "failed") {
+			const project = outcome.project;
+			this.stuck = new StoredProjectError(
+				new Error("The stored project could not be set aside"),
+				() => downloadKeptProject(project),
+			);
+			this.forceUpdate();
+			return;
+		}
+		if (outcome.status === "kept") {
+			announceKeptProject(outcome.kept);
+		}
+		this.boot = this.mount(false);
+		this.setState((state) => ({ phase: "live", generation: state.generation + 1 }));
 	}
 
 	override render(): ReactNode {
-		const { error } = this.state;
+		if (this.stuck) {
+			throw this.stuck;
+		}
+		const { error, phase, generation } = this.state;
 		if (error) {
-			if (this.canRecover()) {
-				this.recovering = true;
+			this.boot.crashed = true;
+			if (phase === "live" && this.armed) {
+				// Held back for componentDidCatch, which tries the default project.
 				return null;
 			}
-			throw this.recovered ? new StoredProjectError(error) : error;
+			throw error;
 		}
-		return <Fragment key={this.state.attempt}>{this.props.children}</Fragment>;
+		return (
+			<StudioBootContext.Provider value={this.boot}>
+				<Fragment key={generation}>{this.props.children}</Fragment>
+			</StudioBootContext.Provider>
+		);
 	}
 }
