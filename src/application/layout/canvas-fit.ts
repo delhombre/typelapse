@@ -1,3 +1,4 @@
+import { displayWidth } from "../text/display-width";
 import { fitScale } from "./fit-scale";
 import {
 	type ChromeVariant,
@@ -115,12 +116,12 @@ export interface PlanExtent {
 	frames: { lineCount: number; tokens: { col: number; content: string }[]; firstRow?: number }[];
 }
 
-/** Widest line across every frame, in characters (col + token length). */
+/** Widest line across every frame, in display cells (col + the token's cells). */
 export function widestColumn(plan: PlanExtent): number {
 	let max = 0;
 	for (const frame of plan.frames) {
 		for (const token of frame.tokens) {
-			max = Math.max(max, token.col + token.content.length);
+			max = Math.max(max, token.col + displayWidth(token.content));
 		}
 	}
 	return max;

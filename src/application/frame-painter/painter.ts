@@ -40,7 +40,7 @@ import { canvasFont, colorWithAlpha } from "./font";
 import { type LayeredFrame, paintLayers } from "./layers";
 import type { PaintContext } from "./paint-context";
 import type { FrameScene, GrainTile } from "./scene";
-import { CssBaselines } from "./text";
+import { CssBaselines, fillCells } from "./text";
 
 /** Everything about a frame that changes from one instant to the next. */
 export interface FrameState {
@@ -731,10 +731,12 @@ function paintTokens(
 		ctx.globalAlpha = token.opacity;
 		ctx.fillStyle = token.color ?? style.theme.foreground;
 		ctx.font = canvasFont(code.fontSize, style.theme.fontFamily, token.fontStyle);
-		ctx.fillText(
+		fillCells(
+			ctx,
 			token.content,
 			code.x + token.col * code.charWidth,
 			baselines.at(code.y + (token.line + 0.5) * code.lineHeight, code.lineHeight),
+			code.charWidth,
 		);
 	}
 	ctx.globalAlpha = 1;

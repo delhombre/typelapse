@@ -57,6 +57,29 @@ describe("renderTyping", () => {
 	});
 });
 
+describe("renderTyping with wide characters", () => {
+	it("puts the caret after a wide glyph on its second cell's far edge", () => {
+		const code = 's = "世界";';
+		const laid = layoutTypingTokens(code, [
+			raw("s", "s", 0),
+			raw("eq", "=", 2),
+			raw("str", '"世界"', 4),
+			raw("semi", ";", 8),
+		]);
+		// `"` at 4, 世 at 5-6, 界 at 7-8: after 界 the caret is on cell 9.
+		expect(renderTyping(code, laid, 7).cursor).toMatchObject({ line: 0, col: 9 });
+		expect(renderTyping(code, laid, 9).cursor).toMatchObject({ line: 0, col: 11 });
+	});
+
+	it("never reveals half of an emoji: a reveal inside a glyph types the whole glyph", () => {
+		const code = "a🚀b";
+		const laid = layoutTypingTokens(code, [raw("a", "a", 0), raw("r", "🚀", 1), raw("b", "b", 3)]);
+		const view = renderTyping(code, laid, 2);
+		expect(view.tokens.map((token) => token.content)).toEqual(["a", "🚀"]);
+		expect(view.cursor).toMatchObject({ col: 3 });
+	});
+});
+
 describe("typedCharCount", () => {
 	it("is zero at the start and full by the completion point", () => {
 		expect(typedCharCount(10, 0)).toBe(0);

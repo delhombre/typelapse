@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { FRAME_SECONDARY_ALPHA_HEX } from "../../../application/layout/frame-metrics";
 import { scrolledGutter } from "../../../application/line-numbers/gutter";
 import type { RenderToken } from "../../../application/magic-move/engine";
+import { cellRuns } from "../../../application/text/display-width";
 
 interface MagicMoveCanvasProps {
 	tokens: RenderToken[];
@@ -95,7 +96,7 @@ export function MagicMoveCanvas({
 				<div style={{ position: "relative", flex: 1, minWidth: 0, height: bodyHeight, color }}>
 					{tokens.map((token) => (
 						<span key={token.key} style={tokenStyle(token, lineHeight)}>
-							{token.content}
+							<TokenText content={token.content} />
 						</span>
 					))}
 					{cursor && (
@@ -116,6 +117,44 @@ export function MagicMoveCanvas({
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/**
+ * A wide glyph's box: exactly the two cells the engine gives it, the glyph
+ * centred inside whatever its fallback face advances (a CJK face is 1em, two
+ * cells of JetBrains Mono are 1.2em). Flex centring overflows evenly on both
+ * sides, as the painter's centred `fillText` does.
+ */
+const WIDE_GLYPH: CSSProperties = {
+	display: "inline-flex",
+	justifyContent: "center",
+	width: "2ch",
+};
+
+/**
+ * A token's text on the engine's cells. Narrow glyphs stay plain text (one `ch`
+ * each in a monospace face); each wide glyph gets a two-cell box, so a token
+ * holding CJK or emoji ends where the engine says and the next token never
+ * paints over it.
+ */
+function TokenText({ content }: { content: string }) {
+	const runs = cellRuns(content);
+	if (runs.length <= 1 && !runs[0]?.wide) {
+		return <>{content}</>;
+	}
+	return (
+		<>
+			{runs.map((run) =>
+				run.wide ? (
+					<span key={run.col} style={WIDE_GLYPH}>
+						{run.text}
+					</span>
+				) : (
+					run.text
+				),
+			)}
+		</>
 	);
 }
 

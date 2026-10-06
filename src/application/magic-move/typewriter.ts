@@ -1,3 +1,4 @@
+import { glyphBoundary } from "../text/display-width";
 /**
  * Typewriter reveal: pure. Types a frame's code out character by character,
  * slicing the token being typed and reporting the cursor position. This is the
@@ -92,7 +93,9 @@ export function renderTyping(
 	revealChars: number,
 	tabSize = 2,
 ): TypingView {
-	const reveal = Math.max(0, revealChars);
+	// Typed a glyph at a time: a reveal that lands inside an emoji (two UTF-16
+	// units) or on a letter before its accent types the rest of it too.
+	const reveal = glyphBoundary(code, Math.ceil(Math.max(0, revealChars)));
 	const out: RenderToken[] = [];
 
 	for (const token of tokens) {
