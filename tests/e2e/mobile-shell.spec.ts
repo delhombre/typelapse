@@ -92,13 +92,6 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		expect(shadow).not.toBe("none");
 	});
 
-	// The Showcase's replace question holds a picture, two paragraphs and a card of
-	// its own. On a short phone the sheet is 74% of the screen, and the block was
-	// clipped by it with nothing a finger could scroll: "Open example" sat below the
-	// fold, out of reach. (A hidden box scrolls for a script, not for a thumb, so the
-	// check reads what clips and whether anything between the button and the sheet
-	// is a scroller. Reduced motion keeps the entrance's own offsets out of the
-	// measure.)
 	// Opening the export panel used to ask the stage's slot for 460px more than the screen
 	// has left, and the card refit to a box of nothing: 107x64 became 672x264 at a negative
 	// offset (ticket #169). A panel never resizes the stage; it lowers the sheet to the peek,
@@ -141,6 +134,13 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		expect(await card.boundingBox()).toEqual(scenesBox);
 	});
 
+	// The Showcase's replace question holds a picture, two paragraphs and a card of
+	// its own. On a short phone the sheet is 74% of the screen, and the block was
+	// clipped by it with nothing a finger could scroll: "Open example" sat below the
+	// fold, out of reach. (A hidden box scrolls for a script, not for a thumb, so the
+	// check reads what clips and whether anything between the button and the sheet
+	// is a scroller. Reduced motion keeps the entrance's own offsets out of the
+	// measure.)
 	// The island under a thumb (ticket #140). Its scene dots were 24px wide and Export 31px
 	// tall, so a press landed on the neighbour or on nothing. The reach is what the page
 	// answers to by `elementFromPoint`, not a box: a hit area is a pseudo-element, and the

@@ -89,8 +89,12 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const stopBeforePanel = useRef<PhoneSheetStop | null>(null);
 	const onPanelOpenChange = useCallback((open: boolean) => {
 		if (open) {
-			stopBeforePanel.current ??= wantedRef.current;
-			setWanted("peek");
+			// Only the first open lowers the sheet: switching tabs while a panel is open
+			// fires this again, and a stop the hand chose meanwhile stays.
+			if (stopBeforePanel.current === null) {
+				stopBeforePanel.current = wantedRef.current;
+				setWanted("peek");
+			}
 			return;
 		}
 		const back = stopBeforePanel.current;

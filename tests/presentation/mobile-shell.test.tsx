@@ -232,6 +232,49 @@ describe("the stage while an island panel is open on the phone", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
 		expect(stopText()).toBe("Open");
 	});
+
+	it("keeps a stop the user chose during the panel when they switch to another tab", () => {
+		const { container } = shell();
+		const cta = container.querySelector<HTMLElement>(".si-cta");
+		if (!cta) throw new Error("no export control");
+		fireEvent.keyDown(handle(), { key: "Enter" });
+		fireEvent.click(cta);
+		expect(stopText()).toBe("Collapsed");
+
+		fireEvent.keyDown(handle(), { key: "ArrowUp" });
+		expect(stopText()).toBe("Half open");
+		fireEvent.click(screen.getByRole("button", { name: "Look settings" }));
+		expect(stopText()).toBe("Half open");
+
+		fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+		expect(stopText()).toBe("Half open");
+	});
+
+	it("remembers the real previous stop each time the panel opens again", async () => {
+		const { container } = shell();
+		const cta = container.querySelector<HTMLElement>(".si-cta");
+		if (!cta) throw new Error("no export control");
+		fireEvent.keyDown(handle(), { key: "Enter" });
+		expect(stopText()).toBe("Half open");
+
+		await act(async () => {
+			fireEvent.click(cta);
+		});
+		expect(stopText()).toBe("Collapsed");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+		});
+		expect(stopText()).toBe("Half open");
+
+		await act(async () => {
+			fireEvent.click(cta);
+		});
+		expect(stopText()).toBe("Collapsed");
+		await act(async () => {
+			fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+		});
+		expect(stopText()).toBe("Half open");
+	});
 });
 
 describe("the phone sheet's handle", () => {
