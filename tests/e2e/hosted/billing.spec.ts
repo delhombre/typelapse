@@ -188,15 +188,20 @@ test.describe("Billing against the Polar sandbox", () => {
 		// An endpoint that exists makes Polar log the real body of every event, even though
 		// it cannot deliver it here. Found by URL, so a second run reuses it.
 		const endpoints = await polar.webhooks.listWebhookEndpoints({ limit: 100 });
-		const endpoint =
-			endpoints.items.find((candidate) => candidate.url === ENDPOINT_URL) ??
-			(await polar.webhooks.createWebhookEndpoint({
-				url: ENDPOINT_URL,
-				name: "Typelapse hosted journey (never delivers)",
-				format: "raw",
-				events: [...WATCHED_EVENTS],
-			}));
+		const existing = endpoints.items.find((candidate) => candidate.url === ENDPOINT_URL);
+		// Polar may disable an endpoint that always fails; a disabled one logs nothing.
+		const endpoint = existing
+			? existing.enabled
+				? existing
+				: await polar.webhooks.updateWebhookEndpoint(existing.id, { enabled: true })
+			: await polar.webhooks.createWebhookEndpoint({
+					url: ENDPOINT_URL,
+					name: "Typelapse hosted journey (never delivers)",
+					format: "raw",
+					events: [...WATCHED_EVENTS],
+				});
 
+		const startedAt = new Date().toISOString();
 		await openStudio(page);
 		await signUpInIsland(page, account);
 		const panel = await openAccountPanel(page, account);
@@ -240,6 +245,7 @@ test.describe("Billing against the Polar sandbox", () => {
 					const deliveries = await polar.webhooks.listWebhookDeliveries({
 						endpoint_id: endpoint.id,
 						event_type: ["subscription.active"],
+						start_timestamp: startedAt,
 						limit: 50,
 					});
 					for (const delivery of deliveries.items) {
@@ -268,7 +274,11 @@ test.describe("Billing against the Polar sandbox", () => {
 		};
 		// Our account id travelled as external_customer_id and came back in Polar's own payload.
 		expect(payload.data?.customer?.external_id).toBe(id);
-		expect(Number.isNaN(Date.parse(payload.timestamp ?? ""))).toBe(false);
+		// The delivery is for the subscription this checkout produced, not a stale one.
+		const made = await polar.subscriptions.list({ external_customer_id: id, active: true });
+		expect(made.items.map((subscription) => subscription.id)).toContain(
+			recorded?.subscriptionId ?? "",
+		);
 
 		expect(await postSignedBody(recorded?.body ?? "", recorded?.eventId ?? "")).toMatchObject({
 			outcome: "processed",

@@ -384,6 +384,30 @@ describe("billing service", () => {
 		expect(polar.checkoutInput).toBeNull();
 	});
 
+	it.each(["past_due", "unpaid"] as const)(
+		"refuses a second checkout while the subscription is %s: the portal is the fix",
+		async (status) => {
+			const { billing, store, polar } = service();
+			store.projections.set("user-1", {
+				userId: "user-1",
+				planTier: "free",
+				providerStatus: status,
+				providerCustomerId: "cus_1",
+				providerSubscriptionId: "sub_1",
+				providerProductId: "prod_creator_monthly",
+				currentPeriodEnd: null,
+				cancelAtPeriodEnd: false,
+				lastEventId: "wh_0",
+				lastEventCreatedAt: new Date(0),
+			});
+
+			await expect(billing.startCheckout("user-1", "monthly")).rejects.toBeInstanceOf(
+				AlreadySubscribedError,
+			);
+			expect(polar.checkoutInput).toBeNull();
+		},
+	);
+
 	it("does not let another subscription's lapse take Creator from an account that is paying on one", async () => {
 		const { billing, store, polar } = service();
 		store.customers.set("cus_1", "user-1");

@@ -3,7 +3,7 @@
  * command line, never by hand (decision log 2026-10-06-billing-polar, D3):
  * "Creator, monthly" at $12 and "Creator, yearly" at $99, in USD. Idempotent: a
  * product is found by name and interval before it is created, so running it twice
- * leaves two products. One found with a different price is not reused: the run
+ * leaves the same two products. One found with a different price is not reused: the run
  * fails naming the mismatch, so a wrong price is fixed or archived on purpose.
  * Prints the two ids as the variables the API reads.
  *

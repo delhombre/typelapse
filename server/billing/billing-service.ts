@@ -128,7 +128,7 @@ export class InvalidBillingWebhookSignatureError extends Error {
 	}
 }
 
-/** One projection row per account: a second paid checkout would start a second subscription beside it. */
+/** One projection row per account: a second paid checkout would start a second subscription beside the first. */
 export class AlreadySubscribedError extends Error {
 	constructor() {
 		super("This account already has Creator");
@@ -216,7 +216,14 @@ export function createBillingService(input: {
 			if (!productId) {
 				throw new Error(`Creator ${cadence} billing is not configured`);
 			}
-			if ((await store.findByUserId(userId))?.planTier === "creator") {
+			// Creator, or a payment that failed on its subscription: the portal is the fix
+			// for both, and the island offers nothing else, so the API agrees.
+			const projection = await store.findByUserId(userId);
+			if (
+				projection?.planTier === "creator" ||
+				projection?.providerStatus === "past_due" ||
+				projection?.providerStatus === "unpaid"
+			) {
 				throw new AlreadySubscribedError();
 			}
 			return gateway.createCheckout({
