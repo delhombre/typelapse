@@ -191,6 +191,14 @@ interface SnippetState {
 /** True while the editor is empty: there is nothing on screen to capture. */
 export const hasEmptyDraft = (state: Pick<SnippetState, "draft">): boolean => state.draft !== null;
 
+/**
+ * The code the studio shows and exports on its live scene: the snippet's, or
+ * nothing while the editor is emptied (the snippet then holds the code it had
+ * before, which is on no screen).
+ */
+export const liveCodeOf = (state: Pick<SnippetState, "snippet" | "draft">): string =>
+	state.draft === null ? state.snippet.code : "";
+
 /** What the preview draws for a blank draft: one empty line in the window, no tokens. */
 const EMPTY_CARD_PLAN: MagicMovePlan = {
 	frames: [{ lineCount: 1, tokens: [] }],

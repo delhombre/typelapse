@@ -41,7 +41,7 @@ import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { liveCodeOf, useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	resolveSocialPlatform,
 	useSocialPreviewStore,
@@ -231,13 +231,14 @@ export function LivePreview() {
 	const exportFps = useExportStore((s) => s.fps);
 	const loop = useExportStore((s) => s.loop);
 	const composition = useStudioCompositionStore();
+	const liveCode = useSnippetStore(liveCodeOf);
 	const selectAuthoredAudio = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
 	// The document every export renders: the raw composition keeps the render
 	// settings it was loaded with, and the loop morph lasts the current tempo.
 	// A settings change reconciles the composition, so its value changes with it.
 	const compositionDocument = useMemo(
-		() => studioDocumentOf(composition.value, snippet.code),
-		[composition.value, snippet.code],
+		() => studioDocumentOf(composition.value, liveCode),
+		[composition.value, liveCode],
 	);
 	// A blank scene counts: only the composed canvas fades the card off it.
 	const hasCompositionLayers = compositionDocument.project.scenes.some(
@@ -452,7 +453,7 @@ export function LivePreview() {
 
 	// A title card first is typed past: the first scene with code is typed.
 	const typingIndex = typingHoldIndex(snippet.steps.map((s) => s.code));
-	const firstCode = snippet.steps[typingIndex]?.code ?? snippet.code;
+	const firstCode = snippet.steps[typingIndex]?.code ?? liveCode;
 	// Per-step spotlight, applied at render time (no re-tokenize when focus edits).
 	const focusSets = snippet.steps.map((s) => focusLineSet(s.highlightRanges));
 	const view = resolveView(

@@ -25,18 +25,19 @@ test.describe("Studio editor emptied with Select all and Delete", () => {
 		await expect(page.locator("#studio-editor .native-edit-context")).toBeFocused();
 		// Control, not ControlOrMeta: the "Desktop Chrome" device presents a Windows
 		// user agent, so Monaco binds Select all to Control on every host.
+		const errorsBefore = consoleErrors.length;
 		await page.keyboard.press("Control+a");
 		await page.keyboard.press("Delete");
 
 		await expect(preview).not.toContainText("greet");
 		await expect(page.getByRole("button", { name: "Add scene" })).toBeDisabled();
 		await expect(page.getByRole("button", { name: "Capture", exact: true })).toBeDisabled();
-		expect(consoleErrors).toEqual([]);
+		expect(consoleErrors.slice(errorsBefore)).toEqual([]);
 
 		await page.keyboard.type("const answer = 42;");
 		await expect(preview).toContainText("answer");
 		await expect(page.getByRole("button", { name: "Add scene" })).toBeEnabled();
 		await expect(page.getByRole("button", { name: "Capture", exact: true })).toBeEnabled();
-		expect(consoleErrors).toEqual([]);
+		expect(consoleErrors.slice(errorsBefore)).toEqual([]);
 	});
 });

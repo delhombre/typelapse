@@ -2964,9 +2964,9 @@ html.dark:not([data-landing-theme]) {
 	max-width: none;
 	min-width: 0;
 	flex: 1 1 auto;
-	/* 3px between the brand, the name and the menu: at 390 the row has 139px for the
+	/* 2px between the brand, the name and the menu: at 390 the row has 139px for the
 	   chip, and the 8px the desktop chip keeps would cost the name its first word. */
-	gap: 3px;
+	gap: 2px;
 }
 
 /* The chip is the one that gives, but from 390 up it gives down to the name's
@@ -2985,7 +2985,6 @@ html.dark:not([data-landing-theme]) {
 }
 
 .sc-corner-row .sc-project-trigger {
-	width: 22px;
 	flex: none;
 }
 
@@ -3100,6 +3099,12 @@ html.dark:not([data-landing-theme]) {
 
 	.sc-corner-row .sc-brand::after {
 		inset: -13px -4px;
+	}
+
+	/* 24px wide and no wider to the eye, so the target grows into the 2px beside the
+	   name and the 8px gap to the history chip, and no further (DECISIONS D10). */
+	.sc-corner-row .sc-project-trigger::after {
+		inset: -11px -4px -11px -2px;
 	}
 
 	/* The name is the chip's own height: the whole band beside the brand types. */

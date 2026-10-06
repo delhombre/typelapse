@@ -338,7 +338,6 @@
 
 .studio-camera-root .sc-title {
 	height: 30px;
-	min-width: 4ch;
 	/* A pull request title is a sentence. Past this it ends in an ellipsis, and the
 	   whole title waits in the field's tooltip. */
 	max-width: 28ch;
