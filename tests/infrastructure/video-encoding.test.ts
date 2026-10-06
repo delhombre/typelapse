@@ -116,6 +116,8 @@ describe("encodingFor", () => {
 		const choice = encodingFor("mp4", 1920, 1080, 60);
 		expect(choice).toMatchObject({ container: "mp4", mime: "video/mp4" });
 		expect(choice.ladder.map((rung) => rung.codec)).toEqual(["avc", "avc"]);
+		// What the export's note calls it: the worker reports this label verbatim.
+		expect(choice.ladder.map((rung) => rung.label)).toEqual(["H.264 4:2:0", "H.264 4:2:0"]);
 		expect(choice.ladder[0]?.codecString).toBe("avc1.64002a");
 	});
 

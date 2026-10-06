@@ -222,7 +222,9 @@ export function encodingFor(
 		ladder: avcCodecStrings(width, height, fps).map((codecString) => ({
 			codec: "avc" as const,
 			codecString,
-			label: "H.264",
+			// Spelled with its chroma like the WebM rungs that subsample, so the
+			// outcome note reads "MP4 · H.264 4:2:0" and says what the file is made of.
+			label: "H.264 4:2:0",
 			chroma: "4:2:0" as const,
 		})),
 	};
