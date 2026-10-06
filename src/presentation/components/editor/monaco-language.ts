@@ -19,3 +19,20 @@ const MONACO_ALIASES: Record<string, string> = {
 export function monacoLanguage(shikiLanguage: string): string {
 	return MONACO_ALIASES[shikiLanguage] ?? shikiLanguage;
 }
+
+/**
+ * What the TypeScript and JavaScript workers report in a snippet.
+ *
+ * A snippet is a fragment, not a project: it imports nothing, resolves nothing,
+ * and is often mid-refactor by design, so semantic diagnostics would underline
+ * almost every template in red for being exactly what it is. Syntax errors
+ * still show, because those are the author's mistakes. One syntax error is not
+ * one: "Invalid character" (1127) is what the `⋯` between the windows of a
+ * pull request import reads as, and that separator is the studio's own mark,
+ * not the author's.
+ */
+export const SNIPPET_DIAGNOSTICS = {
+	noSemanticValidation: true,
+	noSyntaxValidation: false,
+	diagnosticCodesToIgnore: [1127],
+} as const;

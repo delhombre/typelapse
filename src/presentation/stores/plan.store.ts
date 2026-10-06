@@ -48,6 +48,13 @@ export function createPlanStore({
 	billing = new HttpBillingAdapter(),
 	navigate = browserNavigate,
 }: PlanStoreOptions) {
+	// Asked once per page: billing does not switch on while the studio is open.
+	let configured: Promise<boolean> | undefined;
+	const billingConfigured = () => {
+		configured ??= billing.isConfigured?.() ?? Promise.resolve(true);
+		return configured;
+	};
+
 	return create<PlanState>((set, get) => ({
 		plan: deploymentMode === "local" ? Plan.local() : Plan.free(),
 		catalog: null,
@@ -62,6 +69,19 @@ export function createPlanStore({
 		refresh: async ({ signedIn = true } = {}) => {
 			if (deploymentMode === "local") {
 				set({ plan: Plan.local(), error: null });
+				return;
+			}
+			if (!(await billingConfigured())) {
+				// A hosted server without a payment provider answers every billing
+				// read with a 503: nothing to ask, and Free is the whole story.
+				set({
+					catalog: null,
+					billingAvailable: false,
+					plan: Plan.free(),
+					allowance: null,
+					notice: null,
+					error: null,
+				});
 				return;
 			}
 			const [catalog, plan, allowance, notice] = await Promise.allSettled([

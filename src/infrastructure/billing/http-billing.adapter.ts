@@ -61,6 +61,22 @@ export class HttpBillingAdapter implements BillingPort {
 	// a bare window.fetch throws "Illegal invocation" in every browser.
 	constructor(private readonly fetcher: typeof fetch = (input, init) => fetch(input, init)) {}
 
+	/**
+	 * The server's own capability read. Anything but a clear "billing: false"
+	 * (an unreachable server, an odd body) leaves billing assumed, so a failed
+	 * probe never hides a billing that works.
+	 */
+	async isConfigured(): Promise<boolean> {
+		try {
+			const response = await this.fetcher("/api/health");
+			const body = response.ok ? await response.json().catch(() => null) : null;
+			const capabilities = isRecord(body) ? body.capabilities : undefined;
+			return !(isRecord(capabilities) && capabilities.billing === false);
+		} catch {
+			return true;
+		}
+	}
+
 	async getCatalog(): Promise<BillingCatalog> {
 		const response = await this.fetcher("/api/billing/catalog", { credentials: "include" });
 		const body = await responseBody(response);

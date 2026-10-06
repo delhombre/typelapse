@@ -707,3 +707,23 @@ describe("snippet store: an emptied editor is a draft", () => {
 		});
 	});
 });
+
+describe("snippet store: a blank title is not an error", () => {
+	beforeEach(() => {
+		useSnippetStore.getState().importFromJson(BASE);
+	});
+
+	it("falls back to Untitled for an empty or spaces-only name, and throws nothing", () => {
+		expect(() => useSnippetStore.getState().setTitle("")).not.toThrow();
+		expect(useSnippetStore.getState().snippet.title).toBe("Untitled");
+
+		useSnippetStore.getState().setTitle("Named");
+		expect(() => useSnippetStore.getState().setTitle("   ")).not.toThrow();
+		expect(useSnippetStore.getState().snippet.title).toBe("Untitled");
+	});
+
+	it("keeps a real name as typed", () => {
+		useSnippetStore.getState().setTitle("Trim the name");
+		expect(useSnippetStore.getState().snippet.title).toBe("Trim the name");
+	});
+});

@@ -1,7 +1,10 @@
 import type { Monaco, OnMount } from "@monaco-editor/react";
 import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 
-import { monacoLanguage } from "@/presentation/components/editor/monaco-language";
+import {
+	SNIPPET_DIAGNOSTICS,
+	monacoLanguage,
+} from "@/presentation/components/editor/monaco-language";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 
@@ -80,15 +83,15 @@ export function CodeEditor() {
 	// silently falls back to the stock light `vs` — which is how a dark studio
 	// used to open on a white editor.
 	const handleBeforeMount = useCallback((monaco: Monaco) => {
-		// A snippet is a fragment, not a project: it imports nothing, resolves
-		// nothing, and is often mid-refactor by design. Semantic diagnostics would
-		// underline almost every template in red for being exactly what it is.
-		// Syntax errors still show, because those are the author's mistakes.
+		// A snippet is a fragment, not a project (see SNIPPET_DIAGNOSTICS).
 		for (const defaults of [
 			monaco.languages.typescript.typescriptDefaults,
 			monaco.languages.typescript.javascriptDefaults,
 		]) {
-			defaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: false });
+			defaults.setDiagnosticsOptions({
+				...SNIPPET_DIAGNOSTICS,
+				diagnosticCodesToIgnore: [...SNIPPET_DIAGNOSTICS.diagnosticCodesToIgnore],
+			});
 			// Monaco has no separate TSX mode, so JSX has to be turned on here or a
 			// React snippet is underlined as a syntax error for containing markup.
 			defaults.setCompilerOptions({

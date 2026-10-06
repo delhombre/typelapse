@@ -108,8 +108,11 @@ export function ImportIntentBoot() {
 	const show = loading || error !== null;
 
 	return (
+		// On the desktop shell the header row, with the Preview/Edit switch
+		// centred in it, owns the top 76px (the same line the code card and the
+		// notices start from): the status sits below it, over no control.
 		<div
-			className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex justify-center px-4"
+			className="pointer-events-none fixed inset-x-0 top-3 z-[60] flex justify-center px-4 min-[1280px]:top-[76px]"
 			aria-live="polite"
 		>
 			<AnimatePresence>

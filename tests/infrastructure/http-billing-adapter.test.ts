@@ -47,6 +47,35 @@ describe("hosted billing client", () => {
 		});
 	});
 
+	it("learns from the server's capability read whether billing is configured", async () => {
+		const configured = new HttpBillingAdapter(
+			vi.fn(async () => jsonResponse({ status: "ok", capabilities: { billing: true } })),
+		);
+		const unconfigured = new HttpBillingAdapter(
+			vi.fn(async () => jsonResponse({ status: "ok", capabilities: { billing: false } })),
+		);
+		const fetcher = vi.fn(async () => jsonResponse({}));
+
+		await expect(configured.isConfigured()).resolves.toBe(true);
+		await expect(unconfigured.isConfigured()).resolves.toBe(false);
+		await new HttpBillingAdapter(fetcher).isConfigured();
+		expect(fetcher).toHaveBeenCalledWith("/api/health");
+	});
+
+	it("does not take an unreadable capability read for a billing that is off", async () => {
+		const down = new HttpBillingAdapter(vi.fn(async () => jsonResponse({ error: "down" }, 502)));
+		const offline = new HttpBillingAdapter(
+			vi.fn(async () => {
+				throw new TypeError("Failed to fetch");
+			}),
+		);
+		const odd = new HttpBillingAdapter(vi.fn(async () => jsonResponse({ status: "ok" })));
+
+		await expect(down.isConfigured()).resolves.toBe(true);
+		await expect(offline.isConfigured()).resolves.toBe(true);
+		await expect(odd.isConfigured()).resolves.toBe(true);
+	});
+
 	it("calls the browser fetch unbound, as browsers require", async () => {
 		// A real window.fetch throws "Illegal invocation" when called as a method
 		// of another object, which made every billing call fail in the browser.

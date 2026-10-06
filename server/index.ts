@@ -186,21 +186,23 @@ export async function createApp(
 	const privateAssets = Boolean(authPort && assetRepository && objectStorage);
 	const hostedRendering = Boolean(authPort && renderJobs && renderDownloads);
 
-	app.get("/health", (c) =>
-		c.json({
-			status: "ok",
-			deploymentMode,
-			capabilities: {
-				auth: Boolean(authPort),
-				projectSync,
-				privateAssets,
-				billing: Boolean(authPort && billing),
-				hostedRendering,
-				apiKeys: Boolean(apiKeys),
-				localMultimediaRendering: deploymentMode === "local",
-			},
-		}),
-	);
+	const health = {
+		status: "ok",
+		deploymentMode,
+		capabilities: {
+			auth: Boolean(authPort),
+			projectSync,
+			privateAssets,
+			billing: Boolean(authPort && billing),
+			hostedRendering,
+			apiKeys: Boolean(apiKeys),
+			localMultimediaRendering: deploymentMode === "local",
+		},
+	};
+	app.get("/health", (c) => c.json(health));
+	// Also under /api, the one prefix the browser reaches the server by: the
+	// client reads it to skip billing when the server has none.
+	app.get("/api/health", (c) => c.json(health));
 
 	if (auth) {
 		// Auth payloads are a few hundred bytes. Without a ceiling Better Auth parses
