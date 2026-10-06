@@ -219,6 +219,46 @@ describe("the client auth store", () => {
 		});
 	});
 
+	it("keeps the account anonymous, and the form usable, when the limiter refuses a request", async () => {
+		const store = createAuthStore({
+			kind: "hosted",
+			port: authPort({
+				signUpEmail: async () => {
+					throw new ClientAuthFailure("rate-limited", { retryAfterSeconds: 8 });
+				},
+			}),
+		});
+
+		await store.getState().signUp({ name: "Ada", email: "ada@example.com", password: "password" });
+
+		expect(store.getState()).toMatchObject({
+			status: { kind: "anonymous" },
+			operation: "idle",
+			canSync: false,
+			error: "Too many attempts. Try again in 8 seconds.",
+		});
+	});
+
+	it("still reads a service that is out of reach as unavailable", async () => {
+		const store = createAuthStore({
+			kind: "hosted",
+			port: authPort({
+				signInEmail: async () => {
+					throw new ClientAuthFailure("unavailable");
+				},
+			}),
+		});
+
+		await store.getState().signIn({ email: "ada@example.com", password: "password" });
+
+		expect(store.getState()).toMatchObject({
+			status: { kind: "hosted-unavailable" },
+			operation: "idle",
+			canSync: false,
+			error: "Account service is temporarily unavailable.",
+		});
+	});
+
 	it("lets the latest refresh win when an older request resolves last", async () => {
 		const older = deferred<ClientSession | null>();
 		const newer = deferred<ClientSession | null>();

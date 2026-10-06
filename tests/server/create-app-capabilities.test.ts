@@ -25,6 +25,10 @@ const projects: ProjectDocumentRepositoryPort = {
 	findOwnedById: async () => null,
 	listByOwner: async () => [],
 	update: async () => ({ outcome: "not-found" }),
+	createAutomation: async () => {
+		throw new Error("not needed");
+	},
+	updateAutomation: async () => ({ outcome: "not-found" }),
 	deleteOwnedById: async () => false,
 };
 
@@ -269,5 +273,33 @@ describe("createApp hosted capabilities", () => {
 		expect(oversized.status).toBe(413);
 		expect(ordinary.status).toBe(401);
 		expect(parsedBodies).toHaveLength(1);
+	});
+
+	it("lets a studio on another origin read how long a refused sign-in must wait", async () => {
+		// Better Auth's limiter names the wait in X-Retry-After. Across origins the
+		// browser hides every response header the API does not expose, and the
+		// island would then say "a moment" where the server said seconds.
+		const auth = {
+			handler: async () =>
+				new Response(JSON.stringify({ message: "Too many requests. Please try again later." }), {
+					status: 429,
+					headers: { "X-Retry-After": "7" },
+				}),
+		} as unknown as AuthInstance;
+		const app = await createApp({ deploymentMode: "hosted", database: null, auth, authPort: null });
+
+		const response = await app.request("http://localhost/api/auth/sign-in/email", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+			},
+			body: JSON.stringify({ email: "qa@example.test", password: "x" }),
+		});
+
+		expect(response.status).toBe(429);
+		expect(response.headers.get("x-retry-after")).toBe("7");
+		const exposed = (response.headers.get("access-control-expose-headers") ?? "").toLowerCase();
+		expect(exposed.split(",").map((name) => name.trim())).toContain("x-retry-after");
 	});
 });

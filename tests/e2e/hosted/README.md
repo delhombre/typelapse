@@ -68,13 +68,27 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
   repository GitHub does not show (private or missing) is refused in plain words;
   that one is tagged `@network` and skips when GitHub cannot be reached.
 
+- `rate-limit.spec.ts`: a sign-up the limiter refuses (a script spends the window
+  first, up to the first 429) keeps the island's form with what was typed, says in
+  one sentence how long to wait, using the seconds the server named in
+  `X-Retry-After`, and never reads "Cloud unavailable"; pressing again after that
+  window signs the visitor up.
+
+- `automation-projects.spec.ts` (one Creator, a script and a session): with a
+  hundred regular projects in the table, a key renders a 101st source by URL and
+  the project it saves takes no place; the studio's save of a 101st project is
+  refused with the ceiling it hit; the allowance counts what the ceiling counts;
+  saving the render-by-URL project from the studio is refused at the ceiling and
+  writes nothing, and once a place is free the same save makes it regular, so
+  that it counts.
+
 `support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job, the keys, the
 projects, the minutes a render counts) and the sign-up helpers. Better Auth allows
 three sign-ups per ten seconds per client, the ten seconds counted from the last
 accepted one, and behind the preview every journey is one client, so the helpers
-wait out a 429 instead of failing. The island reads a refused sign-up as "Cloud
-unavailable" and drops its form, so the island helper waits out the window, lets
-the studio write what it holds and reloads before it tries again.
+wait out a 429 instead of failing. The island keeps its form when that happens, so
+its helper does what a visitor does: waits the window the 429 names and presses the
+same button again. The API helpers have no island and wait the same way.
 
 ## Reload with no edit (#127)
 

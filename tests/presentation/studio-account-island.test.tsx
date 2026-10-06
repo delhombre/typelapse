@@ -12,6 +12,7 @@ import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type { BillingPort } from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
 import { createSceneAssetSourceRegistry } from "@/infrastructure/assets/scene-asset-source.registry";
+import { createBetterAuthClientPort } from "@/infrastructure/auth/better-auth-client.adapter";
 import type { BrowserHostedProjectSyncRuntime } from "@/infrastructure/project/browser-hosted-project-sync.runtime";
 import { SceneShell } from "@/presentation/components/layout/scene-shell";
 import { StudioAccountIsland } from "@/presentation/components/layout/studio-account-island";
@@ -23,7 +24,7 @@ import { createPlanStore } from "@/presentation/stores/plan.store";
 import { createProjectStore } from "@/presentation/stores/project.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { studioDocumentOf } from "@/presentation/stores/studio-composition.store";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -331,6 +332,141 @@ describe("StudioAccountIsland", () => {
 			id: "project_cloud",
 			expectedRevision: 4,
 		});
+	});
+});
+
+describe("StudioAccountIsland when the auth rate limiter answers", () => {
+	/**
+	 * The browser's real Better Auth client over a fetch that answers the way the
+	 * server does: its limiter sends 429 and the seconds to wait in `X-Retry-After`.
+	 * Nothing between the form and the wire is faked, so what the island shows is
+	 * what a person reads.
+	 */
+	function authServer() {
+		const json = (body: unknown, init: ResponseInit = {}) =>
+			new Response(JSON.stringify(body), {
+				...init,
+				headers: { "content-type": "application/json", ...init.headers },
+			});
+		const server = {
+			signedIn: false,
+			signUp: (): Response => json({ token: "t", user: SESSION.account }),
+		};
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (input: RequestInfo | URL) => {
+				const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+				if (path.endsWith("/sign-up/email")) {
+					const answer = server.signUp();
+					server.signedIn = answer.ok;
+					return answer;
+				}
+				return json(
+					server.signedIn
+						? {
+								session: { expiresAt: SESSION.expiresAt.toISOString(), token: "t" },
+								user: SESSION.account,
+							}
+						: null,
+				);
+			}),
+		);
+		return {
+			server,
+			json,
+			/**
+			 * What Better Auth's limiter returns: a 429 whose JSON body goes out as
+			 * text/plain, with the wait in X-Retry-After when it says.
+			 */
+			limited: (retryAfter?: string) =>
+				new Response(JSON.stringify({ message: "Too many requests. Please try again later." }), {
+					status: 429,
+					statusText: "Too Many Requests",
+					headers: retryAfter ? { "x-retry-after": retryAfter } : {},
+				}),
+		};
+	}
+
+	function renderIsland() {
+		return render(
+			<StudioAccountIsland
+				authStore={createAuthStore(
+					{ kind: "hosted", port: createBetterAuthClientPort() },
+					{ now: () => NOW },
+				)}
+				planStore={planStore()}
+				compositionStore={createProjectStore(localDocument())}
+				cloudRuntime={null}
+			/>,
+		);
+	}
+
+	/** Open the panel on its sign-up form and press Create account. */
+	async function createAccount() {
+		fireEvent.click(await screen.findByRole("button", { name: "Sign in" }));
+		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
+		fireEvent.click(within(panel).getByRole("button", { name: "New here? Create an account" }));
+		fireEvent.change(within(panel).getByLabelText("Name"), { target: { value: "Ada Lovelace" } });
+		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
+			target: { value: "ada@example.com" },
+		});
+		fireEvent.change(within(panel).getByLabelText("Password"), {
+			target: { value: "correct horse battery staple" },
+		});
+		fireEvent.click(within(panel).getByRole("button", { name: "Create account" }));
+		return panel;
+	}
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("keeps the sign-up form and says how long to wait, and the next press goes through", async () => {
+		const { server, json, limited } = authServer();
+		server.signUp = () => limited("8");
+		renderIsland();
+
+		const panel = await createAccount();
+
+		const refusal = await within(panel).findByRole("alert");
+		expect(refusal.textContent).toBe("Too many attempts. Try again in 8 seconds.");
+		expect(screen.queryByText("Cloud unavailable")).toBeNull();
+		// The person's own form, with what they typed still in it, ready for another press.
+		expect((within(panel).getByRole("textbox", { name: "Email" }) as HTMLInputElement).value).toBe(
+			"ada@example.com",
+		);
+		expect(within(panel).getByRole("button", { name: "Create account" })).toBeTruthy();
+
+		server.signUp = () => json({ token: "t", user: SESSION.account });
+		fireEvent.click(within(panel).getByRole("button", { name: "Create account" }));
+
+		expect(await screen.findByRole("button", { name: "Account for Ada Lovelace" })).toBeTruthy();
+	});
+
+	// The other half of the rule: "Cloud unavailable" is for a service that is
+	// actually out of reach, and it still takes the form away.
+	it.each([
+		[
+			"cannot be reached",
+			() => {
+				throw new TypeError("Failed to fetch");
+			},
+		],
+		[
+			"fails with a 503",
+			(json: (body: unknown, init?: ResponseInit) => Response) =>
+				json({ message: "Service unavailable" }, { status: 503 }),
+		],
+	])("still reads Cloud unavailable, with no form, when the service %s", async (_case, answer) => {
+		const { server, json } = authServer();
+		server.signUp = () => answer(json);
+		renderIsland();
+
+		const panel = await createAccount();
+
+		expect(await within(panel).findByText("Cloud unavailable")).toBeTruthy();
+		expect(within(panel).queryByRole("textbox", { name: "Email" })).toBeNull();
+		expect(within(panel).queryByRole("alert")).toBeNull();
 	});
 });
 

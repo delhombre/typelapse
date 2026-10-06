@@ -76,4 +76,37 @@ describe("authInstance configuration", () => {
 		expect(statuses.slice(0, 3)).not.toContain(429);
 		expect(statuses[3]).toBe(429);
 	});
+
+	it("names the wait of a refused attempt, in whole seconds, in X-Retry-After", async () => {
+		// The studio's account island reads this header to say how long to wait. It is
+		// Better Auth's own name for it, so an upgrade that renames it fails here.
+		const auth = authInstance(DATABASE, {
+			BETTER_AUTH_SECRET: "s".repeat(32),
+			BETTER_AUTH_URL: "https://api.typelapse.example",
+			CORS_ORIGIN: "https://typelapse.example",
+		});
+		const attempt = () =>
+			auth?.handler(
+				new Request("https://api.typelapse.example/api/auth/sign-in/email", {
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+						origin: "https://typelapse.example",
+						"x-forwarded-for": "203.0.113.8",
+					},
+					body: JSON.stringify({ email: "qa@example.test", password: "wrong-password" }),
+				}),
+			);
+
+		for (let index = 0; index < 3; index += 1) {
+			await attempt();
+		}
+		const refused = await attempt();
+
+		expect(refused?.status).toBe(429);
+		const wait = Number(refused?.headers.get("x-retry-after"));
+		expect(Number.isInteger(wait)).toBe(true);
+		expect(wait).toBeGreaterThanOrEqual(1);
+		expect(wait).toBeLessThanOrEqual(10);
+	});
 });

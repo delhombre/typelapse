@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type APIRequestContext, type Page, expect, request } from "@playwright/test";
 import pg from "pg";
-import { storedScenes } from "./studio";
 
 /**
  * What the hosted journeys share: where the services are, the environment the
@@ -246,38 +245,28 @@ async function authPost(
 	}
 }
 
-/** The scenes the studio shows right now: "0 scenes", "1 scene". */
-async function shownScenes(page: Page): Promise<number> {
-	const text = await page
-		.getByText(/^\d+ scenes?$/)
-		.first()
-		.textContent();
-	return Number.parseInt(text ?? "0", 10);
-}
-
 /** Sign up through the Studio's account island, the way a visitor does. */
 export async function signUpInIsland(page: Page, account: TestAccount): Promise<void> {
+	// The trigger is disabled while the session check runs, then reads "Sign in".
+	await page.getByRole("button", { name: "Sign in", exact: true }).click();
+	const panel = page.getByRole("dialog", { name: "Typelapse account" });
+	await panel.getByRole("button", { name: "New here? Create an account" }).click();
+	await panel.getByLabel("Name").fill(account.name);
+	await panel.getByLabel("Email").fill(account.email);
+	await panel.getByLabel("Password").fill(account.password);
 	for (let attempt = 1; ; attempt++) {
-		// The trigger is disabled while the session check runs, then reads "Sign in".
-		await page.getByRole("button", { name: "Sign in", exact: true }).click();
-		const panel = page.getByRole("dialog", { name: "Typelapse account" });
-		await panel.getByRole("button", { name: "New here? Create an account" }).click();
-		await panel.getByLabel("Name").fill(account.name);
-		await panel.getByLabel("Email").fill(account.email);
-		await panel.getByLabel("Password").fill(account.password);
 		const answer = page.waitForResponse(
 			(response) => new URL(response.url()).pathname === "/api/auth/sign-up/email",
 		);
 		await panel.getByRole("button", { name: "Create account" }).click();
 		const response = await answer;
 		if (response.status() !== 429 || attempt === AUTH_ATTEMPTS) break;
-		// A refused sign-up leaves the island reading "Cloud unavailable" with no form,
-		// so the retry is a fresh page: wait out the window the 429 names, let the
-		// studio write what it holds (a reload keeps only what was written), reload.
-		const scenes = await shownScenes(page);
-		await expect.poll(async () => (await storedScenes(page)).length).toBe(scenes);
+		// A refused sign-up keeps the island's form and says so (rate-limit.spec.ts holds
+		// the sentence), so this does what a visitor does: waits out the window the 429
+		// names and presses the same button again.
+		await expect(panel.getByRole("alert")).toBeVisible();
+		await expect(panel.getByLabel("Email")).toHaveValue(account.email);
 		await page.waitForTimeout(retryAfterMs(response.headers()));
-		await page.reload();
 	}
 	// Signed in, the panel closes on its own and the trigger names the account.
 	await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();

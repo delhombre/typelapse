@@ -26,8 +26,8 @@ const KEY = /^tlk_[0-9a-f]{8}_[0-9a-f]{64}$/;
 
 test.describe("Hosted API keys: a script renders on Typelapse Cloud without a browser", () => {
 	// One account, one sign-up: Better Auth allows three sign-ups per ten seconds per
-	// client, and a refused one leaves the island reading "Cloud unavailable". The
-	// account is free first and a Creator later, so the key meets both plans.
+	// client, and every journey is that one client. The account is free first and a
+	// Creator later, so the key meets both plans.
 	test("a key is made in the island, refused by the free plan, renders for a Creator, and stops when revoked", async ({
 		page,
 	}, testInfo) => {

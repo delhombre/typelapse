@@ -97,7 +97,9 @@ export async function createApp(
 		cors({
 			origin: process.env.CORS_ORIGIN || "http://localhost:5173",
 			credentials: true,
-			exposeHeaders: ["X-Request-Id"],
+			// X-Retry-After is how Better Auth's limiter names the wait. The studio's
+			// account island reads it, and a browser on another origin hides what is not listed.
+			exposeHeaders: ["X-Request-Id", "X-Retry-After"],
 		}),
 	);
 
