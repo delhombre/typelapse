@@ -1855,6 +1855,11 @@ textarea.sc-source-field {
 	grid-template-columns: minmax(380px, 1.25fr) minmax(260px, 0.75fr);
 	align-items: center;
 	gap: 34px;
+	/* A row is as tall as its content, never less. The block is a shrinkable flex item of
+	   the sheet, and a track whose item clips its own overflow (the picture) may shrink to
+	   nothing, so the picture kept its aspect height, overflowed its row and ran over the
+	   title (375x812). The block scrolls instead, below. */
+	grid-auto-rows: max-content;
 	margin: auto;
 	/* The sheet's gutters, like the grid and the title: the sheet is as wide as the grid
 	   now, so the question no longer centres itself in a field of paper. They are padding,
@@ -1883,6 +1888,9 @@ textarea.sc-source-field {
 
 .showcase-confirm .showcase-artwork[data-orientation="portrait"] {
 	height: 380px;
+	/* A height and the card's 16:9 ratio made this box 675px wide, over the words beside
+	   it on a desktop and off the screen on a phone. */
+	aspect-ratio: auto;
 }
 
 .showcase-confirm h3 {
@@ -1905,6 +1913,17 @@ textarea.sc-source-field {
 	.showcase-confirm {
 		grid-template-columns: 1fr;
 	}
+
+	/* One column: the picture is a banner, so the question under it stays in reach on a
+	   phone (the 16:9 slab left the buttons below the fold at 375x812). */
+	.showcase-confirm .showcase-artwork {
+		aspect-ratio: 3 / 1;
+	}
+
+	.showcase-confirm .showcase-artwork[data-orientation="portrait"] {
+		height: 136px;
+		padding: 12px;
+	}
 }
 
 @media (max-width: 720px) {
@@ -1923,11 +1942,8 @@ textarea.sc-source-field {
 	}
 
 	.showcase-confirm {
-		gap: 22px;
-	}
-
-	.showcase-confirm .showcase-artwork[data-orientation="portrait"] {
-		height: 360px;
+		gap: 18px;
+		padding-top: 20px;
 	}
 }
 

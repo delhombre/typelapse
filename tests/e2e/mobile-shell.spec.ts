@@ -285,3 +285,367 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		expect(clippers).toEqual([]);
 	});
 });
+
+/**
+ * The phone's sheet and its instrument move as one (ticket #141): the drawer writes the
+ * sheet's transform on every pointer move, and the instrument is on the sheet's edge in the
+ * same frame. A recorder in the page takes one row per animation frame, so a spec reads the
+ * frames, not a screenshot.
+ */
+test.describe("Mobile shell: the instrument follows the sheet", () => {
+	test.use({ viewport: { width: 375, height: 812 } });
+
+	const HOME_INDICATOR = 34;
+
+	async function withNotch(page: Page) {
+		const cdp = await page.context().newCDPSession(page);
+		await cdp.send("Emulation.setSafeAreaInsetsOverride", {
+			insets: { top: 47, bottom: HOME_INDICATOR, left: 0, right: 0 },
+		});
+		return cdp;
+	}
+
+	/** Where the sheet's top edge rests on a stop, read by raising it there with the keys. */
+	async function stopTops(page: Page) {
+		const handle = page.locator("[data-vaul-handle]");
+		const top = () => page.locator(".sc-sheet").evaluate((el) => el.getBoundingClientRect().top);
+		const tops: number[] = [];
+		await handle.focus();
+		for (const text of ["Collapsed", "Half open", "Open"]) {
+			await expect(handle).toHaveAttribute("aria-valuetext", text);
+			let last = Number.NaN;
+			await expect
+				.poll(async () => {
+					const now = await top();
+					const done = now === last;
+					last = now;
+					return done;
+				})
+				.toBe(true);
+			tops.push(last);
+			await page.keyboard.press("ArrowUp");
+		}
+		await page.keyboard.press("Home");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
+		await expect.poll(top).toBe(tops[0]);
+		return tops as [number, number, number];
+	}
+
+	/** One row per frame: the sheet's top and the bottom of the instrument's slot. */
+	async function record(page: Page) {
+		await page.evaluate(() => {
+			const w = window as unknown as { __rows: unknown[]; __stop: boolean };
+			w.__rows = [];
+			w.__stop = false;
+			const frame = () => {
+				const sheet = document.querySelector(".sc-sheet")?.getBoundingClientRect();
+				const slot = document.querySelector(".sc-dock-slot")?.getBoundingClientRect();
+				if (sheet && slot) w.__rows.push({ sheetTop: sheet.top, slotBottom: slot.bottom });
+				if (!w.__stop) requestAnimationFrame(frame);
+			};
+			requestAnimationFrame(frame);
+		});
+		return async () =>
+			page.evaluate(() => {
+				const w = window as unknown as { __rows: unknown[]; __stop: boolean };
+				w.__stop = true;
+				return w.__rows as { sheetTop: number; slotBottom: number }[];
+			});
+	}
+
+	async function touchDrag(
+		page: Page,
+		cdp: Awaited<ReturnType<typeof withNotch>>,
+		to: number,
+		hold = 200,
+	) {
+		const box = await page.locator("[data-vaul-handle]").boundingBox();
+		if (!box) throw new Error("no handle");
+		const x = box.x + box.width / 2;
+		const from = box.y + box.height / 2;
+		const point = (y: number) => [{ x, y, id: 1, radiusX: 4, radiusY: 4, force: 1 }];
+		await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: point(from) });
+		for (let step = 1; step <= 24; step++) {
+			await cdp.send("Input.dispatchTouchEvent", {
+				type: "touchMove",
+				touchPoints: point(from + ((to - from) * step) / 24),
+			});
+			await page.waitForTimeout(16);
+		}
+		await page.waitForTimeout(hold);
+		return async () => cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+	}
+
+	test("rides 12px above the sheet's edge on every frame of a drag, not only on release", async ({
+		page,
+	}) => {
+		const cdp = await withNotch(page);
+		await openStudio(page);
+		const [peekTop, scenesTop] = await stopTops(page);
+		const stop = await record(page);
+
+		// Half way from the peek to the scenes stop, held with the finger down.
+		const handleY = (await page.locator("[data-vaul-handle]").boundingBox())?.y ?? 0;
+		const release = await touchDrag(page, cdp, handleY - (peekTop - scenesTop) / 2);
+		const held = await stop();
+		await release();
+
+		const moved = held.filter((row) => row.sheetTop < peekTop - 4);
+		expect(moved.length).toBeGreaterThan(10);
+		for (const row of moved) {
+			expect(row.sheetTop - row.slotBottom, JSON.stringify(row)).toBeCloseTo(12, 0);
+		}
+	});
+
+	test("comes down toward the bottom as the sheet goes on past the scenes stop", async ({
+		page,
+	}) => {
+		const cdp = await withNotch(page);
+		await openStudio(page);
+		const [peekTop, scenesTop, fullTop] = await stopTops(page);
+		const height = 812;
+		const floor = height - Math.max(12, HOME_INDICATOR);
+		const stop = await record(page);
+
+		const handleY = (await page.locator("[data-vaul-handle]").boundingBox())?.y ?? 0;
+		// Past the scenes stop, a third of the way to the full one.
+		const target = scenesTop - (scenesTop - fullTop) / 3;
+		const release = await touchDrag(page, cdp, handleY - (peekTop - target));
+		const held = await stop();
+		await release();
+
+		const last = held.at(-1);
+		if (!last) throw new Error("no frames");
+		// The instrument has left the sheet's edge, is above where it was on the scenes stop,
+		// and is not yet at the bottom.
+		expect(last.sheetTop).toBeLessThan(scenesTop - 20);
+		expect(last.slotBottom).toBeGreaterThan(scenesTop - 12);
+		expect(last.slotBottom).toBeLessThan(floor);
+		// Every frame, on the line the stops draw between the scenes stop and the full one.
+		const lift = (visible: number) =>
+			visible <= height - scenesTop
+				? visible + 12
+				: height -
+					scenesTop +
+					12 +
+					(HOME_INDICATOR - (height - scenesTop + 12)) *
+						((visible - (height - scenesTop)) / (scenesTop - fullTop));
+		for (const row of held.filter((r) => r.sheetTop < scenesTop - 4)) {
+			expect(height - row.slotBottom, JSON.stringify(row)).toBeCloseTo(
+				lift(height - row.sheetTop),
+				-0.3,
+			);
+		}
+	});
+
+	test("stays above the home indicator however far the finger pulls the sheet down", async ({
+		page,
+	}) => {
+		const cdp = await withNotch(page);
+		await openStudio(page);
+		await stopTops(page);
+		await page.keyboard.press("ArrowUp");
+		await expect(page.locator("[data-vaul-handle]")).toHaveAttribute("aria-valuetext", "Half open");
+		await expect
+			.poll(async () =>
+				page.locator(".sc-sheet").evaluate((el) => Math.round(el.getBoundingClientRect().top)),
+			)
+			.toBeLessThan(500);
+		const stop = await record(page);
+		const release = await touchDrag(page, cdp, 808);
+		const held = await stop();
+		await release();
+		expect(held.length).toBeGreaterThan(10);
+		for (const row of held) {
+			expect(row.slotBottom, JSON.stringify(row)).toBeLessThanOrEqual(812 - HOME_INDICATOR + 0.5);
+		}
+	});
+
+	test("lands with the sheet: the same gap on the frame the settle ends", async ({ page }) => {
+		await withNotch(page);
+		await openStudio(page);
+		const handle = page.locator("[data-vaul-handle]");
+		await handle.focus();
+		const stop = await record(page);
+		await page.keyboard.press("Enter");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+		await page.waitForTimeout(900);
+		const rows = await stop();
+		for (const row of rows.filter((r) => r.sheetTop < 700)) {
+			// Both run the drawer's own transition from the same write: no frame lags the other by more than a few pixels.
+			expect(Math.abs(row.sheetTop - row.slotBottom - 12), JSON.stringify(row)).toBeLessThan(40);
+		}
+		const end = rows.at(-1);
+		expect(end && end.sheetTop - end.slotBottom).toBeCloseTo(12, 0);
+	});
+});
+
+/** The handle is the way to the content below the peek without a finger (ticket #141). */
+test.describe("Mobile shell: the sheet's handle works without a finger", () => {
+	test.use({ viewport: { width: 375, height: 812 } });
+
+	test("Tab reaches it, Enter and Space step through the stops, and the content opens", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		const handle = page.getByRole("slider", { name: "Sheet height" });
+		const sheetTop = () =>
+			page.locator(".sc-sheet").evaluate((el) => Math.round(el.getBoundingClientRect().top));
+		const content = page.locator("[data-editor-section]").locator("xpath=ancestor::div[@id][1]");
+
+		// Tab until the handle has focus, and never through the sheet's content to get there.
+		let reached = false;
+		for (let presses = 0; presses < 80 && !reached; presses++) {
+			await page.keyboard.press("Tab");
+			reached = await handle.evaluate((el) => el === document.activeElement);
+			const inside = await page.evaluate(
+				() => document.activeElement?.closest("[data-editor-section]") !== null,
+			);
+			expect(inside, "focus must not land in the collapsed content").toBe(false);
+		}
+		expect(reached, "Tab reaches the handle").toBe(true);
+		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
+		await expect(content).toHaveJSProperty("inert", true);
+		const peek = await sheetTop();
+
+		await page.keyboard.press("Enter");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+		await expect(handle).toHaveAttribute("aria-valuenow", "1");
+		await expect(content).toHaveJSProperty("inert", false);
+		await expect.poll(sheetTop).toBeLessThan(peek - 200);
+		const scenes = await sheetTop();
+
+		await page.keyboard.press(" ");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Open");
+		await expect.poll(sheetTop).toBeLessThan(scenes - 100);
+
+		await page.keyboard.press("Enter");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
+		await expect.poll(sheetTop).toBe(peek);
+
+		// Raised again, the next Tab goes into the content that was below the peek.
+		await page.keyboard.press("ArrowUp");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+		await page.keyboard.press("Tab");
+		const inside = await page.evaluate(
+			() => document.activeElement?.closest("[data-editor-section], .sc-sheet") !== null,
+		);
+		expect(inside).toBe(true);
+	});
+
+	test("raises the sheet when focus moves to something below the screen's edge", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		const handle = page.getByRole("slider", { name: "Sheet height" });
+		await handle.focus();
+		await page.keyboard.press("Enter");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+		// Something focusable far down the sheet, where the half stop has no screen.
+		await page.evaluate(() => {
+			const far = document.createElement("button");
+			far.textContent = "Far";
+			far.style.marginTop = "900px";
+			document.querySelector("[data-editor-section]")?.append(far);
+			far.focus();
+		});
+		await expect(handle).toHaveAttribute("aria-valuetext", "Open");
+	});
+
+	test("is a vertical slider in the accessibility tree, with its state and a raise and a lower", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		const cdp = await page.context().newCDPSession(page);
+		await cdp.send("Accessibility.enable");
+		const read = async () => {
+			const { nodes } = (await cdp.send("Accessibility.getFullAXTree")) as {
+				nodes: {
+					role?: { value: string };
+					name?: { value: string };
+					value?: { value: unknown };
+					ignored?: boolean;
+					properties?: { name: string; value: { value: unknown } }[];
+				}[];
+			};
+			const node = nodes.find(
+				(n) => n.role?.value === "slider" && n.name?.value === "Sheet height",
+			);
+			if (!node) throw new Error("the handle is not in the accessibility tree");
+			const props = Object.fromEntries((node.properties ?? []).map((p) => [p.name, p.value.value]));
+			return { ignored: node.ignored ?? false, props, value: node.value?.value };
+		};
+		const before = await read();
+		expect(before.ignored).toBe(false);
+		expect(before.props).toMatchObject({ focusable: true, orientation: "vertical" });
+		expect(before.props).toMatchObject({ valuemin: 0, valuemax: 2 });
+		expect(before.value).toBe(0);
+		// The tree's own `valuetext` stays empty in Chromium for every ARIA slider (a bare
+		// page shows the same), so the words are read from the attribute a screen reader gets.
+		const handle = page.getByRole("slider", { name: "Sheet height" });
+		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
+
+		// What an assistive technology's "increment" does is what the arrow does.
+		await handle.focus();
+		await page.keyboard.press("ArrowUp");
+		await expect.poll(async () => (await read()).value).toBe(1);
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+		await page.keyboard.press("ArrowDown");
+		await expect.poll(async () => (await read()).value).toBe(0);
+		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
+	});
+});
+
+/**
+ * The Showcase's replace question on a phone: the picture sat on the title (375x812, the
+ * picture 293 to 486 and the title 470 to 489) and the portrait project's picture was
+ * 640px wide, off the screen.
+ */
+test.describe("Mobile shell: the Showcase's replace question keeps its parts apart", () => {
+	test.use({ viewport: { width: 375, height: 812 } });
+
+	test("no picture runs into its title, none is wider than the screen, and the buttons are in view", async ({
+		page,
+	}) => {
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await openStudio(page);
+		await addSource(page, "Add text");
+		const open = page.getByRole("button", { name: "Showcase", exact: true });
+		for (let index = 0; index < 6; index++) {
+			await open.tap();
+			await page.locator(".showcase-card").nth(index).tap();
+			const confirm = page.locator(".showcase-confirm");
+			await expect(confirm).toBeVisible();
+			await settled(confirm.locator(".showcase-artwork"));
+			const boxes = await confirm.evaluate((element) => {
+				const rect = (selector: string) => {
+					const box = element.querySelector(selector)?.getBoundingClientRect();
+					if (!box) throw new Error(`no ${selector}`);
+					return { top: box.top, bottom: box.bottom, left: box.left, right: box.right };
+				};
+				return {
+					picture: rect(".showcase-artwork"),
+					title: rect("h3"),
+					button: rect("[data-confirm-discard-confirm]"),
+					column: element.getBoundingClientRect(),
+					scrolls: element.scrollHeight > element.clientHeight + 1,
+				};
+			});
+			const label = `project ${index}`;
+			expect(boxes.picture.bottom, `${label}: picture over its title`).toBeLessThanOrEqual(
+				boxes.title.top,
+			);
+			expect(boxes.picture.right, `${label}: picture wider than its column`).toBeLessThanOrEqual(
+				boxes.column.right,
+			);
+			expect(boxes.picture.top, `${label}: picture above its block`).toBeGreaterThanOrEqual(
+				boxes.column.top,
+			);
+			expect(boxes.button.bottom, `${label}: Open example below the fold`).toBeLessThanOrEqual(812);
+			expect(boxes.scrolls, `${label}: the question needs no scrolling`).toBe(false);
+			await page.getByRole("button", { name: "Back to showcase" }).tap();
+			await page.getByRole("button", { name: "Close showcase" }).tap();
+			await expect(page.locator(".studio-sheet-panel")).toHaveCount(0);
+		}
+	});
+});

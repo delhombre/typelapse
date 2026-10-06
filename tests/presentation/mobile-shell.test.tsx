@@ -164,3 +164,131 @@ describe("the phone studio", () => {
 		expect(editorSection()?.querySelector(".sc-eyebrow")?.textContent).toBe("Code");
 	});
 });
+
+describe("the phone sheet's handle", () => {
+	beforeEach(() => {
+		Object.defineProperty(window, "matchMedia", {
+			configurable: true,
+			value: (query: string) => ({
+				matches: false,
+				media: query,
+				addEventListener() {},
+				removeEventListener() {},
+				addListener() {},
+				removeListener() {},
+			}),
+		});
+		globalThis.ResizeObserver ??= class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		};
+	});
+
+	afterEach(() => cleanup());
+
+	const handle = () => screen.getByRole("slider", { name: "Sheet height" });
+	const press = (key: string) => fireEvent.keyDown(handle(), { key });
+
+	it("is a vertical slider a keyboard and a screen reader can reach, and says where the sheet is", () => {
+		shell();
+		expect(handle().getAttribute("aria-hidden")).toBeNull();
+		expect(handle().tabIndex).toBe(0);
+		expect(handle().getAttribute("aria-orientation")).toBe("vertical");
+		expect(handle().getAttribute("aria-valuemin")).toBe("0");
+		expect(handle().getAttribute("aria-valuemax")).toBe("2");
+		expect(handle().getAttribute("aria-valuenow")).toBe("0");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Collapsed");
+	});
+
+	it("steps through the stops on Enter and Space, and comes back to the peek from the top", () => {
+		shell();
+		press("Enter");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Half open");
+		press(" ");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Open");
+		expect(handle().getAttribute("aria-valuenow")).toBe("2");
+		press("Enter");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Collapsed");
+	});
+
+	it("raises and lowers one stop on the arrows, and jumps to the ends on Home and End", () => {
+		shell();
+		press("ArrowUp");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Half open");
+		press("ArrowDown");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Collapsed");
+		press("ArrowDown");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Collapsed");
+		press("End");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Open");
+		press("ArrowUp");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Open");
+		press("Home");
+		expect(handle().getAttribute("aria-valuetext")).toBe("Collapsed");
+	});
+
+	it("leaves a shortcut alone, and any other key", () => {
+		shell();
+		fireEvent.keyDown(handle(), { key: "Enter", metaKey: true });
+		fireEvent.keyDown(handle(), { key: "a" });
+		expect(handle().getAttribute("aria-valuetext")).toBe("Collapsed");
+	});
+
+	it("keeps the content out of the tab order and the tree until the sheet is raised", () => {
+		shell();
+		const content = () => document.getElementById(handle().getAttribute("aria-controls") ?? "");
+		expect(content()?.hasAttribute("inert")).toBe(true);
+		press("Enter");
+		expect(content()?.hasAttribute("inert")).toBe(false);
+	});
+});
+
+describe("the instrument on the sheet's edge", () => {
+	afterEach(() => cleanup());
+
+	it("moves in the same task as the drawer writes the sheet's transform, with its transition", async () => {
+		Object.defineProperty(window, "matchMedia", {
+			configurable: true,
+			value: (query: string) => ({
+				matches: false,
+				media: query,
+				addEventListener() {},
+				removeEventListener() {},
+				addListener() {},
+				removeListener() {},
+			}),
+		});
+		globalThis.ResizeObserver ??= class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		};
+		const { container } = shell();
+		const dock = container.querySelector<HTMLElement>(".sc-dock-slot");
+		const sheet = screen.getByRole("dialog", { name: "Code and scenes" });
+		if (!dock) throw new Error("no dock");
+		// At rest the instrument is on the peek, 12px above the sheet's edge.
+		expect(dock.style.transform).toBe("translate3d(0, -68px, 0)");
+
+		// jsdom has no layout: the sheet is as tall as its window.
+		Object.defineProperty(sheet, "offsetHeight", { configurable: true, value: 768 });
+		await act(async () => {
+			sheet.style.transition = "none";
+			sheet.style.transform = "translate3d(0, 500px, 0)";
+			await Promise.resolve();
+		});
+		// 268px of sheet shows: the instrument rides 12px above it.
+		expect(dock.style.transform).toBe("translate3d(0, -280px, 0)");
+		expect(dock.style.transition).toBe("none");
+
+		await act(async () => {
+			sheet.style.transition = "transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)";
+			sheet.style.transform = "translate3d(0, 58px, 0)";
+			await Promise.resolve();
+		});
+		// Let go over the full stop: the instrument takes the sheet's own curve down to the bottom.
+		expect(dock.style.transform).toBe("translate3d(0, -12px, 0)");
+		expect(dock.style.transition).toContain("cubic-bezier(0.32, 0.72, 0, 1)");
+	});
+});

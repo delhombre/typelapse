@@ -1,4 +1,4 @@
-import { expect, openStudio, test } from "./support/studio";
+import { addSource, expect, openStudio, test } from "./support/studio";
 
 /**
  * The showcase's six cards. Each rests on a static poster of its project's last
@@ -93,5 +93,30 @@ test.describe("Showcase: a sheet as wide as its two columns", () => {
 		).toBeLessThanOrEqual(1);
 		expect(panel.width).toBeLessThan(1440 - 2 * 24);
 		expect(Math.abs(panel.x - (1440 - panel.x - panel.width))).toBeLessThanOrEqual(1);
+	});
+});
+
+/**
+ * A portrait project's picture is a fixed height, and with the card's 16:9 ratio left on it
+ * the box was 675px wide: over the title and the question beside it.
+ */
+test.describe("Showcase: the replace question's picture stays in its own column", () => {
+	test.use({ viewport: { width: 1440, height: 900 } });
+
+	test("the portrait project's picture ends before the words begin", async ({ page }) => {
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await openStudio(page);
+		await addSource(page, "Add text");
+		await page.getByRole("button", { name: "Showcase", exact: true }).click();
+		await page.locator('[data-template-id="batch-the-query"]').click();
+		const confirm = page.locator(".showcase-confirm");
+		await expect(confirm).toBeVisible();
+		const boxes = await confirm.evaluate((element) => {
+			const picture = element.querySelector(".showcase-artwork")?.getBoundingClientRect();
+			const title = element.querySelector("h3")?.getBoundingClientRect();
+			if (!picture || !title) throw new Error("the question is missing a part");
+			return { pictureRight: picture.right, titleLeft: title.left };
+		});
+		expect(boxes.pictureRight).toBeLessThanOrEqual(boxes.titleLeft);
 	});
 });

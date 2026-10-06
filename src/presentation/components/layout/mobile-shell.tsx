@@ -1,13 +1,18 @@
-import { type PhoneSheetStop, phoneSheetGeometry } from "@/application/layout/phone-sheet";
+import {
+	type PhoneSheetStep,
+	type PhoneSheetStop,
+	phoneSheetGeometry,
+} from "@/application/layout/phone-sheet";
 import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { PreviewIsland } from "@/presentation/components/controls/preview-island";
 import { StudioLayerStrip } from "@/presentation/components/editor/studio-layer-strip";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
+import { useDockFollowsSheet } from "@/presentation/hooks/use-dock-follows-sheet";
 import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
 import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
-import { motion, useReducedMotion } from "motion/react";
-import { type ReactNode, useMemo, useState } from "react";
+import { motion } from "motion/react";
+import { type KeyboardEvent, type ReactNode, useId, useMemo, useRef, useState } from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
@@ -23,8 +28,26 @@ interface MobileShellProps {
 	preview: ReactNode;
 }
 
-// The drawer's own settle curve, so the instrument lands with the sheet.
-const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+/** What the handle says its state is: what the sheet shows, in words, not the stop's name. */
+const STOP_TEXT: Record<PhoneSheetStop, string> = {
+	peek: "Collapsed",
+	scenes: "Half open",
+	full: "Open",
+};
+
+/** The handle is a slider (a vertical one: up is more sheet), and Enter and Space step through. */
+const HANDLE_KEYS: Record<string, PhoneSheetStep> = {
+	ArrowUp: "raise",
+	ArrowRight: "raise",
+	PageUp: "raise",
+	ArrowDown: "lower",
+	ArrowLeft: "lower",
+	PageDown: "lower",
+	Home: "first",
+	End: "last",
+	Enter: "cycle",
+	" ": "cycle",
+};
 
 /**
  * The scene, folded to one column.
@@ -50,16 +73,19 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const stop = sheet.resolve(wanted);
 	// One array per geometry: vaul recomputes its offsets whenever the identity
 	// of `snapPoints` changes, so a fresh array each render would re-measure it.
-	const [stopNames, snapPoints] = useMemo(() => {
-		const names = (["peek", "scenes", "full"] as const).filter(
-			(name) => sheet.stops[name] !== null,
-		);
-		return [names, names.map((name) => `${sheet.stops[name]}px`)] as const;
-	}, [sheet]);
+	const [stopNames, snapPoints] = useMemo(
+		() => [sheet.order, sheet.order.map((name) => `${sheet.stops[name]}px`)] as const,
+		[sheet],
+	);
+	// The sheet is portaled out of this tree, so its element arrives through a ref;
+	// the instrument follows it from there (hooks/use-dock-follows-sheet.ts).
+	const [sheetElement, setSheetElement] = useState<HTMLElement | null>(null);
+	const dockRef = useRef<HTMLDivElement>(null);
+	useDockFollowsSheet(sheetElement, dockRef, sheet);
+	const contentId = useId();
 	const [sheetRaised, setSheetRaised] = useState(false);
 	const isPeek = stop === "peek";
 	const editorKind = useEditorKind();
-	const reduce = useReducedMotion() === true;
 	// A tablet in portrait gets this layout, and it can drag a file in from
 	// another app: it lands where it does on a desktop, in the selected scene.
 	const draggingFile = useStudioFileDrop();
@@ -100,13 +126,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			</div>
 
 			{/* The instrument floats above the sheet, on the sheet's own top edge. */}
-			<div
-				className="sc-dock-slot"
-				style={{
-					transform: `translateY(${-sheet.dockLift(stop)}px)`,
-					transition: reduce ? undefined : `transform 500ms ${SHEET_EASE}`,
-				}}
-			>
+			<div className="sc-dock-slot" ref={dockRef}>
 				<div className="sc-dock">
 					<ExportStatus />
 					<PreviewIsland onSheetRaisedChange={setSheetRaised} />
@@ -125,24 +145,63 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				snapPoints={snapPoints}
 				activeSnapPoint={snapPoints[stopNames.indexOf(stop)] ?? null}
 				setActiveSnapPoint={(point) => {
-					const name = stopNames[snapPoints.indexOf(String(point))];
+					// A tap on the handle asks for the stop after the last: that is the peek.
+					const name =
+						point === undefined
+							? sheet.step(stop, "cycle")
+							: stopNames[snapPoints.indexOf(String(point))];
 					if (name) setWanted(name);
 				}}
 			>
 				<Drawer.Portal>
-					<Drawer.Content className="sc-sheet">
+					<Drawer.Content className="sc-sheet" ref={setSheetElement}>
 						{/* The handle darkens under the finger that holds it: the press is the
 						    only feedback a drag gets before the sheet moves. */}
-						<Drawer.Handle className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 transition-[background-color] duration-150 active:!bg-neutral-400 dark:!bg-neutral-700 dark:active:!bg-neutral-500" />
+						<Drawer.Handle
+							role="slider"
+							tabIndex={0}
+							// The drawer hides its handle from assistive technology; this one is
+							// the way to the content below the peek, so it is named and adjustable.
+							aria-hidden={undefined}
+							aria-label="Sheet height"
+							aria-orientation="vertical"
+							aria-valuemin={0}
+							aria-valuemax={stopNames.length - 1}
+							aria-valuenow={stopNames.indexOf(stop)}
+							aria-valuetext={STOP_TEXT[stop]}
+							aria-controls={contentId}
+							onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+								const step = HANDLE_KEYS[event.key];
+								if (!step || event.altKey || event.ctrlKey || event.metaKey) return;
+								event.preventDefault();
+								setWanted(sheet.step(stop, step));
+							}}
+							className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 transition-[background-color] duration-150 active:!bg-neutral-400 dark:!bg-neutral-700 dark:active:!bg-neutral-500 focus-visible:!opacity-100"
+						/>
 						<Drawer.Title className="sr-only">Code and scenes</Drawer.Title>
 						<Drawer.Description className="sr-only">
 							Edit code and arrange animation scenes.
 						</Drawer.Description>
 
-						{/* Rows scrolled up dissolve under the handle instead of being cut flat
-						    across it; the 12px fade sits in the content's top padding, so at rest
-						    nothing is faded. */}
+						{/* Collapsed, the content is below the screen: it is out of the tab order
+						    and the accessibility tree until the handle raises the sheet, so focus
+						    never lands on something nobody can see. Rows scrolled up dissolve
+						    under the handle instead of being cut flat across it; the 12px fade
+						    sits in the content's top padding, so at rest nothing is faded. */}
 						<div
+							id={contentId}
+							inert={isPeek}
+							// The sheet is as tall as the screen and slides, so at the half stop its
+							// lower part is below the screen's edge: a key that focuses something
+							// there raises the sheet, so focus is never somewhere nobody can see.
+							onFocus={(event) => {
+								if (
+									stop !== "full" &&
+									event.target.getBoundingClientRect().bottom > window.innerHeight
+								) {
+									setWanted("full");
+								}
+							}}
 							className={`min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,transparent,black_12px)] ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
 						>
 							<motion.div
