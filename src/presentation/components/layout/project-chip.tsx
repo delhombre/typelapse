@@ -81,6 +81,13 @@ async function openLocalProject(select: () => LocalProjectRecord | null): Promis
 	}
 }
 
+function sceneCountLabel(count: number): string {
+	if (count === 0) {
+		return "No scenes";
+	}
+	return count === 1 ? "1 scene" : `${count} scenes`;
+}
+
 /**
  * The project, top left, as a chip rather than a bar.
  *
@@ -223,7 +230,18 @@ export function ProjectChip() {
 							reduce ? { opacity: 0 } : { opacity: 0, y: -5, scale: 0.97, filter: "blur(4px)" }
 						}
 						animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-						exit={reduce ? { opacity: 0 } : { opacity: 0, y: -3, scale: 0.98, filter: "blur(3px)" }}
+						// Leaving is quicker than arriving: the choice is already made.
+						exit={
+							reduce
+								? { opacity: 0, transition: { duration: 0.12 } }
+								: {
+										opacity: 0,
+										y: -3,
+										scale: 0.98,
+										filter: "blur(3px)",
+										transition: { duration: 0.12, ease: [0.4, 0, 1, 1] },
+									}
+						}
 						transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
 						style={{ transformOrigin: "top left" }}
 					>
@@ -255,7 +273,11 @@ export function ProjectChip() {
 										/>
 										<span className="sc-project-copy">
 											<strong>{label}</strong>
-											<small>{active ? "Open now" : "Saved on this device"}</small>
+											{/* The head already says where they live; each row says what
+										    tells two projects apart, how much is in them. */}
+											<small>
+												{active ? "Open now" : sceneCountLabel(project.project.steps.length)}
+											</small>
 										</span>
 										{active && <Check size={13} strokeWidth={1.8} aria-hidden="true" />}
 									</button>

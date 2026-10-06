@@ -18,7 +18,14 @@ import { MagicMoveCanvas } from "@/presentation/components/preview/magic-move-ca
 import { useInViewPlayback } from "@/presentation/hooks/use-in-view-playback";
 import { useResizeObserver } from "@/presentation/hooks/use-resize-observer";
 import { springs } from "@/presentation/motion";
-import { AnimatePresence, motion, useReducedMotion, useSpring, useTransform } from "motion/react";
+import {
+	AnimatePresence,
+	motion,
+	useMotionValue,
+	useReducedMotion,
+	useSpring,
+	useTransform,
+} from "motion/react";
 import {
 	type CSSProperties,
 	type MouseEvent as ReactMouseEvent,
@@ -94,6 +101,37 @@ const fitToStage = (ratio: number) => {
 	return { w, h: w / ratio };
 };
 
+/** The frame's box: wide enough for the widest ratio and tall enough for the
+    tallest, so it never has to change size when the ratio does. */
+export function frameBox(fitScale: number): { w: number; h: number } {
+	const fits = ASPECTS.map((a) => fitToStage(a.ratio));
+	return {
+		w: Math.max(...fits.map((f) => f.w)) * fitScale,
+		h: Math.max(...fits.map((f) => f.h)) * fitScale,
+	};
+}
+
+/** The ratio drawn on that box: a centred clip with the frame's radius. A spring
+    that overshoots the box clips nothing rather than a negative inset. */
+export function frameClip(
+	box: { w: number; h: number },
+	size: { w: number; h: number },
+	radius: number,
+): string {
+	const x = Math.max(0, (box.w - size.w) / 2);
+	const y = Math.max(0, (box.h - size.h) / 2);
+	return `inset(${y}px ${x}px ${y}px ${x}px round ${radius}px)`;
+}
+
+/** The shadow follows the clip by changing hands, since a clip cuts its own
+    element's shadow: each ratio keeps a still shadow of its own size. The two do
+    not cross-fade evenly. A shadow is drawn outside its box only, so one larger
+    than the frame shows its empty middle as a pale card around it: the old one
+    leaves at once, and the new one arrives once the clip (the `gentle` spring,
+    about 90% there at 300ms) has nearly filled it. */
+const SHADOW_OUT = { duration: 0.12, ease: [0.23, 1, 0.32, 1] as const };
+const SHADOW_IN = { duration: 0.35, delay: 0.2, ease: [0.23, 1, 0.32, 1] as const };
+
 const DEMO_FRAMES = [
 	`export async function GET(req) {
   const users = await db.users.all()
@@ -168,9 +206,13 @@ function resolveView(plan: MagicMovePlan, pos: ReturnType<typeof locate>): DemoV
  */
 export function Instrument({
 	maxScale = 1,
+	quietCta = false,
 	onPresetChange: reportPreset,
 }: {
 	maxScale?: number;
+	/** The island's "Open studio" as a text action, for a composition whose own
+	    primary already says it (the hero's field). */
+	quietCta?: boolean;
 	/** Reports the live backdrop outward, for a composition that wants to take
 	    its own colour from whatever the visitor picked. */
 	onPresetChange?: (id: string) => void;
@@ -235,21 +277,37 @@ export function Instrument({
 		availH ? availH / STAGE.h : maxScale,
 	);
 
+	/* The visible frame's size, sprung. It no longer sizes an element: it clips
+	   a box that holds every ratio (D8), so the spring runs without a layout. */
+	const box = frameBox(fitScale);
 	const meshW = useSpring(target.w * fitScale, springs.gentle);
 	const meshH = useSpring(target.h * fitScale, springs.gentle);
-	// Depends on the two numbers, not on `target`: it is a fresh object every
-	// render, and depending on it would re-set the springs on every render.
+	const boxW = useMotionValue(box.w);
+	const boxH = useMotionValue(box.h);
+	const lastAspect = useRef(aspect);
+	// Depends on the numbers, not on `target` or `box`: they are fresh objects
+	// every render, and depending on them would re-set the springs every render.
 	useEffect(() => {
 		const w = target.w * fitScale;
 		const h = target.h * fitScale;
-		if (reduce) {
+		boxW.jump(box.w);
+		boxH.jump(box.h);
+		/* Only a change of ratio springs. A resize jumps: the box under the clip
+		   has already taken its new size, and a clip catching up to it would
+		   show the frame cut off for the length of the spring. */
+		const sprung = !reduce && lastAspect.current !== aspect;
+		lastAspect.current = aspect;
+		if (!sprung) {
 			meshW.jump(w);
 			meshH.jump(h);
 			return;
 		}
 		meshW.set(w);
 		meshH.set(h);
-	}, [target.w, target.h, fitScale, reduce, meshW, meshH]);
+	}, [target.w, target.h, box.w, box.h, aspect, fitScale, reduce, meshW, meshH, boxW, boxH]);
+	const clipPath = useTransform([meshW, meshH, boxW, boxH], ([w, h, bw, bh]: number[]) =>
+		frameClip({ w: bw ?? 0, h: bh ?? 0 }, { w: w ?? 0, h: h ?? 0 }, WINDOW_RADIUS + MESH_PAD),
+	);
 
 	// The code window keeps its natural size and centres in the mesh, scaling down
 	// only when the current aspect is too narrow to hold it (9:16, or on mobile).
@@ -405,42 +463,60 @@ export function Instrument({
 				className="lp-stage flex w-full items-center justify-center"
 				style={{ "--stage-ratio": STAGE.h / STAGE.w } as CSSProperties}
 			>
-				<motion.div
-					role="img"
-					aria-label="Live preview: a code snippet morphing token by token on a mesh gradient background"
-					style={{
-						width: meshW,
-						height: meshH,
-						padding: MESH_PAD,
-						// True concentric: outer radius = inner window radius + the mesh padding,
-						// so the frame and window corners nest exactly.
-						borderRadius: WINDOW_RADIUS + MESH_PAD,
-						boxShadow: OBJECT_SHADOW,
-					}}
-					className="relative mx-auto flex max-w-full items-center justify-center overflow-hidden"
-				>
-					<div ref={meshRef} aria-hidden="true" className="absolute inset-0" />
-					<GrainOverlay />
-					<motion.div style={{ scale: windowScale }} className="relative z-10">
-						<CodeWindow theme={theme} title="api/users.ts">
-							{view ? (
-								<MagicMoveCanvas
-									tokens={view.tokens}
-									lineCount={view.lineCount}
-									lineNumberCount={view.lineNumberCount}
-									fontSize={WINDOW_FONT}
-									lineHeightRatio={LINE_HEIGHT_RATIO}
-									fontFamily={theme.fontFamily}
-									color={theme.foreground}
-									lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
-									padding={FRAME_PADDING}
-								/>
-							) : (
-								<div style={{ height: bodyHeight }} />
-							)}
-						</CodeWindow>
+				{/* A box that never changes size; the ratio is the clip on the frame
+				    inside it and the shadow under it (D8). Its outer radius is the
+				    window's plus the mesh padding, so the corners stay concentric. */}
+				<div className="relative flex-none" style={{ width: box.w, height: box.h }}>
+					{ASPECTS.map((a) => {
+						const fit = fitToStage(a.ratio);
+						return (
+							<motion.div
+								key={a.id}
+								aria-hidden="true"
+								className="pointer-events-none absolute"
+								style={{
+									left: (box.w - fit.w * fitScale) / 2,
+									top: (box.h - fit.h * fitScale) / 2,
+									width: fit.w * fitScale,
+									height: fit.h * fitScale,
+									borderRadius: WINDOW_RADIUS + MESH_PAD,
+									boxShadow: OBJECT_SHADOW,
+								}}
+								initial={false}
+								animate={{ opacity: a.id === aspect ? 1 : 0 }}
+								transition={reduce ? { duration: 0 } : a.id === aspect ? SHADOW_IN : SHADOW_OUT}
+							/>
+						);
+					})}
+					<motion.div
+						role="img"
+						aria-label="Live preview: a code snippet morphing token by token on a mesh gradient background"
+						style={{ clipPath }}
+						className="absolute inset-0 flex items-center justify-center overflow-hidden"
+					>
+						<div ref={meshRef} aria-hidden="true" className="absolute inset-0" />
+						<GrainOverlay />
+						<motion.div style={{ scale: windowScale }} className="relative z-10">
+							<CodeWindow theme={theme} title="api/users.ts">
+								{view ? (
+									<MagicMoveCanvas
+										tokens={view.tokens}
+										lineCount={view.lineCount}
+										lineNumberCount={view.lineNumberCount}
+										fontSize={WINDOW_FONT}
+										lineHeightRatio={LINE_HEIGHT_RATIO}
+										fontFamily={theme.fontFamily}
+										color={theme.foreground}
+										lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
+										padding={FRAME_PADDING}
+									/>
+								) : (
+									<div style={{ height: bodyHeight }} />
+								)}
+							</CodeWindow>
+						</motion.div>
 					</motion.div>
-				</motion.div>
+				</div>
 			</div>
 
 			<Toolbar
@@ -456,6 +532,7 @@ export function Instrument({
 				onThemeChange={setThemeName}
 				aspect={aspect}
 				onAspectChange={setAspect}
+				quietCta={quietCta}
 				caption="This is the real engine: the export matches it frame for frame."
 			/>
 		</section>
@@ -527,6 +604,7 @@ function Toolbar({
 	onThemeChange,
 	aspect,
 	onAspectChange,
+	quietCta,
 	caption,
 }: {
 	reduce: boolean;
@@ -538,6 +616,7 @@ function Toolbar({
 	onThemeChange: (name: string) => void;
 	aspect: AspectId;
 	onAspectChange: (id: AspectId) => void;
+	quietCta: boolean;
 	caption: string;
 }) {
 	const [open, setOpen] = useState<null | "backdrop" | "theme">(null);
@@ -810,9 +889,7 @@ function Toolbar({
 								<span className="lp-island-num">{aspect}</span>
 							</button>
 
-							<Link to="/app" className="lp-island-cta hit-ext">
-								Open studio
-							</Link>
+							<IslandCta quiet={quietCta} />
 						</motion.div>
 					) : (
 						<motion.div
@@ -942,3 +1019,16 @@ const islandMotion = (reduce: boolean) =>
 					ease: [0.23, 1, 0.32, 1] as [number, number, number, number],
 				},
 			};
+
+/**
+ * The island's way into the studio. Filled, it is the zone's one solid shape
+ * (D2). Quiet, it is a text action with the same box and the same target, for a
+ * screen whose primary already says "Open studio": one filled one per viewport.
+ */
+export function IslandCta({ quiet = false }: { quiet?: boolean }) {
+	return (
+		<Link to="/app" className="lp-island-cta hit-ext" data-quiet={quiet ? "" : undefined}>
+			Open studio
+		</Link>
+	);
+}

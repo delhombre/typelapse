@@ -136,7 +136,7 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 								feedback("selection");
 								setMenuOpen((current) => !current);
 							}}
-							whileTap={{ scale: 0.96 }}
+							whileTap={{ scale: 0.97 }}
 							transition={springs.snappy}
 							className="hit-ext sc-glyph-button"
 							aria-label="More actions"
@@ -154,7 +154,13 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 								className="sc-utility-overflow-menu"
 								initial={{ opacity: 0, y: -4, scale: 0.97, filter: "blur(3px)" }}
 								animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
-								exit={{ opacity: 0, y: -3, scale: 0.98, filter: "blur(3px)" }}
+								exit={{
+									opacity: 0,
+									y: -3,
+									scale: 0.98,
+									filter: "blur(3px)",
+									transition: { duration: 0.11, ease: [0.4, 0, 1, 1] },
+								}}
 								transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
 								style={{ transformOrigin: "top right" }}
 							>
@@ -201,7 +207,7 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 						label="Export project file"
 						tooltip="Export project file"
 					>
-						<Download size={13} aria-hidden="true" />
+						<Download size={14} aria-hidden="true" />
 					</UtilityButton>
 					<UtilityButton
 						onClick={handleShare}
@@ -210,9 +216,9 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 						active={shareCopied}
 					>
 						{shareCopied ? (
-							<Check size={13} aria-hidden="true" />
+							<Check size={14} aria-hidden="true" />
 						) : (
-							<Share size={13} aria-hidden="true" />
+							<Share size={14} aria-hidden="true" />
 						)}
 					</UtilityButton>
 					<UtilityButton
@@ -221,9 +227,9 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 						tooltip={`Appearance · ${mode === "dark" ? "Dark" : "Light"}`}
 					>
 						{mode === "dark" ? (
-							<Sun size={13} aria-hidden="true" />
+							<Sun size={14} aria-hidden="true" />
 						) : (
-							<Moon size={13} aria-hidden="true" />
+							<Moon size={14} aria-hidden="true" />
 						)}
 					</UtilityButton>
 					<UtilityButton
@@ -233,9 +239,9 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 						active={interfaceFeedback}
 					>
 						{interfaceFeedback ? (
-							<VolumeHigh size={13} aria-hidden="true" />
+							<VolumeHigh size={14} aria-hidden="true" />
 						) : (
-							<VolumeMute size={13} aria-hidden="true" />
+							<VolumeMute size={14} aria-hidden="true" />
 						)}
 					</UtilityButton>
 				</>
@@ -264,7 +270,7 @@ function UtilityButton({
 			<motion.button
 				type="button"
 				onClick={onClick}
-				whileTap={{ scale: 0.96 }}
+				whileTap={{ scale: 0.97 }}
 				transition={springs.snappy}
 				className={`hit-ext sc-glyph-button ${active ? "sc-glyph-button-active" : ""}`}
 				aria-label={label}

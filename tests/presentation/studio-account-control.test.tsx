@@ -7,7 +7,7 @@ import type {
 import type { BillingCadence, BillingCatalog } from "@/domain/ports/billing.port";
 import { StudioAccountControl } from "@/presentation/components/multimedia/studio-account-control";
 import { createAuthStore } from "@/presentation/stores/auth.store";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /** A fixed clock: the session below must stay live however long this test outlives it. */
@@ -98,7 +98,8 @@ describe("StudioAccountControl", () => {
 		fireEvent.change(screen.getByLabelText("Password"), {
 			target: { value: "correct horse battery staple" },
 		});
-		fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
+		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
 
 		await waitFor(() =>
 			expect(screen.getByRole("button", { name: "Account for Ada Lovelace" })).toBeTruthy(),
@@ -108,10 +109,45 @@ describe("StudioAccountControl", () => {
 			password: "correct horse battery staple",
 		});
 		expect(screen.queryByRole("alert")).toBeNull();
-		// The panel closed under the Continue button that had focus.
+		// The panel closed under the Sign in button that had focus.
 		expect(document.activeElement).toBe(
 			screen.getByRole("button", { name: "Account for Ada Lovelace" }),
 		);
+	});
+
+	it("checks the sign-up form on submit, beside each field, and clears a fixed field as it is typed", async () => {
+		const signUpEmail = vi.fn(async (_input: { name: string } & EmailCredentials) => undefined);
+		const store = createAuthStore(
+			{ kind: "hosted", port: port({ signUpEmail }) },
+			{ now: () => NOW },
+		);
+		render(<StudioAccountControl store={store} />);
+
+		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
+		fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
+		fireEvent.click(within(panel).getByRole("button", { name: "New here? Create an account" }));
+		const email = within(panel).getByRole("textbox", { name: "Email" });
+		fireEvent.change(email, { target: { value: "ada@" } });
+		// Typing a first attempt is never flagged.
+		expect(email.getAttribute("aria-invalid")).toBeNull();
+
+		fireEvent.click(within(panel).getByRole("button", { name: "Create account" }));
+
+		expect(signUpEmail).not.toHaveBeenCalled();
+		expect(email.getAttribute("aria-invalid")).toBe("true");
+		expect(within(panel).getByText("Enter an email address like ada@example.com.")).toBeTruthy();
+		expect(within(panel).getByText("Add your name.")).toBeTruthy();
+		expect(within(panel).getByText("Use at least 8 characters.")).toBeTruthy();
+		// The message is the field's description, so a screen reader hears it with the field.
+		const described = email.getAttribute("aria-describedby") ?? "";
+		expect(document.getElementById(described)?.textContent).toBe(
+			"Enter an email address like ada@example.com.",
+		);
+
+		fireEvent.change(email, { target: { value: "ada@example.com" } });
+		expect(email.getAttribute("aria-invalid")).toBeNull();
+		expect(within(panel).queryByText("Enter an email address like ada@example.com.")).toBeNull();
 	});
 
 	it("does not claim cloud sync before the authenticated user opts this project in", () => {

@@ -81,6 +81,8 @@ files are green.
 
 ### 4 Interface
 
+Read `docs/design/SYSTEM.md` (tokens) and `docs/design/DECISIONS.md` (doctrine) first; a screen pass writes `docs/design/passes/YYYY-MM-DD-<screen>.md`.
+
 For anything a person sees, follow Emil's order from the aiforui course
 ("How to use aiforui skills"), one or two skills per run, looking at the
 screen in between:

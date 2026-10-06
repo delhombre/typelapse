@@ -27,26 +27,26 @@ export function StudioHistoryControls() {
 				<motion.button
 					type="button"
 					className="hit-ext sc-glyph-button"
-					whileTap={canUndo ? { scale: 0.96 } : undefined}
+					whileTap={canUndo ? { scale: 0.97 } : undefined}
 					transition={springs.snappy}
 					disabled={!canUndo}
 					aria-label="Undo"
 					onClick={() => step(studioHistory.undo)}
 				>
-					<Undo size={15} aria-hidden="true" />
+					<Undo size={14} aria-hidden="true" />
 				</motion.button>
 			</StudioTooltip>
 			<StudioTooltip content={IS_MAC ? "Redo (⇧⌘Z)" : "Redo (Ctrl+Y)"} side="bottom">
 				<motion.button
 					type="button"
 					className="hit-ext sc-glyph-button"
-					whileTap={canRedo ? { scale: 0.96 } : undefined}
+					whileTap={canRedo ? { scale: 0.97 } : undefined}
 					transition={springs.snappy}
 					disabled={!canRedo}
 					aria-label="Redo"
 					onClick={() => step(studioHistory.redo)}
 				>
-					<Redo size={15} aria-hidden="true" />
+					<Redo size={14} aria-hidden="true" />
 				</motion.button>
 			</StudioTooltip>
 		</div>

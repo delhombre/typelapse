@@ -344,7 +344,11 @@ export function PreviewIsland({
 		const onPointerDown = (event: PointerEvent) => {
 			const dock = dockRef.current;
 			const path = event.composedPath();
-			const insideDock = dock !== null && path.includes(dock);
+			// The export status floats just above the rail and reports on it:
+			// dismissing it, or pressing its Download, is not leaving the panel.
+			const insideDock =
+				(dock !== null && path.includes(dock)) ||
+				path.some((node) => node instanceof Element && node.hasAttribute("data-island-companion"));
 			if (!insideDock) {
 				closePanel(false);
 			}

@@ -99,13 +99,12 @@ export function StudioLayerStrip() {
 		selectAudioCue(selectedAudioCueId === cueId ? null : cueId);
 	};
 
+	// Selecting a scene is the most frequent move in the studio, often from the
+	// keyboard, so the strip arrives without motion. The row is keyed by scene:
+	// the previous scene's chips leave with their scene instead of playing an
+	// exit across the new scene's chips while the row reflows under them.
 	return (
-		<motion.div
-			className="sc-layer-strip"
-			initial={{ opacity: 0, y: 3 }}
-			animate={{ opacity: 1, y: 0 }}
-			transition={springs.snappy}
-		>
+		<div className="sc-layer-strip">
 			<div className="sc-layer-strip-head">
 				<span>Layers</span>
 				<div>
@@ -135,7 +134,7 @@ export function StudioLayerStrip() {
 					) : null}
 				</div>
 			</div>
-			<div className="sc-layer-pills">
+			<div className="sc-layer-pills" key={scene.id}>
 				{primaryCode ? (
 					<LayerPill
 						label="Code"
@@ -170,7 +169,7 @@ export function StudioLayerStrip() {
 					))}
 				</AnimatePresence>
 			</div>
-		</motion.div>
+		</div>
 	);
 }
 
@@ -189,13 +188,15 @@ function LayerPill({
 }) {
 	return (
 		<StudioTooltip content={shortName(label)}>
+			{/* Added or removed, a chip scales from 0.96, never from nothing. No
+			    `layout`: it slid every chip across a wrapping row on each change. */}
 			<motion.button
 				type="button"
-				layout
-				initial={{ opacity: 0, scale: 0.92 }}
+				initial={{ opacity: 0, scale: 0.96 }}
 				animate={{ opacity: 1, scale: 1 }}
-				exit={{ opacity: 0, scale: 0.92 }}
+				exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.1 } }}
 				transition={springs.snappy}
+				whileTap={{ scale: 0.97 }}
 				className="sc-layer-pill"
 				data-selected={selected ? "" : undefined}
 				data-muted={muted ? "" : undefined}

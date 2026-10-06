@@ -45,6 +45,17 @@ describe("ProjectChip local-first menu", () => {
 		expect(screen.getByRole("menuitem", { name: /Open Alpha/ })).toBeTruthy();
 	});
 
+	it("says how many scenes each saved project holds", () => {
+		ensureActiveLocalProject(payload("Alpha"), { id: "alpha", now: 10 });
+		createLocalProject(payload("Beta"), { id: "beta", now: 20 });
+		activateLocalProject("alpha");
+		open(payload("Alpha"));
+
+		fireEvent.click(screen.getByRole("button", { name: "Open project menu" }));
+		expect(screen.getByRole("menuitem", { name: /Open Beta/ }).textContent).toContain("No scenes");
+		expect(screen.getByRole("menuitem", { name: /Open Alpha/ }).textContent).toContain("Open now");
+	});
+
 	it("switches projects through the same validated import path", async () => {
 		ensureActiveLocalProject(payload("Alpha"), { id: "alpha", now: 10 });
 		createLocalProject(payload("Beta"), { id: "beta", now: 20 });

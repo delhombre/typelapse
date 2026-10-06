@@ -12,6 +12,8 @@
 	--mm-deep: #1d1d20;
 	--mm-deep-ink: #f5f5f7;
 	--mm-primary: var(--color-primary, #f1be01);
+	/* Red that reads at 11px on both papers: 5.2:1 on white. */
+	--mm-danger: #c53a3a;
 	--mm-shadow-lifted: 0 2px 8px rgb(15 23 42 / 0.06), 0 28px 70px -24px rgb(15 23 42 / 0.26);
 	display: flex;
 	align-items: center;
@@ -24,6 +26,8 @@
 	--mm-hairline: rgb(255 255 255 / 0.11);
 	--mm-deep: #f5f5f7;
 	--mm-deep-ink: #1d1d20;
+	/* The light theme's red is 3:1 on this surface; this one is 6:1. */
+	--mm-danger: #f28b82;
 	--mm-shadow-lifted: 0 2px 10px rgb(0 0 0 / 0.25), 0 32px 78px -26px rgb(0 0 0 / 0.7);
 }
 
@@ -36,8 +40,9 @@
 	border-radius: 16px;
 }
 
+/* Round at every size, so the panel's 40px initials are the trigger's 24px ones. */
 .sc-account-island .mm-account-avatar {
-	border-radius: 12px;
+	border-radius: 999px;
 }
 
 .sc-account-island .mm-account-popover {
@@ -48,8 +53,8 @@
 .sc-account-island .mm-eyebrow {
 	margin: 0;
 	color: var(--mm-muted);
-	font-size: 8.5px;
+	font-size: 9px;
 	font-weight: 650;
-	letter-spacing: 0.13em;
+	letter-spacing: 0.14em;
 	text-transform: uppercase;
 }

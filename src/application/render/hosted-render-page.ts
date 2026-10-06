@@ -83,6 +83,39 @@ function studioShareOf(document: ProjectDocumentV2): string | null {
 	}
 }
 
+/** The names the studio gives a project nobody named: "Untitled", "Untitled 2"... */
+const UNNAMED = /^untitled(?: \d+)?$/i;
+
+/** Long enough for a sentence-length first line, short enough for a tab and a card. */
+const MAX_DERIVED_TITLE = 80;
+
+/**
+ * The page's name, in its heading, its tab and its preview card. A visitor
+ * reads "Untitled" as a mistake, so a project nobody named takes the first
+ * line its video actually shows, and failing that a plain name.
+ */
+function publicTitleOf(title: string, document: ProjectDocumentV2): string {
+	const named = title.trim();
+	if (named && !UNNAMED.test(named)) {
+		return named;
+	}
+	for (const scene of document.project.scenes) {
+		for (const block of scene.blocks) {
+			if (block.kind !== "text") continue;
+			const line = block.text
+				.split("\n")
+				.map((part) => part.trim())
+				.find(Boolean);
+			if (line) {
+				return line.length > MAX_DERIVED_TITLE
+					? `${line.slice(0, MAX_DERIVED_TITLE - 1).trimEnd()}…`
+					: line;
+			}
+		}
+	}
+	return "A Typelapse video";
+}
+
 /**
  * Public pages for Cloud renders (decision log 2026-10-04 D4.1). A page exists
  * while the owner keeps it public and the owner's plan still keeps the output,
@@ -117,7 +150,7 @@ export function createHostedRenderPageService(input: {
 			}
 			return {
 				jobId: record.jobId,
-				title: record.title,
+				title: publicTitleOf(record.title, record.document),
 				mimeType: record.output.mimeType,
 				codec: record.renderOptions.format === "mp4" ? "H.264" : "VP8",
 				width: record.renderOptions.width,

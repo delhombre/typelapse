@@ -20,9 +20,8 @@ export const REVEAL_BLUR = "blur(6px)";
 /** Stagger between revealed siblings, in seconds. */
 export const REVEAL_STAGGER = 0.06;
 
-/** Reveal durations, in seconds (reduced motion uses the shorter cross-fade). */
+/** Reveal duration, in seconds. Reduced motion has no intro at all. */
 export const REVEAL_DURATION = 0.7;
-export const REVEAL_DURATION_REDUCED = 0.4;
 
 /** Press feedback: a subtle transform-only scale on tap. */
 export const PRESS_SCALE = 0.97;

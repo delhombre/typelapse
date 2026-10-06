@@ -212,7 +212,7 @@ export async function signUpInIsland(page: Page, account: TestAccount): Promise<
 		const answer = page.waitForResponse(
 			(response) => new URL(response.url()).pathname === "/api/auth/sign-up/email",
 		);
-		await panel.getByRole("button", { name: "Continue" }).click();
+		await panel.getByRole("button", { name: "Create account" }).click();
 		const response = await answer;
 		if (response.status() !== 429 || attempt === AUTH_ATTEMPTS) break;
 		await page.waitForTimeout(retryAfterMs(response.headers()));

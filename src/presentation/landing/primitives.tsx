@@ -8,7 +8,6 @@ import {
 	PRESS_SCALE,
 	REVEAL_BLUR,
 	REVEAL_DURATION,
-	REVEAL_DURATION_REDUCED,
 	REVEAL_EASE,
 	REVEAL_RISE,
 	REVEAL_SCALE,
@@ -18,15 +17,19 @@ import {
 const INTRO_SESSION_KEY = "typelapse.landing-intro-seen";
 const LandingIntroContext = createContext(false);
 
-/** One entrance per browsing session. The decision is shared by every hero
- * primitive so the copy and product instrument arrive as one composition. */
+/** One entrance per browsing session, and none under reduced motion. The
+ * decision is shared by every hero primitive so the copy and product instrument
+ * arrive as one composition. Reduced motion used to cross-fade for 400ms
+ * instead: still motion nobody asked for, on copy ready on the first frame. */
 export function LandingIntroProvider({ children }: { children: ReactNode }) {
-	const [animate] = useState(() => {
+	const reduce = useReducedMotion();
+	const [firstVisit] = useState(() => {
 		if (typeof window === "undefined") {
 			return false;
 		}
 		return window.sessionStorage.getItem(INTRO_SESSION_KEY) !== "1";
 	});
+	const animate = firstVisit && !reduce;
 
 	useEffect(() => {
 		if (animate) {
@@ -41,11 +44,11 @@ export function useLandingIntro(): boolean {
 	return useContext(LandingIntroContext);
 }
 
-/* ──────────── Scroll reveal ────────────
-   The block materializes as it scrolls in: opacity, a small rise, a whisper of
+/* ──────────── Intro reveal ────────────
+   The hero materializes once per session: opacity, a small rise, a whisper of
    scale-up and a blur that resolves, so it reads as coming into focus rather than
-   a flat fade. Reduced motion drops every transform and blur and just cross-fades.
-   `immediate` plays on mount (for above-the-fold hero content, already in view). */
+   a flat fade. Only `immediate` blocks play (the hero, already in view); every
+   other Reveal is a plain block, since nothing on the page enters on scroll. */
 
 interface RevealProps {
 	children: ReactNode;
@@ -55,20 +58,13 @@ interface RevealProps {
 }
 
 export function Reveal({ children, className, delay = 0, immediate = false }: RevealProps) {
-	const reduce = useReducedMotion();
 	const animateIntro = useLandingIntro();
 	if (!immediate || !animateIntro) {
 		return <div className={className}>{children}</div>;
 	}
-	const hidden = reduce
-		? { opacity: 0 }
-		: { opacity: 0, y: REVEAL_RISE, scale: REVEAL_SCALE, filter: REVEAL_BLUR };
-	const shown = reduce ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
-	const transition = {
-		duration: reduce ? REVEAL_DURATION_REDUCED : REVEAL_DURATION,
-		ease: reduce ? LP_EASE : REVEAL_EASE,
-		delay,
-	};
+	const hidden = { opacity: 0, y: REVEAL_RISE, scale: REVEAL_SCALE, filter: REVEAL_BLUR };
+	const shown = { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
+	const transition = { duration: REVEAL_DURATION, ease: REVEAL_EASE, delay };
 
 	return (
 		<motion.div className={className} initial={hidden} animate={shown} transition={transition}>
@@ -111,22 +107,19 @@ export function RevealGroup({
 }
 
 export function RevealItem({ children, className }: { children: ReactNode; className?: string }) {
-	const reduce = useReducedMotion();
-	const variants: Variants = reduce
-		? {
-				hidden: { opacity: 0 },
-				shown: { opacity: 1, transition: { duration: REVEAL_DURATION_REDUCED, ease: LP_EASE } },
-			}
-		: {
-				hidden: { opacity: 0, y: REVEAL_RISE, scale: REVEAL_SCALE, filter: REVEAL_BLUR },
-				shown: {
-					opacity: 1,
-					y: 0,
-					scale: 1,
-					filter: "blur(0px)",
-					transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE },
-				},
-			};
+	if (!useLandingIntro()) {
+		return <div className={className}>{children}</div>;
+	}
+	const variants: Variants = {
+		hidden: { opacity: 0, y: REVEAL_RISE, scale: REVEAL_SCALE, filter: REVEAL_BLUR },
+		shown: {
+			opacity: 1,
+			y: 0,
+			scale: 1,
+			filter: "blur(0px)",
+			transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE },
+		},
+	};
 	return (
 		<motion.div className={className} variants={variants}>
 			{children}
@@ -196,22 +189,6 @@ export function LogoLockup({
 		<span className="inline-flex items-center gap-2 text-ink">
 			<Logomark size={markSize} />
 			<span className={`font-semibold tracking-tight ${textClassName}`}>Typelapse</span>
-		</span>
-	);
-}
-
-/** A rounded-rect chip for the format / aspect / platform rows. Text auto-inverts
-    inside the dark section; only the hairline changes with `tone`. */
-export function Chip({
-	children,
-	tone = "light",
-}: { children: ReactNode; tone?: "light" | "dark" }) {
-	const border = tone === "dark" ? "border-white/15" : "border-black/10";
-	return (
-		<span
-			className={`inline-flex h-9 items-center rounded-full border ${border} px-4 font-medium text-[13px] text-ink tabular-nums`}
-		>
-			{children}
 		</span>
 	);
 }

@@ -633,7 +633,7 @@ function AspectChoice({
 }
 
 function BackGlyph() {
-	return <ChevronLeft size={13} strokeWidth={2.2} aria-hidden="true" />;
+	return <ChevronLeft size={13} strokeWidth={2} aria-hidden="true" />;
 }
 
 function SpacingGlyph() {

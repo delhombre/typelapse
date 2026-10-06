@@ -2,7 +2,7 @@ import { LiveRegion } from "@/presentation/components/ui/live-region";
 import { springs } from "@/presentation/motion";
 import { type ExportOutcome, useExportStore } from "@/presentation/stores/export.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Check } from "reicon-react";
+import { AlertCircle, Check, X } from "reicon-react";
 import { useCloudStatusView } from "./cloud-render";
 
 /**
@@ -40,7 +40,11 @@ export function ExportStatus() {
 
 	const enter = reduce ? { opacity: 0 } : { opacity: 0, y: 6, scale: 0.98 };
 	const settled = { opacity: 1, y: 0, scale: 1 };
-	const leave = reduce ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.99 };
+	// A departure is quicker than an arrival and accelerates away; with
+	// mode="wait" the next status waits on it, so a slow exit is a slow answer.
+	const leave = reduce
+		? { opacity: 0, transition: { duration: 0 } }
+		: { opacity: 0, y: 4, scale: 0.99, transition: { duration: 0.12, ease: EASE_IN } };
 	const transition = reduce ? { duration: 0 } : springs.snappy;
 
 	// The visible rows come and go with their words, so they speak through two
@@ -74,22 +78,18 @@ export function ExportStatus() {
 						transition={transition}
 						data-testid="export-status"
 						className="si-status"
+						data-island-companion=""
 					>
 						{/* The bar and the percentage are for eyes. A live region that
 						    re-announced a number every few frames would be unusable, so the
 						    screen reader is told the phase once and left alone. */}
 						<div aria-hidden="true" className="si-status-track">
-							<motion.div
-								className="si-status-fill"
-								// An indeterminate phase gets a third of a bar rather than a fake
-								// number: the server streams nothing back and cannot be quoted.
-								animate={{ width: `${(progress.ratio ?? 0.33) * 100}%` }}
-								transition={reduce ? { duration: 0 } : springs.default}
-							/>
+							<ProgressFill ratio={progress.ratio} />
 						</div>
 						<span aria-hidden="true" className="si-status-text">
 							{progress.message}
 						</span>
+						{/* Waiting is the next step, not cancelling: Cancel stays dim. */}
 						<button type="button" onClick={cancelExport} className="si-button">
 							<span className="si-seg-label">Cancel</span>
 						</button>
@@ -105,10 +105,11 @@ export function ExportStatus() {
 						transition={transition}
 						data-testid="export-status"
 						className="si-status"
+						data-island-companion=""
 						data-tone={outcome.kind === "failed" ? "failed" : undefined}
 					>
 						<span aria-hidden="true" className="si-status-mark">
-							{outcome.kind === "done" ? <CheckIcon /> : "!"}
+							{outcome.kind === "done" ? <CheckIcon /> : <AlertIcon />}
 						</span>
 						<span className="si-status-text si-status-message">
 							{outcome.kind === "done" ? (
@@ -129,7 +130,7 @@ export function ExportStatus() {
 									setTarget("device");
 									void exportVideo();
 								}}
-								className="si-button"
+								className="si-button si-status-action"
 							>
 								<span className="si-seg-label">Render on this device</span>
 							</button>
@@ -138,9 +139,9 @@ export function ExportStatus() {
 							type="button"
 							onClick={dismissOutcome}
 							aria-label="Dismiss export status"
-							className="si-button"
+							className="si-button si-status-dismiss"
 						>
-							<span aria-hidden="true">×</span>
+							<DismissIcon />
 						</button>
 					</motion.div>
 				)}
@@ -154,22 +155,32 @@ export function ExportStatus() {
 						transition={transition}
 						data-testid="cloud-render-status"
 						className="si-status"
+						data-island-companion=""
 						data-tone={cloud.kind === "problem" ? "failed" : undefined}
 					>
 						{cloud.kind === "progress" ? (
-							// The server reports a phase, never a fraction: a third of a bar,
-							// like the server path, rather than a number nobody measured.
+							// The server reports a phase, never a fraction, so the bar says it is
+							// working without quoting a number nobody measured.
 							<div aria-hidden="true" className="si-status-track">
-								<div className="si-status-fill" style={{ width: "33%" }} />
+								<ProgressFill ratio={null} />
 							</div>
 						) : cloud.kind === "note" ? null : (
 							<span aria-hidden="true" className="si-status-mark">
-								{cloud.kind === "done" ? <CheckIcon /> : "!"}
+								{cloud.kind === "done" ? <CheckIcon /> : <AlertIcon />}
 							</span>
 						)}
-						<span className="si-status-text si-status-message">{cloud.text}</span>
+						<span
+							className="si-status-text si-status-message"
+							data-note={cloud.kind === "note" ? "" : undefined}
+						>
+							{cloud.text}
+						</span>
 						{cloud.action && (
-							<button type="button" onClick={cloud.action.run} className="si-button">
+							<button
+								type="button"
+								onClick={cloud.action.run}
+								className="si-button si-status-action"
+							>
 								<span className="si-seg-label">{cloud.action.label}</span>
 							</button>
 						)}
@@ -183,9 +194,9 @@ export function ExportStatus() {
 								type="button"
 								onClick={cloud.dismiss}
 								aria-label="Dismiss cloud render status"
-								className="si-button"
+								className="si-button si-status-dismiss"
 							>
-								<span aria-hidden="true">×</span>
+								<DismissIcon />
 							</button>
 						)}
 					</motion.div>
@@ -208,6 +219,35 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/**
+ * The bar's fill. A measured ratio is a transform the compositor scales, eased
+ * over one short tween per update, so the bar never trails the percentage
+ * beside it or overshoots it the way a width spring did. A phase with no
+ * number is drawn as a travelling segment (CSS), not as a third of a bar.
+ */
+function ProgressFill({ ratio }: { ratio: number | null }) {
+	// Two keys, two nodes: tweening from the travelling translate into a scale
+	// would interpolate one matrix into the other and smear the bar for 160ms.
+	if (ratio === null) {
+		return <div key="travel" className="si-status-fill" data-indeterminate="" />;
+	}
+	const clamped = Math.min(Math.max(ratio, 0), 1);
+	return (
+		<div key="measured" className="si-status-fill" style={{ transform: `scaleX(${clamped})` }} />
+	);
+}
+
+/** Departures accelerate away (the system's exit curve). */
+const EASE_IN = [0.4, 0, 1, 1] as const;
+
 function CheckIcon() {
-	return <Check size={11} strokeWidth={2.5} aria-hidden="true" />;
+	return <Check size={13} strokeWidth={2} aria-hidden="true" />;
+}
+
+function AlertIcon() {
+	return <AlertCircle size={14} strokeWidth={2} aria-hidden="true" />;
+}
+
+function DismissIcon() {
+	return <X size={13} strokeWidth={2} aria-hidden="true" />;
 }
