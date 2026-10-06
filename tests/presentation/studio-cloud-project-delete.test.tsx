@@ -276,11 +276,12 @@ describe("deleting the cloud copy of the open project", () => {
 			/>,
 		);
 		await saveToCloud();
-		await screen.findByText("Allowance as read 1 times.");
+		// One read when the account opens, one more now that the save has landed.
+		await screen.findByText("Allowance as read 2 times.");
 
 		await deleteFromList("Launch");
 		fireEvent.click(screen.getByRole("button", { name: "Back to account" }));
 
-		expect(await screen.findByText("Allowance as read 2 times.")).toBeTruthy();
+		expect(await screen.findByText("Allowance as read 3 times.")).toBeTruthy();
 	});
 });

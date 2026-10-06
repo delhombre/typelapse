@@ -99,10 +99,13 @@ export function useStudioCloudProject({
 	authStatus,
 	document,
 	runtime,
+	onSaved,
 }: {
 	readonly authStatus: ClientAuthStatus;
 	readonly document: ProjectDocumentV2;
 	readonly runtime: StudioCloudRuntime | null;
+	/** The cloud confirmed a save: what the account holds may have changed. */
+	readonly onSaved?: () => void;
 }): {
 	readonly cloudProjectState: StudioCloudProjectState;
 	readonly saveToCloud: () => void;
@@ -129,6 +132,8 @@ export function useStudioCloudProject({
 	const accountId = session?.account.id ?? null;
 	const sessionRef = useRef(session);
 	sessionRef.current = session;
+	const onSavedRef = useRef(onSaved);
+	onSavedRef.current = onSaved;
 
 	const remember = useCallback((next: CloudCopy | null) => {
 		copyRef.current = next;
@@ -255,6 +260,7 @@ export function useStudioCloudProject({
 				projectId: result.project.id,
 				revision: result.project.revision,
 			});
+			onSavedRef.current?.();
 			return { kind: "saved", projectId: result.project.id, revision: result.project.revision };
 		} catch (error) {
 			const state = active?.getState();

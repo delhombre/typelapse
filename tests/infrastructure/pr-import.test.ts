@@ -57,6 +57,20 @@ describe("GitHub import failures", () => {
 		await expect(fetchPrWalkthrough(PR)).rejects.toThrow("will not serve a diff this large");
 	});
 
+	it("tells a GitHub failure on a pull request's diff that the diff can be pasted", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
+				(init?.headers as Record<string, string>).Accept === "application/vnd.github.diff"
+					? new Response("", { status: 500 })
+					: Response.json({ title: "A title" }),
+			),
+		);
+		await expect(fetchPrWalkthrough(PR)).rejects.toThrow(
+			"Could not fetch the change: paste the diff instead",
+		);
+	});
+
 	it("names an empty diff for what it is", async () => {
 		respondWith((url) =>
 			url.includes("/commits/")
