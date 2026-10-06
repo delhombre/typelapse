@@ -4,6 +4,7 @@ import {
 	createStudioCompositionDocument,
 } from "@/application/project/studio-composition";
 import { useExportStore } from "@/presentation/stores/export.store";
+import { useHostedRenderJobsStore } from "@/presentation/stores/hosted-render-jobs.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	loadStudioCompositionDocument,
@@ -14,8 +15,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * #168 follow-up: media on the live scene and an emptied editor. The code on
- * that scene is on no screen, so neither route renders it: the server's and
- * this device's both answer with the sentence a project without a scene gets.
+ * that scene is on no screen, so no route renders it: the server's, this
+ * device's and the cloud's all answer with the sentence a project without a
+ * scene gets.
  */
 
 const { serverRender, deviceRender } = vi.hoisted(() => ({
@@ -49,7 +51,11 @@ vi.mock("@/infrastructure/captures/browser-capture-library", () => ({
 
 const NOTHING_TO_RENDER = "A video needs at least one scene.";
 
+const submit = vi.fn(async () => undefined);
+
 beforeEach(() => {
+	submit.mockClear();
+	vi.spyOn(useHostedRenderJobsStore.getState(), "submit").mockImplementation(submit);
 	useExportStore.setState(useExportStore.getInitialState(), true);
 	useSnippetStore.getState().importFromJson(
 		JSON.stringify({
@@ -75,6 +81,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	vi.restoreAllMocks();
 	serverRender.mockClear();
 	deviceRender.mockClear();
 	useExportStore.setState(useExportStore.getInitialState(), true);
@@ -89,7 +96,15 @@ describe("rendering a project with media and no scene", () => {
 		expect(serverRender).toHaveBeenCalledTimes(1);
 	});
 
-	for (const target of ["server", "device"] as const) {
+	it("goes to the cloud while the editor holds code", async () => {
+		useExportStore.setState({ target: "cloud", format: "mp4" });
+
+		await useExportStore.getState().exportVideo();
+
+		expect(submit).toHaveBeenCalledTimes(1);
+	});
+
+	for (const target of ["server", "device", "cloud"] as const) {
 		it(`is refused on ${target} while the editor is empty, and nothing is sent`, async () => {
 			useExportStore.setState({ target, format: "mp4" });
 			useSnippetStore.getState().setCode("");
@@ -102,6 +117,7 @@ describe("rendering a project with media and no scene", () => {
 			});
 			expect(serverRender).not.toHaveBeenCalled();
 			expect(deviceRender).not.toHaveBeenCalled();
+			expect(submit).not.toHaveBeenCalled();
 		});
 	}
 });

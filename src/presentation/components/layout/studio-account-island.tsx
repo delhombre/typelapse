@@ -11,7 +11,7 @@ import { useAuthStore } from "@/presentation/stores/auth.store";
 import { useCloudProjectsStore } from "@/presentation/stores/cloud-projects.store";
 import { useHostedRenderJobsStore } from "@/presentation/stores/hosted-render-jobs.store";
 import { usePlanStore } from "@/presentation/stores/plan.store";
-import { liveCodeOf, useSnippetStore } from "@/presentation/stores/snippet.store";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	studioDocumentOf,
 	useStudioCompositionStore,
@@ -70,7 +70,7 @@ function HostedAccountIsland({
 }: StudioAccountIslandProps) {
 	const authStatus = authStore((state) => state.status);
 	const value = compositionStore((state) => state.value);
-	const liveCode = useSnippetStore(liveCodeOf);
+	const liveCode = useSnippetStore((state) => state.snippet.code);
 	// The document the Studio saves, not the raw composition: the cloud copy is
 	// compared with what a reload rebuilds, render settings and live code included.
 	const document = useMemo(() => studioDocumentOf(value, liveCode), [value, liveCode]);

@@ -237,8 +237,8 @@ export function LivePreview() {
 	// settings it was loaded with, and the loop morph lasts the current tempo.
 	// A settings change reconciles the composition, so its value changes with it.
 	const compositionDocument = useMemo(
-		() => studioDocumentOf(composition.value, liveCode),
-		[composition.value, liveCode],
+		() => studioDocumentOf(composition.value, snippet.code),
+		[composition.value, snippet.code],
 	);
 	// A blank scene counts: only the composed canvas fades the card off it.
 	const hasCompositionLayers = compositionDocument.project.scenes.some(

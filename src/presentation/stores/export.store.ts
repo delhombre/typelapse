@@ -269,6 +269,16 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				? `${even.width}×${even.height} (not ${width}×${height}: video encoders need even sizes)`
 				: null;
 
+		const studioComposition = await import("./studio-composition.store");
+		const hasMedia = studioComposition.hasAuthoredMultimedia();
+		// One question for Play and every route: an emptied editor with no scene is
+		// code on no screen, whatever media sits on the live scene.
+		if (!isPlayableProject(snippet.steps.length, hasMedia, snippetState.draft !== null)) {
+			set({ outcome: { kind: "failed", message: "A video needs at least one scene." } });
+			feedback("error");
+			return;
+		}
+
 		if (get().target === "cloud") {
 			// The server clamps nothing silently: it refuses a size past the plan in
 			// its own sentence, so the cloud gets the size that was asked for.
@@ -278,19 +288,9 @@ export const useExportStore = create<ExportState>((set, get) => ({
 
 		const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
 		const startedAt = performance.now();
-		const studioComposition = await import("./studio-composition.store");
 		// The saved document, not the raw composition: the composition keeps the
 		// render settings it was loaded with (#129).
-		const authored = studioComposition.hasAuthoredMultimedia()
-			? studioComposition.readStudioProjectDocument()
-			: null;
-		// One question for Play and both routes: an emptied editor with no scene is
-		// code on no screen, whatever media sits on the live scene.
-		if (!isPlayableProject(snippet.steps.length, authored !== null, snippetState.draft !== null)) {
-			set({ outcome: { kind: "failed", message: "A video needs at least one scene." } });
-			feedback("error");
-			return;
-		}
+		const authored = hasMedia ? studioComposition.readStudioProjectDocument() : null;
 		// Text and image layers paint on this device (autonomous sprint D2); only
 		// Server sends the media to the local Remotion route.
 		if (authored && get().target === "server") {
