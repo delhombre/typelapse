@@ -9,6 +9,7 @@ import {
 	chromePadY,
 	chromeRowHeight,
 } from "@/application/layout/frame-metrics";
+import { windowTitle } from "@/application/layout/window-title";
 import type { RenderToken } from "@/application/magic-move/engine";
 import { describe, expect, it } from "vitest";
 import { RecordingContext, round } from "./support/recording-context";
@@ -271,5 +272,35 @@ describe("paintChrome: the code below it is unaffected", () => {
 			expect(reset, chrome).toBeGreaterThanOrEqual(0);
 			expect(reset, chrome).toBeLessThan(token);
 		}
+	});
+});
+
+describe("paintChrome: a long title is one line, cut at the width the bar leaves it (#186)", () => {
+	const PR_TITLE = "fix(trie-router): count every slash a pattern consumes";
+
+	it.each(VARIANTS)("%s: draws the string the shared function decides", (chrome) => {
+		const { ctx, scene } = paint({ chrome, title: PR_TITLE });
+		const expected = windowTitle(PR_TITLE, chrome, scene.window.width, UNIT);
+		// A window this narrow cannot hold the title, or the test proves nothing.
+		expect(expected).not.toBe(PR_TITLE);
+		expect(expected.endsWith("…")).toBe(true);
+		const drawn = ctx.commands.filter((command) => command.startsWith('fillText("'));
+		expect(
+			drawn.some((command) => command.startsWith(`fillText(${JSON.stringify(expected)},`)),
+		).toBe(true);
+		// One line, and never the untruncated string the old painter drew.
+		expect(drawn.some((command) => command.includes(PR_TITLE))).toBe(false);
+	});
+
+	it("draws the whole title where the window has room for it", () => {
+		const { ctx, scene } = paint({
+			chrome: "macos",
+			title: PR_TITLE,
+			plan: { frames: [{ lineCount: 2, tokens: [{ col: 0, content: "x".repeat(80) }] }] },
+		});
+		expect(windowTitle(PR_TITLE, "macos", scene.window.width, UNIT)).toBe(PR_TITLE);
+		expect(ctx.commands.some((command) => command.startsWith(`fillText("${PR_TITLE}",`))).toBe(
+			true,
+		);
 	});
 });

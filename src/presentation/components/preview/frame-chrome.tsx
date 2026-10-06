@@ -7,7 +7,7 @@
  * `scale` so the 2.2× video reads identically to the 1× preview.
  */
 
-import { memo } from "react";
+import { type CSSProperties, memo } from "react";
 // Relative, not aliased: the Remotion composition imports this component and is
 // type-checked by `server/tsconfig.json`, which has no `@/` path mapping. Every
 // other component the video shares does the same.
@@ -16,6 +16,7 @@ import {
 	CHROME_STYLE,
 	CHROME_TEXT_LINE_HEIGHT,
 } from "../../../application/layout/frame-metrics";
+import { windowTitle } from "../../../application/layout/window-title";
 
 export type WindowChrome = "macos" | "browser" | "terminal" | "none";
 
@@ -46,29 +47,69 @@ interface FrameChromeProps {
 	foreground: string;
 	/** Upscale factor for the video (1 in the browser preview). */
 	scale?: number;
+	/**
+	 * The window's width in the same px the bar is laid out at (`scale` applied).
+	 * The title is one line cut with an ellipsis at what the bar leaves it, by the
+	 * function the frame painter calls too (`windowTitle`), so the three surfaces
+	 * draw the same characters. Left out, the whole title is rendered and CSS
+	 * clips it, which is the right thing for a window whose width is not known.
+	 */
+	width?: number;
 }
 
-function FrameChromeView({ chrome, title, foreground, scale = 1 }: FrameChromeProps) {
+function FrameChromeView({ chrome, title, foreground, scale = 1, width }: FrameChromeProps) {
 	if (chrome === "none") {
 		return null;
 	}
+	const shown = width === undefined ? title : windowTitle(title, chrome, width, scale);
+	const bar = { title, shown, foreground, scale };
 	if (chrome === "browser") {
-		return <BrowserChrome title={title} foreground={foreground} scale={scale} />;
+		return <BrowserChrome {...bar} />;
 	}
 	if (chrome === "terminal") {
-		return <TerminalChrome title={title} foreground={foreground} scale={scale} />;
+		return <TerminalChrome {...bar} />;
 	}
-	return <MacosChrome title={title} foreground={foreground} scale={scale} />;
+	return <MacosChrome {...bar} />;
 }
 
 interface BarProps {
+	/** The full name: the tooltip, and what the line is cut from. */
 	title: string;
+	/** What is drawn: `title` on one line, cut to the room the bar leaves it. */
+	shown: string;
 	foreground: string;
 	scale: number;
 }
 
+/**
+ * The title's line, which can only ever be one. The string arrives already cut
+ * to fit (`shown`); `nowrap` keeps it from wrapping if a fallback face runs a
+ * hair wider than the monospace it was counted in, and the ellipsis clip is the
+ * whole story when no width was given. `title=` keeps the full name.
+ */
+function TitleText({
+	title,
+	shown,
+	style,
+}: { title: string; shown: string; style: CSSProperties }) {
+	return (
+		<span
+			title={title === "" ? undefined : title}
+			style={{
+				...style,
+				minWidth: 0,
+				overflow: "hidden",
+				textOverflow: "ellipsis",
+				whiteSpace: "nowrap",
+			}}
+		>
+			{shown}
+		</span>
+	);
+}
+
 /** The original macOS traffic-light chrome, ported verbatim as scaled inline styles. */
-function MacosChrome({ title, foreground, scale }: BarProps) {
+function MacosChrome({ title, shown, foreground, scale }: BarProps) {
 	const bar = CHROME_STYLE.macos;
 	return (
 		<div
@@ -84,8 +125,10 @@ function MacosChrome({ title, foreground, scale }: BarProps) {
 			{bar.lights.map((color) => (
 				<Dot key={color} size={bar.dot * scale} color={color} />
 			))}
-			{title && (
-				<span
+			{shown && (
+				<TitleText
+					title={title}
+					shown={shown}
 					style={{
 						marginLeft: bar.gap * scale,
 						fontFamily: MONO,
@@ -93,16 +136,14 @@ function MacosChrome({ title, foreground, scale }: BarProps) {
 						letterSpacing: bar.titleTracking,
 						color: `${foreground}${CHROME_STYLE.titleAlpha}`,
 					}}
-				>
-					{title}
-				</span>
+				/>
 			)}
 		</div>
 	);
 }
 
 /** A slim browser tab bar: nav chevrons on the left, a centered pill address bar. */
-function BrowserChrome({ title, foreground, scale }: BarProps) {
+function BrowserChrome({ title, shown, foreground, scale }: BarProps) {
 	const bar = CHROME_STYLE.browser;
 	return (
 		<div
@@ -140,21 +181,22 @@ function BrowserChrome({ title, foreground, scale }: BarProps) {
 						overflow: "hidden",
 					}}
 				>
-					<span
+					<TitleText
+						title={title}
+						shown={shown}
 						style={{
 							display: "block",
+							// The pill keeps its height when the title has no room (or no
+							// text): an empty block has no line box, and the bar is budgeted
+							// on a full one.
+							minHeight: bar.titleSize * scale * CHROME_TEXT_LINE_HEIGHT,
 							fontFamily: MONO,
 							fontSize: bar.titleSize * scale,
 							letterSpacing: bar.titleTracking,
 							color: `${foreground}${CHROME_STYLE.titleAlpha}`,
 							textAlign: "center",
-							overflow: "hidden",
-							textOverflow: "ellipsis",
-							whiteSpace: "nowrap",
 						}}
-					>
-						{title}
-					</span>
+					/>
 				</div>
 			</div>
 			{/* Right spacer keeps the address bar optically centered against the chevrons. */}
@@ -164,7 +206,7 @@ function BrowserChrome({ title, foreground, scale }: BarProps) {
 }
 
 /** A thin terminal bar: a prompt glyph, then the title in mono. */
-function TerminalChrome({ title, foreground, scale }: BarProps) {
+function TerminalChrome({ title, shown, foreground, scale }: BarProps) {
 	const bar = CHROME_STYLE.terminal;
 	return (
 		<div
@@ -188,17 +230,17 @@ function TerminalChrome({ title, foreground, scale }: BarProps) {
 			>
 				{bar.prompt}
 			</span>
-			{title && (
-				<span
+			{shown && (
+				<TitleText
+					title={title}
+					shown={shown}
 					style={{
 						fontFamily: MONO,
 						fontSize: bar.titleSize * scale,
 						letterSpacing: bar.titleTracking,
 						color: `${foreground}${CHROME_STYLE.titleAlpha}`,
 					}}
-				>
-					{title}
-				</span>
+				/>
 			)}
 		</div>
 	);

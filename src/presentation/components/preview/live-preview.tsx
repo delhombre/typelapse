@@ -178,6 +178,13 @@ function contentBox(el: HTMLElement): { width: number; height: number } {
  */
 const STAGE_CARD_MAX_RADIUS = 20;
 
+/**
+ * The plain card's width in px, margin included: 42rem at the browser's default
+ * root size. A number rather than a class because the title bar has to know how
+ * wide its window is to cut a long title at the same character the exports do.
+ */
+const PLAIN_CARD_WIDTH = 672;
+
 /** Gentle phone-screen rounding for the social aspect box, proportional and capped. */
 function socialCanvasRadius(width: number, height: number): number {
 	return Math.round(Math.min(28, Math.min(width, height) * 0.05));
@@ -479,6 +486,10 @@ export function LivePreview() {
 	// The size the card is laid out at: the composition's on the export canvas,
 	// editor size on the plain fit-to-viewport card.
 	const layoutScale = aspectCanvas?.layoutScale ?? 1;
+	// The mesh margin around the window, and so how wide the window is: the
+	// title bar cuts a long title at the width it leaves, as the exports do.
+	const cardInset = isTransparent ? 0 : cardMargin * layoutScale;
+	const windowWidth = aspectCanvas ? aspectCanvas.windowWidth : PLAIN_CARD_WIDTH - 2 * cardInset;
 	// A ceiling on the growth, never a licence to invert: at the widest margin and
 	// the roundest window the cap would have made the card's corner tighter than
 	// the corner it wraps, which is the one thing `concentric` already refuses to
@@ -506,18 +517,16 @@ export function LivePreview() {
 		<motion.div
 			ref={attachCard}
 			data-export-target
-			className={`relative ${aspectCanvas ? "" : "w-[42rem]"} ${isPlaying && !isTransparent && !aspectCanvasActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
+			className={`relative ${isPlaying && !isTransparent && !aspectCanvasActive && !isMesh && !isImage ? "bg-animate-playing" : ""}`}
 			animate={cardBackgroundAnimate}
 			transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
 			style={{
 				opacity: isBuilding ? 0.85 : 1,
-				padding: isTransparent ? 0 : cardMargin * layoutScale,
+				padding: cardInset,
 				// On the export canvas the window is exactly as wide as the exporters
 				// draw it (at their size; the wrapper shrinks it). Elsewhere the card
 				// keeps the studio's fixed 42rem.
-				width: aspectCanvas
-					? aspectCanvas.windowWidth + 2 * (isTransparent ? 0 : cardMargin * layoutScale)
-					: undefined,
+				width: aspectCanvas ? windowWidth + 2 * cardInset : PLAIN_CARD_WIDTH,
 				// Concentric law: the outer corner follows the window's radius plus the
 				// margin, so a square window (radius 0) yields a square card.
 				borderRadius: cardRadius * layoutScale,
@@ -567,6 +576,7 @@ export function LivePreview() {
 					chrome={windowChrome}
 					clip={aspectCanvas?.clip ?? null}
 					scale={layoutScale}
+					width={windowWidth}
 				>
 					{/* Focus zoom pushes the code toward the spotlighted band. Playback
 							    drives every frame, so there is no CSS transition. The same
@@ -809,6 +819,7 @@ function FrameShell({
 	chrome,
 	clip,
 	scale,
+	width,
 	children,
 }: {
 	theme: Theme;
@@ -817,6 +828,8 @@ function FrameShell({
 	clip: { maxHeight: number; fades: ClipFade[] } | null;
 	/** The size the card is laid out at, in editor sizes. */
 	scale: number;
+	/** The window's width at that size: what the title bar cuts a long title to. */
+	width: number;
 	children: ReactNode;
 }) {
 	return (
@@ -828,7 +841,13 @@ function FrameShell({
 				maxHeight: clip?.maxHeight,
 			}}
 		>
-			<FrameChrome chrome={chrome} title={title} foreground={theme.foreground} scale={scale} />
+			<FrameChrome
+				chrome={chrome}
+				title={title}
+				foreground={theme.foreground}
+				scale={scale}
+				width={width}
+			/>
 			{children}
 			{clip ? <ClipFades fades={clip.fades} background={theme.background} /> : null}
 		</div>
