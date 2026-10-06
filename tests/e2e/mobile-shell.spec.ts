@@ -106,6 +106,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 
 		// The peek's box, measured on its own, to hold the panel's against.
 		await handle.press("Home");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
 		await settled(card);
 		const peekBox = await card.boundingBox();
 		await handle.press("ArrowUp");
