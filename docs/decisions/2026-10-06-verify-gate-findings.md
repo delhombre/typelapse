@@ -174,9 +174,13 @@ WebCodecs adapter's label for H.264 and HEVC rungs if missing.
 ## D6 A hero paste arrives with its first scene captured
 
 **Decision:** the `#import=` intent from the landing lands in the studio
-with the pasted code captured as scene one, so Play is live and the
-typewriter animates it on arrival. The in-studio paste keeps today's
-behaviour (a source change on an existing project asks before replacing).
+with the pasted code captured as scene one, so Play is live on arrival and
+the typewriter animates it when the person presses Play; nothing autoplays.
+The scene is captured inside the project replacement, so there is no undo
+back to an empty studio. The in-studio paste keeps today's behaviour (a
+source change on an existing project asks before replacing). Diffs and PR
+imports already arrive with their scenes and get no extra one. (Clarified
+2026-10-06: "animates on arrival" meant Play live, not autoplay.)
 
 **Why:**
 
@@ -195,20 +199,30 @@ behaviour (a source change on an existing project asks before replacing).
 
 ## D7 The hero field stays responsive under a large paste
 
-**Decision:** a paste of 8000 lines into the hero field completes within one
-frame budget's order (under 200 ms on the test machine), measured by a test
-or a Playwright timing. Whatever the field does per keystroke (highlight,
-measure, intent encoding) is deferred, capped or moved off the input path.
-The phone placeholder shows a whole URL ("https://github.com/…/pull/…" or a
-shorter sentence) rather than a cut "https://github.com/o".
+**Decision:** a real paste of 8000 lines into the hero field completes
+under 200 ms, proven by a Playwright timing from the `paste` event to the
+second frame. The phone placeholders are whole sentences that fit at 360px
+("Paste a PR link", "@@ -1,6 +1,10 @@", "db.users.all()"), never a cut URL.
+The studio keeps its 5,000-line ceiling: an over-ceiling paste carried in
+from the hero lands on the studio's "too long to animate" message, not on a
+blank studio. (Amended 2026-10-06 after diagnosis: the 36 s freeze was
+Chromium's `insertText` editing command, quadratic in lines, driven by
+Playwright's `fill`; a real Cmd+V already took about 100 ms, and the hero's
+own work was 7 ms of classification and 8 ms of encoding. A `beforeinput`
+workaround was built and then dropped: it cost native undo on one input
+path to fix a bug the product did not have.)
 
 **Why:**
 
-- 36 s of frozen page on a paste is a crash to a visitor.
+- 36 s of frozen page on a paste would be a crash to a visitor; measuring
+  the real gesture showed the page was never the cause.
 
 **Rejected:**
 
-- Refusing pastes over a size: the studio accepts them.
+- Refusing pastes in the hero over a size: the studio already says why it
+  refuses, one message is enough.
+- Keeping the `beforeinput` bulk-insert path: a workaround for a test
+  harness, carried by every visitor.
 
 **Impact:** `src/presentation/landing/hero.tsx` and what it calls,
 `tests/presentation/`.
@@ -224,7 +238,9 @@ instead; the `@network` e2e fixture moves from `sindresorhus/is/pull/200`
 (its diff endpoint answers 500) to `honojs/hono/pull/5189`; a project chip on
 the phone keeps at least the first word of the title. The 300-character line
 that shrinks the card to a strip is a layout-math change across three
-renderers: its own ticket, not this wave.
+renderers: its own ticket (#174), not this wave. The caption a PNG used to
+carry from the DOM and that the painter does not draw is #179, to decide
+with D3 of next-wave.
 
 **Why:**
 
