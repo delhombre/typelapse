@@ -412,6 +412,7 @@ export function CenteredFrame({
 							title={title}
 							foreground={theme.foreground}
 							scale={videoScale}
+							width={natural.width}
 						/>
 						{children}
 						<ClipFades

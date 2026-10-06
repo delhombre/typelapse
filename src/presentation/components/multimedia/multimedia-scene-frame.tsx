@@ -29,6 +29,8 @@ export interface SceneAssetSource {
 
 export interface SceneCodeRenderInput {
 	readonly layer: ResolvedCodeLayer;
+	/** The layer's box in canvas px: the window the chrome's title is cut to. */
+	readonly windowWidth: number;
 	readonly projectTitle: string;
 	readonly visual: CodeLayerVisual;
 }
@@ -175,7 +177,7 @@ function DefaultText({ layer }: { readonly layer: ResolvedTextLayer }) {
 	return <MultimediaTextLayerContent text={layer.text} visual={projectTextLayerVisual(layer)} />;
 }
 
-function DefaultCode({ layer, projectTitle, visual }: SceneCodeRenderInput) {
+function DefaultCode({ layer, windowWidth, projectTitle, visual }: SceneCodeRenderInput) {
 	return (
 		<MultimediaCodeLayerContent
 			blockId={layer.blockId}
@@ -184,6 +186,7 @@ function DefaultCode({ layer, projectTitle, visual }: SceneCodeRenderInput) {
 			showLineNumbers={layer.showLineNumbers}
 			lineNumberStart={layer.lineNumberStart}
 			projectTitle={projectTitle}
+			windowWidth={windowWidth}
 			visual={visual}
 		/>
 	);
@@ -269,6 +272,7 @@ export function MultimediaSceneFrame({
 				} else if (layer.kind === "code") {
 					content = renderCode({
 						layer,
+						windowWidth: layer.placement.width * project.canvas.width,
 						projectTitle: project.title,
 						visual: projectCodeLayerVisual(layer),
 					});

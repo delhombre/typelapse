@@ -33,6 +33,7 @@ import {
 	chromeRowHeight,
 } from "../layout/frame-metrics";
 import { watermarkPlacement } from "../layout/watermark-placement";
+import { chromeGlyphAdvance, windowTitle } from "../layout/window-title";
 import { scrolledGutter } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
 import type { ZoomTransform } from "../magic-move/focus-zoom";
@@ -64,8 +65,6 @@ export interface FrameState {
 
 /** Below this the glyph is invisible; painting it costs a draw call for nothing. */
 const INVISIBLE = 0.001;
-/** What `text-overflow: ellipsis` puts on the end of a line it had to cut. */
-const ELLIPSIS = "…";
 /** `ReelsProgress`'s own metrics, in unscaled px, and where the card floats it. */
 const PROGRESS_HEIGHT = 4;
 const PROGRESS_GAP = 6;
@@ -481,11 +480,16 @@ function paintMacosChrome(
 	if (title === "") {
 		return;
 	}
-	// The title is the fourth flex child, plus its own left margin.
+	// The title is the fourth flex child, plus its own left margin, on one line
+	// cut at the room the bar leaves it: the string `FrameChrome` renders.
+	const label = windowTitle(title, "macos", scene.window.width, unit);
+	if (label === "") {
+		return;
+	}
 	setTracking(ctx, bar.titleTracking);
 	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
 	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
-	ctx.fillText(title, cx + bar.gap * unit, baselines.at(cy, chromeLine(bar.titleSize, unit)));
+	ctx.fillText(label, cx + bar.gap * unit, baselines.at(cy, chromeLine(bar.titleSize, unit)));
 }
 
 /**
@@ -515,7 +519,9 @@ function paintBrowserChrome(
 	const chevronY = baselines.at(cy, chromeLine(bar.chevronSize, unit));
 	for (const chevron of bar.chevrons) {
 		ctx.fillText(chevron, cx, chevronY);
-		cx += ctx.measureText(chevron).width + bar.chevronGap * unit;
+		// Counted, not measured: the chevrons fall outside the bar's font subset,
+		// and the title's room is counted on the same advance (`window-title.ts`).
+		cx += chromeGlyphAdvance(bar.chevronSize, unit) + bar.chevronGap * unit;
 	}
 	// The last chevron added a gap that is not there; take it back.
 	const chevronWidth = cx - bar.chevronGap * unit - left;
@@ -531,7 +537,9 @@ function paintBrowserChrome(
 	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
 	const padX = bar.pillPadX * unit;
 	const maxPill = bar.pillMaxWidth * flexWidth;
-	const pillWidth = Math.min(ctx.measureText(title).width + 2 * padX, maxPill);
+	// The pill hugs the line it holds, which is already cut to fit inside it.
+	const label = windowTitle(title, "browser", scene.window.width, unit);
+	const pillWidth = Math.min(ctx.measureText(label).width + 2 * padX, maxPill);
 	const pillHeight = (2 * bar.pillPadY + bar.titleSize * CHROME_TEXT_LINE_HEIGHT) * unit;
 	const pillX = flexLeft + (flexWidth - pillWidth) / 2;
 
@@ -540,12 +548,9 @@ function paintBrowserChrome(
 	ctx.fillStyle = withHexAlpha(theme.foreground, bar.pillAlpha);
 	ctx.fill();
 
-	if (title === "") {
+	if (label === "") {
 		return;
 	}
-	// `text-overflow: ellipsis` on a centred line: the text is clipped to the
-	// pill's content box, so a long title loses its tail rather than the pill.
-	const label = truncate(ctx, title, pillWidth - 2 * padX);
 	ctx.textAlign = "center";
 	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
 	ctx.fillText(label, pillX + pillWidth / 2, baselines.at(cy, chromeLine(bar.titleSize, unit)));
@@ -568,16 +573,20 @@ function paintTerminalChrome(
 	ctx.font = canvasFont(bar.promptSize * unit, CHROME_FONT_STACK, undefined, bar.promptWeight);
 	ctx.fillStyle = withHexAlpha(theme.foreground, bar.promptAlpha);
 	ctx.fillText(bar.prompt, left, baselines.at(cy, chromeLine(bar.promptSize, unit)));
-	const promptWidth = ctx.measureText(bar.prompt).width;
+	// Counted, not measured: U+276F is outside the bar's font subset, so its
+	// measured width is a fallback's, while the title's room is counted on the
+	// advance `FrameChrome` gives the prompt's box.
+	const promptWidth = chromeGlyphAdvance(bar.promptSize, unit);
 
-	if (title === "") {
+	const label = windowTitle(title, "terminal", scene.window.width, unit);
+	if (label === "") {
 		return;
 	}
 	setTracking(ctx, bar.titleTracking);
 	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
 	ctx.fillStyle = withHexAlpha(theme.foreground, CHROME_STYLE.titleAlpha);
 	ctx.fillText(
-		title,
+		label,
 		left + promptWidth + bar.gap * unit,
 		baselines.at(cy, chromeLine(bar.titleSize, unit)),
 	);
@@ -605,21 +614,6 @@ function setTracking(ctx: PaintContext, tracking: string): void {
 		// each long token that the preview never shows. Zero is what CSS means.
 		ctx.letterSpacing = tracking === "normal" ? "0px" : tracking;
 	}
-}
-
-/** A string cut to fit a width, with the ellipsis CSS would have added. */
-function truncate(ctx: PaintContext, text: string, maxWidth: number): string {
-	if (maxWidth <= 0) {
-		return "";
-	}
-	if (ctx.measureText(text).width <= maxWidth) {
-		return text;
-	}
-	let cut = text;
-	while (cut.length > 0 && ctx.measureText(`${cut}${ELLIPSIS}`).width > maxWidth) {
-		cut = cut.slice(0, -1);
-	}
-	return cut === "" ? "" : `${cut}${ELLIPSIS}`;
 }
 
 /**

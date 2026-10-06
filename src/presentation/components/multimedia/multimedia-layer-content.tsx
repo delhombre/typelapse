@@ -42,6 +42,8 @@ interface MultimediaCodeLayerContentProps {
 	readonly showLineNumbers: boolean;
 	readonly lineNumberStart: number;
 	readonly projectTitle: string;
+	/** The layer's width in the px its chrome is laid out at (scale 1). */
+	readonly windowWidth: number;
 	readonly visual: CodeLayerVisual;
 }
 
@@ -52,6 +54,7 @@ export function MultimediaCodeLayerContent({
 	showLineNumbers,
 	lineNumberStart,
 	projectTitle,
+	windowWidth,
 	visual,
 }: MultimediaCodeLayerContentProps) {
 	const lines = code.split("\n");
@@ -76,7 +79,12 @@ export function MultimediaCodeLayerContent({
 				boxShadow: visual.boxShadow,
 			}}
 		>
-			<FrameChrome chrome={visual.chrome} title={projectTitle} foreground={visual.foreground} />
+			<FrameChrome
+				chrome={visual.chrome}
+				title={projectTitle}
+				foreground={visual.foreground}
+				width={windowWidth}
+			/>
 			<div
 				data-code-body=""
 				style={{
