@@ -90,7 +90,7 @@ const TIMEOUT_MS = 10_000;
 /** More commits than this and chaptering is unwieldy: fall back to the whole change. */
 export const MAX_CHAPTER_COMMITS = 30;
 
-/** GitHub failed, or answered with nothing the importer maps: the diff itself still works. */
+/** GitHub failed, or answered with nothing the importer maps: a pasted diff is the way round, for every import kind. */
 const COULD_NOT_FETCH = "Could not fetch the change: paste the diff instead";
 
 const DIFF_ACCEPT = "application/vnd.github.diff";

@@ -314,6 +314,7 @@ describe("importFailureOf", () => {
 		],
 		["Could not reach GitHub: check your connection, or paste the diff instead", "unreachable"],
 		["Could not fetch the change", "unfetchable"],
+		["Could not fetch the change: paste the diff instead", "unfetchable"],
 		["This change has no file differences to animate", "other"],
 		["", "other"],
 	])("reads %j as %s", (message, failure) => {
