@@ -1,4 +1,5 @@
 import {
+	DOCK_ROOM,
 	type PhoneSheetStep,
 	type PhoneSheetStop,
 	phoneSheetGeometry,
@@ -125,7 +126,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			    and a slot asked for 460px more than the screen has left collapses to
 			    a box of nothing, which the card refits into at a negative offset
 			    (#169). A raised cluster lowers the sheet instead (above). */}
-			<div className="sc-stage-slot" style={{ paddingBottom: stageLift + 116 }}>
+			<div className="sc-stage-slot" style={{ paddingBottom: stageLift + DOCK_ROOM }}>
 				{/* The frame is the video's own shape here too: a phone used to get
 				    the bare card, so a 16:9 export previewed as a wide strip. */}
 				<StudioVideoModeProvider active>
