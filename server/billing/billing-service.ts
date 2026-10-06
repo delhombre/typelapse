@@ -5,7 +5,7 @@ import type {
 } from "../../src/domain/ports/billing.port";
 
 export type HostedPlanTier = "free" | "creator";
-export type StripeSubscriptionStateName =
+export type BillingSubscriptionStatus =
 	| "incomplete"
 	| "incomplete_expired"
 	| "trialing"
@@ -18,33 +18,35 @@ export type StripeSubscriptionStateName =
 export interface BillingProjection {
 	readonly userId: string;
 	readonly planTier: HostedPlanTier;
-	readonly stripeStatus: StripeSubscriptionStateName;
-	readonly stripeCustomerId: string;
-	readonly stripeSubscriptionId: string;
-	readonly stripePriceId: string;
+	readonly providerStatus: BillingSubscriptionStatus;
+	readonly providerCustomerId: string;
+	readonly providerSubscriptionId: string;
+	readonly providerProductId: string;
 	readonly currentPeriodEnd: Date | null;
 	readonly cancelAtPeriodEnd: boolean;
 	readonly lastEventId: string;
 	readonly lastEventCreatedAt: Date;
 }
 
-export interface NormalizedStripeEvent {
+export interface NormalizedBillingEvent {
+	/** The delivery id: a redelivery of the same event carries the same one. */
 	readonly id: string;
 	readonly type: string;
 	readonly createdAt: Date;
+	/** False for a sandbox event, so test money never reads as revenue. */
 	readonly livemode: boolean;
 	readonly payloadHash: string;
 	readonly customerId?: string;
 	readonly subscriptionId?: string;
-	/** Present only on Checkout, copied from our server-owned client reference. */
+	/** Our account id, which the provider hands back as the customer's external id. */
 	readonly userId?: string;
 }
 
-export interface StripeSubscriptionState {
+export interface BillingSubscriptionState {
 	readonly customerId: string;
 	readonly subscriptionId: string;
-	readonly priceId: string;
-	readonly status: StripeSubscriptionStateName;
+	readonly productId: string;
+	readonly status: BillingSubscriptionStatus;
 	readonly currentPeriodEnd: Date | null;
 	readonly cancelAtPeriodEnd: boolean;
 }
@@ -53,7 +55,7 @@ export interface BillingProjectionStore {
 	findByUserId(userId: string): Promise<BillingProjection | null>;
 	findUserIdByCustomerId(customerId: string): Promise<string | null>;
 	/** Atomically claim the globally unique event id. False means already seen. */
-	claimEvent(event: NormalizedStripeEvent): Promise<boolean>;
+	claimEvent(event: NormalizedBillingEvent): Promise<boolean>;
 	/** Conditional write: the event cursor may never move backwards. */
 	applyProjectionIfNewer(projection: BillingProjection): Promise<boolean>;
 	finishEvent(
@@ -63,21 +65,28 @@ export interface BillingProjectionStore {
 	): Promise<void>;
 }
 
-export interface StripeBillingGateway {
+/** The webhook headers a delivery is verified against, as the HTTP layer received them. */
+export type BillingWebhookHeaders = Readonly<Record<string, string | undefined>>;
+
+/**
+ * The payment provider (Polar, the merchant of record) behind one seam. Our
+ * account id is the customer's external id on its side, so no provider id has
+ * to be stored before the first checkout.
+ */
+export interface BillingGateway {
 	createCheckout(input: {
 		readonly userId: string;
-		readonly customerId?: string;
-		readonly priceId: string;
+		readonly productId: string;
 		readonly successUrl: string;
-		readonly cancelUrl: string;
+		readonly returnUrl: string;
 	}): Promise<{ readonly id: string; readonly url: string }>;
 	createPortal(input: {
-		readonly customerId: string;
+		readonly userId: string;
 		readonly returnUrl: string;
 	}): Promise<{ readonly url: string }>;
-	verifyWebhook(rawBody: string, signature: string): Promise<NormalizedStripeEvent>;
-	retrieveSubscription(subscriptionId: string): Promise<StripeSubscriptionState>;
-	retrievePrice(priceId: string): Promise<{
+	verifyWebhook(rawBody: string, headers: BillingWebhookHeaders): Promise<NormalizedBillingEvent>;
+	retrieveSubscription(subscriptionId: string): Promise<BillingSubscriptionState>;
+	retrieveProduct(productId: string): Promise<{
 		readonly id: string;
 		readonly currency: string;
 		readonly unitAmount: number;
@@ -86,7 +95,7 @@ export interface StripeBillingGateway {
 }
 
 export interface BillingServiceConfig {
-	readonly creatorPriceIds: ReadonlyMap<BillingCadence, string>;
+	readonly creatorProductIds: ReadonlyMap<BillingCadence, string>;
 	readonly appUrl: string;
 }
 
@@ -94,8 +103,12 @@ export interface BillingService {
 	catalog(): Promise<BillingCatalog>;
 	planFor(userId: string): Promise<{
 		readonly tier: HostedPlanTier;
+		/** "none" for an account that never subscribed. */
+		readonly status: BillingSubscriptionStatus | "none";
 		readonly currentPeriodEnd: Date | null;
 		readonly cancelAtPeriodEnd: boolean;
+		/** When the last billing event that moved this account arrived. */
+		readonly since: Date | null;
 	}>;
 	startCheckout(
 		userId: string,
@@ -104,14 +117,22 @@ export interface BillingService {
 	openPortal(userId: string): Promise<{ readonly url: string }>;
 	processWebhook(
 		rawBody: string,
-		signature: string,
+		headers: BillingWebhookHeaders,
 	): Promise<{ readonly outcome: "processed" | "duplicate" | "ignored" }>;
 }
 
 export class InvalidBillingWebhookSignatureError extends Error {
 	constructor() {
-		super("Invalid Stripe webhook signature");
+		super("Invalid billing webhook signature");
 		this.name = "InvalidBillingWebhookSignatureError";
+	}
+}
+
+/** One projection row per account: a second paid checkout would start a second subscription beside the first. */
+export class AlreadySubscribedError extends Error {
+	constructor() {
+		super("This account already has Creator");
+		this.name = "AlreadySubscribedError";
 	}
 }
 
@@ -119,38 +140,51 @@ function trimTrailingSlash(value: string): string {
 	return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
+/** The events that can move a plan; Polar sends many more (checkouts, benefits, customers). */
+const RELEVANT_EVENTS: ReadonlySet<string> = new Set([
+	"subscription.active",
+	"subscription.updated",
+	"subscription.canceled",
+	"subscription.uncanceled",
+	"subscription.revoked",
+	"subscription.past_due",
+	"order.paid",
+]);
+
 function isRelevantEvent(type: string): boolean {
-	return type === "checkout.session.completed" || type.startsWith("customer.subscription.");
+	return RELEVANT_EVENTS.has(type);
 }
 
-/** Domain-owned billing orchestration; the Stripe SDK and SQL stay in adapters. */
+/** Domain-owned billing orchestration; the provider SDK and SQL stay in adapters. */
 export function createBillingService(input: {
 	readonly store: BillingProjectionStore;
-	readonly stripe: StripeBillingGateway;
+	readonly gateway: BillingGateway;
 	readonly config: BillingServiceConfig;
 }): BillingService {
-	const { store, stripe, config } = input;
+	const { store, gateway, config } = input;
 	const appUrl = trimTrailingSlash(config.appUrl);
 	let catalogRequest: Promise<BillingCatalog> | null = null;
-	const configuredPriceIds = new Set(config.creatorPriceIds.values());
+	const configuredProductIds = new Set(config.creatorProductIds.values());
 
 	const catalog = async (): Promise<BillingCatalog> => {
 		const entries = await Promise.all(
-			([...config.creatorPriceIds] as const).map(async ([cadence, priceId]) => {
-				const price = await stripe.retrievePrice(priceId);
+			([...config.creatorProductIds] as const).map(async ([cadence, productId]) => {
+				const product = await gateway.retrieveProduct(productId);
 				const expectedInterval = cadence === "monthly" ? "month" : "year";
 				if (
-					price.id !== priceId ||
-					price.recurringInterval !== expectedInterval ||
-					!Number.isSafeInteger(price.unitAmount) ||
-					price.unitAmount <= 0 ||
-					!/^[a-z]{3}$/i.test(price.currency)
+					product.id !== productId ||
+					product.recurringInterval !== expectedInterval ||
+					!Number.isSafeInteger(product.unitAmount) ||
+					product.unitAmount <= 0 ||
+					!/^[a-z]{3}$/i.test(product.currency)
 				) {
-					throw new Error(`Stripe price ${priceId} does not match the configured cadence`);
+					throw new Error(
+						`Billing product ${productId} does not match the configured cadence`,
+					);
 				}
 				const normalized: BillingPrice = {
-					currency: price.currency.toUpperCase(),
-					unitAmount: price.unitAmount,
+					currency: product.currency.toUpperCase(),
+					unitAmount: product.unitAmount,
 				};
 				return [cadence, normalized] as const;
 			}),
@@ -172,37 +206,47 @@ export function createBillingService(input: {
 				tier: projection?.planTier ?? "free",
 				currentPeriodEnd: projection?.currentPeriodEnd ?? null,
 				cancelAtPeriodEnd: projection?.cancelAtPeriodEnd ?? false,
+				status: projection?.providerStatus ?? "none",
+				since: projection?.lastEventCreatedAt ?? null,
 			};
 		},
 
 		async startCheckout(userId, cadence) {
-			const priceId = config.creatorPriceIds.get(cadence);
-			if (!priceId) {
+			const productId = config.creatorProductIds.get(cadence);
+			if (!productId) {
 				throw new Error(`Creator ${cadence} billing is not configured`);
 			}
+			// Creator, or a payment that failed on its subscription: the portal is the fix
+			// for both, and the island offers nothing else, so the API agrees.
 			const projection = await store.findByUserId(userId);
-			return stripe.createCheckout({
+			if (
+				projection?.planTier === "creator" ||
+				projection?.providerStatus === "past_due" ||
+				projection?.providerStatus === "unpaid"
+			) {
+				throw new AlreadySubscribedError();
+			}
+			return gateway.createCheckout({
 				userId,
-				customerId: projection?.stripeCustomerId,
-				priceId,
+				productId,
 				successUrl: `${appUrl}/app?billing=success`,
-				cancelUrl: `${appUrl}/app?billing=cancelled`,
+				returnUrl: `${appUrl}/app?billing=cancelled`,
 			});
 		},
 
 		async openPortal(userId) {
 			const projection = await store.findByUserId(userId);
-			if (!projection?.stripeCustomerId) {
-				throw new Error("No Stripe customer is associated with this account");
+			if (!projection?.providerCustomerId) {
+				throw new Error("No billing customer is associated with this account");
 			}
-			return stripe.createPortal({
-				customerId: projection.stripeCustomerId,
+			return gateway.createPortal({
+				userId,
 				returnUrl: `${appUrl}/app`,
 			});
 		},
 
-		async processWebhook(rawBody, signature) {
-			const event = await stripe.verifyWebhook(rawBody, signature);
+		async processWebhook(rawBody, headers) {
+			const event = await gateway.verifyWebhook(rawBody, headers);
 			const claimed = await store.claimEvent(event);
 			if (!claimed) {
 				return { outcome: "duplicate" };
@@ -220,17 +264,28 @@ export function createBillingService(input: {
 				}
 
 				// Refresh the provider's current object instead of trusting delivery order.
-				const subscription = await stripe.retrieveSubscription(event.subscriptionId);
+				const subscription = await gateway.retrieveSubscription(event.subscriptionId);
 				const entitled =
-					configuredPriceIds.has(subscription.priceId) &&
+					configuredProductIds.has(subscription.productId) &&
 					(subscription.status === "active" || subscription.status === "trialing");
+				// An account holds one projection row. A subscription other than the one it
+				// is paying on (an old one revoked late) must not take Creator away.
+				const current = await store.findByUserId(userId);
+				if (
+					!entitled &&
+					current?.planTier === "creator" &&
+					current.providerSubscriptionId !== subscription.subscriptionId
+				) {
+					await store.finishEvent(event.id, "ignored");
+					return { outcome: "ignored" };
+				}
 				await store.applyProjectionIfNewer({
 					userId,
 					planTier: entitled ? "creator" : "free",
-					stripeStatus: subscription.status,
-					stripeCustomerId: subscription.customerId,
-					stripeSubscriptionId: subscription.subscriptionId,
-					stripePriceId: subscription.priceId,
+					providerStatus: subscription.status,
+					providerCustomerId: subscription.customerId,
+					providerSubscriptionId: subscription.subscriptionId,
+					providerProductId: subscription.productId,
 					currentPeriodEnd: subscription.currentPeriodEnd,
 					cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
 					lastEventId: event.id,

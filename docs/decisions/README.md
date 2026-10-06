@@ -69,3 +69,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-05 [next-wave](2026-10-05-next-wave.md): the passes' open items
   screen by screen, API keys, render by URL and the Action's hosted output
   before staging, captions and audio stay hosted, issues close on main.
+- 2026-10-06 [billing-polar](2026-10-06-billing-polar.md): Polar is the merchant
+  of record, one gateway and Stripe deleted, the Creator prices confirmed in
+  USD as two products, the production organisation is the owner's.

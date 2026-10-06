@@ -145,8 +145,8 @@ export async function createApp(
 				})
 			: (options.renderDownloads ?? null);
 	/**
-	 * Entitlement and quotas come from the durable Stripe projection whenever a
-	 * database exists, even with checkout unconfigured: with no Stripe no row is
+	 * Entitlement and quotas come from the durable billing projection whenever a
+	 * database exists, even with checkout unconfigured: with no provider no row is
 	 * ever written, so every account is free and the free ceilings apply.
 	 */
 	const subscriptions: SubscriptionPort = database

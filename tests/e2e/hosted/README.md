@@ -28,6 +28,21 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
 
 ## What each journey protects
 
+- `billing.spec.ts`: checkout and the plan, through Polar. A visitor signs up, sees the
+  two products' prices, starts an annual checkout (our account id goes to Polar as the
+  external customer id), and a signed `subscription.active` event the journey posts to the
+  local API makes the account Creator; Manage billing opens a portal session; a
+  `subscription.past_due` event pauses Creator and the island says why and offers the
+  portal, not a second checkout; `subscription.revoked` brings it back to free with the
+  30 days of grace named and Creator for sale again; an unsigned or forged webhook is a
+  400. Polar cannot call a laptop, so the delivery is ours and everything after it is the
+  real route. With no `POLAR_SANDBOX_ACCESS_TOKEN` (environment or `.env`) it runs against
+  `tests/support/fake-polar.ts`, a Polar API double the real SDK talks to over HTTP; with
+  the token it runs against sandbox.polar.sh instead (the products are created through
+  the API by `prepare.ts`) and pays on Polar's hosted checkout with the 4242 test card.
+  `E2E_POLAR=fake` forces the double. The sandbox journey skips when the token cannot
+  read or create the products.
+
 - `account.spec.ts`: sign-up through the Studio's account island; signing up
   uploads nothing until "Save this project to cloud" is pressed (consent);
   the save writes one project row; the free allowance sentence is the
@@ -35,7 +50,7 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
 - `free-cloud.spec.ts`: a free account sees its allowance under Cloud; Render
   gets the 402 with the plan's sentence, and nothing is saved or queued.
 - `cloud-render.spec.ts` (serial, one render feeds all three):
-  - a Creator (flipped by SQL, the row a Stripe webhook writes) submits a
+  - a Creator (flipped by SQL, the row a Polar webhook writes) submits a
     Cloud render, the status follows it, a reload mid-job resumes the same
     job, the download is an H.264 1920x1080 30 fps file of one second
     (ffprobe), Copy public link puts the page URL on the clipboard, a

@@ -1,6 +1,7 @@
 import type {
 	BillingCadence,
 	BillingCatalog,
+	BillingNotice,
 	BillingPort,
 	BillingPortalSession,
 	CheckoutSession,
@@ -54,8 +55,8 @@ function billingPrice(value: unknown): { currency: string; unitAmount: number } 
 	return { currency: value.currency, unitAmount: value.unitAmount };
 }
 
-/** Browser adapter for the server-authoritative Stripe integration. */
-export class StripeBillingAdapter implements BillingPort {
+/** Browser adapter for the server-authoritative billing API (Polar behind it). */
+export class HttpBillingAdapter implements BillingPort {
 	// The default wraps fetch rather than storing it: called as `this.fetcher(...)`
 	// a bare window.fetch throws "Illegal invocation" in every browser.
 	constructor(private readonly fetcher: typeof fetch = (input, init) => fetch(input, init)) {}
@@ -81,6 +82,21 @@ export class StripeBillingAdapter implements BillingPort {
 		return tier === "creator" ? Plan.pro() : Plan.free();
 	}
 
+	async getNotice(): Promise<BillingNotice | null> {
+		const response = await this.fetcher("/api/billing/plan", { credentials: "include" });
+		const body = await responseBody(response);
+		const notice = isRecord(body.plan) ? body.plan.notice : undefined;
+		if (
+			!isRecord(notice) ||
+			(notice.kind !== "past-due" && notice.kind !== "ended") ||
+			typeof notice.sentence !== "string" ||
+			!notice.sentence.trim()
+		) {
+			return null;
+		}
+		return { kind: notice.kind, sentence: notice.sentence };
+	}
+
 	async getAllowance(): Promise<string> {
 		const response = await this.fetcher("/api/billing/allowance", { credentials: "include" });
 		const body = await responseBody(response);
@@ -100,7 +116,7 @@ export class StripeBillingAdapter implements BillingPort {
 		});
 		const body = await responseBody(response);
 		if (typeof body.sessionId !== "string") {
-			throw new Error("Billing returned an invalid Checkout session");
+			throw new Error("Billing returned an invalid checkout session");
 		}
 		return { url: secureRedirect(body.url), sessionId: body.sessionId };
 	}

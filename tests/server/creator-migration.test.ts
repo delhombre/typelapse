@@ -37,13 +37,34 @@ describe("automation projects migration", () => {
 	});
 });
 
+const billingMigration = readFileSync(
+	resolve("server/db/migrations/0009_billing_provider_neutral.sql"),
+	"utf8",
+);
+
+describe("billing provider-neutral migration", () => {
+	it("renames the billing tables, columns and types and rewrites no row", () => {
+		expect(billingMigration).toContain('RENAME TO "billing_webhook_events"');
+		expect(billingMigration).toContain('RENAME TO "billing_subscription_status"');
+		for (const column of [
+			"provider_status",
+			"provider_customer_id",
+			"provider_subscription_id",
+			"provider_product_id",
+			"provider_created_at",
+		]) {
+			expect(billingMigration).toContain(`TO "${column}"`);
+		}
+		expect(billingMigration).not.toMatch(/DROP |UPDATE |DELETE |TRUNCATE |ADD COLUMN/);
+	});
+});
+
 describe("Creator hosted migration", () => {
 	it("creates the complete persistence slice", () => {
 		for (const table of [
 			"projects",
 			"assets",
 			"subscription_projections",
-			"stripe_webhook_events",
 			"render_jobs",
 		]) {
 			expect(migration).toContain(`CREATE TABLE "${table}"`);

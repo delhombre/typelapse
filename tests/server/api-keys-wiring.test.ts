@@ -55,9 +55,15 @@ const storage: ObjectStoragePort = {
 
 const billing: BillingService = {
 	catalog: async () => ({ creator: { monthly: { currency: "EUR", unitAmount: 1200 } } }),
-	planFor: async () => ({ tier: "creator", currentPeriodEnd: null, cancelAtPeriodEnd: false }),
-	startCheckout: async () => ({ id: "cs_1", url: "https://stripe.test/checkout" }),
-	openPortal: async () => ({ url: "https://stripe.test/portal" }),
+	planFor: async () => ({
+		tier: "creator",
+		status: "active",
+		currentPeriodEnd: null,
+		cancelAtPeriodEnd: false,
+		since: null,
+	}),
+	startCheckout: async () => ({ id: "cs_1", url: "https://polar.test/checkout" }),
+	openPortal: async () => ({ url: "https://polar.test/portal" }),
 	processWebhook: async () => ({ outcome: "processed" }),
 };
 

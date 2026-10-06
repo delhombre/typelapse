@@ -2,6 +2,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 import { HOSTED, hostedServerEnv } from "./tests/e2e/support/hosted";
+import { POLAR_E2E, polarServerEnv } from "./tests/e2e/support/polar";
 
 /**
  * The journeys run against what ships: one `vite build`, served by
@@ -47,15 +48,30 @@ const localServer = {
 // Never reused: a journey against an API, a worker or a build it did not start
 // proves nothing about this checkout.
 const hostedServers = [
+	// Billing's far end when no Polar sandbox token is set (or E2E_POLAR=fake).
+	...(POLAR_E2E.mode === "fake"
+		? [
+				{
+					name: "Fake Polar",
+					command: "pnpm exec tsx tests/e2e/support/fake-polar.entry.ts",
+					wait: { stdout: /Fake Polar listening/ },
+					reuseExistingServer: false,
+					timeout: 30_000,
+					stdout: "pipe" as const,
+					env: { E2E_POLAR_WEBHOOK_SECRET: POLAR_E2E.webhookSecret },
+				},
+			]
+		: []),
 	{
 		name: "API",
-		// Migrations and the bucket first: the API assumes both exist.
-		command: "pnpm exec tsx tests/e2e/hosted/prepare.ts && pnpm exec tsx server/index.ts",
+		// Migrations, the bucket and (against the sandbox) the two Creator products
+		// first: the API assumes all three exist.
+		command: `pnpm exec tsx tests/e2e/hosted/prepare.ts && pnpm exec tsx --env-file="${POLAR_E2E.productsEnvFile}" server/index.ts`,
 		url: `${HOSTED.apiUrl}/health`,
 		reuseExistingServer: false,
 		timeout: 120_000,
 		stdout: "pipe" as const,
-		env: hostedServerEnv(),
+		env: { ...hostedServerEnv(), ...polarServerEnv() },
 	},
 	{
 		name: "Worker",

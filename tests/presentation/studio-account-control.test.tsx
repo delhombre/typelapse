@@ -5,7 +5,7 @@ import {
 	type ClientSession,
 	type EmailCredentials,
 } from "@/application/auth/client-auth.port";
-import type { BillingCadence, BillingCatalog } from "@/domain/ports/billing.port";
+import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
 import { StudioAccountControl } from "@/presentation/components/multimedia/studio-account-control";
 import { createAuthStore } from "@/presentation/stores/auth.store";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -341,5 +341,83 @@ describe("StudioAccountControl", () => {
 
 		expect(onManageBilling).toHaveBeenCalledOnce();
 		expect(screen.queryByRole("button", { name: "Upgrade to Creator" })).toBeNull();
+	});
+
+	describe("billing that is not in order", () => {
+		const signedIn = () => {
+			const store = createAuthStore({ kind: "local-offline" });
+			store.setState({
+				status: { kind: "authenticated", session: SESSION },
+				operation: "idle",
+				canSync: true,
+				error: null,
+			});
+			return store;
+		};
+		const catalog: BillingCatalog = {
+			creator: {
+				monthly: { currency: "USD", unitAmount: 1200 },
+				annual: { currency: "USD", unitAmount: 9900 },
+			},
+		};
+		const billing = (notice: BillingNotice, handlers: { onManageBilling?: () => void } = {}) => ({
+			planLabel: "Free",
+			paid: false,
+			available: true,
+			catalog,
+			cadence: "monthly" as const,
+			busy: false,
+			error: null,
+			notice,
+			onCadence: vi.fn(),
+			onUpgrade: vi.fn(),
+			onManageBilling: handlers.onManageBilling ?? vi.fn(),
+		});
+
+		it("tells a past due account why Creator is paused and offers the portal, not a second checkout", () => {
+			const onManageBilling = vi.fn();
+			const sentence =
+				"Your last payment failed and Creator is paused; update your card in Manage billing.";
+			render(
+				<StudioAccountControl
+					store={signedIn()}
+					billing={billing({ kind: "past-due", sentence }, { onManageBilling })}
+				/>,
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
+
+			expect(screen.getByRole("status").textContent).toBe(sentence);
+			expect(screen.queryByRole("button", { name: "Upgrade to Creator" })).toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Manage billing" }));
+			expect(onManageBilling).toHaveBeenCalledOnce();
+		});
+
+		it("tells an account whose plan ended how long its renders stay, and still sells Creator", () => {
+			const sentence =
+				"Your Creator plan has ended; past renders stay downloadable until 5 November 2026.";
+			render(
+				<StudioAccountControl store={signedIn()} billing={billing({ kind: "ended", sentence })} />,
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
+
+			expect(screen.getByRole("status").textContent).toBe(sentence);
+			expect(screen.getByRole("button", { name: "Upgrade to Creator" })).toBeTruthy();
+			expect(screen.queryByRole("button", { name: "Manage billing" })).toBeNull();
+		});
+
+		it("shows no status when billing is in order", () => {
+			render(
+				<StudioAccountControl
+					store={signedIn()}
+					billing={{ ...billing({ kind: "ended", sentence: "x" }), notice: null }}
+				/>,
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
+
+			expect(screen.queryByRole("status")).toBeNull();
+		});
 	});
 });

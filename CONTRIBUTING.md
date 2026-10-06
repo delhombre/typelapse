@@ -15,7 +15,7 @@ pnpm dev:server   # the local render API at http://localhost:3001
 
 The local profile needs no account and no `.env`. The hosted profile (accounts,
 private media, billing, queued renders) needs PostgreSQL, object storage and
-Stripe; the README's "Hosted profile" section lists the steps.
+Polar; the README's "Hosted profile" section lists the steps.
 
 ## Test it
 

@@ -11,14 +11,19 @@ first because the Action and the skill only install from a public repository.
       repository opens (the licence is AGPL-3.0-only, decision log 2026-10-04
       D1). If the prices change, update `docs/launch/product-hunt.md` before
       posting.
-- [ ] **Stripe live.** In live mode, create the Creator monthly and annual
-      prices, then set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
-      `STRIPE_CREATOR_MONTHLY_PRICE_ID` and `STRIPE_CREATOR_ANNUAL_PRICE_ID` on
-      the API, and point a live webhook at the API's Stripe endpoint. Done when
+- [ ] **Polar live.** On polar.sh, create the production organisation and its
+      payout account, then the two Creator products ("Creator, monthly" at $12
+      and "Creator, yearly" at $99, USD). Set `POLAR_ACCESS_TOKEN`,
+      `POLAR_WEBHOOK_SECRET`, `POLAR_CREATOR_MONTHLY_PRODUCT_ID` and
+      `POLAR_CREATOR_ANNUAL_PRODUCT_ID` on the API, leave `POLAR_ENVIRONMENT`
+      unset or `production`, and point the webhook at
+      `<API origin>/api/billing/webhook` with the events `subscription.active`,
+      `.updated`, `.canceled`, `.uncanceled`, `.revoked`, `.past_due` and
+      `order.paid`. Done when
       `pnpm hosted:check` lists nothing missing and a real checkout reaches the
       webhook.
 - [ ] **`TYPELAPSE_APP_URL` set to the public studio origin**, for both the
-      production build and the API (share images, Stripe return URLs). Done
+      production build and the API (share images, checkout return URLs). Done
       when the build log has neither "TYPELAPSE_APP_URL is not set" nor "is a
       local address", and
       `curl -s "$TYPELAPSE_APP_URL" | grep og:image` prints an absolute

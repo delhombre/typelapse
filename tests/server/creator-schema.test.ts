@@ -12,9 +12,9 @@ import {
 	renderJobStatus,
 	renderJobs,
 	session,
-	stripeSubscriptionStatus,
-	stripeWebhookEventStatus,
-	stripeWebhookEvents,
+	billingSubscriptionStatus,
+	billingWebhookEventStatus,
+	billingWebhookEvents,
 	subscriptionProjections,
 	user,
 	verification,
@@ -93,31 +93,31 @@ describe("Creator hosted database schema", () => {
 		);
 	});
 
-	it("keeps Stripe subscription projection separate from its idempotent event ledger", () => {
+	it("keeps the subscription projection separate from its idempotent event ledger", () => {
 		expect(creatorPlanTier.enumValues).toEqual(["free", "creator"]);
-		expect(stripeSubscriptionStatus.enumValues).toContain("incomplete_expired");
-		expect(stripeWebhookEventStatus.enumValues).toEqual([
+		expect(billingSubscriptionStatus.enumValues).toContain("incomplete_expired");
+		expect(billingWebhookEventStatus.enumValues).toEqual([
 			"processing",
 			"processed",
 			"failed",
 			"ignored",
 		]);
 		expect(subscriptionProjections.userId.primary).toBe(true);
-		expect(stripeWebhookEvents.id.primary).toBe(true);
+		expect(billingWebhookEvents.id.primary).toBe(true);
 		expect(constraintNames(subscriptionProjections)).toEqual(
 			expect.arrayContaining([
 				"subscription_projections_user_id_user_id_fk",
-				"subscription_projections_stripe_customer_unique",
-				"subscription_projections_stripe_subscription_unique",
+				"subscription_projections_provider_customer_unique",
+				"subscription_projections_provider_subscription_unique",
 				"subscription_projections_event_cursor_check",
 				"subscription_projections_creator_period_check",
 			]),
 		);
-		expect(constraintNames(stripeWebhookEvents)).toEqual(
+		expect(constraintNames(billingWebhookEvents)).toEqual(
 			expect.arrayContaining([
-				"stripe_webhook_events_attempts_check",
-				"stripe_webhook_events_payload_hash_check",
-				"stripe_webhook_events_outcome_check",
+				"billing_webhook_events_attempts_check",
+				"billing_webhook_events_payload_hash_check",
+				"billing_webhook_events_outcome_check",
 			]),
 		);
 	});

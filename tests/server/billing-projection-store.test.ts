@@ -4,15 +4,15 @@ import { billingProjectionFromRow } from "../../server/db/billing-projection.sto
 const NOW = new Date("2026-08-30T20:00:00.000Z");
 
 describe("billing projection persistence mapping", () => {
-	it("returns a Stripe-backed Creator projection", () => {
+	it("returns a Polar-backed Creator projection", () => {
 		expect(
 			billingProjectionFromRow({
 				userId: "user-1",
 				planTier: "creator",
-				stripeStatus: "active",
-				stripeCustomerId: "cus_1",
-				stripeSubscriptionId: "sub_1",
-				stripePriceId: "price_creator_monthly",
+				providerStatus: "active",
+				providerCustomerId: "cus_1",
+				providerSubscriptionId: "sub_1",
+				providerProductId: "prod_creator_monthly",
 				currentPeriodEnd: NOW,
 				cancelAtPeriodEnd: false,
 				lastEventId: "evt_1",
@@ -20,7 +20,7 @@ describe("billing projection persistence mapping", () => {
 				createdAt: NOW,
 				updatedAt: NOW,
 			}),
-		).toMatchObject({ userId: "user-1", planTier: "creator", stripeStatus: "active" });
+		).toMatchObject({ userId: "user-1", planTier: "creator", providerStatus: "active" });
 	});
 
 	it("fails closed for an unassociated default row", () => {
@@ -28,10 +28,10 @@ describe("billing projection persistence mapping", () => {
 			billingProjectionFromRow({
 				userId: "user-1",
 				planTier: "free",
-				stripeStatus: "none",
-				stripeCustomerId: null,
-				stripeSubscriptionId: null,
-				stripePriceId: null,
+				providerStatus: "none",
+				providerCustomerId: null,
+				providerSubscriptionId: null,
+				providerProductId: null,
 				currentPeriodEnd: null,
 				cancelAtPeriodEnd: false,
 				lastEventId: null,

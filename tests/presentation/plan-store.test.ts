@@ -7,16 +7,16 @@ function billing(overrides: Partial<BillingPort> = {}): BillingPort {
 	return {
 		getCatalog: async () => ({
 			creator: {
-				monthly: { currency: "EUR", unitAmount: 1200 },
-				annual: { currency: "EUR", unitAmount: 12000 },
+				monthly: { currency: "USD", unitAmount: 1200 },
+				annual: { currency: "USD", unitAmount: 9900 },
 			},
 		}),
 		getCurrentPlan: async () => Plan.free(),
 		startCheckout: async (_cadence) => ({
-			url: "https://checkout.stripe.com/c/pay/test",
+			url: "https://sandbox.polar.sh/checkout/co_test",
 			sessionId: "cs_1",
 		}),
-		openPortal: async () => ({ url: "https://billing.stripe.com/p/session" }),
+		openPortal: async () => ({ url: "https://sandbox.polar.sh/portal/session" }),
 		...overrides,
 	};
 }
@@ -45,7 +45,7 @@ describe("deployment-aware plan store", () => {
 
 		expect(store.getState().plan.tier).toBe("pro");
 		expect(store.getState().billingAvailable).toBe(true);
-		expect(store.getState().catalog?.creator.annual?.unitAmount).toBe(12000);
+		expect(store.getState().catalog?.creator.annual?.unitAmount).toBe(9900);
 		expect(remote.getCurrentPlan).toHaveBeenCalledOnce();
 	});
 
@@ -89,6 +89,31 @@ describe("deployment-aware plan store", () => {
 		expect(failing.getState().allowance).toBeNull();
 	});
 
+	it("keeps the notice the server wrote, drops it when the server cannot give one, and never asks signed out", async () => {
+		const notice =
+			"Your last payment failed and Creator is paused; update your card in Manage billing.";
+		const getNotice = vi.fn(async () => ({ kind: "past-due" as const, sentence: notice }));
+		const store = createPlanStore({ deploymentMode: "hosted", billing: billing({ getNotice }) });
+
+		await store.getState().refresh({ signedIn: false });
+		expect(getNotice).not.toHaveBeenCalled();
+		expect(store.getState().notice).toBeNull();
+
+		await store.getState().refresh();
+		expect(store.getState().notice).toEqual({ kind: "past-due", sentence: notice });
+
+		const failing = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({
+				getNotice: async () => {
+					throw new Error("Billing is not configured");
+				},
+			}),
+		});
+		await failing.getState().refresh();
+		expect(failing.getState().notice).toBeNull();
+	});
+
 	it("uses only validated adapter redirects for checkout and portal navigation", async () => {
 		const navigate = vi.fn();
 		const store = createPlanStore({
@@ -101,8 +126,8 @@ describe("deployment-aware plan store", () => {
 		await store.getState().upgrade();
 		await store.getState().manageBilling();
 
-		expect(navigate).toHaveBeenNthCalledWith(1, "https://checkout.stripe.com/c/pay/test");
-		expect(navigate).toHaveBeenNthCalledWith(2, "https://billing.stripe.com/p/session");
+		expect(navigate).toHaveBeenNthCalledWith(1, "https://sandbox.polar.sh/checkout/co_test");
+		expect(navigate).toHaveBeenNthCalledWith(2, "https://sandbox.polar.sh/portal/session");
 	});
 
 	it("keeps billing unavailable when the public catalog is not configured", async () => {

@@ -22,7 +22,7 @@ export interface AccountUsagePort {
 	usageFor(ownerId: AccountId, periodStart: Date): Promise<AccountUsage>;
 }
 
-/** The name a client and Stripe know a tier by: the domain's `pro` is sold as Creator. */
+/** The name a client and the billing provider know a tier by: the domain's `pro` is sold as Creator. */
 export type HostedTierName = "local" | "free" | "creator" | "team";
 
 /** The body of a 402, 413 or 429 that a plan ceiling produced. */

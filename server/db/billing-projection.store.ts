@@ -2,9 +2,9 @@ import { and, eq, isNull, lt, ne, or, sql } from "drizzle-orm";
 import type {
 	BillingProjection,
 	BillingProjectionStore,
-	NormalizedStripeEvent,
+	NormalizedBillingEvent,
 } from "../billing/billing-service";
-import { stripeWebhookEvents, subscriptionProjections } from "./creator-schema";
+import { billingWebhookEvents, subscriptionProjections } from "./creator-schema";
 import type { CreatorDatabase } from "./database";
 
 const PROCESSING_LEASE_MS = 5 * 60 * 1000;
@@ -13,10 +13,10 @@ type ProjectionRow = typeof subscriptionProjections.$inferSelect;
 
 export function billingProjectionFromRow(row: ProjectionRow): BillingProjection | null {
 	if (
-		row.stripeStatus === "none" ||
-		!row.stripeCustomerId ||
-		!row.stripeSubscriptionId ||
-		!row.stripePriceId ||
+		row.providerStatus === "none" ||
+		!row.providerCustomerId ||
+		!row.providerSubscriptionId ||
+		!row.providerProductId ||
 		!row.lastEventId ||
 		!row.lastEventCreatedAt
 	) {
@@ -25,10 +25,10 @@ export function billingProjectionFromRow(row: ProjectionRow): BillingProjection 
 	return {
 		userId: row.userId,
 		planTier: row.planTier,
-		stripeStatus: row.stripeStatus,
-		stripeCustomerId: row.stripeCustomerId,
-		stripeSubscriptionId: row.stripeSubscriptionId,
-		stripePriceId: row.stripePriceId,
+		providerStatus: row.providerStatus,
+		providerCustomerId: row.providerCustomerId,
+		providerSubscriptionId: row.providerSubscriptionId,
+		providerProductId: row.providerProductId,
 		currentPeriodEnd: row.currentPeriodEnd,
 		cancelAtPeriodEnd: row.cancelAtPeriodEnd,
 		lastEventId: row.lastEventId,
@@ -56,47 +56,47 @@ export function createBillingProjectionStore(input: {
 			const [row] = await db
 				.select({ userId: subscriptionProjections.userId })
 				.from(subscriptionProjections)
-				.where(eq(subscriptionProjections.stripeCustomerId, customerId))
+				.where(eq(subscriptionProjections.providerCustomerId, customerId))
 				.limit(1);
 			return row?.userId ?? null;
 		},
 
-		async claimEvent(event: NormalizedStripeEvent) {
+		async claimEvent(event: NormalizedBillingEvent) {
 			const claimedAt = now();
 			const staleBefore = new Date(claimedAt.getTime() - PROCESSING_LEASE_MS);
 			const claimed = await db
-				.insert(stripeWebhookEvents)
+				.insert(billingWebhookEvents)
 				.values({
 					id: event.id,
 					type: event.type,
 					livemode: event.livemode,
-					stripeCreatedAt: event.createdAt,
+					providerCreatedAt: event.createdAt,
 					payloadHash: event.payloadHash,
 					status: "processing",
 					attempts: 1,
 					receivedAt: claimedAt,
 				})
 				.onConflictDoUpdate({
-					target: stripeWebhookEvents.id,
+					target: billingWebhookEvents.id,
 					set: {
 						status: "processing",
-						attempts: sql`${stripeWebhookEvents.attempts} + 1`,
+						attempts: sql`${billingWebhookEvents.attempts} + 1`,
 						receivedAt: claimedAt,
 						processedAt: null,
 						lastError: null,
 					},
 					setWhere: and(
-						eq(stripeWebhookEvents.payloadHash, event.payloadHash),
+						eq(billingWebhookEvents.payloadHash, event.payloadHash),
 						or(
-							eq(stripeWebhookEvents.status, "failed"),
+							eq(billingWebhookEvents.status, "failed"),
 							and(
-								eq(stripeWebhookEvents.status, "processing"),
-								lt(stripeWebhookEvents.receivedAt, staleBefore),
+								eq(billingWebhookEvents.status, "processing"),
+								lt(billingWebhookEvents.receivedAt, staleBefore),
 							),
 						),
 					),
 				})
-				.returning({ id: stripeWebhookEvents.id });
+				.returning({ id: billingWebhookEvents.id });
 			return claimed.length > 0;
 		},
 
@@ -106,10 +106,10 @@ export function createBillingProjectionStore(input: {
 				.values({
 					userId: projection.userId,
 					planTier: projection.planTier,
-					stripeStatus: projection.stripeStatus,
-					stripeCustomerId: projection.stripeCustomerId,
-					stripeSubscriptionId: projection.stripeSubscriptionId,
-					stripePriceId: projection.stripePriceId,
+					providerStatus: projection.providerStatus,
+					providerCustomerId: projection.providerCustomerId,
+					providerSubscriptionId: projection.providerSubscriptionId,
+					providerProductId: projection.providerProductId,
 					currentPeriodEnd: projection.currentPeriodEnd,
 					cancelAtPeriodEnd: projection.cancelAtPeriodEnd,
 					lastEventId: projection.lastEventId,
@@ -119,10 +119,10 @@ export function createBillingProjectionStore(input: {
 					target: subscriptionProjections.userId,
 					set: {
 						planTier: projection.planTier,
-						stripeStatus: projection.stripeStatus,
-						stripeCustomerId: projection.stripeCustomerId,
-						stripeSubscriptionId: projection.stripeSubscriptionId,
-						stripePriceId: projection.stripePriceId,
+						providerStatus: projection.providerStatus,
+						providerCustomerId: projection.providerCustomerId,
+						providerSubscriptionId: projection.providerSubscriptionId,
+						providerProductId: projection.providerProductId,
 						currentPeriodEnd: projection.currentPeriodEnd,
 						cancelAtPeriodEnd: projection.cancelAtPeriodEnd,
 						lastEventId: projection.lastEventId,
@@ -148,16 +148,16 @@ export function createBillingProjectionStore(input: {
 		async finishEvent(id, status, error) {
 			const terminalAt = now();
 			const rows = await db
-				.update(stripeWebhookEvents)
+				.update(billingWebhookEvents)
 				.set({
 					status,
 					processedAt: status === "processed" || status === "ignored" ? terminalAt : null,
 					lastError: status === "failed" ? error ?? "Billing webhook failed" : null,
 				})
 				.where(
-					and(eq(stripeWebhookEvents.id, id), eq(stripeWebhookEvents.status, "processing")),
+					and(eq(billingWebhookEvents.id, id), eq(billingWebhookEvents.status, "processing")),
 				)
-				.returning({ id: stripeWebhookEvents.id });
+				.returning({ id: billingWebhookEvents.id });
 			if (rows.length === 0) {
 				throw new Error("Billing webhook event is not in a claimable processing state");
 			}

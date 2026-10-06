@@ -1,4 +1,4 @@
-import { StripeBillingAdapter } from "@/infrastructure/billing/stripe-billing.adapter";
+import { HttpBillingAdapter } from "@/infrastructure/billing/http-billing.adapter";
 import { describe, expect, it, vi } from "vitest";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -8,22 +8,22 @@ function jsonResponse(body: unknown, status = 200): Response {
 	});
 }
 
-describe("hosted Stripe billing client", () => {
-	it("reads the public Stripe-backed Creator catalog", async () => {
+describe("hosted billing client", () => {
+	it("reads the public Creator catalog", async () => {
 		const fetcher = vi.fn(async () =>
 			jsonResponse({
 				creator: {
-					monthly: { currency: "EUR", unitAmount: 1200 },
-					annual: { currency: "EUR", unitAmount: 12000 },
+					monthly: { currency: "USD", unitAmount: 1200 },
+					annual: { currency: "USD", unitAmount: 9900 },
 				},
 			}),
 		);
-		const billing = new StripeBillingAdapter(fetcher);
+		const billing = new HttpBillingAdapter(fetcher);
 
 		await expect(billing.getCatalog()).resolves.toEqual({
 			creator: {
-				monthly: { currency: "EUR", unitAmount: 1200 },
-				annual: { currency: "EUR", unitAmount: 12000 },
+				monthly: { currency: "USD", unitAmount: 1200 },
+				annual: { currency: "USD", unitAmount: 9900 },
 			},
 		});
 		expect(fetcher).toHaveBeenCalledWith("/api/billing/catalog", {
@@ -37,7 +37,7 @@ describe("hosted Stripe billing client", () => {
 				plan: { tier: "creator", currentPeriodEnd: null, cancelAtPeriodEnd: false },
 			}),
 		);
-		const billing = new StripeBillingAdapter(fetcher);
+		const billing = new HttpBillingAdapter(fetcher);
 
 		const plan = await billing.getCurrentPlan();
 
@@ -57,7 +57,7 @@ describe("hosted Stripe billing client", () => {
 			return Promise.resolve(jsonResponse({ allowance: { sentence: "Allowance." } }));
 		});
 		try {
-			await expect(new StripeBillingAdapter().getAllowance()).resolves.toBe("Allowance.");
+			await expect(new HttpBillingAdapter().getAllowance()).resolves.toBe("Allowance.");
 		} finally {
 			vi.unstubAllGlobals();
 		}
@@ -66,38 +66,64 @@ describe("hosted Stripe billing client", () => {
 	it("reads the allowance sentence the server wrote, with session cookies", async () => {
 		const sentence = "You are using 2 of 3 cloud projects and 12 MB of 100 MB of media.";
 		const fetcher = vi.fn(async () => jsonResponse({ allowance: { plan: "free", sentence } }));
-		const billing = new StripeBillingAdapter(fetcher);
+		const billing = new HttpBillingAdapter(fetcher);
 
 		await expect(billing.getAllowance()).resolves.toBe(sentence);
 		expect(fetcher).toHaveBeenCalledWith("/api/billing/allowance", { credentials: "include" });
 		await expect(
-			new StripeBillingAdapter(vi.fn(async () => jsonResponse({ allowance: {} }))).getAllowance(),
+			new HttpBillingAdapter(vi.fn(async () => jsonResponse({ allowance: {} }))).getAllowance(),
 		).rejects.toThrow("allowance");
 	});
 
+	it("reads the notice the server wrote for an account whose billing is not in order", async () => {
+		const notice =
+			"Your last payment failed and Creator is paused; update your card in Manage billing.";
+		const fetcher = vi.fn(async () =>
+			jsonResponse({ plan: { tier: "free", notice: { kind: "past-due", sentence: notice } } }),
+		);
+
+		await expect(new HttpBillingAdapter(fetcher).getNotice()).resolves.toEqual({
+			kind: "past-due",
+			sentence: notice,
+		});
+		expect(fetcher).toHaveBeenCalledWith("/api/billing/plan", { credentials: "include" });
+	});
+
+	it("reads no notice when the server has none, or is older than the notice", async () => {
+		for (const plan of [
+			{ tier: "creator", notice: null },
+			{ tier: "creator" },
+			{ tier: "free", notice: { kind: "past-due", sentence: "  " } },
+			{ tier: "free", notice: { kind: "other", sentence: "x" } },
+		]) {
+			const fetcher = vi.fn(async () => jsonResponse({ plan }));
+			await expect(new HttpBillingAdapter(fetcher).getNotice()).resolves.toBeNull();
+		}
+	});
+
 	it("never simulates a paid plan when the hosted backend refuses the request", async () => {
-		const billing = new StripeBillingAdapter(
+		const billing = new HttpBillingAdapter(
 			vi.fn(async () => jsonResponse({ error: "Sign in" }, 401)),
 		);
 
 		await expect(billing.getCurrentPlan()).rejects.toThrow("Sign in");
 	});
 
-	it("starts Checkout and opens Portal only from validated HTTPS redirects", async () => {
+	it("starts checkout and opens the portal only from validated HTTPS redirects", async () => {
 		const fetcher = vi
 			.fn()
 			.mockResolvedValueOnce(
-				jsonResponse({ url: "https://checkout.stripe.com/c/pay/test", sessionId: "cs_1" }),
+				jsonResponse({ url: "https://sandbox.polar.sh/checkout/co_test", sessionId: "cs_1" }),
 			)
-			.mockResolvedValueOnce(jsonResponse({ url: "https://billing.stripe.com/p/session" }));
-		const billing = new StripeBillingAdapter(fetcher);
+			.mockResolvedValueOnce(jsonResponse({ url: "https://sandbox.polar.sh/portal/session" }));
+		const billing = new HttpBillingAdapter(fetcher);
 
 		await expect(billing.startCheckout("annual")).resolves.toEqual({
-			url: "https://checkout.stripe.com/c/pay/test",
+			url: "https://sandbox.polar.sh/checkout/co_test",
 			sessionId: "cs_1",
 		});
 		await expect(billing.openPortal()).resolves.toEqual({
-			url: "https://billing.stripe.com/p/session",
+			url: "https://sandbox.polar.sh/portal/session",
 		});
 		expect(fetcher).toHaveBeenNthCalledWith(1, "/api/billing/checkout", {
 			method: "POST",
@@ -112,7 +138,7 @@ describe("hosted Stripe billing client", () => {
 	});
 
 	it("refuses malformed or unsafe redirect responses", async () => {
-		const billing = new StripeBillingAdapter(
+		const billing = new HttpBillingAdapter(
 			vi.fn(async () => jsonResponse({ url: "javascript:alert(1)", sessionId: "cs_1" })),
 		);
 

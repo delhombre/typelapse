@@ -7,7 +7,7 @@ import pg from "pg";
 /**
  * What the hosted journeys share: where the services are, the environment the
  * API and the worker start with, and the few facts a journey cannot reach
- * through the product. A Stripe subscription is the one such fact: the plan is
+ * through the product. A subscription is the one such fact: the plan is
  * written only by a signed webhook, so the journeys write the same row the
  * webhook writes, straight into the service database.
  */
@@ -93,28 +93,28 @@ export function newAccount(label: string): TestAccount {
 	};
 }
 
-async function accountId(email: string): Promise<string> {
+export async function accountId(email: string): Promise<string> {
 	const row = await one<{ id: string }>(`SELECT id FROM "user" WHERE email = $1`, [email]);
 	return row.id;
 }
 
 /**
- * The row a `customer.subscription.created` webhook leaves for an active
+ * The row a `subscription.active` webhook leaves for an active
  * Creator subscription, with the event cursor a real event would set.
  */
 export async function makeCreator(email: string): Promise<void> {
 	const id = await accountId(email);
 	await database().query(
 		`INSERT INTO subscription_projections (
-			user_id, plan_tier, stripe_status, stripe_customer_id, stripe_subscription_id,
-			stripe_price_id, current_period_end, cancel_at_period_end, last_event_id, last_event_created_at
-		) VALUES ($1, 'creator', 'active', $2, $3, 'price_e2e_creator', now() + interval '30 days',
+			user_id, plan_tier, provider_status, provider_customer_id, provider_subscription_id,
+			provider_product_id, current_period_end, cancel_at_period_end, last_event_id, last_event_created_at
+		) VALUES ($1, 'creator', 'active', $2, $3, 'prod_e2e_creator', now() + interval '30 days',
 			false, $4, now())
 		ON CONFLICT (user_id) DO UPDATE SET
-			plan_tier = 'creator', stripe_status = 'active',
-			stripe_customer_id = EXCLUDED.stripe_customer_id,
-			stripe_subscription_id = EXCLUDED.stripe_subscription_id,
-			stripe_price_id = EXCLUDED.stripe_price_id,
+			plan_tier = 'creator', provider_status = 'active',
+			provider_customer_id = EXCLUDED.provider_customer_id,
+			provider_subscription_id = EXCLUDED.provider_subscription_id,
+			provider_product_id = EXCLUDED.provider_product_id,
 			current_period_end = EXCLUDED.current_period_end,
 			last_event_id = EXCLUDED.last_event_id,
 			last_event_created_at = EXCLUDED.last_event_created_at`,
@@ -123,13 +123,13 @@ export async function makeCreator(email: string): Promise<void> {
 }
 
 /**
- * The row a `customer.subscription.deleted` webhook leaves: free again, and the
+ * The row a `subscription.revoked` webhook leaves: free again, and the
  * event's time is the downgrade the grace period counts from.
  */
 export async function downgradeToFree(email: string, at: Date): Promise<void> {
 	const id = await accountId(email);
 	await one(
-		`UPDATE subscription_projections SET plan_tier = 'free', stripe_status = 'canceled',
+		`UPDATE subscription_projections SET plan_tier = 'free', provider_status = 'canceled',
 			cancel_at_period_end = false, last_event_id = $2, last_event_created_at = $3
 		WHERE user_id = $1 RETURNING user_id`,
 		[id, `evt_e2e_down_${id}`, at],
