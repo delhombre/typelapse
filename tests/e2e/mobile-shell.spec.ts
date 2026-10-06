@@ -99,6 +99,30 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 	// check reads what clips and whether anything between the button and the sheet
 	// is a scroller. Reduced motion keeps the entrance's own offsets out of the
 	// measure.)
+	// Opening the export panel used to ask the stage's slot for 460px more than the screen
+	// has left, and the card refit to a box of nothing: 107x64 became 672x264 at a negative
+	// offset (ticket #169). A panel covers the frame; it never resizes it.
+	test("the stage card keeps its box while the export panel is open", async ({ page }) => {
+		await openStudio(page);
+		await captureScenes(page, 1);
+		const card = page.locator("[data-export-target]");
+		await settled(card);
+		const before = await card.boundingBox();
+		expect(before, "the card is on the stage").not.toBeNull();
+
+		await page.locator(".si-cta").tap();
+		await expect(page.getByRole("button", { name: "Close settings" })).toBeVisible();
+		await settled(card);
+		const open = await card.boundingBox();
+		expect(open).toEqual(before);
+		expect(open?.x).toBeGreaterThanOrEqual(0);
+		expect(open?.y).toBeGreaterThanOrEqual(0);
+
+		await page.getByRole("button", { name: "Close settings" }).tap();
+		await settled(card);
+		expect(await card.boundingBox()).toEqual(before);
+	});
+
 	// The island under a thumb (ticket #140). Its scene dots were 24px wide and Export 31px
 	// tall, so a press landed on the neighbour or on nothing. The reach is what the page
 	// answers to by `elementFromPoint`, not a box: a hit area is a pseudo-element, and the

@@ -165,6 +165,50 @@ describe("the phone studio", () => {
 	});
 });
 
+describe("the stage while an island panel is open on the phone", () => {
+	beforeEach(() => {
+		Object.defineProperty(window, "matchMedia", {
+			configurable: true,
+			value: (query: string) => ({
+				matches: false,
+				media: query,
+				addEventListener() {},
+				removeEventListener() {},
+				addListener() {},
+				removeListener() {},
+			}),
+		});
+		globalThis.ResizeObserver ??= class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		};
+	});
+
+	afterEach(() => cleanup());
+
+	// The slot is the frame's room: a panel that asked it for 460px more than the
+	// screen has left made the slot taller than the screen and the card refit to a
+	// box of nothing (672x264 at a negative offset, ticket #169). jsdom has no layout,
+	// so the cause is held here as the slot's own style and the box in the e2e journey.
+	it("keeps the stage slot's room whichever stop the sheet is on", () => {
+		const { container } = shell();
+		const slot = container.querySelector<HTMLElement>(".sc-stage-slot");
+		const cta = container.querySelector<HTMLElement>(".si-cta");
+		if (!slot || !cta) throw new Error("no stage slot or export control");
+
+		for (const key of ["Enter", "Enter", "Enter"]) {
+			fireEvent.keyDown(screen.getByRole("slider", { name: "Sheet height" }), { key });
+			const before = slot.style.paddingBottom;
+			fireEvent.click(cta);
+			expect(screen.getByRole("button", { name: "Close settings" })).toBeTruthy();
+			expect(slot.style.paddingBottom).toBe(before);
+			fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+			expect(slot.style.paddingBottom).toBe(before);
+		}
+	});
+});
+
 describe("the phone sheet's handle", () => {
 	beforeEach(() => {
 		Object.defineProperty(window, "matchMedia", {

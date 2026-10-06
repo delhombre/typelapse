@@ -2866,13 +2866,6 @@ html.dark:not([data-landing-theme]) {
 	padding: 88px var(--sc-gutter) 128px calc(var(--sc-gutter) + var(--sc-card-width));
 }
 
-/* The room a raised sheet needs, given instantly rather than sprung. It is what
-   the stage's step back buys everywhere else; here it is what stands in for it,
-   under reduced motion and on a phone, where there is no room to step back to. */
-.sc-stage-slot[data-raised] {
-	padding-bottom: 420px;
-}
-
 /* The phone's slot states its own bottom inline, since the sheet's peek is a
    number the drawer owns rather than a constant this file could name. */
 .sc-root-mobile .sc-stage-slot {

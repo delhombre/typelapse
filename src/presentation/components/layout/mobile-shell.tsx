@@ -83,7 +83,6 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const dockRef = useRef<HTMLDivElement>(null);
 	useDockFollowsSheet(sheetElement, dockRef, sheet);
 	const contentId = useId();
-	const [sheetRaised, setSheetRaised] = useState(false);
 	const isPeek = stop === "peek";
 	const editorKind = useEditorKind();
 	// A tablet in portrait gets this layout, and it can drag a file in from
@@ -96,13 +95,12 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	return (
 		<main className="studio-root sc-root sc-root-mobile">
 			<h1 className="sr-only">Typelapse studio</h1>
-			{/* A phone has no room to step the stage back into, so a raised cluster
-			    takes its room from the slot instead: the frame gets out of the way
-			    rather than being covered by what it is being adjusted against. */}
-			<div
-				className="sc-stage-slot"
-				style={{ paddingBottom: stageLift + (sheetRaised ? 460 : 116) }}
-			>
+			{/* The slot's room is the sheet's and the instrument's, and nothing an
+			    island panel opens: a phone has no room to step the stage back into,
+			    and a slot asked for 460px more than the screen has left collapses to
+			    a box of nothing, which the card refits into at a negative offset
+			    (#169). A raised cluster covers the frame; it never resizes it. */}
+			<div className="sc-stage-slot" style={{ paddingBottom: stageLift + 116 }}>
 				{/* The frame is the video's own shape here too: a phone used to get
 				    the bare card, so a 16:9 export previewed as a wide strip. */}
 				<StudioVideoModeProvider active>
@@ -129,7 +127,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			<div className="sc-dock-slot" ref={dockRef}>
 				<div className="sc-dock">
 					<ExportStatus />
-					<PreviewIsland onSheetRaisedChange={setSheetRaised} />
+					<PreviewIsland />
 				</div>
 			</div>
 
