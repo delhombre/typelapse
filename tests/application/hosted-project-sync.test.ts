@@ -209,6 +209,41 @@ describe("hosted project sync coordinator", () => {
 		});
 	});
 
+	it("opens the cloud copy a local project already has, found by its id in the list", async () => {
+		const hosted = document("local-project-1", "Cloud copy");
+		const api = apiWith({
+			list: vi.fn(async () => [
+				{ id: "local-project-1", title: "Cloud copy", revision: 2, sceneCount: 1, updatedAt: NOW },
+			]),
+			load: vi.fn(async () => record(2, hosted)),
+		});
+		const { coordinator } = createHarness({ api });
+
+		const connected = await coordinator.connect({ session: SESSION, localDocument: document() });
+
+		expect(connected).toMatchObject({ loaded: true });
+		expect(api.load).toHaveBeenCalledWith("local-project-1", {
+			signal: expect.any(AbortSignal),
+		});
+		expect(api.create).not.toHaveBeenCalled();
+	});
+
+	it("does not list when the project names its cloud copy: a 404 there means it is gone", async () => {
+		const api = apiWith();
+		const { coordinator } = createHarness({ api });
+
+		await expect(
+			coordinator.connect({
+				session: SESSION,
+				localDocument: document(),
+				hostedProjectId: "hosted-project-1",
+			}),
+		).rejects.toMatchObject({ code: "project-not-found" });
+
+		expect(api.list).not.toHaveBeenCalled();
+		expect(api.load).toHaveBeenCalledOnce();
+	});
+
 	it("creates a canonical media-free hosted project, but refuses to fake-migrate local blobs", async () => {
 		const api = apiWith();
 		const { coordinator } = createHarness({ api });
@@ -218,9 +253,10 @@ describe("hosted project sync coordinator", () => {
 			localDocument: document(),
 		});
 		expect(connected.loaded).toBe(false);
-		expect(api.load).toHaveBeenCalledWith("local-project-1", {
-			signal: expect.any(AbortSignal),
-		});
+		// A project the cloud has never seen is found out from the list: a GET on
+		// its id would answer 404, and the browser logs that as an error.
+		expect(api.list).toHaveBeenCalledOnce();
+		expect(api.load).not.toHaveBeenCalled();
 		expect(api.create).toHaveBeenCalledOnce();
 
 		coordinator.stop();
