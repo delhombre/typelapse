@@ -1,6 +1,7 @@
 import { createApp } from "../index";
 import {
 	assessHostedReadiness,
+	billingSettings,
 	optionalHostedSettings,
 	type RuntimeHealth,
 } from "./hosted-readiness";
@@ -12,13 +13,17 @@ async function main(): Promise<void> {
 	const result = assessHostedReadiness(health);
 	if (!result.ready) {
 		console.error(`Hosted configuration incomplete: ${result.missing.join(", ")}`);
+		const billing = billingSettings(process.env);
+		if (result.missing.includes("billing") && billing.missing.length > 0) {
+			console.error(`Billing (Polar) needs: ${billing.missing.join(", ")}`);
+		}
 	} else {
 		console.log(
 			"Hosted configuration ready: auth, projects, private assets, billing, rendering and API keys",
 		);
 	}
 	// Said either way, and never a reason to fail: the operator fixing the rest sees them too.
-	for (const line of optionalHostedSettings(process.env)) {
+	for (const line of [...optionalHostedSettings(process.env), ...billingSettings(process.env).notes]) {
 		console.log(`Optional: ${line}`);
 	}
 	if (!result.ready) {

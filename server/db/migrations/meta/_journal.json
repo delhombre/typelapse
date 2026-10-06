@@ -57,6 +57,13 @@
       "when": 1791241566112,
       "tag": "0007_automation_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791301520350,
+      "tag": "0009_billing_provider_neutral",
+      "breakpoints": true
     }
   ]
 }

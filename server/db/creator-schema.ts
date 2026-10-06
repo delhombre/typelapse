@@ -20,8 +20,8 @@ import {
 	ASSET_UPLOAD_STATUSES,
 	CREATOR_PLAN_TIERS,
 	RENDER_JOB_STATUSES,
-	STRIPE_SUBSCRIPTION_STATUSES,
-	STRIPE_WEBHOOK_EVENT_STATUSES,
+	BILLING_SUBSCRIPTION_STATUSES,
+	BILLING_WEBHOOK_EVENT_STATUSES,
 	type RenderOptions,
 } from "./persistence-values";
 
@@ -33,13 +33,13 @@ export interface PersistedProjectDocumentV2 {
 export const assetKind = pgEnum("asset_kind", ASSET_KINDS);
 export const assetUploadStatus = pgEnum("asset_upload_status", ASSET_UPLOAD_STATUSES);
 export const creatorPlanTier = pgEnum("creator_plan_tier", CREATOR_PLAN_TIERS);
-export const stripeSubscriptionStatus = pgEnum(
-	"stripe_subscription_status",
-	STRIPE_SUBSCRIPTION_STATUSES,
+export const billingSubscriptionStatus = pgEnum(
+	"billing_subscription_status",
+	BILLING_SUBSCRIPTION_STATUSES,
 );
-export const stripeWebhookEventStatus = pgEnum(
-	"stripe_webhook_event_status",
-	STRIPE_WEBHOOK_EVENT_STATUSES,
+export const billingWebhookEventStatus = pgEnum(
+	"billing_webhook_event_status",
+	BILLING_WEBHOOK_EVENT_STATUSES,
 );
 export const renderJobStatus = pgEnum("render_job_status", RENDER_JOB_STATUSES);
 
@@ -246,10 +246,10 @@ export const subscriptionProjections = pgTable(
 			.primaryKey()
 			.references(() => user.id, { onDelete: "cascade" }),
 		planTier: creatorPlanTier("plan_tier").default("free").notNull(),
-		stripeStatus: stripeSubscriptionStatus("stripe_status").default("none").notNull(),
-		stripeCustomerId: text("stripe_customer_id"),
-		stripeSubscriptionId: text("stripe_subscription_id"),
-		stripePriceId: text("stripe_price_id"),
+		providerStatus: billingSubscriptionStatus("provider_status").default("none").notNull(),
+		providerCustomerId: text("provider_customer_id"),
+		providerSubscriptionId: text("provider_subscription_id"),
+		providerProductId: text("provider_product_id"),
 		currentPeriodEnd: hostedTimestamp("current_period_end"),
 		cancelAtPeriodEnd: boolean("cancel_at_period_end").default(false).notNull(),
 		lastEventId: text("last_event_id"),
@@ -261,12 +261,12 @@ export const subscriptionProjections = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		uniqueIndex("subscription_projections_stripe_customer_unique")
-			.on(table.stripeCustomerId)
-			.where(sql`${table.stripeCustomerId} IS NOT NULL`),
-		uniqueIndex("subscription_projections_stripe_subscription_unique")
-			.on(table.stripeSubscriptionId)
-			.where(sql`${table.stripeSubscriptionId} IS NOT NULL`),
+		uniqueIndex("subscription_projections_provider_customer_unique")
+			.on(table.providerCustomerId)
+			.where(sql`${table.providerCustomerId} IS NOT NULL`),
+		uniqueIndex("subscription_projections_provider_subscription_unique")
+			.on(table.providerSubscriptionId)
+			.where(sql`${table.providerSubscriptionId} IS NOT NULL`),
 		check(
 			"subscription_projections_event_cursor_check",
 			sql`(${table.lastEventId} IS NULL) = (${table.lastEventCreatedAt} IS NULL)`,
@@ -274,10 +274,10 @@ export const subscriptionProjections = pgTable(
 		check(
 			"subscription_projections_creator_identity_check",
 			sql`${table.planTier} <> 'creator' OR (
-				${table.stripeCustomerId} IS NOT NULL
-				AND ${table.stripeSubscriptionId} IS NOT NULL
-				AND ${table.stripePriceId} IS NOT NULL
-				AND ${table.stripeStatus} IN ('active', 'trialing')
+				${table.providerCustomerId} IS NOT NULL
+				AND ${table.providerSubscriptionId} IS NOT NULL
+				AND ${table.providerProductId} IS NOT NULL
+				AND ${table.providerStatus} IN ('active', 'trialing')
 			)`,
 		),
 		check(
@@ -287,25 +287,25 @@ export const subscriptionProjections = pgTable(
 	],
 );
 
-export const stripeWebhookEvents = pgTable(
-	"stripe_webhook_events",
+export const billingWebhookEvents = pgTable(
+	"billing_webhook_events",
 	{
 		id: text("id").primaryKey(),
 		type: text("type").notNull(),
 		livemode: boolean("livemode").notNull(),
-		stripeCreatedAt: hostedTimestamp("stripe_created_at").notNull(),
+		providerCreatedAt: hostedTimestamp("provider_created_at").notNull(),
 		payloadHash: text("payload_hash").notNull(),
-		status: stripeWebhookEventStatus("status").default("processing").notNull(),
+		status: billingWebhookEventStatus("status").default("processing").notNull(),
 		attempts: integer("attempts").default(0).notNull(),
 		receivedAt: hostedTimestamp("received_at").defaultNow().notNull(),
 		processedAt: hostedTimestamp("processed_at"),
 		lastError: text("last_error"),
 	},
 	(table) => [
-		check("stripe_webhook_events_attempts_check", sql`${table.attempts} >= 0`),
-		check("stripe_webhook_events_payload_hash_check", sql`${table.payloadHash} ~ '^[0-9a-f]{64}$'`),
+		check("billing_webhook_events_attempts_check", sql`${table.attempts} >= 0`),
+		check("billing_webhook_events_payload_hash_check", sql`${table.payloadHash} ~ '^[0-9a-f]{64}$'`),
 		check(
-			"stripe_webhook_events_outcome_check",
+			"billing_webhook_events_outcome_check",
 			sql`CASE
 				WHEN ${table.status} IN ('processed', 'ignored') THEN
 					${table.processedAt} IS NOT NULL AND ${table.lastError} IS NULL
@@ -314,7 +314,7 @@ export const stripeWebhookEvents = pgTable(
 				ELSE ${table.processedAt} IS NULL AND ${table.lastError} IS NULL
 			END`,
 		),
-		index("stripe_webhook_events_status_received_idx").on(table.status, table.receivedAt),
+		index("billing_webhook_events_status_received_idx").on(table.status, table.receivedAt),
 	],
 );
 

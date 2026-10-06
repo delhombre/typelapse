@@ -3,10 +3,10 @@ import { Plan } from "../../src/domain/value-objects/plan";
 import type { BillingProjectionStore } from "./billing-service";
 
 /**
- * Entitlement read straight from the durable Stripe projection.
+ * Entitlement read straight from the durable billing projection.
  *
  * Only signed webhooks write the projection, so reading it does not need the
- * Stripe gateway to be configured: with no Stripe, no row exists and every
+ * payment gateway to be configured: with no provider, no row exists and every
  * account is free, which is the fail-closed answer the quotas need.
  */
 export function createAccountPlanResolver(

@@ -313,6 +313,29 @@
 	transform: scale(0.97);
 }
 
+/* The server's one sentence for billing that is not in order. It reads as plan
+   copy, in the ink colour at the card's body size; a payment that failed adds a
+   dot beside the words, so the state is never carried by colour alone. */
+.mm-account-plan-card .mm-account-notice {
+	display: block;
+	margin: 0;
+	color: var(--mm-ink);
+	font-size: 11px;
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+.mm-account-notice[data-kind="past-due"]::before {
+	content: "";
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin-right: 7px;
+	border-radius: 999px;
+	background: var(--mm-danger, #c53a3a);
+	vertical-align: 1px;
+}
+
 .mm-account-plan-card [role="alert"] {
 	margin: 0;
 	color: var(--mm-danger, #c53a3a);

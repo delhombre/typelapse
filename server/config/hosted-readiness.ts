@@ -51,3 +51,38 @@ export function optionalHostedSettings(env: Readonly<Record<string, string | und
 				"TYPELAPSE_GITHUB_TOKEN is not set: render by URL reads GitHub without a credential, at 60 requests an hour for this server's address. Set a read-only fine-grained token limited to public repositories to raise it.",
 			];
 }
+
+const BILLING_VARIABLES = [
+	"POLAR_ACCESS_TOKEN",
+	"POLAR_WEBHOOK_SECRET",
+	"POLAR_CREATOR_MONTHLY_PRODUCT_ID",
+] as const;
+
+/**
+ * What the billing capability reads from the environment, said by name so the
+ * operator is not left guessing why `billing` is missing. Names only, never a value.
+ */
+export function billingSettings(env: Readonly<Record<string, string | undefined>>): {
+	readonly missing: string[];
+	readonly notes: string[];
+} {
+	const isSet = (name: string) => Boolean(env[name]?.trim());
+	const missing: string[] = BILLING_VARIABLES.filter((name) => !isSet(name));
+	if (!isSet("TYPELAPSE_APP_URL") && !isSet("BETTER_AUTH_URL")) {
+		missing.push("TYPELAPSE_APP_URL");
+	}
+	const environment = env.POLAR_ENVIRONMENT?.trim().toLowerCase();
+	if (environment && environment !== "sandbox" && environment !== "production") {
+		missing.push("POLAR_ENVIRONMENT (sandbox or production)");
+	}
+	const notes: string[] = [];
+	if (!isSet("POLAR_CREATOR_ANNUAL_PRODUCT_ID")) {
+		notes.push("POLAR_CREATOR_ANNUAL_PRODUCT_ID is not set: only the monthly Creator plan is sold.");
+	}
+	if (environment === "sandbox") {
+		notes.push(
+			"POLAR_ENVIRONMENT is sandbox: checkouts run against sandbox.polar.sh and no real money moves.",
+		);
+	}
+	return { missing, notes };
+}

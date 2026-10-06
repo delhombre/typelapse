@@ -1,4 +1,4 @@
-import type { BillingCadence, BillingCatalog } from "@/domain/ports/billing.port";
+import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
 import {
 	type ClientAuthOperation,
 	type ClientAuthStatus,
@@ -46,6 +46,8 @@ export interface StudioBillingControl {
 	readonly cadence: BillingCadence;
 	readonly busy: boolean;
 	readonly error: string | null;
+	/** Billing that is not in order, in the server's words; null when it is. */
+	readonly notice?: BillingNotice | null;
 	readonly onCadence: (cadence: BillingCadence) => void;
 	readonly onUpgrade: () => void;
 	readonly onManageBilling: () => void;
@@ -437,6 +439,14 @@ function priceLabel(
 	return `${formatted} / ${cadence === "monthly" ? "month" : "year"}`;
 }
 
+function AccountNotice({ notice }: { readonly notice: BillingNotice }) {
+	return (
+		<output className="mm-account-notice" data-kind={notice.kind}>
+			{notice.sentence}
+		</output>
+	);
+}
+
 function AccountBilling({ billing }: { readonly billing: StudioBillingControl }) {
 	if (!billing.available) return null;
 	if (billing.paid) {
@@ -447,6 +457,31 @@ function AccountBilling({ billing }: { readonly billing: StudioBillingControl })
 					<strong>{billing.planLabel}</strong>
 				</div>
 				<button type="button" disabled={billing.busy} onClick={billing.onManageBilling}>
+					Manage billing
+				</button>
+				{billing.error ? <p role="alert">{billing.error}</p> : null}
+			</div>
+		);
+	}
+
+	// A payment that failed is fixed in the portal; a second checkout would start
+	// a second subscription beside the one that is behind.
+	if (billing.notice?.kind === "past-due") {
+		return (
+			<div className="mm-account-plan-card" data-plan="past-due">
+				<div className="mm-account-plan-heading">
+					<div>
+						<span>Current plan</span>
+						<strong>{billing.planLabel}</strong>
+					</div>
+				</div>
+				<AccountNotice notice={billing.notice} />
+				<button
+					type="button"
+					className="mm-account-primary"
+					disabled={billing.busy}
+					onClick={billing.onManageBilling}
+				>
 					Manage billing
 				</button>
 				{billing.error ? <p role="alert">{billing.error}</p> : null}
@@ -466,6 +501,7 @@ function AccountBilling({ billing }: { readonly billing: StudioBillingControl })
 				</div>
 				<span>Private cloud + render compute</span>
 			</div>
+			{billing.notice ? <AccountNotice notice={billing.notice} /> : null}
 			{monthly && annual ? (
 				<div className="mm-account-cadence" aria-label="Creator billing cadence">
 					<button

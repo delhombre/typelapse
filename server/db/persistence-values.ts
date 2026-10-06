@@ -9,7 +9,7 @@ export type AssetUploadStatus = (typeof ASSET_UPLOAD_STATUSES)[number];
 export const CREATOR_PLAN_TIERS = ["free", "creator"] as const;
 export type CreatorPlanTier = (typeof CREATOR_PLAN_TIERS)[number];
 
-export const STRIPE_SUBSCRIPTION_STATUSES = [
+export const BILLING_SUBSCRIPTION_STATUSES = [
 	"none",
 	"incomplete",
 	"incomplete_expired",
@@ -20,15 +20,15 @@ export const STRIPE_SUBSCRIPTION_STATUSES = [
 	"unpaid",
 	"paused",
 ] as const;
-export type StripeSubscriptionStatus = (typeof STRIPE_SUBSCRIPTION_STATUSES)[number];
+export type BillingSubscriptionStatus = (typeof BILLING_SUBSCRIPTION_STATUSES)[number];
 
-export const STRIPE_WEBHOOK_EVENT_STATUSES = [
+export const BILLING_WEBHOOK_EVENT_STATUSES = [
 	"processing",
 	"processed",
 	"failed",
 	"ignored",
 ] as const;
-export type StripeWebhookEventStatus = (typeof STRIPE_WEBHOOK_EVENT_STATUSES)[number];
+export type BillingWebhookEventStatus = (typeof BILLING_WEBHOOK_EVENT_STATUSES)[number];
 
 export const RENDER_JOB_STATUSES = [
 	"queued",
@@ -121,73 +121,4 @@ export function renderOptionsFingerprint(options: RenderOptions): string {
 /** Hash the verified raw request body, not a parsed/re-serialised webhook. */
 export function webhookPayloadFingerprint(payload: string | Uint8Array): string {
 	return sha256Hex(payload);
-}
-
-export interface StripeEventCursor {
-	readonly id: string;
-	readonly createdAt: Date;
-}
-
-/**
- * Reject events from an older Stripe second and duplicate event ids. Different
- * events from the same second still trigger a refresh of Stripe's current
- * subscription snapshot; their delivery order must never be treated as truth.
- */
-export function shouldRefreshStripeProjection(
-	current: StripeEventCursor | null,
-	incoming: StripeEventCursor,
-): boolean {
-	if (!current) {
-		return true;
-	}
-	if (incoming.id === current.id) {
-		return false;
-	}
-	return incoming.createdAt.getTime() >= current.createdAt.getTime();
-}
-
-export interface StripeSubscriptionSnapshot {
-	readonly stripeCustomerId: string;
-	readonly stripeSubscriptionId: string;
-	readonly stripePriceId: string;
-	readonly status: Exclude<StripeSubscriptionStatus, "none">;
-	readonly currentPeriodEnd: Date | null;
-	readonly cancelAtPeriodEnd: boolean;
-	readonly event: StripeEventCursor;
-}
-
-export interface StripeSubscriptionProjection {
-	readonly planTier: CreatorPlanTier;
-	readonly stripeStatus: Exclude<StripeSubscriptionStatus, "none">;
-	readonly stripeCustomerId: string;
-	readonly stripeSubscriptionId: string;
-	readonly stripePriceId: string;
-	readonly currentPeriodEnd: Date | null;
-	readonly cancelAtPeriodEnd: boolean;
-	readonly lastEventId: string;
-	readonly lastEventCreatedAt: Date;
-}
-
-/**
- * Only a configured Creator price in an active/trialing Stripe state grants
- * hosted entitlement. Billing adapters may later add an explicit grace policy;
- * persistence defaults fail closed.
- */
-export function mapStripeSubscriptionProjection(
-	snapshot: StripeSubscriptionSnapshot,
-	creatorPriceIds: ReadonlySet<string>,
-): StripeSubscriptionProjection {
-	const hasCreatorPrice = creatorPriceIds.has(snapshot.stripePriceId);
-	const isEntitled = snapshot.status === "active" || snapshot.status === "trialing";
-	return {
-		planTier: hasCreatorPrice && isEntitled ? "creator" : "free",
-		stripeStatus: snapshot.status,
-		stripeCustomerId: snapshot.stripeCustomerId,
-		stripeSubscriptionId: snapshot.stripeSubscriptionId,
-		stripePriceId: snapshot.stripePriceId,
-		currentPeriodEnd: snapshot.currentPeriodEnd,
-		cancelAtPeriodEnd: snapshot.cancelAtPeriodEnd,
-		lastEventId: snapshot.event.id,
-		lastEventCreatedAt: snapshot.event.createdAt,
-	};
 }

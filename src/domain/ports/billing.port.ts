@@ -13,7 +13,13 @@ export interface BillingCatalog {
 	readonly creator: Readonly<Partial<Record<BillingCadence, BillingPrice>>>;
 }
 
-/** A payment checkout session (Stripe Checkout in production). */
+/** Billing that is not in order: one sentence, and whether a card or a new plan is the fix. */
+export interface BillingNotice {
+	readonly kind: "past-due" | "ended";
+	readonly sentence: string;
+}
+
+/** A payment checkout session (Polar's hosted checkout in production). */
 export interface CheckoutSession {
 	/** URL to redirect the browser to. */
 	url: string;
@@ -22,12 +28,12 @@ export interface CheckoutSession {
 }
 
 export interface BillingPortalSession {
-	/** Stripe-hosted, short-lived customer portal URL. */
+	/** Provider-hosted, short-lived customer portal URL. */
 	url: string;
 }
 
 /**
- * Billing boundary. Implemented by an infrastructure adapter (Stripe).
+ * Billing boundary. Implemented by an infrastructure adapter over the server's billing API.
  *
  * The domain only knows it can read the current plan and start or cancel a
  * subscription, never how payments actually happen.
@@ -46,4 +52,9 @@ export interface BillingPort {
 	 * client shows it verbatim and never computes a number of its own.
 	 */
 	getAllowance?(): Promise<string>;
+	/**
+	 * The server's one sentence about billing that is not in order (a failed
+	 * payment, a plan that ended), or null. Shown verbatim, like the allowance.
+	 */
+	getNotice?(): Promise<BillingNotice | null>;
 }

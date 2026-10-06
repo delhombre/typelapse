@@ -1,4 +1,8 @@
-import { assessHostedReadiness, optionalHostedSettings } from "../../server/config/hosted-readiness";
+import {
+	assessHostedReadiness,
+	billingSettings,
+	optionalHostedSettings,
+} from "../../server/config/hosted-readiness";
 import { describe, expect, it } from "vitest";
 
 describe("hosted configuration readiness", () => {
@@ -79,5 +83,58 @@ describe("optional hosted settings", () => {
 		expect(optionalHostedSettings({ TYPELAPSE_GITHUB_TOKEN: "github_pat_secret" }).join("")).not.toContain(
 			"github_pat_secret",
 		);
+	});
+});
+
+describe("billing settings", () => {
+	it("names every Polar variable a deployment still has to set", () => {
+		expect(billingSettings({}).missing).toEqual([
+			"POLAR_ACCESS_TOKEN",
+			"POLAR_WEBHOOK_SECRET",
+			"POLAR_CREATOR_MONTHLY_PRODUCT_ID",
+			"TYPELAPSE_APP_URL",
+		]);
+		expect(
+			billingSettings({
+				POLAR_ACCESS_TOKEN: "polar_oat_x",
+				POLAR_WEBHOOK_SECRET: "whs",
+				POLAR_CREATOR_MONTHLY_PRODUCT_ID: "prod_m",
+				BETTER_AUTH_URL: "https://typelapse.test",
+			}).missing,
+		).toEqual([]);
+	});
+
+	it("treats a blank value as unset and a mistyped environment as a missing setting", () => {
+		const base = {
+			POLAR_ACCESS_TOKEN: "polar_oat_x",
+			POLAR_WEBHOOK_SECRET: "whs",
+			POLAR_CREATOR_MONTHLY_PRODUCT_ID: "prod_m",
+			TYPELAPSE_APP_URL: "https://typelapse.test",
+		};
+
+		expect(billingSettings({ ...base, POLAR_ACCESS_TOKEN: "  " }).missing).toEqual([
+			"POLAR_ACCESS_TOKEN",
+		]);
+		expect(billingSettings({ ...base, POLAR_ENVIRONMENT: "sandbx" }).missing).toEqual([
+			"POLAR_ENVIRONMENT (sandbox or production)",
+		]);
+	});
+
+	it("says what the annual product and the sandbox change, never a secret", () => {
+		const env = {
+			POLAR_ACCESS_TOKEN: "polar_oat_secret",
+			POLAR_WEBHOOK_SECRET: "whs_secret",
+			POLAR_CREATOR_MONTHLY_PRODUCT_ID: "prod_m",
+			TYPELAPSE_APP_URL: "https://typelapse.test",
+			POLAR_ENVIRONMENT: "sandbox",
+		};
+
+		const { notes } = billingSettings(env);
+
+		expect(notes).toEqual([
+			"POLAR_CREATOR_ANNUAL_PRODUCT_ID is not set: only the monthly Creator plan is sold.",
+			"POLAR_ENVIRONMENT is sandbox: checkouts run against sandbox.polar.sh and no real money moves.",
+		]);
+		expect(notes.join("")).not.toContain("secret");
 	});
 });

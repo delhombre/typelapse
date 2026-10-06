@@ -1,6 +1,11 @@
-import type { BillingCadence, BillingCatalog, BillingPort } from "@/domain/ports/billing.port";
+import type {
+	BillingCadence,
+	BillingCatalog,
+	BillingNotice,
+	BillingPort,
+} from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
-import { StripeBillingAdapter } from "@/infrastructure/billing/stripe-billing.adapter";
+import { HttpBillingAdapter } from "@/infrastructure/billing/http-billing.adapter";
 import { create } from "zustand";
 
 export type ClientDeploymentMode = "local" | "hosted";
@@ -11,6 +16,8 @@ export interface PlanState {
 	billingAvailable: boolean;
 	/** The server's allowance sentence, shown verbatim; null when it has none. */
 	allowance: string | null;
+	/** The server's sentence for a payment that failed or a plan that ended; null when billing is in order. */
+	notice: BillingNotice | null;
 	cadence: BillingCadence;
 	isUpgrading: boolean;
 	error: string | null;
@@ -33,12 +40,12 @@ function browserNavigate(url: string): void {
 
 /**
  * Deployment and entitlement are intentionally separate. A local build is
- * fully unlocked and never calls Stripe; a hosted build starts Free and trusts
+ * fully unlocked and never calls billing; a hosted build starts Free and trusts
  * only the server projection after session refresh.
  */
 export function createPlanStore({
 	deploymentMode,
-	billing = new StripeBillingAdapter(),
+	billing = new HttpBillingAdapter(),
 	navigate = browserNavigate,
 }: PlanStoreOptions) {
 	return create<PlanState>((set, get) => ({
@@ -46,6 +53,7 @@ export function createPlanStore({
 		catalog: null,
 		billingAvailable: false,
 		allowance: null,
+		notice: null,
 		cadence: "monthly",
 		isUpgrading: false,
 		error: null,
@@ -56,16 +64,18 @@ export function createPlanStore({
 				set({ plan: Plan.local(), error: null });
 				return;
 			}
-			const [catalog, plan, allowance] = await Promise.allSettled([
+			const [catalog, plan, allowance, notice] = await Promise.allSettled([
 				billing.getCatalog(),
 				signedIn ? billing.getCurrentPlan() : Promise.resolve(Plan.free()),
 				signedIn ? (billing.getAllowance?.() ?? Promise.resolve(null)) : Promise.resolve(null),
+				signedIn ? (billing.getNotice?.() ?? Promise.resolve(null)) : Promise.resolve(null),
 			]);
 			set({
 				catalog: catalog.status === "fulfilled" ? catalog.value : null,
 				billingAvailable: catalog.status === "fulfilled",
 				plan: plan.status === "fulfilled" ? plan.value : Plan.free(),
 				allowance: allowance.status === "fulfilled" ? allowance.value : null,
+				notice: notice.status === "fulfilled" ? notice.value : null,
 				error: null,
 			});
 		},

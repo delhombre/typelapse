@@ -21,7 +21,7 @@ Prices in USD. "Local" means rendering and export work on the user's device with
 
 | Tool | What it does | Free tier | Paid (monthly / yearly / one-time) | Max export | Codecs, GIF, alpha | Platform | Local, no account | Differentiator | Visible weakness |
 |---|---|---|---|---|---|---|---|---|---|
-| Typelapse (today) | Scene-first code, diff, PR and mixed-media video | On-device free | Hosted profile paid (Stripe stub) | 4K class | MP4, WebM AV1 4:4:4, GIF | Web | Yes | 4:4:4, WYSIWYG, PR import | Not launched |
+| Typelapse (today) | Scene-first code, diff, PR and mixed-media video | On-device free | Hosted profile paid (billing stub) | 4K class | MP4, WebM AV1 4:4:4, GIF | Web | Yes | 4:4:4, WYSIWYG, PR import | Not launched |
 | snipcast.dev | Paste code, auto-animate, export video | None (2-week trial) | $12 / $99 / none | "4K" | unverified | Web | No (sign-up for trial) | Simplest paste-to-video | No free tier, no spec, ~500 users claimed |
 | ui.camera | 3D camera moves on UI shots and recordings | 1080p60, 1 project, 3 captures/wk, 12 s, personal | Pro $29/mo, Business $349/mo (3 seats); annual -28% | 4K60 | MP4, MOV, WebM, GIF; alpha unverified | Web | No | Cinematic product photography for UI | Very new, no reviews found |
 | Screen Studio | Mac recorder with auto-zoom and cursor polish | unverified | $29 / $108 / removed Oct 2025 (was $229) | 4K60 MP4, GIF 1080p | MP4, GIF; alpha unverified | macOS only | Local render; account unverified | Best auto-zoom polish | Subscription backlash, no audio editing, Electron |

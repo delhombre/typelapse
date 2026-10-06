@@ -15,7 +15,7 @@ or composed into launch videos, walkthroughs and social clips.
 Typelapse has two honest deployment profiles:
 
 - **On-device:** no account, browser persistence and local video rendering.
-- **Hosted:** private projects and media, Better Auth sessions, Stripe billing
+- **Hosted:** private projects and media, Better Auth sessions, Polar billing
   and queued background rendering.
 
 <p align="center">
@@ -259,7 +259,7 @@ CLI and answers with the file and the studio link; see
 - Better Auth email/password sessions in the hosted account island.
 - API keys made in the account island: a script renders on the hosted render
   routes with a key, no browser.
-- Stripe monthly/annual Checkout, Customer Portal and signed webhook projection.
+- Polar monthly/annual checkout, customer portal and signed webhook projection.
 - Postgres-backed render and object-deletion workers with leased retries. In a
   hosted build, a signed-in account renders on them from the export panel's
   Cloud choice under Where.
@@ -271,7 +271,7 @@ until every required adapter is configured.
 
 1. Copy `.env.example` to `.env` and select `TYPELAPSE_DEPLOYMENT_MODE=hosted`.
 2. Configure PostgreSQL (local, Neon or another managed provider), Better Auth,
-   a private R2 bucket and Stripe test or live credentials.
+   a private R2 bucket and Polar sandbox or production credentials.
 3. Apply the versioned schema:
 
    ```bash
@@ -321,8 +321,8 @@ VITE_BETTER_AUTH_URL=https://api.example.com
 ```
 
 The public pricing UI reads amounts from `/api/billing/catalog`. The server
-resolves configured Stripe Price IDs; the browser never submits a Price ID and
-signed webhooks remain the only source of paid entitlement.
+resolves the two configured Polar products; the browser never submits a product
+ID and signed webhooks remain the only source of paid entitlement.
 
 ## Deployment
 
@@ -332,7 +332,17 @@ Two addresses are not known until the studio is deployed:
   build` writes it into the `og:image` and `twitter:image` tags, since crawlers
   ignore a relative share image. Without it the build still succeeds, warns and
   points them at `http://localhost:5173`. The hosted API reads the same variable
-  for the Stripe return URLs.
+  for the checkout return URLs.
+- Polar, which sells Creator, is configured by the `POLAR_*` variables in
+  `.env.example`: an organisation access token, the webhook signing secret and
+  the two product IDs. In the Polar dashboard, point a webhook at
+  `<API origin>/api/billing/webhook` and enable `subscription.active`,
+  `subscription.updated`, `subscription.canceled`, `subscription.uncanceled`,
+  `subscription.revoked`, `subscription.past_due` and `order.paid`. Our account
+  id is the customer's external id on Polar's side, so a checkout needs no stored
+  customer. `POLAR_ENVIRONMENT=sandbox` runs every call against sandbox.polar.sh
+  (a separate organisation and token); `pnpm billing:sandbox-products` creates
+  the two products there from the command line.
 - `TYPELAPSE_STUDIO_URL` is a repository variable (Settings, Secrets and
   variables, Actions, Variables). The render workflow passes it as `studio-url`,
   so the pull request comment links the deployed studio; left empty, the link
@@ -358,12 +368,15 @@ Two addresses are not known until the studio is deployed:
 - **Hosted Free:** private continuity and limited hosted service; no cloud video
   render entitlement.
 - **Creator:** one seat, private cloud projects/assets and hosted 4K rendering,
-  sold monthly or annually through Stripe.
+  sold monthly or annually through Polar.
 - **Studio:** deliberately not sold until shared workspaces, roles and seat
   reconciliation exist.
 
-Exact prices live in Stripe. The landing page shows no invented amount when the
-hosted catalog is absent.
+Exact prices live in Polar: Creator is two products there, "Creator, monthly"
+and "Creator, yearly". Polar is the merchant of record, so it collects and
+remits VAT and sales tax and issues the invoices; Typelapse keeps only a plan
+projection built from its signed webhooks. The landing page shows no invented
+amount when the hosted catalog is absent.
 
 ## Architecture
 
@@ -372,7 +385,7 @@ The codebase follows a hexagonal boundary:
 ```text
 src/domain          immutable entities, value objects and ports
 src/application     authoring, compilation, sync and render use cases
-src/infrastructure  browser, Shiki, Stripe and HTTP adapters
+src/infrastructure  browser, Shiki and HTTP adapters
 src/presentation    React studio and landing page
 server              Hono composition root, Postgres/R2 adapters and workers
 ```

@@ -11,7 +11,7 @@ import { Plan } from "../../src/domain/value-objects/plan";
 const NOW = new Date("2026-08-30T20:00:00.000Z");
 
 class FakeBilling implements BillingService {
-	webhookInput: readonly [string, string] | null = null;
+	webhookInput: readonly [string, Record<string, string | undefined>] | null = null;
 	checkoutUser: string | null = null;
 	portalUser: string | null = null;
 	webhookError: Error | null = null;
@@ -20,29 +20,37 @@ class FakeBilling implements BillingService {
 	async catalog() {
 		return {
 			creator: {
-				monthly: { currency: "EUR", unitAmount: 1200 },
-				annual: { currency: "EUR", unitAmount: 12000 },
+				monthly: { currency: "USD", unitAmount: 1200 },
+				annual: { currency: "USD", unitAmount: 9900 },
 			},
 		};
 	}
 
+	plan: Awaited<ReturnType<BillingService["planFor"]>> = {
+		tier: "creator",
+		status: "active",
+		currentPeriodEnd: null,
+		cancelAtPeriodEnd: false,
+		since: new Date("2026-08-30T19:00:00.000Z"),
+	};
+
 	async planFor() {
-		return { tier: "creator" as const, currentPeriodEnd: null, cancelAtPeriodEnd: false };
+		return this.plan;
 	}
 
 	async startCheckout(userId: string, cadence: "monthly" | "annual") {
 		this.checkoutUser = userId;
 		this.checkoutCadence = cadence;
-		return { id: "cs_1", url: "https://checkout.stripe.test/cs_1" };
+		return { id: "cs_1", url: "https://sandbox.polar.test/cs_1" };
 	}
 
 	async openPortal(userId: string) {
 		this.portalUser = userId;
-		return { url: "https://billing.stripe.test/bps_1" };
+		return { url: "https://sandbox.polar.test/portal/bps_1" };
 	}
 
-	async processWebhook(rawBody: string, signature: string) {
-		this.webhookInput = [rawBody, signature];
+	async processWebhook(rawBody: string, headers: Record<string, string | undefined>) {
+		this.webhookInput = [rawBody, headers];
 		if (this.webhookError) {
 			throw this.webhookError;
 		}
@@ -67,6 +75,12 @@ function appFor(input: { auth?: AuthPort; billing?: BillingService } = {}) {
 	);
 }
 
+const signed = (signature: string) => ({
+	"webhook-id": "wh_1",
+	"webhook-timestamp": "1790000000",
+	"webhook-signature": signature,
+});
+
 function accountRequest(path: string, method = "GET"): Request {
 	return new Request(`http://localhost${path}`, {
 		method,
@@ -83,8 +97,8 @@ describe("billing route", () => {
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({
 			creator: {
-				monthly: { currency: "EUR", unitAmount: 1200 },
-				annual: { currency: "EUR", unitAmount: 12000 },
+				monthly: { currency: "USD", unitAmount: 1200 },
+				annual: { currency: "USD", unitAmount: 9900 },
 			},
 		});
 	});
@@ -117,16 +131,42 @@ describe("billing route", () => {
 		const portal = await app.request(accountRequest("/api/billing/portal", "POST"));
 
 		expect(await plan.json()).toEqual({
-			plan: { tier: "creator", currentPeriodEnd: null, cancelAtPeriodEnd: false },
+			plan: {
+				tier: "creator",
+				status: "active",
+				currentPeriodEnd: null,
+				cancelAtPeriodEnd: false,
+				since: "2026-08-30T19:00:00.000Z",
+				notice: null,
+			},
 		});
 		expect(await checkout.json()).toEqual({
-			url: "https://checkout.stripe.test/cs_1",
+			url: "https://sandbox.polar.test/cs_1",
 			sessionId: "cs_1",
 		});
-		expect(await portal.json()).toEqual({ url: "https://billing.stripe.test/bps_1" });
+		expect(await portal.json()).toEqual({ url: "https://sandbox.polar.test/portal/bps_1" });
 		expect(billing.checkoutUser).toBe("user-1");
 		expect(billing.checkoutCadence).toBe("annual");
 		expect(billing.portalUser).toBe("user-1");
+	});
+
+	it("adds the notice a past due account is owed to its plan", async () => {
+		const billing = new FakeBilling();
+		billing.plan = {
+			tier: "free",
+			status: "past_due",
+			currentPeriodEnd: null,
+			cancelAtPeriodEnd: false,
+			since: new Date("2026-08-29T20:00:00.000Z"),
+		};
+
+		const response = await appFor({ billing }).request(accountRequest("/api/billing/plan"));
+
+		expect(((await response.json()) as { plan: { notice: unknown } }).plan.notice).toEqual({
+			kind: "past-due",
+			sentence:
+				"Your last payment failed and Creator is paused; update your card in Manage billing, and past renders stay downloadable until 28 September 2026.",
+		});
 	});
 
 	it("rejects an unknown checkout cadence instead of selecting a price implicitly", async () => {
@@ -141,14 +181,18 @@ describe("billing route", () => {
 		expect(response.status).toBe(400);
 	});
 
-	it("passes the untouched webhook body and signature without account auth", async () => {
+	it("passes the untouched webhook body and its signature headers without account auth", async () => {
 		const billing = new FakeBilling();
 		const app = appFor({ auth: { verify: async () => null }, billing });
 
 		const response = await app.request(
 			new Request("http://localhost/api/billing/webhook", {
 				method: "POST",
-				headers: { "stripe-signature": "sig_test" },
+				headers: {
+					"webhook-id": "wh_1",
+					"webhook-timestamp": "1790000000",
+					"webhook-signature": "v1,sig_test",
+				},
 				body: '{ "spacing": "must stay exact" }',
 			}),
 		);
@@ -156,7 +200,11 @@ describe("billing route", () => {
 		expect(response.status).toBe(200);
 		expect(billing.webhookInput).toEqual([
 			'{ "spacing": "must stay exact" }',
-			"sig_test",
+			{
+				"webhook-id": "wh_1",
+				"webhook-timestamp": "1790000000",
+				"webhook-signature": "v1,sig_test",
+			},
 		]);
 	});
 
@@ -172,7 +220,7 @@ describe("billing route", () => {
 		billing.webhookError = new InvalidBillingWebhookSignatureError();
 		const invalid = await app.request("http://localhost/api/billing/webhook", {
 			method: "POST",
-			headers: { "stripe-signature": "bad" },
+			headers: signed("bad"),
 			body: "raw",
 		});
 		expect(invalid.status).toBe(400);
@@ -180,14 +228,14 @@ describe("billing route", () => {
 		billing.webhookError = new Error("database unavailable");
 		const transient = await app.request("http://localhost/api/billing/webhook", {
 			method: "POST",
-			headers: { "stripe-signature": "valid" },
+			headers: signed("valid"),
 			body: "raw",
 		});
 		expect(transient.status).toBe(503);
 		expect(await transient.json()).toEqual({ error: "Billing webhook is temporarily unavailable" });
 	});
 
-	it("returns the server's allowance sentence even when Stripe is not configured", async () => {
+	it("returns the server's allowance sentence even when billing is not configured", async () => {
 		const seen: Array<readonly [string, string]> = [];
 		const app = new Hono().route(
 			"/api/billing",

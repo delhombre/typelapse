@@ -161,8 +161,8 @@ or it does not land.
 - **Capability**: a hosted feature the API can mount (`auth`, `projectSync`,
   `privateAssets`, `billing`, `hostedRendering`, `apiKeys`). Each fails closed
   when its configuration is absent; `pnpm hosted:check` lists what is missing.
-- **Plan**: `free` or `creator` (paid). Resolved server-side from the Stripe
-  projection; never from a header or a body field.
+- **Plan**: `free` or `creator` (paid). Resolved server-side from the Polar
+  subscription projection; never from a header or a body field.
 - **Ceiling**: a hosted limit carried by the Plan (cloud projects, media
   bytes, hosted render minutes per UTC month, concurrent render jobs). A
   refusal names the ceiling, its value, the usage and the plan that lifts it.
