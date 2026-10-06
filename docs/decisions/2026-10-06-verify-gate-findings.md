@@ -119,25 +119,37 @@ up. A layout test or a Playwright assertion at 1280 and 1440 with a
 ## D4 The stage keeps its size while a panel is open on a phone
 
 **Decision:** opening the export panel (or any island panel) on the phone
-shell does not change the stage's layout: the `[data-export-target]` card
-keeps its box, the preview frame stays. The phone-sheet test gains the
-assertion.
+shell never reflows the stage: the `[data-export-target]` card is not
+resized or refitted for a panel. Because a 300px panel and a half-open sheet
+leave no room for the frame, opening a panel lowers the sheet to the peek
+stop, where the frame sits whole above the panel, and closing the panel
+returns the sheet to the stop it had. The phone-sheet test asserts the
+slot's padding and the sheet's stop before, during and after a panel; the
+e2e spec asserts the card's box equals the peek's and does not intersect
+the panel. (Amended 2026-10-06 after the builder measured that at the
+scenes stop the card, 107x64 at y 128, sat under a panel starting at y 90.)
 
 **Why:**
 
-- Measured: the card jumps to 672x264 at a negative offset and a band of
-  huge code shows under the header until the panel closes.
+- Measured: the slot's bottom padding followed the sheet stop plus the
+  panel (936px on an 844px screen), the stage fell to 374x0 and the card
+  refitted to 672x264 at a negative offset until the panel closed.
+- A panel is opened to act on the frame; a frame hidden under it defeats
+  the panel.
 
 **Rejected:**
 
 - Hiding the stage behind the panel: the panel is a panel, the stage is the
   product.
+- Freezing the card's box at the scenes stop: stable, but the frame is then
+  under the panel.
 
 **Impact:** the phone shell and export dock styles
 (`mobile-shell.tsx`, `studio-camera.css` or the panel's module),
 `tests/presentation/` phone-sheet test.
 
-**Pivot:** "Let the panel reflow the stage."
+**Pivot:** "Let the panel reflow the stage" or "Keep the sheet where it is
+when a panel opens."
 
 ## D5 The toast names the codec for every format
 
