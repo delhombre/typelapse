@@ -68,3 +68,52 @@ describe("the V1 render route's audio track", () => {
 		expect(remotion.renderMedia).toHaveBeenCalledWith(expect.objectContaining({ muted: false }));
 	});
 });
+
+describe("the V1 render route's typed scene", () => {
+	beforeEach(() => {
+		remotion.renderMedia.mockClear();
+	});
+
+	// A title card first has no code to type: the picture and the ticks both go
+	// to the first scene that has some.
+	it("types the first scene with code, in the picture and in the ticks alike", async () => {
+		const response = await render({
+			sound: true,
+			typewriter: true,
+			steps: [
+				{ code: "", duration: 600 },
+				{ code: "const a = 1;", duration: 600 },
+			],
+		});
+
+		expect(response.status).toBe(200);
+		const { inputProps } = remotion.renderMedia.mock.calls[0]?.[0] as unknown as {
+			inputProps: {
+				input: {
+					typingIndex: number;
+					audioDataUrl: string;
+					plan: { frames: { tokens: unknown[] }[] };
+				};
+			};
+		};
+		const { input } = inputProps;
+		expect(input.typingIndex).toBe(1);
+		// The ticks: nothing sounds over the blank hold, and the typed scene does.
+		const pcm = Buffer.from(input.audioDataUrl.replace(/^data:audio\/wav;base64,/, ""), "base64");
+		const samples = new Int16Array(pcm.buffer, pcm.byteOffset + 44, (pcm.length - 44) / 2);
+		const blankHold = Math.floor(0.6 * 44100);
+		expect(samples.slice(0, blankHold).every((sample) => sample === 0)).toBe(true);
+		expect(samples.slice(blankHold).some((sample) => sample !== 0)).toBe(true);
+		// The blank scene holds its neighbour's code in the plan, so there is a card to type.
+		expect(input.plan.frames[0]?.tokens.length).toBeGreaterThan(0);
+	});
+
+	it("keeps the first scene as the typed one when it has code", async () => {
+		await render({ typewriter: true });
+
+		const { inputProps } = remotion.renderMedia.mock.calls[0]?.[0] as unknown as {
+			inputProps: { input: { typingIndex: number } };
+		};
+		expect(inputProps.input.typingIndex).toBe(0);
+	});
+});

@@ -1,3 +1,5 @@
+import { displayWidth } from "../text/display-width";
+
 /**
  * Deterministic code-frame metrics: pure and dependency-free.
  *
@@ -24,8 +26,6 @@ export const LINE_HEIGHT_RATIO = 1.6;
 /** Line height of chrome-bar text: `FrameChrome` sets it explicitly, so the bar
  *  both DOM renderers lay out is exactly as tall as `chromeBarHeight` says. */
 export const CHROME_TEXT_LINE_HEIGHT = 1.35;
-import { displayWidth } from "../text/display-width";
-
 /** Gap between the window and its caption, in unscaled px. */
 export const CAPTION_MARGIN_TOP = 14;
 /** One caption line's height, in unscaled px: `StepCaption`'s line-height. */
@@ -39,12 +39,23 @@ export const CAPTION_FONT_SIZE = 13;
  */
 export const CAPTION_MAX_LINES = 2;
 /**
- * Advance of one display cell of the caption's proportional face (Inter), in em.
- * A deliberately full figure: Inter's average letter is narrower, so the count
- * leans to a second line, never to a caption that wraps past what was reserved
- * (`StepCaption` cuts at the count it is given, whatever the face measures).
+ * Advance of one display cell of the caption's proportional face (Inter Medium),
+ * in em. Lowercase prose averages a little under this; capitals and digits are
+ * wider and take `CAPTION_CAPITAL_EM`. A count is an estimate, not a
+ * measurement: where it is short of the face, `StepCaption` clamps at the
+ * reserved lines with an ellipsis, so the band's geometry still holds.
  */
 const CAPTION_CELL_EM = 0.5;
+/** Advance of a capital or a digit of the caption's face, in em. */
+const CAPTION_CAPITAL_EM = 0.62;
+/** A capital or a digit counts as this many cells. */
+const CAPITAL_CELLS = CAPTION_CAPITAL_EM / CAPTION_CELL_EM;
+
+/** Cells a word takes: its display width, with capitals and digits counted wider. */
+function wordCells(word: string): number {
+	const wide = word.match(/[A-Z0-9]/g)?.length ?? 0;
+	return displayWidth(word) + wide * (CAPITAL_CELLS - 1);
+}
 
 /**
  * How many lines a caption takes in a window `width` px wide, at `unit` (the
@@ -70,7 +81,7 @@ export function captionLines(caption: string, width: number, unit: number): numb
 		used = rest;
 	};
 	for (const word of words) {
-		const cost = displayWidth(word);
+		const cost = wordCells(word);
 		if (used === 0) {
 			place(cost);
 		} else if (used + 1 + cost <= cells) {

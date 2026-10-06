@@ -48,7 +48,6 @@ export function StepCaption({ text, opacity, color, scale = 1, lines }: StepCapt
 					WebkitBoxOrient: "vertical",
 					WebkitLineClamp: lines,
 					overflow: "hidden",
-					textWrap: "balance",
 					overflowWrap: "anywhere",
 					fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, sans-serif",
 					fontSize: CAPTION_FONT_SIZE * scale,

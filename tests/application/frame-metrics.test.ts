@@ -159,6 +159,14 @@ describe("captionLines", () => {
 		}
 	});
 
+	it("counts capitals and digits wider than lowercase prose", () => {
+		// 33 characters is 252px of Inter Medium at 13px in capitals: it needs two
+		// lines on a 221px window, where the same count in lowercase fits one.
+		expect(captionLines("WARNING: DO NOT MERGE THIS BRANCH", 221, 1)).toBe(2);
+		expect(captionLines("warning: do not merge this branch", 221, 1)).toBe(1);
+		expect(captionLines("Ship v2.0.1 on 12/10/2026 at 09:30", 221, 1)).toBe(2);
+	});
+
 	it("counts a wide glyph as two cells", () => {
 		const wide = "世".repeat(20);
 		expect(captionLines(wide, 150, 1)).toBeGreaterThan(captionLines("a".repeat(20), 150, 1));

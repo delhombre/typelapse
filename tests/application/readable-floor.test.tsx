@@ -25,7 +25,12 @@ import {
 	renderScaleFor,
 } from "../../src/application/layout/canvas-fit";
 import { fitScale } from "../../src/application/layout/fit-scale";
-import { LINE_HEIGHT_RATIO, chromeBarHeight } from "../../src/application/layout/frame-metrics";
+import {
+	LINE_HEIGHT_RATIO,
+	captionBandLines,
+	captionBlockHeight,
+	chromeBarHeight,
+} from "../../src/application/layout/frame-metrics";
 import { DEFAULT_TRANSITION_EASING } from "../../src/application/magic-move/easing";
 import type { MagicMovePlan } from "../../src/application/magic-move/engine";
 import { ASPECT_LABELS, dimensionsFor } from "../../src/domain/entities/render-config";
@@ -74,7 +79,12 @@ const SHORT = {
 	transitions: [],
 };
 
-function fitAt(plan: typeof LONG_LINE, canvasWidth: number, canvasHeight: number) {
+function fitAt(
+	plan: typeof LONG_LINE,
+	canvasWidth: number,
+	canvasHeight: number,
+	captions: readonly string[] = [],
+) {
 	const scale = renderScaleFor(canvasWidth, canvasHeight, BASE_VIDEO_SCALE);
 	return {
 		scale,
@@ -82,7 +92,7 @@ function fitAt(plan: typeof LONG_LINE, canvasWidth: number, canvasHeight: number
 			plan,
 			...SETTINGS,
 			fontSize: THEME.fontSize,
-			captions: [],
+			captions,
 			scale,
 			canvasWidth,
 			canvasHeight,
@@ -109,6 +119,22 @@ describe("the readable floor", () => {
 		// The clipped card fills the safe width exactly and no more.
 		const padded = fit.natural.width + 2 * SETTINGS.cardMargin * scale;
 		expect(padded * fit.scale).toBeCloseTo(w * (1 - 2 * CANVAS_MARGIN), 6);
+	});
+
+	it("counts the caption's lines on the width the clipped window is drawn at", () => {
+		const caption = "Sanity checks the reconciled workspace membership invitations table.".padEnd(
+			80,
+			".",
+		);
+		const { scale, fit } = fitAt(LONG_LINE, 120, 2000, [caption]);
+
+		expect(fit.clip?.right).toBe(true);
+		// The band sits under the window as drawn, so its lines follow the drawn width.
+		expect(fit.captionLines).toBe(captionBandLines([caption], fit.natural.width, scale));
+		expect(fit.windowHeight).toBeCloseTo(
+			fit.natural.height - captionBlockHeight(fit.captionLines, scale),
+			6,
+		);
 	});
 
 	it("holds a 3,000-line file at the floor and clips its bottom edge", () => {

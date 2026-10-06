@@ -3,6 +3,7 @@ import { fitScale } from "./fit-scale";
 import {
 	type ChromeVariant,
 	LINE_HEIGHT_RATIO,
+	captionBandLines,
 	captionBlockHeight,
 	frameNaturalSize,
 } from "./frame-metrics";
@@ -248,10 +249,16 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 		drawn === natural
 			? null
 			: { right: drawn.width < natural.width, bottom: drawn.height < natural.height };
+	// The band is as wide as the window is drawn: narrower than its natural width
+	// at the readable floor, where a caption may need the second line.
+	const captionLines =
+		drawn === natural
+			? natural.captionLines
+			: captionBandLines(input.captions, drawn.width, input.scale);
 	return {
 		natural: drawn,
-		windowHeight: drawn.height - captionBlockHeight(natural.captionLines, input.scale),
-		captionLines: natural.captionLines,
+		windowHeight: drawn.height - captionBlockHeight(captionLines, input.scale),
+		captionLines,
 		clip,
 		scale,
 		widthFraction: ((drawn.width + 2 * cardPadding) * scale) / input.canvasWidth,

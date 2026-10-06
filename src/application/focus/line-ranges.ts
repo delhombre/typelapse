@@ -107,19 +107,27 @@ export function readLineRanges(input: string): HighlightRange[] | null {
 }
 
 /**
- * A stored focus in the one spelling a code block holds: the ranges it can
- * read, ascending, from line 1. What it cannot hold is not line numbers a scene
- * could ever light (not numbers at all, or line 0) and is left out, so a project
- * with an odd focus still opens, with no focus there, instead of being refused
- * whole. The rest, a range past the last line included, is kept for `focusLineSet`
- * to clamp where it is drawn.
+ * A stored focus in the one spelling a code block holds: ascending ranges from
+ * line 1, read chunk by chunk. A chunk that is not line numbers ("abc") or that
+ * no scene could light ("0") is left out, a start of 0 is lifted to line 1
+ * ("0-5" is "1-5"), and the others stay: "2, abc" keeps line 2. So a project
+ * with an odd focus still opens, whole, instead of being refused. A range past
+ * the last line is kept for `focusLineSet` to clamp where it is drawn.
  */
 export function holdableFocus(input: string): string | undefined {
-	const ranges = readLineRanges(input);
-	if (ranges === null) {
-		return undefined;
+	const holdable: HighlightRange[] = [];
+	for (const chunk of input.split(",")) {
+		for (const range of readLineRanges(chunk) ?? []) {
+			if (range.endLine >= 1) {
+				holdable.push(
+					HighlightRange.create({
+						startLine: Math.max(1, range.startLine),
+						endLine: range.endLine,
+					}),
+				);
+			}
+		}
 	}
-	const holdable = ranges.filter((range) => range.startLine >= 1);
 	return holdable.length > 0 ? formatLineRanges(holdable) : undefined;
 }
 

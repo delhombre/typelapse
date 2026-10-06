@@ -180,11 +180,20 @@ describe("holdableFocus", () => {
 		expect(holdableFocus("1-99999999999999999999999")).toBe(`1-${Number.MAX_SAFE_INTEGER}`);
 	});
 
+	it("keeps the chunks it can read when one is not line numbers", () => {
+		expect(holdableFocus("2, abc")).toBe("2");
+		expect(holdableFocus("abc, 4-6, x-y, 9")).toBe("4-6, 9");
+	});
+
+	it("lifts a start of 0 to line 1", () => {
+		expect(holdableFocus("0-5")).toBe("1-5");
+		expect(holdableFocus("0-5, 8")).toBe("1-5, 8");
+	});
+
 	it("leaves out what is not lines a scene could light", () => {
 		expect(holdableFocus("abc")).toBeUndefined();
-		expect(holdableFocus("2, abc")).toBeUndefined();
 		expect(holdableFocus("0")).toBeUndefined();
-		expect(holdableFocus("0, 3")).toBe("3");
+		expect(holdableFocus("0-0, 3")).toBe("3");
 		expect(holdableFocus("   ")).toBeUndefined();
 	});
 });

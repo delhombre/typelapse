@@ -16,6 +16,8 @@ import {
 import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradient";
 import { clampRenderDimension } from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
+import { typingHoldIndex } from "../../src/application/magic-move/typewriter";
+import { morphCodes } from "../../src/domain/entities/snippet";
 import {
 	DEFAULT_TRANSITION_EASING,
 	isCubicBezier,
@@ -248,9 +250,14 @@ renderRoute.post(
 			const shikiTheme = resolveShikiTheme(theme.name);
 			await ensureLanguage(highlighter, lang);
 
+			// A blank scene holds its neighbour's code, as the studio and the server's
+			// card lay out their plans, and the typewriter types the first scene with
+			// code: the picture and the ticks below name the same scene.
+			const sceneCodes = clampedSteps.map((s) => s.code);
+			const typingIndex = typingHoldIndex(sceneCodes);
 			const plan = buildServerMagicMovePlan(
 				highlighter,
-				clampedSteps.map((s) => s.code),
+				morphCodes(sceneCodes, [...sceneCodes].reverse().find((code) => code !== "") ?? ""),
 				lang,
 				shikiTheme,
 				theme.background,
@@ -280,7 +287,7 @@ renderRoute.post(
 			if (sound && fmt !== "gif") {
 				const events = collectSceneTickEvents({
 					typewriter,
-					sceneCodes: clampedSteps.map((s) => s.code),
+					sceneCodes,
 					holds: clampedSteps.map((s) => s.duration),
 					transitionMs,
 				});
@@ -304,6 +311,7 @@ renderRoute.post(
 				transitionEasing,
 				loop,
 				typewriter,
+				typingIndex,
 				focusZoom,
 				progressStyle,
 				watermark,
