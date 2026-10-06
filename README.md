@@ -360,6 +360,19 @@ A failing journey keeps its trace, video and screenshot under `test-results/e2e/
 CI uploads them as an artifact. Each spec names the promise it protects in its
 `describe`, and a journey that lands gets its spec (Quality loop, gate 5).
 
+The store's guarantees (ceilings under concurrent requests, revisions, the API key
+table) are checked on a real PostgreSQL by the contract tests, the files named
+`tests/**/*.contract.test.ts`. They skip unless `TYPELAPSE_TEST_DATABASE_URL` names a
+database, so `pnpm test` needs no service. The Quality gate runs them on every pull
+request against PostgreSQL 16, the migrations applied first.
+
+```bash
+tests/e2e/hosted/services.sh up   # PostgreSQL 16 on 54381 (and MinIO)
+export TYPELAPSE_TEST_DATABASE_URL=postgres://postgres:typelapse@127.0.0.1:54381/typelapse
+DATABASE_URL=$TYPELAPSE_TEST_DATABASE_URL pnpm db:migrate   # once, on an empty database
+pnpm exec vitest run .contract.test.
+```
+
 ## License
 
 AGPL-3.0-only. See [LICENSE](LICENSE). Companies that cannot use AGPL code can ask for a commercial licence.
