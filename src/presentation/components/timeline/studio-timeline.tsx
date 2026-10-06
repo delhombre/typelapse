@@ -25,7 +25,11 @@ import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback, feedbackPulse } from "@/presentation/haptics";
 import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
 import { type TempoMs, useExportStore } from "@/presentation/stores/export.store";
-import { studioPlaybackTimeline, useSnippetStore } from "@/presentation/stores/snippet.store";
+import {
+	hasEmptyDraft,
+	studioPlaybackTimeline,
+	useSnippetStore,
+} from "@/presentation/stores/snippet.store";
 import {
 	hasAuthoredMultimedia,
 	useStudioCompositionStore,
@@ -100,6 +104,7 @@ export function StudioTimeline() {
 	const currentStepIndex = useSnippetStore((state) => state.currentStepIndex);
 	const setCurrentStepIndex = useSnippetStore((state) => state.setCurrentStepIndex);
 	const captureStep = useSnippetStore((state) => state.captureStep);
+	const emptyDraft = useSnippetStore(hasEmptyDraft);
 	const addBlankScene = useSnippetStore((state) => state.addBlankScene);
 	const duplicateStep = useSnippetStore((state) => state.duplicateStep);
 	const reorderSteps = useSnippetStore((state) => state.reorderSteps);
@@ -135,7 +140,11 @@ export function StudioTimeline() {
 		[compositionProject, steps],
 	);
 
-	const canPlay = isPlayableProject(steps.length, hasAuthoredMultimedia(compositionProject));
+	const canPlay = isPlayableProject(
+		steps.length,
+		hasAuthoredMultimedia(compositionProject),
+		emptyDraft,
+	);
 	// The ruler measures the clock the preview plays: scenes, the loop morph
 	// where the export adds it, and the audio tail. The store reads those inputs
 	// itself; the dependencies are what makes the memo notice they changed.
@@ -633,6 +642,7 @@ export function StudioTimeline() {
 									feedback("commit");
 									captureStep();
 								}}
+								disabled={emptyDraft}
 								className="studio-timeline-add"
 							>
 								<Add size={14} strokeWidth={1.6} aria-hidden="true" />

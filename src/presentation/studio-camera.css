@@ -267,6 +267,10 @@
 
 .studio-camera-root .sc-corner-left {
 	left: 22px;
+	/* The corner stops short of the centred Preview/Edit switch: half of it is
+	   78px (two 74px buttons and its 4px padding), the corner starts 22px in, and
+	   16px stay clear. A name of any length gives inside this, never past it. */
+	max-width: calc(50% - 22px - 78px - 16px);
 }
 
 .studio-camera-root .sc-corner-right {
@@ -317,8 +321,26 @@
 	position: relative;
 }
 
+/* Beside the project chip, history, Add source and Library keep their width and
+   their place; the chip is the one that gives, and inside it the name (#167). */
+.studio-camera-root .sc-island-group-project {
+	max-width: 100%;
+}
+
+.studio-camera-root .sc-island-group-project > * {
+	flex: none;
+}
+
+.studio-camera-root .sc-island-group-project > .sc-project-root {
+	min-width: 0;
+	flex: 0 1 auto;
+}
+
 .studio-camera-root .sc-title {
 	height: 30px;
+	/* A pull request title is a sentence. Past this it ends in an ellipsis, and the
+	   whole title waits in the field's tooltip. */
+	max-width: 28ch;
 	padding-inline: 3px;
 	color: var(--camera-ink);
 	font-size: var(--sc-text-md);
@@ -4201,6 +4223,12 @@ textarea.sc-source-field {
 	font-weight: var(--sc-weight-medium);
 	transition: border-color 150ms var(--ease-out), background-color 150ms var(--ease-out), color
 		150ms var(--ease-out), transform 100ms var(--ease-out);
+}
+
+/* Add scene captures the editor, and an empty editor has nothing to capture. */
+.studio-timeline-add:disabled {
+	opacity: 0.4;
+	pointer-events: none;
 }
 
 .dark .studio-timeline-add {

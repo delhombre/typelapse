@@ -14,7 +14,7 @@ import { BackgroundPicker } from "@/presentation/components/preview/background-p
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { trigger } from "@/presentation/haptics";
 import { serverRenderOffered, useExportStore } from "@/presentation/stores/export.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { hasEmptyDraft, useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	hasAuthoredMultimedia,
 	useStudioCompositionStore,
@@ -554,7 +554,8 @@ export const DEVICE_CANNOT_ENCODE = "This browser cannot encode this format at t
 export function useCanRender(): boolean {
 	const sceneCount = useSnippetStore((s) => s.snippet.steps.length);
 	const project = useStudioCompositionStore((s) => s.value.project);
-	return isPlayableProject(sceneCount, hasAuthoredMultimedia(project));
+	const emptyDraft = useSnippetStore(hasEmptyDraft);
+	return isPlayableProject(sceneCount, hasAuthoredMultimedia(project), emptyDraft);
 }
 
 /** What the island's one filled shape says when nothing is open. */

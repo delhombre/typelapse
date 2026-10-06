@@ -187,6 +187,26 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		});
 	}
 
+	// The project chip's menu trigger is a 24px glyph that grows into the 2px and the 8px gap
+	// beside it, 44px tall under a thumb; and the name keeps "Untitled" whole at 390 (#167).
+	test("the project chip's menu trigger is a thumb's target and the name keeps its first word", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		const trigger = page.locator(".sc-project-trigger");
+		const name = page.getByRole("textbox", { name: "Project name" });
+		await settled(trigger);
+
+		const reach = await hitBox(trigger);
+		expect(reach.height, `the trigger reaches ${reach.height} tall`).toBeGreaterThanOrEqual(44);
+		expect(reach.width, `the trigger reaches ${reach.width} wide`).toBeGreaterThanOrEqual(24);
+		expect((await trigger.boundingBox())?.width).toBeGreaterThanOrEqual(24);
+
+		await expect(name).toHaveValue("Untitled");
+		const clipped = await name.evaluate((field) => field.scrollWidth > field.clientWidth);
+		expect(clipped, "the name is cut: Untitl…").toBe(false);
+	});
+
 	// Four scenes are one more than the island has room for at 44px each, so the counter
 	// says the position, as it already does from the fifth on a pointer's phone.
 	test("past its dots the island keeps its targets and its fit, and the counter says where it is", async ({

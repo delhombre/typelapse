@@ -50,6 +50,14 @@ export interface PlaybackState {
 
 interface SnippetState {
 	snippet: Snippet;
+	/**
+	 * The editor's live value while it is blank; null the rest of the time, when
+	 * the editor and the snippet agree. A snippet always has code, so an emptied
+	 * editor cannot be one: the draft holds it beside the snippet, which keeps the
+	 * last code it had. While it is set the preview shows an empty card and nothing
+	 * is captured, and the next non-blank value clears it.
+	 */
+	draft: string | null;
 
 	/** Laid-out magic-move frames + transitions for the current steps (or live code). */
 	plan: MagicMovePlan | null;
@@ -179,6 +187,26 @@ interface SnippetState {
 		meta: { title: string; openingCardMs?: number },
 	) => void;
 }
+
+/** True while the editor is empty: there is nothing on screen to capture. */
+export const hasEmptyDraft = (state: Pick<SnippetState, "draft">): boolean => state.draft !== null;
+
+/**
+ * The code the studio shows and exports on its live scene: the snippet's, or
+ * nothing while the editor is emptied (the snippet then holds the code it had
+ * before, which is on no screen).
+ */
+export const liveCodeOf = (state: Pick<SnippetState, "snippet" | "draft">): string =>
+	state.draft === null ? state.snippet.code : "";
+
+/** What the preview draws for a blank draft: one empty line in the window, no tokens. */
+const EMPTY_CARD_PLAN: MagicMovePlan = {
+	frames: [{ lineCount: 1, tokens: [] }],
+	transitions: [],
+};
+
+/** What a replaced snippet resets: whatever was typed over the old one is gone with it. */
+const NO_DRAFT = { draft: null } as const;
 
 let rawShikiHighlighter: Highlighter | null = null;
 let rafId: number | null = null;
@@ -340,9 +368,10 @@ export function registerPlaybackComposition(read: () => PlaybackComposition): vo
  * null when the project is not a video yet (no scene and no authored media).
  */
 export function studioPlaybackTimeline(): StudioPlaybackTimeline | null {
-	const { steps } = useSnippetStore.getState().snippet;
+	const { snippet, draft } = useSnippetStore.getState();
+	const { steps } = snippet;
 	const composition = readPlaybackComposition();
-	if (!isPlayableProject(steps.length, composition.hasAuthoredMedia)) {
+	if (!isPlayableProject(steps.length, composition.hasAuthoredMedia, draft !== null)) {
 		return null;
 	}
 	const { transitionMs, loop } = useExportStore.getState();
@@ -371,12 +400,13 @@ function clearRecordTimer() {
 }
 
 /**
- * True when the live code is worth capturing as a new step: non-blank and
- * different from the last captured step (or there are no steps yet). Blank is
- * excluded because `Step.create` rejects empty code.
+ * True when the live code is worth capturing as a new step: not an emptied
+ * editor (whose snippet still holds the code it had before, which is not what
+ * is on screen) and different from the last captured step (or there are no
+ * steps yet).
  */
-function isCapturable(snippet: Snippet): boolean {
-	if (snippet.code.trim() === "") {
+function isCapturable({ snippet, draft }: Pick<SnippetState, "snippet" | "draft">): boolean {
+	if (draft !== null) {
 		return false;
 	}
 	const lastStep = snippet.steps[snippet.steps.length - 1];
@@ -489,6 +519,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		code: DEFAULT_CODE,
 		language: "typescript",
 	}),
+	draft: null,
 	plan: null,
 	isBuilding: true,
 	currentStepIndex: 0,
@@ -554,8 +585,17 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 	setCode: (code: string) => {
 		cancelRaf();
+		if (code.trim() === "") {
+			// An emptied editor is a draft: a snippet cannot hold it, and the pause that
+			// would have captured the code it had before must not fire.
+			clearRecordTimer();
+			set({ draft: code, isPlaying: false, isPreparing: false, playback: null });
+			get().rebuildPlan();
+			return;
+		}
 		set({
 			snippet: rebuildSnippet(get().snippet, { code }),
+			...NO_DRAFT,
 			isPlaying: false,
 			isPreparing: false,
 			playback: null,
@@ -566,7 +606,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			clearRecordTimer();
 			recordTimerId = setTimeout(() => {
 				recordTimerId = null;
-				if (get().isRecording && isCapturable(get().snippet)) {
+				if (get().isRecording && isCapturable(get())) {
 					get().captureStep();
 				}
 			}, RECORD_DEBOUNCE_MS);
@@ -598,10 +638,15 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	rebuildPlan: async () => {
+		const { snippet, draft } = get();
+		if (draft !== null && snippet.steps.length === 0) {
+			// Nothing to tokenize, so nothing to wait for: the empty card is drawn at once.
+			set({ plan: EMPTY_CARD_PLAN, isBuilding: false });
+			return;
+		}
 		if (!rawShikiHighlighter) {
 			return;
 		}
-		const { snippet } = get();
 		set({ isBuilding: true });
 		await ensureLanguageLoaded(snippet.language);
 		if (!rawShikiHighlighter) {
@@ -628,7 +673,10 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	},
 
 	captureStep: (duration?: number) => {
-		const { snippet } = get();
+		const { snippet, draft } = get();
+		if (draft !== null) {
+			return;
+		}
 		const step = Step.create({ code: snippet.code, duration });
 		set({ snippet: snippet.addStep(step), currentStepIndex: snippet.steps.length });
 		get().rebuildPlan();
@@ -706,7 +754,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 	startRecording: () => {
 		set({ isRecording: true });
 		// Anchor a baseline so the first pause morphs from the code as it is now.
-		if (isCapturable(get().snippet)) {
+		if (isCapturable(get())) {
 			get().captureStep();
 		}
 	},
@@ -718,7 +766,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		}
 		set({ isRecording: false });
 		// Flush the final edit so the last thing typed still becomes a step.
-		if (isCapturable(get().snippet)) {
+		if (isCapturable(get())) {
 			get().captureStep();
 		}
 	},
@@ -921,6 +969,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		clearRecordTimer();
 		set({
 			snippet,
+			...NO_DRAFT,
 			background,
 			windowChrome,
 			showLineNumbers,
@@ -956,7 +1005,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 		cancelRaf();
 		clearRecordTimer();
-		set({ snippet: rebuilt, ...PLAYBACK_RESET });
+		set({ snippet: rebuilt, ...NO_DRAFT, ...PLAYBACK_RESET });
 		markBaseline();
 
 		get().rebuildPlan();
@@ -983,7 +1032,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 		cancelRaf();
 		clearRecordTimer();
-		set({ snippet: rebuilt, ...PLAYBACK_RESET });
+		set({ snippet: rebuilt, ...NO_DRAFT, ...PLAYBACK_RESET });
 
 		get().rebuildPlan();
 	},
@@ -1004,7 +1053,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 		cancelRaf();
 		clearRecordTimer();
-		set({ snippet: rebuilt, ...PLAYBACK_RESET });
+		set({ snippet: rebuilt, ...NO_DRAFT, ...PLAYBACK_RESET });
 		markBaseline();
 
 		get().rebuildPlan();

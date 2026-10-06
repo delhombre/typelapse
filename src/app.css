@@ -2957,6 +2957,28 @@ html.dark:not([data-landing-theme]) {
 	max-width: none;
 	min-width: 0;
 	flex: 1 1 auto;
+	/* 2px between the brand, the name and the menu: at 390 the row has 139px for the
+	   chip, and the 8px the desktop chip keeps would cost the name its first word. */
+	gap: 2px;
+}
+
+/* The chip is the one that gives, but from 390 up it gives down to the name's
+   first word and no further: "Untitled" is 4.7em at the field's 16px, so a phone
+   never shows "Untitl…" (#167). A longer first word still ends in an ellipsis
+   past that. Below 390 the row has no room for it (375 is 15px short), and the
+   name goes on shrinking. */
+.sc-corner-row .sc-title {
+	padding-inline: 2px;
+}
+
+@media (min-width: 390px) {
+	.sc-corner-row .sc-title {
+		min-width: calc(4.7em + 4px);
+	}
+}
+
+.sc-corner-row .sc-project-trigger {
+	flex: none;
 }
 
 .sc-corner-row .sc-utilities {
@@ -3070,6 +3092,12 @@ html.dark:not([data-landing-theme]) {
 
 	.sc-corner-row .sc-brand::after {
 		inset: -13px -4px;
+	}
+
+	/* 24px wide and no wider to the eye, so the target grows into the 2px beside the
+	   name and the 8px gap to the history chip, and no further (DECISIONS D10). */
+	.sc-corner-row .sc-project-trigger::after {
+		inset: -11px -4px -11px -2px;
 	}
 
 	/* The name is the chip's own height: the whole band beside the brand types. */

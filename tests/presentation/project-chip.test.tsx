@@ -117,3 +117,13 @@ describe("the project name as a field", () => {
 		expect(document.activeElement).not.toBe(name);
 	});
 });
+
+describe("ProjectChip name", () => {
+	it("keeps the whole title for a hover, since a long one ends in an ellipsis (#167)", () => {
+		const title = "fix(trie-router): count every slash a pattern consumes";
+		ensureActiveLocalProject(payload(title), { id: "long", now: 10 });
+		open(payload(title));
+
+		expect(screen.getByRole("textbox", { name: "Project name" }).getAttribute("title")).toBe(title);
+	});
+});

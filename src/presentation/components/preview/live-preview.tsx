@@ -41,7 +41,7 @@ import { useTickAudio } from "@/presentation/hooks/use-tick-audio";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
 import type { PlaybackState } from "@/presentation/stores/snippet.store";
-import { useSnippetStore } from "@/presentation/stores/snippet.store";
+import { liveCodeOf, useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	resolveSocialPlatform,
 	useSocialPreviewStore,
@@ -231,6 +231,7 @@ export function LivePreview() {
 	const exportFps = useExportStore((s) => s.fps);
 	const loop = useExportStore((s) => s.loop);
 	const composition = useStudioCompositionStore();
+	const liveCode = useSnippetStore(liveCodeOf);
 	const selectAuthoredAudio = useStudioCompositionSelectionStore((state) => state.selectAudioCue);
 	// The document every export renders: the raw composition keeps the render
 	// settings it was loaded with, and the loop morph lasts the current tempo.
@@ -446,17 +447,13 @@ export function LivePreview() {
 		? playbackProgress
 		: (Math.min(currentStepIndex, Math.max(segments - 1, 0)) + 1) / Math.max(segments, 1);
 
-	const isEmpty = snippet.code.trim() === "" && snippet.steps.length === 0;
-	if (isEmpty && !isBuilding) {
-		return <EmptyState />;
-	}
 	if (!plan || plan.frames.length === 0) {
-		return <EmptyState building />;
+		return <EmptyState />;
 	}
 
 	// A title card first is typed past: the first scene with code is typed.
 	const typingIndex = typingHoldIndex(snippet.steps.map((s) => s.code));
-	const firstCode = snippet.steps[typingIndex]?.code ?? snippet.code;
+	const firstCode = snippet.steps[typingIndex]?.code ?? liveCode;
 	// Per-step spotlight, applied at render time (no re-tokenize when focus edits).
 	const focusSets = snippet.steps.map((s) => focusLineSet(s.highlightRanges));
 	const view = resolveView(
@@ -895,7 +892,7 @@ function staticView(
 	};
 }
 
-function EmptyState({ building = false }: { building?: boolean }) {
+function EmptyState() {
 	return (
 		<div className="flex h-full flex-col items-center justify-center gap-3 text-neutral-500 dark:text-neutral-400">
 			<svg
@@ -911,9 +908,7 @@ function EmptyState({ building = false }: { building?: boolean }) {
 				<polyline points="16 18 22 12 16 6" />
 				<polyline points="8 6 2 12 8 18" />
 			</svg>
-			<span className="text-xs">
-				{building ? "Preparing preview…" : "Write code to see the preview"}
-			</span>
+			<span className="text-xs">Preparing preview…</span>
 		</div>
 	);
 }

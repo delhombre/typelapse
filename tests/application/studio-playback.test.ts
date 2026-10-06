@@ -178,4 +178,14 @@ describe("what counts as a video", () => {
 		expect(isPlayableProject(0, true)).toBe(true);
 		expect(isPlayableProject(0, false)).toBe(false);
 	});
+
+	it("is nothing with no scene and an emptied editor, media or not, since no code is on screen", () => {
+		expect(isPlayableProject(0, true, true)).toBe(false);
+		expect(isPlayableProject(0, false, true)).toBe(false);
+	});
+
+	it("is unchanged by an emptied editor once there is a scene: it has its own code", () => {
+		expect(isPlayableProject(1, false, true)).toBe(true);
+		expect(isPlayableProject(2, true, true)).toBe(true);
+	});
 });
