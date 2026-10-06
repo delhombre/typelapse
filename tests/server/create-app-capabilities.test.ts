@@ -108,6 +108,16 @@ const renderRequest = new Request("http://localhost/api/cloud/render", {
 });
 
 describe("createApp hosted capabilities", () => {
+	it("answers the capability read on /api/health too, the path the browser can reach", async () => {
+		const app = await createApp({ deploymentMode: "hosted", database: null, auth: null });
+
+		const plain = await app.request("http://localhost/health");
+		const behindApi = await app.request("http://localhost/api/health");
+
+		expect(behindApi.status).toBe(200);
+		expect(await behindApi.json()).toEqual(await plain.json());
+	});
+
 	it("mounts the account-free multimedia renderer only in local deployment mode", async () => {
 		const localRoute = new Hono().post("/render/v2", (c) => c.body("local-v2", 200));
 		const local = await createApp({

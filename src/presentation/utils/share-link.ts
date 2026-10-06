@@ -8,6 +8,7 @@
  */
 
 import type { ProjectPayload } from "@/application/project/project-payload";
+import { notify } from "@/presentation/stores/notice.store";
 
 export function encodeShareLink(data: ProjectPayload): string {
 	const json = JSON.stringify(data);
@@ -33,6 +34,35 @@ export function decodeShareLink(): ProjectPayload | null {
 		return data;
 	} catch {
 		return null;
+	}
+}
+
+/**
+ * Open the project a `#share=` link carries, once, on boot. A link that cannot
+ * be read (broken base64, not JSON, not a project, or refused by the studio)
+ * says so in one line instead of opening the default studio as if nothing had
+ * been asked; either way the hash is dropped so a reload does not repeat it.
+ */
+export function openShareLinkOnBoot(importFromJson: (json: string) => void): void {
+	if (!window.location.hash.startsWith("#share=")) {
+		return;
+	}
+	const shareData = decodeShareLink();
+	let opened = false;
+	if (shareData) {
+		try {
+			// importFromJson restores the export-store settings (tempo, zoom,
+			// typewriter, progress style) from the same snapshot, so no manual
+			// re-application is needed here.
+			importFromJson(JSON.stringify(shareData));
+			opened = true;
+		} catch {
+			// Reported below, with every other way a link can fail to open.
+		}
+	}
+	history.replaceState(null, "", window.location.pathname);
+	if (!opened) {
+		notify("That share link could not be read.", { tone: "error" });
 	}
 }
 
