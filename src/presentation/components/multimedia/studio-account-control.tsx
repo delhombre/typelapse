@@ -605,7 +605,7 @@ function AuthForm({
 	return (
 		// The checks are ours, beside each field and in the studio's voice; the
 		// browser's bubbles pointed at one field at a time and disappeared.
-		<form ref={formRef} className="mm-account-form" onSubmit={submit} noValidate>
+		<form ref={formRef} className="mm-account-form" onSubmit={submit} aria-busy={busy} noValidate>
 			<p className="mm-eyebrow">Typelapse Cloud</p>
 			<h2>{mode === "sign-in" ? "Continue your work." : "Create your workspace."}</h2>
 			<p>Sync projects and private media, then render in the background.</p>

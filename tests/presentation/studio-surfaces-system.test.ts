@@ -611,6 +611,18 @@ describe("the account panel (DECISIONS D5, next-wave D6)", () => {
 		expect(blurs).toEqual([]);
 	});
 
+	it("reads its ink, its filled button and its hairline from the camera tokens, in both themes", () => {
+		const token = (name: string) => lastValue(island, ".sc-account-island", name);
+		expect(token("--mm-ink")).toBe("var(--camera-ink)");
+		expect(token("--mm-deep")).toBe("var(--camera-ink)");
+		expect(token("--mm-deep-ink")).toBe("var(--camera-paper)");
+		expect(token("--mm-hairline")).toBe("var(--camera-line)");
+		// The tokens flip with the theme, so no dark rule restates them as a cool literal.
+		for (const name of ["--mm-ink", "--mm-deep", "--mm-deep-ink", "--mm-hairline"]) {
+			expect(lastValue(island, ".dark .sc-account-island", name), name).toBeUndefined();
+		}
+	});
+
 	it("keeps its ring inside the floating shadow stack, with no border beside it", () => {
 		expect(lastValue(panel, ".mm-account-popover", "box-shadow")).toBe(
 			"var(--camera-material-shadow)",

@@ -184,6 +184,8 @@ describe("StudioAccountControl", () => {
 		await waitFor(() => expect(submit.textContent).toBe("Signing in…"));
 		expect(submit.hasAttribute("disabled")).toBe(false);
 		expect(submit.getAttribute("aria-disabled")).toBe("true");
+		// A screen reader hears that the form is working, not only that a label changed.
+		expect(submit.closest("form")?.getAttribute("aria-busy")).toBe("true");
 		expect(document.activeElement).toBe(submit);
 		fireEvent.click(submit);
 		expect(signInEmail).toHaveBeenCalledTimes(1);
@@ -191,6 +193,7 @@ describe("StudioAccountControl", () => {
 		refuse(new ClientAuthFailure("invalid-credentials"));
 		await waitFor(() => expect(within(panel).getByRole("alert")).toBeTruthy());
 		expect(submit.getAttribute("aria-disabled")).toBeNull();
+		expect(submit.closest("form")?.getAttribute("aria-busy")).toBe("false");
 		expect(document.activeElement).toBe(submit);
 	});
 

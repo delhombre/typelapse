@@ -301,8 +301,8 @@ sign-in form. A desktop check at 1440x900 for the panel. The hosted API is mocke
 
 ### Before
 
-`scratchpad/153/before/` (`phone-<theme>-<surface>-NN-<state>.png`, `desktop-*`, `light.json`
-and `dark.json` with the computed values), hosted build behind `vite preview` on 5245.
+Hosted build behind `vite preview`; shots and computed values are kept in the session
+scratchpad (not committed), the values that matter are written out below.
 
 - **The sheet read a cool copy of the tokens.** `--camera-ink` and `--camera-focus`
   `#1d1d20` (an ink ring), `--camera-pill` `#f1f2f4`, `--camera-muted` `#74717a`,
@@ -338,6 +338,16 @@ and `dark.json` with the computed values), hosted build behind `vite preview` on
   inside the stack), no border, no blur, no dark rule (the tokens flip), `--r-surface` 16px,
   rows `calc(var(--r-surface) - 5px)` (the menu's 5px padding), `--sc-text-md` and
   `--sc-weight-medium`, 44px tall (was 42, `emil-touch-and-accessibility`). 210x186.
+- **The account island's own tokens are warm** (review of the Ship gate):
+  `--mm-hairline` is `var(--camera-line)`, `--mm-deep` is `var(--camera-ink)` and
+  `--mm-deep-ink` is `var(--camera-paper)`, with no dark copy since the camera tokens flip.
+  The filled "Sign in" button was `#1d1d20` on `#f5f5f7` (dark: `#f5f5f7` on `#1d1d20`),
+  a cold white on the warm dark surface; now `rgb(28, 25, 23)` on `rgb(250, 250, 249)`
+  (dark `rgb(245, 243, 239)` on `rgb(18, 17, 16)`), the input border
+  `rgba(28, 27, 25, 0.1)` (dark `rgba(245, 243, 239, 0.12)`). The danger reds keep their
+  two measured values.
+- **The form says it is busy**: `aria-busy` on the form while a request is out, beside
+  `aria-disabled` on the button and the label change.
 - **The account panel is the opaque surface** (DECISIONS D5 as amended): `--mm-surface` is
   `var(--camera-surface)` in both themes, the panel drops its border and its blur and takes
   `--camera-material-shadow`, 16px (`--r-surface`, was 20). Both shells, as D6 says.
@@ -345,7 +355,7 @@ and `dark.json` with the computed values), hosted build behind `vite preview` on
   A, a slot reserved under the submit button (`.mm-account-alert`,
   `min-height: calc(1.4 * var(--sc-text-sm) + 18px)` = 33.4px, one line of the chip);
   C, the alert appended after the "New here?" link with nothing reserved
-  (`scratchpad/153/candidates/C-error.png`). C leaves no empty room but the panel grows 43px
+  (looked at in the build by injecting `order`). C leaves no empty room but the panel grows 43px
   and the refusal lands under the secondary link, away from the button that was pressed.
   A wins: the panel is 464.6px tall whether or not there is a refusal, the refusal appears
   where the finger is, and the empty slot reads as the space before the link. Rejected: an
@@ -376,8 +386,7 @@ D3's "Enforced by" name them.
 
 ### After
 
-`scratchpad/153/after/`, build `scratchpad/153/dist-hosted` on 4245 (`light.json`,
-`dark.json`, `busy.mjs` output below).
+Same harness on the final hosted build; the measured values:
 
 - Panel, 375x812: alpha 1 `rgb(255, 255, 255)` (dark `rgb(30, 28, 26)`), `backdrop-filter:
   none`, 16px. Refused sign-in (401 and 429): button y 398.19 before and 398.19 after, panel

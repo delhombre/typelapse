@@ -9,9 +9,11 @@
 	--mm-surface: var(--camera-surface);
 	--mm-ink: var(--camera-ink);
 	--mm-muted: var(--camera-muted);
-	--mm-hairline: rgb(29 29 32 / 0.09);
-	--mm-deep: #1d1d20;
-	--mm-deep-ink: #f5f5f7;
+	--mm-hairline: var(--camera-line);
+	/* The panel's one filled button: the studio's ink with the paper on it. Both flip
+	   with the theme through the camera tokens, so there is no dark copy. */
+	--mm-deep: var(--camera-ink);
+	--mm-deep-ink: var(--camera-paper);
 	--mm-primary: var(--color-primary);
 	/* Red that reads at 11px on both papers: 5.2:1 on white. */
 	--mm-danger: #c53a3a;
@@ -21,10 +23,6 @@
 }
 
 .dark .sc-account-island {
-	--mm-ink: #f5f5f7;
-	--mm-hairline: rgb(255 255 255 / 0.11);
-	--mm-deep: #f5f5f7;
-	--mm-deep-ink: #1d1d20;
 	/* The light theme's red is 3:1 on this surface; this one is 6:1. */
 	--mm-danger: #f28b82;
 }

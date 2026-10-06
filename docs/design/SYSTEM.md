@@ -39,7 +39,7 @@ the one exception (DECISIONS D5).
 | Desktop muted, the landing's ash (4.87:1 on the pill) | `--camera-muted: #6e6b64` `src/presentation/studio-camera.css:28` | `--camera-muted: #a8a39a` `src/presentation/studio-camera.css:85` |
 | Desktop line, the scene hairline | `--camera-line: var(--sc-hairline)` `src/presentation/studio-camera.css:27` | same |
 | Desktop pill (fields, selection plate) | `--camera-pill: var(--color-neutral-100)` `src/presentation/studio-camera.css:29` | `--camera-pill: #292624` `src/presentation/studio-camera.css:86` |
-| Desktop opaque surface (card, timeline), and the menus that hold rows of text: the source menu, its popovers, the project menu, the phone's More menu and the account panel (D5) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css:38` `background: var(--camera-surface)` `src/presentation/studio-camera.css:605` `background: var(--camera-surface)` `src/app.css:3106` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css:103` |
+| Desktop opaque surface (card, timeline), and the menus that hold rows of text: the source menu, its popovers, the project menu, the phone's More menu and the account panel (D5) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css:38` `background: var(--camera-surface)` `src/presentation/studio-camera.css:605` `background: var(--camera-surface)` `src/app.css:3109` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css:103` |
 | Desktop CTA, timeline selection, a selected rail segment's well at 10% | `--camera-amber: var(--color-primary)` `src/presentation/studio-camera.css:22` `color-mix(in oklch, var(--camera-amber) 10%, transparent)` `src/presentation/studio-camera.css:2793` | same |
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css:18` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css:20` | same |
@@ -222,10 +222,10 @@ starts at 0.985.
 | --- | --- |
 | 44px hit area, visual size unchanged | `width: 44px` `src/app.css:912` |
 | Hit extension for any control | `width: max(100%, 44px)` `src/app.css:1924` |
-| Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css:1275` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css:1280` `--island-cell: 44px` `src/app.css:3642` |
+| Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css:1275` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css:1280` `--island-cell: 44px` `src/app.css:3618` |
 | Sheet chips under a finger | `height: 44px` `src/presentation/studio-camera.css:2101` |
 | A picture built from code is not text to select | `select-none` `src/presentation/landing/frame-fan.tsx:308` |
-| Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css:978` `inset: -5px` `src/presentation/studio-camera.css:1111` `height: 44px` `src/app.css:3113` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css:383` |
+| Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css:978` `inset: -5px` `src/presentation/studio-camera.css:1111` `height: 44px` `src/app.css:3116` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css:407` |
 | Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css:569` `font-size: 16px` `src/presentation/studio-camera.css:2031` |
 | Hover exists only here | `@media (hover: hover) and (pointer: fine)` `src/app.css:1104` |
 | Hover-only helpers vanish on touch | `@media (hover: none)` `src/app.css:1383` |
