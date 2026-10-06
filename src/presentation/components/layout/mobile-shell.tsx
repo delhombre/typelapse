@@ -12,7 +12,15 @@ import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
 import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { motion } from "motion/react";
-import { type KeyboardEvent, type ReactNode, useId, useMemo, useRef, useState } from "react";
+import {
+	type KeyboardEvent,
+	type ReactNode,
+	useCallback,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
 import { ProjectChip } from "./project-chip";
@@ -71,6 +79,23 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const sheet = useMemo(() => phoneSheetGeometry(viewport), [viewport]);
 	const [wanted, setWanted] = useState<PhoneSheetStop>("peek");
 	const stop = sheet.resolve(wanted);
+	// An island panel needs the room the sheet takes: the sheet goes down to the
+	// peek while one is open, so the frame stays above it at its own size, and
+	// comes back to the stop it left when the panel closes, unless a hand moved it
+	// in between (DECISIONS D4). The stage's slot never changes for a panel.
+	const wantedRef = useRef(wanted);
+	wantedRef.current = wanted;
+	const stopBeforePanel = useRef<PhoneSheetStop | null>(null);
+	const onPanelOpenChange = useCallback((open: boolean) => {
+		if (open) {
+			stopBeforePanel.current ??= wantedRef.current;
+			setWanted("peek");
+			return;
+		}
+		const back = stopBeforePanel.current;
+		stopBeforePanel.current = null;
+		if (back) setWanted((now) => (now === "peek" ? back : now));
+	}, []);
 	// One array per geometry: vaul recomputes its offsets whenever the identity
 	// of `snapPoints` changes, so a fresh array each render would re-measure it.
 	const [stopNames, snapPoints] = useMemo(
@@ -99,7 +124,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			    island panel opens: a phone has no room to step the stage back into,
 			    and a slot asked for 460px more than the screen has left collapses to
 			    a box of nothing, which the card refits into at a negative offset
-			    (#169). A raised cluster covers the frame; it never resizes it. */}
+			    (#169). A raised cluster lowers the sheet instead (above). */}
 			<div className="sc-stage-slot" style={{ paddingBottom: stageLift + 116 }}>
 				{/* The frame is the video's own shape here too: a phone used to get
 				    the bare card, so a 16:9 export previewed as a wide strip. */}
@@ -127,7 +152,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			<div className="sc-dock-slot" ref={dockRef}>
 				<div className="sc-dock">
 					<ExportStatus />
-					<PreviewIsland />
+					<PreviewIsland onPanelOpenChange={onPanelOpenChange} />
 				</div>
 			</div>
 

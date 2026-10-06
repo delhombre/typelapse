@@ -93,8 +93,11 @@ type Panel = ClusterId | "social" | "aspect" | null;
  * choosing it against. Only one of the two is ever open.
  */
 export function PreviewIsland({
+	onPanelOpenChange,
 	variant = "preview",
 }: {
+	/** Told when a settings panel is raised above the plate, and when it goes. */
+	onPanelOpenChange?: (open: boolean) => void;
 	/** The timeline owns transport in the desktop scene-table layout. */
 	variant?: "preview" | "timeline";
 }) {
@@ -152,6 +155,12 @@ export function PreviewIsland({
 		}
 		setPlatform(correction.platform);
 	}, [enabled, platforms, platform, setPlatform, setEnabled]);
+
+	// Only the compact preview raises a panel. On the scene-table rail, settings
+	// replace the row in place, so the picture remains still while it is judged.
+	useEffect(() => {
+		onPanelOpenChange?.(variant !== "timeline" && cluster !== null);
+	}, [cluster, onPanelOpenChange, variant]);
 
 	/**
 	 * A finished render is a thing the machine did, at a moment nobody chose: it

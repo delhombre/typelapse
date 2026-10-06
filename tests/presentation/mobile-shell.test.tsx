@@ -187,25 +187,50 @@ describe("the stage while an island panel is open on the phone", () => {
 
 	afterEach(() => cleanup());
 
-	// The slot is the frame's room: a panel that asked it for 460px more than the
-	// screen has left made the slot taller than the screen and the card refit to a
-	// box of nothing (672x264 at a negative offset, ticket #169). jsdom has no layout,
-	// so the cause is held here as the slot's own style and the box in the e2e journey.
-	it("keeps the stage slot's room whichever stop the sheet is on", () => {
+	const handle = () => screen.getByRole("slider", { name: "Sheet height" });
+	const stopText = () => handle().getAttribute("aria-valuetext");
+
+	// A panel never resizes the stage: it asked the slot for 460px more than the screen
+	// had left and the card refit to a box of nothing (ticket #169). The sheet gives the
+	// room instead, by going down to the peek while a panel is open (DECISIONS D4).
+	// jsdom has no layout, so the slot's own style and the sheet's stop are held here
+	// and the card's box in the e2e journey.
+	it("lowers the sheet to the peek while a panel is open, and puts it back where it was", () => {
 		const { container } = shell();
 		const slot = container.querySelector<HTMLElement>(".sc-stage-slot");
 		const cta = container.querySelector<HTMLElement>(".si-cta");
 		if (!slot || !cta) throw new Error("no stage slot or export control");
+		const peekRoom = slot.style.paddingBottom;
 
-		for (const key of ["Enter", "Enter", "Enter"]) {
-			fireEvent.keyDown(screen.getByRole("slider", { name: "Sheet height" }), { key });
-			const before = slot.style.paddingBottom;
+		for (const [key, stop] of [
+			["Enter", "Half open"],
+			["Enter", "Open"],
+			["Enter", "Collapsed"],
+		] as const) {
+			fireEvent.keyDown(handle(), { key });
+			expect(stopText()).toBe(stop);
+
 			fireEvent.click(cta);
 			expect(screen.getByRole("button", { name: "Close settings" })).toBeTruthy();
-			expect(slot.style.paddingBottom).toBe(before);
+			expect(stopText()).toBe("Collapsed");
+			expect(slot.style.paddingBottom).toBe(peekRoom);
+
 			fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
-			expect(slot.style.paddingBottom).toBe(before);
+			expect(stopText()).toBe(stop);
 		}
+	});
+
+	it("leaves the sheet where the user put it when they moved it during the panel", () => {
+		const { container } = shell();
+		const cta = container.querySelector<HTMLElement>(".si-cta");
+		if (!cta) throw new Error("no export control");
+		fireEvent.keyDown(handle(), { key: "Enter" });
+		fireEvent.click(cta);
+		expect(stopText()).toBe("Collapsed");
+
+		fireEvent.keyDown(handle(), { key: "End" });
+		fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
+		expect(stopText()).toBe("Open");
 	});
 });
 

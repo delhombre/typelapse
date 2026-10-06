@@ -42,7 +42,10 @@ afterEach(cleanup);
 
 describe("the timeline control rail", () => {
 	it("turns a cluster into a focused rail mode instead of opening a detached sheet", async () => {
-		const { container } = render(<PreviewIsland variant="timeline" />);
+		const onPanelOpenChange = vi.fn();
+		const { container } = render(
+			<PreviewIsland variant="timeline" onPanelOpenChange={onPanelOpenChange} />,
+		);
 
 		fireEvent.click(screen.getByRole("button", { name: "Look settings" }));
 
@@ -50,6 +53,9 @@ describe("the timeline control rail", () => {
 		expect(await screen.findByRole("button", { name: "Midnight" })).toBeTruthy();
 		expect(screen.queryByRole("button", { name: "Close settings" })).toBeNull();
 		expect(container.querySelector(".si-sheet")).toBeNull();
+		await waitFor(() => {
+			expect(onPanelOpenChange).toHaveBeenLastCalledWith(false);
+		});
 	});
 
 	it("returns to the root controls with Escape and restores the opener", async () => {
