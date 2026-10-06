@@ -652,7 +652,11 @@ test.describe("Mobile shell: the sheet's handle works without a finger", () => {
 		expect(reached, "Tab reaches the handle").toBe(true);
 		await expect(handle).toHaveAttribute("aria-valuetext", "Collapsed");
 		await expect(content).toHaveJSProperty("inert", true);
+		// The sheet slides up to the peek when the studio opens, and Tab can land on the handle
+		// while it is still arriving: measured then, the "peek" is 2 or 3px below the rest.
+		await settled(page.locator(".sc-sheet"));
 		const peek = await sheetTop();
+		expect(peek, "the peek rests PEEK px above the bottom of the screen").toBe(812 - 56);
 
 		await page.keyboard.press("Enter");
 		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
