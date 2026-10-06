@@ -57,6 +57,13 @@
       "when": 1791241566112,
       "tag": "0007_automation_projects",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791297920350,
+      "tag": "0008_render_usage",
+      "breakpoints": true
     }
   ]
 }

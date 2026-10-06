@@ -201,6 +201,20 @@ describe("hosted project HTTP adapter", () => {
 		);
 	});
 
+	it("reports a delete the server kept because a render is still running", async () => {
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ error: "A render is still running", code: "render-active" }), {
+				status: 409,
+			}),
+		);
+		const adapter = new HostedProjectHttpAdapter({ fetcher });
+
+		await expect(adapter.delete("project-1")).rejects.toMatchObject({
+			code: "render-active",
+			status: 409,
+		});
+	});
+
 	it("rejects non-V2 or non-exact records without reflecting response details", async () => {
 		const fetcher = vi
 			.fn()

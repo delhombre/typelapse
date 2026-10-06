@@ -10,6 +10,7 @@ import {
 	type ProjectDocumentV2,
 	parseProjectDocument,
 } from "../../application/project/project-document";
+import { RENDER_ACTIVE_SENTENCE } from "../../application/project/render-active";
 
 export type HostedProjectFetch = (
 	input: RequestInfo | URL,
@@ -304,6 +305,9 @@ export class HostedProjectHttpAdapter implements HostedProjectApiPort {
 		);
 		if (response.status === 404) return false;
 		if (response.status === 204) return true;
+		if (response.status === 409) {
+			throw new HostedProjectApiError("render-active", RENDER_ACTIVE_SENTENCE, 409);
+		}
 		if (!response.ok) return throwForStatus(response.status);
 		return invalidResponse();
 	}

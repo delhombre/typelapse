@@ -3,6 +3,7 @@ import {
 	type HostedProjectApiPort,
 	type HostedProjectSummary,
 } from "@/application/project/hosted-project-api.port";
+import { RENDER_ACTIVE_SENTENCE } from "@/application/project/render-active";
 import { HostedProjectHttpAdapter } from "@/infrastructure/project/hosted-project-http.adapter";
 import { create } from "zustand";
 
@@ -36,6 +37,16 @@ const INITIAL = { projects: null, status: "idle", error: null, deleting: null } 
 
 function signedOut(error: unknown): boolean {
 	return error instanceof HostedProjectApiError && error.code === "unauthorized";
+}
+
+function rendering(error: unknown): boolean {
+	return error instanceof HostedProjectApiError && error.code === "render-active";
+}
+
+function deleteRefusal(error: unknown): string {
+	if (signedOut(error)) return "Sign in again to delete projects.";
+	if (rendering(error)) return RENDER_ACTIVE_SENTENCE;
+	return "The project could not be deleted. Try again in a moment.";
 }
 
 export function createCloudProjectsStore({
@@ -79,9 +90,7 @@ export function createCloudProjectsStore({
 				if (started === epoch) {
 					set({
 						deleting: null,
-						error: signedOut(error)
-							? "Sign in again to delete projects."
-							: "The project could not be deleted. Try again in a moment.",
+						error: deleteRefusal(error),
 					});
 				}
 				return false;

@@ -22,6 +22,8 @@ export type CreateProjectDocumentResult =
 	| { readonly outcome: "created"; readonly project: StoredProjectDocument }
 	| { readonly outcome: "limit-reached"; readonly projectCount: number };
 
+export type DeleteProjectDocumentResult = "deleted" | "not-found" | "render-active";
+
 export type UpdateProjectDocumentResult =
 	| { readonly outcome: "updated"; readonly project: StoredProjectDocument }
 	| { readonly outcome: "conflict"; readonly currentRevision: number }
@@ -95,5 +97,10 @@ export interface ProjectDocumentRepositoryPort {
 		readonly expectedRevision: number;
 		readonly document: ProjectDocumentV2;
 	}): Promise<UpdateProjectDocumentResult>;
-	deleteOwnedById(ownerId: AccountId, id: string): Promise<boolean>;
+	/**
+	 * Takes the project with its media and renders. A project with a render still
+	 * queued or running is kept (`render-active`): the render holds a slot of the
+	 * account's concurrent renders until it ends, and a delete must not free it.
+	 */
+	deleteOwnedById(ownerId: AccountId, id: string): Promise<DeleteProjectDocumentResult>;
 }

@@ -123,6 +123,10 @@ describe("the cloud projects store", () => {
 				new HostedProjectApiError("unauthorized", "Sign in to sync hosted projects."),
 				"Sign in again to delete projects.",
 			],
+			[
+				new HostedProjectApiError("render-active", "A render is queued or running.", 409),
+				"A render is queued or running on this project. Delete it once it ends.",
+			],
 		] as const;
 		for (const [failure, sentence] of refusals) {
 			const store = createCloudProjectsStore({
