@@ -8,6 +8,7 @@ import {
 import { focusLineSet, formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
 import { DIFF_STEP_DURATION, capDiffSnapshots } from "@/application/import/diff-project";
 import { DEFAULT_TRANSITION_EASING, isCubicBezier } from "@/application/magic-move/easing";
+import { frameLineCount } from "@/application/magic-move/engine";
 import { assertImportableCode } from "@/application/project/project-document";
 import { type ProjectContent, contentFingerprint } from "@/application/project/project-fingerprint";
 import {
@@ -662,7 +663,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			// changes playback at once instead of waiting for a rebuild.
 			true,
 			// A long file's window follows each step's focus band.
-			snippet.steps.map((step) => focusLineSet(step.highlightRanges)),
+			snippet.steps.map((step) => focusLineSet(step.highlightRanges, frameLineCount(step.code))),
 		);
 		const maxIndex = Math.max(0, plan.frames.length - 1);
 		set({
@@ -945,7 +946,9 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 
 		for (const step of obj.steps) {
 			// Invalid focus strings remain cosmetic and degrade to no focus.
-			const highlightRanges = step.focus ? (parseLineRanges(step.focus) ?? []) : [];
+			const highlightRanges = step.focus
+				? (parseLineRanges(step.focus, frameLineCount(step.code)) ?? [])
+				: [];
 			snippet = snippet.addStep(
 				Step.create({
 					id: step.id,

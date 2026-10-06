@@ -22,7 +22,7 @@ import type { SceneProgress, SceneWatermark } from "@/application/frame-painter/
 import { advanceProbeFont, measureCharWidthRatio } from "@/application/layout/char-advance";
 import type { ChromeVariant } from "@/application/layout/frame-metrics";
 import type { CubicBezier } from "@/application/magic-move/easing";
-import type { MagicMovePlan } from "@/application/magic-move/engine";
+import { type MagicMovePlan, frameLineCount } from "@/application/magic-move/engine";
 import { typingHoldIndex } from "@/application/magic-move/typewriter";
 import type { LocalProjectLibraryPort } from "@/application/project/local-project-library.port";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
@@ -285,7 +285,9 @@ export class WebCodecsRendererAdapter implements RendererPort {
 			durations: snippet.steps.map((step) => step.duration),
 			firstCode: snippet.steps[typingIndex]?.code ?? snippet.code,
 			typingIndex,
-			focus: snippet.steps.map((step) => [...focusLineSet(step.highlightRanges)]),
+			focus: snippet.steps.map((step) => [
+				...focusLineSet(step.highlightRanges, frameLineCount(step.code)),
+			]),
 
 			width: config.width,
 			height: config.height,

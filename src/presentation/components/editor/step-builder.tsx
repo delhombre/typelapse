@@ -1,4 +1,5 @@
 import { formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import { frameLineCount } from "@/application/magic-move/engine";
 import { MAX_ANNOTATION_LENGTH, type Step } from "@/domain/entities/step";
 import { LiveRegion } from "@/presentation/components/ui/live-region";
 import {
@@ -517,14 +518,15 @@ function FocusInput({
 	const [invalid, setInvalid] = useState(false);
 
 	function commit() {
-		const parsed = parseLineRanges(text);
+		const parsed = parseLineRanges(text, frameLineCount(step.code));
 		if (parsed === null) {
 			setInvalid(true);
 			return;
 		}
 		setInvalid(false);
-		// Snap the field to the canonical form ("4-2,7" → "2-4, 7"): the card no
-		// longer remounts on edit (step ids are stable), so sync explicitly.
+		// Snap the field to the canonical form ("2-4,7" → "2-4, 7", "1-99" on a
+		// 5-line scene → "1-5"): the card no longer remounts on edit (step ids are
+		// stable), so sync explicitly.
 		setText(formatLineRanges(parsed));
 		updateStepFocus(step.id, parsed);
 	}

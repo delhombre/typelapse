@@ -33,6 +33,15 @@ describe("zoomForFocus", () => {
 		expect(zoomForFocus(new Set([2, 4]), 10).originYRatio).toBeCloseTo(0.25, 6);
 	});
 
+	it("finds the band of a set far too large to spread into arguments", () => {
+		const focus = new Set<number>();
+		for (let line = 1; line <= 300_000; line++) {
+			focus.add(line);
+		}
+		expect(() => zoomForFocus(focus, 300_000)).not.toThrow();
+		expect(zoomForFocus(focus, 300_000).originYRatio).toBeCloseTo(0.5, 6);
+	});
+
 	it("clamps the origin ratio into 0..1 when focus sits past the line count", () => {
 		// Line 10 over only 5 lines → raw 1.9, clamped to 1.
 		expect(zoomForFocus(new Set([10]), 5).originYRatio).toBe(1);

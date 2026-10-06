@@ -4,7 +4,7 @@ import { exportCodecNote, formatName } from "@/application/export/export-label";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
-import type { MagicMovePlan } from "@/application/magic-move/engine";
+import { type MagicMovePlan, frameLineCount } from "@/application/magic-move/engine";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { hasAudibleMedia } from "@/application/render/scene-timeline";
 import { isPlayableProject } from "@/application/studio-timeline/playback";
@@ -379,7 +379,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 				language: snippet.language,
 				theme: themePayload,
 				steps: snippet.steps.map((s) => {
-					const focus = [...focusLineSet(s.highlightRanges)];
+					const focus = [...focusLineSet(s.highlightRanges, frameLineCount(s.code))];
 					return {
 						code: s.code,
 						duration: s.duration,

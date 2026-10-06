@@ -9,46 +9,54 @@
 
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 
-/** Coerce one numeric token to a line number (>= 1), or null when not a number. */
+/**
+ * Coerce one numeric token to a line number, or null when it is not one: lines
+ * are 1-indexed, so `0` is not a line (it used to be rewritten to line 1, which
+ * is a different request than the one typed).
+ */
 function toLine(text: string): number | null {
 	if (!/^\d+$/.test(text)) {
 		return null;
 	}
 	const n = Number.parseInt(text, 10);
-	if (Number.isNaN(n)) {
+	if (!Number.isFinite(n) || n < 1) {
 		return null;
 	}
-	// Lines are 1-indexed; clamp anything below 1 (e.g. "0") up to the first line.
-	return Math.max(1, n);
+	return n;
 }
 
-/** Parse one chunk ("7" or "2-4") into a range, normalizing reversed bounds. */
-function parseChunk(chunk: string): HighlightRange | null {
+/**
+ * Parse one chunk ("7" or "2-4") into a range. A reversed range ("5-2") is
+ * refused, not silently flipped; with a `lineCount`, the end is clamped to the
+ * last line and a range that starts past it is refused.
+ */
+function parseChunk(chunk: string, lineCount: number | undefined): HighlightRange | null {
 	const parts = chunk.split("-").map((p) => p.trim());
-	if (parts.length === 1) {
-		const n = toLine(parts[0] ?? "");
-		if (n === null) {
-			return null;
-		}
-		return HighlightRange.create({ startLine: n, endLine: n });
+	if (parts.length > 2) {
+		return null;
 	}
-	if (parts.length === 2) {
-		const a = toLine(parts[0] ?? "");
-		const b = toLine(parts[1] ?? "");
-		if (a === null || b === null) {
-			return null;
-		}
-		return HighlightRange.create({ startLine: Math.min(a, b), endLine: Math.max(a, b) });
+	const start = toLine(parts[0] ?? "");
+	const end = parts.length === 1 ? start : toLine(parts[1] ?? "");
+	if (start === null || end === null || end < start) {
+		return null;
 	}
-	return null;
+	if (lineCount !== undefined && start > lineCount) {
+		return null;
+	}
+	return HighlightRange.create({
+		startLine: start,
+		endLine: lineCount === undefined ? end : Math.min(end, lineCount),
+	});
 }
 
 /**
  * Parse a focus string into ranges. Blank input yields `[]` (no focus). Tolerant
- * of spaces, single numbers, reversed bounds and empty chunks; returns `null` for
- * any non-numeric/malformed chunk so callers can reject the edit without a throw.
+ * of spaces, single numbers and empty chunks; returns `null` for anything it
+ * cannot read as lines (non-numeric, line 0, reversed bounds, a start past the
+ * last line) so callers can show the field as invalid instead of rewriting it.
+ * Pass the step's `lineCount` to clamp a range to the code it spotlights.
  */
-export function parseLineRanges(input: string): HighlightRange[] | null {
+export function parseLineRanges(input: string, lineCount?: number): HighlightRange[] | null {
 	const trimmed = input.trim();
 	if (trimmed === "") {
 		return [];
@@ -59,7 +67,7 @@ export function parseLineRanges(input: string): HighlightRange[] | null {
 		if (chunk === "") {
 			continue;
 		}
-		const parsed = parseChunk(chunk);
+		const parsed = parseChunk(chunk, lineCount);
 		if (parsed === null) {
 			return null;
 		}
@@ -75,11 +83,17 @@ export function formatLineRanges(ranges: readonly HighlightRange[]): string {
 		.join(", ");
 }
 
-/** Flatten ranges to the set of 1-indexed lines the engine keeps bright. */
-export function focusLineSet(ranges: readonly HighlightRange[]): Set<number> {
+/**
+ * Flatten ranges to the set of 1-indexed lines the engine keeps bright, never
+ * past the step's last line: a stored "1-1000000" is a range, not a million
+ * lines, and the set is at most `lineCount` big whatever a file or a share link
+ * asked for.
+ */
+export function focusLineSet(ranges: readonly HighlightRange[], lineCount: number): Set<number> {
 	const lines = new Set<number>();
 	for (const range of ranges) {
-		for (let line = range.startLine; line <= range.endLine; line++) {
+		const last = Math.min(range.endLine, lineCount);
+		for (let line = Math.max(1, range.startLine); line <= last; line++) {
 			lines.add(line);
 		}
 	}

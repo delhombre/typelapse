@@ -23,13 +23,31 @@ describe("parseLineRanges", () => {
 		]);
 	});
 
-	it("normalizes reversed bounds", () => {
-		expect(shape(parseLineRanges("4-2"))).toEqual([[2, 4]]);
+	it("refuses reversed bounds instead of rewriting them", () => {
+		expect(parseLineRanges("5-2")).toBeNull();
+		expect(parseLineRanges("4-2")).toBeNull();
 	});
 
-	it("clamps line numbers to at least 1", () => {
-		expect(shape(parseLineRanges("0-3"))).toEqual([[1, 3]]);
-		expect(shape(parseLineRanges("0"))).toEqual([[1, 1]]);
+	it("refuses line 0 instead of rewriting it to line 1", () => {
+		expect(parseLineRanges("0")).toBeNull();
+		expect(parseLineRanges("0-3")).toBeNull();
+	});
+
+	it("clamps to the step's line count when it is given", () => {
+		expect(shape(parseLineRanges("1-1000000", 5))).toEqual([[1, 5]]);
+		expect(shape(parseLineRanges("3, 4-99", 5))).toEqual([
+			[3, 3],
+			[4, 5],
+		]);
+	});
+
+	it("refuses a range that starts past the last line", () => {
+		expect(parseLineRanges("9", 5)).toBeNull();
+		expect(parseLineRanges("9-12", 5)).toBeNull();
+	});
+
+	it("survives a number too large to be an integer", () => {
+		expect(shape(parseLineRanges(`1-${"9".repeat(40)}`, 5))).toEqual([[1, 5]]);
 	});
 
 	it("returns an empty array for blank input (no focus)", () => {
@@ -48,6 +66,7 @@ describe("parseLineRanges", () => {
 		expect(parseLineRanges("abc")).toBeNull();
 		expect(parseLineRanges("2-x")).toBeNull();
 		expect(parseLineRanges("2-")).toBeNull();
+		expect(parseLineRanges("1-2-3")).toBeNull();
 	});
 });
 
@@ -69,14 +88,35 @@ describe("formatLineRanges", () => {
 
 describe("focusLineSet", () => {
 	it("expands ranges into a set of 1-indexed lines", () => {
-		const set = focusLineSet([
-			HighlightRange.create({ startLine: 2, endLine: 4 }),
-			HighlightRange.create({ startLine: 7, endLine: 7 }),
-		]);
+		const set = focusLineSet(
+			[
+				HighlightRange.create({ startLine: 2, endLine: 4 }),
+				HighlightRange.create({ startLine: 7, endLine: 7 }),
+			],
+			10,
+		);
 		expect([...set].sort((a, b) => a - b)).toEqual([2, 3, 4, 7]);
 	});
 
 	it("is empty for no ranges", () => {
-		expect(focusLineSet([]).size).toBe(0);
+		expect(focusLineSet([], 10).size).toBe(0);
+	});
+
+	it("stops at the step's last line, however far the range reaches", () => {
+		const set = focusLineSet([HighlightRange.create({ startLine: 1, endLine: 1_000_000 })], 5);
+		expect([...set]).toEqual([1, 2, 3, 4, 5]);
+	});
+
+	it("drops a range that starts past the last line", () => {
+		const set = focusLineSet([HighlightRange.create({ startLine: 9, endLine: 12 })], 5);
+		expect(set.size).toBe(0);
+	});
+
+	it("never holds more lines than the step has", () => {
+		const set = focusLineSet(
+			[HighlightRange.create({ startLine: 0, endLine: Number.MAX_SAFE_INTEGER })],
+			3,
+		);
+		expect([...set]).toEqual([1, 2, 3]);
 	});
 });
