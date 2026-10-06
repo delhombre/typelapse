@@ -318,7 +318,7 @@ describe.each(subjects)("the project store on %s: what the ceiling counts", (_na
 			document: original,
 		});
 		// It is still an automation project: once a place is free it is not taken by it.
-		expect(await store.deleteOwnedById(owner, first.id)).toBe(true);
+		expect(await store.deleteOwnedById(owner, first.id)).toBe("deleted");
 		expect((await createRegular(owner, 2)).outcome).toBe("created");
 	});
 

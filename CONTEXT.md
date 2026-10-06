@@ -178,11 +178,20 @@ or it does not land.
   offers on each project, behind the shared confirmation. It takes the project
   with its media, its render jobs and their public pages; the files they stored
   get a durable note for the object-deletion worker in the same transaction.
-  A render a worker still holds is fenced out and removes what it stored. The
-  studio never opened the cloud copy, so deleting the open project's copy leaves
+  A project with a render still queued or running is kept, and the answer says
+  so: the render holds a slot of the account's concurrent renders until it ends,
+  and a delete must not free it. The studio never opened the cloud copy, so deleting the open project's copy leaves
   the open local project as it was, on this device, and the next save makes a
   new copy. Only the session may delete, and another account's project answers
   404 like one that does not exist.
+- **Usage ledger**: the account's record of the hosted render minutes it has
+  spent, one entry for each render job accepted, written with the job and
+  released only when the job ends in failure, because a render that produced
+  nothing spent nothing. The month's minutes are summed from it, by the
+  enforcing queue and by the allowance alike. It belongs to the account, not to
+  the project, so deleting a project takes its jobs and leaves their minutes
+  spent for the month; renders in flight are counted from the jobs, which a
+  delete never takes while they run.
 - **Allowance**: the one sentence the server writes about an account's
   ceilings and usage; the account island shows it verbatim.
 - **Grace period**: how long past hosted outputs stay downloadable once the
@@ -261,6 +270,11 @@ or it does not land.
 - A deleted cloud project leaves no row of its own (media, render jobs, public
   page) and no render job a worker could still finish; every file it stored is
   noted for deletion, and the open local project is untouched.
+- The month's hosted minutes survive deleting the project that produced them:
+  render, delete, render again meets the same ceiling, and the allowance
+  sentence reads the same number before and after (the project count is the one
+  figure that moves). A render that ends in failure returns its minutes, and
+  nothing else does.
 - The export note never promises what the file does not contain.
 - Undo then redo returns the exact project document; an undo never resets the
   unsaved-work baseline, and the composition shows the timeline's scene.

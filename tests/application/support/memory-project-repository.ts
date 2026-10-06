@@ -1,6 +1,7 @@
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import type {
 	CreateProjectDocumentResult,
+	DeleteProjectDocumentResult,
 	ProjectDocumentRepositoryPort,
 	ProjectDocumentSummary,
 	SaveProjectDocumentResult,
@@ -19,6 +20,8 @@ export class MemoryProjectRepository implements ProjectDocumentRepositoryPort {
 	readonly records = new Map<string, StoredProjectDocument>();
 	/** The ids of the automation projects; a record that is not here is regular and counts. */
 	readonly automation = new Set<string>();
+	/** The ids of the projects with a render still queued or running: they are kept. */
+	readonly rendering = new Set<string>();
 	creates = 0;
 	updates = 0;
 	/** Thrown by the next create, after `beforeCreateFails` ran: a rival got there first. */
@@ -162,11 +165,15 @@ export class MemoryProjectRepository implements ProjectDocumentRepositoryPort {
 		return { outcome: "updated", project };
 	}
 
-	async deleteOwnedById(ownerId: string, id: string): Promise<boolean> {
+	async deleteOwnedById(ownerId: string, id: string): Promise<DeleteProjectDocumentResult> {
 		if (!(await this.findOwnedById(ownerId, id))) {
-			return false;
+			return "not-found";
+		}
+		if (this.rendering.has(id)) {
+			return "render-active";
 		}
 		this.automation.delete(id);
-		return this.records.delete(id);
+		this.records.delete(id);
+		return "deleted";
 	}
 }
