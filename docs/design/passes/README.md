@@ -65,4 +65,13 @@ says which row and what it found, so the fix is one edit to that row:
 - A row that no longer exists in the code: delete it, and its Drift entry if
   it had one.
 
+- The test also refuses a row that quotes no value ("quotes no value": write the
+  shipped value in backticks before the file) and `@ selector` on a file that
+  is not CSS ("only a CSS file takes `@ selector`").
+
+Anchor the rule that owns the value, never an ancestor: `.si-cta` for the
+declaration in `.studio-root .si-cta`, not `.studio-root`, and not a fragment
+such as `.si-c`. A declaration inside an at-rule is written
+`@ @media (pointer: coarse) / .selector`, the query whole.
+
 Run `pnpm vitest run tests/docs` before the review verdict.

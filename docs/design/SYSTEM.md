@@ -171,7 +171,7 @@ Which radius?
 | Chrome bar closing hairline | `borderAlpha: "0f"` `src/application/layout/frame-metrics.ts` |
 | Opaque line where hairlines cross | `--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper))` `src/app.css` |
 | The landing's only border | `HAIRLINE = "border-hairline"` `src/presentation/landing/tokens.ts` |
-| Reduced transparency: the material goes opaque | `--camera-material: var(--camera-paper)` `src/presentation/studio-camera.css @ prefers-reduced-transparency` |
+| Reduced transparency: the material goes opaque | `--camera-material: var(--camera-paper)` `src/presentation/studio-camera.css @ @media (prefers-reduced-transparency: reduce) / :is(.studio-camera-root, .sc-root-mobile)` |
 
 One hairline weight, 1px, always a token so a theme flip carries it. Depth is
 a shadow stack with a 1px ring inside it, not a `border`. A dark object on a
@@ -226,8 +226,8 @@ starts at 0.985.
 | Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css @ .lp-island` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css` `--island-cell: 44px` `src/app.css` |
 | Sheet chips under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-layer-pill` |
 | A picture built from code is not text to select | `shrink-0 snap-center select-none` `src/presentation/landing/frame-fan.tsx` |
-| Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head` `height: 44px` `src/app.css @ .sc-utility-overflow-menu` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` |
-| Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css @ .lp-field` `font-size: 16px` `src/presentation/studio-camera.css @ .sc-layer-field` |
+| Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` |
+| Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css @ .lp-field` `font-size: 16px` `src/presentation/studio-camera.css @ .sc-layer-field textarea` |
 | Hover exists only here | `@media (hover: hover) and (pointer: fine)` `src/app.css` |
 | Hover-only helpers vanish on touch | `@media (hover: none)` `src/app.css` |
 | No double-tap delay, no tap flash | `touch-action: manipulation` `src/app.css` `-webkit-tap-highlight-color: transparent` `src/app.css` |
@@ -243,5 +243,5 @@ decides, then updates the tables above and deletes the row.
 
 | # | Role | What ships | Recommendation |
 | --- | --- | --- | --- |
-| 5 | Radius | The source hub, the showcase, the drop veil, the capture library and the header triggers read the radius tokens (passes 2026-10-05-studio-drift and 2026-10-05-capture-library). Raw px remain in the timeline's easing and transition panels, `border-radius: 12px` `src/presentation/studio-camera.css @ .studio-easing-presets`, and in its tempo buttons, `border-radius: 12px` `src/presentation/studio-camera.css @ .studio-transition-tempos` | The menu and the panels: map them as each is next touched |
-| 9 | Studio type | The scale is on both shells and the source hub, the showcase, the drop veil and the capture library read it. Sizes of their own remain in the project menu, `font-size: 10.5px` `src/presentation/studio-camera.css @ .sc-project-menu-head`, and in the easing and transition panels, `font-size: 8px` `src/presentation/studio-camera.css @ .studio-easing-presets-label` | Adopt the scale as each is next touched |
+| 5 | Radius | The source hub, the showcase, the drop veil, the capture library and the header triggers read the radius tokens (passes 2026-10-05-studio-drift and 2026-10-05-capture-library). Raw px remain in the timeline's easing and transition panels, `border-radius: 12px` `src/presentation/studio-camera.css @ .studio-easing-presets button`, and in its tempo buttons, `border-radius: 12px` `src/presentation/studio-camera.css @ .studio-transition-tempos` | The menu and the panels: map them as each is next touched |
+| 9 | Studio type | The scale is on both shells and the source hub, the showcase, the drop veil and the capture library read it. Sizes of their own remain in the project menu, `font-size: 10.5px` `src/presentation/studio-camera.css @ .sc-project-menu-head small`, and in the easing and transition panels, `font-size: 8px` `src/presentation/studio-camera.css @ .studio-easing-presets-label` | Adopt the scale as each is next touched |
