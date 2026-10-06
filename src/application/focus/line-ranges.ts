@@ -80,6 +80,20 @@ export function parseLineRanges(input: string, lineCount?: number): HighlightRan
 }
 
 /**
+ * The first line the field refused only for being past the step's last line, or
+ * null when the input is refused for anything else (or not refused at all).
+ * It lets the field say "line 9 is past the last line" instead of the generic
+ * hint, since a number that reads fine is not a typo.
+ */
+export function firstLinePastEnd(input: string, lineCount: number): number | null {
+	const wherever = parseLineRanges(input);
+	if (wherever === null || parseLineRanges(input, lineCount) !== null) {
+		return null;
+	}
+	return wherever.find((range) => range.startLine > lineCount)?.startLine ?? null;
+}
+
+/**
  * Read a focus string a project already holds (a file, the draft, a share link,
  * the undo history). Nothing is clamped or refused here: a range past the last
  * line, or line 0, is kept as written and `focusLineSet` leaves out what the

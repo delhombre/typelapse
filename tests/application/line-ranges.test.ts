@@ -1,4 +1,5 @@
 import {
+	firstLinePastEnd,
 	focusLineSet,
 	formatLineRanges,
 	parseLineRanges,
@@ -145,5 +146,21 @@ describe("focusLineSet", () => {
 			3,
 		);
 		expect([...set]).toEqual([1, 2, 3]);
+	});
+});
+
+describe("firstLinePastEnd", () => {
+	it("names the line a refusal is about when only the last line is the problem", () => {
+		expect(firstLinePastEnd("9", 5)).toBe(9);
+		expect(firstLinePastEnd("2, 9-12", 5)).toBe(9);
+	});
+
+	it("stays silent for what the field would accept or refuse for another reason", () => {
+		expect(firstLinePastEnd("2-4", 5)).toBeNull();
+		expect(firstLinePastEnd("1-99", 5)).toBeNull();
+		expect(firstLinePastEnd("abc", 5)).toBeNull();
+		expect(firstLinePastEnd("0", 5)).toBeNull();
+		expect(firstLinePastEnd("5-2", 5)).toBeNull();
+		expect(firstLinePastEnd("abc, 9", 5)).toBeNull();
 	});
 });
