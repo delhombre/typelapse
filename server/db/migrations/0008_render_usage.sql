@@ -1,4 +1,5 @@
-CREATE TABLE "render_usage" (
+-- IF NOT EXISTS (and the guard on the foreign key, which has no such form) keeps a re-run harmless on a database that already has the table.
+CREATE TABLE IF NOT EXISTS "render_usage" (
 	"job_id" text PRIMARY KEY NOT NULL,
 	"owner_id" text NOT NULL,
 	"duration_ms" integer NOT NULL,
@@ -7,8 +8,12 @@ CREATE TABLE "render_usage" (
 	CONSTRAINT "render_usage_duration_check" CHECK ("render_usage"."duration_ms" >= 0)
 );
 --> statement-breakpoint
-ALTER TABLE "render_usage" ADD CONSTRAINT "render_usage_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "render_usage_owner_accepted_idx" ON "render_usage" USING btree ("owner_id","accepted_at");
+DO $$ BEGIN
+	ALTER TABLE "render_usage" ADD CONSTRAINT "render_usage_owner_id_user_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+	WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "render_usage_owner_accepted_idx" ON "render_usage" USING btree ("owner_id","accepted_at");
 --> statement-breakpoint
 -- The jobs already there are the ledger's first entries: what the month counted before (queued, running or succeeded, with a length) is what it counts now. ON CONFLICT keeps a re-run harmless.
 INSERT INTO "render_usage" ("job_id", "owner_id", "duration_ms", "accepted_at")

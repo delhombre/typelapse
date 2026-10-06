@@ -24,7 +24,7 @@ import type {
 import { assets, projects, renderJobs, renderUsage } from "./creator-schema";
 import type { CreatorDatabase } from "./database";
 import type { RenderOptions } from "./persistence-values";
-import { hostedRenderMsSince } from "./render-usage";
+import { activeRendersOf, hostedRenderMsSince } from "./render-usage";
 
 type RenderJobRow = typeof renderJobs.$inferSelect;
 
@@ -207,8 +207,7 @@ export function createRenderJobRepository(db: CreatorDatabase): RenderJobReposit
 				// The minutes come from the ledger, not from the jobs: a delete takes the jobs.
 				const usage = await tx.execute<RenderUsageRow>(
 					sql`SELECT
-						(SELECT count(*) FROM render_jobs
-							WHERE owner_id = ${input.ownerId} AND status IN ('queued', 'running')) AS "activeRenders",
+						${activeRendersOf(input.ownerId)} AS "activeRenders",
 						${hostedRenderMsSince(input.ownerId, input.quota.periodStart)} AS "renderMsInPeriod"`,
 				);
 				const activeRenders = Number(usage.rows[0]?.activeRenders ?? 0);

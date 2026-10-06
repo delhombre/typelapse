@@ -9,6 +9,7 @@ import { planLimitRefusal } from "../../src/application/billing/plan-allowance";
 import { hydrateProjectDocument } from "../../src/application/project/hydrate-project-document";
 import { migrateV1ToV2 } from "../../src/application/project/migrate-v1-project";
 import type { ProjectDocumentRepositoryPort } from "../../src/application/project/project-document-repository.port";
+import { RENDER_ACTIVE_SENTENCE } from "../../src/application/project/render-active";
 import {
 	parseProjectDocument,
 	type ProjectDocumentV2,
@@ -202,7 +203,7 @@ export function createProjectsRoute({
 		if (outcome === "render-active") {
 			return c.json(
 				{
-					error: "A render is still running on this project. Delete it once the render ends.",
+					error: RENDER_ACTIVE_SENTENCE,
 					code: "render-active",
 				},
 				409,

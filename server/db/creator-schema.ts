@@ -447,7 +447,7 @@ export const renderUsage = pgTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		durationMs: integer("duration_ms").notNull(),
 		acceptedAt: hostedTimestamp("accepted_at").defaultNow().notNull(),
-		/** Set when the job ended in failure or was canceled: it produced nothing, so it spent nothing. */
+		/** Set when the job ended in failure for good (its last attempt failed, or its lease expired for the last time): it produced nothing, so it spent nothing. A retry does not set it. */
 		releasedAt: hostedTimestamp("released_at"),
 	},
 	(table) => [

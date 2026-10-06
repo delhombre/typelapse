@@ -352,4 +352,21 @@ describe.skipIf(!DATABASE_URL)("the month's usage on PostgreSQL", () => {
 
 		expect(await minutesUsed(owner)).toBe(12);
 	});
+
+	it("runs its migration again on a database that already has the ledger, and changes nothing", async () => {
+		const owner = await account("rerun");
+		await rendered(owner, await project(owner), 9);
+		const { readFileSync } = await import("node:fs");
+		const migration = readFileSync("server/db/migrations/0008_render_usage.sql", "utf8");
+
+		for (const statement of migration.split("--> statement-breakpoint")) {
+			await query(statement);
+		}
+
+		expect(await minutesUsed(owner)).toBe(9);
+		const entries = await query("SELECT count(*)::int AS n FROM render_usage WHERE owner_id = $1", [
+			owner,
+		]);
+		expect(entries.rows[0]?.n).toBe(1);
+	});
 });

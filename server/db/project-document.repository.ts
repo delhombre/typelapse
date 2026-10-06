@@ -10,6 +10,7 @@ import {
 	parseProjectDocument,
 	type ProjectDocumentV2,
 } from "../../src/application/project/project-document";
+import { isActiveRenderStatus } from "../../src/application/project/render-active";
 import { projects } from "./creator-schema";
 import type { CreatorDatabase } from "./database";
 
@@ -257,7 +258,7 @@ export function createProjectDocumentRepository(
 				const held = await tx.execute<{ readonly status: string }>(
 					sql`SELECT status FROM render_jobs WHERE project_id = ${id} FOR UPDATE`,
 				);
-				if (held.rows.some((job) => job.status === "queued" || job.status === "running")) {
+				if (held.rows.some((job) => isActiveRenderStatus(job.status))) {
 					return "render-active";
 				}
 				// Its media and renders go with it by cascade, but the files they name sit

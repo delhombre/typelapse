@@ -119,7 +119,7 @@ describe("deleting a cloud project", () => {
 
 		expect(response.status).toBe(409);
 		expect(await response.json()).toEqual({
-			error: "A render is still running on this project. Delete it once the render ends.",
+			error: "A render is queued or running on this project. Delete it once it ends.",
 			code: "render-active",
 		});
 		expect(await listed(app)).toEqual([busy]);

@@ -3,6 +3,7 @@ import {
 	type HostedProjectApiPort,
 	type HostedProjectSummary,
 } from "@/application/project/hosted-project-api.port";
+import { RENDER_ACTIVE_SENTENCE } from "@/application/project/render-active";
 import { HostedProjectHttpAdapter } from "@/infrastructure/project/hosted-project-http.adapter";
 import { create } from "zustand";
 
@@ -44,9 +45,7 @@ function rendering(error: unknown): boolean {
 
 function deleteRefusal(error: unknown): string {
 	if (signedOut(error)) return "Sign in again to delete projects.";
-	if (rendering(error)) {
-		return "A render is still running on this project. Delete it once the render ends.";
-	}
+	if (rendering(error)) return RENDER_ACTIVE_SENTENCE;
 	return "The project could not be deleted. Try again in a moment.";
 }
 

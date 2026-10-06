@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { AccountUsagePort } from "../../src/application/billing/plan-allowance";
 import type { CreatorDatabase } from "./database";
 import { regularProjectsOf } from "./project-document.repository";
-import { hostedRenderMsSince } from "./render-usage";
+import { activeRendersOf, hostedRenderMsSince } from "./render-usage";
 
 interface UsageRow extends Record<string, unknown> {
 	readonly cloudProjects: number | string;
@@ -30,9 +30,7 @@ export function createAccountUsageRepository(db: CreatorDatabase): AccountUsageP
 						INNER JOIN projects p ON p.id = a.project_id
 						WHERE p.owner_id = ${ownerId} AND a.upload_status <> 'deleted') AS "mediaBytes",
 					${hostedRenderMsSince(ownerId, periodStart)} AS "hostedRenderMs",
-					(SELECT count(*)
-						FROM render_jobs
-						WHERE owner_id = ${ownerId} AND status IN ('queued', 'running')) AS "activeRenders"`,
+					${activeRendersOf(ownerId)} AS "activeRenders"`,
 			);
 			const row = result.rows[0];
 			return {

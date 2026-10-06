@@ -124,8 +124,8 @@ describe("the cloud projects store", () => {
 				"Sign in again to delete projects.",
 			],
 			[
-				new HostedProjectApiError("render-active", "A render is still running.", 409),
-				"A render is still running on this project. Delete it once the render ends.",
+				new HostedProjectApiError("render-active", "A render is queued or running.", 409),
+				"A render is queued or running on this project. Delete it once it ends.",
 			],
 		] as const;
 		for (const [failure, sentence] of refusals) {
