@@ -31,7 +31,7 @@ Move an item with `gh project item-edit --project-id PVT_kwHOAxv7R84BlksT
 where the option ids are: À trier `630d707f`, En attente de toi `6874be7c`,
 Prêt pour un agent `c393bf95`, En cours `a4b46b4a`, Fait `515a978c`.
 
-The orchestrator (Fable, acting as Product Owner since 2026-10-03) creates,
+The orchestrator, acting as Product Owner since 2026-10-03, creates,
 labels and moves tickets as part of its job. Agents move a ticket to "En
 cours" when they start and report back; they never close a ticket, since
 closing follows the merge on `main`, which stays Bruno's call.
