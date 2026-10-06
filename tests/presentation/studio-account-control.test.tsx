@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import type {
-	ClientAuthPort,
-	ClientSession,
-	EmailCredentials,
+import {
+	ClientAuthFailure,
+	type ClientAuthPort,
+	type ClientSession,
+	type EmailCredentials,
 } from "@/application/auth/client-auth.port";
 import type { BillingCadence, BillingCatalog } from "@/domain/ports/billing.port";
 import { StudioAccountControl } from "@/presentation/components/multimedia/studio-account-control";
@@ -148,6 +149,85 @@ describe("StudioAccountControl", () => {
 		fireEvent.change(email, { target: { value: "ada@example.com" } });
 		expect(email.getAttribute("aria-invalid")).toBeNull();
 		expect(within(panel).queryByText("Enter an email address like ada@example.com.")).toBeNull();
+	});
+
+	// A button that goes `disabled` under a focused finger or key drops focus to the page:
+	// the next Tab starts from the top of the document, and a screen reader says nothing.
+	// Busy is `aria-disabled`, the press is ignored, and focus stays where it was.
+	it("keeps focus on its button while a sign-in is out, and ignores a second press", async () => {
+		let refuse: (reason: Error) => void = () => undefined;
+		const signInEmail = vi.fn(
+			(_input: EmailCredentials) =>
+				new Promise<void>((_resolve, reject) => {
+					refuse = reject;
+				}),
+		);
+		const store = createAuthStore(
+			{ kind: "hosted", port: port({ signInEmail }) },
+			{ now: () => NOW },
+		);
+		render(<StudioAccountControl store={store} />);
+
+		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
+		fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
+		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
+			target: { value: "ada@example.com" },
+		});
+		fireEvent.change(within(panel).getByLabelText("Password"), {
+			target: { value: "correct horse battery staple" },
+		});
+		const submit = within(panel).getByRole("button", { name: "Sign in" });
+		submit.focus();
+		fireEvent.click(submit);
+
+		await waitFor(() => expect(submit.textContent).toBe("Signing in…"));
+		expect(submit.hasAttribute("disabled")).toBe(false);
+		expect(submit.getAttribute("aria-disabled")).toBe("true");
+		expect(document.activeElement).toBe(submit);
+		fireEvent.click(submit);
+		expect(signInEmail).toHaveBeenCalledTimes(1);
+
+		refuse(new ClientAuthFailure("invalid-credentials"));
+		await waitFor(() => expect(within(panel).getByRole("alert")).toBeTruthy());
+		expect(submit.getAttribute("aria-disabled")).toBeNull();
+		expect(document.activeElement).toBe(submit);
+	});
+
+	// The alert used to land between the password and the button and push the button, the
+	// thing being pressed, 43px down. Its room is a slot that is there before the alert is,
+	// under the button, so the form above it never moves.
+	it("puts a refusal in a slot under the button that was there before it", async () => {
+		const signInEmail = vi.fn(async (_input: EmailCredentials) => {
+			throw new ClientAuthFailure("rate-limited", { retryAfterSeconds: 45 });
+		});
+		const store = createAuthStore(
+			{ kind: "hosted", port: port({ signInEmail }) },
+			{ now: () => NOW },
+		);
+		render(<StudioAccountControl store={store} />);
+
+		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
+		fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
+		const submit = within(panel).getByRole("button", { name: "Sign in" });
+		const slot = submit.nextElementSibling;
+		expect(slot?.classList.contains("mm-account-alert")).toBe(true);
+		expect(slot?.textContent).toBe("");
+		expect(within(panel).queryByRole("alert")).toBeNull();
+
+		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
+			target: { value: "ada@example.com" },
+		});
+		fireEvent.change(within(panel).getByLabelText("Password"), {
+			target: { value: "correct horse battery staple" },
+		});
+		fireEvent.click(submit);
+
+		const alert = await within(panel).findByRole("alert");
+		expect(alert.textContent).toBe("Too many attempts. Try again in 45 seconds.");
+		expect(alert.parentElement).toBe(slot);
+		expect(submit.nextElementSibling).toBe(slot);
 	});
 
 	it("does not claim cloud sync before the authenticated user opts this project in", () => {

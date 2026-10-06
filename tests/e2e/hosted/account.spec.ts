@@ -1,7 +1,7 @@
 import { allowanceSentence } from "../../../src/application/billing/plan-allowance";
 import { Plan } from "../../../src/domain/value-objects/plan";
 import { cloudProjectCount, newAccount, openAccountPanel, signUpInIsland } from "../support/hosted";
-import { expect, openStudio, storedScenes, test } from "../support/studio";
+import { expect, openStudio, settled, storedScenes, test } from "../support/studio";
 
 /** The sentence the island shows a free account, built from the same Plan the server uses. */
 function freeSentence(cloudProjects: number): string {
@@ -84,5 +84,43 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 		});
 		await expect(again.getByRole("button", { name: "Save changes" })).toHaveCount(0);
 		expect(writesAfterReload).toEqual([]);
+	});
+});
+
+test.describe("Hosted account: a refused sign-in leaves the form where it was", () => {
+	// Found by the phone's second pass (#153): the alert landed between the password and the
+	// button and pushed the button 43px down under the finger that had pressed it, and the
+	// button, disabled while the request was out, handed its focus to the page.
+	test("the panel is opaque, and the button stays put and keeps focus when the refusal arrives", async ({
+		page,
+	}) => {
+		const account = newAccount("refused");
+		await openStudio(page);
+		await page.getByRole("button", { name: "Sign in", exact: true }).click();
+		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		await panel.getByLabel("Email").fill(account.email);
+		await panel.getByLabel("Password").fill(account.password);
+
+		// The panel holds a form, so it is the opaque studio surface (DECISIONS D5), like a menu.
+		expect(
+			await panel.evaluate((element) => {
+				const style = getComputedStyle(element);
+				return { background: style.backgroundColor, blur: style.backdropFilter };
+			}),
+		).toEqual({ background: "rgb(255, 255, 255)", blur: "none" });
+
+		const submit = panel.getByRole("button", { name: "Sign in", exact: true });
+		// The panel scales in over 160ms; measure it standing still.
+		await settled(panel);
+		const before = await submit.boundingBox();
+		const panelBefore = await panel.boundingBox();
+		await submit.focus();
+		await submit.click();
+		await expect(panel.getByRole("alert")).toHaveText("Email or password is incorrect.");
+
+		const after = await submit.boundingBox();
+		expect(after?.y).toBe(before?.y);
+		expect((await panel.boundingBox())?.height).toBe(panelBefore?.height);
+		await expect(submit).toBeFocused();
 	});
 });

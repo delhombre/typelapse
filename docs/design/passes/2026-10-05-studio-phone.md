@@ -283,18 +283,158 @@ the screen at the half stop, now raises the sheet; a redundant `aspect-ratio` in
 single-column rule, removed. Nits left: a key moves the sheet over 500ms, over the 300ms
 of the guide, as the tap does.
 
+## Follow-up, ticket #153 (2026-10-06)
+
+The phone's second pass. Gate 4 ran in Emil's order: `emil-design-foundations`,
+`emil-surfaces` (the material), `emil-ui-polish`, `craft-design-engineering` (Nested
+Border Radius, Hit Areas, Gaps are dead zones, Exit Animations), then `emil-ui-review`.
+Out of scope: the island's geometry, the sheet's own material (92% with a blur, see Open),
+the keys view and the cloud projects list.
+
+### Screen
+
+Route `/app` at 375x812, DPR 2, touch, notch forced through CDP (47 top, 34 bottom),
+light and dark: the portaled sheet (`.sc-sheet`) with the text layer's inspector, the
+More menu (`.sc-utility-overflow-menu`), the account panel (`.mm-account-popover`) with its
+sign-in form. A desktop check at 1440x900 for the panel. The hosted API is mocked with
+`page.route` against a hosted build (401 and 429 on sign-in, `delay` for the busy state).
+
+### Before
+
+`scratchpad/153/before/` (`phone-<theme>-<surface>-NN-<state>.png`, `desktop-*`, `light.json`
+and `dark.json` with the computed values), hosted build behind `vite preview` on 5245.
+
+- **The sheet read a cool copy of the tokens.** `--camera-ink` and `--camera-focus`
+  `#1d1d20` (an ink ring), `--camera-pill` `#f1f2f4`, `--camera-muted` `#74717a`,
+  `--camera-paper` `#f9fafc`, line `rgb(29 29 32 / 0.06)`; dark `#f5f5f7`, `#242428`,
+  `#a09da6`, `#101114`. Field fills were blue-grey beside the warm studio
+  (`before/phone-light-sheet-05-field-focus.png`).
+- **The More menu was `rgba(255 255 255 / 0.98)` over `blur(18px) saturate(1.05)`**, a
+  `1px solid #e5e5e8` border, 18px radius, rows of 11.5px 590 on a 12px radius and 42px
+  tall, and its own dark rule (`rgba(29 29 32 / 0.97)`). 210x180.
+- **The account panel was `--mm-surface` at 0.96 mixed to 96%, so 0.9216 alpha, over
+  `blur(24px) saturate(1.45)`**, a border and a lifted shadow; the stage's mesh and the
+  code card showed through it (`before/phone-light-account-429-02-error.png`).
+- **The alert moved the form.** A refused sign-in put the alert between the password and the
+  button: the button went from y=391.19 to 434.58 (43.4px), the panel 407 to 450. And the
+  button, `disabled` while the request was out, handed focus to `body`
+  (`document.activeElement` read `BODY` after the refusal), desktop and phone alike.
+- `studio-account-control.css` wrote 16 raw radii (8 to 20px) and two hex fallbacks
+  (`#c53a3a`, `#4f5bd5`) the multimedia guard skipped by name.
+
+### Decisions
+
+- **Drift 18 settled: the sheet is named where the camera tokens are published**
+  (`:is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet)` and its dark twin,
+  `studio-camera.css`), and the cool copy in `app.css` is deleted. Found by the e2e, not
+  by reading: the sheet is portaled to the body, outside `.studio-root` where the warm
+  neutral ramp lives, so `var(--color-neutral-900)` resolved to Tailwind's `oklch(20.5% 0 0)`.
+  `.studio-root, .sc-sheet` now carry the ramp. Values after: ink `#1c1917`, pill `#f5f5f4`,
+  muted `#6e6b64`, paper `#fafaf9`, line `rgb(28 27 25 / 0.1)`, focus the accent
+  `oklch(62% .19 268)`; dark ink `#f5f3ef`, pill `#292624`, muted `#a8a39a`, paper `#121110`,
+  line `rgb(245 243 239 / 0.12)`. The sheet keeps only its own `--sc-hairline` and `--r-sheet`.
+- **Drift 19 settled: the More menu is the source menu's material** (`emil-surfaces`):
+  `background: var(--camera-surface)`, `box-shadow: var(--camera-material-shadow)` (the ring
+  inside the stack), no border, no blur, no dark rule (the tokens flip), `--r-surface` 16px,
+  rows `calc(var(--r-surface) - 5px)` (the menu's 5px padding), `--sc-text-md` and
+  `--sc-weight-medium`, 44px tall (was 42, `emil-touch-and-accessibility`). 210x186.
+- **The account panel is the opaque surface** (DECISIONS D5 as amended): `--mm-surface` is
+  `var(--camera-surface)` in both themes, the panel drops its border and its blur and takes
+  `--camera-material-shadow`, 16px (`--r-surface`, was 20). Both shells, as D6 says.
+- **The alert has a slot, under the button.** Candidates looked at in the build:
+  A, a slot reserved under the submit button (`.mm-account-alert`,
+  `min-height: calc(1.4 * var(--sc-text-sm) + 18px)` = 33.4px, one line of the chip);
+  C, the alert appended after the "New here?" link with nothing reserved
+  (`scratchpad/153/candidates/C-error.png`). C leaves no empty room but the panel grows 43px
+  and the refusal lands under the secondary link, away from the button that was pressed.
+  A wins: the panel is 464.6px tall whether or not there is a refusal, the refusal appears
+  where the finger is, and the empty slot reads as the space before the link. Rejected: an
+  overlay on the link (it hides "Create an account" after a failure). The chip fades in over
+  `150ms var(--ease-out)` on `opacity` only; a refusal that wraps to two lines grows the
+  slot and moves the link, never the fields or the button.
+- **Focus stays on the button.** Busy is `aria-disabled="true"`, not `disabled`
+  (`emil-forms-and-inputs`: a disabled button drops the focus it holds); `submit` already
+  returned early on `busy`, so a second press is ignored. The busy look is the same rule on
+  `:is(:disabled, [aria-disabled="true"])`, hover and press `:not(...)` of both, and
+  `cursor: progress` now wins (it never did: `.studio-root button:disabled { cursor: default }`
+  and `button:not(:disabled)` both outranked it).
+- **Under a finger** (`(pointer: coarse)`, D10): the panel's fields, primary and switch 44px
+  (were 40), the close's reach `inset: -6px` (44px around its 32, was -4 and 40). The rule
+  sits after the 40px one, equal specificity (found in the browser: first written before it,
+  the buttons stayed 40).
+- **The account stylesheet is on the scale** (`craft` Nested Border Radius): 11 to
+  `--r-control`, 8 `--r-field`, 20 `--r-surface`, 10 `--r-control`, 14 `--r-control`, 12
+  `--r-control` (links, buttons, inputs, cadence well), 15 `--r-surface`, the cadence
+  buttons `calc(var(--r-control) - 3px)` (the well's 3px of padding), the error chip
+  `--r-control`; `var(--mm-danger)` and `var(--color-accent)` without a hex fallback; the
+  island's trigger `--r-pill`. `studio-account-control.css` is no longer exempt in the
+  multimedia guard, and the guard now rejects any hex outside a `mask`.
+
+SYSTEM.md: drift rows 18 and 19 deleted, row 5 lost its More menu clause, the opaque-surface
+row names the More menu and the panel, the touch row names their 44px. DECISIONS.md: D5 and
+D3's "Enforced by" name them.
+
+### After
+
+`scratchpad/153/after/`, build `scratchpad/153/dist-hosted` on 4245 (`light.json`,
+`dark.json`, `busy.mjs` output below).
+
+- Panel, 375x812: alpha 1 `rgb(255, 255, 255)` (dark `rgb(30, 28, 26)`), `backdrop-filter:
+  none`, 16px. Refused sign-in (401 and 429): button y 398.19 before and 398.19 after, panel
+  464.58 before and after, `document.activeElement` is the button. At 320x640 the 429
+  sentence is one line (33.39px), the panel x=15 width 296, the button does not move.
+  Busy (900ms delay): `aria-disabled="true"`, no `disabled`, the button still focused,
+  `cursor: progress`. Under touch emulation: email 44, primary 44, switch 44, close reach
+  `inset: -6px`, field `16px`. Desktop 1440x900: button y 363.19 before and after (was 364.19
+  to 407.58), panel opaque light and dark.
+- More menu: alpha 1, `backdrop-filter: none`, `border-top-width: 0px`, 16px, shadow
+  `rgba(28, 27, 25, 0.1) 0 0 0 1px, rgba(0, 0, 0, 0.04) 0 2px 6px, rgba(0, 0, 0, 0.22) 0 18px 40px -18px`
+  (dark `rgba(245, 243, 239, 0.12)` ring), rows 44.
+- Sheet: the computed `--camera-*` on `.sc-sheet` equal the root's, light and dark.
+- `after/phone-<theme>-*.png` against `before/`.
+
+Tests, red first:
+
+- `tests/presentation/studio-surfaces-system.test.ts`: the sheet's selectors and its two
+  copies (3 red), the More menu's surface, row radius and scale (4 red), the panel's surface,
+  ring, slot and busy rule (4 red), the multimedia guard now over the account sheet (2 red:
+  16 radii, the hexes), the finger's heights (red with the values reverted; the cascade
+  order check was added after the browser showed it).
+- `tests/presentation/studio-account-control.test.tsx` (2 red: `disabled` present, no slot):
+  focus stays on the busy button and a second press is ignored; the refusal arrives in a slot
+  that was already there, under the button.
+- `tests/e2e/mobile-shell.spec.ts`: the More menu is opaque with 44px rows and the sheet's
+  tokens equal the root's, light and dark (2 red on the build without the warm ramp).
+- `tests/e2e/hosted/account.spec.ts`: the panel is opaque, the button stays at the same y,
+  the panel the same height, focus stays (red on the before build: `blur(24px) saturate(1.45)`).
+  Run on my own PostgreSQL and MinIO (`account.spec.ts` and `api-keys.spec.ts`: 4 passed).
+
+### Review verdict
+
+`emil-ui-review` on the diff: **approve with changes**, all made. Should fix: the sheet's
+ink and pill were still Tailwind's cold ramp after the tokens moved (found by the e2e); the
+buttons stayed 40px under a finger because the 44px rule came before the 40px one; the busy
+cursor never applied. Nits left: a refusal that wraps to two lines moves the "New here?"
+link by one line.
+
 ## Open
 
-- The island's scene dots (24x40) and Export (64x30) under a finger: U3's island
-  geometry (done by #140; see its follow-up).
-- The sheet keeps its scroll position when lowered to the peek, so the peek can show a
-  faded middle of the list rather than "Scenes" (the content is inert there now).
-- Drift 18 (the sheet's cool tokens, the ink ring on the layer inspector's controls) and
-  Drift 19 (the More menu) still name the phone pass: neither was in #141's brief.
+- The sheet's own material is the 92% paper with `blur(20px) saturate(1.5)` over the stage,
+  and it holds text (the inspector, the scene fields). D5 and next-wave D6 name menus and
+  popovers, not the sheet; whether it goes opaque like them is a decision for the orchestrator
+  (a Lapse take of the half stop would show whether the mesh bleeds through).
+- The corner row keeps its 31px pitch and the island's scene dots (24x40) and Export (64x30)
+  sit under #140's geometry: neither is 44px by 44px.
+- The sheet keeps its scroll position when lowered to the peek, so the peek can show a faded
+  middle of the list rather than "Scenes" (the content is inert there now).
 - The sheet cannot be pulled below the peek (the drawer stops it), so the floor under the
   instrument is `max(12px, inset-bottom)` by construction and by `dockLiftAt`.
-- Not verifiable here: VoiceOver and TalkBack announcing "Sheet height, Collapsed,
-  adjustable" and the swipe up and down raising it (a slider is what they adjust, but
-  nothing was heard); the drag on an iPhone (Safari delivers touch moves between frames,
-  and the compositor's clock may differ from Chromium's by a frame); the notch, the home
-  indicator and the keyboard, forced through CDP; WebKit's `inert`.
+- The keys view's "Create key" and the cloud list's buttons still go `disabled` while busy
+  (`studio-api-keys.tsx`, `studio-cloud-projects.tsx`): the same focus drop, not met there
+  because a key made moves focus on its own; the form's `disabled={busy}` could take the
+  `aria-disabled` rule when that view is next touched.
+- `(pointer: coarse)` is matched by the touch emulation here, but nothing was pressed by a
+  thumb. Not verifiable here: VoiceOver and TalkBack on the slider, the drag and the keyboard
+  on an iPhone, the notch and the home indicator (forced through CDP), WebKit's `inert`, and
+  a real `prefers-reduced-transparency` (read from the stylesheet: the panel and the menu no
+  longer depend on it).

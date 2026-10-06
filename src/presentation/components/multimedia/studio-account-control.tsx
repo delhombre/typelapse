@@ -615,14 +615,20 @@ function AuthForm({
 				type: "password",
 				autoComplete: mode === "sign-in" ? "current-password" : "new-password",
 			})}
-			{error ? (
-				<p role="alert" className="mm-account-error">
-					{error}
-				</p>
-			) : null}
-			<button type="submit" className="mm-account-primary" disabled={busy}>
+			{/* Busy is `aria-disabled`, not `disabled`: a disabled button drops the focus it
+			    holds to the page, and the press is ignored in `submit` all the same. */}
+			<button type="submit" className="mm-account-primary" aria-disabled={busy ? true : undefined}>
 				{busy ? (mode === "sign-in" ? "Signing in…" : "Creating account…") : submitLabel}
 			</button>
+			{/* The refusal's room is here before the refusal is, under the button that was
+			    pressed, so nothing the person is looking at moves when it arrives. */}
+			<div className="mm-account-alert">
+				{error ? (
+					<p role="alert" className="mm-account-error">
+						{error}
+					</p>
+				) : null}
+			</div>
 			<button type="button" className="mm-account-switch" onClick={switchMode}>
 				{mode === "sign-in" ? "New here? Create an account" : "Already have an account? Sign in"}
 			</button>
