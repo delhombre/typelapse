@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { GREET_DIFF } from "../support/fixtures";
 import {
 	HOSTED,
+	apiKeysOf,
 	cloudProjectsOf,
 	createApiKeyByApi,
 	makeCreator,
@@ -24,8 +25,11 @@ import { expect, test } from "../support/studio";
  * share page. The unit tests hold the decisions; this holds that a Creator's key
  * ends in a published, reachable page with the look asked for, that a free
  * account's key leaves the runner to render and says so, and that no key leaves
- * the script silent. The source is the repository's own diff (no network): the
- * route reads a pull request address and a diff through one reader.
+ * the script silent. Only a GitHub link goes to Typelapse (a diff would be
+ * published with its page), and the route reads a link from GitHub, so the one
+ * journey that renders is tagged `@network` and skips when GitHub cannot be
+ * reached. Every other journey needs no network: a free account and a key that
+ * is not valid are answered before anything is fetched.
  *
  * Serial: the Creator's render feeds the page, the theme and the rerun journeys.
  */
@@ -36,6 +40,11 @@ const ROOT = process.cwd();
 const TSX = join(ROOT, "node_modules/.bin/tsx");
 const creator = newAccount("action");
 const free = newAccount("action-free");
+const diffCreator = newAccount("action-diff");
+/** A pull request that is only linked to, never read: a free account and a bad key stop first. */
+const LINKED = "https://github.com/acme/widgets/pull/42";
+/** A real public pull request, the one the render journey reads. */
+const PUBLIC_PR = "https://github.com/octocat/Hello-World/pull/1";
 let creatorKey = "";
 let jobId = "";
 
@@ -53,7 +62,7 @@ async function hostedStep(env: Record<string, string>) {
 			PATH: process.env.PATH ?? "",
 			HOME: process.env.HOME ?? "",
 			TMPDIR: process.env.TMPDIR ?? "",
-			SOURCE: GREET_DIFF,
+			SOURCE: LINKED,
 			...files,
 			...env,
 		},
@@ -113,101 +122,148 @@ async function commentFor(step: Awaited<ReturnType<typeof hostedStep>>, withRunn
 }
 
 test.describe("The Action's hosted output: a Creator's key renders on Typelapse and comments the share page, and every other key leaves the runner to render", () => {
-	test("a Creator's key ends in a published page that anyone can open, in the theme and size asked for", async () => {
-		const session = await signUpByApi(creator);
-		await makeCreator(creator.email);
-		creatorKey = await createApiKeyByApi(session, "GitHub Action");
+	test(
+		"a Creator's key ends in a published page that anyone can open, in the theme and size asked for",
+		{ tag: "@network" },
+		async () => {
+			const session = await signUpByApi(creator);
+			await makeCreator(creator.email);
+			creatorKey = await createApiKeyByApi(session, "GitHub Action");
 
-		const step = await hostedStep({
-			TYPELAPSE_API_KEY: creatorKey,
-			TYPELAPSE_API_URL: HOSTED.apiUrl,
-			SIZE: "1280x720",
-			FPS: "24",
-			THEME: "nord",
-		});
-
-		await test.step("the step leaves the share page and the studio link for the next ones", () => {
-			expect(step.outputs.rendered).toBe("true");
-			jobId = step.outputs["share-url"]?.split("/v/")[1] ?? "";
-			expect(step.outputs["share-url"]).toBe(`${HOSTED.appUrl}/v/${jobId}`);
-			expect(step.outputs["studio-url"]?.startsWith(`${HOSTED.appUrl}/app#import=`)).toBe(true);
-			expect(JSON.parse(step.hosted ?? "null")).toMatchObject({ outcome: "rendered", jobId });
-			expect(step.log).not.toContain(creatorKey);
-		});
-
-		await test.step("the page is public and shows the video", async () => {
-			const visitor = await signedOut();
-			const page = await visitor.get(`${HOSTED.appUrl}/v/${jobId}`);
-			expect(page.status()).toBe(200);
-			expect(await page.text()).toContain('property="og:video"');
-			expect((await renderJobsOf(creator.email)).map((job) => [job.id, job.isPublic])).toEqual([
-				[jobId, true],
-			]);
-			await visitor.dispose();
-		});
-
-		await test.step("the file is the size and rate asked for, and drawn in the theme asked for", async () => {
-			const api = await signedOut();
-			const done = await api.get(`/api/cloud/jobs/${jobId}`, {
-				headers: { authorization: `Bearer ${creatorKey}` },
+			const step = await hostedStep({
+				TYPELAPSE_API_KEY: creatorKey,
+				TYPELAPSE_API_URL: HOSTED.apiUrl,
+				SOURCE: PUBLIC_PR,
+				SIZE: "1280x720",
+				FPS: "24",
+				THEME: "nord",
 			});
-			const file = await api.get((await done.json()).download.url);
-			const path = test.info().outputPath("action.mp4");
-			writeFileSync(path, await file.body());
-			expect(probeVideo(path)).toMatchObject({ codec: "h264", width: 1280, height: 720, fps: 24 });
-
-			// The card's own background: nord's #2e3440 fills it, and midnight's #0d1117 is nowhere.
-			const pixels = rgbPixels(path, 160, 90, 0.5);
-			const near = (r: number, g: number, b: number) => {
-				let count = 0;
-				for (let i = 0; i < pixels.length; i += 3) {
-					const [pr = 0, pg = 0, pb = 0] = [pixels[i], pixels[i + 1], pixels[i + 2]];
-					if (Math.abs(pr - r) < 10 && Math.abs(pg - g) < 10 && Math.abs(pb - b) < 10) count++;
-				}
-				return count;
-			};
-			expect(near(0x2e, 0x34, 0x40)).toBeGreaterThan(1000);
-			expect(near(0x0d, 0x11, 0x17)).toBe(0);
-			await api.dispose();
-		});
-
-		await test.step("the saved project carries the theme, with the theme's own font and radius", async () => {
-			const [saved0] = await cloudProjectsOf(creator.email);
-			const id = saved0?.id;
-			const saved = await (await session.get(`/api/projects/${id}`)).json();
-			const cards = saved.project.document.project.scenes.flatMap(
-				(scene: { blocks: { kind: string }[] }) =>
-					scene.blocks.filter((block) => block.kind === "code"),
+			// The journey says nothing of the product when GitHub itself is out of reach.
+			const said = JSON.parse(step.hosted ?? "{}") as { error?: string };
+			test.skip(
+				step.outputs.rendered === "false" &&
+					/rate limit|reach GitHub|did not answer|could not be fetched/i.test(said.error ?? ""),
+				"GitHub cannot be reached, or its anonymous quota is spent",
 			);
-			expect(cards.length).toBeGreaterThan(0);
-			for (const card of cards) {
-				expect(card).toMatchObject({ themeName: "nord" });
-				expect(card).not.toHaveProperty("fontFamily");
-			}
-		});
 
-		await test.step("the comment links the share page and the studio, with no artifact", async () => {
-			const body = await commentFor(step, false);
-			expect(body).toContain("<!-- typelapse:render-pr -->");
-			expect(body).toContain(`](${HOSTED.appUrl}/v/${jobId})`);
-			expect(body).toContain(`](${step.outputs["studio-url"]})`);
-			expect(body).not.toContain("Download");
-		});
+			await test.step("the step leaves the share page and the studio link for the next ones", () => {
+				expect(step.outputs.rendered).toBe("true");
+				jobId = step.outputs["share-url"]?.split("/v/")[1] ?? "";
+				expect(step.outputs["share-url"]).toBe(`${HOSTED.appUrl}/v/${jobId}`);
+				expect(step.outputs["studio-url"]?.startsWith(`${HOSTED.appUrl}/app#import=`)).toBe(true);
+				expect(JSON.parse(step.hosted ?? "null")).toMatchObject({ outcome: "rendered", jobId });
+				expect(step.log).not.toContain(creatorKey);
+			});
+
+			await test.step("the page is public and shows the video", async () => {
+				const visitor = await signedOut();
+				const page = await visitor.get(`${HOSTED.appUrl}/v/${jobId}`);
+				expect(page.status()).toBe(200);
+				expect(await page.text()).toContain('property="og:video"');
+				expect((await renderJobsOf(creator.email)).map((job) => [job.id, job.isPublic])).toEqual([
+					[jobId, true],
+				]);
+				await visitor.dispose();
+			});
+
+			await test.step("the file is the size and rate asked for, and drawn in the theme asked for", async () => {
+				const api = await signedOut();
+				const done = await api.get(`/api/cloud/jobs/${jobId}`, {
+					headers: { authorization: `Bearer ${creatorKey}` },
+				});
+				const file = await api.get((await done.json()).download.url);
+				const path = test.info().outputPath("action.mp4");
+				writeFileSync(path, await file.body());
+				expect(probeVideo(path)).toMatchObject({
+					codec: "h264",
+					width: 1280,
+					height: 720,
+					fps: 24,
+				});
+
+				// The card's own background: nord's #2e3440 fills it, and midnight's #0d1117 is nowhere.
+				const pixels = rgbPixels(path, 160, 90, 0.5);
+				const near = (r: number, g: number, b: number) => {
+					let count = 0;
+					for (let i = 0; i < pixels.length; i += 3) {
+						const [pr = 0, pg = 0, pb = 0] = [pixels[i], pixels[i + 1], pixels[i + 2]];
+						if (Math.abs(pr - r) < 10 && Math.abs(pg - g) < 10 && Math.abs(pb - b) < 10) count++;
+					}
+					return count;
+				};
+				expect(near(0x2e, 0x34, 0x40)).toBeGreaterThan(1000);
+				expect(near(0x0d, 0x11, 0x17)).toBe(0);
+				await api.dispose();
+			});
+
+			await test.step("the saved project carries the theme, with the theme's own font and radius", async () => {
+				const [saved0] = await cloudProjectsOf(creator.email);
+				const id = saved0?.id;
+				const saved = await (await session.get(`/api/projects/${id}`)).json();
+				const cards = saved.project.document.project.scenes.flatMap(
+					(scene: { blocks: { kind: string }[] }) =>
+						scene.blocks.filter((block) => block.kind === "code"),
+				);
+				expect(cards.length).toBeGreaterThan(0);
+				for (const card of cards) {
+					expect(card).toMatchObject({ themeName: "nord" });
+					expect(card).not.toHaveProperty("fontFamily");
+				}
+			});
+
+			await test.step("the comment links the share page and the studio, with no artifact", async () => {
+				const body = await commentFor(step, false);
+				expect(body).toContain("<!-- typelapse:render-pr -->");
+				expect(body).toContain(`](${HOSTED.appUrl}/v/${jobId})`);
+				expect(body).toContain(`](${step.outputs["studio-url"]})`);
+				expect(body).not.toContain("Download");
+			});
+			await session.dispose();
+		},
+	);
+
+	test(
+		"the same run again is the same job and the same page, and no second project",
+		{ tag: "@network" },
+		async () => {
+			test.skip(jobId === "", "the render journey was skipped");
+			const step = await hostedStep({
+				TYPELAPSE_API_KEY: creatorKey,
+				TYPELAPSE_API_URL: HOSTED.apiUrl,
+				SOURCE: PUBLIC_PR,
+				SIZE: "1280x720",
+				FPS: "24",
+				THEME: "nord",
+			});
+
+			expect(step.outputs["share-url"]).toBe(`${HOSTED.appUrl}/v/${jobId}`);
+			expect(await cloudProjectsOf(creator.email)).toHaveLength(1);
+			expect(await renderJobsOf(creator.email)).toHaveLength(1);
+		},
+	);
+
+	test("a diff is the runner's to render even with a Creator's key: nothing reaches the API", async () => {
+		const session = await signUpByApi(diffCreator);
+		await makeCreator(diffCreator.email);
+		const key = await createApiKeyByApi(session, "GitHub Action");
 		await session.dispose();
-	});
 
-	test("the same run again is the same job and the same page, and no second project", async () => {
 		const step = await hostedStep({
-			TYPELAPSE_API_KEY: creatorKey,
+			TYPELAPSE_API_KEY: key,
 			TYPELAPSE_API_URL: HOSTED.apiUrl,
-			SIZE: "1280x720",
-			FPS: "24",
-			THEME: "nord",
+			SOURCE: GREET_DIFF,
 		});
 
-		expect(step.outputs["share-url"]).toBe(`${HOSTED.appUrl}/v/${jobId}`);
-		expect(await cloudProjectsOf(creator.email)).toHaveLength(1);
-		expect(await renderJobsOf(creator.email)).toHaveLength(1);
+		const note = "Typelapse renders a GitHub link only, so this source is rendered on the runner";
+		expect(step.outputs).toEqual({ rendered: "false" });
+		expect(JSON.parse(step.hosted ?? "null")).toEqual({ outcome: "unavailable", error: note });
+		expect(step.log).toContain(`::warning title=Typelapse::${note}.`);
+		expect(await commentFor(step, true)).toContain(`${note}.`);
+		// The key was never sent: no request means no use recorded, no project and no job.
+		const [stored] = await apiKeysOf(diffCreator.email);
+		expect(stored?.lastUsedAt).toBeNull();
+		expect(await cloudProjectsOf(diffCreator.email)).toEqual([]);
+		expect(await renderJobsOf(diffCreator.email)).toEqual([]);
 	});
 
 	test("a free account's key leaves the runner to render, with the studio link and the Creator sentence", async () => {

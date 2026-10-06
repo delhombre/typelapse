@@ -71,6 +71,13 @@ export function StudioCompositionBridge() {
 			const document = readStudioProjectDocument();
 			const signature = JSON.stringify(document);
 			if (signature === lastPersisted) {
+				// Back on what is already stored (an undo then a redo inside the
+				// window): a save still waiting for the state just left must not fire.
+				pending = null;
+				if (persistenceTimer) {
+					clearTimeout(persistenceTimer);
+					persistenceTimer = null;
+				}
 				return;
 			}
 			pending = { document, signature };
