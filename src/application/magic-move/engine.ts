@@ -8,11 +8,13 @@
  * and the exported video (via Remotion's frame counter), guaranteeing WYSIWYG.
  *
  * Positions are expressed in monospace grid units: `line` (rows) and `col`
- * (character columns). Renderers convert them to CSS with `1ch` per column and
+ * (display cells, `text/display-width`: a CJK ideograph or an emoji takes two,
+ * a combining mark none). Renderers convert them to CSS with `1ch` per cell and
  * a fixed line-height per row, so no DOM measurement is ever required.
  */
 
 import { VISIBLE_COL_LIMIT } from "../layout/canvas-fit";
+import { clusters, isNarrowOnly } from "../text/display-width";
 
 /** A highlighted token before layout: `offset` is its index into the frame code. */
 export interface RawToken {
@@ -185,7 +187,8 @@ function lerp(from: number, to: number, t: number): number {
 
 /**
  * Place tokens on the monospace grid by walking the source once, tracking the
- * visual column (tabs advance to the next tab stop). Whitespace-only tokens are
+ * visual column in display cells (tabs advance to the next tab stop, wide
+ * glyphs two cells). Whitespace-only tokens are
  * dropped: they never paint and only add nodes to animate. So are tokens that
  * start past `VISIBLE_COL_LIMIT`: no canvas can show them at the readable floor,
  * and a 10,000-character line would otherwise animate thousands of them.
@@ -313,12 +316,43 @@ export interface GridPosition {
 	col: number;
 }
 
-/** Monospace (line, col) for every character index in `code` (length + 1 entries). */
+/**
+ * Monospace (line, col) for every UTF-16 index in `code` (length + 1 entries).
+ * `col` counts display cells; an index inside a glyph maps to the glyph's start.
+ */
 export function gridPositions(code: string, tabSize = 2): GridPosition[] {
 	return buildPositionIndex(code, tabSize);
 }
 
 function buildPositionIndex(code: string, tabSize: number): GridPosition[] {
+	if (isNarrowOnly(code)) {
+		return narrowPositionIndex(code, tabSize);
+	}
+	const positions: GridPosition[] = new Array(code.length + 1);
+	let line = 0;
+	let col = 0;
+	for (const cluster of clusters(code)) {
+		// Every code unit of a glyph (both halves of a surrogate pair, a base and
+		// its combining marks) sits where the glyph starts.
+		const position = { line, col };
+		for (let i = 0; i < cluster.text.length; i++) {
+			positions[cluster.start + i] = position;
+		}
+		if (cluster.text === "\n") {
+			line++;
+			col = 0;
+		} else if (cluster.text === "\t") {
+			col += tabSize - (col % tabSize);
+		} else {
+			col += cluster.width;
+		}
+	}
+	positions[code.length] = { line, col };
+	return positions;
+}
+
+/** The common case, every code unit one cell: no glyph walk, nothing allocated but positions. */
+function narrowPositionIndex(code: string, tabSize: number): GridPosition[] {
 	const positions: GridPosition[] = new Array(code.length + 1);
 	let line = 0;
 	let col = 0;

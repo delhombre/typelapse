@@ -8,6 +8,7 @@
 import { ensureReadableTokenColor } from "@/application/accessibility/token-contrast";
 import { frameLineCount, layoutFrame } from "@/application/magic-move/engine";
 import { layoutTypingTokens } from "@/application/magic-move/typewriter";
+import { codePointWidth } from "@/application/text/display-width";
 import { buildMagicMovePlan } from "@/infrastructure/highlighting/magic-move-keyer";
 import { type Highlighter, createHighlighter } from "shiki";
 import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
@@ -86,5 +87,41 @@ describe("buildMagicMovePlan", () => {
 		expect(plan.frames[0]?.firstRow).toBe(1391);
 		const row1408 = plan.frames[1]?.tokens.filter((token) => token.line === 1407);
 		expect(row1408?.map((token) => token.content).join("")).toContain("'edited'");
+	});
+
+	it("glides shared tokens between frames with wide characters, on display cells", () => {
+		const from = 'const msg = "こんにちは世界 🚀 naïve café";';
+		const to = 'const message = "こんにちは世界 🚀 naïve café";';
+		const plan = buildMagicMovePlan(highlighter, [from, to], "typescript", "midnight", BG);
+		const morph = plan.transitions[0];
+		const semiFrom = morph?.from.find((token) => token.content === ";");
+		const semiTo = morph?.to.find((token) => token.content === ";");
+		// One key across the morph, so the `;` glides rather than fading out and in.
+		expect(semiFrom?.key).toBe(semiTo?.key);
+		// After `café"`, counting the seven CJK characters and the rocket twice.
+		expect(semiFrom?.col).toBe(13 + 28 + 1);
+		expect(semiTo?.col).toBe(17 + 28 + 1);
+	});
+
+	it("never cuts a glyph in two where a diff edge falls inside it", () => {
+		const codes = [
+			'const a = "🚀 launch";',
+			'const a = "😀 launch";',
+			'const a = "👨\u200d👩\u200d👧 launch";',
+			'const a = "cafe\u0301 launch";',
+			'const a = "cafe\u0300 launch";',
+		];
+		const plan = buildMagicMovePlan(highlighter, codes, "typescript", "midnight", BG, true);
+		const morphs = [...plan.transitions, plan.loopTransition];
+		const loneSurrogate = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+		for (const morph of morphs) {
+			for (const token of [...(morph?.from ?? []), ...(morph?.to ?? [])]) {
+				expect(token.content, JSON.stringify(token.content)).not.toMatch(loneSurrogate);
+				// Nor does a token start on a mark or modifier that belongs to the glyph before.
+				const first = token.content.codePointAt(0) ?? 0;
+				expect(codePointWidth(first), JSON.stringify(token.content)).not.toBe(0);
+				expect(first >= 0x1f3fb && first <= 0x1f3ff).toBe(false);
+			}
+		}
 	});
 });

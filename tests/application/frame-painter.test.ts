@@ -3,7 +3,7 @@ import { canvasFont, colorWithAlpha } from "@/application/frame-painter/font";
 import { paintFrame } from "@/application/frame-painter/painter";
 import { type FrameSceneInput, frameScene } from "@/application/frame-painter/scene";
 import { chromeBarHeight } from "@/application/layout/frame-metrics";
-import type { RenderToken } from "@/application/magic-move/engine";
+import { type RenderToken, layoutFrame, renderStatic } from "@/application/magic-move/engine";
 import { describe, expect, it } from "vitest";
 import { RecordingContext, round } from "./support/recording-context";
 
@@ -227,6 +227,36 @@ describe("paintFrame", () => {
 		);
 		expect(ctx.commands).toContain("fillStyle=#ff8800");
 		expect(ctx.commands).toContain("globalAlpha=0.5");
+	});
+
+	it("follows the engine's display cells: CJK and emoji take two, the `;` lands after the closing quote", () => {
+		const code = 'const msg = "こんにちは世界 🚀 naïve café";';
+		const text = "こんにちは世界 🚀 naïve café";
+		const close = 13 + text.length;
+		const laid = layoutFrame(code, [
+			{ key: "const", content: "const", offset: 0 },
+			{ key: "text", content: `"${text}"`, offset: 12 },
+			{ key: "semi", content: ";", offset: close + 1 },
+		]);
+		const ctx = paint(0, renderStatic(laid));
+		const { code: area } = scene;
+		const y = round(area.y + area.lineHeight / 2);
+		const at = (cells: number) => round(area.x + cells * area.charWidth);
+
+		// 12 cells of `const msg = `, the quote, 28 cells of text, the quote.
+		expect(ctx.commands).toContain(`fillText(";",${at(12 + 1 + 28 + 1)},${y})`);
+		// A wide glyph is centred on its two cells, whatever its own advance.
+		const rocket = ctx.commands.indexOf(`fillText("🚀",${at(12 + 1 + 15 + 1)},${y})`);
+		expect(rocket).toBeGreaterThan(0);
+		expect(ctx.commands.slice(0, rocket).lastIndexOf("textAlign=center")).toBeGreaterThan(
+			ctx.commands.slice(0, rocket).lastIndexOf("textAlign=left"),
+		);
+		expect(ctx.commands).toContain(`fillText("こ",${at(12 + 1 + 1)},${y})`);
+		// Narrow runs keep drawing as one string from their first cell.
+		expect(ctx.commands).toContain(
+			`fillText(${JSON.stringify(' naïve café"')},${at(12 + 1 + 17)},${y})`,
+		);
+		expect(ctx.commands).toContain(`fillText(${JSON.stringify('"')},${at(12)},${y})`);
 	});
 
 	it("does not pay to paint a token that has faded out", () => {

@@ -30,7 +30,12 @@ import {
 	interpolateZoom,
 	zoomForFocus,
 } from "../magic-move/focus-zoom";
-import { renderTyping, typedCharCount, typingProgressAt } from "../magic-move/typewriter";
+import {
+	keystrokeCount,
+	renderTyping,
+	typedCharCount,
+	typingProgressAt,
+} from "../magic-move/typewriter";
 import { frameFirstRow, scrollRows } from "../magic-move/window";
 
 export interface VideoScriptInput {
@@ -237,7 +242,7 @@ function typingFrame(
 	if (!input.typewriter || progress === null || !input.plan.typing) {
 		return null;
 	}
-	const reveal = typedCharCount(input.firstCode.length, progress);
+	const reveal = typedCharCount(keystrokeCount(input.firstCode), progress);
 	const { tokens, cursor } = renderTyping(input.firstCode, input.plan.typing, reveal);
 	const held = input.plan.frames[holdIndex];
 	const lineCount = held?.lineCount ?? 1;

@@ -15,6 +15,7 @@
  * answer follows whichever face this scope actually loaded.
  */
 
+import { cellRuns } from "../text/display-width";
 import type { PaintContext } from "./paint-context";
 
 /** The probe string; the font's bounding box does not depend on it. */
@@ -73,5 +74,35 @@ export class CssBaselines {
 		}
 		this.#metrics.set(font, metrics);
 		return metrics;
+	}
+}
+
+/**
+ * Draw a token's text on the grid from `x`, the way the preview lays it out:
+ * narrow glyphs run together at the face's own advance (one cell each in a
+ * monospace face), and each wide glyph (CJK, emoji: two cells in the engine)
+ * is centred on its two cells, whatever advance its fallback face gives it.
+ * Leaves the context's `textAlign` at "left".
+ */
+export function fillCells(
+	ctx: PaintContext,
+	text: string,
+	x: number,
+	y: number,
+	cellWidth: number,
+): void {
+	const runs = cellRuns(text);
+	if (runs.length === 1 && !runs[0]?.wide) {
+		ctx.fillText(text, x, y);
+		return;
+	}
+	for (const run of runs) {
+		if (run.wide) {
+			ctx.textAlign = "center";
+			ctx.fillText(run.text, x + (run.col + run.cells / 2) * cellWidth, y);
+			ctx.textAlign = "left";
+		} else {
+			ctx.fillText(run.text, x + run.col * cellWidth, y);
+		}
 	}
 }
