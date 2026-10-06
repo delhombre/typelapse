@@ -1,5 +1,5 @@
 import { type BundledLanguage, type Highlighter, createHighlighter } from "shiki";
-import { focusLineSet, parseLineRanges } from "../../../src/application/focus/line-ranges";
+import { focusLineSet, readLineRanges } from "../../../src/application/focus/line-ranges";
 import { frameLineCount } from "../../../src/application/magic-move/engine";
 import { DEFAULT_TRANSITION_EASING } from "../../../src/application/magic-move/easing";
 import { typingHoldIndex } from "../../../src/application/magic-move/typewriter";
@@ -51,7 +51,7 @@ function sceneCards(document: ProjectDocumentV2): (CodeBlockPayload | undefined)
 }
 
 function focusLines(focus: string | undefined, code: string): number[] | undefined {
-	const ranges = focus ? parseLineRanges(focus) : null;
+	const ranges = focus ? readLineRanges(focus) : null;
 	const lines = ranges ? [...focusLineSet(ranges, frameLineCount(code))] : [];
 	return lines.length > 0 ? lines : undefined;
 }

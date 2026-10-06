@@ -518,6 +518,12 @@ function FocusInput({
 	const [invalid, setInvalid] = useState(false);
 
 	function commit() {
+		// Untouched, it is what the project holds (a saved "8-10" on a five-line
+		// scene included): the field's refusals and clamp are for what is typed.
+		if (text === formatLineRanges(step.highlightRanges)) {
+			setInvalid(false);
+			return;
+		}
 		const parsed = parseLineRanges(text, frameLineCount(step.code));
 		if (parsed === null) {
 			setInvalid(true);

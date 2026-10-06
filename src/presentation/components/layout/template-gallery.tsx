@@ -1,5 +1,5 @@
 import { resolveBackgroundCss } from "@/application/backgrounds/mesh-gradient";
-import { focusLineSet, parseLineRanges } from "@/application/focus/line-ranges";
+import { focusLineSet, readLineRanges } from "@/application/focus/line-ranges";
 import { frameLineCount } from "@/application/magic-move/engine";
 import { TEMPLATE_CATALOG, type TemplateDefinition } from "@/application/templates/catalog";
 import { Theme } from "@/domain/entities/theme";
@@ -284,7 +284,7 @@ function TemplateArtwork({
 	const focusSets = useMemo(
 		() =>
 			template.project.steps.map((step) => {
-				const ranges = parseLineRanges(step.focus ?? "");
+				const ranges = readLineRanges(step.focus ?? "");
 				return ranges && ranges.length > 0
 					? focusLineSet(ranges, frameLineCount(step.code))
 					: undefined;

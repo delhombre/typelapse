@@ -1,4 +1,9 @@
-import { focusLineSet, formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import {
+	focusLineSet,
+	formatLineRanges,
+	parseLineRanges,
+	readLineRanges,
+} from "@/application/focus/line-ranges";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { describe, expect, it } from "vitest";
 
@@ -67,6 +72,28 @@ describe("parseLineRanges", () => {
 		expect(parseLineRanges("2-x")).toBeNull();
 		expect(parseLineRanges("2-")).toBeNull();
 		expect(parseLineRanges("1-2-3")).toBeNull();
+	});
+});
+
+describe("readLineRanges (what a file, a draft or a link already holds)", () => {
+	it("keeps a range past the step's last line: the clamp is at use, not on open", () => {
+		expect(formatLineRanges(readLineRanges("2, 8-10") ?? [])).toBe("2, 8-10");
+		expect(formatLineRanges(readLineRanges("1-1000000") ?? [])).toBe("1-1000000");
+	});
+
+	it("normalizes a reversed range instead of erasing it", () => {
+		expect(shape(readLineRanges("5-2"))).toEqual([[2, 5]]);
+	});
+
+	it("keeps line 0 as it was written; focusLineSet lights nothing for it", () => {
+		const ranges = readLineRanges("0") ?? [];
+		expect(formatLineRanges(ranges)).toBe("0");
+		expect(focusLineSet(ranges, 5).size).toBe(0);
+	});
+
+	it("reads nothing from what is not line numbers", () => {
+		expect(readLineRanges("abc")).toBeNull();
+		expect(readLineRanges("")).toEqual([]);
 	});
 });
 

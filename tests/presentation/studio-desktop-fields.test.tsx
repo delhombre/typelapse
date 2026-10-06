@@ -75,14 +75,14 @@ describe("the studio's typed fields", () => {
 	describe("the focus field", () => {
 		const FIVE_LINES = "a();\nb();\nc();\nd();\ne();";
 
-		function sceneWithFiveLines() {
+		function sceneWithFiveLines(focus?: string) {
 			const project = TEMPLATE_CATALOG[0]?.project;
 			if (!project) throw new Error("The template catalog must contain a project");
 			useSnippetStore.getState().importFromJson(
 				JSON.stringify({
 					...project,
 					code: FIVE_LINES,
-					steps: [{ id: "five", code: FIVE_LINES, duration: 1_000 }],
+					steps: [{ id: "five", code: FIVE_LINES, duration: 1_000, ...(focus ? { focus } : {}) }],
 				}),
 			);
 			useSnippetStore.getState().setCurrentStepIndex(0);
@@ -96,7 +96,7 @@ describe("the studio's typed fields", () => {
 			fireEvent.blur(field);
 		}
 
-		it.each(["abc", "0", "5-2"])("shows %s as invalid and keeps what was typed", (value) => {
+		it.each(["abc", "0", "5-2", "9"])("shows %s as invalid and keeps what was typed", (value) => {
 			sceneWithFiveLines();
 			render(<SceneInspector />);
 			const field = screen.getByRole("textbox", { name: "Scene 1 focus lines" });
@@ -117,6 +117,19 @@ describe("the studio's typed fields", () => {
 			expect((field as HTMLInputElement).value).toBe("1-5");
 			const [range] = useSnippetStore.getState().snippet.steps[0]?.highlightRanges ?? [];
 			expect([range?.startLine, range?.endLine]).toEqual([1, 5]);
+		});
+
+		it("opens a saved 2, 8-10 on five lines as it was saved, and a blur leaves it alone", () => {
+			sceneWithFiveLines("2, 8-10");
+
+			expect(useSnippetStore.getState().toProjectPayload().steps[0]?.focus).toBe("2, 8-10");
+			render(<SceneInspector />);
+			const field = screen.getByRole("textbox", { name: "Scene 1 focus lines" });
+			expect((field as HTMLInputElement).value).toBe("2, 8-10");
+			fireEvent.blur(field);
+
+			expect(field.getAttribute("aria-invalid")).toBe("false");
+			expect(useSnippetStore.getState().toProjectPayload().steps[0]?.focus).toBe("2, 8-10");
 		});
 
 		it("is the same field in the scene list, with the same invalid state", () => {

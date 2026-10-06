@@ -5,7 +5,7 @@ import {
 	chapterSnapshots,
 	diffToSnapshots,
 } from "@/application/diff";
-import { focusLineSet, formatLineRanges, parseLineRanges } from "@/application/focus/line-ranges";
+import { focusLineSet, formatLineRanges, readLineRanges } from "@/application/focus/line-ranges";
 import { DIFF_STEP_DURATION, capDiffSnapshots } from "@/application/import/diff-project";
 import { DEFAULT_TRANSITION_EASING, isCubicBezier } from "@/application/magic-move/easing";
 import { frameLineCount } from "@/application/magic-move/engine";
@@ -945,10 +945,10 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		});
 
 		for (const step of obj.steps) {
-			// Invalid focus strings remain cosmetic and degrade to no focus.
-			const highlightRanges = step.focus
-				? (parseLineRanges(step.focus, frameLineCount(step.code)) ?? [])
-				: [];
+			// Opening never rewrites focus: a range past the step's last line is kept
+			// as written and clamped where it is drawn (`focusLineSet`). A string that
+			// is not line numbers at all stays cosmetic and degrades to no focus.
+			const highlightRanges = step.focus ? (readLineRanges(step.focus) ?? []) : [];
 			snippet = snippet.addStep(
 				Step.create({
 					id: step.id,
