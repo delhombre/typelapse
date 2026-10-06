@@ -279,12 +279,35 @@ describe("a paste carried in from the landing hero", () => {
 	});
 
 	it("says why when the paste is over the studio's ceiling, and keeps the studio as it was", async () => {
+		const sceneIds = () =>
+			useStudioCompositionStore.getState().value.project.scenes.map((scene) => scene.id);
+		const before = sceneIds();
 		render(<ImportIntentBoot />);
 
 		arriveWith(Array.from({ length: 5001 }, (_, i) => `const a${i} = ${i};`).join("\n"));
 
 		expect(await screen.findByText(/too long to animate \(over 5,000 lines\)/)).toBeTruthy();
+		// Refused before anything changed: the code that was open is still open.
+		expect(useSnippetStore.getState().snippet.code).toBe("const only = 1;");
 		expect(useSnippetStore.getState().snippet.steps).toHaveLength(0);
+		// "0 scenes" is the step count; the composition is the one it already had.
+		expect(sceneIds()).toEqual(before);
+	});
+
+	it("captures a file link's code as scene one too", async () => {
+		const FILE = "https://raw.githubusercontent.com/acme/app/main/src/greet.ts";
+		const CODE = "export const greet = () => 'hi';\n";
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => new Response(CODE)),
+		);
+		render(<ImportIntentBoot />);
+
+		arriveWith(FILE);
+
+		await waitFor(() => expect(useSnippetStore.getState().snippet.steps.length).toBe(1));
+		expect(useSnippetStore.getState().snippet.code).toBe(CODE);
+		expect(useStudioCompositionStore.getState().value.project.scenes).toHaveLength(1);
 	});
 
 	it("leaves a paste made inside the studio exactly as it was: code, no scene yet", async () => {

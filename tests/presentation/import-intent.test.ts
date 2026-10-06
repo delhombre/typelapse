@@ -47,20 +47,18 @@ describe("import intent link", () => {
 		expect(/[+/=]/.test(hash.slice("#import=".length))).toBe(false);
 	});
 
-	it("carries an 8,000-line paste to the studio well inside a frame's order of time", () => {
+	it("round-trips an 8,000-line paste through the stash", () => {
 		const source = Array.from({ length: 8000 }, (_, i) => `const value${i} = compute(${i});`).join(
 			"\n",
 		);
 
-		const started = performance.now();
-		land(encodeImportIntent({ source }));
-		const taken = takeImportIntent();
-		const elapsed = performance.now() - started;
-
-		expect(taken?.source).toBe(source);
+		const hash = encodeImportIntent({ source });
 		// Too big for a URL, so it waits in sessionStorage behind a marker.
+		expect(hash).toBe("#import=~");
+		land(hash);
+
+		expect(takeImportIntent()?.source).toBe(source);
 		expect(window.sessionStorage.getItem(IMPORT_INTENT_STASH_KEY)).toBeNull();
-		expect(elapsed).toBeLessThan(200);
 	});
 
 	it("consumes the intent, so a re-read finds nothing", () => {

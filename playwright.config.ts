@@ -103,6 +103,9 @@ export default defineConfig({
 	// The hosted journeys share one render worker and one database.
 	fullyParallel: !HOSTED_PROFILE,
 	forbidOnly: Boolean(process.env.CI),
+	// `@perf` journeys assert wall-clock budgets, which a shared runner cannot keep
+	// honest. They are local measurements: `E2E_PERF=1 pnpm exec playwright test -g @perf`.
+	grepInvert: process.env.E2E_PERF ? undefined : /@perf/,
 	// A journey that needs a retry to pass is a flaky journey; CI gets one so a
 	// runner hiccup does not block a merge, and the report still flags it.
 	retries: process.env.CI ? 1 : 0,
