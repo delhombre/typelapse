@@ -254,6 +254,43 @@ describe("hosted project HTTP adapter", () => {
 		expect(String(summaryFailure)).not.toContain("account-private");
 	});
 
+	it("asks whether a project exists with a GET that answers 200 either way", async () => {
+		const requests: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+		const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+			requests.push({ input, init });
+			return jsonResponse({ exists: !String(input).includes("missing") });
+		});
+		const adapter = new HostedProjectHttpAdapter({ fetcher });
+
+		expect(await adapter.exists("project-1")).toBe(true);
+		expect(await adapter.exists("missing/one")).toBe(false);
+		expect(requests).toEqual([
+			{
+				input: "/api/projects/project-1/exists",
+				init: expect.objectContaining({ method: "GET", credentials: "same-origin" }),
+			},
+			{
+				input: "/api/projects/missing%2Fone/exists",
+				init: expect.objectContaining({ method: "GET", credentials: "same-origin" }),
+			},
+		]);
+	});
+
+	it("refuses an existence answer that is not exactly { exists: boolean }, and a sign-in wall", async () => {
+		const answering = (body: unknown, status = 200) =>
+			new HostedProjectHttpAdapter({ fetcher: async () => jsonResponse(body, status) });
+
+		await expect(answering({ exists: "yes" }).exists("project-1")).rejects.toMatchObject({
+			code: "invalid-response",
+		});
+		await expect(
+			answering({ exists: true, ownerId: "x" }).exists("project-1"),
+		).rejects.toMatchObject({ code: "invalid-response" });
+		await expect(answering({ error: "Sign in" }, 401).exists("project-1")).rejects.toMatchObject({
+			code: "unauthorized",
+		});
+	});
+
 	it("maps authentication and transport failures to safe non-reflective errors", async () => {
 		const unauthorized = new HostedProjectHttpAdapter({
 			fetcher: async () => new Response("session token=private", { status: 401 }),

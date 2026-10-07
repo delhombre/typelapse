@@ -163,6 +163,50 @@ describe("hosted project documents", () => {
 		expect(response.status).toBe(401);
 	});
 
+	it("answers whether an id exists with 200 for the owner, true or false, never a 404", async () => {
+		const projects = new MemoryProjectRepository(NOW);
+		const app = appFor(projects);
+		await app.request(
+			request("/api/projects", { method: "POST", body: JSON.stringify({ document: LEGACY }) }),
+		);
+
+		const owned = await app.request(request("/api/projects/project-server-1/exists"));
+		const absent = await app.request(request("/api/projects/never-saved/exists"));
+
+		expect(owned.status).toBe(200);
+		expect(await owned.json()).toEqual({ exists: true });
+		expect(absent.status).toBe(200);
+		expect(await absent.json()).toEqual({ exists: false });
+	});
+
+	it("never says another account's project exists", async () => {
+		const projects = new MemoryProjectRepository(NOW);
+		await appFor(projects, signedInAs("account-1")).request(
+			request("/api/projects", { method: "POST", body: JSON.stringify({ document: LEGACY }) }),
+		);
+
+		const asStranger = await appFor(projects, signedInAs("account-2")).request(
+			request("/api/projects/project-server-1/exists"),
+		);
+
+		expect(asStranger.status).toBe(200);
+		expect(await asStranger.json()).toEqual({ exists: false });
+	});
+
+	it("answers 401, and nothing about the id, when nobody is signed in", async () => {
+		const projects = new MemoryProjectRepository(NOW);
+		await appFor(projects).request(
+			request("/api/projects", { method: "POST", body: JSON.stringify({ document: LEGACY }) }),
+		);
+
+		const response = await appFor(projects, { verify: async () => null }).request(
+			"http://localhost/api/projects/project-server-1/exists",
+		);
+
+		expect(response.status).toBe(401);
+		expect(await response.json()).toEqual({ error: "Sign in to sync projects" });
+	});
+
 	it("migrates a V1 project and assigns its hosted identity on create", async () => {
 		const projects = new MemoryProjectRepository(NOW);
 		const app = appFor(projects);

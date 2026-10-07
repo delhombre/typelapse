@@ -116,6 +116,7 @@ function record(revision: number, document: ProjectDocumentV2): HostedProjectRec
 function cloudRuntime() {
 	const api: HostedProjectApiPort = {
 		list: vi.fn(async () => []),
+		exists: vi.fn(async () => false),
 		load: vi.fn(async () => null),
 		create: vi.fn(async (document: ProjectDocumentV2) =>
 			record(1, jsonbEcho({ ...document, project: { ...document.project, id: "project_cloud" } })),

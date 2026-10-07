@@ -70,6 +70,7 @@ describe("browser hosted project sync runtime", () => {
 		}));
 		const api: HostedProjectApiPort = {
 			list: async () => [],
+			exists: async () => false,
 			create: async (value) => record(value),
 			load: async () => record(),
 			update,

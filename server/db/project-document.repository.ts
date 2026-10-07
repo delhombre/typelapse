@@ -148,6 +148,15 @@ export function createProjectDocumentRepository(
 			return row ? storedProjectFromRow(row) : null;
 		},
 
+		async existsOwnedById(ownerId, id) {
+			const [row] = await db
+				.select({ id: projects.id })
+				.from(projects)
+				.where(and(eq(projects.id, id), eq(projects.ownerId, ownerId)))
+				.limit(1);
+			return row !== undefined;
+		},
+
 		async create(input) {
 			return db.transaction(async (tx) => {
 				await lockOwner(tx, input.ownerId);

@@ -27,6 +27,12 @@ export interface HostedProjectApiOptions {
 
 export interface HostedProjectApiPort {
 	list(options?: HostedProjectApiOptions): Promise<readonly HostedProjectSummary[]>;
+	/**
+	 * Whether the caller holds a project with this id. It answers 200 either way,
+	 * so a first save asks it without the 404 a browser logs as an error, and it
+	 * says false for another account's project as it does for none.
+	 */
+	exists(id: string, options?: HostedProjectApiOptions): Promise<boolean>;
 	create(
 		document: ProjectDocumentV2,
 		options?: HostedProjectApiOptions,

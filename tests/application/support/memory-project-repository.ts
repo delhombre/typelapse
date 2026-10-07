@@ -49,6 +49,10 @@ export class MemoryProjectRepository implements ProjectDocumentRepositoryPort {
 		return record?.ownerId === ownerId ? record : null;
 	}
 
+	async existsOwnedById(ownerId: string, id: string): Promise<boolean> {
+		return this.records.get(id)?.ownerId === ownerId;
+	}
+
 	/** What the ceiling counts: the owner's regular projects. */
 	private regularCount(ownerId: string): number {
 		return [...this.records.values()].filter(

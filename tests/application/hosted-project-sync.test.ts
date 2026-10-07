@@ -5,9 +5,10 @@ import type {
 } from "@/application/assets/private-media-upload.port";
 import type { UploadPrivateMedia } from "@/application/assets/upload-private-media";
 import type { ClientSession } from "@/application/auth/client-auth.port";
-import type {
-	HostedProjectApiPort,
-	HostedProjectRecord,
+import {
+	HostedProjectApiError,
+	type HostedProjectApiPort,
+	type HostedProjectRecord,
 } from "@/application/project/hosted-project-api.port";
 import {
 	HostedProjectSyncError,
@@ -100,6 +101,7 @@ function record(
 function apiWith(overrides: Partial<HostedProjectApiPort> = {}): HostedProjectApiPort {
 	return {
 		list: vi.fn(async () => []),
+		exists: vi.fn(async () => false),
 		create: vi.fn(async (value) =>
 			record(1, { ...value, project: { ...value.project, id: "hosted-project-1" } }),
 		),
@@ -209,12 +211,10 @@ describe("hosted project sync coordinator", () => {
 		});
 	});
 
-	it("opens the cloud copy a local project already has, found by its id in the list", async () => {
+	it("opens the cloud copy a local project already has, found by asking whether its id exists", async () => {
 		const hosted = document("local-project-1", "Cloud copy");
 		const api = apiWith({
-			list: vi.fn(async () => [
-				{ id: "local-project-1", title: "Cloud copy", revision: 2, sceneCount: 1, updatedAt: NOW },
-			]),
+			exists: vi.fn(async () => true),
 			load: vi.fn(async () => record(2, hosted)),
 		});
 		const { coordinator } = createHarness({ api });
@@ -222,13 +222,17 @@ describe("hosted project sync coordinator", () => {
 		const connected = await coordinator.connect({ session: SESSION, localDocument: document() });
 
 		expect(connected).toMatchObject({ loaded: true });
+		expect(api.exists).toHaveBeenCalledWith("local-project-1", {
+			signal: expect.any(AbortSignal),
+		});
 		expect(api.load).toHaveBeenCalledWith("local-project-1", {
 			signal: expect.any(AbortSignal),
 		});
 		expect(api.create).not.toHaveBeenCalled();
+		expect(api.list).not.toHaveBeenCalled();
 	});
 
-	it("does not list when the project names its cloud copy: a 404 there means it is gone", async () => {
+	it("does not ask when the project names its cloud copy: a 404 there means it is gone", async () => {
 		const api = apiWith();
 		const { coordinator } = createHarness({ api });
 
@@ -240,8 +244,37 @@ describe("hosted project sync coordinator", () => {
 			}),
 		).rejects.toMatchObject({ code: "project-not-found" });
 
+		expect(api.exists).not.toHaveBeenCalled();
 		expect(api.list).not.toHaveBeenCalled();
 		expect(api.load).toHaveBeenCalledOnce();
+	});
+
+	it("creates the project when the cloud has no copy, and leaves nothing in the console", async () => {
+		const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+		const api = apiWith({ exists: vi.fn(async () => false) });
+		const { coordinator } = createHarness({ api });
+
+		const connected = await coordinator.connect({ session: SESSION, localDocument: document() });
+
+		expect(connected.loaded).toBe(false);
+		expect(api.create).toHaveBeenCalledOnce();
+		expect(api.load).not.toHaveBeenCalled();
+		expect(logged).not.toHaveBeenCalled();
+		logged.mockRestore();
+	});
+
+	it("surfaces the existence question's failure instead of creating a second copy", async () => {
+		const api = apiWith({
+			exists: vi.fn(async () => {
+				throw new HostedProjectApiError("unavailable", "down");
+			}),
+		});
+		const { coordinator } = createHarness({ api });
+
+		await expect(
+			coordinator.connect({ session: SESSION, localDocument: document() }),
+		).rejects.toMatchObject({ code: "service-unavailable" });
+		expect(api.create).not.toHaveBeenCalled();
 	});
 
 	it("creates a canonical media-free hosted project, but refuses to fake-migrate local blobs", async () => {
@@ -253,9 +286,12 @@ describe("hosted project sync coordinator", () => {
 			localDocument: document(),
 		});
 		expect(connected.loaded).toBe(false);
-		// A project the cloud has never seen is found out from the list: a GET on
-		// its id would answer 404, and the browser logs that as an error.
-		expect(api.list).toHaveBeenCalledOnce();
+		// A project the cloud has never seen is found out from the existence
+		// endpoint, which answers 200 either way: a GET on its id would answer 404,
+		// and the browser logs that as an error. It is not the list, which reads and
+		// validates every project the account owns.
+		expect(api.exists).toHaveBeenCalledOnce();
+		expect(api.list).not.toHaveBeenCalled();
 		expect(api.load).not.toHaveBeenCalled();
 		expect(api.create).toHaveBeenCalledOnce();
 

@@ -216,6 +216,20 @@ export class HostedProjectHttpAdapter implements HostedProjectApiPort {
 		return body.projects.map(parseSummary);
 	}
 
+	async exists(id: string, options: HostedProjectApiOptions = {}): Promise<boolean> {
+		const body = await requestJson(
+			this.fetcher,
+			`${this.basePath}/${encodeURIComponent(id)}/exists`,
+			{ method: "GET", credentials: "same-origin" },
+			200,
+			options.signal,
+		);
+		if (!isRecord(body) || !hasExactKeys(body, ["exists"]) || typeof body.exists !== "boolean") {
+			return invalidResponse();
+		}
+		return body.exists;
+	}
+
 	async create(
 		document: ProjectDocumentV2,
 		options: HostedProjectApiOptions = {},
