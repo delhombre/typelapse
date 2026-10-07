@@ -70,15 +70,98 @@
 			name="twitter:description"
 			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."
 		/>
-		<!-- Two families, not four. Geist carries every sans role, Ioskeley Mono every
+		<!-- Two UI families, not four: Geist carries every sans role, Ioskeley Mono every
 		     mono role, both served from /fonts (the faces come from the font registry,
-		     src/application/fonts/code-fonts.ts). Only the files the first paint sets
-		     text in are preloaded; the other subsets load when a character needs them. -->
+		     src/application/fonts/code-fonts.ts). Geist sets text on every route, so its
+		     file is preloaded here; the others are named per route by the script below. -->
 		<link rel="preload" href="/fonts/Geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-		<link rel="preload" href="/fonts/IoskeleyMono-Regular.woff2" as="font" type="font/woff2" crossorigin />
+		<!-- What the address bar's route needs, asked for before the bundle runs.
+		     / and /app set text in Ioskeley (the UI's mono) and JetBrains Mono (the
+		     frame's code, which the font registry only installs once main.tsx runs, so
+		     without a hint it arrives after everything else); the 404 sets text in
+		     neither. /app also gets its own files: the studio is a lazy route, nothing
+		     asks for its chunk until the entry bundle has run and React has rendered,
+		     and the build wrote their hashed names into the JSON element above
+		     (vite-plugin-studio-preload.ts). The tab is named here too, so it never
+		     says "the landing" over the studio while the bundle loads; the studio takes
+		     over the name once it mounts. -->
+		<script>
+			(function () {
+				var path = location.pathname;
+				var studio = /^\/app(\/|$)/.test(path);
+				function hint(rel, href, as, type) {
+					var link = document.createElement("link");
+					link.rel = rel;
+					link.href = href;
+					if (as) {
+						link.setAttribute("as", as);
+					}
+					if (type) {
+						link.type = type;
+					}
+					if (as === "font" || as === "style") {
+						link.crossOrigin = "";
+					}
+					document.head.appendChild(link);
+				}
+				if (path === "/" || studio) {
+					hint("preload", "/fonts/IoskeleyMono-Regular.woff2", "font", "font/woff2");
+					hint("preload", "/fonts/JetBrainsMono-latin.woff2", "font", "font/woff2");
+				}
+				if (studio) {
+					document.title = "Studio · Typelapse";
+					try {
+						var list = document.getElementById("typelapse-studio-chunks");
+						JSON.parse(list ? list.textContent : "[]").forEach(function (file) {
+							if (/\.css$/.test(file)) {
+								hint("preload", file, "style");
+							} else {
+								hint("modulepreload", file);
+							}
+						});
+					} catch (error) {}
+				}
+			})();
+		</script>
+		<!-- If the entry bundle never arrives (a blocked or failed script, a connection
+		     that gave up) the page would stay blank for good. The sentence inside #root
+		     is revealed when the script errors, or after ten seconds with nothing
+		     mounted; React replaces #root's content when it does mount, which is also
+		     what removes the sentence. -->
+		<script>
+			(function () {
+				function reveal() {
+					var note = document.getElementById("boot-failed");
+					if (note) {
+						note.hidden = false;
+					}
+				}
+				setTimeout(reveal, 10000);
+				window.addEventListener(
+					"error",
+					function (event) {
+						if (event.target && event.target.tagName === "SCRIPT") {
+							reveal();
+						}
+					},
+					true,
+				);
+			})();
+		</script>
 	</head>
 	<body>
-		<div id="root"></div>
+		<noscript>
+			<main style="max-width: 36rem; margin: 0 auto; padding: 4rem 1.5rem; font: 16px/1.5 system-ui, sans-serif; color: CanvasText">
+				<h1 style="margin: 0 0 1rem; font-size: 1.75rem; line-height: 1.2">Typelapse: sharp code videos from a pull request</h1>
+				<p>Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes.</p>
+				<p>Typelapse draws and encodes the video in your browser, so it needs JavaScript. Turn it on, then <a href="/app">open the studio</a>.</p>
+			</main>
+		</noscript>
+		<div id="root">
+			<p id="boot-failed" hidden style="max-width: 36rem; margin: 0 auto; padding: 4rem 1.5rem; font: 16px/1.5 system-ui, sans-serif; color: CanvasText">
+				Typelapse did not load. Check your connection, then <a href="">reload the page</a>.
+			</p>
+		</div>
 		<script type="module" src="/src/main.tsx"></script>
 	</body>
 </html>

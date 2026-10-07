@@ -80,7 +80,7 @@ Which background?
 | Video chrome bar | `'JetBrains Mono', ui-monospace` `src/application/layout/frame-metrics.ts` |
 | Fallback metrics, no layout shift | `size-adjust: 101.77%` `src/app.css` |
 | Never fake a weight | `font-synthesis: none` `src/app.css` |
-| Preloaded first-paint files | `/fonts/Geist-latin.woff2` `/fonts/IoskeleyMono-Regular.woff2` `index.html` |
+| Preloaded first-paint files: Geist on every route; Ioskeley and the frame's JetBrains Mono on `/` and `/app` only, the 404 sets text in neither (#214) | `/fonts/Geist-latin.woff2` `/fonts/IoskeleyMono-Regular.woff2` `/fonts/JetBrainsMono-latin.woff2` `index.html` |
 | Hero headline, mono 600 | `clamp(2rem, 1.2rem + 3vw, 3.25rem)` `line-height: 1.12` `letter-spacing: -0.02em` `src/app.css` |
 | Display, sans 600 | `clamp(2.75rem, 1.4rem + 5.6vw, 4.75rem)` `line-height: 1.02` `letter-spacing: -0.028em` `src/app.css` |
 | Section heading, sans 600 | `clamp(2rem, 1.25rem + 2.8vw, 3.05rem)` `line-height: 1.05` `letter-spacing: -0.021em` `src/app.css @ .lp-h2` |
