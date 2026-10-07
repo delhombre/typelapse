@@ -2992,7 +2992,12 @@ html.dark:not([data-landing-theme]) {
 	z-index: 30;
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	--row-gap: 8px;
+	gap: var(--row-gap);
+	/* How far the outer control of a chip reaches toward the next chip: the chip's own 3px
+	   of padding and half the gap between the two, which the next chip's control takes the
+	   other half of. */
+	--edge-bleed: calc(3px + var(--row-gap) / 2);
 }
 
 .sc-corner-row > .sc-project-root {
@@ -3022,6 +3027,35 @@ html.dark:not([data-landing-theme]) {
 @media (min-width: 390px) {
 	.sc-corner-row .sc-title {
 		min-width: calc(4.7em + 4px);
+	}
+}
+
+/* Under 390 the name still keeps "Untitled" whole, down to 360 (the most common Android
+   width, #182): the row finds the room first by reducing the brand to its glyph (the
+   dark tile goes, 10px; its target stays), then by tightening the gap between its chips
+   (8px to 4px, 12px). The floor is the word's own width, 60px at the field's 16px, and
+   its 2px of padding each side (4em), and 5px to spare for a font that lands wider. */
+@media (max-width: 389px) {
+	.sc-corner-row {
+		--row-gap: 4px;
+	}
+
+	.sc-corner-row .sc-brand {
+		width: 16px;
+		border-radius: 0;
+		background: transparent;
+		color: var(--color-neutral-900);
+	}
+
+	.dark .sc-corner-row .sc-brand {
+		background: transparent;
+		color: #fff;
+	}
+}
+
+@media (min-width: 360px) and (max-width: 389px) {
+	.sc-corner-row .sc-title {
+		min-width: calc(4em + 5px);
 	}
 }
 
@@ -3119,11 +3153,6 @@ html.dark:not([data-landing-theme]) {
 		inset: -11px 0;
 	}
 
-	.sc-corner-row .sc-utilities button.hit-ext::after,
-	.sc-corner-row .sc-utilities .hit-ext::after {
-		inset: -11px -1px;
-	}
-
 	.sc-mobile-resources .sc-island-trigger,
 	.sc-corner-row .sc-project-trigger,
 	.sc-corner-row .sc-brand {
@@ -3151,6 +3180,25 @@ html.dark:not([data-landing-theme]) {
 	/* The name is the chip's own height: the whole band beside the brand types. */
 	.sc-corner-row .sc-title {
 		height: 40px;
+	}
+
+	/* The icons are 30px to the eye and 31px of pitch to a thumb, which is all the room two
+	   neighbours leave each other. The ones at the end of a chip have more: the chip's
+	   padding and half the gap to the next chip (D10, #182), so Undo, Add source and More
+	   reach toward it and Redo, Showcase and More reach away. */
+	.sc-corner-row .sc-history button:first-child.hit-ext::after,
+	.sc-corner-row .sc-mobile-resources > :first-child .sc-island-trigger::after {
+		inset: -11px 0 -11px calc(-1 * var(--edge-bleed));
+	}
+
+	.sc-corner-row .sc-history button:last-child.hit-ext::after,
+	.sc-corner-row .sc-mobile-resources > .sc-showcase-trigger::after {
+		inset: -11px calc(-1 * var(--edge-bleed)) -11px 0;
+	}
+
+	.sc-corner-row .sc-utilities button.hit-ext::after,
+	.sc-corner-row .sc-utilities .hit-ext::after {
+		inset: -11px calc(-1 * var(--edge-bleed));
 	}
 }
 

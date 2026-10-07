@@ -1,10 +1,15 @@
-import { type Page, devices } from "@playwright/test";
+import { type Locator, type Page, devices } from "@playwright/test";
 import { GREET_DIFF, quadrantPng } from "./support/fixtures";
 import { addSource, expect, hitBox, importHash, openStudio, settled, test } from "./support/studio";
 
 // A phone: 390 px wide, touch, a mobile user agent. Chromium only, like the rest.
 const { defaultBrowserType: _engine, ...phone } = devices["iPhone 13"];
 test.use({ ...phone, viewport: { width: 390, height: 844 } });
+
+/** A snippet of `count` lines, past the studio's 5,000-line ceiling when it is large enough. */
+function linesOfCode(count: number): string {
+	return Array.from({ length: count }, (_, i) => `const value${i} = compute(${i});`).join("\n");
+}
 
 /** Raise the sheet to its scenes stop and capture the live code `count` times. */
 async function captureScenes(page: Page, count: number) {
@@ -286,24 +291,75 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 	}
 
 	// The project chip's menu trigger is a 24px glyph that grows into the 2px and the 8px gap
-	// beside it, 44px tall under a thumb; and the name keeps "Untitled" whole at 390 (#167).
-	test("the project chip's menu trigger is a thumb's target and the name keeps its first word", async ({
-		page,
-	}) => {
-		await openStudio(page);
-		const trigger = page.locator(".sc-project-trigger");
-		const name = page.getByRole("textbox", { name: "Project name" });
-		await settled(trigger);
+	// beside it, 44px tall under a thumb; and the name keeps "Untitled" whole (#167). Down to
+	// 360, the most common Android width, the row gives the name room first by reducing the
+	// brand to its glyph, then by tightening the gap between its chips; every control keeps
+	// its hit area (#182, DECISIONS after-the-gate D3).
+	for (const width of [360, 375, 390]) {
+		test(`the project chip keeps "Untitled" whole and the row's controls their hit areas, at ${width}px`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height: 800 });
+			await openStudio(page);
+			// Two edits and one undo: Undo and Redo are both live, so both are measured.
+			await addSource(page, "Add text");
+			await addSource(page, "Add text");
+			await page.getByRole("button", { name: "Undo" }).tap();
+			await expect(page.getByRole("button", { name: "Redo" })).toBeEnabled();
+			const trigger = page.locator(".sc-project-trigger");
+			const name = page.getByRole("textbox", { name: "Project name" });
+			await settled(trigger);
 
-		const reach = await hitBox(trigger);
-		expect(reach.height, `the trigger reaches ${reach.height} tall`).toBeGreaterThanOrEqual(44);
-		expect(reach.width, `the trigger reaches ${reach.width} wide`).toBeGreaterThanOrEqual(24);
-		expect((await trigger.boundingBox())?.width).toBeGreaterThanOrEqual(24);
+			await expect(name).toHaveValue("Untitled");
+			const fit = await name.evaluate((field) => ({
+				scrollWidth: field.scrollWidth,
+				clientWidth: field.clientWidth,
+			}));
+			expect(
+				fit.scrollWidth,
+				`the name is cut: Untitl… (${fit.scrollWidth} in ${fit.clientWidth})`,
+			).toBeLessThanOrEqual(fit.clientWidth);
 
-		await expect(name).toHaveValue("Untitled");
-		const clipped = await name.evaluate((field) => field.scrollWidth > field.clientWidth);
-		expect(clipped, "the name is cut: Untitl…").toBe(false);
-	});
+			// The menu trigger and the brand: a glyph to the eye, a target to a thumb.
+			for (const control of [trigger, page.getByRole("link", { name: "Typelapse home" })]) {
+				const reach = await hitBox(control);
+				expect(reach.height, `reaches ${reach.height} tall`).toBeGreaterThanOrEqual(44);
+				expect(reach.width, `reaches ${reach.width} wide`).toBeGreaterThanOrEqual(24);
+			}
+			expect((await trigger.boundingBox())?.width).toBeGreaterThanOrEqual(24);
+
+			// Every button and link of the row is 44px tall under a thumb, and none hangs off the
+			// screen. (The name is a field as tall as the chip, 40px, and says so below.) The
+			// icons are 30px to the eye: between two neighbours a thumb has their 31px pitch, and
+			// the one at the end of a chip reaches into the chip's padding and half the gap
+			// toward the next chip (D10): 35px at the 4px gap, 37px at the 8px one.
+			const pitch = 31;
+			const atChipEnd = ["Undo", "Redo", "Add source", "Showcase", "More actions"];
+			const edge = width < 390 ? 35 : 37;
+			const controls = page.locator(".sc-corner-row :is(button, a):not(:disabled)");
+			const count = await controls.count();
+			expect(count).toBeGreaterThan(5);
+			for (let index = 0; index < count; index += 1) {
+				const control = controls.nth(index);
+				const box = await control.boundingBox();
+				if (!box || box.width === 0) continue;
+				const label = await control.evaluate(
+					(element) => element.getAttribute("aria-label") ?? element.tagName,
+				);
+				expect(box.x + box.width, `"${label}" ends past the screen`).toBeLessThanOrEqual(width);
+				const reach = await hitBox(control);
+				expect(reach.height, `"${label}" reaches ${reach.height} tall`).toBeGreaterThanOrEqual(44);
+				if (atChipEnd.includes(label) || label === "Library") {
+					const wanted = atChipEnd.includes(label) ? edge : pitch;
+					expect(
+						reach.width,
+						`"${label}" reaches ${reach.width} wide, wants ${wanted}`,
+					).toBeGreaterThanOrEqual(wanted - 0.5);
+				}
+			}
+			expect((await name.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+		});
+	}
 
 	// Four scenes are one more than the island has room for at 44px each, so the counter
 	// says the position, as it already does from the fifth on a pointer's phone.
@@ -354,8 +410,96 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		const strip = page.getByRole("alertdialog");
 		await expect(strip).toBeVisible();
 		const box = await strip.boundingBox();
-		expect(box?.y).toBeGreaterThanOrEqual(47);
+		// Under the notch and the corner row, where the stage starts (D6): 47 + 40 + 18.
+		expect(box?.y).toBeGreaterThanOrEqual(47 + 40 + 18);
 	});
+
+	// One placement rule for every transient surface under 1280px (#207, DECISIONS
+	// after-the-gate D6): below the corner row and above the stage, stacked downward as the
+	// import pill or the replace question, then the notices. None covers a control, none
+	// covers another.
+	for (const { width, height } of [
+		{ width: 390, height: 844 },
+		{ width: 375, height: 812 },
+	]) {
+		for (const surface of ["pill", "replace question"] as const) {
+			test(`the ${surface} and a notice stack under the corner row without touching a control, at ${width}px`, async ({
+				page,
+			}, testInfo) => {
+				await page.emulateMedia({ reducedMotion: "reduce" });
+				await page.setViewportSize({ width, height });
+				await openStudio(page);
+
+				let first: Locator;
+				if (surface === "pill") {
+					// A paste over the ceiling: the pill reports it and stays until dismissed.
+					await page.evaluate((source) => {
+						sessionStorage.setItem("typelapse:import-intent", JSON.stringify({ source }));
+						location.hash = "#import=~";
+					}, linesOfCode(6000));
+					first = page.getByTestId("import-status");
+					await expect(first).toContainText(/too long to animate/);
+				} else {
+					// Typed edits are work to lose, so the import link asks first.
+					await addSource(page, "Add text");
+					await page.evaluate((hash) => {
+						window.location.hash = hash;
+					}, importHash(GREET_DIFF));
+					first = page.getByRole("alertdialog").locator(".sc-confirm-float");
+					await expect(first).toBeVisible();
+				}
+
+				await page.locator('input[type="file"][accept=".json"]').setInputFiles({
+					name: "broken.json",
+					mimeType: "application/json",
+					buffer: Buffer.from("not a project"),
+				});
+				const notice = page.getByTestId("notice");
+				await expect(notice).toBeVisible();
+				await settled(first);
+				await settled(notice);
+
+				const firstBox = await first.boundingBox();
+				const noticeBox = await notice.boundingBox();
+				if (!firstBox || !noticeBox) throw new Error("a surface has no box");
+				// The row ends at 50, and the stage starts 18 under it.
+				expect(firstBox.y, `the ${surface} starts at ${firstBox.y}`).toBeGreaterThanOrEqual(
+					68 - 0.5,
+				);
+				expect(noticeBox.y, `the notice starts at ${noticeBox.y}`).toBeGreaterThanOrEqual(
+					firstBox.y + firstBox.height - 0.5,
+				);
+
+				const controls = page.locator(".sc-corner-row :is(button, a, input)");
+				const count = await controls.count();
+				expect(count).toBeGreaterThan(5);
+				for (const [name, box] of [
+					[surface, firstBox],
+					["notice", noticeBox],
+				] as const) {
+					for (let index = 0; index < count; index += 1) {
+						const control = controls.nth(index);
+						const rect = await control.boundingBox();
+						if (!rect || rect.width === 0) continue;
+						const apart =
+							rect.y + rect.height <= box.y + 0.5 ||
+							box.y + box.height <= rect.y + 0.5 ||
+							rect.x + rect.width <= box.x + 0.5 ||
+							box.x + box.width <= rect.x + 0.5;
+						const label = await control.evaluate(
+							(element) =>
+								element.getAttribute("aria-label") ?? element.textContent ?? element.tagName,
+						);
+						expect(apart, `the ${name} covers "${label}"`).toBe(true);
+					}
+				}
+
+				await page.screenshot({
+					path: testInfo.outputPath(`surfaces-${surface.replace(" ", "-")}-${width}.png`),
+				});
+			});
+		}
+	}
 
 	// The replace question's two buttons were 32px tall with no reach, in the Showcase and in
 	// every popover that asks it: under a thumb they are 44px each way, drawn at 32.
