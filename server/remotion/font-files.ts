@@ -9,11 +9,7 @@
  * The same bytes the preview and the render worker load, so the glyphs match.
  */
 
-import {
-	fontsToLoad,
-	googleFontCssUrl,
-	selfHostedFaces,
-} from "../../src/application/fonts/code-fonts";
+import { fontsToLoad, selfHostedFaces } from "../../src/application/fonts/code-fonts";
 import { fontFaceRules } from "../../src/application/fonts/font-face-css";
 import ioskeleyMonoRegular from "../../public/fonts/IoskeleyMono-Regular.woff2";
 import ioskeleyMonoSemiBold from "../../public/fonts/IoskeleyMono-SemiBold.woff2";
@@ -28,6 +24,28 @@ import jetBrainsMonoGreek from "../../public/fonts/JetBrainsMono-greek.woff2";
 import jetBrainsMonoVietnamese from "../../public/fonts/JetBrainsMono-vietnamese.woff2";
 import jetBrainsMonoLatinExt from "../../public/fonts/JetBrainsMono-latin-ext.woff2";
 import jetBrainsMonoLatin from "../../public/fonts/JetBrainsMono-latin.woff2";
+import firaCodeCyrillic from "../../public/fonts/FiraCode-cyrillic.woff2";
+import firaCodeGreek from "../../public/fonts/FiraCode-greek.woff2";
+import firaCodeSymbols from "../../public/fonts/FiraCode-symbols.woff2";
+import firaCodeLatinExt from "../../public/fonts/FiraCode-latin-ext.woff2";
+import firaCodeLatin from "../../public/fonts/FiraCode-latin.woff2";
+import sourceCodeProCyrillic from "../../public/fonts/SourceCodePro-cyrillic.woff2";
+import sourceCodeProGreek from "../../public/fonts/SourceCodePro-greek.woff2";
+import sourceCodeProLatinExt from "../../public/fonts/SourceCodePro-latin-ext.woff2";
+import sourceCodeProLatin from "../../public/fonts/SourceCodePro-latin.woff2";
+import ibmPlexMonoCyrillic from "../../public/fonts/IBMPlexMono-cyrillic.woff2";
+import ibmPlexMonoGreek from "../../public/fonts/IBMPlexMono-greek.woff2";
+import ibmPlexMonoLatinExt from "../../public/fonts/IBMPlexMono-latin-ext.woff2";
+import ibmPlexMonoLatin from "../../public/fonts/IBMPlexMono-latin.woff2";
+import cascadiaCodeCyrillic from "../../public/fonts/CascadiaCode-cyrillic.woff2";
+import cascadiaCodeGreek from "../../public/fonts/CascadiaCode-greek.woff2";
+import cascadiaCodeSymbols from "../../public/fonts/CascadiaCode-symbols.woff2";
+import cascadiaCodeLatinExt from "../../public/fonts/CascadiaCode-latin-ext.woff2";
+import cascadiaCodeLatin from "../../public/fonts/CascadiaCode-latin.woff2";
+import interCyrillic from "../../public/fonts/Inter-cyrillic.woff2";
+import interGreek from "../../public/fonts/Inter-greek.woff2";
+import interLatinExt from "../../public/fonts/Inter-latin-ext.woff2";
+import interLatin from "../../public/fonts/Inter-latin.woff2";
 
 export const BUNDLED_FONT_URLS: Readonly<Record<string, string>> = {
 	"/fonts/IoskeleyMono-Regular.woff2": ioskeleyMonoRegular,
@@ -43,23 +61,61 @@ export const BUNDLED_FONT_URLS: Readonly<Record<string, string>> = {
 	"/fonts/JetBrainsMono-vietnamese.woff2": jetBrainsMonoVietnamese,
 	"/fonts/JetBrainsMono-latin-ext.woff2": jetBrainsMonoLatinExt,
 	"/fonts/JetBrainsMono-latin.woff2": jetBrainsMonoLatin,
+	"/fonts/FiraCode-cyrillic.woff2": firaCodeCyrillic,
+	"/fonts/FiraCode-greek.woff2": firaCodeGreek,
+	"/fonts/FiraCode-symbols.woff2": firaCodeSymbols,
+	"/fonts/FiraCode-latin-ext.woff2": firaCodeLatinExt,
+	"/fonts/FiraCode-latin.woff2": firaCodeLatin,
+	"/fonts/SourceCodePro-cyrillic.woff2": sourceCodeProCyrillic,
+	"/fonts/SourceCodePro-greek.woff2": sourceCodeProGreek,
+	"/fonts/SourceCodePro-latin-ext.woff2": sourceCodeProLatinExt,
+	"/fonts/SourceCodePro-latin.woff2": sourceCodeProLatin,
+	"/fonts/IBMPlexMono-cyrillic.woff2": ibmPlexMonoCyrillic,
+	"/fonts/IBMPlexMono-greek.woff2": ibmPlexMonoGreek,
+	"/fonts/IBMPlexMono-latin-ext.woff2": ibmPlexMonoLatinExt,
+	"/fonts/IBMPlexMono-latin.woff2": ibmPlexMonoLatin,
+	"/fonts/CascadiaCode-cyrillic.woff2": cascadiaCodeCyrillic,
+	"/fonts/CascadiaCode-greek.woff2": cascadiaCodeGreek,
+	"/fonts/CascadiaCode-symbols.woff2": cascadiaCodeSymbols,
+	"/fonts/CascadiaCode-latin-ext.woff2": cascadiaCodeLatinExt,
+	"/fonts/CascadiaCode-latin.woff2": cascadiaCodeLatin,
+	"/fonts/Inter-cyrillic.woff2": interCyrillic,
+	"/fonts/Inter-greek.woff2": interGreek,
+	"/fonts/Inter-latin-ext.woff2": interLatinExt,
+	"/fonts/Inter-latin.woff2": interLatin,
 };
 
 /**
- * The stylesheets that register every family these stacks name: the bundled
- * files for a self-hosted family, Google's stylesheet for a picker font that
- * still comes from there. A family the registry does not know is a generic or
- * a system face and needs nothing.
+ * The stylesheets that register every family these stacks name, from the files
+ * bundled above. A family the registry does not know is a generic or a system
+ * face and needs nothing.
  */
 export function fontStylesheets(...stacks: string[]): Promise<string[]> {
 	return Promise.all(
-		fontsToLoad(...stacks).map((font) => {
-			if (font.files) {
-				return fontFaceRules(selfHostedFaces(font), (url) => BUNDLED_FONT_URLS[url] ?? url);
-			}
-			return fetch(googleFontCssUrl(font.google ?? "", font.weights)).then((response) =>
-				response.text(),
-			);
-		}),
+		fontsToLoad(...stacks).map((font) =>
+			fontFaceRules(selfHostedFaces(font), (url) => BUNDLED_FONT_URLS[url] ?? url),
+		),
 	);
+}
+
+/** The face a step caption is set in (`step-caption.tsx`: Inter, weight 500). */
+export const CAPTION_FONT_PROBE = "500 16px Inter";
+
+/**
+ * Register the bundled faces for these stacks in the page, then wait until the
+ * probe font (the theme's, whose advance the card is sized on) and the caption's
+ * Inter are actually loaded. A face that no element has asked for yet is not
+ * loading, so `fonts.ready` alone would let a frame be drawn in the fallback.
+ */
+export async function loadCompositionFonts(probeFont: string, ...stacks: string[]): Promise<void> {
+	for (const css of await fontStylesheets(...stacks)) {
+		const style = document.createElement("style");
+		style.textContent = css;
+		document.head.appendChild(style);
+	}
+	await Promise.all([
+		document.fonts.load(probeFont, "0"),
+		document.fonts.load(CAPTION_FONT_PROBE, "A"),
+	]);
+	await document.fonts.ready;
 }

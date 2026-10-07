@@ -29,7 +29,6 @@ import {
 	RADIUS_PRESETS,
 	TEMPO_PRESETS,
 	THEMES,
-	loadGoogleFont,
 } from "./control-presets";
 import {
 	ClusterGroup,
@@ -316,9 +315,6 @@ function LookCluster() {
 						const font = FONT_PRESETS.find((f) => f.label === label);
 						if (!font) {
 							return;
-						}
-						if (font.google) {
-							loadGoogleFont(font.google);
 						}
 						setFont(font.stack);
 					}}

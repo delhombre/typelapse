@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { BUNDLED_FONT_URLS, fontStylesheets } from "../../server/remotion/font-files";
+import {
+	BUNDLED_FONT_URLS,
+	CAPTION_FONT_PROBE,
+	fontStylesheets,
+	loadCompositionFonts,
+} from "../../server/remotion/font-files";
 import { LOADABLE_FONTS, selfHostedFaces } from "../../src/application/fonts/code-fonts";
-import { parseFontFaceSources } from "../../src/application/fonts/font-face-css";
+import { parseFontFaceSources } from "../support/font-face-parser";
 
 describe("the server composition's fonts", () => {
 	afterEach(() => {
@@ -34,15 +39,84 @@ describe("the server composition's fonts", () => {
 		expect(latin?.url).toBe(BUNDLED_FONT_URLS["/fonts/Geist-latin.woff2"]);
 	});
 
-	it("still fetches a picker font Google serves", async () => {
-		const fetchSpy = vi.fn(async () => new Response("@font-face { font-family: 'Fira Code'; src: url(f.woff2); }"));
+	it("sets every picker font and the captions' Inter from local files, asking no one", async () => {
+		const fetchSpy = vi.fn();
 		vi.stubGlobal("fetch", fetchSpy);
 
-		const sheets = await fontStylesheets("Fira Code, monospace");
+		for (const font of LOADABLE_FONTS) {
+			const sheets = await fontStylesheets(font.stack);
+			const faces = sheets.flatMap(parseFontFaceSources);
 
-		expect(fetchSpy).toHaveBeenCalledWith(
-			"https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap",
-		);
-		expect(sheets).toHaveLength(1);
+			const wanted = selfHostedFaces(font);
+
+			expect(faces.length, font.family).toBe(wanted.length);
+			faces.forEach((face, index) => {
+				expect(face.family).toBe(font.family);
+				// The bundle's own copy of the registry's file, never a host.
+				expect(face.url, font.family).toBe(BUNDLED_FONT_URLS[wanted[index]?.url ?? ""]);
+				expect(face.url, font.family).not.toMatch(/^https?:/);
+			});
+		}
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	describe("loadCompositionFonts", () => {
+		function stubDocumentFonts(load: (font: string, text?: string) => Promise<unknown>) {
+			const ready = vi.fn(async () => undefined);
+			Object.defineProperty(document, "fonts", {
+				configurable: true,
+				value: { load, get ready() { return ready(); } },
+			});
+			return ready;
+		}
+
+		afterEach(() => {
+			Reflect.deleteProperty(document, "fonts");
+			for (const style of document.head.querySelectorAll("style")) {
+				style.remove();
+			}
+		});
+
+		it("asks for the caption's Inter at its weight, alongside the theme's probe", async () => {
+			const load = vi.fn(async () => []);
+			stubDocumentFonts(load);
+
+			await loadCompositionFonts("16px 'Fira Code'", "Fira Code, monospace", "Inter");
+
+			expect(CAPTION_FONT_PROBE).toBe("500 16px Inter");
+			expect(load).toHaveBeenCalledWith("16px 'Fira Code'", "0");
+			expect(load).toHaveBeenCalledWith(CAPTION_FONT_PROBE, "A");
+		});
+
+		it("registers the bundled faces before it asks for them", async () => {
+			const seen: number[] = [];
+			stubDocumentFonts(async () => {
+				seen.push(document.head.querySelectorAll("style").length);
+				return [];
+			});
+
+			await loadCompositionFonts("16px Inter", "Inter");
+
+			expect(seen.every((count) => count > 0)).toBe(true);
+		});
+
+		it("holds the frame until the caption face has loaded, not just the probe", async () => {
+			let releaseCaption: () => void = () => undefined;
+			const captionLoaded = new Promise<void>((resolve) => {
+				releaseCaption = resolve;
+			});
+			stubDocumentFonts((font) => (font === CAPTION_FONT_PROBE ? captionLoaded : Promise.resolve([])));
+
+			let done = false;
+			const loading = loadCompositionFonts("16px Inter", "Inter").then(() => {
+				done = true;
+			});
+			await new Promise((resolve) => setTimeout(resolve, 10));
+			expect(done).toBe(false);
+
+			releaseCaption();
+			await loading;
+			expect(done).toBe(true);
+		});
 	});
 });
