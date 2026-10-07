@@ -205,7 +205,7 @@ function paintPushInFade(ctx: PaintContext, scene: FrameScene, state: FrameState
 		zoomScale: state.zoom.scale,
 		windowWidth: scene.window.width,
 		fontSize: scene.code.fontSize,
-		windowCutsRight: scene.lineClip !== null,
+		windowCutsRight: scene.fades.some((fade) => fade.edge === "right"),
 	});
 	if (!fade) {
 		return;

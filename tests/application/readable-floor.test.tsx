@@ -367,6 +367,13 @@ describe("the long line under the push-in, in the DOM", () => {
 						zoom={{ scale: 1.25, originYRatio: 0.5 }}
 						active
 						borderRadius={THEME.borderRadius * scale}
+						frame={{
+							padding: SETTINGS.padding * scale,
+							windowWidth: fit.natural.width,
+							fontSize: THEME.fontSize * scale,
+							background: THEME.background,
+							fadesRight: fit.clip?.right ?? false,
+						}}
 					>
 						<MagicMoveCanvas
 							tokens={LONG_LINE.frames[0]?.tokens.map((t) => ({ ...t, opacity: 1 })) ?? []}

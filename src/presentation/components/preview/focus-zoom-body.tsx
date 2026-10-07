@@ -1,5 +1,4 @@
 import { clipFadeStops } from "@/application/layout/canvas-fit";
-import type { LineClip } from "@/application/layout/line-clip";
 import { type ZoomTransform, pushInFade, zoomOriginX } from "@/application/magic-move/focus-zoom";
 import type { ReactNode } from "react";
 
@@ -31,32 +30,26 @@ export function FocusZoomBody({
 	/** The scene's focus-zoom setting; off, the body never scales. */
 	active: boolean;
 	borderRadius: number;
-	/**
-	 * The window the body sits in, in its own px: what the pivot and the right
-	 * fade are drawn from. Absent, the push-in is centred and draws no fade.
-	 */
-	frame?: {
+	/** The window the body sits in, in its own px: what the pivot and the right fade are drawn from. */
+	frame: {
 		padding: number;
 		windowWidth: number;
 		fontSize: number;
 		background: string;
-		lineClip: LineClip | null;
+		/** The window already fades its right edge (`clipFades`): the push-in adds none. */
+		fadesRight: boolean;
 	};
 	children: ReactNode;
 }) {
-	const edge =
-		active && frame
-			? pushInFade({
-					zoomScale: zoom.scale,
-					windowWidth: frame.windowWidth,
-					fontSize: frame.fontSize,
-					windowCutsRight: frame.lineClip !== null,
-				})
-			: null;
-	const originX = frame
-		? zoomOriginX({ padding: frame.padding, bodyWidth: frame.windowWidth })
-		: 0.5;
-	const [clear, solid] = clipFadeStops(frame?.background ?? "");
+	const edge = active
+		? pushInFade({
+				zoomScale: zoom.scale,
+				windowWidth: frame.windowWidth,
+				fontSize: frame.fontSize,
+				windowCutsRight: frame.fadesRight,
+			})
+		: null;
+	const originX = zoomOriginX({ padding: frame.padding, bodyWidth: frame.windowWidth });
 	return (
 		<div style={{ position: "relative", overflow: "hidden", borderRadius }}>
 			<div
@@ -83,7 +76,7 @@ export function FocusZoomBody({
 						bottom: 0,
 						width: edge.width,
 						opacity: edge.opacity,
-						background: `linear-gradient(to right, ${clear}, ${solid})`,
+						background: `linear-gradient(to right, ${clipFadeStops(frame.background).join(", ")})`,
 					}}
 				/>
 			)}

@@ -352,6 +352,26 @@ describe("LivePreview on the export canvas", () => {
 		expect(container.querySelector("[data-push-in-fade]")).toBeNull();
 	});
 
+	it("lays one right fade on a window cut by less than its slack, with no line clip", async () => {
+		useExportStore.setState({ focusZoom: true });
+		useSnippetStore.setState({ rebuildPlan: async () => {} });
+		const step = useSnippetStore.getState().snippet.steps[1];
+		if (!step) {
+			throw new Error("no second step");
+		}
+		useSnippetStore
+			.getState()
+			.updateStepFocus(step.id, [HighlightRange.create({ startLine: 1, endLine: 1 })]);
+		const frame = { lineCount: 3, tokens: [token("l", "x".repeat(183), 1, 0)] };
+		const slackCut = { frames: [frame, frame], transitions: [] };
+		useSnippetStore.setState({ plan: slackCut as unknown as MagicMovePlan });
+		const { container } = renderPreview();
+		expect(container.querySelector(`div[style*="scale(${ZOOM_SCALE})"]`)).not.toBeNull();
+		const fades = container.querySelectorAll("[data-clip-fade='right'], [data-push-in-fade]");
+		expect(fades).toHaveLength(1);
+		expect(container.querySelector("[data-clip-fade='right']")).not.toBeNull();
+	});
+
 	it("pushes a window whose lines fit in left of centre too, and fades its right edge", async () => {
 		useExportStore.setState({ focusZoom: true });
 		useSnippetStore.setState({ rebuildPlan: async () => {} });

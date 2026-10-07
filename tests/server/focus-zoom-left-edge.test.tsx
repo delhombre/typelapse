@@ -201,6 +201,30 @@ describe.each([
 	});
 });
 
+describe("a window cut by less than its two cells of slack", () => {
+	// 183 columns: the window is cut on the right (its own fade, #221), but the
+	// code column still shows every cell, so there is no line clip.
+	const line = "x".repeat(183);
+	const source = ["// cut by the slack", line, "export {};"].join("\n");
+
+	it("is cut without a line clip: the case the fade must be read from the window", () => {
+		const { scene } = painted(line);
+		expect(scene.lineClip).toBeNull();
+		expect(scene.fades.map((fade) => fade.edge)).toEqual(["right"]);
+	});
+
+	it("gets exactly one right fade from the painter under the push-in", () => {
+		const { scene, commands } = painted(line);
+		expect(commands.filter((c) => c === rightFadeStyle(scene))).toHaveLength(1);
+	});
+
+	it("gets exactly one right fade from the composition under the push-in", async () => {
+		const { windowFade, pushInFade } = await composed(source);
+		expect(windowFade).not.toBeNull();
+		expect(pushInFade).toBeNull();
+	});
+});
+
 describe("the ordinary snippet's right fade", () => {
 	it("is there only while the push-in crops the right: none at rest, half way at half the push-in", () => {
 		const line = "x".repeat(37);

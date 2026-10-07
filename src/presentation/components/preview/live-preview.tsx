@@ -600,7 +600,7 @@ export function LivePreview() {
 							background: snippet.theme.background,
 							fontSize: snippet.theme.fontSize * layoutScale,
 							windowWidth,
-							lineClip: aspectCanvas?.lineClip ?? null,
+							fadesRight: aspectCanvas?.clip?.fades.some((fade) => fade.edge === "right") ?? false,
 						}}
 					>
 						<MagicMoveCanvas
