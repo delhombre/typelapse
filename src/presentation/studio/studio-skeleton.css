@@ -1,0 +1,178 @@
+/* The studio's outline while its chunk loads (studio-skeleton.tsx).
+
+   Sizes are the studio's own, measured off the real shell at 1440x900 and
+   390x844 (docs/design/SYSTEM.md: Space): the header's 40px pills 22px and 20px
+   in from the corner, the 16:9 frame, the island 246px up, the timeline 218px
+   tall 16px in from the edges, and on a phone the sheet's 56px peek. The shapes
+   are plain fills in the studio's own ramp at 6%, so the outline is quieter
+   than anything that replaces it, and it is the same in light and dark.
+
+   It wears `.studio-root`, which carries the radius tokens and the hairline the
+   studio draws with; its own colours are the two below. */
+
+.sk-root {
+	--sk-fill: color-mix(in oklch, var(--color-neutral-900) 6%, transparent);
+	position: fixed;
+	inset: 0;
+	overflow: clip;
+	/* A fast load never shows it: it arrives after 140ms, and then it arrives. */
+	animation: sk-in 220ms var(--ease-out) 140ms backwards;
+}
+
+.dark .sk-root {
+	--sk-fill: color-mix(in oklch, var(--color-neutral-50) 7%, transparent);
+}
+
+@keyframes sk-in {
+	from {
+		opacity: 0;
+	}
+}
+
+.sk-pill,
+.sk-frame,
+.sk-timeline {
+	display: block;
+	background: var(--sk-fill);
+	box-shadow: 0 0 0 1px var(--sc-hairline);
+}
+
+.sk-pill {
+	height: 40px;
+	flex: none;
+	border-radius: var(--r-pill);
+}
+
+/* ── Phone: one row, the frame, the island, the sheet's peek ─────────────── */
+
+.sk-header {
+	position: absolute;
+	inset: max(10px, env(safe-area-inset-top)) 9px auto;
+}
+
+.sk-group-start {
+	display: flex;
+	gap: 6px;
+}
+
+.sk-group-end,
+.sk-mode {
+	display: none;
+}
+
+.sk-project {
+	width: 141px;
+}
+
+.sk-history {
+	width: 68px;
+}
+
+.sk-resources {
+	width: 150px;
+}
+
+.sk-more {
+	width: 44px;
+}
+
+.sk-stage {
+	position: absolute;
+	inset: 60px 0 160px;
+	display: grid;
+	place-items: center;
+	padding-inline: 40px;
+}
+
+.sk-frame {
+	width: min(100%, 640px);
+	aspect-ratio: 16 / 9;
+	border-radius: var(--r-surface);
+}
+
+.sk-dock {
+	position: absolute;
+	bottom: calc(80px + env(safe-area-inset-bottom));
+	left: 50%;
+	width: 160px;
+	height: 48px;
+	translate: -50% 0;
+}
+
+.sk-timeline {
+	position: absolute;
+	inset: auto 0 0;
+	height: 56px;
+	border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+}
+
+/* ── Desktop: both corners, the Preview/Edit switch, the timeline ────────── */
+
+@media (min-width: 1280px) {
+	.sk-header {
+		inset: 20px 22px auto;
+		display: flex;
+		justify-content: space-between;
+	}
+
+	.sk-group-end {
+		display: flex;
+		gap: 6px;
+	}
+
+	.sk-project {
+		width: 166px;
+	}
+
+	.sk-history {
+		width: 73px;
+	}
+
+	.sk-resources {
+		width: 210px;
+	}
+
+	.sk-more {
+		display: none;
+	}
+
+	.sk-mode {
+		display: block;
+		position: absolute;
+		left: 50%;
+		width: 162px;
+		translate: -50% 0;
+	}
+
+	.sk-gallery {
+		width: 109px;
+	}
+
+	.sk-utilities {
+		width: 139px;
+	}
+
+	.sk-stage {
+		inset: 80px 0 242px;
+		padding: 18px 44px 72px;
+	}
+
+	.sk-frame {
+		height: min(100%, 424px);
+		width: auto;
+		max-width: 100%;
+	}
+
+	.sk-dock {
+		bottom: 246px;
+		width: 554px;
+		height: 40px;
+	}
+
+	.sk-timeline {
+		inset: auto 16px 16px;
+		height: 218px;
+		border-radius: var(--r-sheet);
+		background: transparent;
+	}
+}
