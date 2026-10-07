@@ -36,7 +36,7 @@ import { watermarkPlacement } from "../layout/watermark-placement";
 import { browserPillWidth, chromeGlyphAdvance, windowTitle } from "../layout/window-title";
 import { scrolledGutter } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
-import { ZOOM_ORIGIN_X, type ZoomTransform, pushInFade } from "../magic-move/focus-zoom";
+import { type ZoomTransform, pushInFade, zoomOriginX } from "../magic-move/focus-zoom";
 import { canvasFont, colorWithAlpha } from "./font";
 import { type LayeredFrame, paintLayers } from "./layers";
 import type { PaintContext } from "./paint-context";
@@ -684,8 +684,8 @@ function clipBody(ctx: PaintContext, scene: FrameScene, lineCount: number): void
  * Both DOM renderers write it as `scale(s)` with `transform-origin: 50% r%`. A
  * canvas has no transform-origin, so the same thing is spelled out: move to the
  * origin, scale, move back. The numbers come from the shared `focus-zoom`
- * module, so preview, video and this agree by construction: across, the body's
- * left edge (`ZOOM_ORIGIN_X`).
+ * module, so preview, video and this agree by construction: across, as far left
+ * of the body's centre as keeps the gutter in frame (`zoomOriginX`).
  */
 function applyZoom(ctx: PaintContext, scene: FrameScene, state: FrameState): void {
 	const zoom = state.zoom;
@@ -693,7 +693,8 @@ function applyZoom(ctx: PaintContext, scene: FrameScene, state: FrameState): voi
 		return;
 	}
 	const box = bodyBox(scene, state.lineCount);
-	const originX = box.x + ZOOM_ORIGIN_X * box.width;
+	const padding = scene.code.y - scene.window.y - scene.chromeHeight;
+	const originX = box.x + zoomOriginX({ padding, bodyWidth: box.width }) * box.width;
 	const originY = box.y + zoom.originYRatio * box.height;
 	ctx.translate(originX, originY);
 	ctx.scale(zoom.scale, zoom.scale);

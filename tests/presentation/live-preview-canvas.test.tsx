@@ -7,7 +7,7 @@ import {
 import { fitScale } from "@/application/layout/fit-scale";
 import { chromeBarHeight } from "@/application/layout/frame-metrics";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
-import { ZOOM_SCALE } from "@/application/magic-move/focus-zoom";
+import { ZOOM_SCALE, zoomOriginX } from "@/application/magic-move/focus-zoom";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -303,7 +303,27 @@ describe("LivePreview on the export canvas", () => {
 		expect(clip?.parentElement?.classList.contains("code-frame-glow")).toBe(true);
 	});
 
-	it("pushes a window that cuts a long line in from its left edge, as the exporters do (#227)", async () => {
+	/** The pivot ratio the shared rule gives this plan's window on the 16:9 canvas. */
+	function expectedOrigin(plan: unknown): number {
+		const state = useSnippetStore.getState();
+		const placement = previewCardPlacement({
+			plan: plan as MagicMovePlan,
+			chrome: state.windowChrome,
+			fontSize: state.snippet.theme.fontSize,
+			padding: state.framePadding,
+			cardMargin: state.cardMargin,
+			showLineNumbers: state.showLineNumbers,
+			lineNumberStart: state.lineNumberStart,
+			captions: [],
+			canvasWidth: 1920,
+			canvasHeight: 1080,
+			charWidthRatio: ADVANCE,
+			boxWidth: 1920 * fitScale(1920, 1080, AVAILABLE.width, AVAILABLE.height),
+		});
+		return zoomOriginX({ padding: state.framePadding, bodyWidth: placement.windowWidth });
+	}
+
+	it("pushes a window that cuts a long line in just left enough to keep its gutter, as the exporters do (#227)", async () => {
 		useExportStore.setState({ focusZoom: true });
 		useSnippetStore.setState({ rebuildPlan: async () => {} });
 		const step = useSnippetStore.getState().snippet.steps[1];
@@ -326,10 +346,13 @@ describe("LivePreview on the export canvas", () => {
 			el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
 		);
 		expect(scaled, "a pushed-in body").toBeDefined();
-		expect(scaled?.style.transformOrigin.startsWith("0% ")).toBe(true);
+		const origin = expectedOrigin(longLine);
+		expect(origin).toBeLessThan(0.1);
+		expect(Number.parseFloat(scaled?.style.transformOrigin ?? "") / 100).toBeCloseTo(origin, 9);
+		expect(container.querySelector("[data-push-in-fade]")).toBeNull();
 	});
 
-	it("pushes a window whose lines fit in from its left edge too, and fades its right edge", async () => {
+	it("pushes a window whose lines fit in left of centre too, and fades its right edge", async () => {
 		useExportStore.setState({ focusZoom: true });
 		useSnippetStore.setState({ rebuildPlan: async () => {} });
 		const step = useSnippetStore.getState().snippet.steps[1];
@@ -343,7 +366,10 @@ describe("LivePreview on the export canvas", () => {
 		const scaled = Array.from(container.querySelectorAll<HTMLElement>("div")).find((el) =>
 			el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
 		);
-		expect(scaled?.style.transformOrigin.startsWith("0% ")).toBe(true);
+		const origin = expectedOrigin(PLAN);
+		expect(origin).toBeGreaterThan(0);
+		expect(origin).toBeLessThanOrEqual(0.5);
+		expect(Number.parseFloat(scaled?.style.transformOrigin ?? "") / 100).toBeCloseTo(origin, 9);
 		// The right edge takes what the push-in carries off: it fades, outside the scaled box.
 		const fade = container.querySelector<HTMLElement>("[data-push-in-fade]");
 		expect(fade?.style.opacity).toBe("1");

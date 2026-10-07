@@ -6,9 +6,9 @@ import { downloadFrom, expect, importHash, openStudio, test } from "./support/st
  * Ticket #227: under the focus zoom, the window that cuts the 300-character
  * line lost its gutter and its first dozen columns off the left edge, cut
  * mid-glyph, in the preview and the PNG alike; an ordinary snippet lost its
- * gutter. Every push-in now pivots on the left edge and fades the right. The
- * screenshots and the PNGs are the test's attachments: their edges are the
- * proof the PR carries.
+ * gutter. The push-in now pivots left of centre only as far as keeps the
+ * gutter in frame, and fades the right. The screenshots and the PNGs are the
+ * test's attachments: their edges are the proof the PR carries.
  */
 
 const LONG = `const message = "${"lorem ipsum dolor sit amet ".repeat(11).slice(0, 281)}";`;
@@ -66,20 +66,26 @@ async function leftEdges(page: Page, text: string) {
 	};
 }
 
-test.describe("The focus zoom pushes in from the left edge", () => {
+test.describe("The focus zoom keeps the gutter in frame", () => {
 	test.use({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 
-	for (const { name, source, first } of [
-		{ name: "long", source: SOURCE, first: "// One line" },
-		{ name: "ordinary", source: ORDINARY, first: "export" },
+	// The pivot `zoomOriginX` gives each window: the padding the push-in draws
+	// over the width it crops (greet is 37 columns; the long line is cut at 185).
+	for (const { name, source, first, origin } of [
+		{ name: "long", source: SOURCE, first: "// One line", origin: 0.0733 },
+		{ name: "ordinary", source: ORDINARY, first: "export", origin: 0.2953 },
 	]) {
 		test(`the ${name} snippet keeps its gutter and its line starts, and fades its right edge`, async ({
 			page,
 		}, testInfo) => {
 			await openZoomed(page, source);
-			expect(await pivot(page)).toBeCloseTo(0, 2);
+			const measured = await pivot(page);
+			testInfo.annotations.push({ type: "pivot", description: String(measured) });
+			// About the rule's figure: the real font's widest line can differ by a cell.
+			expect(measured).toBeCloseTo(origin, 1);
 			const edges = await leftEdges(page, first);
-			expect(edges.gutter).toBeGreaterThan(edges.window);
+			// The gutter's left edge lands on the window's edge at the most, never past it.
+			expect(edges.gutter).toBeGreaterThanOrEqual(edges.window - 0.5);
 			expect(edges.line).toBeGreaterThan(edges.gutter);
 			// One fade on the right edge: the window's own on the cut line, the push-in's otherwise.
 			const fades = page.locator(

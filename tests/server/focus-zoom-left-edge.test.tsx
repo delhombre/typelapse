@@ -1,14 +1,13 @@
 /**
- * The push-in pivots on the body's left edge, and fades the right (#227).
+ * The push-in keeps the gutter in frame, and fades the right (#227).
  *
  * Centred on the body, a 1.25 push-in carried a tenth of the window off each
  * side. On a window cut at 185 columns that was the gutter and the line's first
- * dozen columns, cut mid-glyph; on an ordinary snippet it was the gutter, and
- * from about 66 columns the first cells of code. A code frame's left side (line
- * numbers, indentation) matters more than its right, so every push-in now pivots
- * on the left edge: nothing crops on the left, and the right edge, which takes
- * all the push-in carries off, fades. A window that cuts a long line has that
- * fade already (#221); any other window gets one that fades in with the push-in.
+ * dozen columns, cut mid-glyph; on an ordinary snippet it was the gutter. The
+ * pivot now moves left of centre only as far as keeps the gutter's left edge in
+ * the window (`zoomOriginX`), and the right edge, which takes the rest of what
+ * the push-in carries off, fades: the window's own fade on a cut line (#221),
+ * otherwise one that fades in with the push-in.
  *
  * The same pivot and the same fade in the three renderers: the painter's
  * commands and the DOM's styles (the composition here, the preview in
@@ -23,7 +22,7 @@ import { buildCodeCardInput } from "../../server/render/v2/code-card-input";
 import { paintFrame } from "../../src/application/frame-painter/painter";
 import { type FrameSceneInput, frameScene } from "../../src/application/frame-painter/scene";
 import { BASE_VIDEO_SCALE } from "../../src/application/layout/canvas-fit";
-import { ZOOM_SCALE } from "../../src/application/magic-move/focus-zoom";
+import { ZOOM_SCALE, zoomOriginX } from "../../src/application/magic-move/focus-zoom";
 import { RecordingContext, round } from "../application/support/recording-context";
 import { proofDocument } from "./remotion-v2-proof-document";
 
@@ -156,22 +155,29 @@ async function composed(code: string) {
 	};
 }
 
+const PADDING_PX = 24 * BASE_VIDEO_SCALE;
+
 describe.each([
 	["a window that cuts a long line", LONG, LONG_SOURCE],
 	["an ordinary snippet", "x".repeat(37), ORDINARY],
 ])("the push-in on %s", (_name, line, source) => {
 	const { scene, commands } = painted(line);
-	const originX = pivotOf(commands);
+	const origin = zoomOriginX({ padding: PADDING_PX, bodyWidth: scene.window.width });
+	const originX = scene.window.x + origin * scene.window.width;
 	const zoomedX = (x: number) => originX + ZOOM_SCALE * (x - originX);
 
-	it("pivots the painter's push-in on the body's left edge: nothing crops on the left", () => {
-		expect(originX).toBe(round(scene.window.x));
+	it("pivots the painter's push-in left of centre, at the shared rule's origin", () => {
+		expect(origin).toBeGreaterThan(0);
+		expect(origin).toBeLessThan(0.5);
+		expect(pivotOf(commands)).toBe(round(originX));
 	});
 
-	it("keeps the gutter and the line's first column inside the window", () => {
+	it("keeps the gutter's left edge and the line's first column inside the window", () => {
 		const { gutter, code, window } = scene;
-		// The gutter's widest label ("01") ends at `textRight`.
-		expect(zoomedX((gutter?.textRight ?? 0) - 2 * code.charWidth)).toBeGreaterThan(window.x);
+		// The gutter's widest label ("01") ends at `textRight`: it starts at the padding.
+		const gutterLeft = (gutter?.textRight ?? 0) - 2 * code.charWidth;
+		expect(gutterLeft).toBeCloseTo(window.x + PADDING_PX, 9);
+		expect(zoomedX(gutterLeft)).toBeGreaterThanOrEqual(window.x - 1e-9);
 		expect(zoomedX(code.x)).toBeGreaterThan(window.x);
 	});
 
@@ -183,13 +189,10 @@ describe.each([
 		expect(commands.slice(zoomAt, commands.indexOf(fade))).toContain("restore");
 	});
 
-	it("puts the composition's transform-origin on the same edge, with the same right fade", async () => {
-		const { origin, windowFade, pushInFade } = await composed(source);
-		expect(origin.startsWith("0% ")).toBe(true);
-		// One pivot, two spellings: the painter's px over the body's width is the DOM's %.
-		expect((originX - round(scene.window.x)) / scene.window.width).toBe(
-			Number.parseFloat(origin) / 100,
-		);
+	it("puts the composition's transform-origin at the same ratio, with the same right fade", async () => {
+		const { origin: composedOrigin, windowFade, pushInFade } = await composed(source);
+		// One pivot, two spellings: the painter's ratio of the body's width is the DOM's %.
+		expect(Number.parseFloat(composedOrigin) / 100).toBeCloseTo(origin, 9);
 		// Exactly one right fade, as deep as the painter's.
 		const fades = [windowFade, pushInFade].filter((el) => el !== null);
 		expect(fades).toHaveLength(1);
@@ -198,7 +201,7 @@ describe.each([
 });
 
 describe("the ordinary snippet's right fade", () => {
-	it("fades in with the push-in: none at rest, half way at half the push-in", () => {
+	it("is there only while the push-in crops the right: none at rest, half way at half the push-in", () => {
 		const line = "x".repeat(37);
 		const rest = painted(line, 1);
 		expect(rest.commands).not.toContain(rightFadeStyle(rest.scene));

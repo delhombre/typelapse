@@ -595,7 +595,8 @@ export function LivePreview() {
 						zoom={view.zoom}
 						active={focusZoom}
 						borderRadius={snippet.theme.borderRadius * layoutScale}
-						fade={{
+						frame={{
+							padding: framePadding * layoutScale,
 							background: snippet.theme.background,
 							fontSize: snippet.theme.fontSize * layoutScale,
 							windowWidth,

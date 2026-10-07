@@ -208,7 +208,8 @@ export function CodeCard({ input }: { input: RenderInput }) {
 					zoom={view.zoom}
 					active={focusZoom}
 					borderRadius={theme.borderRadius * videoScale}
-					fade={{
+					frame={{
+						padding: framePadding * videoScale,
 						background: theme.background,
 						fontSize: theme.fontSize * videoScale,
 						windowWidth,

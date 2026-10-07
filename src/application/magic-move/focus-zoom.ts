@@ -15,8 +15,9 @@
  * DOM renderers wrap the code in `FocusZoomBody`, whose clip is not the box that
  * scales.
  *
- * Across, the push-in pivots on the body's left edge (`ZOOM_ORIGIN_X`), and the
- * window's right edge fades over what it carries off (`pushInFade`).
+ * Across, the push-in pivots only as far left of centre as keeps the gutter in
+ * frame (`zoomOriginX`), and the window's right edge fades over what it carries
+ * off (`pushInFade`).
  */
 import { clipFadeWidth } from "../layout/canvas-fit";
 import { clamp01, easeInOutCubic } from "./engine";
@@ -35,17 +36,27 @@ export const ZOOM_SCALE = 1.25;
 export const NO_ZOOM: ZoomTransform = { scale: 1, originYRatio: 0.5 };
 
 /**
- * Where the push-in pivots across the body, as a 0..1 ratio of its width: its
- * left edge.
+ * Where the push-in pivots across the body, as a 0..1 ratio of its width: the
+ * centre, moved left only as far as keeps the gutter's left edge in the window.
  *
- * Centred, a 1.25 push-in carried a tenth of the body off each side: the gutter
- * on any snippet, the first cells of code from about 66 columns, and the first
- * dozen columns of a window cut at the floor's 185 (#227). A code frame's left
- * side (line numbers, indentation, where every line starts) matters more than
- * its right, so nothing crops on the left; the right edge takes all the push-in
- * carries off, and fades (`pushInFade`).
+ * The push-in moves `crop = (ZOOM_SCALE - 1) × bodyWidth` out of the window in
+ * all, `o × crop` of it on the left for a pivot at `o`. Centred, that tenth of
+ * the body was the gutter on any snippet and, on a window cut at the floor's
+ * 185 columns, the first dozen columns too (#227). The room the left can give is
+ * the padding before the gutter (before the code when line numbers are off), as
+ * the push-in draws it: `ZOOM_SCALE × padding`. So the pivot is that room over
+ * the crop, at most the centre: a narrow window keeps its centred push-in, a
+ * wide one pivots further left, and the gutter's left edge lands on the window's
+ * edge at the most. The ratio is the same in any unit, so each renderer passes
+ * its own px.
  */
-export const ZOOM_ORIGIN_X = 0;
+export function zoomOriginX(input: { padding: number; bodyWidth: number }): number {
+	const crop = (ZOOM_SCALE - 1) * input.bodyWidth;
+	if (crop <= 0) {
+		return 0.5;
+	}
+	return Math.min(0.5, Math.max(0, (ZOOM_SCALE * input.padding) / crop));
+}
 
 /**
  * The fade over the window's right edge while the push-in carries code past it,
