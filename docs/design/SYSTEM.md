@@ -206,6 +206,7 @@ opaque (last row of the table).
 | Timeline context enter, exit | `duration: 0.16` `duration: 0.09` `src/presentation/components/timeline/timeline-motion.ts` |
 | Timeline reorder settle | `stiffness: 500` `damping: 42` `src/presentation/components/timeline/timeline-motion.ts` |
 | Landing nav reveal, hide | `bounce: 0, duration: 0.42` `bounce: 0, duration: 0.3` `src/presentation/landing/dynamic-nav.tsx` |
+| Studio outline while its chunk loads: in after a delay so a fast load never shows it; fill, the studio ramp at 6% | `animation: sk-in 220ms var(--ease-out) 140ms backwards` `--sk-fill: color-mix(in oklch, var(--color-neutral-900) 6%, transparent)` `src/presentation/studio/studio-skeleton.css` |
 | Reduced motion keeps only | `transition-property: color, background-color, border-color` `src/app.css` |
 | Reduced transparency | `backdrop-filter: none !important` `src/app.css` |
 
@@ -215,8 +216,7 @@ longer. Exits are shorter than entrances. Springs come from `springs` in
 the shared ones could not do. Every Motion transition reads
 `useReducedMotion()` and swaps to `{ duration: 0 }`. Under reduced motion
 colour and opacity still fade, anything else lands instantly, and the
-landing has no intro at all. Nothing enters from `scale(0)`; the reveal
-starts at 0.985.
+landing has no intro at all. Nothing enters from `scale(0)`: reveal at 0.985.
 
 ## Touch and input
 

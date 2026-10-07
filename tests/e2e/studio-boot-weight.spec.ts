@@ -172,6 +172,21 @@ test.describe("Studio boot: the files, the tab, the outline", () => {
 		await expect(page).toHaveTitle("Page not found · Typelapse");
 	});
 
+	test("the brand link gives the landing its own title back after a hard load of /app", async ({
+		page,
+	}) => {
+		await page.goto("/");
+		const landing = await page.title();
+		expect(landing).toMatch(/sharp/i);
+
+		// Hard load: index.html named the tab before React ran.
+		await openStudio(page);
+		await expect(page).toHaveTitle("Studio · Typelapse");
+		await page.getByRole("link", { name: "Typelapse home" }).click();
+		await expect(page).toHaveURL(/\/$/);
+		await expect(page).toHaveTitle(landing);
+	});
+
 	test("the studio's outline fills the wait for its chunk, then gives way to the studio", async ({
 		page,
 	}) => {
@@ -198,8 +213,8 @@ test.describe("Studio boot: the files, the tab, the outline", () => {
 	test("a studio with no entry bundle says so instead of staying blank", async ({ page }) => {
 		await page.route(/\/assets\/index-.*\.js/, (route) => route.abort());
 		await page.goto("/app");
-		await expect(page.getByText("Typelapse did not load")).toBeVisible();
-		await expect(page.getByRole("link", { name: "reload the page" })).toBeVisible();
+		await expect(page.getByText("Still loading.")).toBeVisible();
+		await expect(page.getByRole("link", { name: "Reload" })).toBeVisible();
 	});
 });
 

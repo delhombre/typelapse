@@ -125,7 +125,7 @@ describe("a bundle that never arrives", () => {
 		expect(note().hidden).toBe(true);
 		vi.advanceTimersByTime(10_000);
 		expect(note().hidden).toBe(false);
-		expect(note().textContent).toMatch(/did not load/i);
+		expect(note().textContent).toMatch(/still loading/i);
 		expect(note().querySelector("a")).not.toBeNull();
 	});
 

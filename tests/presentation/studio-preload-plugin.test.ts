@@ -1,6 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { type StudioBundle, studioChunkFiles } from "../../vite-plugin-studio-preload";
+import {
+	type StudioBundle,
+	missingStudioChunkMessage,
+	studioChunkFiles,
+	studioPreload,
+} from "../../vite-plugin-studio-preload";
 
 /**
  * What the build tells the page about the studio route (ticket #214): its own
@@ -53,5 +58,36 @@ describe("studioChunkFiles", () => {
 
 	it("lists nothing when the bundle has no studio route", () => {
 		expect(studioChunkFiles({ "assets/index-1.js": { ...ENTRY } })).toEqual([]);
+	});
+});
+
+describe("the build, when it cannot find the studio", () => {
+	type Handler = (html: string, context: { bundle?: StudioBundle }) => unknown;
+	const handler = () => {
+		const hook = studioPreload().transformIndexHtml as { handler: Handler };
+		return hook.handler;
+	};
+
+	it("fails loudly instead of shipping a page with no hints", () => {
+		expect(() =>
+			handler()("<html></html>", { bundle: { "assets/index-1.js": { ...ENTRY } } }),
+		).toThrow(missingStudioChunkMessage());
+		expect(missingStudioChunkMessage()).toMatch(/studio-route\.tsx/);
+	});
+
+	it("leaves a page with no bundle alone (nothing is built)", () => {
+		expect(handler()("<html></html>", {})).toBe("<html></html>");
+	});
+
+	it("writes the hints as a JSON element when the studio is there", () => {
+		const bundle: StudioBundle = {
+			"assets/studio-route-2.js": {
+				type: "chunk",
+				fileName: "assets/studio-route-2.js",
+				moduleIds: ["/repo/src/presentation/studio/studio-route.tsx"],
+			},
+		};
+		const result = handler()("<html></html>", { bundle }) as { tags: { children: string }[] };
+		expect(JSON.parse(result.tags[0]?.children ?? "[]")).toEqual(["/assets/studio-route-2.js"]);
 	});
 });

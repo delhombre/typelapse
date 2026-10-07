@@ -205,6 +205,7 @@ export function Hero() {
 							onBlur={() => setFocused(false)}
 							placeholder={focused ? "" : PLACEHOLDERS[mode]}
 							aria-label={`Paste a ${mode}`}
+							data-studio-intent=""
 							spellCheck={false}
 							autoComplete="off"
 							autoCorrect="off"

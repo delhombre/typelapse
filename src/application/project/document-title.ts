@@ -1,5 +1,12 @@
 const SITE = "Typelapse";
 
+/**
+ * The landing's title: what index.html's `<title>` says and what a page that
+ * borrowed the tab gives back. The same words are written in index.html, which
+ * cannot import this, and a test holds the two together.
+ */
+export const LANDING_DOCUMENT_TITLE = "Typelapse: sharp code videos from a pull request";
+
 /** What a project is called until someone names it: "Untitled", then "Untitled 2" and on. */
 const DEFAULT_NAME = /^untitled(?: \d+)?$/i;
 

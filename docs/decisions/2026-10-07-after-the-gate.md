@@ -163,3 +163,13 @@ hosting's real 404 stay Bruno's until the production URL exists.
 
 **Impact:** a report under `.craft/evidence/`, tickets. **Pivot:** "Run
 prep-for-prod after staging."
+
+**Outcome of #214** (the studio's boot weight, PR #225): `CodeEditor` mounts
+the first time its slot is shown (the card unfolded, the phone sheet above its
+peek) and stays mounted, so a Preview visit requests no Monaco; the build
+writes the studio route's hashed files into the page, `/app` modulepreloads
+them and the landing prefetches them on a link or the hero field being reached;
+the Suspense fallback draws the studio's outline; `/app` has its own tab title;
+`index.html` has a noscript and a pre-mount failure sentence. `/app` on mobile
+went from 1,954 KB to 839 KB and TTI from 11.9 s to 6.1 s; LCP did not move
+(6.2 s to 6.1 s), the next lever being Shiki's wasm and theme chunks.

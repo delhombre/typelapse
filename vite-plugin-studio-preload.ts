@@ -67,6 +67,11 @@ export function studioChunkFiles(bundle: StudioBundle): string[] {
 	return [...files];
 }
 
+/** What the build says when no chunk holds the studio route: where to look, not just that. */
+export function missingStudioChunkMessage(): string {
+	return `typelapse-studio-preload: no chunk in the bundle contains ${STUDIO_ROUTE_MODULE}. The studio route was renamed, moved or merged into the entry; update STUDIO_ROUTE_MODULE in vite-plugin-studio-preload.ts, or the /app hard load loses its chunk preload.`;
+}
+
 export function studioPreload(): Plugin {
 	let base = "/";
 	return {
@@ -78,9 +83,14 @@ export function studioPreload(): Plugin {
 		transformIndexHtml: {
 			order: "post",
 			handler(html, context): IndexHtmlTransformResult {
-				const files = context.bundle ? studioChunkFiles(context.bundle as StudioBundle) : [];
-				if (files.length === 0) {
+				if (!context.bundle) {
 					return html;
+				}
+				const files = studioChunkFiles(context.bundle as StudioBundle);
+				if (files.length === 0) {
+					// A route that moved or a bundle that merged it away would otherwise
+					// ship without its hints and nobody would see it until the numbers.
+					throw new Error(missingStudioChunkMessage());
 				}
 				return {
 					html,

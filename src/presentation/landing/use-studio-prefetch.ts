@@ -4,6 +4,10 @@ import { useEffect } from "react";
 /** Any link into the studio, however it is styled: the nav, the island, the hero, the close. */
 const STUDIO_LINK = 'a[href="/app"], a[href^="/app#"], a[href^="/app?"]';
 
+/** The hero's paste field, which navigates to /app on submit: the surest sign of a visit to come. */
+export const STUDIO_INTENT_FIELD = "data-studio-intent";
+const SELECTOR = `${STUDIO_LINK}, [${STUDIO_INTENT_FIELD}]`;
+
 /**
  * Fetch the studio's files the moment someone reaches for a way into it: a
  * pointer over the link, a keyboard focus on it, a finger on it. By the time the
@@ -16,7 +20,7 @@ const STUDIO_LINK = 'a[href="/app"], a[href^="/app#"], a[href^="/app?"]';
 export function useStudioPrefetch(): void {
 	useEffect(() => {
 		const reach = (event: Event) => {
-			if (event.target instanceof Element && event.target.closest(STUDIO_LINK)) {
+			if (event.target instanceof Element && event.target.closest(SELECTOR)) {
 				prefetchStudio();
 			}
 		};

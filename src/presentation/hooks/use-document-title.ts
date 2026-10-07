@@ -1,22 +1,24 @@
+import { LANDING_DOCUMENT_TITLE } from "@/application/project/document-title";
 import { useEffect } from "react";
 
 /**
- * Name the tab while a page is on screen, and give the previous name back when
- * it leaves, so walking from the studio to the landing does not carry the
+ * Name the tab while a page is on screen, and hand it back to the landing when
+ * the page leaves, so walking from the studio to the landing does not carry the
  * studio's title along.
  *
- * Two effects, not one: the title follows the argument, but what to restore is
- * the title from before the page, read once. A single effect would restore the
- * last title it had set, and leave a stale name on the next page.
+ * What is restored is the landing's own title, not whatever the tab said when
+ * the page mounted: on a hard load of /app, index.html has already named the tab
+ * "Studio", so a captured value would put "Studio" onto the landing the first
+ * time the brand link is followed. The studio and the 404 are only ever left for
+ * the landing (or for each other, and the next page names the tab itself).
  */
 export function useDocumentTitle(title: string): void {
 	useEffect(() => {
-		const before = document.title;
-		return () => {
-			document.title = before;
-		};
-	}, []);
-	useEffect(() => {
 		document.title = title;
 	}, [title]);
+	useEffect(() => {
+		return () => {
+			document.title = LANDING_DOCUMENT_TITLE;
+		};
+	}, []);
 }

@@ -82,6 +82,7 @@ function Landing() {
 			<a href="/app">Open studio</a>
 			<a href="/app#import=abc">Import</a>
 			<a href="https://github.com/">Source</a>
+			<textarea aria-label="Paste" data-studio-intent="" />
 			<p>Words</p>
 		</main>
 	);
@@ -122,6 +123,12 @@ describe("the landing's ways into the studio", () => {
 		}
 		render(<Landing />);
 		fireEvent.touchStart(screen.getByText("Open studio"));
+		expect(prefetched()).toEqual(FILES);
+	});
+
+	it("fetch it when the hero's paste field takes focus, the surest way in", () => {
+		render(<Landing />);
+		fireEvent.focusIn(screen.getByLabelText("Paste"));
 		expect(prefetched()).toEqual(FILES);
 	});
 
