@@ -178,12 +178,19 @@ went from 1,954 KB to 839 KB and TTI from 11.9 s to 6.1 s; LCP did not move
 
 ## D9 The focus push-in pivots on the left edge; the gutter stays in frame
 
-**Decision:** the focus zoom's push-in (`ZOOM_SCALE` 1.25) pivots on the
-code body's left edge, not its centre, for every zoom: the line-number
-gutter and the first columns stay in frame and the right edge, which the
-window fade already handles, absorbs what the push-in moves out. One pure
-value (`zoomOriginX`) states the rule and the DOM preview, the Remotion
-composition and the frame-painter read it. Ticket #227, PR #229.
+**Decision:** the focus zoom's push-in (`ZOOM_SCALE` 1.25) pivots only as
+far left as needed to keep the line-number gutter in frame with at least
+half the margin before it: `origin = min(0.5, (s·P − P/2) / ((s − 1)·W))`
+with `s` the zoom scale, `P` the window's padding as drawn and `W` the body
+width (3·P/W at 1.25). At the defaults a 37-column snippet pivots at about
+0.18, an 80-column window at 0.09, the 185-column cut at 0.04; a very
+narrow window stays centred. Whatever the push-in crops on the right is faded at
+the window level (a push-in fade whose opacity follows the zoom), so no
+glyph is sliced. One pure function states the rule and the DOM preview, the
+Remotion composition and the frame-painter read it. Ticket #227, PR #229.
+(Amended twice the same morning: an always-left pivot lost the end of short
+lines, "greet(name: stri…"; a pivot that lets the gutter touch the window
+edge read as a crop; half the margin is the balance.)
 
 **Why:**
 
@@ -198,9 +205,10 @@ composition and the frame-painter read it. Ticket #227, PR #229.
 - A left window fade with the centred pivot: the gutter and margin (55px)
   are smaller than the crop (about 164px), so the gutter would fade out
   entirely.
-- Pivoting left only when a line is cut: two behaviours for one control,
-  and the ordinary case kept losing its gutter.
+- An always-left pivot: short snippets lost the end of their lines.
+- Pivoting left only when a line is cut: the ordinary case kept losing its
+  gutter; the clamp covers both with one rule.
 
 **Impact:** `focus-zoom.ts`, `focus-zoom-body.tsx`, the painter's
-`applyZoom`, CONTEXT.md; zoomed exports change (the picture gains its
-gutter back). **Pivot:** "Centre the push-in."
+`applyZoom` and a push-in fade, CONTEXT.md; zoomed exports of wide windows
+change (the gutter comes back). **Pivot:** "Centre the push-in."
