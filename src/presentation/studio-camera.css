@@ -280,9 +280,15 @@
 	}
 }
 
+/* Sticky, not absolute: below the squeeze floor the shell is taller than the
+   window and the document scrolls, and a header that scrolls away takes the
+   Preview/Edit switch and Add source with it (#226). Stuck at the top of the
+   window it is where an absolute one is at rest, at every height that fits, and
+   its 80px are the shell's own first band, which the absolute slots below never
+   counted. Sticky binds to the document because the root clips, never scrolls. */
 .studio-camera-header {
-	position: absolute;
-	inset: 0 0 auto;
+	position: sticky;
+	top: 0;
 	z-index: 30;
 	height: var(--camera-header);
 	border: 0;
