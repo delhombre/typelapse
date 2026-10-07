@@ -75,3 +75,29 @@ export function exportCodecNote(format: RenderFormat, codecLabel: string | null)
 export function captionsNote(hasCaptions: boolean): string | null {
 	return hasCaptions ? "captions are not baked on this device yet" : null;
 }
+
+/** A file size the way the status row writes it: whole KB under a megabyte, then MB to one place. */
+export function formatBytes(bytes: number): string {
+	if (bytes < 1024 * 1024) {
+		return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+	}
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * The sentence a saved export is announced with. The note arrives as a sentence
+ * of its own, full stop included (`deviceNote`, `stillNote`), so the join adds
+ * a stop only where there is none: it used to add a second one, and a GIF's
+ * note read "GIF: 960×540..".
+ */
+export function savedSentence(done: {
+	filename: string;
+	bytes: number;
+	elapsedMs: number;
+	target: string;
+	note?: string;
+}): string {
+	const where = done.target === "device" ? "on this device" : "on the server";
+	const note = done.note ? ` ${done.note.replace(/\.+$/, "")}.` : "";
+	return `Saved ${done.filename}, ${formatBytes(done.bytes)}, in ${(done.elapsedMs / 1000).toFixed(1)}s ${where}.${note}`;
+}
