@@ -7,6 +7,10 @@
  * studio's first chunk.
  */
 
+import {
+	type MonacoWorkerKind,
+	monacoWorkerKind,
+} from "@/presentation/components/editor/monaco-language";
 import { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker.js?worker";
@@ -15,25 +19,20 @@ import HtmlWorker from "monaco-editor/esm/vs/language/html/html.worker.js?worker
 import JsonWorker from "monaco-editor/esm/vs/language/json/json.worker.js?worker";
 import TypeScriptWorker from "monaco-editor/esm/vs/language/typescript/ts.worker.js?worker";
 
+const WORKERS: Record<MonacoWorkerKind, new () => Worker> = {
+	typescript: TypeScriptWorker,
+	json: JsonWorker,
+	css: CssWorker,
+	html: HtmlWorker,
+	editor: EditorWorker,
+};
+
+// Each worker is its own chunk and only the one asked for is fetched, so the
+// choice of worker per language (monacoWorkerKind) is what keeps the TypeScript
+// service away from every other language.
 self.MonacoEnvironment = {
 	getWorker(_workerId: string, label: string): Worker {
-		switch (label) {
-			case "typescript":
-			case "javascript":
-				return new TypeScriptWorker();
-			case "json":
-				return new JsonWorker();
-			case "css":
-			case "scss":
-			case "less":
-				return new CssWorker();
-			case "html":
-			case "handlebars":
-			case "razor":
-				return new HtmlWorker();
-			default:
-				return new EditorWorker();
-		}
+		return new WORKERS[monacoWorkerKind(label)]();
 	},
 };
 

@@ -14,6 +14,7 @@ import {
 } from "@/application/project/multimedia-authoring";
 import type { BlockPlacement, ImageBlock, TextBlock, VideoBlock } from "@/domain/entities/block";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
+import { useEditorMounted } from "@/presentation/contexts/editor-presence";
 import { feedback } from "@/presentation/haptics";
 import {
 	useStudioCompositionSelectionStore,
@@ -44,16 +45,23 @@ function safeAudioSelection(
  * worker blob URLs that were never revoked. The same element sits first in
  * every branch, so React keeps it; `hidden` takes it out of sight and of the
  * accessibility tree, and Monaco relayouts when it is shown again.
+ *
+ * Monaco itself is not mounted until the shell first shows the slot
+ * (`EditorPresence`): a visit that stays in Preview never downloads it.
  */
 function withCodeEditor(layerEditor: ReactNode | null) {
 	return (
 		<>
 			<div className="flex h-full flex-col" hidden={layerEditor !== null}>
-				<CodeEditor />
+				<MountedCodeEditor />
 			</div>
 			{layerEditor}
 		</>
 	);
+}
+
+function MountedCodeEditor() {
+	return useEditorMounted() ? <CodeEditor /> : null;
 }
 
 export function StudioEditor() {
