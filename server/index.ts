@@ -1,9 +1,10 @@
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { requestId } from "hono/request-id";
+import { secureHeaders } from "hono/secure-headers";
 import type { AssetRepositoryPort } from "../src/application/assets/asset-repository.port";
 import type { HostedProjectAssetResolverPort } from "../src/application/assets/hosted-project-asset-resolver.port";
 import type { ObjectStoragePort } from "../src/application/assets/object-storage.port";
@@ -91,6 +92,28 @@ export async function createApp(
 		logger.error(`Unhandled request failure ${currentRequestId}`);
 		return c.json({ error: "Request failed", requestId: currentRequestId }, 500);
 	});
+
+	// Only what a browser honours on a JSON or a lone HTML response. No
+	// Content-Security-Policy (the static host's, #217), no HSTS (the host's
+	// domain policy), and no Cross-Origin-Resource/Opener-Policy: their
+	// same-origin defaults would cut the studio, on another origin, off from
+	// the API's media and any sign-in popup.
+	app.use(
+		"*",
+		secureHeaders({
+			xFrameOptions: "DENY",
+			referrerPolicy: "strict-origin-when-cross-origin",
+			permissionsPolicy: { camera: [], microphone: [], geolocation: [] },
+			strictTransportSecurity: false,
+			crossOriginResourcePolicy: false,
+			crossOriginOpenerPolicy: false,
+			originAgentCluster: false,
+			xDnsPrefetchControl: false,
+			xDownloadOptions: false,
+			xPermittedCrossDomainPolicies: false,
+			xXssProtection: false,
+		}),
+	);
 
 	app.use(
 		"*",
@@ -199,10 +222,15 @@ export async function createApp(
 			localMultimediaRendering: deploymentMode === "local",
 		},
 	};
-	app.get("/health", (c) => c.json(health));
+	// The capability read decides what the studio offers, so no cache keeps it past a deploy.
+	const readHealth = (c: Context) => {
+		c.header("Cache-Control", "no-store");
+		return c.json(health);
+	};
+	app.get("/health", readHealth);
 	// Also under /api, the one prefix the browser reaches the server by: the
 	// client reads it to skip billing when the server has none.
-	app.get("/api/health", (c) => c.json(health));
+	app.get("/api/health", readHealth);
 
 	if (auth) {
 		// Auth payloads are a few hundred bytes. Without a ceiling Better Auth parses
