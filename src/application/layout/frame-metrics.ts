@@ -297,3 +297,23 @@ export function frameNaturalSize(input: FrameNaturalSizeInput): {
 
 	return { width, height, captionLines: lines };
 }
+
+/**
+ * Width of the line-number column, exactly as the DOM lays it out: a border-box
+ * flex item whose width is the wider of its `minWidth` of `digits + 1`
+ * characters and its content plus the font-size gutter gap, with two digits at
+ * the least. What sits between the window's padding and the code column.
+ */
+export function gutterColumnWidth(input: {
+	showLineNumbers: boolean;
+	/** The deepest label the gutter shows. */
+	lastLine: number;
+	charWidth: number;
+	fontSize: number;
+}): number {
+	if (!input.showLineNumbers) {
+		return 0;
+	}
+	const digits = Math.max(2, String(Math.max(1, Math.floor(input.lastLine))).length);
+	return Math.max((digits + 1) * input.charWidth, digits * input.charWidth + input.fontSize);
+}

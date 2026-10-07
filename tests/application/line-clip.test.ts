@@ -5,7 +5,8 @@
  * and the painter, which draw it in their own units.
  */
 
-import { LINE_FADE_CELLS, gutterColumnWidth, lineClip } from "@/application/layout/line-clip";
+import { gutterColumnWidth } from "@/application/layout/frame-metrics";
+import { LINE_FADE_CELLS, lineClip } from "@/application/layout/line-clip";
 import { displayWidth } from "@/application/text/display-width";
 import { describe, expect, it } from "vitest";
 

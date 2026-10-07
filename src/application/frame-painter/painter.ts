@@ -164,21 +164,29 @@ function paintCard(ctx: PaintContext, sized: FrameScene, state: FrameState): voi
 }
 
 /**
- * The fade over the window's clipped bottom edge. Anchored to the window's
- * bottom, as the DOM anchors it, so a step shorter than the clipped window
- * still fades at its own edge. It sits inside the window's clip and outside the
- * zoom: the window is cut, not the code.
+ * The fades over the edges the window clips at the readable floor. Anchored to
+ * the window's right and bottom edges, as the DOM anchors them, so a step
+ * shorter than the clipped window still fades at its own edge. They sit inside
+ * the window's clip and outside the zoom: the window is cut, not the code.
  */
 function paintClipFades(ctx: PaintContext, scene: FrameScene): void {
 	const [clear, solid] = clipFadeStops(scene.style.theme.background);
+	const right = scene.window.x + scene.window.width;
 	const bottom = scene.window.y + scene.window.height;
 	for (const fade of scene.fades) {
-		const y = bottom - fade.height;
-		const gradient = ctx.createLinearGradient(0, y, 0, y + fade.height);
+		const top = scene.window.y + fade.y;
+		const [x, y, width, height] =
+			fade.edge === "right"
+				? [right - fade.width, top, fade.width, bottom - top]
+				: [scene.window.x, bottom - fade.height, scene.window.width, fade.height];
+		const gradient =
+			fade.edge === "right"
+				? ctx.createLinearGradient(x, 0, x + width, 0)
+				: ctx.createLinearGradient(0, y, 0, y + height);
 		gradient.addColorStop(0, clear);
 		gradient.addColorStop(1, solid);
 		ctx.fillStyle = gradient;
-		ctx.fillRect(scene.window.x, y, scene.window.width, fade.height);
+		ctx.fillRect(x, y, width, height);
 	}
 }
 

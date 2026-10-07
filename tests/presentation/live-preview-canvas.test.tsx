@@ -1,9 +1,11 @@
 import {
 	BASE_VIDEO_SCALE,
+	clipFades,
 	previewCardPlacement,
 	renderScaleFor,
 } from "@/application/layout/canvas-fit";
 import { fitScale } from "@/application/layout/fit-scale";
+import { chromeBarHeight } from "@/application/layout/frame-metrics";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
 import { ZOOM_SCALE } from "@/application/magic-move/focus-zoom";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
@@ -246,8 +248,24 @@ describe("LivePreview on the export canvas", () => {
 		expect(clip?.visibleColumns).toBeGreaterThan(100);
 		const unit = renderScaleFor(1920, 1080, BASE_VIDEO_SCALE);
 		const windowEl = container.querySelector<HTMLElement>(".code-frame-glow");
-		// No window-level fade on the right: the cut is the code column's.
-		expect(windowEl?.querySelector("[data-clip-fade]")).toBeNull();
+		// The window's own fade, for whatever the push-in carries past its edge.
+		const [fade] = clipFades({
+			clip: placement.clip,
+			windowWidth: placement.windowWidth,
+			windowHeight: placement.windowHeight,
+			chromeHeight: chromeBarHeight(state.windowChrome, 1),
+			fontSize: state.snippet.theme.fontSize,
+		});
+		const fadeEl = windowEl?.querySelector<HTMLElement>("[data-clip-fade='right']");
+		expect(Number.parseFloat(fadeEl?.style.width ?? "")).toBeCloseTo(
+			(fade?.width ?? Number.NaN) * unit,
+			6,
+		);
+		expect(Number.parseFloat(fadeEl?.style.top ?? "")).toBeCloseTo(
+			(fade?.y ?? Number.NaN) * unit,
+			6,
+		);
+		// And the code column's, over its last columns before the cut.
 		const column = [...(windowEl?.querySelectorAll<HTMLElement>("span") ?? [])].find(
 			(span) => span.textContent?.length === 10_000,
 		)?.parentElement;

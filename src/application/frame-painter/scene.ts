@@ -26,8 +26,9 @@ import {
 	LINE_HEIGHT_RATIO,
 	captionBlockHeight,
 	chromeBarHeight,
+	gutterColumnWidth,
 } from "../layout/frame-metrics";
-import { type LineClip, gutterColumnWidth } from "../layout/line-clip";
+import type { LineClip } from "../layout/line-clip";
 import type { PaintImage } from "./paint-context";
 
 /** A decoded grain tile, ready to be tiled over the background. */

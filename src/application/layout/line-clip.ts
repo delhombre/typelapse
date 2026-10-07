@@ -9,10 +9,14 @@
  * Remotion composition as a `ch` mask on the code column (`MagicMoveCanvas`),
  * the canvas painter as a gradient over the same columns. The engine still lays
  * the whole line out, so a morph glides into the cut and the typewriter types
- * the hidden tail.
+ * the hidden tail. The window keeps its own right fade (`clipFades`) for what
+ * the push-in carries past its edge.
  */
 
-/** Cells the fade spans before the clip edge: short, so the code stays readable to the cut. */
+/**
+ * Whole columns the fade spans before the cut, plus the partial one at the
+ * edge: short, so the code stays readable up to the cut.
+ */
 export const LINE_FADE_CELLS = 3;
 
 /** Whatever floating point leaves of a column that lands on the edge exactly. */
@@ -51,24 +55,4 @@ export function lineClip(input: {
 		fadeStart: Math.max(0, visibleColumns - LINE_FADE_CELLS),
 		fadeEnd,
 	};
-}
-
-/**
- * Width of the line-number column, exactly as the DOM lays it out: a border-box
- * flex item whose width is the wider of its `minWidth` of `digits + 1`
- * characters and its content plus the font-size gutter gap, with two digits at
- * the least. What sits between the window's padding and the code column.
- */
-export function gutterColumnWidth(input: {
-	showLineNumbers: boolean;
-	/** The deepest label the gutter shows. */
-	lastLine: number;
-	charWidth: number;
-	fontSize: number;
-}): number {
-	if (!input.showLineNumbers) {
-		return 0;
-	}
-	const digits = Math.max(2, String(Math.max(1, Math.floor(input.lastLine))).length);
-	return Math.max((digits + 1) * input.charWidth, digits * input.charWidth + input.fontSize);
 }

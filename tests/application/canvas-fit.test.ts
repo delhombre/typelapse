@@ -285,4 +285,50 @@ describe("a line longer than the floor's columns", () => {
 		expect(ideographs.scale).toBe(ascii.scale);
 		expect(ideographs.lineClip).toEqual(ascii.lineClip);
 	});
+
+	/** A file of `lines` rows whose first row is `cols` wide, on 16:9 at 1080p. */
+	const fileAt = (cols: number, lines: number) =>
+		fitCardToCanvas({
+			...settings,
+			plan: { frames: [{ lineCount: lines, tokens: [{ col: 0, content: "x".repeat(cols) }] }] },
+			scale: 2.2,
+			canvasWidth: 1920,
+			canvasHeight: 1080,
+		});
+
+	it.each([
+		[288, 57],
+		[250, 55],
+	])("cuts a %i-column line of a %i-line file at 185 columns, its height whole", (cols, lines) => {
+		const fit = fileAt(cols, lines);
+		// The height bounds this fit, above the floor: 250 columns used to show whole at 9.8 px.
+		expect(fit.scale).toBeGreaterThan(8 / 30.8);
+		expect(fit.clip).toEqual({ right: true, bottom: false });
+		expect(fit.lineClip?.visibleColumns).toBe(185);
+		expect(fit.natural.width).toBeCloseTo(3601.4, 9);
+	});
+
+	it("never cuts the bottom of a file the height-bound fit holds whole", () => {
+		// Solving the scale for the height and dividing back gave 3002.2300000000005
+		// for a 3002.23 px window: a bottom fade on a card that fits.
+		for (const cols of [200, 250, 288, 300]) {
+			for (let lines = 30; lines <= 65; lines++) {
+				const fit = fileAt(cols, lines);
+				const natural = frameNaturalSize({
+					chrome: "macos",
+					maxCols: cols,
+					maxLines: lines,
+					fontSize: 14 * 2.2,
+					padding: 24 * 2.2,
+					showLineNumbers: true,
+					lineNumberStart: 1,
+					captions: [],
+					scale: 2.2,
+					charWidthRatio: 0.6,
+				});
+				expect(fit.clip?.bottom, `${cols} x ${lines}`).toBe(false);
+				expect(fit.natural.height, `${cols} x ${lines}`).toBe(natural.height);
+			}
+		}
+	});
 });

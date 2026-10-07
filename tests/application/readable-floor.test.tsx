@@ -36,6 +36,7 @@ import type { MagicMovePlan } from "../../src/application/magic-move/engine";
 import { ASPECT_LABELS, dimensionsFor } from "../../src/domain/entities/render-config";
 import type { ClientExportJob } from "../../src/infrastructure/export/client-export-job";
 import { sceneFor } from "../../src/infrastructure/export/client-export-scene";
+import { FocusZoomBody } from "../../src/presentation/components/preview/focus-zoom-body";
 import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic-move-canvas";
 import { RecordingContext, round } from "./support/recording-context";
 
@@ -251,16 +252,25 @@ describe.each([
 			lineNumberCount: plan.frames[0]?.lineCount ?? 1,
 			timeSeconds: 0,
 		});
+		const right = scene.window.x + scene.window.width;
 		const bottom = scene.window.y + scene.window.height;
 		for (const fade of fades) {
-			const [x, y, w, h] = [
-				scene.window.x,
-				bottom - fade.height,
-				scene.window.width,
-				fade.height,
-			].map(round) as [number, number, number, number];
+			const rect =
+				fade.edge === "right"
+					? [
+							right - fade.width,
+							scene.window.y + fade.y,
+							fade.width,
+							bottom - scene.window.y - fade.y,
+						]
+					: [scene.window.x, bottom - fade.height, scene.window.width, fade.height];
+			const [x, y, w, h] = rect.map(round) as [number, number, number, number];
+			const id =
+				fade.edge === "right"
+					? `linear(${x},0,${round(x + w)},0)`
+					: `linear(0,${y},0,${round(y + h)})`;
 			expect(ctx.commands).toContain(
-				`fillStyle=linear(0,${y},0,${round(y + h)})[0:${THEME.background}00|1:${THEME.background}]`,
+				`fillStyle=${id}[0:${THEME.background}00|1:${THEME.background}]`,
 			);
 			expect(ctx.commands).toContain(`fillRect(${x},${y},${w},${h})`);
 		}
@@ -334,19 +344,80 @@ describe.each([
 	});
 });
 
+describe("the long line under the push-in, in the DOM", () => {
+	it("keeps the window's right fade on the window and moves the column fade with the code", () => {
+		const { scale, fit } = fitAt(LONG_LINE, 1920, 1080);
+		const { container } = render(
+			<CenteredFrame
+				plan={LONG_LINE}
+				theme={THEME}
+				title="long.ts"
+				windowChrome={SETTINGS.chrome}
+				showLineNumbers={SETTINGS.showLineNumbers}
+				lineNumberStart={SETTINGS.lineNumberStart}
+				framePadding={SETTINGS.padding}
+				cardMargin={SETTINGS.cardMargin}
+				canvasWidth={1920}
+				canvasHeight={1080}
+				videoScale={scale}
+				charWidthRatio={ADVANCE}
+			>
+				{(lineClip) => (
+					<FocusZoomBody
+						zoom={{ scale: 1.25, originYRatio: 0.5 }}
+						active
+						borderRadius={THEME.borderRadius * scale}
+					>
+						<MagicMoveCanvas
+							tokens={LONG_LINE.frames[0]?.tokens.map((t) => ({ ...t, opacity: 1 })) ?? []}
+							lineCount={1}
+							fontSize={THEME.fontSize * scale}
+							lineHeightRatio={LINE_HEIGHT_RATIO}
+							fontFamily={THEME.fontFamily}
+							color={FG}
+							padding={SETTINGS.padding * scale}
+							lineClip={lineClip}
+						/>
+					</FocusZoomBody>
+				)}
+			</CenteredFrame>,
+		);
+		const windowEl = container.querySelector<HTMLElement>("[data-code-window]");
+		const fade = windowEl?.querySelector<HTMLElement>("[data-clip-fade='right']");
+		// The window's fade is the window's child: the push-in never scales it.
+		expect(fade?.parentElement).toBe(windowEl);
+		const column = [...(windowEl?.querySelectorAll<HTMLElement>("span") ?? [])].find(
+			(span) => span.textContent?.length === 10_000,
+		)?.parentElement;
+		expect(column?.style.maskImage).toContain(`${fit.lineClip?.fadeStart}ch`);
+		// The masked column sits inside the scaled box, as the painter's fade sits inside its zoom.
+		let scaled: HTMLElement | null | undefined = column;
+		while (scaled && !scaled.style.transform.startsWith("scale(")) {
+			scaled = scaled.parentElement;
+		}
+		expect(scaled?.style.transform).toBe("scale(1.25)");
+		expect(windowEl?.contains(scaled ?? null)).toBe(true);
+	});
+});
+
 /** The DOM fades, in the window's own px, divided by `unit` for an editor-size window. */
 function expectFades(container: HTMLElement, fades: ReturnType<typeof clipFades>, unit: number) {
 	const els = Array.from(container.querySelectorAll<HTMLElement>("[data-clip-fade]"));
 	expect(els.map((el) => el.dataset.clipFade).sort()).toEqual(
 		fades.map((fade) => fade.edge).sort(),
 	);
-	// Anchored to the window's bottom edge, so a step shorter than the clipped
-	// window still fades at its own edge, as the painter does.
+	// Anchored to the window's right and bottom edges, so a step shorter than the
+	// clipped window still fades at its own edge, as the painter does.
 	for (const fade of fades) {
 		const el = els.find((candidate) => candidate.dataset.clipFade === fade.edge);
 		expect(el?.style.right).toBe("0px");
 		expect(el?.style.bottom).toBe("0px");
-		expect(el?.style.left).toBe("0px");
-		expect(Number.parseFloat(el?.style.height ?? "")).toBeCloseTo(fade.height / unit, 6);
+		if (fade.edge === "right") {
+			expect(Number.parseFloat(el?.style.top ?? "")).toBeCloseTo(fade.y / unit, 6);
+			expect(Number.parseFloat(el?.style.width ?? "")).toBeCloseTo(fade.width / unit, 6);
+		} else {
+			expect(el?.style.left).toBe("0px");
+			expect(Number.parseFloat(el?.style.height ?? "")).toBeCloseTo(fade.height / unit, 6);
+		}
 	}
 }
