@@ -97,3 +97,25 @@ export function fontStylesheets(...stacks: string[]): Promise<string[]> {
 		),
 	);
 }
+
+/** The face a step caption is set in (`step-caption.tsx`: Inter, weight 500). */
+export const CAPTION_FONT_PROBE = "500 16px Inter";
+
+/**
+ * Register the bundled faces for these stacks in the page, then wait until the
+ * probe font (the theme's, whose advance the card is sized on) and the caption's
+ * Inter are actually loaded. A face that no element has asked for yet is not
+ * loading, so `fonts.ready` alone would let a frame be drawn in the fallback.
+ */
+export async function loadCompositionFonts(probeFont: string, ...stacks: string[]): Promise<void> {
+	for (const css of await fontStylesheets(...stacks)) {
+		const style = document.createElement("style");
+		style.textContent = css;
+		document.head.appendChild(style);
+	}
+	await Promise.all([
+		document.fonts.load(probeFont, "0"),
+		document.fonts.load(CAPTION_FONT_PROBE, "A"),
+	]);
+	await document.fonts.ready;
+}

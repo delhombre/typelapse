@@ -1,6 +1,6 @@
-import { parseFontFaceSources } from "@/application/fonts/font-face-css";
 import { installSelfHostedFonts } from "@/presentation/utils/self-hosted-fonts";
 import { afterEach, describe, expect, it } from "vitest";
+import { parseFontFaceSources } from "../support/font-face-parser";
 
 function installedFaces() {
 	const sheets = [...document.querySelectorAll("style[data-self-hosted-fonts]")];

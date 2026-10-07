@@ -105,7 +105,7 @@ const GEIST_FILES: readonly FontFile[] = [
  * exactly these. Listed from the one that matters least to the one that
  * matters most: where ranges overlap the later rule wins, so Latin is last.
  */
-const SUBSET_RANGES = {
+export const SUBSET_RANGES = {
 	cyrillic:
 		"U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116, U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F",
 	greek: "U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF, U+1F00-1FFF",

@@ -27,7 +27,7 @@ import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic
 import { ReelsProgress } from "../../src/presentation/components/preview/reels-progress";
 import { StepCaption } from "../../src/presentation/components/preview/step-caption";
 import { getWatermarkColor } from "../../src/presentation/utils/watermark-color";
-import { fontStylesheets } from "./font-files";
+import { loadCompositionFonts } from "./font-files";
 import type { RenderInput, ThemeData } from "./types";
 
 // The base scale and the safe-area margin are the shared placement table's
@@ -53,18 +53,7 @@ function useFontLoaded(fontFamily: string, fontSize: number): number {
 		// The theme's family and Inter, which sets the step captions (StepCaption),
 		// through the shared registry: the bundled copy of the files the preview
 		// loads, so nothing is asked of a third party.
-		fontStylesheets(fontFamily, "Inter")
-			.then((sheets) => {
-				for (const css of sheets) {
-					const style = document.createElement("style");
-					style.textContent = css;
-					document.head.appendChild(style);
-				}
-				// A face that no element has asked for yet is not loading, so `ready`
-				// alone would let the probe measure the fallback.
-				return document.fonts.load(advanceProbeFont(fontFamily, fontSize), "0");
-			})
-			.then(() => document.fonts.ready)
+		loadCompositionFonts(advanceProbeFont(fontFamily, fontSize), fontFamily, "Inter")
 			.then(() => {
 				setCharWidthRatio(measureAdvance(fontFamily, fontSize));
 				continueRender(handle);

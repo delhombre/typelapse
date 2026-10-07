@@ -2,20 +2,28 @@
 Rebuild the self-hosted Fira Code, Source Code Pro, IBM Plex Mono, Cascadia Code
 and Inter files under public/fonts from their upstream releases.
 
-    python3 -m venv venv && venv/bin/pip install fonttools brotli
+    python3 -m venv venv && venv/bin/pip install fonttools==4.66.1 brotli==1.2.0
     venv/bin/python scripts/subset-fonts.py <folder holding the upstream files>
 
-Upstream (all SIL OFL 1.1, licences beside the fonts):
-    FiraCode-VF.woff2              tonsky/FiraCode 6.2           woff2/FiraCode-VF.woff2
-    SourceCodeVF-Upright.ttf       adobe-fonts/source-code-pro   VF-source-code-VF-1.026R.zip
-    IBM Plex Mono Var-Roman.woff2  IBM/plex @ibm/plex-mono-variable@1.0.0, fonts/complete/woff2
-    CascadiaCode.woff2             microsoft/cascadia-code 2407.24, woff2/CascadiaCode.woff2
-    InterVariable.woff2            rsms/inter 4.1                web/InterVariable.woff2
+Upstream (all SIL OFL 1.1, licences beside the fonts). The file to take out of
+each release archive, and the archive:
 
-Each family is cut into the same unicode-range subsets the Google files for
-JetBrains Mono and Geist already use (their ranges are the ones in
-src/application/fonts/code-fonts.ts), so a document only fetches the subset a
-character needs. Variable axes and layout features (ligatures) are kept.
+    FiraCode-VF.woff2              woff2/ in
+        https://github.com/tonsky/FiraCode/releases/download/6.2/Fira_Code_v6.2.zip
+    SourceCodeVF-Upright.ttf       VF/ in
+        https://github.com/adobe-fonts/source-code-pro/releases/download/2.042R-u%2F1.062R-i%2F1.026R-vf/VF-source-code-VF-1.026R.zip
+    IBM Plex Mono Var-Roman.woff2  fonts/complete/woff2/ in
+        https://github.com/IBM/plex/releases/download/%40ibm%2Fplex-mono-variable%401.0.0/plex-mono-variable.zip
+    CascadiaCode.woff2             woff2/ in
+        https://github.com/microsoft/cascadia-code/releases/download/v2407.24/CascadiaCode-2407.24.zip
+    InterVariable.woff2            web/ in
+        https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
+
+Each family is cut at the unicode ranges of SUBSET_RANGES in
+src/application/fonts/code-fonts.ts (tests/application/subset-ranges.test.ts
+fails when the two lists drift), so a document only fetches the subset a
+character needs. Variable axes, layout features (ligatures) and the original
+`name` tables are kept.
 """
 
 import io

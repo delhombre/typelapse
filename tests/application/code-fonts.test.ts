@@ -7,13 +7,14 @@ import {
 	primaryFamily,
 	selfHostedFaces,
 } from "@/application/fonts/code-fonts";
-import { fontFaceRules, parseFontFaceSources } from "@/application/fonts/font-face-css";
+import { fontFaceRules } from "@/application/fonts/font-face-css";
 import {
 	MAX_ADVANCE_DRIFT,
 	advanceDriftMessage,
 	unresolvedFontMessage,
 } from "@/application/fonts/font-fidelity";
 import { describe, expect, it } from "vitest";
+import { parseFontFaceSources } from "../support/font-face-parser";
 
 /** The faces a registered family serves itself. */
 function facesOf(family: string) {
@@ -224,61 +225,6 @@ describe("fontsToLoad", () => {
 			"Cascadia Code, monospace",
 		).map((font) => font.family);
 		expect(families).toEqual(["JetBrains Mono", "Cascadia Code"]);
-	});
-});
-
-/** One subset block, exactly as Google serves it to a modern browser. */
-const GOOGLE_CSS = `
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Fira Code';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/firacode/v22/cyrillic.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C88;
-}
-/* latin */
-@font-face {
-  font-family: 'Fira Code';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/firacode/v22/latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131;
-}
-`;
-
-describe("parseFontFaceSources", () => {
-	it("finds every face in a Google stylesheet", () => {
-		const faces = parseFontFaceSources(GOOGLE_CSS);
-		expect(faces).toHaveLength(2);
-		expect(faces[0]).toEqual({
-			family: "Fira Code",
-			url: "https://fonts.gstatic.com/s/firacode/v22/cyrillic.woff2",
-			weight: "400",
-			style: "normal",
-			unicodeRange: "U+0460-052F, U+1C80-1C88",
-		});
-	});
-
-	it("keeps the weight of each face, so a bold prompt is not synthesised", () => {
-		expect(parseFontFaceSources(GOOGLE_CSS)[1]?.weight).toBe("700");
-	});
-
-	it("reads a quoted url and a bare one alike", () => {
-		const css = `@font-face { font-family: "X"; src: url("https://e.example/x.woff2") format('woff2'); }`;
-		expect(parseFontFaceSources(css)[0]?.url).toBe("https://e.example/x.woff2");
-	});
-
-	it("takes the woff2 source when a face offers several", () => {
-		const css = `@font-face { font-family: X; src: url(a.woff) format('woff'), url(b.woff2) format('woff2'); }`;
-		expect(parseFontFaceSources(css)[0]?.url).toBe("b.woff2");
-	});
-
-	it("returns nothing rather than throwing on a stylesheet it cannot read", () => {
-		expect(parseFontFaceSources("")).toEqual([]);
-		expect(parseFontFaceSources("body { color: red }")).toEqual([]);
 	});
 });
 

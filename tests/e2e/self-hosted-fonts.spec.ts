@@ -62,32 +62,36 @@ test.describe("Fonts are served by the app, never by Google", () => {
 	});
 
 	for (const font of FONT_PRESETS) {
-		test(`${font.family}: the preview draws it from /fonts and the on-device export renders it`, async ({
-			page,
-		}, testInfo) => {
-			await pickFont(page, font.label);
-			await page.evaluate(
-				(stack) => document.fonts.load(`16px ${stack.split(",")[0]}`, "0"),
-				font.stack,
-			);
-			await page.evaluate(() => document.fonts.ready);
-			expect(await loadedFaces(page, font.family)).toContain("loaded");
-			expect(served).toContain(`/fonts/${LATIN_FILE[font.family]}`);
+		// One font guards CI against a return to Google; the full run covers the rest.
+		const tag = font.family === "Fira Code" ? ["@smoke"] : [];
+		test(
+			`${font.family}: the preview draws it from /fonts and the on-device export renders it`,
+			{ tag },
+			async ({ page }, testInfo) => {
+				await pickFont(page, font.label);
+				await page.evaluate(
+					(stack) => document.fonts.load(`16px ${stack.split(",")[0]}`, "0"),
+					font.stack,
+				);
+				await page.evaluate(() => document.fonts.ready);
+				expect(await loadedFaces(page, font.family)).toContain("loaded");
+				expect(served).toContain(`/fonts/${LATIN_FILE[font.family]}`);
 
-			// Back out of the font choices and the Look row to the export controls.
-			await page.getByRole("button", { name: "Back to look controls" }).click();
-			await page.getByRole("button", { name: "Back to studio controls" }).click();
-			await page.getByRole("button", { name: /^Export · / }).click();
-			await page.getByRole("button", { name: "GIF", exact: true }).click();
-			const { download } = await downloadFrom(
-				page,
-				() => page.getByRole("button", { name: /^Render · / }).click(),
-				testInfo.outputPath("export.gif"),
-			);
-			// The worker refuses an export whose font it could not load, so a file
-			// is a font that arrived; and it arrived from here.
-			expect(download.suggestedFilename()).toMatch(/\.gif$/);
-			expect(fontRequests).toEqual([]);
-		});
+				// Back out of the font choices and the Look row to the export controls.
+				await page.getByRole("button", { name: "Back to look controls" }).click();
+				await page.getByRole("button", { name: "Back to studio controls" }).click();
+				await page.getByRole("button", { name: /^Export · / }).click();
+				await page.getByRole("button", { name: "GIF", exact: true }).click();
+				const { download } = await downloadFrom(
+					page,
+					() => page.getByRole("button", { name: /^Render · / }).click(),
+					testInfo.outputPath("export.gif"),
+				);
+				// The worker refuses an export whose font it could not load, so a file
+				// is a font that arrived; and it arrived from here.
+				expect(download.suggestedFilename()).toMatch(/\.gif$/);
+				expect(fontRequests).toEqual([]);
+			},
+		);
 	}
 });
