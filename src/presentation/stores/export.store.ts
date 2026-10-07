@@ -1,6 +1,6 @@
 import type { CaptureRecord } from "@/application/captures/capture-record";
 import { deviceExportRefusal } from "@/application/export/device-export-refusal";
-import { exportCodecNote, formatName } from "@/application/export/export-label";
+import { captionsNote, exportCodecNote, formatName } from "@/application/export/export-label";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
@@ -544,7 +544,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					bytes: blob.size,
 					target: "device",
 					elapsedMs: performance.now() - startedAt,
-					note: `${resolved.config.width}×${resolved.config.height}.`,
+					note: stillNote(resolved.config, snippet),
 				},
 			});
 			feedback("success");
@@ -980,13 +980,25 @@ function deviceNote(
 				: "no audio track on this device yet",
 		);
 	}
-	if (snippet.steps.some((step) => step.annotation)) {
-		notes.push("captions are not baked on this device yet");
+	const captions = captionsNote(hasCaptions(snippet));
+	if (captions) {
+		notes.push(captions);
 	}
 
 	// Each fragment is written to read inside a sentence, so the join is what
 	// makes each one start like a sentence again.
 	return notes.length > 0 ? `${notes.map(sentenceCase).join(". ")}.` : undefined;
+}
+
+function hasCaptions(snippet: Snippet): boolean {
+	return snippet.steps.some((step) => step.annotation);
+}
+
+/** The PNG's size, then what the painter leaves out of it: the video's own caption line. */
+function stillNote(config: RenderConfig, snippet: Snippet): string {
+	const size = `${config.width}×${config.height}.`;
+	const captions = captionsNote(hasCaptions(snippet));
+	return captions ? `${size} ${sentenceCase(captions)}.` : size;
 }
 
 function sentenceCase(fragment: string): string {

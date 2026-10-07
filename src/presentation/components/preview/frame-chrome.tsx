@@ -16,7 +16,11 @@ import {
 	CHROME_STYLE,
 	CHROME_TEXT_LINE_HEIGHT,
 } from "../../../application/layout/frame-metrics";
-import { chromeGlyphAdvance, windowTitle } from "../../../application/layout/window-title";
+import {
+	browserPillWidth,
+	chromeGlyphAdvance,
+	windowTitle,
+} from "../../../application/layout/window-title";
 
 export type WindowChrome = "macos" | "browser" | "terminal" | "none";
 
@@ -63,7 +67,7 @@ function FrameChromeView({ chrome, title, foreground, scale = 1, width }: FrameC
 		return null;
 	}
 	const shown = width === undefined ? title : windowTitle(title, chrome, width, scale);
-	const bar = { title, shown, foreground, scale };
+	const bar = { title, shown, foreground, scale, fitted: width !== undefined };
 	if (chrome === "browser") {
 		return <BrowserChrome {...bar} />;
 	}
@@ -80,6 +84,8 @@ interface BarProps {
 	shown: string;
 	foreground: string;
 	scale: number;
+	/** The window's width was given, so `shown` is the string the painter draws too. */
+	fitted: boolean;
 }
 
 /**
@@ -144,7 +150,7 @@ function MacosChrome({ title, shown, foreground, scale }: BarProps) {
 }
 
 /** A slim browser tab bar: nav chevrons on the left, a centered pill address bar. */
-function BrowserChrome({ title, shown, foreground, scale }: BarProps) {
+function BrowserChrome({ title, shown, foreground, scale, fitted }: BarProps) {
 	const bar = CHROME_STYLE.browser;
 	return (
 		<div
@@ -183,6 +189,13 @@ function BrowserChrome({ title, shown, foreground, scale }: BarProps) {
 			<div style={{ flex: 1, display: "flex", justifyContent: "center", minWidth: 0 }}>
 				<div
 					style={{
+						// Sized from the title's cells, as the painter sizes it, so a CJK or
+						// emoji label does not depend on the face it falls back to. Without a
+						// window width the pill hugs its content and the CSS clip stays.
+						...(fitted && {
+							boxSizing: "border-box" as const,
+							width: browserPillWidth(shown, scale),
+						}),
 						maxWidth: `${bar.pillMaxWidth * 100}%`,
 						background: `${foreground}${bar.pillAlpha}`,
 						borderRadius: bar.pillRadius,

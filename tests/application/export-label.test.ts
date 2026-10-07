@@ -1,4 +1,5 @@
 import {
+	captionsNote,
 	exportCodecNote,
 	exportCtaDetail,
 	exportCtaLabel,
@@ -67,5 +68,15 @@ describe("exportCodecNote", () => {
 
 	it("says nothing about a GIF, which no codec touched", () => {
 		expect(exportCodecNote("gif", null)).toBeNull();
+	});
+});
+
+describe("the captions note: the on-device export draws none, video or still (#179)", () => {
+	it("says captions are not baked on this device when the project has one", () => {
+		expect(captionsNote(true)).toBe("captions are not baked on this device yet");
+	});
+
+	it("says nothing when no step carries a caption", () => {
+		expect(captionsNote(false)).toBeNull();
 	});
 });

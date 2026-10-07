@@ -33,7 +33,7 @@ import {
 	chromeRowHeight,
 } from "../layout/frame-metrics";
 import { watermarkPlacement } from "../layout/watermark-placement";
-import { chromeGlyphAdvance, windowTitle } from "../layout/window-title";
+import { browserPillWidth, chromeGlyphAdvance, windowTitle } from "../layout/window-title";
 import { scrolledGutter } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
 import type { ZoomTransform } from "../magic-move/focus-zoom";
@@ -497,8 +497,9 @@ function paintMacosChrome(
  * room is left once the chevrons and the right-hand spacer have taken theirs.
  *
  * The pill is shrink-to-fit up to its `max-width`, and its text ellipsises
- * inside it, so both have to be measured rather than assumed — which is why this
- * is the one bar whose layout depends on the string it is given.
+ * inside it, so both are counted from the string (`browserPillWidth`, in cells)
+ * rather than assumed or measured — which is why this is the one bar whose
+ * layout depends on the string it is given.
  */
 function paintBrowserChrome(
 	ctx: PaintContext,
@@ -535,11 +536,11 @@ function paintBrowserChrome(
 
 	setTracking(ctx, bar.titleTracking);
 	ctx.font = canvasFont(bar.titleSize * unit, CHROME_FONT_STACK);
-	const padX = bar.pillPadX * unit;
 	const maxPill = bar.pillMaxWidth * flexWidth;
-	// The pill hugs the line it holds, which is already cut to fit inside it.
+	// The pill hugs the line it holds, which is already cut to fit inside it, and
+	// is sized from that line's cells like the DOM pill: no font is asked a width.
 	const label = windowTitle(title, "browser", scene.window.width, unit);
-	const pillWidth = Math.min(ctx.measureText(label).width + 2 * padX, maxPill);
+	const pillWidth = Math.min(browserPillWidth(label, unit), maxPill);
 	const pillHeight = (2 * bar.pillPadY + bar.titleSize * CHROME_TEXT_LINE_HEIGHT) * unit;
 	const pillX = flexLeft + (flexWidth - pillWidth) / 2;
 

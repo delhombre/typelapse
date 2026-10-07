@@ -16,7 +16,7 @@
  * so a title in either takes the room it draws, and a glyph is never cut.
  */
 
-import { clusters } from "../text/display-width";
+import { clusters, displayWidth } from "../text/display-width";
 import { CHROME_STYLE, type ChromeVariant } from "./frame-metrics";
 
 /** The glyph CSS puts at the cut of `text-overflow: ellipsis`. */
@@ -106,6 +106,18 @@ export function windowTitleRoom(chrome: ChromeVariant, windowWidth: number, unit
 		(bar.chevrons.length - 1) * bar.chevronGap;
 	const flex = windowWidth - unit * (2 * bar.padX + chevrons + bar.spacer + 2 * bar.gap);
 	return bar.pillMaxWidth * flex - 2 * bar.pillPadX * unit;
+}
+
+/**
+ * Width in px of the browser bar's address pill around `label`, before its
+ * `max-width` caps it: the label's display cells at the title's advance, plus the
+ * pill's own padding. Counted rather than measured, so the DOM pill and the
+ * painter's give a CJK or emoji label the same width whatever face a browser or
+ * a worker falls back to for it (`windowTitle` cuts in the same cells).
+ */
+export function browserPillWidth(label: string, unit: number): number {
+	const bar = CHROME_STYLE.browser;
+	return displayWidth(label) * windowTitleAdvance("browser", unit) + 2 * bar.pillPadX * unit;
 }
 
 /** How many cells of title the bar has room for: zero when it has none. */
