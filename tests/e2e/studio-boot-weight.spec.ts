@@ -210,23 +210,100 @@ test.describe("Studio boot: the files, the tab, the outline", () => {
 		await expect(outline).toHaveCount(0);
 	});
 
+	/** The box of the first element matching `selector`, in window px. */
+	async function boxOf(page: Page, selector: string): Promise<number[]> {
+		return page.evaluate((query) => {
+			const rect = document.querySelector(query)?.getBoundingClientRect();
+			if (!rect) {
+				throw new Error(`no ${query}`);
+			}
+			return [rect.left, rect.top, rect.width, rect.height];
+		}, selector);
+	}
+
+	// #226: the outline's frame is the studio's own at every window, so the
+	// picture does not resize or jump when the studio arrives.
+	for (const [width, height] of [
+		[1280, 800],
+		[1440, 900],
+		[1366, 650],
+		[820, 1180],
+		[390, 844],
+	] as const) {
+		test(`the outline's frame is the studio's frame at ${width}x${height}`, async ({ page }) => {
+			await page.setViewportSize({ width, height });
+			let release: () => void = () => undefined;
+			const held = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			await page.route(/\/assets\/studio-route-.*\.js/, async (route) => {
+				await held;
+				await route.continue();
+			});
+			await page.goto("/app", { waitUntil: "commit" });
+			await expect(page.locator(".sk-frame")).toBeVisible();
+			const outline = await boxOf(page, ".sk-frame");
+
+			release();
+			await expect(page.getByRole("button", { name: "Add source" })).toBeEnabled();
+			// The studio's own arrival is a spring; its frame is where it settles.
+			await expect(async () => {
+				const before = await boxOf(page, "[data-testid=preview-frame]");
+				await page.waitForTimeout(150);
+				expect(await boxOf(page, "[data-testid=preview-frame]")).toEqual(before);
+			}).toPass();
+			const studio = await boxOf(page, "[data-testid=preview-frame]");
+
+			outline.forEach((value, index) => {
+				expect(Math.abs(value - (studio[index] ?? Number.NaN))).toBeLessThanOrEqual(1);
+			});
+		});
+	}
+
 	test("a studio with no entry bundle says so instead of staying blank", async ({ page }) => {
 		await page.route(/\/assets\/index-.*\.js/, (route) => route.abort());
 		await page.goto("/app");
 		await expect(page.getByText("Still loading.")).toBeVisible();
-		await expect(page.getByRole("link", { name: "Reload" })).toBeVisible();
+		const reload = page.getByRole("link", { name: "Reload" });
+		await expect(reload).toBeVisible();
+		expect(await reload.evaluate((link) => getComputedStyle(link).textDecorationLine)).toBe(
+			"underline",
+		);
+	});
+
+	test("the failed boot's link is readable on the dark studio's paper", async ({ page }) => {
+		await page.addInitScript(() => window.localStorage.setItem("typelapse.studio-theme", "dark"));
+		await page.route(/\/assets\/index-.*\.js/, (route) => route.abort());
+		await page.goto("/app");
+		const reload = page.getByRole("link", { name: "Reload" });
+		await expect(reload).toBeVisible();
+		expect(await reload.evaluate((link) => getComputedStyle(link).color)).toBe(
+			"rgb(114, 155, 255)",
+		);
 	});
 });
 
 test.describe("Studio boot: JavaScript off", () => {
 	test.use({ javaScriptEnabled: false });
 
-	test("the page names itself and points at the studio", async ({ page }) => {
-		await page.goto("/");
-		await expect(page.getByRole("heading", { level: 1 })).toContainText("sharp code videos");
-		await expect(page.getByRole("link", { name: "open the studio" })).toHaveAttribute(
-			"href",
-			"/app",
-		);
-	});
+	for (const route of ["/", "/app"]) {
+		test(`${route} names itself and offers a reload that looks like a link`, async ({ page }) => {
+			await page.goto(route);
+			await expect(page.getByRole("heading", { level: 1 })).toContainText("sharp code videos");
+			const reload = page.getByRole("link", { name: "reload this page" });
+			// Never the page it is on by route: it is a reload.
+			await expect(reload).toHaveAttribute("href", "");
+			const look = await reload.evaluate((link) => {
+				const style = getComputedStyle(link);
+				return {
+					line: style.textDecorationLine,
+					color: style.color,
+					ink: style.getPropertyValue("--boot-link"),
+				};
+			});
+			expect(look.line).toBe("underline");
+			expect(look.ink.trim()).toBe("#3b5bd4");
+			expect(look.color).toBe("rgb(59, 91, 212)");
+		});
+	}
 });

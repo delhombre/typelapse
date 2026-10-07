@@ -1,7 +1,7 @@
 import { formatBytes, savedSentence } from "@/application/export/export-label";
 import { LiveRegion } from "@/presentation/components/ui/live-region";
 import { springs } from "@/presentation/motion";
-import { type ExportOutcome, useExportStore } from "@/presentation/stores/export.store";
+import { useExportStore } from "@/presentation/stores/export.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { AlertCircle, Check, X } from "reicon-react";
 import { useCloudStatusView } from "./cloud-render";

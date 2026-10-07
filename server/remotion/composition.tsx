@@ -154,7 +154,6 @@ export function CodeCard({ input }: { input: RenderInput }) {
 	const focusSets = steps.map((s) => (s.focus && s.focus.length > 0 ? new Set(s.focus) : undefined));
 	const view = resolveView(input, active, frame, focusSets);
 	const cursor = view.cursor;
-	const wmColor = getWatermarkColor(background, theme.foreground);
 
 	// Per-step captions overlaid beneath the frame; same timing function as the preview.
 	const annotations = steps.map((s) => s.caption ?? "");
@@ -192,7 +191,6 @@ export function CodeCard({ input }: { input: RenderInput }) {
 							<StepCaption
 								text={caption.text}
 								opacity={caption.opacity}
-								color={wmColor}
 								scale={videoScale}
 								lines={lines}
 							/>

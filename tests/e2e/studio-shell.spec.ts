@@ -179,6 +179,43 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 		await expect(page.getByRole("button", { name: "Add scene" })).toBeInViewport();
 	});
 
+	// #226: the header is the way to Edit and to every source, so a page that
+	// scrolls takes it along rather than away.
+	test("at 1440x500 the header stays in view while the shell scrolls", async ({ page }) => {
+		await page.setViewportSize({ width: 1440, height: 500 });
+		await openStudio(page);
+		await expect(page.getByTestId("preview-frame")).toBeVisible();
+		const preview = page.getByRole("button", { name: "Preview", exact: true });
+		const edit = page.getByRole("button", { name: "Edit", exact: true });
+		const controls = [preview, edit, page.getByRole("button", { name: "Add source" })];
+
+		for (const scrollTo of [0, 120, 100_000]) {
+			await page.evaluate((top) => window.scrollTo(0, top), scrollTo);
+			for (const control of controls) {
+				await expect(control).toBeInViewport({ ratio: 1 });
+			}
+			const header = await page.locator(".studio-camera-header").boundingBox();
+			expect(header?.y).toBe(0);
+			expect(header?.height).toBe(80);
+		}
+		// It is the page that scrolled, with the header held: the timeline arrived.
+		expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+		await expect(page.getByRole("button", { name: "Add scene" })).toBeInViewport();
+
+		// And it still works from there: Edit opens the code card.
+		await edit.click();
+		await expect(edit).toHaveAttribute("aria-pressed", "true");
+	});
+
+	test("at 1440x900 the header is where it always was", async ({ page }) => {
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await openStudio(page);
+		const header = await page.locator(".studio-camera-header").boundingBox();
+		expect(header).toMatchObject({ x: 0, y: 0, width: 1440, height: 80 });
+		const add = await page.getByRole("button", { name: "Add source" }).boundingBox();
+		expect(add?.y).toBe(20);
+	});
+
 	// A 1366x768 laptop's browser leaves the page about 650px: it must fit, so the
 	// bands around the picture give way before the shell scrolls.
 	test("at 1440x650 the page fits and the picture keeps its floor", async ({ page }) => {

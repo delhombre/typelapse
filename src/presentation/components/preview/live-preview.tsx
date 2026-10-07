@@ -619,7 +619,6 @@ export function LivePreview() {
 					<StepCaption
 						text={caption.text}
 						opacity={caption.opacity}
-						color={getWatermarkColor(background, snippet.theme.foreground)}
 						scale={layoutScale}
 						lines={captionBand}
 					/>
