@@ -155,6 +155,34 @@ export function pictureHeightAt(viewportHeight: number): number {
 	);
 }
 
+/** The stage slot's side padding on the desktop shell (`studio-camera.css`: `.sc-stage-slot`). */
+export const STAGE_SLOT_PAD_X = 44;
+
+/** A rectangle in window px, from the window's top-left corner. */
+export interface Room {
+	left: number;
+	top: number;
+	width: number;
+	height: number;
+}
+
+/**
+ * The room the desktop shell's picture is fit into at this window size: what
+ * the stage slot leaves between the header and the timeline, less the bands
+ * around the picture. The frame is the largest 16:9 (or whatever the export's
+ * shape is) box that fits it, centred.
+ */
+export function pictureRoomAt(viewportWidth: number, viewportHeight: number): Room {
+	const { padTop, frameInset } = shellAt(viewportHeight);
+	const inset = STAGE_SLOT_PAD_X + frameInset;
+	return {
+		left: inset,
+		top: SHELL_HEADER + padTop + frameInset,
+		width: viewportWidth - 2 * inset,
+		height: pictureHeightAt(viewportHeight),
+	};
+}
+
 export interface SceneState {
 	/** True when the code card has been folded to its vertical tab. */
 	folded: boolean;
