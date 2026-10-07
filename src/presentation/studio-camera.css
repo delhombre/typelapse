@@ -293,6 +293,14 @@
 	height: var(--camera-header);
 	border: 0;
 	background: transparent;
+	/* The band is a strip of nothing between its three groups: while the shell
+	   scrolls the picture passes under it, and it must not eat the clicks meant
+	   for the stage. The groups take their own back. */
+	pointer-events: none;
+}
+
+.studio-camera-header :is(.sc-corner, .studio-camera-mode) {
+	pointer-events: auto;
 }
 
 .studio-camera-root .sc-corner {

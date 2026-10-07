@@ -198,6 +198,36 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 			expect(header?.y).toBe(0);
 			expect(header?.height).toBe(80);
 		}
+		// The band between the groups is not a wall: the picture passes under it
+		// while the shell scrolls, and a click there reaches the stage.
+		await page.evaluate(() => window.scrollTo(0, 120));
+		const frame = await page.getByTestId("preview-frame").boundingBox();
+		expect(frame && frame.y < 40 && frame.y + frame.height > 40).toBe(true);
+		// Left of the Preview/Edit switch, right of the left group, inside the frame.
+		const x = 560;
+		const reached = await page.evaluate(
+			([px, py]) => {
+				const hit = document.elementFromPoint(px ?? 0, py ?? 0);
+				return {
+					inHeader: hit?.closest(".studio-camera-header") !== null,
+					inFrame: hit?.closest("[data-testid=preview-frame]") !== null,
+				};
+			},
+			[x, 40],
+		);
+		expect(reached).toEqual({ inHeader: false, inFrame: true });
+		await page.evaluate(() => {
+			(window as unknown as { __stageClicks: number }).__stageClicks = 0;
+			document.querySelector("[data-testid=preview-frame]")?.addEventListener("click", () => {
+				(window as unknown as { __stageClicks: number }).__stageClicks += 1;
+			});
+		});
+		await page.mouse.click(x, 40);
+		expect(
+			await page.evaluate(() => (window as unknown as { __stageClicks: number }).__stageClicks),
+		).toBe(1);
+		// And the groups still take theirs.
+		await expect(page.getByRole("button", { name: "Add source" })).toBeEnabled();
 		// It is the page that scrolled, with the header held: the timeline arrived.
 		expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
 		await expect(page.getByRole("button", { name: "Add scene" })).toBeInViewport();
@@ -212,8 +242,10 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 		await openStudio(page);
 		const header = await page.locator(".studio-camera-header").boundingBox();
 		expect(header).toMatchObject({ x: 0, y: 0, width: 1440, height: 80 });
-		const add = await page.getByRole("button", { name: "Add source" }).boundingBox();
-		expect(add?.y).toBe(20);
+		// The corner arrives on a spring from 8px above; its rest is the 20px it had.
+		await expect
+			.poll(async () => (await page.getByRole("button", { name: "Add source" }).boundingBox())?.y)
+			.toBe(20);
 	});
 
 	// A 1366x768 laptop's browser leaves the page about 650px: it must fit, so the
