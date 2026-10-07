@@ -303,6 +303,49 @@ describe("LivePreview on the export canvas", () => {
 		expect(clip?.parentElement?.classList.contains("code-frame-glow")).toBe(true);
 	});
 
+	it("pushes a window that cuts a long line in from its left edge, as the exporters do (#227)", async () => {
+		useExportStore.setState({ focusZoom: true });
+		useSnippetStore.setState({ rebuildPlan: async () => {} });
+		const step = useSnippetStore.getState().snippet.steps[1];
+		if (!step) {
+			throw new Error("no second step");
+		}
+		useSnippetStore
+			.getState()
+			.updateStepFocus(step.id, [HighlightRange.create({ startLine: 1, endLine: 1 })]);
+		const longLine = {
+			frames: [
+				{ lineCount: 1, tokens: [token("l", "x".repeat(300), 0, 0)] },
+				{ lineCount: 1, tokens: [token("l", "x".repeat(300), 0, 0)] },
+			],
+			transitions: [],
+		};
+		useSnippetStore.setState({ plan: longLine as unknown as MagicMovePlan });
+		const { container } = renderPreview();
+		const scaled = Array.from(container.querySelectorAll<HTMLElement>("div")).find((el) =>
+			el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
+		);
+		expect(scaled, "a pushed-in body").toBeDefined();
+		expect(scaled?.style.transformOrigin.startsWith("0% ")).toBe(true);
+	});
+
+	it("keeps the push-in centred on a window whose lines fit", async () => {
+		useExportStore.setState({ focusZoom: true });
+		useSnippetStore.setState({ rebuildPlan: async () => {} });
+		const step = useSnippetStore.getState().snippet.steps[1];
+		if (!step) {
+			throw new Error("no second step");
+		}
+		useSnippetStore
+			.getState()
+			.updateStepFocus(step.id, [HighlightRange.create({ startLine: 2, endLine: 3 })]);
+		const { container } = renderPreview();
+		const scaled = Array.from(container.querySelectorAll<HTMLElement>("div")).find((el) =>
+			el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
+		);
+		expect(scaled?.style.transformOrigin.startsWith("50% ")).toBe(true);
+	});
+
 	it("keeps the new mesh painted when the background changes", async () => {
 		const { container } = renderPreview();
 		await act(async () => {

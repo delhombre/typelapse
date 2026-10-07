@@ -203,7 +203,12 @@ export function CodeCard({ input }: { input: RenderInput }) {
 			{/* Focus zoom: the preview's component, so the video matches. The code column
 			    cuts a long line where the fit says, as the preview and the painter do. */}
 			{(lineClip) => (
-				<FocusZoomBody zoom={view.zoom} active={focusZoom} borderRadius={theme.borderRadius * videoScale}>
+				<FocusZoomBody
+					zoom={view.zoom}
+					active={focusZoom}
+					borderRadius={theme.borderRadius * videoScale}
+					lineClip={lineClip}
+				>
 					<MagicMoveCanvas
 						tokens={view.tokens}
 						lineCount={view.lineCount}

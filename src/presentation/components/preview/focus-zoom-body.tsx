@@ -1,4 +1,5 @@
-import type { ZoomTransform } from "@/application/magic-move/focus-zoom";
+import type { LineClip } from "@/application/layout/line-clip";
+import { type ZoomTransform, zoomOriginX } from "@/application/magic-move/focus-zoom";
 import type { ReactNode } from "react";
 
 /**
@@ -12,17 +13,23 @@ import type { ReactNode } from "react";
  *
  * The clip carries the window's border radius (concentric law), so a scaled,
  * composited layer never squares the window's corners.
+ *
+ * Across, the push-in pivots on the body's centre, or on its left edge when the
+ * code column cuts a long line (`zoomOriginX`), as the painter's does.
  */
 export function FocusZoomBody({
 	zoom,
 	active,
 	borderRadius,
+	lineClip = null,
 	children,
 }: {
 	zoom: ZoomTransform;
 	/** The scene's focus-zoom setting; off, the body never scales. */
 	active: boolean;
 	borderRadius: number;
+	/** The code column's cut, from the fit; null (the default) when every line fits. */
+	lineClip?: LineClip | null;
 	children: ReactNode;
 }) {
 	return (
@@ -32,7 +39,7 @@ export function FocusZoomBody({
 					active
 						? {
 								transform: `scale(${zoom.scale})`,
-								transformOrigin: `50% ${zoom.originYRatio * 100}%`,
+								transformOrigin: `${zoomOriginX(lineClip) * 100}% ${zoom.originYRatio * 100}%`,
 							}
 						: undefined
 				}

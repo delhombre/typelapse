@@ -14,7 +14,11 @@
  * painter clips the body before it scales (`clipBody`, then `applyZoom`); both
  * DOM renderers wrap the code in `FocusZoomBody`, whose clip is not the box that
  * scales.
+ *
+ * Horizontally the push-in pivots on the body's centre, unless the code column
+ * cuts a long line (`zoomOriginX`): then it pivots on the body's left edge.
  */
+import type { LineClip } from "../layout/line-clip";
 import { clamp01, easeInOutCubic } from "./engine";
 
 export interface ZoomTransform {
@@ -29,6 +33,23 @@ export const ZOOM_SCALE = 1.25;
 
 /** The neutral transform: no scale, centered origin. */
 export const NO_ZOOM: ZoomTransform = { scale: 1, originYRatio: 0.5 };
+
+/**
+ * Where the push-in pivots across the body, as a 0..1 ratio of its width: the
+ * centre, or the left edge when the code column cuts a long line (`lineClip`).
+ *
+ * Centred, a 1.25 push-in carries a tenth of the body off each side. A window
+ * cut at the floor's columns is as wide as a window gets, so that tenth was the
+ * gutter and the line's first dozen columns, cut mid-glyph (#227), while its
+ * right edge already fades (`clipFades`). Pivoting on the left edge, nothing
+ * crops on the left: the gutter and the start of every line stay, and the right
+ * edge, faded, takes all the push-in carries off. A window whose lines fit
+ * pushes in from its centre, as it always has. The cut is one geometry for the
+ * whole video, so the pivot never moves between steps.
+ */
+export function zoomOriginX(lineClip: LineClip | null): number {
+	return lineClip ? 0 : 0.5;
+}
 
 function lerp(from: number, to: number, t: number): number {
 	return from + (to - from) * t;

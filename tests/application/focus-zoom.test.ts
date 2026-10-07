@@ -4,6 +4,7 @@ import {
 	ZOOM_SCALE,
 	interpolateZoom,
 	zoomForFocus,
+	zoomOriginX,
 } from "@/application/magic-move/focus-zoom";
 import { describe, expect, it } from "vitest";
 
@@ -71,5 +72,19 @@ describe("interpolateZoom", () => {
 		const to = { scale: ZOOM_SCALE, originYRatio: 0.2 };
 		expect(interpolateZoom(NO_ZOOM, to, 0, easeInOutCubic)).toEqual(NO_ZOOM);
 		expect(interpolateZoom(NO_ZOOM, to, 1, easeInOutCubic)).toEqual(to);
+	});
+});
+
+describe("zoomOriginX", () => {
+	// Ticket #227: centred on a window that cuts a long line, the push-in carried
+	// the gutter and the line's first columns off the left edge, mid-glyph.
+	const cut = { visibleColumns: 185, fadeStart: 182, fadeEnd: 185.5 };
+
+	it("pivots on the body's left edge when the code column cuts a line", () => {
+		expect(zoomOriginX(cut)).toBe(0);
+	});
+
+	it("stays centred on a window whose lines fit, as before", () => {
+		expect(zoomOriginX(null)).toBe(0.5);
 	});
 });
