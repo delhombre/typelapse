@@ -9,7 +9,10 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
 		/>
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<!-- The .ico is first and sized 32x32 so legacy clients, and anything that asks for
+		     /favicon.ico anyway, find it; sizes="any" lets a browser that reads SVG pick the SVG. -->
+		<link rel="icon" href="/favicon.ico" sizes="32x32" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any" />
 		<!-- iOS takes no SVG icon: the favicon's mark again, as a 180px PNG on a full-bleed
 		     square (iOS rounds the corners itself and paints transparency black). -->
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />

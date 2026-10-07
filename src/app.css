@@ -805,9 +805,12 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* The counts take ash itself: a 70% mix of it measured 2.81:1 on the light paper
+   and 4.24:1 on the dark, both under the 4.5:1 a 12px line needs. Ash is 5.05:1
+   and 7.52:1. The URL stays the lead by sitting left, in a track of its own. */
 .landing-root .lp-log span {
 	text-align: right;
-	color: color-mix(in oklch, var(--color-ash) 70%, transparent);
+	color: var(--color-ash);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }

@@ -11,8 +11,14 @@ export function NotFound() {
 	useEffect(() => {
 		const previous = document.title;
 		document.title = "Page not found · Typelapse";
+		// The host owns the status; the page owns saying it is not for the index.
+		const robots = document.createElement("meta");
+		robots.name = "robots";
+		robots.content = "noindex";
+		document.head.append(robots);
 		return () => {
 			document.title = previous;
+			robots.remove();
 		};
 	}, []);
 
