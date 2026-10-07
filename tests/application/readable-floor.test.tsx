@@ -36,6 +36,8 @@ import type { MagicMovePlan } from "../../src/application/magic-move/engine";
 import { ASPECT_LABELS, dimensionsFor } from "../../src/domain/entities/render-config";
 import type { ClientExportJob } from "../../src/infrastructure/export/client-export-job";
 import { sceneFor } from "../../src/infrastructure/export/client-export-scene";
+import { FocusZoomBody } from "../../src/presentation/components/preview/focus-zoom-body";
+import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic-move-canvas";
 import { RecordingContext, round } from "./support/recording-context";
 
 const FG = "#e6edf3";
@@ -108,15 +110,26 @@ function referenceTextPx(scale: number, fitScaleValue: number, canvasShortEdge: 
 }
 
 describe("the readable floor", () => {
-	it.each([
-		[1920, 1080],
-		[1080, 1920],
-		[3840, 2160],
-	])("holds a 10,000-character line at the floor and clips its right edge at %ix%i", (w, h) => {
-		const { scale, fit } = fitAt(LONG_LINE, w, h);
-		expect(referenceTextPx(scale, fit.scale, Math.min(w, h))).toBeCloseTo(MIN_TEXT_PX, 6);
+	it("holds a 10,000-character line at the floor on 9:16 and clips its right edge", () => {
+		const { scale, fit } = fitAt(LONG_LINE, 1080, 1920);
+		expect(referenceTextPx(scale, fit.scale, 1080)).toBeCloseTo(MIN_TEXT_PX, 6);
 		expect(fit.clip).toEqual({ right: true, bottom: false });
 		// The clipped card fills the safe width exactly and no more.
+		const padded = fit.natural.width + 2 * SETTINGS.cardMargin * scale;
+		expect(padded * fit.scale).toBeCloseTo(1080 * (1 - 2 * CANVAS_MARGIN), 6);
+	});
+
+	it.each([
+		[1920, 1080],
+		[3840, 2160],
+	])("clips a 10,000-character line at the floor's window on %ix%i, above the floor", (w, h) => {
+		const { scale, fit } = fitAt(LONG_LINE, w, h);
+		const tall = fitAt(LONG_LINE, 1080, 1920);
+		// The window 9:16 gets at the floor, in editor px: one column limit.
+		expect(fit.natural.width / scale).toBeCloseTo(tall.fit.natural.width / tall.scale, 6);
+		expect(referenceTextPx(scale, fit.scale, Math.min(w, h))).toBeGreaterThan(MIN_TEXT_PX);
+		expect(fit.clip).toEqual({ right: true, bottom: false });
+		// The card is fit, not floored: it fills the safe width.
 		const padded = fit.natural.width + 2 * SETTINGS.cardMargin * scale;
 		expect(padded * fit.scale).toBeCloseTo(w * (1 - 2 * CANVAS_MARGIN), 6);
 	});
@@ -222,6 +235,7 @@ describe.each([
 	});
 
 	it("the painter clips the window and paints the fades", () => {
+		expect(fit.lineClip !== null).toBe(plan === LONG_LINE);
 		const scene = sceneFor(jobFor(plan, 1920, 1080), ADVANCE, {
 			grain: null,
 			backdropImage: null,
@@ -260,6 +274,8 @@ describe.each([
 			);
 			expect(ctx.commands).toContain(`fillRect(${x},${y},${w},${h})`);
 		}
+		// A long line is cut in the code column, through the fit's columns.
+		expect(scene.lineClip).toEqual(fit.lineClip);
 	});
 
 	it("the composition clips the window and lays the same fades", () => {
@@ -278,13 +294,35 @@ describe.each([
 				videoScale={scale}
 				charWidthRatio={ADVANCE}
 			>
-				<div />
+				{(lineClip) => (
+					<MagicMoveCanvas
+						tokens={plan.frames[0]?.tokens.slice(0, 1).map((t) => ({ ...t, opacity: 1 })) ?? []}
+						lineCount={plan.frames[0]?.lineCount ?? 1}
+						fontSize={THEME.fontSize * scale}
+						lineHeightRatio={LINE_HEIGHT_RATIO}
+						fontFamily={THEME.fontFamily}
+						color={FG}
+						padding={SETTINGS.padding * scale}
+						lineClip={lineClip}
+					/>
+				)}
 			</CenteredFrame>,
 		);
 		const windowEl = container.querySelector<HTMLElement>("[data-code-window]");
 		expect(Number.parseFloat(windowEl?.style.width ?? "")).toBeCloseTo(fit.natural.width, 6);
 		expect(Number.parseFloat(windowEl?.style.maxHeight ?? "")).toBeCloseTo(fit.windowHeight, 6);
 		expectFades(container, fades, 1);
+		// The code column gets the fit's line clip, as the painter's scene does.
+		const token = plan.frames[0]?.tokens[0]?.content;
+		const column = [...(windowEl?.querySelectorAll<HTMLElement>("span") ?? [])].find(
+			(span) => span.textContent === token,
+		)?.parentElement;
+		const clip = fit.lineClip;
+		expect(column?.style.maskImage).toBe(
+			clip
+				? `linear-gradient(to right, #000 ${clip.fadeStart}ch, transparent ${clip.fadeEnd}ch)`
+				: "",
+		);
 	});
 
 	it("the preview clips the window at editor size and lays the same fades", () => {
@@ -302,6 +340,63 @@ describe.each([
 		expect(placement.windowWidth).toBeCloseTo(fit.natural.width / scale, 6);
 		expect(placement.windowHeight).toBeCloseTo(fit.windowHeight / scale, 6);
 		expect(placement.clip).toEqual(fit.clip);
+		expect(placement.lineClip).toEqual(fit.lineClip);
+	});
+});
+
+describe("the long line under the push-in, in the DOM", () => {
+	it("keeps the window's right fade on the window and moves the column fade with the code", () => {
+		const { scale, fit } = fitAt(LONG_LINE, 1920, 1080);
+		const { container } = render(
+			<CenteredFrame
+				plan={LONG_LINE}
+				theme={THEME}
+				title="long.ts"
+				windowChrome={SETTINGS.chrome}
+				showLineNumbers={SETTINGS.showLineNumbers}
+				lineNumberStart={SETTINGS.lineNumberStart}
+				framePadding={SETTINGS.padding}
+				cardMargin={SETTINGS.cardMargin}
+				canvasWidth={1920}
+				canvasHeight={1080}
+				videoScale={scale}
+				charWidthRatio={ADVANCE}
+			>
+				{(lineClip) => (
+					<FocusZoomBody
+						zoom={{ scale: 1.25, originYRatio: 0.5 }}
+						active
+						borderRadius={THEME.borderRadius * scale}
+					>
+						<MagicMoveCanvas
+							tokens={LONG_LINE.frames[0]?.tokens.map((t) => ({ ...t, opacity: 1 })) ?? []}
+							lineCount={1}
+							fontSize={THEME.fontSize * scale}
+							lineHeightRatio={LINE_HEIGHT_RATIO}
+							fontFamily={THEME.fontFamily}
+							color={FG}
+							padding={SETTINGS.padding * scale}
+							lineClip={lineClip}
+						/>
+					</FocusZoomBody>
+				)}
+			</CenteredFrame>,
+		);
+		const windowEl = container.querySelector<HTMLElement>("[data-code-window]");
+		const fade = windowEl?.querySelector<HTMLElement>("[data-clip-fade='right']");
+		// The window's fade is the window's child: the push-in never scales it.
+		expect(fade?.parentElement).toBe(windowEl);
+		const column = [...(windowEl?.querySelectorAll<HTMLElement>("span") ?? [])].find(
+			(span) => span.textContent?.length === 10_000,
+		)?.parentElement;
+		expect(column?.style.maskImage).toContain(`${fit.lineClip?.fadeStart}ch`);
+		// The masked column sits inside the scaled box, as the painter's fade sits inside its zoom.
+		let scaled: HTMLElement | null | undefined = column;
+		while (scaled && !scaled.style.transform.startsWith("scale(")) {
+			scaled = scaled.parentElement;
+		}
+		expect(scaled?.style.transform).toBe("scale(1.25)");
+		expect(windowEl?.contains(scaled ?? null)).toBe(true);
 	});
 });
 

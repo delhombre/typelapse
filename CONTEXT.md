@@ -73,6 +73,19 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
   1080p canvas and growing with the tier (`MIN_TEXT_PX` in `canvas-fit`).
   Below it the card stops shrinking and the window clips its code, with a
   fade on each clipped edge (`clipFades`).
+- **Line clip**: the floor also sets the most columns any card shows: the
+  window width the floor leaves on a canvas whose width is its short edge
+  (9:16, 1:1, 4:5, 3:4), 185 columns at the defaults. A longer line is cut at
+  that width on every canvas, 16:9 included, never fit: 16:9 used to show
+  lines of 186 to about 330 columns whole, above the floor, and now cuts them
+  at 185 like the other formats. The cut fades out over the three whole
+  columns before it plus the partial column at the edge (`lineClip` in
+  `layout/line-clip.ts`, in cells), inside the code column, so it moves with
+  the push-in; the window keeps its own right fade for what the push-in
+  carries past its edge. The columns come from the widest line across every
+  scene, one geometry for the whole video like the caption band. The engine
+  still lays the whole line out: a morph glides under the cut, and the
+  typewriter types the hidden tail, its caret out of sight past the cut.
 - **Plan window**: the rows and columns a card can show at the readable floor
   on any shipped canvas, plus a margin (`VISIBLE_ROW_LIMIT`,
   `VISIBLE_COL_LIMIT`). The magic-move plan lays out nothing past it. On a file
