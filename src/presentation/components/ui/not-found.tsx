@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useDocumentTitle } from "@/presentation/hooks/use-document-title";
 import { Link } from "react-router-dom";
 import { ROUTE_STATE } from "./route-error-boundary";
 
@@ -8,13 +8,7 @@ import { ROUTE_STATE } from "./route-error-boundary";
  * Same material as the route error boundary, so the two read as one family.
  */
 export function NotFound() {
-	useEffect(() => {
-		const previous = document.title;
-		document.title = "Page not found · Typelapse";
-		return () => {
-			document.title = previous;
-		};
-	}, []);
+	useDocumentTitle("Page not found · Typelapse");
 
 	return (
 		<main className={ROUTE_STATE.main}>
