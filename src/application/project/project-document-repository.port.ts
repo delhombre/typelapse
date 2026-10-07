@@ -52,6 +52,12 @@ export interface ProjectDocumentRepositoryPort {
 	listByOwner(ownerId: AccountId): Promise<readonly ProjectDocumentSummary[]>;
 	findOwnedById(ownerId: AccountId, id: string): Promise<StoredProjectDocument | null>;
 	/**
+	 * Whether the owner holds a project with this id, whatever its kind: one
+	 * indexed read of the key and the owner, which loads and validates no
+	 * document. Another owner's project is not there for this owner.
+	 */
+	existsOwnedById(ownerId: AccountId, id: string): Promise<boolean>;
+	/**
 	 * The studio's new project: created unless the owner already holds
 	 * `maxProjects` regular projects. The count and the insert are one atomic
 	 * step, so concurrent creates cannot overshoot it.

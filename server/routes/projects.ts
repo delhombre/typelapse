@@ -128,6 +128,13 @@ export function createProjectsRoute({
 		}
 	});
 
+	// 200 either way, so a first save asks without the 404 the browser logs as an
+	// error. Another owner's id answers false, as an id nobody holds does.
+	route.get("/:id/exists", async (c) => {
+		const exists = await projects.existsOwnedById(c.get("accountId"), c.req.param("id"));
+		return c.json({ exists });
+	});
+
 	route.get("/:id", async (c) => {
 		const project = await projects.findOwnedById(c.get("accountId"), c.req.param("id"));
 		if (!project) {

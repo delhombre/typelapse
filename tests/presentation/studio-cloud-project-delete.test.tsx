@@ -109,6 +109,7 @@ function cloud() {
 				updatedAt: NOW,
 			})),
 		),
+		exists: vi.fn(async (id: string) => kept.has(id)),
 		load: vi.fn(async (id: string) => kept.get(id) ?? null),
 		create: vi.fn(async (document: ProjectDocumentV2) => {
 			made += 1;

@@ -56,6 +56,7 @@ const PROJECT: HostedProjectRecord = {
 function apiWith(overrides: Partial<HostedProjectApiPort>): HostedProjectApiPort {
 	return {
 		list: async () => [],
+		exists: async () => false,
 		create: async () => PROJECT,
 		load: async () => null,
 		update: async () => ({ outcome: "updated", project: PROJECT }),

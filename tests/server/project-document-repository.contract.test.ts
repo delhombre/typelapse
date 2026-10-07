@@ -475,6 +475,82 @@ describe.each(subjects)("the project store on %s: what the ceiling counts", (_na
 	});
 });
 
+describe.each(subjects)("the project store on %s: does an id exist for an owner", (_name, open) => {
+	let subject: Subject;
+	let store: ProjectDocumentRepositoryPort;
+
+	beforeAll(async () => {
+		subject = await open();
+		store = subject.repository;
+	});
+	afterAll(() => subject.dispose());
+
+	it("is true for a project the owner holds, whatever its kind", async () => {
+		const owner = await subject.account("exists");
+		const regular = projectDocument("Regular");
+		const automation = projectDocument("Source");
+		await store.create({ ownerId: owner, document: regular, maxProjects: 5 });
+		await store.createAutomation({ ownerId: owner, document: automation });
+
+		expect(await store.existsOwnedById(owner, regular.project.id)).toBe(true);
+		expect(await store.existsOwnedById(owner, automation.project.id)).toBe(true);
+	});
+
+	it("is false for an id nobody saved", async () => {
+		const owner = await subject.account("absent");
+
+		expect(await store.existsOwnedById(owner, "never-saved")).toBe(false);
+	});
+
+	it("is false for another owner's project, as if it were not there", async () => {
+		const owner = await subject.account("owner");
+		const stranger = await subject.account("stranger");
+		const document = projectDocument("Private");
+		await store.create({ ownerId: owner, document, maxProjects: 5 });
+
+		expect(await store.existsOwnedById(stranger, document.project.id)).toBe(false);
+		expect(await store.existsOwnedById(owner, document.project.id)).toBe(true);
+	});
+
+	it("is false once the project is deleted", async () => {
+		const owner = await subject.account("deleted");
+		const document = projectDocument("Gone");
+		await store.create({ ownerId: owner, document, maxProjects: 5 });
+		await store.deleteOwnedById(owner, document.project.id);
+
+		expect(await store.existsOwnedById(owner, document.project.id)).toBe(false);
+	});
+});
+
+describe.skipIf(!DATABASE_URL)("existence on PostgreSQL", () => {
+	const db = createDatabase(DATABASE_URL ?? "postgres://unused");
+	const made: string[] = [];
+
+	afterAll(async () => {
+		for (const id of made) {
+			await db.$client.query('DELETE FROM "user" WHERE id = $1', [id]);
+		}
+		await db.$client.end();
+	});
+
+	it("reads the key and the owner alone, without validating the document", async () => {
+		const owner = `contract-exists-${randomBytes(4).toString("hex")}`;
+		await db.insert(user).values({ id: owner, name: "exists", email: `${owner}@typelapse.test` });
+		made.push(owner);
+		const id = `project-${randomBytes(6).toString("hex")}`;
+		// A document no V2 schema accepts: listing or loading it throws, asking
+		// whether it exists must not.
+		await db.$client.query(
+			"INSERT INTO projects (id, owner_id, title, document) VALUES ($1, $2, $3, $4)",
+			[id, owner, "Unreadable", JSON.stringify({ not: "a project document" })],
+		);
+		const store = createProjectDocumentRepository(db);
+
+		await expect(store.listByOwner(owner)).rejects.toThrow();
+		expect(await store.existsOwnedById(owner, id)).toBe(true);
+	});
+});
+
 describe.skipIf(!DATABASE_URL)("the allowance on PostgreSQL", () => {
 	const db = createDatabase(DATABASE_URL ?? "postgres://unused");
 	const made: string[] = [];
