@@ -72,7 +72,12 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
 - **Readable floor**: the smallest code text a card is drawn at, 8 px on a
   1080p canvas and growing with the tier (`MIN_TEXT_PX` in `canvas-fit`).
   Below it the card stops shrinking and the window clips its code, with a
-  fade on each clipped edge (`clipFades`).
+  fade on each clipped edge (`clipFades` for rows).
+- **Line clip**: the floor also sets the most columns any card shows, the
+  window it gives a canvas as wide as its short edge (185 columns at the
+  defaults). A longer line is cut there on every aspect, never fit, and its
+  last three columns before the cut fade out (`lineClip` in
+  `layout/line-clip.ts`, in cells). The engine still lays the whole line out.
 - **Plan window**: the rows and columns a card can show at the readable floor
   on any shipped canvas, plus a margin (`VISIBLE_ROW_LIMIT`,
   `VISIBLE_COL_LIMIT`). The magic-move plan lays out nothing past it. On a file
