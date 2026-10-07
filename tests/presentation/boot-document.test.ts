@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { contrastRatio } from "@/application/accessibility/token-contrast";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -163,17 +164,76 @@ describe("a visitor without JavaScript", () => {
 
 	beforeEach(() => openPage("/"));
 
-	it("is given the heading, the description and a way into the studio", () => {
+	it("is given the heading, the description and the one thing to do", () => {
 		const content = noscript();
 		const title = HTML.match(/<title>([^<]*)<\/title>/)?.[1];
 		const description = HTML.match(/<meta\s+name="description"\s+content="([^"]*)"/)?.[1];
 		expect(content.querySelector("h1")?.textContent).toBe(title);
 		expect(content.textContent).toContain(description);
-		expect(content.querySelector('a[href="/app"]')).not.toBeNull();
+		expect(content.textContent).toMatch(/turn it on, then reload this page\./i);
+	});
+
+	it("is never pointed at the page it is on: this one document is served on / and on /app", () => {
+		// A route link cannot be right on both, and it did point /app at itself.
+		// Without JavaScript neither route does anything the other cannot, so the
+		// one link is a reload, which is the page's own address by definition.
+		const links = [...noscript().querySelectorAll("a")];
+		expect(links).toHaveLength(1);
+		expect(links[0]?.getAttribute("href")).toBe("");
+		expect(links[0]?.textContent).toMatch(/reload/i);
 	});
 
 	it("says why the studio needs JavaScript, in words and not in a symbol", () => {
 		expect(noscript().textContent).toMatch(/needs JavaScript/i);
 		expect(noscript().textContent).not.toContain("—");
+	});
+});
+
+/**
+ * Both fallbacks put a link in a sentence, and both were body-coloured with no
+ * underline: nothing said they could be pressed. They are written before any
+ * stylesheet of the app's, so the treatment lives in the document's own <style>.
+ */
+describe("the links of the two fallbacks", () => {
+	const STYLE = HTML.match(/<style>([\s\S]*?)<\/style>/)?.[1] ?? "";
+	const rule = (selector: string) =>
+		STYLE.match(new RegExp(`${selector.replace(/[.[\]"=-]/g, "\\$&")}\\s*{([^}]*)}`))?.[1] ?? "";
+	const colour = (block: string) => block.match(/--boot-link:\s*(#[0-9a-f]{6})/i)?.[1] ?? "";
+
+	it("has a stylesheet of its own for them", () => {
+		expect(STYLE).not.toBe("");
+	});
+
+	it("underlines every link, so it does not depend on a colour to be found", () => {
+		expect(rule(".boot-link")).toMatch(/text-decoration:\s*underline/);
+		expect(rule(".boot-link")).toMatch(/text-underline-offset/);
+	});
+
+	it("gives both the treatment", () => {
+		openPage("/app");
+		const holder = document.createElement("div");
+		holder.innerHTML = document.querySelector("noscript")?.textContent ?? "";
+		const links = [
+			...holder.querySelectorAll("a"),
+			...(document.getElementById("boot-failed")?.querySelectorAll("a") ?? []),
+		];
+		expect(links).toHaveLength(2);
+		for (const link of links) {
+			expect(link.classList.contains("boot-link")).toBe(true);
+		}
+	});
+
+	it("reads at AA on the paper it is drawn on, in the light and in the dark", () => {
+		const light = colour(rule(".boot-link"));
+		const dark = colour(rule(".dark .boot-link"));
+		expect(light).not.toBe("");
+		expect(dark).not.toBe("");
+		// The two grounds are app.css's own: html's light fill and its dark one.
+		expect(contrastRatio(light, "#fafaf9")).toBeGreaterThanOrEqual(4.5);
+		expect(contrastRatio(dark, "#121110")).toBeGreaterThanOrEqual(4.5);
+	});
+
+	it("follows the landing's dark theme as well as the studio's", () => {
+		expect(STYLE).toMatch(/\[data-landing-theme="dark"\] \.boot-link/);
 	});
 });
