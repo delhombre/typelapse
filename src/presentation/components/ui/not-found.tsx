@@ -1,4 +1,5 @@
 import { useDocumentTitle } from "@/presentation/hooks/use-document-title";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ROUTE_STATE } from "./route-error-boundary";
 
@@ -9,6 +10,14 @@ import { ROUTE_STATE } from "./route-error-boundary";
  */
 export function NotFound() {
 	useDocumentTitle("Page not found · Typelapse");
+	useEffect(() => {
+		// The host owns the status; the page owns saying it is not for the index.
+		const robots = document.createElement("meta");
+		robots.name = "robots";
+		robots.content = "noindex";
+		document.head.append(robots);
+		return () => robots.remove();
+	}, []);
 
 	return (
 		<main className={ROUTE_STATE.main}>

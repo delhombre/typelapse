@@ -805,9 +805,12 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* The counts take ash itself: a 70% mix of it measured 2.81:1 on the light paper
+   and 4.24:1 on the dark, both under the 4.5:1 a 12px line needs. Ash is 5.05:1
+   and 7.52:1. The URL stays the lead by sitting left, in a track of its own. */
 .landing-root .lp-log span {
 	text-align: right;
-	color: color-mix(in oklch, var(--color-ash) 70%, transparent);
+	color: var(--color-ash);
 	font-variant-numeric: tabular-nums;
 	white-space: nowrap;
 }
@@ -2992,7 +2995,12 @@ html.dark:not([data-landing-theme]) {
 	z-index: 30;
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	--row-gap: 8px;
+	gap: var(--row-gap);
+	/* How far the outer control of a chip reaches toward the next chip: the chip's own 3px
+	   of padding and half the gap between the two, which the next chip's control takes the
+	   other half of. */
+	--edge-bleed: calc(3px + var(--row-gap) / 2);
 }
 
 .sc-corner-row > .sc-project-root {
@@ -3010,11 +3018,12 @@ html.dark:not([data-landing-theme]) {
 	gap: 2px;
 }
 
-/* The chip is the one that gives, but from 390 up it gives down to the name's
-   first word and no further: "Untitled" is 4.7em at the field's 16px, so a phone
-   never shows "Untitl…" (#167). A longer first word still ends in an ellipsis
-   past that. Below 390 the row has no room for it (375 is 15px short), and the
-   name goes on shrinking. */
+/* The chip is the one that gives, but it gives down to the name's first word and
+   no further, so a phone never shows "Untitl…" (#167, #182). A longer first word
+   still ends in an ellipsis past that. Two floors, because the row has room for
+   one and not for the other: from 390 up "Untitled" gets 4.7em (79px, 15px more
+   than its 64px) and below 390 it gets its own 4em plus 5px (69px), after the row
+   has given up the brand's tile and the chips' gap (next block). */
 .sc-corner-row .sc-title {
 	padding-inline: 2px;
 }
@@ -3022,6 +3031,38 @@ html.dark:not([data-landing-theme]) {
 @media (min-width: 390px) {
 	.sc-corner-row .sc-title {
 		min-width: calc(4.7em + 4px);
+	}
+}
+
+/* Under 390 the name still keeps "Untitled" whole, down to 360 (the most common Android
+   width, #182): the row finds the room first by reducing the brand to its glyph (the
+   13px mark in a 16px box, the dark tile goes: 10px; its target stays), then by
+   tightening the gap between its chips (8px to 4px: 12px). The floor is the word's own
+   width, 60px at the field's 16px, and its 2px of padding each side (4em), and 5px to
+   spare for a font that lands wider. */
+@media (max-width: 389px) {
+	.sc-corner-row {
+		--row-gap: 4px;
+	}
+
+	.sc-corner-row .sc-brand {
+		width: 16px;
+		/* The glyph has no tile, but a keyboard's focus ring is still drawn round it: a
+		   small radius, not a sharp rectangle inside a pill. */
+		border-radius: 6px;
+		background: transparent;
+		color: var(--color-neutral-900);
+	}
+
+	.dark .sc-corner-row .sc-brand {
+		background: transparent;
+		color: #fff;
+	}
+}
+
+@media (min-width: 360px) and (max-width: 389px) {
+	.sc-corner-row .sc-title {
+		min-width: calc(4em + 5px);
 	}
 }
 
@@ -3119,11 +3160,6 @@ html.dark:not([data-landing-theme]) {
 		inset: -11px 0;
 	}
 
-	.sc-corner-row .sc-utilities button.hit-ext::after,
-	.sc-corner-row .sc-utilities .hit-ext::after {
-		inset: -11px -1px;
-	}
-
 	.sc-mobile-resources .sc-island-trigger,
 	.sc-corner-row .sc-project-trigger,
 	.sc-corner-row .sc-brand {
@@ -3151,6 +3187,25 @@ html.dark:not([data-landing-theme]) {
 	/* The name is the chip's own height: the whole band beside the brand types. */
 	.sc-corner-row .sc-title {
 		height: 40px;
+	}
+
+	/* The icons are 30px to the eye and 31px of pitch to a thumb, which is all the room two
+	   neighbours leave each other. The ones at the end of a chip have more: the chip's
+	   padding and half the gap to the next chip (D10, #182), so Undo, Add source and More
+	   reach toward it and Redo, Showcase and More reach away. */
+	.sc-corner-row .sc-history button:first-child.hit-ext::after,
+	.sc-corner-row .sc-mobile-resources > :first-child .sc-island-trigger::after {
+		inset: -11px 0 -11px calc(-1 * var(--edge-bleed));
+	}
+
+	.sc-corner-row .sc-history button:last-child.hit-ext::after,
+	.sc-corner-row .sc-mobile-resources > button.sc-island-trigger:last-of-type::after {
+		inset: -11px calc(-1 * var(--edge-bleed)) -11px 0;
+	}
+
+	.sc-corner-row .sc-utilities button.hit-ext::after,
+	.sc-corner-row .sc-utilities .hit-ext::after {
+		inset: -11px calc(-1 * var(--edge-bleed));
 	}
 }
 

@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { STAGE_FLOOR_HEIGHT } from "../../src/application/layout/scene-stage";
 import { expect, openStudio, settled, test } from "./support/studio";
 
 /**
@@ -145,5 +146,100 @@ test.describe("Studio rail: the island settles without closing on its row", () =
 			await settled(rail);
 			expect(frames.at(-1)).toBeCloseTo(paddingRight, 0);
 		}
+	});
+});
+
+/**
+ * #204 (D4): below a stage height the desktop shell scrolls instead of fitting the
+ * picture into what the window leaves. 1440x500 gave a 128 by 72 thumbnail.
+ */
+test.describe("Studio shell: a short window scrolls, it does not shrink the picture", () => {
+	const frameBox = async (page: Page) => {
+		const box = await page.getByTestId("preview-frame").boundingBox();
+		if (!box) throw new Error("The preview frame is not on screen");
+		return box;
+	};
+
+	test("at 1440x500 the picture keeps its floor and the page scrolls", async ({ page }) => {
+		await page.setViewportSize({ width: 1440, height: 500 });
+		await openStudio(page);
+		await expect(page.getByTestId("preview-frame")).toBeVisible();
+
+		await expect
+			.poll(async () => Math.round((await frameBox(page)).height))
+			.toBeGreaterThanOrEqual(STAGE_FLOOR_HEIGHT);
+		const scrolling = await page.evaluate(() => ({
+			content: document.documentElement.scrollHeight,
+			window: window.innerHeight,
+		}));
+		expect(scrolling.content).toBeGreaterThan(scrolling.window);
+
+		// The way to the timeline is the page's own scroll: its last row is reachable.
+		await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+		await expect(page.getByRole("button", { name: "Add scene" })).toBeInViewport();
+	});
+
+	// A 1366x768 laptop's browser leaves the page about 650px: it must fit, so the
+	// bands around the picture give way before the shell scrolls.
+	test("at 1440x650 the page fits and the picture keeps its floor", async ({ page }) => {
+		await page.setViewportSize({ width: 1440, height: 650 });
+		await openStudio(page);
+		await expect(page.getByTestId("preview-frame")).toBeVisible();
+
+		await expect
+			.poll(async () => Math.round((await frameBox(page)).height))
+			.toBeGreaterThanOrEqual(STAGE_FLOOR_HEIGHT);
+		const scrolling = await page.evaluate(() => ({
+			content: document.documentElement.scrollHeight,
+			window: window.innerHeight,
+		}));
+		expect(scrolling.content).toBe(scrolling.window);
+		// The dock still clears the picture.
+		const picture = await frameBox(page);
+		const dock = await page.locator(".sc-dock").boundingBox();
+		expect(dock?.y ?? 0).toBeGreaterThanOrEqual(picture.y + picture.height);
+	});
+
+	test("at 1440x780 nothing changes: the page fits and the picture is the size it was", async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1440, height: 780 });
+		await openStudio(page);
+		await expect(page.getByTestId("preview-frame")).toBeVisible();
+
+		const scrolling = await page.evaluate(() => ({
+			content: document.documentElement.scrollHeight,
+			window: window.innerHeight,
+		}));
+		expect(scrolling.content).toBe(scrolling.window);
+		// Measured on main before the floor: 540.44 by 304.
+		await expect
+			.poll(async () => {
+				const box = await frameBox(page);
+				return [Math.round(box.width * 100) / 100, Math.round(box.height * 100) / 100];
+			})
+			.toEqual([540.44, 304]);
+	});
+
+	test("at 1440x900 nothing changes: the page fits and the picture is the size it was", async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 1440, height: 900 });
+		await openStudio(page);
+		await expect(page.getByTestId("preview-frame")).toBeVisible();
+
+		const scrolling = await page.evaluate(() => ({
+			content: document.documentElement.scrollHeight,
+			window: window.innerHeight,
+		}));
+		expect(scrolling.content).toBe(scrolling.window);
+		// Measured on main before the floor: 753.77 by 424, once the box has
+		// settled from its layout spring.
+		await expect
+			.poll(async () => {
+				const box = await frameBox(page);
+				return [Math.round(box.width * 100) / 100, Math.round(box.height * 100) / 100];
+			})
+			.toEqual([753.77, 424]);
 	});
 });

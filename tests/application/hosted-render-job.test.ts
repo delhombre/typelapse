@@ -22,6 +22,7 @@ const NOW = new Date("2026-08-30T20:00:00.000Z");
 function projectPort(document = DOCUMENT): ProjectDocumentRepositoryPort {
 	return {
 		listByOwner: async () => [],
+		existsOwnedById: async () => false,
 		findOwnedById: async (ownerId, id) =>
 			ownerId === "owner-1" && id === document.project.id
 				? {

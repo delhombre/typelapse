@@ -9,6 +9,7 @@ import {
 	renderScaleFor,
 } from "../../src/application/layout/canvas-fit";
 import { advanceProbeFont, measureCharWidthRatio } from "../../src/application/layout/char-advance";
+import type { LineClip } from "../../src/application/layout/line-clip";
 import { watermarkPlacement } from "../../src/application/layout/watermark-placement";
 import {
 	FRAME_SECONDARY_ALPHA_HEX,
@@ -27,7 +28,7 @@ import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic
 import { ReelsProgress } from "../../src/presentation/components/preview/reels-progress";
 import { StepCaption } from "../../src/presentation/components/preview/step-caption";
 import { getWatermarkColor } from "../../src/presentation/utils/watermark-color";
-import { fontStylesheets } from "./font-files";
+import { loadCompositionFonts } from "./font-files";
 import type { RenderInput, ThemeData } from "./types";
 
 // The base scale and the safe-area margin are the shared placement table's
@@ -50,23 +51,10 @@ function useFontLoaded(fontFamily: string, fontSize: number): number {
 	const [charWidthRatio, setCharWidthRatio] = useState(() => measureAdvance(fontFamily, fontSize));
 
 	useEffect(() => {
-		// Inter powers the step captions (StepCaption), so load it alongside the mono font.
-		const interUrl = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap";
-
-		// The theme's family through the shared registry: the bundled copy of the
-		// file the preview loads, or Google's stylesheet for a picker font.
-		Promise.all([fontStylesheets(fontFamily), fetch(interUrl).then((res) => res.text())])
-			.then(([monoSheets, interSheet]) => {
-				for (const css of [...monoSheets, interSheet]) {
-					const style = document.createElement("style");
-					style.textContent = css;
-					document.head.appendChild(style);
-				}
-				// A face that no element has asked for yet is not loading, so `ready`
-				// alone would let the probe measure the fallback.
-				return document.fonts.load(advanceProbeFont(fontFamily, fontSize), "0");
-			})
-			.then(() => document.fonts.ready)
+		// The theme's family and Inter, which sets the step captions (StepCaption),
+		// through the shared registry: the bundled copy of the files the preview
+		// loads, so nothing is asked of a third party.
+		loadCompositionFonts(advanceProbeFont(fontFamily, fontSize), fontFamily, "Inter")
 			.then(() => {
 				setCharWidthRatio(measureAdvance(fontFamily, fontSize));
 				continueRender(handle);
@@ -212,24 +200,28 @@ export function CodeCard({ input }: { input: RenderInput }) {
 					: undefined
 			}
 		>
-			{/* Focus zoom: the preview's component, so the video matches. */}
-			<FocusZoomBody zoom={view.zoom} active={focusZoom} borderRadius={theme.borderRadius * videoScale}>
-				<MagicMoveCanvas
-					tokens={view.tokens}
-					lineCount={view.lineCount}
-					lineNumberCount={view.lineNumberCount}
-					fontSize={theme.fontSize * videoScale}
-					lineHeightRatio={LINE_HEIGHT_RATIO}
-					fontFamily={theme.fontFamily}
-					color={theme.foreground}
-					showLineNumbers={showLineNumbers}
-					lineNumberStart={lineNumberStart}
-					lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
-					padding={framePadding * videoScale}
-					cursor={cursor}
-					firstRow={view.firstRow}
-				/>
-			</FocusZoomBody>
+			{/* Focus zoom: the preview's component, so the video matches. The code column
+			    cuts a long line where the fit says, as the preview and the painter do. */}
+			{(lineClip) => (
+				<FocusZoomBody zoom={view.zoom} active={focusZoom} borderRadius={theme.borderRadius * videoScale}>
+					<MagicMoveCanvas
+						tokens={view.tokens}
+						lineCount={view.lineCount}
+						lineNumberCount={view.lineNumberCount}
+						fontSize={theme.fontSize * videoScale}
+						lineHeightRatio={LINE_HEIGHT_RATIO}
+						fontFamily={theme.fontFamily}
+						color={theme.foreground}
+						showLineNumbers={showLineNumbers}
+						lineNumberStart={lineNumberStart}
+						lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
+						padding={framePadding * videoScale}
+						cursor={cursor}
+						firstRow={view.firstRow}
+						lineClip={lineClip}
+					/>
+				</FocusZoomBody>
+			)}
 		</CenteredFrame>
 	);
 }
@@ -320,7 +312,8 @@ export function CenteredFrame({
 	captions?: readonly string[];
 	/** The caption band, given the lines the fit reserved for it. */
 	caption?: (lines: number) => React.ReactNode;
-	children: React.ReactNode;
+	/** The window's body; a function is given where the code column cuts a long line. */
+	children: React.ReactNode | ((lineClip: LineClip | null) => React.ReactNode);
 }) {
 	const radius = theme.borderRadius * videoScale;
 	const isDark = isColorDark(theme.background);
@@ -422,7 +415,7 @@ export function CenteredFrame({
 							scale={videoScale}
 							width={natural.width}
 						/>
-						{children}
+						{typeof children === "function" ? children(fit.lineClip) : children}
 						<ClipFades
 							background={theme.background}
 							fades={clipFades({

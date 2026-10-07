@@ -33,7 +33,6 @@ import {
 	RADIUS_PRESETS,
 	TEMPO_PRESETS,
 	THEMES,
-	loadGoogleFont,
 } from "./control-presets";
 import { IslandInput, IslandSegmented, IslandSwatch, IslandToggle } from "./island-primitives";
 
@@ -401,9 +400,6 @@ function LookFontMode() {
 				const font = FONT_PRESETS.find((entry) => entry.label === label);
 				if (!font) {
 					return;
-				}
-				if (font.google) {
-					loadGoogleFont(font.google);
 				}
 				setFont(font.stack);
 			}}

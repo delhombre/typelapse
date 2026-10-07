@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { FRAME_SECONDARY_ALPHA_HEX } from "../../../application/layout/frame-metrics";
+import type { LineClip } from "../../../application/layout/line-clip";
 import { scrolledGutter } from "../../../application/line-numbers/gutter";
 import type { RenderToken } from "../../../application/magic-move/engine";
 import { cellRuns } from "../../../application/text/display-width";
@@ -27,6 +28,12 @@ interface MagicMoveCanvasProps {
 	 * while it scrolls. Tokens arrive on the window's rows; the gutter counts from it.
 	 */
 	firstRow?: number;
+	/**
+	 * Where the code column cuts its longest line, from the fit (`lineClip`): the
+	 * last columns before the cut are masked to transparent. Absent or null when
+	 * every line fits.
+	 */
+	lineClip?: LineClip | null;
 }
 
 /**
@@ -49,6 +56,7 @@ export function MagicMoveCanvas({
 	padding,
 	cursor,
 	firstRow = 0,
+	lineClip,
 }: MagicMoveCanvasProps) {
 	const lineHeight = fontSize * lineHeightRatio;
 	const gutterRows = Math.max(1, Math.round(lineNumberCount ?? lineCount));
@@ -93,7 +101,16 @@ export function MagicMoveCanvas({
 					</div>
 				)}
 
-				<div style={{ position: "relative", flex: 1, minWidth: 0, height: bodyHeight, color }}>
+				<div
+					style={{
+						position: "relative",
+						flex: 1,
+						minWidth: 0,
+						height: bodyHeight,
+						color,
+						...lineFadeMask(lineClip),
+					}}
+				>
 					{tokens.map((token) => (
 						<span key={token.key} style={tokenStyle(token, lineHeight)}>
 							<TokenText content={token.content} />
@@ -118,6 +135,24 @@ export function MagicMoveCanvas({
 			</div>
 		</div>
 	);
+}
+
+/**
+ * The fade over a long line's last columns, as a mask on the code column: the
+ * body already cuts the column at its right edge, the window's inner edge, and
+ * the mask takes the glyphs from opaque at the fade's first column to
+ * transparent at the cut. In `ch`, the unit the tokens are placed in, so the cut
+ * lands on the cells the painter fades (`paintLineFade`). The mask moves with
+ * the column under the push-in, as the painter's fade does.
+ */
+function lineFadeMask(clip: LineClip | null | undefined): CSSProperties | undefined {
+	if (!clip) {
+		return undefined;
+	}
+	return {
+		maskImage: `linear-gradient(to right, #000 ${clip.fadeStart}ch, transparent ${clip.fadeEnd}ch)`,
+		maskRepeat: "no-repeat",
+	};
 }
 
 /**

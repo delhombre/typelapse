@@ -30,9 +30,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * so the old project's text layer was cloned into every scene of the import.
  */
 
+/** Whether the stubbed window is as wide as the desktop shell (1280px and up). */
+const viewport = vi.hoisted(() => ({ desktop: false }));
+
 vi.hoisted(() => {
 	window.matchMedia = ((query: string) => ({
-		matches: query.includes("reduced-motion"),
+		matches:
+			query.includes("reduced-motion") || (viewport.desktop && query.includes("min-width: 1280px")),
 		media: query,
 		onchange: null,
 		addEventListener: () => {},
@@ -92,6 +96,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	viewport.desktop = false;
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	history.replaceState(null, "", "/");
@@ -233,6 +238,28 @@ describe("an import link on an open studio", () => {
 		await waitFor(() => expect(useSnippetStore.getState().snippet.steps.length).toBe(2));
 		expect(textLayerCount()).toBe(0);
 	});
+
+	// Under 1280px the question starts where every transient surface does, one stage gap under
+	// the corner row (10 + 40 + 18); from 1280px it keeps its own line under the status bar
+	// (after-the-gate D6, #207).
+	for (const { name, wide, top } of [
+		{ name: "on the phone shell", wide: false, top: "68px" },
+		{ name: "from 1280px", wide: true, top: "max(0.75rem, env(safe-area-inset-top))" },
+	]) {
+		it(`starts at ${top} ${name}`, async () => {
+			viewport.desktop = wide;
+			authorTextLayer();
+			render(<ImportIntentBoot />);
+
+			act(() => {
+				history.replaceState(null, "", `/app${encodeImportIntent({ source: VALID_DIFF })}`);
+				window.dispatchEvent(new HashChangeEvent("hashchange"));
+			});
+
+			const strip = await screen.findByRole("alertdialog");
+			expect(strip.style.top).toBe(top);
+		});
+	}
 
 	it("keeps the project when the import is declined", async () => {
 		authorTextLayer();

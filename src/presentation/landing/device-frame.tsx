@@ -19,7 +19,8 @@ import type { CSSProperties, ReactNode } from "react";
  *    component's own width, which is what `container-type: inline-size` is for.
  */
 
-/** Asset intrinsic size; the container keeps its ratio so nothing distorts. */
+/** The master's size, which the 320/640 renditions in public/illustrations scale; the
+    container keeps its ratio so nothing distorts. */
 const FRAME_RATIO = "1350 / 2760";
 
 /**
@@ -83,7 +84,15 @@ export function DeviceFrame({ children, ariaLabel, className = "", style }: Devi
 			{/* The chassis, over the content. Its own transparency is the screen
 			    cut-out, and the Dynamic Island rides on top of the feed. */}
 			<img
-				src="/illustrations/iphone-frame.webp"
+				src="/illustrations/iphone-frame-320.webp"
+				srcSet="/illustrations/iphone-frame-320.webp 320w, /illustrations/iphone-frame-640.webp 640w"
+				sizes="min(320px, 100vw)"
+				width={320}
+				height={654}
+				// Far below the fold: it loads as the section nears, and the box's own
+				// aspect-ratio holds its place until then.
+				loading="lazy"
+				decoding="async"
 				alt=""
 				aria-hidden
 				draggable={false}

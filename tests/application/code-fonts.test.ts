@@ -1,20 +1,20 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { extname, join, resolve } from "node:path";
 import {
 	FONT_PRESETS,
 	LOADABLE_FONTS,
 	fontsToLoad,
-	googleFontCssUrl,
 	primaryFamily,
 	selfHostedFaces,
 } from "@/application/fonts/code-fonts";
-import { fontFaceRules, parseFontFaceSources } from "@/application/fonts/font-face-css";
+import { fontFaceRules } from "@/application/fonts/font-face-css";
 import {
 	MAX_ADVANCE_DRIFT,
 	advanceDriftMessage,
 	unresolvedFontMessage,
 } from "@/application/fonts/font-fidelity";
 import { describe, expect, it } from "vitest";
+import { parseFontFaceSources } from "../support/font-face-parser";
 
 /** The faces a registered family serves itself. */
 function facesOf(family: string) {
@@ -23,6 +23,16 @@ function facesOf(family: string) {
 		throw new Error(`${family} is not in the registry`);
 	}
 	return selfHostedFaces(font);
+}
+
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".css", ".html"]);
+
+/** Every source file under `path`, which may itself be one file. */
+function sourceFiles(path: string): string[] {
+	if (statSync(path).isDirectory()) {
+		return readdirSync(path).flatMap((name) => sourceFiles(join(path, name)));
+	}
+	return SOURCE_EXTENSIONS.has(extname(path)) ? [path] : [];
 }
 
 describe("FONT_PRESETS", () => {
@@ -40,8 +50,49 @@ describe("FONT_PRESETS", () => {
 		// The whole point: a preset with no resolvable URL is a preset the worker
 		// silently substitutes a fallback for.
 		for (const font of LOADABLE_FONTS) {
-			expect(Boolean(font.google || font.files?.length), font.family).toBe(true);
+			expect(font.files.length, font.family).toBeGreaterThan(0);
 		}
+	});
+
+	it("serves every family from the app, none from a third party", () => {
+		for (const font of LOADABLE_FONTS) {
+			for (const face of selfHostedFaces(font)) {
+				expect(face.url, font.family).toMatch(/^\/fonts\//);
+			}
+		}
+	});
+
+	it("serves each picker font at the code fonts' three weights, Latin first to arrive", () => {
+		for (const font of FONT_PRESETS) {
+			const faces = selfHostedFaces(font);
+			expect(new Set(faces.map((face) => face.weight)), font.family).toEqual(
+				new Set(["400", "500", "700"]),
+			);
+			const latin = faces.find((face) => face.unicodeRange?.startsWith("U+0000-00FF"));
+			expect(latin?.url, font.family).toMatch(/-latin\.woff2$/);
+			// Where ranges overlap the later rule wins, and Latin must win.
+			expect(faces.at(-1)?.url, font.family).toBe(latin?.url);
+		}
+	});
+
+	it("ships a licence next to every family's files", () => {
+		// Every family is OFL, and the licence travels with the files. Ioskeley
+		// Mono came without one: the gap predates this and is a ticket of its own.
+		for (const font of LOADABLE_FONTS.filter((entry) => entry.family !== "Ioskeley Mono")) {
+			for (const file of font.files) {
+				const prefix = file.url.replace("/fonts/", "").split("-")[0] ?? "";
+				expect(existsSync(resolve("public/fonts", `${prefix}-OFL.txt`)), file.url).toBe(true);
+			}
+		}
+	});
+
+	it("sets the step captions in Inter at the weights they use", () => {
+		const [inter] = fontsToLoad("Inter, ui-sans-serif, system-ui, sans-serif");
+		expect(inter?.family).toBe("Inter");
+		expect(new Set(facesOf("Inter").map((face) => face.weight))).toEqual(
+			new Set(["400", "500", "600"]),
+		);
+		expect(FONT_PRESETS).not.toContain(inter);
 	});
 
 	it("keeps the stack a theme stores in step with the family it names", () => {
@@ -76,7 +127,7 @@ describe("the default code font", () => {
 		// The default theme's face is on screen the moment the studio opens, so it
 		// cannot wait on a third party: every scope loads the same files from /fonts.
 		const [jetbrains] = fontsToLoad("JetBrains Mono, monospace");
-		expect(jetbrains?.google).toBeUndefined();
+		expect(jetbrains?.family).toBe("JetBrains Mono");
 		const faces = facesOf("JetBrains Mono");
 		expect(new Set(faces.map((face) => face.weight))).toEqual(new Set(["400", "500", "700"]));
 		expect(faces.every((face) => face.family === "JetBrains Mono")).toBe(true);
@@ -95,7 +146,6 @@ describe("the text layers' face", () => {
 		// registered the faces apart.
 		const [geist] = fontsToLoad("Geist, ui-sans-serif, system-ui, sans-serif");
 		expect(geist?.family).toBe("Geist");
-		expect(geist?.google).toBeUndefined();
 		const faces = facesOf("Geist");
 		expect(new Set(faces.map((face) => face.weight))).toEqual(
 			new Set(["400", "500", "600", "700"]),
@@ -110,6 +160,16 @@ describe("the document's fonts", () => {
 
 	it("asks no third party for a font", () => {
 		expect(html).not.toMatch(/fonts\.(googleapis|gstatic)\.com/);
+	});
+
+	it("is the whole app's rule: no source file names a font host", () => {
+		// The preview, the worker, the server and the captions all read /fonts.
+		// A `<link>` or a `fetch` to Google's font hosts sends the visitor's address
+		// to a third party, which an app that uploads nothing does not do.
+		const offenders = ["src", "server", "index.html"]
+			.flatMap((entry) => sourceFiles(resolve(entry)))
+			.filter((file) => /fonts\.(googleapis|gstatic)\.com/.test(readFileSync(file, "utf8")));
+		expect(offenders).toEqual([]);
 	});
 
 	it("preloads the Geist file the first paint sets text in", () => {
@@ -165,69 +225,6 @@ describe("fontsToLoad", () => {
 			"Cascadia Code, monospace",
 		).map((font) => font.family);
 		expect(families).toEqual(["JetBrains Mono", "Cascadia Code"]);
-	});
-});
-
-describe("googleFontCssUrl", () => {
-	it("asks for the same weights the settings panel and the composition do", () => {
-		expect(googleFontCssUrl("Fira+Code")).toBe(
-			"https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap",
-		);
-	});
-});
-
-/** One subset block, exactly as Google serves it to a modern browser. */
-const GOOGLE_CSS = `
-/* cyrillic-ext */
-@font-face {
-  font-family: 'Fira Code';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/firacode/v22/cyrillic.woff2) format('woff2');
-  unicode-range: U+0460-052F, U+1C80-1C88;
-}
-/* latin */
-@font-face {
-  font-family: 'Fira Code';
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url(https://fonts.gstatic.com/s/firacode/v22/latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131;
-}
-`;
-
-describe("parseFontFaceSources", () => {
-	it("finds every face in a Google stylesheet", () => {
-		const faces = parseFontFaceSources(GOOGLE_CSS);
-		expect(faces).toHaveLength(2);
-		expect(faces[0]).toEqual({
-			family: "Fira Code",
-			url: "https://fonts.gstatic.com/s/firacode/v22/cyrillic.woff2",
-			weight: "400",
-			style: "normal",
-			unicodeRange: "U+0460-052F, U+1C80-1C88",
-		});
-	});
-
-	it("keeps the weight of each face, so a bold prompt is not synthesised", () => {
-		expect(parseFontFaceSources(GOOGLE_CSS)[1]?.weight).toBe("700");
-	});
-
-	it("reads a quoted url and a bare one alike", () => {
-		const css = `@font-face { font-family: "X"; src: url("https://e.example/x.woff2") format('woff2'); }`;
-		expect(parseFontFaceSources(css)[0]?.url).toBe("https://e.example/x.woff2");
-	});
-
-	it("takes the woff2 source when a face offers several", () => {
-		const css = `@font-face { font-family: X; src: url(a.woff) format('woff'), url(b.woff2) format('woff2'); }`;
-		expect(parseFontFaceSources(css)[0]?.url).toBe("b.woff2");
-	});
-
-	it("returns nothing rather than throwing on a stylesheet it cannot read", () => {
-		expect(parseFontFaceSources("")).toEqual([]);
-		expect(parseFontFaceSources("body { color: red }")).toEqual([]);
 	});
 });
 

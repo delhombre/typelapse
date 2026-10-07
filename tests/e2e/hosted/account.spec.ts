@@ -26,6 +26,15 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 				cloudWrites.push(`${request.method()} ${pathname}`);
 			}
 		});
+		// The first save asks whether the cloud has a copy, and that answers 200
+		// either way: a 404 here is a red line in the browser's console (#209).
+		const refusals: string[] = [];
+		page.on("response", (response) => {
+			const { pathname } = new URL(response.url());
+			if (/^\/api\/projects\b/.test(pathname) && response.status() >= 400) {
+				refusals.push(`${response.status()} ${pathname}`);
+			}
+		});
 
 		await openStudio(page);
 		await page.getByRole("button", { name: "Add scene" }).click();
@@ -41,6 +50,7 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 		await panel.getByRole("button", { name: "Save this project to cloud" }).click();
 		await expect(panel.getByText("Cloud copy saved", { exact: true })).toBeVisible();
 		expect(cloudWrites).toContain("POST /api/projects");
+		expect(refusals).toEqual([]);
 		expect(await cloudProjectCount(account.email)).toBe(1);
 
 		// The session and the cloud copy outlive the tab. The composition saves on
