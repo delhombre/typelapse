@@ -66,3 +66,12 @@ export function exportCodecNote(format: RenderFormat, codecLabel: string | null)
 	}
 	return `${FORMAT_NAMES[format]} · ${codecLabel}`;
 }
+
+/**
+ * What the on-device export says about captions, video and still alike: the
+ * painter keeps the caption band but bakes no caption into it, so a project
+ * with one gets a file that does not carry it. Only the server render does.
+ */
+export function captionsNote(hasCaptions: boolean): string | null {
+	return hasCaptions ? "captions are not baked on this device yet" : null;
+}

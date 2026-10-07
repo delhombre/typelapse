@@ -200,6 +200,35 @@ describe("paintChrome: browser", () => {
 		);
 	});
 
+	describe("the pill is sized from the title's display cells, not from a font's measure (#205)", () => {
+		const titleAdvance = bar.titleSize * UNIT * (0.6 + Number(bar.titleTracking.replace("em", "")));
+
+		/** The pill's drawn width: the third argument of the browser's roundRect. */
+		function drawnPillWidth(title: string): number {
+			const { ctx } = paint({ ...WIDE, title });
+			const pillHeight = (2 * bar.pillPadY + bar.titleSize * CHROME_TEXT_LINE_HEIGHT) * UNIT;
+			const pill = ctx.commands
+				.filter((command) => command.startsWith("roundRect("))
+				.map((command) => command.slice("roundRect(".length, -1).split(",").map(Number))
+				.find((args) => Math.abs((args[3] ?? 0) - pillHeight) < 0.01);
+			return pill?.[2] ?? Number.NaN;
+		}
+
+		it.each([
+			["ascii", "demo.ts"],
+			["CJK", "路由器.ts"],
+			["emoji", "🚀 ship.ts"],
+		])(
+			"%s: hugs displayWidth cells at the title's advance, plus the pill's padding",
+			(_n, title) => {
+				expect(drawnPillWidth(title)).toBeCloseTo(
+					displayWidth(title) * titleAdvance + 2 * bar.pillPadX * UNIT,
+					1,
+				);
+			},
+		);
+	});
+
 	it("centres the title inside the pill rather than starting it there", () => {
 		const { ctx } = paint(WIDE);
 		const before = ctx.commands.indexOf("textAlign=center");

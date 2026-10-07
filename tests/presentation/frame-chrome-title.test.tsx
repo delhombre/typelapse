@@ -1,6 +1,7 @@
 import { paintFrame } from "@/application/frame-painter/painter";
 import { type FrameSceneInput, frameScene } from "@/application/frame-painter/scene";
 import { CANVAS_MARGIN } from "@/application/layout/canvas-fit";
+import { CHROME_STYLE, CHROME_TEXT_LINE_HEIGHT } from "@/application/layout/frame-metrics";
 import { windowTitle, windowTitleCapacity } from "@/application/layout/window-title";
 import { displayWidth } from "@/application/text/display-width";
 import { FrameChrome, type WindowChrome } from "@/presentation/components/preview/frame-chrome";
@@ -19,6 +20,7 @@ const TITLES = [
 	{ name: "emoji", title: EMOJI_TITLE },
 ];
 const FG = "#e6edf3";
+const bar = CHROME_STYLE.browser;
 const BARS: Exclude<WindowChrome, "none">[] = ["macos", "browser", "terminal"];
 
 /** The element carrying the title: the one whose `title=` is the full name. */
@@ -230,4 +232,78 @@ describe("the Remotion composition draws the same title (#186)", () => {
 			expect(composed).toBe(painted[0]);
 		},
 	);
+});
+
+describe("the browser pill is as wide in the DOM as in the painter, in cells (#205)", () => {
+	const UNIT = 2.2;
+	const PLAN = {
+		frames: [{ lineCount: 2, tokens: [{ key: "a", content: "x".repeat(48), line: 0, col: 0 }] }],
+	};
+	const LABELS = [
+		{ name: "ascii", title: "demo.ts" },
+		{ name: "CJK", title: "路由器.ts" },
+		{ name: "emoji", title: "🚀 ship.ts" },
+	];
+
+	it.each(LABELS)(
+		"$name label: the painter's roundRect and the DOM pill share one width",
+		({ title }) => {
+			const scene = frameScene({
+				canvasWidth: 1920,
+				canvasHeight: 1080,
+				title,
+				chrome: "browser",
+				padding: 24,
+				cardMargin: 32,
+				showLineNumbers: true,
+				lineNumberStart: 1,
+				charWidthRatio: 0.6,
+				scale: UNIT,
+				plan: PLAN as unknown as FrameSceneInput["plan"],
+				theme: {
+					background: "#0d1117",
+					foreground: FG,
+					fontFamily: "JetBrains Mono, monospace",
+					fontSize: 14,
+					borderRadius: 12,
+				},
+				background: "mesh:aurora",
+				canvasMargin: CANVAS_MARGIN,
+				grain: null,
+			});
+			const ctx = new RecordingContext();
+			paintFrame(ctx, scene, { tokens: [], lineCount: 2, lineNumberCount: 2, timeSeconds: 0 });
+			const pillHeight = (2 * bar.pillPadY + bar.titleSize * CHROME_TEXT_LINE_HEIGHT) * UNIT;
+			const painted = ctx.commands
+				.filter((command) => command.startsWith("roundRect("))
+				.map((command) => command.slice("roundRect(".length, -1).split(",").map(Number))
+				.find((args) => Math.abs((args[3] ?? 0) - pillHeight) < 0.01);
+
+			const { container } = render(
+				<FrameChrome
+					chrome="browser"
+					title={title}
+					foreground={FG}
+					scale={UNIT}
+					width={scene.window.width}
+				/>,
+			);
+			const dom = container.querySelector<HTMLElement>(`[title="${title}"]`)?.parentElement;
+
+			expect(painted?.[2]).toBeDefined();
+			expect(Number.parseFloat(dom?.style.width ?? "")).toBeCloseTo(painted?.[2] ?? Number.NaN, 1);
+		},
+	);
+
+	it("keeps ASCII at the width it always had: cells at the title's advance, plus the padding", () => {
+		const { container } = render(
+			<FrameChrome chrome="browser" title="demo.ts" foreground={FG} scale={UNIT} width={900} />,
+		);
+		const dom = container.querySelector<HTMLElement>('[title="demo.ts"]')?.parentElement;
+		const advance = bar.titleSize * UNIT * (0.6 + Number.parseFloat(bar.titleTracking));
+		expect(Number.parseFloat(dom?.style.width ?? "")).toBeCloseTo(
+			displayWidth("demo.ts") * advance + 2 * bar.pillPadX * UNIT,
+			1,
+		);
+	});
 });
