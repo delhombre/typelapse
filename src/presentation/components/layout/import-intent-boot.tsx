@@ -1,9 +1,10 @@
 import { classifySource } from "@/application/import/classify-source";
 import { importConfirmLabel, importReplaceQuestion } from "@/application/import/import-wording";
-import { STAGE_TOP_GAP, phoneSheetGeometry } from "@/application/layout/phone-sheet";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
-import { useIsDesktop } from "@/presentation/hooks/use-media-query";
-import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
+import {
+	usePhoneSurfaceTop,
+	useReportTransientSurface,
+} from "@/presentation/hooks/use-phone-surface-top";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { type ImportIntent, takeImportIntent } from "@/presentation/utils/import-intent";
@@ -42,6 +43,8 @@ export function ImportIntentBoot() {
 	const [asking, setAsking] = useState(false);
 	const { loading, error, progress, run, reset } = useSourceImport();
 	const questionId = useId();
+	const phoneTop = usePhoneSurfaceTop();
+	const reportSurface = useReportTransientSurface();
 
 	const begin = useCallback(
 		async (taken: ImportIntent) => {
@@ -81,11 +84,15 @@ export function ImportIntentBoot() {
 		return (
 			// Rendered beside the shell, not in it: `studio-root sc-tokens` hands the strip the
 			// studio's warm ramp and colour tokens, which the question's card reads. On a phone it
-			// starts below the status bar like the rest of the chrome (DECISIONS D14).
+			// starts where every transient surface does, under the corner row and one stage gap
+			// from it (after-the-gate D6, #207), so it follows the status bar and the Dynamic
+			// Island and covers no control; from 1280px it keeps its line under the status bar.
 			<div
+				ref={reportSurface}
 				role="alertdialog"
 				aria-labelledby={questionId}
-				className="studio-root sc-tokens fixed inset-x-0 top-[max(0.75rem,env(safe-area-inset-top))] z-[60] flex justify-center px-4"
+				className="studio-root sc-tokens fixed inset-x-0 z-[60] flex justify-center px-4"
+				style={{ top: phoneTop ?? "max(0.75rem, env(safe-area-inset-top))" }}
 			>
 				<ConfirmDiscard
 					messageId={questionId}
@@ -146,14 +153,14 @@ const DESKTOP_STATUS_TOP = 76;
  *
  * Under 1280px the shell is the phone's, at every width up to there, and its
  * corner row is the header: the status starts one stage gap under it, where the
- * frame starts, from the same figure (`rowBottom`) that places the sheet, so it
- * follows the status bar and the Dynamic Island. It wraps onto a second line
- * rather than ending in an ellipsis.
+ * frame starts (`usePhoneSurfaceTop`), so it follows the status bar and the
+ * Dynamic Island, and the replace question and the notices start from the same
+ * line. It wraps onto a second line rather than ending in an ellipsis.
  */
 function ImportStatus({ show, loading, error, message, onDismiss }: ImportStatusProps) {
-	const desktop = useIsDesktop();
-	const viewport = usePhoneViewport();
-	const top = desktop ? DESKTOP_STATUS_TOP : phoneSheetGeometry(viewport).rowBottom + STAGE_TOP_GAP;
+	const phoneTop = usePhoneSurfaceTop();
+	const reportSurface = useReportTransientSurface();
+	const top = phoneTop ?? DESKTOP_STATUS_TOP;
 
 	return (
 		<div
@@ -164,6 +171,7 @@ function ImportStatus({ show, loading, error, message, onDismiss }: ImportStatus
 			<AnimatePresence>
 				{show && (
 					<motion.div
+						ref={reportSurface}
 						data-testid="import-status"
 						initial={{ opacity: 0, y: -8, filter: "blur(4px)" }}
 						animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}

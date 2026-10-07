@@ -1,5 +1,7 @@
+import { usePhoneSurfaceTop } from "@/presentation/hooks/use-phone-surface-top";
 import { springs } from "@/presentation/motion";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
+import { useTransientSurfaceStore } from "@/presentation/stores/transient-surface.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { AlertCircle, X } from "reicon-react";
 
@@ -9,21 +11,39 @@ import { AlertCircle, X } from "reicon-react";
  * initiated those actions, rather than over the work in the middle of the
  * canvas. Reversible direct manipulation, such as scene deletion, owns its
  * feedback in the timeline instead.
+ *
+ * From 1280px they start at the desktop header's 76px line. Under it the corner
+ * row is the header: they start where every transient surface does, one stage
+ * gap under it, and under the import pill or the replace question when one is
+ * showing, never over a control or over each other (after-the-gate D6, #207).
  */
+const DESKTOP_NOTICE_TOP = 76;
+/** Between the import surface and the first notice: the notices' own gap. */
+const SURFACE_GAP = 8;
+
 export function NoticeHost() {
 	const notices = useNoticeStore((s) => s.notices);
 	const dismiss = useNoticeStore((s) => s.dismiss);
 	const reduce = useReducedMotion();
+	const phoneTop = usePhoneSurfaceTop();
+	const occupied = useTransientSurfaceStore((s) => s.occupied);
+	const top = phoneTop ?? DESKTOP_NOTICE_TOP;
+	// The room under the import surface is a transform, not a `top`, so the notices glide
+	// out of its way on the compositor when it arrives or leaves.
+	const below = phoneTop !== null && occupied > 0 ? occupied + SURFACE_GAP : 0;
 
 	return (
 		<div
 			aria-live="polite"
-			className="pointer-events-none fixed top-[76px] right-5 z-[70] flex w-[min(360px,calc(100vw-24px))] flex-col items-stretch gap-2 max-sm:right-3"
+			data-testid="notice-host"
+			style={{ top, transform: `translateY(${below}px)` }}
+			className="pointer-events-none fixed right-5 z-[70] flex w-[min(360px,calc(100vw-24px))] flex-col items-stretch gap-2 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none max-sm:right-3"
 		>
 			<AnimatePresence>
 				{notices.map((notice) => (
 					<motion.div
 						key={notice.id}
+						data-testid="notice"
 						layout
 						initial={reduce ? { opacity: 0 } : { opacity: 0, x: 8, scale: 0.985 }}
 						animate={reduce ? { opacity: 1 } : { opacity: 1, x: 0, scale: 1 }}
