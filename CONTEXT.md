@@ -82,10 +82,15 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
   columns before it plus the partial column at the edge (`lineClip` in
   `layout/line-clip.ts`, in cells), inside the code column, so it moves with
   the push-in; the window keeps its own right fade for what the push-in
-  carries past its edge. The columns come from the widest line across every
-  scene, one geometry for the whole video like the caption band. The engine
-  still lays the whole line out: a morph glides under the cut, and the
-  typewriter types the hidden tail, its caret out of sight past the cut.
+  carries past its edge. The push-in pivots left of centre only as far as
+  keeps the gutter at least half the margin inside the window (`zoomOriginX`,
+  3 × padding / width at 1.25, at most the centre), and the right edge fades
+  over the rest: the window's own fade on a cut line, otherwise one that
+  fades in with the push-in (`pushInFade`). The columns come from the widest
+  line across every scene, one geometry for the whole video like the caption
+  band. The engine still lays the whole line out: a morph glides under the
+  cut, and the typewriter types the hidden tail, its caret out of sight past
+  the cut.
 - **Plan window**: the rows and columns a card can show at the readable floor
   on any shipped canvas, plus a margin (`VISIBLE_ROW_LIMIT`,
   `VISIBLE_COL_LIMIT`). The magic-move plan lays out nothing past it. On a file

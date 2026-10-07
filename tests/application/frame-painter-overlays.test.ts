@@ -9,6 +9,7 @@ import type { FrameState } from "@/application/frame-painter/painter";
 import { paintFrame } from "@/application/frame-painter/painter";
 import { type FrameSceneInput, frameScene } from "@/application/frame-painter/scene";
 import type { RenderToken } from "@/application/magic-move/engine";
+import { zoomOriginX } from "@/application/magic-move/focus-zoom";
 import { describe, expect, it } from "vitest";
 import { RecordingContext, round } from "./support/recording-context";
 
@@ -159,7 +160,8 @@ describe("focus zoom", () => {
 			width: SCENE.window.width,
 			height: 2 * padding + 2 * SCENE.code.lineHeight,
 		};
-		const ox = box.x + box.width / 2;
+		// Across, as far left of centre as keeps the gutter in frame (#227).
+		const ox = box.x + zoomOriginX({ padding, bodyWidth: box.width }) * box.width;
 		const oy = box.y + 0.25 * box.height;
 
 		expect(ctx.commands).toContain(

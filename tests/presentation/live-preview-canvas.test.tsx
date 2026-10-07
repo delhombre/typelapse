@@ -7,7 +7,7 @@ import {
 import { fitScale } from "@/application/layout/fit-scale";
 import { chromeBarHeight } from "@/application/layout/frame-metrics";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
-import { ZOOM_SCALE } from "@/application/magic-move/focus-zoom";
+import { ZOOM_SCALE, zoomOriginX } from "@/application/magic-move/focus-zoom";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -301,6 +301,100 @@ describe("LivePreview on the export canvas", () => {
 		expect(clip?.style.overflow).toBe("hidden");
 		expect(clip?.style.transform).toBe("");
 		expect(clip?.parentElement?.classList.contains("code-frame-glow")).toBe(true);
+	});
+
+	/** The pivot ratio the shared rule gives this plan's window on the 16:9 canvas. */
+	function expectedOrigin(plan: unknown): number {
+		const state = useSnippetStore.getState();
+		const placement = previewCardPlacement({
+			plan: plan as MagicMovePlan,
+			chrome: state.windowChrome,
+			fontSize: state.snippet.theme.fontSize,
+			padding: state.framePadding,
+			cardMargin: state.cardMargin,
+			showLineNumbers: state.showLineNumbers,
+			lineNumberStart: state.lineNumberStart,
+			captions: [],
+			canvasWidth: 1920,
+			canvasHeight: 1080,
+			charWidthRatio: ADVANCE,
+			boxWidth: 1920 * fitScale(1920, 1080, AVAILABLE.width, AVAILABLE.height),
+		});
+		return zoomOriginX({ padding: state.framePadding, bodyWidth: placement.windowWidth });
+	}
+
+	it("pushes a window that cuts a long line in just left enough to keep its gutter, as the exporters do (#227)", async () => {
+		useExportStore.setState({ focusZoom: true });
+		useSnippetStore.setState({ rebuildPlan: async () => {} });
+		const step = useSnippetStore.getState().snippet.steps[1];
+		if (!step) {
+			throw new Error("no second step");
+		}
+		useSnippetStore
+			.getState()
+			.updateStepFocus(step.id, [HighlightRange.create({ startLine: 1, endLine: 1 })]);
+		const longLine = {
+			frames: [
+				{ lineCount: 1, tokens: [token("l", "x".repeat(300), 0, 0)] },
+				{ lineCount: 1, tokens: [token("l", "x".repeat(300), 0, 0)] },
+			],
+			transitions: [],
+		};
+		useSnippetStore.setState({ plan: longLine as unknown as MagicMovePlan });
+		const { container } = renderPreview();
+		const scaled = Array.from(container.querySelectorAll<HTMLElement>("div")).find((el) =>
+			el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
+		);
+		expect(scaled, "a pushed-in body").toBeDefined();
+		const origin = expectedOrigin(longLine);
+		expect(origin).toBeLessThan(0.1);
+		expect(Number.parseFloat(scaled?.style.transformOrigin ?? "") / 100).toBeCloseTo(origin, 9);
+		expect(container.querySelector("[data-push-in-fade]")).toBeNull();
+	});
+
+	it("lays one right fade on a window cut by less than its slack, with no line clip", async () => {
+		useExportStore.setState({ focusZoom: true });
+		useSnippetStore.setState({ rebuildPlan: async () => {} });
+		const step = useSnippetStore.getState().snippet.steps[1];
+		if (!step) {
+			throw new Error("no second step");
+		}
+		useSnippetStore
+			.getState()
+			.updateStepFocus(step.id, [HighlightRange.create({ startLine: 1, endLine: 1 })]);
+		const frame = { lineCount: 3, tokens: [token("l", "x".repeat(183), 1, 0)] };
+		const slackCut = { frames: [frame, frame], transitions: [] };
+		useSnippetStore.setState({ plan: slackCut as unknown as MagicMovePlan });
+		const { container } = renderPreview();
+		expect(container.querySelector(`div[style*="scale(${ZOOM_SCALE})"]`)).not.toBeNull();
+		const fades = container.querySelectorAll("[data-clip-fade='right'], [data-push-in-fade]");
+		expect(fades).toHaveLength(1);
+		expect(container.querySelector("[data-clip-fade='right']")).not.toBeNull();
+	});
+
+	it("pushes a window whose lines fit in left of centre too, and fades its right edge", async () => {
+		useExportStore.setState({ focusZoom: true });
+		useSnippetStore.setState({ rebuildPlan: async () => {} });
+		const step = useSnippetStore.getState().snippet.steps[1];
+		if (!step) {
+			throw new Error("no second step");
+		}
+		useSnippetStore
+			.getState()
+			.updateStepFocus(step.id, [HighlightRange.create({ startLine: 2, endLine: 3 })]);
+		const { container } = renderPreview();
+		const scaled = Array.from(container.querySelectorAll<HTMLElement>("div")).find((el) =>
+			el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
+		);
+		const origin = expectedOrigin(PLAN);
+		expect(origin).toBeGreaterThan(0);
+		expect(origin).toBeLessThanOrEqual(0.5);
+		expect(Number.parseFloat(scaled?.style.transformOrigin ?? "") / 100).toBeCloseTo(origin, 9);
+		// The right edge takes what the push-in carries off: it fades, outside the scaled box.
+		const fade = container.querySelector<HTMLElement>("[data-push-in-fade]");
+		expect(fade?.style.opacity).toBe("1");
+		expect(scaled?.contains(fade ?? null)).toBe(false);
+		expect(container.querySelector("[data-clip-fade='right']")).toBeNull();
 	});
 
 	it("keeps the new mesh painted when the background changes", async () => {

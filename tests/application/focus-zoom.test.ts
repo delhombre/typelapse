@@ -3,7 +3,9 @@ import {
 	NO_ZOOM,
 	ZOOM_SCALE,
 	interpolateZoom,
+	pushInFade,
 	zoomForFocus,
+	zoomOriginX,
 } from "@/application/magic-move/focus-zoom";
 import { describe, expect, it } from "vitest";
 
@@ -71,5 +73,63 @@ describe("interpolateZoom", () => {
 		const to = { scale: ZOOM_SCALE, originYRatio: 0.2 };
 		expect(interpolateZoom(NO_ZOOM, to, 0, easeInOutCubic)).toEqual(NO_ZOOM);
 		expect(interpolateZoom(NO_ZOOM, to, 1, easeInOutCubic)).toEqual(to);
+	});
+});
+
+describe("the push-in's pivot and its right fade", () => {
+	// Editor px at the defaults: padding 24, a two-digit gutter of 30.8, cells of 8.4.
+	const PADDING = 24;
+	const windowFor = (columns: number) => 2 * PADDING + 30.8 + (columns + 2) * 8.4;
+	/** Where the gutter's left edge lands under the full push-in, from the window's left edge. */
+	const gutterEdge = (origin: number, width: number) =>
+		ZOOM_SCALE * PADDING - origin * (ZOOM_SCALE - 1) * width;
+
+	it.each([
+		["greet, 37 columns", windowFor(37), 0.1772],
+		["an 80-column window", windowFor(80), 0.0938],
+		["the long line, cut at the floor's 185 columns", 1637, 0.044],
+	])("pivots %s just far enough left to keep half the margin", (_name, width, expected) => {
+		const origin = zoomOriginX({ padding: PADDING, bodyWidth: width });
+		expect(origin).toBeCloseTo(expected, 4);
+		expect(origin).toBeCloseTo((3 * PADDING) / width, 12);
+		// The gutter's left edge lands half a margin inside the window's edge.
+		expect(gutterEdge(origin, width)).toBeCloseTo(PADDING / 2, 9);
+	});
+
+	it("stays centred on a window narrow enough that the centred crop spares half the margin", () => {
+		const width = 130;
+		expect(zoomOriginX({ padding: PADDING, bodyWidth: width })).toBe(0.5);
+		expect(gutterEdge(0.5, width)).toBeGreaterThan(PADDING / 2);
+	});
+
+	it("is the same ratio in any unit", () => {
+		const editor = zoomOriginX({ padding: PADDING, bodyWidth: windowFor(80) });
+		expect(zoomOriginX({ padding: PADDING * 2.2, bodyWidth: windowFor(80) * 2.2 })).toBeCloseTo(
+			editor,
+			12,
+		);
+	});
+
+	it("fades the window's right edge in with the push-in, as deep as the window's own right fade", () => {
+		const geometry = { windowWidth: 800, fontSize: 30.8, windowCutsRight: false };
+		expect(pushInFade({ ...geometry, zoomScale: 1 })).toBeNull();
+		expect(pushInFade({ ...geometry, zoomScale: ZOOM_SCALE })).toEqual({
+			width: 4 * 30.8,
+			opacity: 1,
+		});
+		expect(pushInFade({ ...geometry, zoomScale: 1.125 })?.opacity).toBeCloseTo(0.5, 9);
+		// Never wider than the window.
+		expect(pushInFade({ ...geometry, windowWidth: 60, zoomScale: ZOOM_SCALE })?.width).toBe(60);
+	});
+
+	it("adds nothing to a window that already fades its right edge (a cut long line)", () => {
+		expect(
+			pushInFade({
+				windowWidth: 800,
+				fontSize: 30.8,
+				windowCutsRight: true,
+				zoomScale: ZOOM_SCALE,
+			}),
+		).toBeNull();
 	});
 });

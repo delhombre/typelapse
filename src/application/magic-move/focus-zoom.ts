@@ -14,7 +14,12 @@
  * painter clips the body before it scales (`clipBody`, then `applyZoom`); both
  * DOM renderers wrap the code in `FocusZoomBody`, whose clip is not the box that
  * scales.
+ *
+ * Across, the push-in pivots only as far left of centre as keeps half the margin
+ * before the gutter (`zoomOriginX`), and the window's right edge fades over what
+ * it carries off (`pushInFade`).
  */
+import { clipFadeWidth } from "../layout/canvas-fit";
 import { clamp01, easeInOutCubic } from "./engine";
 
 export interface ZoomTransform {
@@ -29,6 +34,52 @@ export const ZOOM_SCALE = 1.25;
 
 /** The neutral transform: no scale, centered origin. */
 export const NO_ZOOM: ZoomTransform = { scale: 1, originYRatio: 0.5 };
+
+/**
+ * Where the push-in pivots across the body, as a 0..1 ratio of its width: the
+ * centre, moved left only as far as keeps half the margin before the gutter.
+ *
+ * The push-in moves `crop = (ZOOM_SCALE - 1) × bodyWidth` out of the window in
+ * all, `o × crop` of it on the left for a pivot at `o`. Centred, that tenth of
+ * the body was the gutter on any snippet and, on a window cut at the floor's
+ * 185 columns, the first dozen columns too (#227). The padding before the gutter
+ * (before the code when line numbers are off) is `ZOOM_SCALE × padding` wide as
+ * the push-in draws it; the left may give all of it but half the original
+ * padding, since digits touching the window's edge read as a crop. So the pivot
+ * is that room over the crop (3 × padding / bodyWidth at 1.25), at most the
+ * centre: a narrow window keeps its centred push-in, a wide one pivots further
+ * left, and the gutter stays at least half a margin inside the window. The
+ * ratio is the same in any unit, so each renderer passes its own px.
+ */
+export function zoomOriginX(input: { padding: number; bodyWidth: number }): number {
+	const crop = (ZOOM_SCALE - 1) * input.bodyWidth;
+	if (crop <= 0) {
+		return 0.5;
+	}
+	const room = ZOOM_SCALE * input.padding - input.padding / 2;
+	return Math.min(0.5, Math.max(0, room / crop));
+}
+
+/**
+ * The fade over the window's right edge while the push-in carries code past it,
+ * or null: at rest, or on a window that already fades its right edge because it
+ * cuts a long line (`clipFades`). As deep as that fade, laid by every renderer
+ * at window level, outside the push-in, and as opaque as the push-in is far in,
+ * so it comes and goes with the zoom instead of popping.
+ */
+export function pushInFade(input: {
+	/** This frame's push-in scale (1 at rest). */
+	zoomScale: number;
+	windowWidth: number;
+	fontSize: number;
+	windowCutsRight: boolean;
+}): { width: number; opacity: number } | null {
+	const opacity = clamp01((input.zoomScale - 1) / (ZOOM_SCALE - 1));
+	if (input.windowCutsRight || opacity <= 0) {
+		return null;
+	}
+	return { width: clipFadeWidth(input.windowWidth, input.fontSize), opacity };
+}
 
 function lerp(from: number, to: number, t: number): number {
 	return from + (to - from) * t;
