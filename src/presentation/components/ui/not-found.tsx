@@ -1,3 +1,4 @@
+import { useDocumentTitle } from "@/presentation/hooks/use-document-title";
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ROUTE_STATE } from "./route-error-boundary";
@@ -8,18 +9,14 @@ import { ROUTE_STATE } from "./route-error-boundary";
  * Same material as the route error boundary, so the two read as one family.
  */
 export function NotFound() {
+	useDocumentTitle("Page not found · Typelapse");
 	useEffect(() => {
-		const previous = document.title;
-		document.title = "Page not found · Typelapse";
 		// The host owns the status; the page owns saying it is not for the index.
 		const robots = document.createElement("meta");
 		robots.name = "robots";
 		robots.content = "noindex";
 		document.head.append(robots);
-		return () => {
-			document.title = previous;
-			robots.remove();
-		};
+		return () => robots.remove();
 	}, []);
 
 	return (

@@ -55,3 +55,32 @@ function holdsSeparator(code: string): boolean {
 export function snippetDiagnostics(code: string) {
 	return { ...SNIPPET_DIAGNOSTICS, noSyntaxValidation: holdsSeparator(code) };
 }
+
+/** The workers Monaco can be handed, by the language service each one carries. */
+export type MonacoWorkerKind = "typescript" | "json" | "css" | "html" | "editor";
+
+/**
+ * Which worker serves a Monaco language label. The TypeScript service is the
+ * heavy one (1.5 MB gzipped), so it is the answer for TypeScript and JavaScript
+ * and nothing else: every other language gets the editor worker alone, the one
+ * all models share, and a Python snippet never downloads a compiler.
+ */
+export function monacoWorkerKind(label: string): MonacoWorkerKind {
+	switch (label) {
+		case "typescript":
+		case "javascript":
+			return "typescript";
+		case "json":
+			return "json";
+		case "css":
+		case "scss":
+		case "less":
+			return "css";
+		case "html":
+		case "handlebars":
+		case "razor":
+			return "html";
+		default:
+			return "editor";
+	}
+}

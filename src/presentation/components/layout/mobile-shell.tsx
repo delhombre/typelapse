@@ -7,6 +7,7 @@ import {
 import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { PreviewIsland } from "@/presentation/components/controls/preview-island";
 import { StudioLayerStrip } from "@/presentation/components/editor/studio-layer-strip";
+import { EditorPresence } from "@/presentation/contexts/editor-presence";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useDockFollowsSheet } from "@/presentation/hooks/use-dock-follows-sheet";
 import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
@@ -265,7 +266,11 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 								<section className="flex min-h-0 flex-col gap-3" data-editor-section>
 									<span className="sc-eyebrow">{editorKind}</span>
 									<StudioLayerStrip />
-									<div className="h-[320px]">{editor}</div>
+									{/* At the peek the content is below the screen and inert: Monaco is
+								    only downloaded once the sheet has risen. */}
+									<div className="h-[320px]">
+										<EditorPresence shown={!isPeek}>{editor}</EditorPresence>
+									</div>
 								</section>
 							</motion.div>
 						</div>

@@ -76,10 +76,11 @@ describe("the share image", () => {
 		expect(built).toContain(
 			'<meta name="twitter:image" content="https://typelapse.example/og.png" />',
 		);
-		// Only the images: the icons and the font preload stay same-origin paths.
+		// Only the images: the icons and the font preloads stay same-origin paths.
 		expect(built).toContain('href="/favicon.svg"');
 		expect(built).toContain('href="/apple-touch-icon.png"');
-		expect(built).toContain('href="/fonts/IoskeleyMono-Regular.woff2"');
+		expect(built).toContain('href="/fonts/Geist-latin.woff2"');
+		expect(built).toContain('"/fonts/IoskeleyMono-Regular.woff2"');
 	});
 
 	it("warns at build time when the origin is missing or local, and only then", () => {

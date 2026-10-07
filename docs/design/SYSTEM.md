@@ -80,7 +80,7 @@ Which background?
 | Video chrome bar | `'JetBrains Mono', ui-monospace` `src/application/layout/frame-metrics.ts` |
 | Fallback metrics, no layout shift | `size-adjust: 101.77%` `src/app.css` |
 | Never fake a weight | `font-synthesis: none` `src/app.css` |
-| Preloaded first-paint files | `/fonts/Geist-latin.woff2` `/fonts/IoskeleyMono-Regular.woff2` `index.html` |
+| Preloaded first-paint files: Geist on every route; Ioskeley and the frame's JetBrains Mono on `/` and `/app` only, the 404 sets text in neither (#214) | `/fonts/Geist-latin.woff2` `/fonts/IoskeleyMono-Regular.woff2` `/fonts/JetBrainsMono-latin.woff2` `index.html` |
 | Hero headline, mono 600 | `clamp(2rem, 1.2rem + 3vw, 3.25rem)` `line-height: 1.12` `letter-spacing: -0.02em` `src/app.css` |
 | Display, sans 600 | `clamp(2.75rem, 1.4rem + 5.6vw, 4.75rem)` `line-height: 1.02` `letter-spacing: -0.028em` `src/app.css` |
 | Section heading, sans 600 | `clamp(2rem, 1.25rem + 2.8vw, 3.05rem)` `line-height: 1.05` `letter-spacing: -0.021em` `src/app.css @ .lp-h2` |
@@ -206,6 +206,7 @@ opaque (last row of the table).
 | Timeline context enter, exit | `duration: 0.16` `duration: 0.09` `src/presentation/components/timeline/timeline-motion.ts` |
 | Timeline reorder settle | `stiffness: 500` `damping: 42` `src/presentation/components/timeline/timeline-motion.ts` |
 | Landing nav reveal, hide | `bounce: 0, duration: 0.42` `bounce: 0, duration: 0.3` `src/presentation/landing/dynamic-nav.tsx` |
+| Studio outline while its chunk loads: in after a delay so a fast load never shows it; fill, the studio ramp at 6% | `animation: sk-in 220ms var(--ease-out) 140ms backwards` `--sk-fill: color-mix(in oklch, var(--color-neutral-900) 6%, transparent)` `src/presentation/studio/studio-skeleton.css` |
 | Reduced motion keeps only | `transition-property: color, background-color, border-color` `src/app.css` |
 | Reduced transparency | `backdrop-filter: none !important` `src/app.css` |
 
@@ -215,8 +216,7 @@ longer. Exits are shorter than entrances. Springs come from `springs` in
 the shared ones could not do. Every Motion transition reads
 `useReducedMotion()` and swaps to `{ duration: 0 }`. Under reduced motion
 colour and opacity still fade, anything else lands instantly, and the
-landing has no intro at all. Nothing enters from `scale(0)`; the reveal
-starts at 0.985.
+landing has no intro at all. Nothing enters from `scale(0)`: reveal at 0.985.
 
 ## Touch and input
 

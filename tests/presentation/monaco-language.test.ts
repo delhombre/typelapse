@@ -1,4 +1,4 @@
-import { monacoLanguage } from "@/presentation/components/editor/monaco-language";
+import { monacoLanguage, monacoWorkerKind } from "@/presentation/components/editor/monaco-language";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -28,5 +28,35 @@ describe("monacoLanguage", () => {
 
 	it("leaves anything unrecognised to Monaco's own fallback", () => {
 		expect(monacoLanguage("brainfuck")).toBe("brainfuck");
+	});
+});
+
+/**
+ * Monaco asks for a worker by the label of the language it is starting, and the
+ * TypeScript one is 1.5 MB gzipped: it must be the answer for TypeScript and
+ * JavaScript and for nothing else, or a Python snippet pays for it.
+ */
+describe("monacoWorkerKind", () => {
+	it("gives the TypeScript worker to TypeScript and JavaScript only", () => {
+		expect(monacoWorkerKind("typescript")).toBe("typescript");
+		expect(monacoWorkerKind("javascript")).toBe("typescript");
+		for (const label of ["python", "rust", "go", "plaintext", "markdown", "yaml", "sql", ""]) {
+			expect(monacoWorkerKind(label)).not.toBe("typescript");
+		}
+	});
+
+	it("keeps the language services of JSON, CSS and HTML on their own workers", () => {
+		expect(monacoWorkerKind("json")).toBe("json");
+		expect(monacoWorkerKind("css")).toBe("css");
+		expect(monacoWorkerKind("scss")).toBe("css");
+		expect(monacoWorkerKind("less")).toBe("css");
+		expect(monacoWorkerKind("html")).toBe("html");
+		expect(monacoWorkerKind("handlebars")).toBe("html");
+		expect(monacoWorkerKind("razor")).toBe("html");
+	});
+
+	it("falls back to the editor worker, the one every model needs", () => {
+		expect(monacoWorkerKind("python")).toBe("editor");
+		expect(monacoWorkerKind("anything else")).toBe("editor");
 	});
 });

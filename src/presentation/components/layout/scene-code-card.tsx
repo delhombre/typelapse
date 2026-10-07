@@ -1,4 +1,5 @@
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
+import { EditorPresence } from "@/presentation/contexts/editor-presence";
 import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
 import { springs } from "@/presentation/motion";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -42,6 +43,9 @@ const LANGUAGES = [
  * so a fold that unmounted it would stutter on the way out and blink on the way
  * back. Kept mounted, the fold is pure compositing, and a press mid-flight only
  * reverses the springs it is already running.
+ *
+ * The first time it is unfolded is the first time Monaco is mounted (and so
+ * downloaded): a studio that opens in Preview never pays for the editor.
  *
  * Folded, the card is inert rather than merely invisible: hidden work that can
  * still be tabbed into is worse than no work at all.
@@ -107,7 +111,11 @@ export function SceneCodeCard({
 					</StudioTooltip>
 				</header>
 
-				<div className="sc-card-editor">{editor}</div>
+				<div className="sc-card-editor">
+					{/* Folded is Preview: the editor is not downloaded for a visit that
+					    never leaves it, and stays mounted once it has been shown. */}
+					<EditorPresence shown={!folded}>{editor}</EditorPresence>
+				</div>
 
 				<div className="sc-card-steps">
 					<span className="sc-eyebrow">Scene</span>

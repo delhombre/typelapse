@@ -2,6 +2,7 @@ import { NotFound } from "@/presentation/components/ui/not-found";
 import { RouteErrorBoundary } from "@/presentation/components/ui/route-error-boundary";
 import { LandingErrorShell } from "@/presentation/landing/landing-error-shell";
 import { LandingPage } from "@/presentation/landing/landing-page";
+import { StudioSkeleton } from "@/presentation/studio/studio-skeleton";
 import { Suspense, lazy } from "react";
 import { Route, Routes } from "react-router-dom";
 
@@ -32,7 +33,7 @@ export function AppRoutes() {
 				path="/app"
 				element={
 					<RouteErrorBoundary>
-						<Suspense fallback={<div className="min-h-dvh" aria-busy="true" />}>
+						<Suspense fallback={<StudioSkeleton />}>
 							<StudioRoute />
 						</Suspense>
 					</RouteErrorBoundary>
