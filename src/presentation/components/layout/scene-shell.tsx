@@ -1,4 +1,9 @@
-import { CARD_SLOT, dockTransform, stageTransform } from "@/application/layout/scene-stage";
+import {
+	CARD_SLOT,
+	STAGE_FLOOR_HEIGHT,
+	dockTransform,
+	stageTransform,
+} from "@/application/layout/scene-stage";
 import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { StudioControlRail } from "@/presentation/components/controls/studio-control-rail";
 import { StudioTimeline } from "@/presentation/components/timeline/studio-timeline";
@@ -73,6 +78,7 @@ export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps)
 				style={
 					{
 						"--sc-card-width": `${CARD_SLOT}px`,
+						"--sc-stage-floor": `${STAGE_FLOOR_HEIGHT}px`,
 					} as CSSProperties
 				}
 			>

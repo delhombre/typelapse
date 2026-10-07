@@ -13,6 +13,8 @@
  * does not move or rescale the picture under inspection.
  */
 
+import { BASE_VIDEO_SCALE, MIN_TEXT_PX, REFERENCE_SHORT_EDGE } from "./canvas-fit";
+
 /**
  * The width of the temporary code sheet. Its companion transform is half this
  * value, which keeps the sheet and the video optically balanced.
@@ -24,6 +26,22 @@ export const DESKTOP_SCENE_MIN_WIDTH = 1280;
 
 /** The video gives the editor room without becoming a thumbnail. */
 export const EDIT_STAGE_SCALE = 0.9;
+
+/** The code type the studio opens with (`Theme`'s default), which the floor is measured at. */
+export const REFERENCE_EDITOR_FONT_PX = 14;
+
+/**
+ * The shortest picture the stage will show: the height of the export canvas
+ * where the studio's own code type still draws at `MIN_TEXT_PX`, the floor the
+ * exporters already hold (canvas-fit). A window too short for it makes the
+ * desktop shell scroll vertically rather than fit the picture into what is
+ * left: 1440x500 gave a 128 by 72 thumbnail, and a scroll is honest where a
+ * thumbnail is not. Measured on the 16:9 canvas at the opening type size, at
+ * rest: Edit's 0.9 push-in is a transform on top of it.
+ */
+export const STAGE_FLOOR_HEIGHT = Math.ceil(
+	(MIN_TEXT_PX * REFERENCE_SHORT_EDGE) / (REFERENCE_EDITOR_FONT_PX * BASE_VIDEO_SCALE),
+);
 
 export interface SceneState {
 	/** True when the code card has been folded to its vertical tab. */

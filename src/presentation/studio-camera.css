@@ -71,6 +71,27 @@
 	--camera-timeline-height: 218px;
 	--camera-timeline-bottom: 16px;
 	--camera-rail-bottom: 246px;
+	/* The stage slot's own padding, and the preview's inset around its frame
+	   (p-8 in live-preview.tsx). Named because the shell's minimum height counts
+	   them, and the short-window rule below changes the first two. */
+	--camera-stage-pad-top: 18px;
+	--camera-stage-pad-bottom: 72px;
+	--camera-frame-inset: 32px;
+	/* The least the shell can be: the header, the stage at its floor
+	   (`--sc-stage-floor`, STAGE_FLOOR_HEIGHT, set by scene-shell.tsx) with what
+	   surrounds it, and the timeline stack. A window shorter than this scrolls
+	   rather than shrinking the picture past what it can show (#204). */
+	--camera-shell-min-height: calc(
+		var(--camera-header) +
+		var(--camera-stage-pad-top) +
+		var(--camera-stage-pad-bottom) +
+		2 *
+		var(--camera-frame-inset) +
+		var(--sc-stage-floor, 0px) +
+		var(--camera-timeline-height) +
+		var(--camera-timeline-bottom) +
+		8px
+	);
 	isolation: isolate;
 	/* Clip, not hidden. With the card open, the stage and the dock overhang the
 	   window by up to 160px, and a hidden overflow is still a scroll container:
@@ -84,6 +105,13 @@
 	   the machine. Geist is the landing's face and the phone's. */
 	font-family: var(--font-sans);
 	-webkit-font-smoothing: antialiased;
+}
+
+/* `.sc-root` is one window tall (app.css) and every slot in it is absolute, so
+   the desktop shell grows to its minimum and the document scrolls; the header,
+   the stage, the dock, the card and the timeline keep their places in it. */
+.studio-camera-root.sc-root {
+	height: max(100dvh, var(--camera-shell-min-height));
 }
 
 /* Reicon is drawn on a consistent 24px grid. Keeping every glyph as a block
@@ -2078,7 +2106,7 @@ textarea.sc-source-field {
 .studio-camera-root .sc-stage-slot {
 	inset: var(--camera-header) 0
 		calc(var(--camera-timeline-height) + var(--camera-timeline-bottom) + 8px);
-	padding: 18px 44px 72px;
+	padding: var(--camera-stage-pad-top) 44px var(--camera-stage-pad-bottom);
 }
 
 .studio-camera-root .sc-stage {
@@ -4408,11 +4436,8 @@ textarea.sc-source-field {
 	.studio-camera-root {
 		--camera-timeline-height: 190px;
 		--camera-rail-bottom: 218px;
-	}
-
-	.studio-camera-root .sc-stage-slot {
-		padding-top: 10px;
-		padding-bottom: 60px;
+		--camera-stage-pad-top: 10px;
+		--camera-stage-pad-bottom: 60px;
 	}
 
 	.studio-camera-root .sc-card-slot {

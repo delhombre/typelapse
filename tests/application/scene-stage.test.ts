@@ -1,6 +1,13 @@
 import {
+	BASE_VIDEO_SCALE,
+	MIN_TEXT_PX,
+	REFERENCE_SHORT_EDGE,
+} from "@/application/layout/canvas-fit";
+import {
 	CARD_SLOT,
 	DESKTOP_SCENE_MIN_WIDTH,
+	REFERENCE_EDITOR_FONT_PX,
+	STAGE_FLOOR_HEIGHT,
 	dockTransform,
 	stageTransform,
 } from "@/application/layout/scene-stage";
@@ -40,5 +47,26 @@ describe("the scene's stage geometry", () => {
 			x: CARD_SLOT / 2,
 		});
 		expect(dockTransform({ folded: true })).toEqual({ x: 0 });
+	});
+});
+
+describe("the stage's floor", () => {
+	// The stage was fit into whatever the window left it: 1440x500 gave a 128 by
+	// 72 picture, under the 8px code text the exporters already refuse to draw.
+	it("is the picture height where the studio's own code type is still readable", () => {
+		const textAt = (height: number) =>
+			(height / REFERENCE_SHORT_EDGE) * REFERENCE_EDITOR_FONT_PX * BASE_VIDEO_SCALE;
+
+		expect(textAt(STAGE_FLOOR_HEIGHT)).toBeGreaterThanOrEqual(MIN_TEXT_PX);
+		expect(textAt(STAGE_FLOOR_HEIGHT - 1)).toBeLessThan(MIN_TEXT_PX);
+	});
+
+	it("is a whole number of pixels, so the shell's minimum height is too", () => {
+		expect(Number.isInteger(STAGE_FLOOR_HEIGHT)).toBe(true);
+	});
+
+	it("still fits the picture of a laptop window, so only a short window scrolls", () => {
+		// 1440x780 gives the picture 304px today.
+		expect(STAGE_FLOOR_HEIGHT).toBeLessThan(304);
 	});
 });
