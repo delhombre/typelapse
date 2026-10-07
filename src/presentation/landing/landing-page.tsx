@@ -11,6 +11,7 @@ import { SocialSection } from "./social-section";
 import { ThemeToggle } from "./theme-toggle";
 import { CONTAINER, HAIRLINE, SECTION_PY } from "./tokens";
 import { useLandingTheme } from "./use-landing-theme";
+import { useStudioPrefetch } from "./use-studio-prefetch";
 
 /**
  * Marketing landing at `/`. A refined, product-forward page:
@@ -24,6 +25,7 @@ import { useLandingTheme } from "./use-landing-theme";
  */
 export function LandingPage() {
 	const [theme, toggleTheme] = useLandingTheme();
+	useStudioPrefetch();
 
 	return (
 		<LandingIntroProvider>
