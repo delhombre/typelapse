@@ -15,9 +15,9 @@
  * DOM renderers wrap the code in `FocusZoomBody`, whose clip is not the box that
  * scales.
  *
- * Across, the push-in pivots only as far left of centre as keeps the gutter in
- * frame (`zoomOriginX`), and the window's right edge fades over what it carries
- * off (`pushInFade`).
+ * Across, the push-in pivots only as far left of centre as keeps half the margin
+ * before the gutter (`zoomOriginX`), and the window's right edge fades over what
+ * it carries off (`pushInFade`).
  */
 import { clipFadeWidth } from "../layout/canvas-fit";
 import { clamp01, easeInOutCubic } from "./engine";
@@ -37,25 +37,27 @@ export const NO_ZOOM: ZoomTransform = { scale: 1, originYRatio: 0.5 };
 
 /**
  * Where the push-in pivots across the body, as a 0..1 ratio of its width: the
- * centre, moved left only as far as keeps the gutter's left edge in the window.
+ * centre, moved left only as far as keeps half the margin before the gutter.
  *
  * The push-in moves `crop = (ZOOM_SCALE - 1) × bodyWidth` out of the window in
  * all, `o × crop` of it on the left for a pivot at `o`. Centred, that tenth of
  * the body was the gutter on any snippet and, on a window cut at the floor's
- * 185 columns, the first dozen columns too (#227). The room the left can give is
- * the padding before the gutter (before the code when line numbers are off), as
- * the push-in draws it: `ZOOM_SCALE × padding`. So the pivot is that room over
- * the crop, at most the centre: a narrow window keeps its centred push-in, a
- * wide one pivots further left, and the gutter's left edge lands on the window's
- * edge at the most. The ratio is the same in any unit, so each renderer passes
- * its own px.
+ * 185 columns, the first dozen columns too (#227). The padding before the gutter
+ * (before the code when line numbers are off) is `ZOOM_SCALE × padding` wide as
+ * the push-in draws it; the left may give all of it but half the original
+ * padding, since digits touching the window's edge read as a crop. So the pivot
+ * is that room over the crop (3 × padding / bodyWidth at 1.25), at most the
+ * centre: a narrow window keeps its centred push-in, a wide one pivots further
+ * left, and the gutter stays at least half a margin inside the window. The
+ * ratio is the same in any unit, so each renderer passes its own px.
  */
 export function zoomOriginX(input: { padding: number; bodyWidth: number }): number {
 	const crop = (ZOOM_SCALE - 1) * input.bodyWidth;
 	if (crop <= 0) {
 		return 0.5;
 	}
-	return Math.min(0.5, Math.max(0, (ZOOM_SCALE * input.padding) / crop));
+	const room = ZOOM_SCALE * input.padding - input.padding / 2;
+	return Math.min(0.5, Math.max(0, room / crop));
 }
 
 /**

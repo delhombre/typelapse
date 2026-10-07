@@ -83,9 +83,9 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
   `layout/line-clip.ts`, in cells), inside the code column, so it moves with
   the push-in; the window keeps its own right fade for what the push-in
   carries past its edge. The push-in pivots left of centre only as far as
-  keeps the gutter's left edge in the window (`zoomOriginX`: the padding it
-  draws over the width it crops, at most the centre), and the right edge
-  fades over the rest: the window's own fade on a cut line, otherwise one that
+  keeps the gutter at least half the margin inside the window (`zoomOriginX`,
+  3 × padding / width at 1.25, at most the centre), and the right edge fades
+  over the rest: the window's own fade on a cut line, otherwise one that
   fades in with the push-in (`pushInFade`). The columns come from the widest line across every
   scene, one geometry for the whole video like the caption band. The engine
   still lays the whole line out: a morph glides under the cut, and the

@@ -4,8 +4,9 @@
  * Centred on the body, a 1.25 push-in carried a tenth of the window off each
  * side. On a window cut at 185 columns that was the gutter and the line's first
  * dozen columns, cut mid-glyph; on an ordinary snippet it was the gutter. The
- * pivot now moves left of centre only as far as keeps the gutter's left edge in
- * the window (`zoomOriginX`), and the right edge, which takes the rest of what
+ * pivot now moves left of centre only as far as keeps the gutter's left edge
+ * half a margin inside the window (`zoomOriginX`), and the right edge, which
+ * takes the rest of what
  * the push-in carries off, fades: the window's own fade on a cut line (#221),
  * otherwise one that fades in with the push-in.
  *
@@ -172,12 +173,12 @@ describe.each([
 		expect(pivotOf(commands)).toBe(round(originX));
 	});
 
-	it("keeps the gutter's left edge and the line's first column inside the window", () => {
+	it("keeps the gutter's left edge half a margin inside the window, and the line's first column", () => {
 		const { gutter, code, window } = scene;
 		// The gutter's widest label ("01") ends at `textRight`: it starts at the padding.
 		const gutterLeft = (gutter?.textRight ?? 0) - 2 * code.charWidth;
 		expect(gutterLeft).toBeCloseTo(window.x + PADDING_PX, 9);
-		expect(zoomedX(gutterLeft)).toBeGreaterThanOrEqual(window.x - 1e-9);
+		expect(zoomedX(gutterLeft)).toBeCloseTo(window.x + PADDING_PX / 2, 9);
 		expect(zoomedX(code.x)).toBeGreaterThan(window.x);
 	});
 

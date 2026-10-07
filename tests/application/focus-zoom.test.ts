@@ -85,20 +85,21 @@ describe("the push-in's pivot and its right fade", () => {
 		ZOOM_SCALE * PADDING - origin * (ZOOM_SCALE - 1) * width;
 
 	it.each([
-		["greet, 37 columns", windowFor(37), 0.2953],
-		["an 80-column window", windowFor(80), 0.1563],
-		["the long line, cut at the floor's 185 columns", 1637, 0.0733],
-	])("pivots %s just far enough left to keep the gutter", (_name, width, expected) => {
+		["greet, 37 columns", windowFor(37), 0.1772],
+		["an 80-column window", windowFor(80), 0.0938],
+		["the long line, cut at the floor's 185 columns", 1637, 0.044],
+	])("pivots %s just far enough left to keep half the margin", (_name, width, expected) => {
 		const origin = zoomOriginX({ padding: PADDING, bodyWidth: width });
 		expect(origin).toBeCloseTo(expected, 4);
-		// The gutter's left edge lands on the window's edge, not past it.
-		expect(gutterEdge(origin, width)).toBeCloseTo(0, 9);
+		expect(origin).toBeCloseTo((3 * PADDING) / width, 12);
+		// The gutter's left edge lands half a margin inside the window's edge.
+		expect(gutterEdge(origin, width)).toBeCloseTo(PADDING / 2, 9);
 	});
 
-	it("stays centred on a window narrow enough that the centred crop spares the gutter", () => {
-		const width = 200;
+	it("stays centred on a window narrow enough that the centred crop spares half the margin", () => {
+		const width = 130;
 		expect(zoomOriginX({ padding: PADDING, bodyWidth: width })).toBe(0.5);
-		expect(gutterEdge(0.5, width)).toBeGreaterThan(0);
+		expect(gutterEdge(0.5, width)).toBeGreaterThan(PADDING / 2);
 	});
 
 	it("is the same ratio in any unit", () => {

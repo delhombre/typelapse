@@ -6,8 +6,8 @@ import { downloadFrom, expect, importHash, openStudio, test } from "./support/st
  * Ticket #227: under the focus zoom, the window that cuts the 300-character
  * line lost its gutter and its first dozen columns off the left edge, cut
  * mid-glyph, in the preview and the PNG alike; an ordinary snippet lost its
- * gutter. The push-in now pivots left of centre only as far as keeps the
- * gutter in frame, and fades the right. The screenshots and the PNGs are the
+ * gutter. The push-in now pivots left of centre only as far as keeps half the
+ * margin before the gutter, and fades the right. The screenshots and the PNGs are the
  * test's attachments: their edges are the proof the PR carries.
  */
 
@@ -63,17 +63,27 @@ async function leftEdges(page: Page, text: string) {
 		window: await left(page.locator("[data-export-target] .code-frame-glow")),
 		line: await left(page.locator("[data-export-target] span", { hasText: text }).first()),
 		gutter: await left(page.locator("[data-export-target] div", { hasText: /^01$/ }).last()),
+		/** The window's padding as drawn, from the code body's own style. */
+		margin: await page
+			.locator("[data-export-target] div[style*='scale(1.25)'] > div")
+			.first()
+			.evaluate((el) => {
+				// Page px per layout px, read off the unscaled clip box: the margin at rest.
+				const clip = el.parentElement?.parentElement as HTMLElement;
+				const unit = clip.getBoundingClientRect().width / clip.offsetWidth;
+				return Number.parseFloat(getComputedStyle(el).paddingLeft) * unit;
+			}),
 	};
 }
 
-test.describe("The focus zoom keeps the gutter in frame", () => {
+test.describe("The focus zoom keeps half the margin before the gutter", () => {
 	test.use({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 
 	// The pivot `zoomOriginX` gives each window: the padding the push-in draws
 	// over the width it crops (greet is 37 columns; the long line is cut at 185).
 	for (const { name, source, first, origin } of [
-		{ name: "long", source: SOURCE, first: "// One line", origin: 0.0733 },
-		{ name: "ordinary", source: ORDINARY, first: "export", origin: 0.2953 },
+		{ name: "long", source: SOURCE, first: "// One line", origin: 0.044 },
+		{ name: "ordinary", source: ORDINARY, first: "export", origin: 0.1772 },
 	]) {
 		test(`the ${name} snippet keeps its gutter and its line starts, and fades its right edge`, async ({
 			page,
@@ -82,10 +92,10 @@ test.describe("The focus zoom keeps the gutter in frame", () => {
 			const measured = await pivot(page);
 			testInfo.annotations.push({ type: "pivot", description: String(measured) });
 			// About the rule's figure: the real font's widest line can differ by a cell.
-			expect(measured).toBeCloseTo(origin, 1);
+			expect(Math.abs(measured - origin)).toBeLessThan(0.01);
 			const edges = await leftEdges(page, first);
-			// The gutter's left edge lands on the window's edge at the most, never past it.
-			expect(edges.gutter).toBeGreaterThanOrEqual(edges.window - 0.5);
+			// The gutter's left edge stays half a margin inside the window's edge.
+			expect(edges.gutter - edges.window).toBeGreaterThan(edges.margin / 2 - 0.5);
 			expect(edges.line).toBeGreaterThan(edges.gutter);
 			// One fade on the right edge: the window's own on the cut line, the push-in's otherwise.
 			const fades = page.locator(
