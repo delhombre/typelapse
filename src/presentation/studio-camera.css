@@ -4436,8 +4436,27 @@ textarea.sc-source-field {
 	.studio-camera-root {
 		--camera-timeline-height: 190px;
 		--camera-rail-bottom: 218px;
-		--camera-stage-pad-top: 10px;
-		--camera-stage-pad-bottom: 60px;
+		/* The bands around the picture give way before the shell scrolls: from
+		   100px above `--sc-squeeze-start` of window height they shrink in step
+		   with it, to their squeezed size at that height, and below it the page
+		   scrolls (#204). The numbers are scene-stage.ts's (stageSqueezeVars);
+		   the squeezed bottom bands still clear the dock. */
+		--camera-squeeze: clamp(0px, calc(100dvh - var(--sc-squeeze-start)), var(--sc-squeeze-range));
+		--camera-stage-pad-top: calc(
+			var(--sc-pad-top-squeezed) +
+			var(--camera-squeeze) *
+			var(--sc-pad-top-slope)
+		);
+		--camera-stage-pad-bottom: calc(
+			var(--sc-pad-bottom-squeezed) +
+			var(--camera-squeeze) *
+			var(--sc-pad-bottom-slope)
+		);
+		--camera-frame-inset: calc(
+			var(--sc-frame-inset-squeezed) +
+			var(--camera-squeeze) *
+			var(--sc-frame-inset-slope)
+		);
 	}
 
 	.studio-camera-root .sc-card-slot {

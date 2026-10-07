@@ -2,6 +2,7 @@ import {
 	CARD_SLOT,
 	STAGE_FLOOR_HEIGHT,
 	dockTransform,
+	stageSqueezeVars,
 	stageTransform,
 } from "@/application/layout/scene-stage";
 import { ExportStatus } from "@/presentation/components/controls/export-status";
@@ -79,6 +80,7 @@ export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps)
 					{
 						"--sc-card-width": `${CARD_SLOT}px`,
 						"--sc-stage-floor": `${STAGE_FLOOR_HEIGHT}px`,
+						...stageSqueezeVars(),
 					} as CSSProperties
 				}
 			>

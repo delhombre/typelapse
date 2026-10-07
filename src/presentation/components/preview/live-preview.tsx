@@ -650,7 +650,7 @@ export function LivePreview() {
 			) : null}
 			<div
 				ref={setContainerNode}
-				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-8"
+				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-[var(--camera-frame-inset,2rem)]"
 			>
 				{aspectCanvas ? (
 					// Faithful aspect-canvas preview: the export's mesh box with the code

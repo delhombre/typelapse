@@ -1,5 +1,14 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import {
+	SHELL_SQUEEZE_FROM,
+	SHELL_SQUEEZE_RANGE,
+	SHORT_WINDOW_MAX_HEIGHT,
+	STAGE_BANDS,
+	STAGE_FLOOR_HEIGHT,
+	shellMinHeightAt,
+	stageSqueezeVars,
+} from "@/application/layout/scene-stage";
 import { describe, expect, it } from "vitest";
 
 /* #204 (D4): below a stage height the desktop shell scrolls instead of fitting
@@ -26,6 +35,7 @@ describe("the desktop shell's stage floor", () => {
 	it("hands the shell the floor from the layout module, not a number of its own", () => {
 		expect(shell).toContain("STAGE_FLOOR_HEIGHT");
 		expect(shell).toMatch(/"--sc-stage-floor":\s*`\$\{STAGE_FLOOR_HEIGHT\}px`/);
+		expect(shell).toContain("...stageSqueezeVars()");
 	});
 
 	it("is as tall as the window or as the stage, the timeline and the header need, whichever is more", () => {
@@ -58,12 +68,77 @@ describe("the desktop shell's stage floor", () => {
 		expect(slot).toContain("var(--camera-stage-pad-bottom)");
 	});
 
-	it("lets the short-window rule move the padding through the variables, not the slot", () => {
+	it("lets the short-window rule squeeze the bands with the window, through variables, not the slot", () => {
 		const short = camera.slice(camera.indexOf("@media (max-height: 760px)"));
 		const block = short.slice(0, short.indexOf("@media (prefers-reduced-motion"));
 
-		expect(block).toMatch(/--camera-stage-pad-top:\s*10px/);
-		expect(block).toMatch(/--camera-stage-pad-bottom:\s*60px/);
+		expect(block).toMatch(
+			/--camera-squeeze:\s*clamp\(\s*0px,\s*calc\(100dvh - var\(--sc-squeeze-start\)\),\s*var\(--sc-squeeze-range\)\s*\)/,
+		);
+		for (const [band, name] of [
+			["--camera-stage-pad-top", "pad-top"],
+			["--camera-stage-pad-bottom", "pad-bottom"],
+			["--camera-frame-inset", "frame-inset"],
+		] as const) {
+			expect(block, band).toMatch(
+				new RegExp(
+					`${band}:\\s*calc\\(\\s*var\\(--sc-${name}-squeezed\\)\\s*\\+\\s*var\\(--camera-squeeze\\)\\s*\\*\\s*var\\(--sc-${name}-slope\\)\\s*\\)`,
+				),
+			);
+		}
 		expect(block).not.toMatch(/\.sc-stage-slot\s*{[^}]*padding-(top|bottom)/);
+	});
+
+	it("lets the preview take its inset around the picture from the shell, as 2rem anywhere else", () => {
+		const preview = readFileSync(
+			resolve(__dirname, "../../src/presentation/components/preview/live-preview.tsx"),
+			"utf8",
+		);
+
+		expect(preview).toContain("p-[var(--camera-frame-inset,2rem)]");
+	});
+
+	// The model in scene-stage.ts stands in for the stylesheet's arithmetic in the
+	// layout tests, so its fixed numbers are held to the stylesheet's.
+	it("states the shell's fixed bands as the stylesheet does, so the layout model is the real layout", () => {
+		const px = (rule: string, property: string) => {
+			const found = rule.match(new RegExp(`${property}:\\s*(\\d+)px`));
+			expect(found, property).not.toBeNull();
+			return Number(found?.[1]);
+		};
+		const root = declarationsOf(".studio-camera-root");
+		const short = camera.slice(camera.indexOf("@media (max-height: 760px)"));
+		const shortRoot = short.slice(0, short.indexOf("}"));
+		const stack = (rule: string, timeline: string) =>
+			px(root, "--camera-header") + px(root, "--camera-timeline-bottom") + 8 + px(rule, timeline);
+
+		expect(SHORT_WINDOW_MAX_HEIGHT).toBe(760);
+		expect(shellMinHeightAt(SHORT_WINDOW_MAX_HEIGHT + 1)).toBe(
+			stack(root, "--camera-timeline-height") +
+				px(root, "--camera-stage-pad-top") +
+				px(root, "--camera-stage-pad-bottom") +
+				2 * px(root, "--camera-frame-inset") +
+				STAGE_FLOOR_HEIGHT,
+		);
+		expect(shellMinHeightAt(SHORT_WINDOW_MAX_HEIGHT)).toBe(
+			stack(shortRoot, "--camera-timeline-height") +
+				STAGE_BANDS.padTop.comfortable +
+				STAGE_BANDS.padBottom.comfortable +
+				2 * STAGE_BANDS.frameInset.comfortable +
+				STAGE_FLOOR_HEIGHT,
+		);
+	});
+
+	it("hands the stylesheet each band's squeezed size and its slope per px of squeeze", () => {
+		const vars = stageSqueezeVars();
+
+		expect(vars["--sc-squeeze-start"]).toBe(`${SHELL_SQUEEZE_FROM}px`);
+		expect(vars["--sc-squeeze-range"]).toBe(`${SHELL_SQUEEZE_RANGE}px`);
+		expect(vars["--sc-pad-top-squeezed"]).toBe("0px");
+		expect(vars["--sc-pad-top-slope"]).toBe("0.1");
+		expect(vars["--sc-pad-bottom-squeezed"]).toBe("40px");
+		expect(vars["--sc-pad-bottom-slope"]).toBe("0.2");
+		expect(vars["--sc-frame-inset-squeezed"]).toBe("16px");
+		expect(vars["--sc-frame-inset-slope"]).toBe("0.16");
 	});
 });
