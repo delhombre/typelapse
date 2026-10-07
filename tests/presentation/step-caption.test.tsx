@@ -103,9 +103,10 @@ describe("the step caption", () => {
 			expect(line.style.boxSizing).toBe("border-box");
 		});
 
-		it("keeps the plate inside the band, which is as tall as the lines it is given", () => {
+		it("keeps the plate inside the band, as tall as its own lines and not the band's", () => {
 			const { box, line } = band(1, 2);
 
+			expect(box.style.alignItems).toBe("flex-start");
 			expect(Number.parseFloat(line.style.paddingTop)).toBe(0);
 			expect(Number.parseFloat(line.style.paddingBottom)).toBe(0);
 			expect(Number.parseFloat(box.style.height)).toBe(40);

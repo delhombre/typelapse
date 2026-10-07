@@ -42,11 +42,15 @@ export function StepCaption({ text, opacity, scale = 1, lines }: StepCaptionProp
 				marginTop: CAPTION_MARGIN_TOP * scale,
 				display: "flex",
 				justifyContent: "center",
+				// The plate is as tall as the caption's own lines, not as the band's.
+				alignItems: "flex-start",
 				pointerEvents: "none",
 				// Reserved whether the caption fills it or not, so a caption fading in
 				// never moves the frame.
 				height: CAPTION_LINE_HEIGHT * lines * scale,
-				overflow: "hidden",
+				// Not clipped: the caption's own box cuts it at `lines` (below), and a
+				// plate that reaches `pad` past a full-width caption keeps its rounded
+				// ends instead of being squared off at the window's edge.
 			}}
 		>
 			<span
@@ -62,7 +66,7 @@ export function StepCaption({ text, opacity, scale = 1, lines }: StepCaptionProp
 					// The plate reaches `pad` past the words on each side, and the margin
 					// takes that back from the layout: the words wrap at the width they
 					// always did, so the band estimate (`captionLines`) still holds. A
-					// caption as wide as the card has its plate trimmed flush by the band.
+					// caption as wide as the window hangs its plate `pad` past each edge.
 					boxSizing: "border-box",
 					maxWidth: `calc(100% + ${2 * pad}px)`,
 					padding: `0 ${pad}px`,
