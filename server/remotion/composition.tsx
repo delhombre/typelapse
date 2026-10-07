@@ -50,14 +50,12 @@ function useFontLoaded(fontFamily: string, fontSize: number): number {
 	const [charWidthRatio, setCharWidthRatio] = useState(() => measureAdvance(fontFamily, fontSize));
 
 	useEffect(() => {
-		// Inter powers the step captions (StepCaption), so load it alongside the mono font.
-		const interUrl = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap";
-
-		// The theme's family through the shared registry: the bundled copy of the
-		// file the preview loads, or Google's stylesheet for a picker font.
-		Promise.all([fontStylesheets(fontFamily), fetch(interUrl).then((res) => res.text())])
-			.then(([monoSheets, interSheet]) => {
-				for (const css of [...monoSheets, interSheet]) {
+		// The theme's family and Inter, which sets the step captions (StepCaption),
+		// through the shared registry: the bundled copy of the files the preview
+		// loads, so nothing is asked of a third party.
+		fontStylesheets(fontFamily, "Inter")
+			.then((sheets) => {
+				for (const css of sheets) {
 					const style = document.createElement("style");
 					style.textContent = css;
 					document.head.appendChild(style);

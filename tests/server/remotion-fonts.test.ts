@@ -34,15 +34,24 @@ describe("the server composition's fonts", () => {
 		expect(latin?.url).toBe(BUNDLED_FONT_URLS["/fonts/Geist-latin.woff2"]);
 	});
 
-	it("still fetches a picker font Google serves", async () => {
-		const fetchSpy = vi.fn(async () => new Response("@font-face { font-family: 'Fira Code'; src: url(f.woff2); }"));
+	it("sets every picker font and the captions' Inter from local files, asking no one", async () => {
+		const fetchSpy = vi.fn();
 		vi.stubGlobal("fetch", fetchSpy);
 
-		const sheets = await fontStylesheets("Fira Code, monospace");
+		for (const font of LOADABLE_FONTS) {
+			const sheets = await fontStylesheets(font.stack);
+			const faces = sheets.flatMap(parseFontFaceSources);
 
-		expect(fetchSpy).toHaveBeenCalledWith(
-			"https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&display=swap",
-		);
-		expect(sheets).toHaveLength(1);
+			const wanted = selfHostedFaces(font);
+
+			expect(faces.length, font.family).toBe(wanted.length);
+			faces.forEach((face, index) => {
+				expect(face.family).toBe(font.family);
+				// The bundle's own copy of the registry's file, never a host.
+				expect(face.url, font.family).toBe(BUNDLED_FONT_URLS[wanted[index]?.url ?? ""]);
+				expect(face.url, font.family).not.toMatch(/^https?:/);
+			});
+		}
+		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 });

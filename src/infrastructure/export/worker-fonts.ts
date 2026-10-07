@@ -1,11 +1,11 @@
 /**
  * Getting the app's own fonts into a scope that has no document.
  *
- * The settings panel loads a code font by dropping a `<link>` into the head; the
- * app's self-hosted mono arrives through an `@font-face` rule in a stylesheet.
- * Neither exists in a worker. So the same files are fetched here and registered
- * by hand, and — this is the part that matters — a family that will not load
- * fails the export instead of being quietly stood in for.
+ * The document gets the app's fonts through `@font-face` rules in a stylesheet,
+ * which a worker does not have. So the same files, from the same registry and
+ * served by the app itself (nothing leaves for a third party), are fetched here
+ * and registered by hand, and — this is the part that matters — a family that
+ * will not load fails the export instead of being quietly stood in for.
  *
  * The old version of this had one entry in it, for the self-hosted family, which
  * meant all five of the picker's fonts resolved to whatever the machine had
@@ -15,13 +15,7 @@
  * measures it.
  */
 
-import {
-	type CodeFont,
-	fontsToLoad,
-	googleFontCssUrl,
-	selfHostedFaces,
-} from "@/application/fonts/code-fonts";
-import { type FontFaceSource, parseFontFaceSources } from "@/application/fonts/font-face-css";
+import { type CodeFont, fontsToLoad, selfHostedFaces } from "@/application/fonts/code-fonts";
 import { unresolvedFontMessage } from "@/application/fonts/font-fidelity";
 
 /** A scope that can hold fonts: `self.fonts` in a worker, `document.fonts` in a tab. */
@@ -58,14 +52,13 @@ function refusal(missing: string[]): string {
 /**
  * True when at least one face of the family made it in.
  *
- * Google serves a family as one block per unicode subset. Latin is the one that
- * has to arrive; a Cyrillic subset that 404s is not a reason to refuse a
- * snippet of TypeScript, so each face is tried on its own.
+ * A family is one file per unicode subset. Latin is the one that has to
+ * arrive; a Cyrillic subset that 404s is not a reason to refuse a snippet of
+ * TypeScript, so each face is tried on its own.
  */
 async function register(registry: FontRegistry, font: CodeFont): Promise<boolean> {
-	const sources = await sourcesFor(font);
 	const results = await Promise.all(
-		sources.map(async (source) => {
+		selfHostedFaces(font).map(async (source) => {
 			try {
 				const face = new FontFace(font.family, `url(${source.url})`, {
 					weight: source.weight,
@@ -80,25 +73,4 @@ async function register(registry: FontRegistry, font: CodeFont): Promise<boolean
 		}),
 	);
 	return results.some(Boolean);
-}
-
-async function sourcesFor(font: CodeFont): Promise<FontFaceSource[]> {
-	if (font.files) {
-		return selfHostedFaces(font);
-	}
-	if (!font.google) {
-		return [];
-	}
-	try {
-		const response = await fetch(googleFontCssUrl(font.google, font.weights));
-		if (!response.ok) {
-			return [];
-		}
-		const faces = parseFontFaceSources(await response.text());
-		// Google is asked for one family at a time, but filtering keeps a shared
-		// stylesheet from registering someone else's file under this name.
-		return faces.filter((face) => face.family.toLowerCase() === font.family.toLowerCase());
-	} catch {
-		return [];
-	}
 }

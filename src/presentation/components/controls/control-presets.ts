@@ -1,4 +1,3 @@
-import { googleFontCssUrl } from "@/application/fonts/code-fonts";
 import { Theme } from "@/domain/entities/theme";
 import type { WindowChrome } from "@/presentation/components/preview/frame-chrome";
 
@@ -40,22 +39,3 @@ export const TEMPO_PRESETS = [
 ] as const;
 
 export const PROGRESS_STYLES = ["reels", "bar", "none"] as const;
-
-const loadedFonts = new Set<string>();
-
-/**
- * The picker's own copy of a font, as a `<link>`. The render worker fetches the
- * very same stylesheet by URL, from the very same registry, because a font the
- * panel can show and the renderer cannot is how an export ends up in a typeface
- * nobody chose.
- */
-export function loadGoogleFont(googleName: string): void {
-	if (loadedFonts.has(googleName)) {
-		return;
-	}
-	loadedFonts.add(googleName);
-	const link = document.createElement("link");
-	link.rel = "stylesheet";
-	link.href = googleFontCssUrl(googleName);
-	document.head.appendChild(link);
-}
