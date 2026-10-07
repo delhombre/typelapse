@@ -159,7 +159,8 @@ describe("focus zoom", () => {
 			width: SCENE.window.width,
 			height: 2 * padding + 2 * SCENE.code.lineHeight,
 		};
-		const ox = box.x + box.width / 2;
+		// Across, the body's left edge: the gutter and the line starts stay (#227).
+		const ox = box.x;
 		const oy = box.y + 0.25 * box.height;
 
 		expect(ctx.commands).toContain(

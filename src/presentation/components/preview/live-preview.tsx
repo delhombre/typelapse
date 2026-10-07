@@ -595,7 +595,12 @@ export function LivePreview() {
 						zoom={view.zoom}
 						active={focusZoom}
 						borderRadius={snippet.theme.borderRadius * layoutScale}
-						lineClip={aspectCanvas?.lineClip ?? null}
+						fade={{
+							background: snippet.theme.background,
+							fontSize: snippet.theme.fontSize * layoutScale,
+							windowWidth,
+							lineClip: aspectCanvas?.lineClip ?? null,
+						}}
 					>
 						<MagicMoveCanvas
 							tokens={view.tokens}

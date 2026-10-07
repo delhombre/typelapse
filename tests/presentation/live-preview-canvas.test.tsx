@@ -329,7 +329,7 @@ describe("LivePreview on the export canvas", () => {
 		expect(scaled?.style.transformOrigin.startsWith("0% ")).toBe(true);
 	});
 
-	it("keeps the push-in centred on a window whose lines fit", async () => {
+	it("pushes a window whose lines fit in from its left edge too, and fades its right edge", async () => {
 		useExportStore.setState({ focusZoom: true });
 		useSnippetStore.setState({ rebuildPlan: async () => {} });
 		const step = useSnippetStore.getState().snippet.steps[1];
@@ -343,7 +343,12 @@ describe("LivePreview on the export canvas", () => {
 		const scaled = Array.from(container.querySelectorAll<HTMLElement>("div")).find((el) =>
 			el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
 		);
-		expect(scaled?.style.transformOrigin.startsWith("50% ")).toBe(true);
+		expect(scaled?.style.transformOrigin.startsWith("0% ")).toBe(true);
+		// The right edge takes what the push-in carries off: it fades, outside the scaled box.
+		const fade = container.querySelector<HTMLElement>("[data-push-in-fade]");
+		expect(fade?.style.opacity).toBe("1");
+		expect(scaled?.contains(fade ?? null)).toBe(false);
+		expect(container.querySelector("[data-clip-fade='right']")).toBeNull();
 	});
 
 	it("keeps the new mesh painted when the background changes", async () => {

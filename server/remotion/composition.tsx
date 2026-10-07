@@ -201,13 +201,19 @@ export function CodeCard({ input }: { input: RenderInput }) {
 			}
 		>
 			{/* Focus zoom: the preview's component, so the video matches. The code column
-			    cuts a long line where the fit says, as the preview and the painter do. */}
-			{(lineClip) => (
+			    cuts a long line where the fit says, as the preview and the painter do,
+			    and the push-in fades the right edge of a window that does not. */}
+			{(lineClip, windowWidth) => (
 				<FocusZoomBody
 					zoom={view.zoom}
 					active={focusZoom}
 					borderRadius={theme.borderRadius * videoScale}
-					lineClip={lineClip}
+					fade={{
+						background: theme.background,
+						fontSize: theme.fontSize * videoScale,
+						windowWidth,
+						lineClip,
+					}}
 				>
 					<MagicMoveCanvas
 						tokens={view.tokens}
@@ -317,8 +323,10 @@ export function CenteredFrame({
 	captions?: readonly string[];
 	/** The caption band, given the lines the fit reserved for it. */
 	caption?: (lines: number) => React.ReactNode;
-	/** The window's body; a function is given where the code column cuts a long line. */
-	children: React.ReactNode | ((lineClip: LineClip | null) => React.ReactNode);
+	/** The window's body; a function is given the code column's cut (null when every line fits) and the window's width. */
+	children:
+		| React.ReactNode
+		| ((lineClip: LineClip | null, windowWidth: number) => React.ReactNode);
 }) {
 	const radius = theme.borderRadius * videoScale;
 	const isDark = isColorDark(theme.background);
@@ -420,7 +428,7 @@ export function CenteredFrame({
 							scale={videoScale}
 							width={natural.width}
 						/>
-						{typeof children === "function" ? children(fit.lineClip) : children}
+						{typeof children === "function" ? children(fit.lineClip, natural.width) : children}
 						<ClipFades
 							background={theme.background}
 							fades={clipFades({

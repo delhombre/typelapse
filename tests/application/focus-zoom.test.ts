@@ -1,10 +1,11 @@
 import { easeInOutCubic } from "@/application/magic-move/engine";
 import {
 	NO_ZOOM,
+	ZOOM_ORIGIN_X,
 	ZOOM_SCALE,
 	interpolateZoom,
+	pushInFade,
 	zoomForFocus,
-	zoomOriginX,
 } from "@/application/magic-move/focus-zoom";
 import { describe, expect, it } from "vitest";
 
@@ -75,16 +76,31 @@ describe("interpolateZoom", () => {
 	});
 });
 
-describe("zoomOriginX", () => {
-	// Ticket #227: centred on a window that cuts a long line, the push-in carried
-	// the gutter and the line's first columns off the left edge, mid-glyph.
-	const cut = { visibleColumns: 185, fadeStart: 182, fadeEnd: 185.5 };
-
-	it("pivots on the body's left edge when the code column cuts a line", () => {
-		expect(zoomOriginX(cut)).toBe(0);
+describe("the push-in's pivot and its right fade", () => {
+	it("pivots on the body's left edge, so the gutter and every line's start stay", () => {
+		expect(ZOOM_ORIGIN_X).toBe(0);
 	});
 
-	it("stays centred on a window whose lines fit, as before", () => {
-		expect(zoomOriginX(null)).toBe(0.5);
+	it("fades the window's right edge in with the push-in, as deep as the window's own right fade", () => {
+		const geometry = { windowWidth: 800, fontSize: 30.8, windowCutsRight: false };
+		expect(pushInFade({ ...geometry, zoomScale: 1 })).toBeNull();
+		expect(pushInFade({ ...geometry, zoomScale: ZOOM_SCALE })).toEqual({
+			width: 4 * 30.8,
+			opacity: 1,
+		});
+		expect(pushInFade({ ...geometry, zoomScale: 1.125 })?.opacity).toBeCloseTo(0.5, 9);
+		// Never wider than the window.
+		expect(pushInFade({ ...geometry, windowWidth: 60, zoomScale: ZOOM_SCALE })?.width).toBe(60);
+	});
+
+	it("adds nothing to a window that already fades its right edge (a cut long line)", () => {
+		expect(
+			pushInFade({
+				windowWidth: 800,
+				fontSize: 30.8,
+				windowCutsRight: true,
+				zoomScale: ZOOM_SCALE,
+			}),
+		).toBeNull();
 	});
 });

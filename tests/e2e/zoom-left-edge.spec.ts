@@ -5,10 +5,10 @@ import { downloadFrom, expect, importHash, openStudio, test } from "./support/st
 /**
  * Ticket #227: under the focus zoom, the window that cuts the 300-character
  * line lost its gutter and its first dozen columns off the left edge, cut
- * mid-glyph, in the preview and the PNG alike. A window that cuts a line now
- * pushes in from its left edge. The screenshots and the PNGs are the test's
- * attachments: their left edges are the proof the PR carries, and the ordinary
- * snippet's are compared to a build of `main`, pixel for pixel.
+ * mid-glyph, in the preview and the PNG alike; an ordinary snippet lost its
+ * gutter. Every push-in now pivots on the left edge and fades the right. The
+ * screenshots and the PNGs are the test's attachments: their edges are the
+ * proof the PR carries.
  */
 
 const LONG = `const message = "${"lorem ipsum dolor sit amet ".repeat(11).slice(0, 281)}";`;
@@ -55,35 +55,50 @@ async function savePng(page: Page, path: string) {
 	);
 }
 
-test.describe("The focus zoom on a window that cuts a long line", () => {
+/** The left edges of the window, `text`'s first glyph and the gutter's "01", in page px. */
+async function leftEdges(page: Page, text: string) {
+	const left = async (locator: ReturnType<Page["locator"]>) =>
+		(await locator.boundingBox())?.x ?? Number.NaN;
+	return {
+		window: await left(page.locator("[data-export-target] .code-frame-glow")),
+		line: await left(page.locator("[data-export-target] span", { hasText: text }).first()),
+		gutter: await left(page.locator("[data-export-target] div", { hasText: /^01$/ }).last()),
+	};
+}
+
+test.describe("The focus zoom pushes in from the left edge", () => {
 	test.use({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
 
-	test("pushes in from the left edge: the gutter and the line's start stay", async ({
-		page,
-	}, testInfo) => {
-		await openZoomed(page, SOURCE);
-		expect(await pivot(page)).toBeCloseTo(0, 2);
-		// The first glyph of every line and the gutter's labels sit inside the window.
-		const frame = page.locator("[data-export-target] .code-frame-glow");
-		const windowLeft = (await frame.boundingBox())?.x ?? Number.NaN;
-		const comment = page.locator("[data-export-target] span", { hasText: "// One line" }).first();
-		expect((await comment.boundingBox())?.x).toBeGreaterThan(windowLeft);
-		const label = page.locator("[data-export-target] div", { hasText: /^01$/ }).last();
-		expect((await label.boundingBox())?.x).toBeGreaterThan(windowLeft);
+	for (const { name, source, first } of [
+		{ name: "long", source: SOURCE, first: "// One line" },
+		{ name: "ordinary", source: ORDINARY, first: "export" },
+	]) {
+		test(`the ${name} snippet keeps its gutter and its line starts, and fades its right edge`, async ({
+			page,
+		}, testInfo) => {
+			await openZoomed(page, source);
+			expect(await pivot(page)).toBeCloseTo(0, 2);
+			const edges = await leftEdges(page, first);
+			expect(edges.gutter).toBeGreaterThan(edges.window);
+			expect(edges.line).toBeGreaterThan(edges.gutter);
+			// One fade on the right edge: the window's own on the cut line, the push-in's otherwise.
+			const fades = page.locator(
+				"[data-export-target] [data-clip-fade='right'], [data-export-target] [data-push-in-fade]",
+			);
+			await expect(fades).toHaveCount(1);
+			const own = page.locator(
+				name === "long"
+					? "[data-export-target] [data-clip-fade='right']"
+					: "[data-export-target] [data-push-in-fade]",
+			);
+			await expect(own).toHaveCount(1);
+			await expect(own).toHaveCSS("opacity", "1");
 
-		await page.getByTestId("preview-frame").screenshot({
-			path: testInfo.outputPath("preview-long.png"),
+			await page.getByTestId("preview-frame").screenshot({
+				path: testInfo.outputPath(`preview-${name}.png`),
+			});
+			const { path } = await savePng(page, testInfo.outputPath(`export-${name}.png`));
+			expect(probeVideo(path)).toMatchObject({ width: 1920, height: 1080 });
 		});
-		const { path } = await savePng(page, testInfo.outputPath("export-long.png"));
-		expect(probeVideo(path)).toMatchObject({ width: 1920, height: 1080 });
-	});
-
-	test("an ordinary snippet still pushes in from its centre", async ({ page }, testInfo) => {
-		await openZoomed(page, ORDINARY);
-		expect(await pivot(page)).toBeCloseTo(0.5, 2);
-		await page.getByTestId("preview-frame").screenshot({
-			path: testInfo.outputPath("preview-ordinary.png"),
-		});
-		await savePng(page, testInfo.outputPath("export-ordinary.png"));
-	});
+	}
 });

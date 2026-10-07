@@ -1,16 +1,17 @@
 /**
- * The push-in on a window that cuts a long line keeps its left edge (#227).
+ * The push-in pivots on the body's left edge, and fades the right (#227).
  *
  * Centred on the body, a 1.25 push-in carried a tenth of the window off each
  * side. On a window cut at 185 columns that was the gutter and the line's first
- * dozen columns, cut mid-glyph with nothing to soften it, while the right edge
- * had the window's fade. A window that cuts a line now pivots its push-in on the
- * body's left edge: the left never crops, the gutter and the line's start stay,
- * and only the right edge, which already fades, takes what the push-in carries
- * off. A window whose lines fit pushes in from its centre, as before.
+ * dozen columns, cut mid-glyph; on an ordinary snippet it was the gutter, and
+ * from about 66 columns the first cells of code. A code frame's left side (line
+ * numbers, indentation) matters more than its right, so every push-in now pivots
+ * on the left edge: nothing crops on the left, and the right edge, which takes
+ * all the push-in carries off, fades. A window that cuts a long line has that
+ * fade already (#221); any other window gets one that fades in with the push-in.
  *
- * The same pivot in the three renderers: the painter's transform and the DOM's
- * `transform-origin` (the composition here, the preview in
+ * The same pivot and the same fade in the three renderers: the painter's
+ * commands and the DOM's styles (the composition here, the preview in
  * `live-preview-canvas.test.tsx`).
  */
 
@@ -21,6 +22,7 @@ import { CodeCard } from "../../server/remotion/composition";
 import { buildCodeCardInput } from "../../server/render/v2/code-card-input";
 import { paintFrame } from "../../src/application/frame-painter/painter";
 import { type FrameSceneInput, frameScene } from "../../src/application/frame-painter/scene";
+import { BASE_VIDEO_SCALE } from "../../src/application/layout/canvas-fit";
 import { ZOOM_SCALE } from "../../src/application/magic-move/focus-zoom";
 import { RecordingContext, round } from "../application/support/recording-context";
 import { proofDocument } from "./remotion-v2-proof-document";
@@ -38,6 +40,8 @@ vi.mock("remotion", async () => {
 	};
 });
 
+const BG = "#0d1117";
+const FONT_PX = 14 * BASE_VIDEO_SCALE;
 const LONG = `const message = "${"lorem ipsum dolor sit amet ".repeat(11).slice(0, 281)}";`;
 const LONG_SOURCE = ["// One line far longer than any window.", LONG, "export default message;"].join(
 	"\n",
@@ -46,14 +50,14 @@ const ORDINARY = ["export function greet(name: string) {", "  return `Hello, ${n
 	"\n",
 );
 
-/** The painter's scene and push-in for a three-line frame whose second line is `line`. */
-function painted(line: string) {
+/** The painter's scene and commands for a three-line frame whose second line is `line`. */
+function painted(line: string, zoomScale = ZOOM_SCALE) {
 	const input: FrameSceneInput = {
 		canvasWidth: 1920,
 		canvasHeight: 1080,
 		plan: { frames: [{ lineCount: 3, tokens: [{ col: 0, content: line }] }] },
 		theme: {
-			background: "#0d1117",
+			background: BG,
 			foreground: "#e6edf3",
 			fontFamily: "JetBrains Mono, monospace",
 			fontSize: 14,
@@ -67,7 +71,7 @@ function painted(line: string) {
 		showLineNumbers: true,
 		lineNumberStart: 1,
 		charWidthRatio: 0.6,
-		scale: 2.2,
+		scale: BASE_VIDEO_SCALE,
 		canvasMargin: 0.05,
 		grain: null,
 		focusZoom: true,
@@ -79,27 +83,29 @@ function painted(line: string) {
 		lineCount: 3,
 		lineNumberCount: 3,
 		timeSeconds: 0,
-		zoom: { scale: ZOOM_SCALE, originYRatio: 0.5 },
+		zoom: { scale: zoomScale, originYRatio: 0.5 },
 	});
-	// A canvas has no transform-origin: translate to it, scale, translate back.
-	const at = ctx.commands.indexOf(`scale(${ZOOM_SCALE},${ZOOM_SCALE})`);
-	const pivot = /^translate\(([-\d.]+),([-\d.]+)\)$/.exec(ctx.commands[at - 1] ?? "");
-	if (!pivot) {
-		throw new Error(`no push-in pivot before ${ctx.commands[at]}`);
-	}
-	const originX = Number(pivot[1]);
-	return {
-		scene,
-		originX,
-		/** Window px the push-in carries off the window's left edge. */
-		leftCrop: (ZOOM_SCALE - 1) * (originX - scene.window.x),
-		/** Where the push-in draws a point drawn at `x` without it. */
-		zoomedX: (x: number) => originX + ZOOM_SCALE * (x - originX),
-	};
+	return { scene, commands: ctx.commands };
 }
 
-/** The composition's pushed-in box for `code` focused on its second line. */
-async function composedOrigin(code: string): Promise<string> {
+/** Where the painter pivots its push-in: a canvas translates to it, scales, translates back. */
+function pivotOf(commands: string[]): number {
+	const at = commands.indexOf(`scale(${ZOOM_SCALE},${ZOOM_SCALE})`);
+	const pivot = /^translate\(([-\d.]+),([-\d.]+)\)$/.exec(commands[at - 1] ?? "");
+	if (!pivot) {
+		throw new Error(`no push-in pivot before ${commands[at]}`);
+	}
+	return Number(pivot[1]);
+}
+
+/** The gradient a right-edge fade over `scene`'s window is painted with. */
+function rightFadeStyle(scene: ReturnType<typeof painted>["scene"]): string {
+	const right = scene.window.x + scene.window.width;
+	return `fillStyle=linear(${round(right - 4 * FONT_PX)},0,${round(right)},0)[0:${BG}00|1:${BG}]`;
+}
+
+/** The composition's pushed-in box and its window, for `code` focused on its second line. */
+async function composed(code: string) {
 	const base = proofDocument();
 	const card = await buildCodeCardInput({
 		document: {
@@ -142,16 +148,24 @@ async function composedOrigin(code: string): Promise<string> {
 	if (!scaled) {
 		throw new Error("no pushed-in body");
 	}
-	return scaled.style.transformOrigin;
+	const windowEl = container.querySelector<HTMLElement>("[data-code-window]");
+	return {
+		origin: scaled.style.transformOrigin,
+		windowFade: windowEl?.querySelector<HTMLElement>("[data-clip-fade='right']") ?? null,
+		pushInFade: windowEl?.querySelector<HTMLElement>("[data-push-in-fade]") ?? null,
+	};
 }
 
-describe("the push-in on a window that cuts a long line", () => {
-	const { scene, originX, leftCrop, zoomedX } = painted(LONG);
+describe.each([
+	["a window that cuts a long line", LONG, LONG_SOURCE],
+	["an ordinary snippet", "x".repeat(37), ORDINARY],
+])("the push-in on %s", (_name, line, source) => {
+	const { scene, commands } = painted(line);
+	const originX = pivotOf(commands);
+	const zoomedX = (x: number) => originX + ZOOM_SCALE * (x - originX);
 
 	it("pivots the painter's push-in on the body's left edge: nothing crops on the left", () => {
-		expect(scene.lineClip).not.toBeNull();
 		expect(originX).toBe(round(scene.window.x));
-		expect(leftCrop).toBe(0);
 	});
 
 	it("keeps the gutter and the line's first column inside the window", () => {
@@ -161,31 +175,46 @@ describe("the push-in on a window that cuts a long line", () => {
 		expect(zoomedX(code.x)).toBeGreaterThan(window.x);
 	});
 
-	it("leaves the window's fades as they were: the right one takes what the push-in carries off", () => {
-		expect(scene.fades.map((fade) => fade.edge)).toEqual(["right"]);
+	it("fades the window's right edge once, outside the push-in", () => {
+		const fade = rightFadeStyle(scene);
+		expect(commands.filter((c) => c === fade)).toHaveLength(1);
+		// After the restore that undoes the zoom: the window is faded, not the code.
+		const zoomAt = commands.indexOf(`scale(${ZOOM_SCALE},${ZOOM_SCALE})`);
+		expect(commands.slice(zoomAt, commands.indexOf(fade))).toContain("restore");
 	});
 
-	it("puts the composition's transform-origin on the same edge", async () => {
-		const origin = await composedOrigin(LONG_SOURCE);
+	it("puts the composition's transform-origin on the same edge, with the same right fade", async () => {
+		const { origin, windowFade, pushInFade } = await composed(source);
 		expect(origin.startsWith("0% ")).toBe(true);
 		// One pivot, two spellings: the painter's px over the body's width is the DOM's %.
 		expect((originX - round(scene.window.x)) / scene.window.width).toBe(
 			Number.parseFloat(origin) / 100,
 		);
+		// Exactly one right fade, as deep as the painter's.
+		const fades = [windowFade, pushInFade].filter((el) => el !== null);
+		expect(fades).toHaveLength(1);
+		expect(Number.parseFloat(fades[0]?.style.width ?? "")).toBeCloseTo(4 * FONT_PX, 6);
 	});
 });
 
-describe("the push-in on a window whose lines fit", () => {
-	const { scene, originX, leftCrop } = painted("x".repeat(80));
+describe("the ordinary snippet's right fade", () => {
+	it("fades in with the push-in: none at rest, half way at half the push-in", () => {
+		const line = "x".repeat(37);
+		const rest = painted(line, 1);
+		expect(rest.commands).not.toContain(rightFadeStyle(rest.scene));
 
-	it("stays centred on the body, as before: a tenth of the window crops on each side", () => {
-		expect(scene.lineClip).toBeNull();
-		expect(originX).toBe(round(scene.window.x + scene.window.width / 2));
-		expect(leftCrop).toBeCloseTo((ZOOM_SCALE - 1) * (scene.window.width / 2), 2);
-		expect(scene.fades).toEqual([]);
+		const half = painted(line, 1.125);
+		const fadeAt = half.commands.indexOf(rightFadeStyle(half.scene));
+		expect(fadeAt).toBeGreaterThan(-1);
+		expect(half.commands.slice(0, fadeAt).lastIndexOf("globalAlpha=0.5")).toBeGreaterThan(-1);
+		expect(half.commands.slice(fadeAt)).toContain("globalAlpha=1");
 	});
 
-	it("keeps the composition's transform-origin centred", async () => {
-		expect((await composedOrigin(ORDINARY)).startsWith("50% ")).toBe(true);
+	it("is the push-in's own in the DOM, the window's own fade being for a cut line", async () => {
+		const ordinary = await composed(ORDINARY);
+		expect(ordinary.windowFade).toBeNull();
+		expect(ordinary.pushInFade?.style.opacity).toBe("1");
+		const long = await composed(LONG_SOURCE);
+		expect(long.pushInFade).toBeNull();
 	});
 });

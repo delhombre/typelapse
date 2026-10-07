@@ -327,6 +327,11 @@ export interface ClipFade {
 /** How deep each fade reaches into the window, in font sizes. */
 const CLIP_FADE_EMS = { right: 4, bottom: 2.5 } as const;
 
+/** How deep a right-edge fade reaches into a window `windowWidth` px wide. */
+export function clipFadeWidth(windowWidth: number, fontSize: number): number {
+	return Math.min(windowWidth, CLIP_FADE_EMS.right * fontSize);
+}
+
 /**
  * The fades over a clipped window: a gradient from the window's own background,
  * transparent, to opaque at the cut, so clipped code trails off instead of being
@@ -343,7 +348,7 @@ export function clipFades(input: {
 	const { clip, windowWidth, windowHeight, chromeHeight, fontSize } = input;
 	const fades: ClipFade[] = [];
 	if (clip?.right) {
-		const width = Math.min(windowWidth, CLIP_FADE_EMS.right * fontSize);
+		const width = clipFadeWidth(windowWidth, fontSize);
 		fades.push({
 			edge: "right",
 			x: windowWidth - width,

@@ -36,7 +36,7 @@ import { watermarkPlacement } from "../layout/watermark-placement";
 import { browserPillWidth, chromeGlyphAdvance, windowTitle } from "../layout/window-title";
 import { scrolledGutter } from "../line-numbers/gutter";
 import type { GridPosition, RenderToken } from "../magic-move/engine";
-import { type ZoomTransform, zoomOriginX } from "../magic-move/focus-zoom";
+import { ZOOM_ORIGIN_X, type ZoomTransform, pushInFade } from "../magic-move/focus-zoom";
 import { canvasFont, colorWithAlpha } from "./font";
 import { type LayeredFrame, paintLayers } from "./layers";
 import type { PaintContext } from "./paint-context";
@@ -158,6 +158,7 @@ function paintCard(ctx: PaintContext, sized: FrameScene, state: FrameState): voi
 	paintCaret(ctx, scene, state.cursor);
 	paintLineFade(ctx, scene, state.lineCount);
 	ctx.restore();
+	paintPushInFade(ctx, scene, state);
 	paintClipFades(ctx, scene);
 	ctx.restore();
 	ctx.restore();
@@ -188,6 +189,38 @@ function paintClipFades(ctx: PaintContext, scene: FrameScene): void {
 		ctx.fillStyle = gradient;
 		ctx.fillRect(x, y, width, height);
 	}
+}
+
+/**
+ * The fade over the window's right edge while the push-in carries code past it
+ * (`pushInFade`): the right clip fade's gradient, at the push-in's opacity. Like
+ * `FocusZoomBody`'s, it sits outside the zoom, under the chrome bar, and under
+ * the window's own fades.
+ */
+function paintPushInFade(ctx: PaintContext, scene: FrameScene, state: FrameState): void {
+	if (!scene.style.focusZoom || !state.zoom) {
+		return;
+	}
+	const fade = pushInFade({
+		zoomScale: state.zoom.scale,
+		windowWidth: scene.window.width,
+		fontSize: scene.code.fontSize,
+		windowCutsRight: scene.lineClip !== null,
+	});
+	if (!fade) {
+		return;
+	}
+	const [clear, solid] = clipFadeStops(scene.style.theme.background);
+	const right = scene.window.x + scene.window.width;
+	const x = right - fade.width;
+	const top = scene.window.y + scene.chromeHeight;
+	const gradient = ctx.createLinearGradient(x, 0, right, 0);
+	gradient.addColorStop(0, clear);
+	gradient.addColorStop(1, solid);
+	ctx.globalAlpha = fade.opacity;
+	ctx.fillStyle = gradient;
+	ctx.fillRect(x, top, fade.width, scene.window.y + scene.window.height - top);
+	ctx.globalAlpha = 1;
 }
 
 /**
@@ -652,7 +685,7 @@ function clipBody(ctx: PaintContext, scene: FrameScene, lineCount: number): void
  * canvas has no transform-origin, so the same thing is spelled out: move to the
  * origin, scale, move back. The numbers come from the shared `focus-zoom`
  * module, so preview, video and this agree by construction: across, the body's
- * centre, or its left edge when the code column cuts a long line (`zoomOriginX`).
+ * left edge (`ZOOM_ORIGIN_X`).
  */
 function applyZoom(ctx: PaintContext, scene: FrameScene, state: FrameState): void {
 	const zoom = state.zoom;
@@ -660,7 +693,7 @@ function applyZoom(ctx: PaintContext, scene: FrameScene, state: FrameState): voi
 		return;
 	}
 	const box = bodyBox(scene, state.lineCount);
-	const originX = box.x + zoomOriginX(scene.lineClip) * box.width;
+	const originX = box.x + ZOOM_ORIGIN_X * box.width;
 	const originY = box.y + zoom.originYRatio * box.height;
 	ctx.translate(originX, originY);
 	ctx.scale(zoom.scale, zoom.scale);

@@ -82,10 +82,10 @@ Three renderers draw the same picture, and WYSIWYG is a discipline:
   columns before it plus the partial column at the edge (`lineClip` in
   `layout/line-clip.ts`, in cells), inside the code column, so it moves with
   the push-in; the window keeps its own right fade for what the push-in
-  carries past its edge. On a window that cuts a line the push-in pivots on
-  the body's left edge, not its centre (`zoomOriginX`), so nothing crops on
-  the left: the gutter and every line's start stay, and only the faded right
-  edge takes what the push-in carries off. The columns come from the widest line across every
+  carries past its edge. Every push-in pivots on the body's left edge
+  (`ZOOM_ORIGIN_X`), so the gutter and the line starts stay in frame, and the
+  right edge fades over what it carries off: the window's own fade on a cut
+  line, otherwise one that fades in with the push-in (`pushInFade`). The columns come from the widest line across every
   scene, one geometry for the whole video like the caption band. The engine
   still lays the whole line out: a morph glides under the cut, and the
   typewriter types the hidden tail, its caret out of sight past the cut.
