@@ -156,6 +156,7 @@ function paintCard(ctx: PaintContext, sized: FrameScene, state: FrameState): voi
 	paintGutter(ctx, scene, state.lineNumberCount, state.firstRow ?? 0, baselines);
 	paintTokens(ctx, scene, state.tokens, baselines);
 	paintCaret(ctx, scene, state.cursor);
+	paintLineFade(ctx, scene, state.lineCount);
 	ctx.restore();
 	paintClipFades(ctx, scene);
 	ctx.restore();
@@ -163,29 +164,21 @@ function paintCard(ctx: PaintContext, sized: FrameScene, state: FrameState): voi
 }
 
 /**
- * The fades over the edges the window clips at the readable floor. Anchored to
- * the window's right and bottom edges, as the DOM anchors them, so a step
- * shorter than the clipped window still fades at its own edge. They sit inside
- * the window's clip and outside the zoom: the window is cut, not the code.
+ * The fade over the window's clipped bottom edge. Anchored to the window's
+ * bottom, as the DOM anchors it, so a step shorter than the clipped window
+ * still fades at its own edge. It sits inside the window's clip and outside the
+ * zoom: the window is cut, not the code.
  */
 function paintClipFades(ctx: PaintContext, scene: FrameScene): void {
 	const [clear, solid] = clipFadeStops(scene.style.theme.background);
-	const right = scene.window.x + scene.window.width;
 	const bottom = scene.window.y + scene.window.height;
 	for (const fade of scene.fades) {
-		const top = scene.window.y + fade.y;
-		const [x, y, width, height] =
-			fade.edge === "right"
-				? [right - fade.width, top, fade.width, bottom - top]
-				: [scene.window.x, bottom - fade.height, scene.window.width, fade.height];
-		const gradient =
-			fade.edge === "right"
-				? ctx.createLinearGradient(x, 0, x + width, 0)
-				: ctx.createLinearGradient(0, y, 0, y + height);
+		const y = bottom - fade.height;
+		const gradient = ctx.createLinearGradient(0, y, 0, y + fade.height);
 		gradient.addColorStop(0, clear);
 		gradient.addColorStop(1, solid);
 		ctx.fillStyle = gradient;
-		ctx.fillRect(x, y, width, height);
+		ctx.fillRect(scene.window.x, y, scene.window.width, fade.height);
 	}
 }
 
@@ -762,6 +755,31 @@ function paintCaret(
 	ctx.fillStyle = style.theme.foreground;
 	ctx.fill();
 	ctx.globalAlpha = 1;
+}
+
+/**
+ * The fade over a long line's last columns, where the code column cuts it
+ * (`lineClip`). Both DOM renderers mask the code column with the same cells
+ * (`MagicMoveCanvas`); a canvas has no mask, so the window's own background is
+ * laid over the columns, transparent at the fade's first column and opaque at
+ * the cut, which on the window's solid fill is the same picture. Painted after
+ * the tokens and the caret, inside the code area's clip and the push-in, where
+ * the DOM's column is.
+ */
+function paintLineFade(ctx: PaintContext, scene: FrameScene, lineCount: number): void {
+	const clip = scene.lineClip;
+	if (!clip) {
+		return;
+	}
+	const { code } = scene;
+	const from = code.x + clip.fadeStart * code.charWidth;
+	const edge = code.x + clip.fadeEnd * code.charWidth;
+	const [clear, solid] = clipFadeStops(scene.style.theme.background);
+	const gradient = ctx.createLinearGradient(from, 0, edge, 0);
+	gradient.addColorStop(0, clear);
+	gradient.addColorStop(1, solid);
+	ctx.fillStyle = gradient;
+	ctx.fillRect(from, code.y, edge - from, Math.max(code.lineHeight, lineCount * code.lineHeight));
 }
 
 /**

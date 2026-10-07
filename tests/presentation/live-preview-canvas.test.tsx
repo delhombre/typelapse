@@ -1,11 +1,9 @@
 import {
 	BASE_VIDEO_SCALE,
-	clipFades,
 	previewCardPlacement,
 	renderScaleFor,
 } from "@/application/layout/canvas-fit";
 import { fitScale } from "@/application/layout/fit-scale";
-import { chromeBarHeight } from "@/application/layout/frame-metrics";
 import type { MagicMovePlan } from "@/application/magic-move/engine";
 import { ZOOM_SCALE } from "@/application/magic-move/focus-zoom";
 import { HighlightRange } from "@/domain/value-objects/highlight-range";
@@ -221,7 +219,7 @@ describe("LivePreview on the export canvas", () => {
 		expect(grain[0]?.parentElement).toBe(box);
 	});
 
-	it("clips a line too long for the readable floor at the window, with the exporters' fade", async () => {
+	it("cuts a line too long for the floor's columns in the code column, with the exporters' fade", async () => {
 		const longLine = {
 			frames: [{ lineCount: 1, tokens: [token("l", "x".repeat(10_000), 0, 0)] }],
 			transitions: [],
@@ -244,26 +242,21 @@ describe("LivePreview on the export canvas", () => {
 			boxWidth: 1920 * fitScale(1920, 1080, AVAILABLE.width, AVAILABLE.height),
 		});
 		expect(placement.clip).toEqual({ right: true, bottom: false });
-		const [fade] = clipFades({
-			clip: placement.clip,
-			windowWidth: placement.windowWidth,
-			windowHeight: placement.windowHeight,
-			chromeHeight: chromeBarHeight(state.windowChrome, 1),
-			fontSize: state.snippet.theme.fontSize,
-		});
+		const clip = placement.lineClip;
+		expect(clip?.visibleColumns).toBeGreaterThan(100);
 		const unit = renderScaleFor(1920, 1080, BASE_VIDEO_SCALE);
 		const windowEl = container.querySelector<HTMLElement>(".code-frame-glow");
+		// No window-level fade on the right: the cut is the code column's.
+		expect(windowEl?.querySelector("[data-clip-fade]")).toBeNull();
+		const column = [...(windowEl?.querySelectorAll<HTMLElement>("span") ?? [])].find(
+			(span) => span.textContent?.length === 10_000,
+		)?.parentElement;
+		expect(column?.style.maskImage).toBe(
+			`linear-gradient(to right, #000 ${clip?.fadeStart}ch, transparent ${clip?.fadeEnd}ch)`,
+		);
+		expect(column?.parentElement?.style.overflow).toBe("hidden");
 		expect(Number.parseFloat(windowEl?.style.maxHeight ?? "")).toBeCloseTo(
 			placement.windowHeight * unit,
-			6,
-		);
-		const fadeEl = windowEl?.querySelector<HTMLElement>("[data-clip-fade='right']");
-		expect(Number.parseFloat(fadeEl?.style.width ?? "")).toBeCloseTo(
-			(fade?.width ?? Number.NaN) * unit,
-			6,
-		);
-		expect(Number.parseFloat(fadeEl?.style.top ?? "")).toBeCloseTo(
-			(fade?.y ?? Number.NaN) * unit,
 			6,
 		);
 	});

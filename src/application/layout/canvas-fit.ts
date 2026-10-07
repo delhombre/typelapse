@@ -7,6 +7,7 @@ import {
 	captionBlockHeight,
 	frameNaturalSize,
 } from "./frame-metrics";
+import { type LineClip, gutterColumnWidth, lineClip } from "./line-clip";
 
 /**
  * Where the code card lands inside the export canvas: pure and dependency-free.
@@ -41,8 +42,15 @@ export const CANVAS_MARGIN = 0.05;
  * `REFERENCE_SHORT_EDGE`, growing with the tier like everything else (16 px at
  * 4K). Without it the fit shrank a 10,000-character line or a 3,000-line file
  * until the card was a dot. Below the floor the card stops shrinking and the
- * window clips what does not fit, with a fade on the clipped edge
- * (`clipFades`). A card whose fit stays above the floor is drawn as before.
+ * window clips what does not fit, with a fade on the clipped edge (`clipFades`
+ * for rows, `lineClip` for columns). A card whose fit stays above the floor is
+ * drawn as before.
+ *
+ * It also sets the most columns any card shows: the window the floor gives a
+ * canvas as wide as its short edge (9:16, 1:1, 4:5 and 3:4 all are). A wider
+ * canvas clips a long line at that same window rather than fitting it, so a
+ * 300-character line on 16:9 is drawn at 14 px through the columns 9:16 shows,
+ * not shrunk to a 9 px strip (ticket #174).
  */
 export const MIN_TEXT_PX = 8;
 
@@ -193,6 +201,8 @@ export interface CardCanvasFit {
 	captionLines: number;
 	/** The edges the window clips at the floor, or null when everything fits. */
 	clip: CardClip | null;
+	/** Where the code column cuts its longest line and fades it, or null when no line is cut. */
+	lineClip: LineClip | null;
 	/** Fit factor of the padded card into the safe-area canvas. */
 	scale: number;
 	/** Padded card's fraction of the canvas width, in (0, 1]. */
@@ -237,11 +247,21 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 		input.canvasWidth,
 		input.canvasHeight,
 	);
-	const scale = Math.max(fitted, floor);
+	// The floor's column limit: the widest window the floor fits across the short
+	// edge. A wider line is clipped at it, whatever room a wide canvas has.
+	const safeShortEdge = Math.min(safeWidth, safeHeight);
+	const widestWindow =
+		floor > 0 ? Math.max(0, safeShortEdge / floor - 2 * cardPadding) : Number.POSITIVE_INFINITY;
+	const width = Math.min(natural.width, widestWindow);
+	const limited =
+		width < natural.width
+			? fitScale(width + 2 * cardPadding, natural.height + 2 * cardPadding, safeWidth, safeHeight)
+			: fitted;
+	const scale = Math.max(limited, floor);
 	const drawn =
 		scale > fitted
 			? {
-					width: Math.min(natural.width, safeWidth / scale - 2 * cardPadding),
+					width: Math.min(width, safeWidth / scale - 2 * cardPadding),
 					height: Math.min(natural.height, safeHeight / scale - 2 * cardPadding),
 				}
 			: natural;
@@ -260,29 +280,51 @@ export function fitCardToCanvas(input: CardCanvasFitInput): CardCanvasFit {
 		windowHeight: drawn.height - captionBlockHeight(captionLines, input.scale),
 		captionLines,
 		clip,
+		lineClip: clip?.right ? codeColumnClip(input, drawn.width) : null,
 		scale,
 		widthFraction: ((drawn.width + 2 * cardPadding) * scale) / input.canvasWidth,
 		heightFraction: ((drawn.height + 2 * cardPadding) * scale) / input.canvasHeight,
 	};
 }
 
-/** One fade laid over a clipped edge, in the window's own px. */
+/** The code column of a window `windowWidth` px wide, cut where its longest line runs out. */
+function codeColumnClip(input: CardCanvasFitInput, windowWidth: number): LineClip | null {
+	const fontSize = input.fontSize * input.scale;
+	const charWidth = fontSize * input.charWidthRatio;
+	const gutter = gutterColumnWidth({
+		showLineNumbers: input.showLineNumbers,
+		lastLine: Math.max(1, Math.floor(input.lineNumberStart)) + deepestRow(input.plan) - 1,
+		charWidth,
+		fontSize,
+	});
+	return lineClip({
+		widestCells: widestColumn(input.plan),
+		columnWidth: windowWidth - 2 * input.padding * input.scale - gutter,
+		charWidth,
+	});
+}
+
+/**
+ * The fade laid over the window's clipped bottom edge, in the window's own px.
+ * A clipped right edge is the code column's (`lineClip`): it is cut, and faded,
+ * inside the column, where the push-in moves it.
+ */
 export interface ClipFade {
-	edge: "right" | "bottom";
+	edge: "bottom";
 	x: number;
 	y: number;
 	width: number;
 	height: number;
 }
 
-/** How deep each fade reaches into the window, in font sizes. */
-const CLIP_FADE_EMS = { right: 4, bottom: 2.5 } as const;
+/** How deep the bottom fade reaches into the window, in font sizes. */
+const BOTTOM_FADE_EMS = 2.5;
 
 /**
  * The fades over a clipped window: a gradient from the window's own background,
- * transparent, to opaque at the cut, so clipped code trails off instead of being
- * guillotined mid-glyph. The right fade covers the code body under the chrome
- * bar; the bottom fade spans the window. All three renderers lay these rects.
+ * transparent, to opaque at the cut, so clipped rows trail off instead of being
+ * guillotined mid-glyph. The bottom fade spans the window. All three renderers
+ * lay these rects.
  */
 export function clipFades(input: {
 	clip: CardClip | null;
@@ -292,22 +334,11 @@ export function clipFades(input: {
 	fontSize: number;
 }): ClipFade[] {
 	const { clip, windowWidth, windowHeight, chromeHeight, fontSize } = input;
-	const fades: ClipFade[] = [];
-	if (clip?.right) {
-		const width = Math.min(windowWidth, CLIP_FADE_EMS.right * fontSize);
-		fades.push({
-			edge: "right",
-			x: windowWidth - width,
-			y: chromeHeight,
-			width,
-			height: windowHeight - chromeHeight,
-		});
+	if (!clip?.bottom) {
+		return [];
 	}
-	if (clip?.bottom) {
-		const height = Math.min(windowHeight - chromeHeight, CLIP_FADE_EMS.bottom * fontSize);
-		fades.push({ edge: "bottom", x: 0, y: windowHeight - height, width: windowWidth, height });
-	}
-	return fades;
+	const height = Math.min(windowHeight - chromeHeight, BOTTOM_FADE_EMS * fontSize);
+	return [{ edge: "bottom", x: 0, y: windowHeight - height, width: windowWidth, height }];
 }
 
 /** The fade's two colour stops: the window background, transparent then opaque.
@@ -333,6 +364,8 @@ export interface PreviewCardPlacement {
 	windowHeight: number;
 	/** The edges the window clips at the readable floor, or null. */
 	clip: CardClip | null;
+	/** Where the code column cuts its longest line and fades it, in cells, or null. */
+	lineClip: LineClip | null;
 	/** Box px per editor px: the one transform that puts the card in the box. */
 	cardScale: number;
 	/**
@@ -365,6 +398,7 @@ export function previewCardPlacement(input: PreviewCardPlacementInput): PreviewC
 		windowHeight: fit.windowHeight / unit,
 		captionLines: fit.captionLines,
 		clip: fit.clip,
+		lineClip: fit.lineClip,
 		cardScale: (unit * fit.scale * input.boxWidth) / input.canvasWidth,
 		layoutScale: unit,
 	};

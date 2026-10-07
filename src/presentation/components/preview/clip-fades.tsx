@@ -1,9 +1,10 @@
 import { type ClipFade, clipFadeStops } from "../../../application/layout/canvas-fit";
 
 /**
- * The fades over the edges a window clips at the readable floor, as the painter
- * lays them (`paintClipFades`): anchored to the window's right and bottom
- * edges, a gradient from the window's own background to opaque at the cut.
+ * The fade over the bottom edge a window clips at the readable floor, as the
+ * painter lays it (`paintClipFades`): anchored to the window's bottom edge, a
+ * gradient from the window's own background to opaque at the cut. A long
+ * line's fade is the code column's mask (`MagicMoveCanvas`), not this.
  * `unit` turns the fades' card-space px into this window's px (1 in the
  * composition, the render scale in the editor-size preview).
  */
@@ -28,17 +29,9 @@ export function ClipFades({
 				zIndex: 1,
 				right: 0,
 				bottom: 0,
-				...(fade.edge === "right"
-					? {
-							top: fade.y / unit,
-							width: fade.width / unit,
-							background: `linear-gradient(to right, ${clear}, ${solid})`,
-						}
-					: {
-							left: 0,
-							height: fade.height / unit,
-							background: `linear-gradient(to bottom, ${clear}, ${solid})`,
-						}),
+				left: 0,
+				height: fade.height / unit,
+				background: `linear-gradient(to bottom, ${clear}, ${solid})`,
 			}}
 		/>
 	));

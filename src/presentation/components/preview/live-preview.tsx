@@ -375,6 +375,8 @@ export function LivePreview() {
 						}),
 					}
 				: null,
+			// A long line is cut and faded in the code column, as the exporters cut it.
+			lineClip: placement.lineClip,
 			captionLines: placement.captionLines,
 			// Box px per layout px.
 			cardScale: placement.cardScale / layoutScale,
@@ -608,6 +610,7 @@ export function LivePreview() {
 							padding={framePadding * layoutScale}
 							cursor={view.cursor}
 							firstRow={view.firstRow}
+							lineClip={aspectCanvas?.lineClip ?? null}
 						/>
 					</FocusZoomBody>
 				</FrameShell>

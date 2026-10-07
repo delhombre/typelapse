@@ -27,6 +27,7 @@ import {
 	captionBlockHeight,
 	chromeBarHeight,
 } from "../layout/frame-metrics";
+import { type LineClip, gutterColumnWidth } from "../layout/line-clip";
 import type { PaintImage } from "./paint-context";
 
 /** A decoded grain tile, ready to be tiled over the background. */
@@ -130,6 +131,8 @@ export interface FrameScene {
 	gutter: { textRight: number } | null;
 	/** Fades over the edges the window clips at the readable floor, window space. */
 	fades: ClipFade[];
+	/** Where the code column cuts its longest line and fades it, in cells, or null. */
+	lineClip: LineClip | null;
 	style: {
 		theme: SceneTheme;
 		title: string;
@@ -174,7 +177,7 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 	// The window is the unit less its caption band, which hangs below it.
 	const windowHeight = fit.natural.height - captionBlockHeight(fit.captionLines, scale);
 	const chromeHeight = chromeBarHeight(input.chrome, scale);
-	const gutterWidth = gutterColumnWidth(input, charWidth, fontSize);
+	const gutterWidth = gutterWidthOf(input, charWidth, fontSize);
 
 	return {
 		canvas: { width: input.canvasWidth, height: input.canvasHeight },
@@ -209,6 +212,7 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 			chromeHeight,
 			fontSize,
 		}),
+		lineClip: fit.lineClip,
 		style: {
 			theme: input.theme,
 			title: input.title,
@@ -224,18 +228,12 @@ export function frameScene(input: FrameSceneInput): FrameScene {
 	};
 }
 
-/**
- * Width of the line-number column, exactly as the DOM lays it out: a border-box
- * flex item whose width is the wider of its `minWidth` of `digits + 1`
- * characters and its content plus the font-size gutter gap. Reproducing the
- * box model here (rather than the video's slightly generous estimate) is what
- * keeps a painted glyph on the same column as the preview's.
- */
-function gutterColumnWidth(input: FrameSceneInput, charWidth: number, fontSize: number): number {
-	if (!input.showLineNumbers) {
-		return 0;
-	}
-	const lastLine = Math.max(1, Math.floor(input.lineNumberStart)) + deepestRow(input.plan) - 1;
-	const digits = Math.max(2, String(lastLine).length);
-	return Math.max((digits + 1) * charWidth, digits * charWidth + fontSize);
+/** Width of the line-number column, as the DOM lays it out (`gutterColumnWidth`). */
+function gutterWidthOf(input: FrameSceneInput, charWidth: number, fontSize: number): number {
+	return gutterColumnWidth({
+		showLineNumbers: input.showLineNumbers,
+		lastLine: Math.max(1, Math.floor(input.lineNumberStart)) + deepestRow(input.plan) - 1,
+		charWidth,
+		fontSize,
+	});
 }

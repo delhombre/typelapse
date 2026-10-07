@@ -9,6 +9,7 @@ import {
 	renderScaleFor,
 } from "../../src/application/layout/canvas-fit";
 import { advanceProbeFont, measureCharWidthRatio } from "../../src/application/layout/char-advance";
+import type { LineClip } from "../../src/application/layout/line-clip";
 import { watermarkPlacement } from "../../src/application/layout/watermark-placement";
 import {
 	FRAME_SECONDARY_ALPHA_HEX,
@@ -212,24 +213,28 @@ export function CodeCard({ input }: { input: RenderInput }) {
 					: undefined
 			}
 		>
-			{/* Focus zoom: the preview's component, so the video matches. */}
-			<FocusZoomBody zoom={view.zoom} active={focusZoom} borderRadius={theme.borderRadius * videoScale}>
-				<MagicMoveCanvas
-					tokens={view.tokens}
-					lineCount={view.lineCount}
-					lineNumberCount={view.lineNumberCount}
-					fontSize={theme.fontSize * videoScale}
-					lineHeightRatio={LINE_HEIGHT_RATIO}
-					fontFamily={theme.fontFamily}
-					color={theme.foreground}
-					showLineNumbers={showLineNumbers}
-					lineNumberStart={lineNumberStart}
-					lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
-					padding={framePadding * videoScale}
-					cursor={cursor}
-					firstRow={view.firstRow}
-				/>
-			</FocusZoomBody>
+			{/* Focus zoom: the preview's component, so the video matches. The code column
+			    cuts a long line where the fit says, as the preview and the painter do. */}
+			{(lineClip) => (
+				<FocusZoomBody zoom={view.zoom} active={focusZoom} borderRadius={theme.borderRadius * videoScale}>
+					<MagicMoveCanvas
+						tokens={view.tokens}
+						lineCount={view.lineCount}
+						lineNumberCount={view.lineNumberCount}
+						fontSize={theme.fontSize * videoScale}
+						lineHeightRatio={LINE_HEIGHT_RATIO}
+						fontFamily={theme.fontFamily}
+						color={theme.foreground}
+						showLineNumbers={showLineNumbers}
+						lineNumberStart={lineNumberStart}
+						lineNumberColor={`${theme.foreground}${FRAME_SECONDARY_ALPHA_HEX}`}
+						padding={framePadding * videoScale}
+						cursor={cursor}
+						firstRow={view.firstRow}
+						lineClip={lineClip}
+					/>
+				</FocusZoomBody>
+			)}
 		</CenteredFrame>
 	);
 }
@@ -320,7 +325,8 @@ export function CenteredFrame({
 	captions?: readonly string[];
 	/** The caption band, given the lines the fit reserved for it. */
 	caption?: (lines: number) => React.ReactNode;
-	children: React.ReactNode;
+	/** The window's body; a function is given where the code column cuts a long line. */
+	children: React.ReactNode | ((lineClip: LineClip | null) => React.ReactNode);
 }) {
 	const radius = theme.borderRadius * videoScale;
 	const isDark = isColorDark(theme.background);
@@ -422,7 +428,7 @@ export function CenteredFrame({
 							scale={videoScale}
 							width={natural.width}
 						/>
-						{children}
+						{typeof children === "function" ? children(fit.lineClip) : children}
 						<ClipFades
 							background={theme.background}
 							fades={clipFades({

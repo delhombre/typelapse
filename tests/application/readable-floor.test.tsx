@@ -36,6 +36,7 @@ import type { MagicMovePlan } from "../../src/application/magic-move/engine";
 import { ASPECT_LABELS, dimensionsFor } from "../../src/domain/entities/render-config";
 import type { ClientExportJob } from "../../src/infrastructure/export/client-export-job";
 import { sceneFor } from "../../src/infrastructure/export/client-export-scene";
+import { MagicMoveCanvas } from "../../src/presentation/components/preview/magic-move-canvas";
 import { RecordingContext, round } from "./support/recording-context";
 
 const FG = "#e6edf3";
@@ -108,15 +109,26 @@ function referenceTextPx(scale: number, fitScaleValue: number, canvasShortEdge: 
 }
 
 describe("the readable floor", () => {
-	it.each([
-		[1920, 1080],
-		[1080, 1920],
-		[3840, 2160],
-	])("holds a 10,000-character line at the floor and clips its right edge at %ix%i", (w, h) => {
-		const { scale, fit } = fitAt(LONG_LINE, w, h);
-		expect(referenceTextPx(scale, fit.scale, Math.min(w, h))).toBeCloseTo(MIN_TEXT_PX, 6);
+	it("holds a 10,000-character line at the floor on 9:16 and clips its right edge", () => {
+		const { scale, fit } = fitAt(LONG_LINE, 1080, 1920);
+		expect(referenceTextPx(scale, fit.scale, 1080)).toBeCloseTo(MIN_TEXT_PX, 6);
 		expect(fit.clip).toEqual({ right: true, bottom: false });
 		// The clipped card fills the safe width exactly and no more.
+		const padded = fit.natural.width + 2 * SETTINGS.cardMargin * scale;
+		expect(padded * fit.scale).toBeCloseTo(1080 * (1 - 2 * CANVAS_MARGIN), 6);
+	});
+
+	it.each([
+		[1920, 1080],
+		[3840, 2160],
+	])("clips a 10,000-character line at the floor's window on %ix%i, above the floor", (w, h) => {
+		const { scale, fit } = fitAt(LONG_LINE, w, h);
+		const tall = fitAt(LONG_LINE, 1080, 1920);
+		// The window 9:16 gets at the floor, in editor px: one column limit.
+		expect(fit.natural.width / scale).toBeCloseTo(tall.fit.natural.width / tall.scale, 6);
+		expect(referenceTextPx(scale, fit.scale, Math.min(w, h))).toBeGreaterThan(MIN_TEXT_PX);
+		expect(fit.clip).toEqual({ right: true, bottom: false });
+		// The card is fit, not floored: it fills the safe width.
 		const padded = fit.natural.width + 2 * SETTINGS.cardMargin * scale;
 		expect(padded * fit.scale).toBeCloseTo(w * (1 - 2 * CANVAS_MARGIN), 6);
 	});
@@ -222,6 +234,7 @@ describe.each([
 	});
 
 	it("the painter clips the window and paints the fades", () => {
+		expect(fit.lineClip !== null).toBe(plan === LONG_LINE);
 		const scene = sceneFor(jobFor(plan, 1920, 1080), ADVANCE, {
 			grain: null,
 			backdropImage: null,
@@ -238,28 +251,21 @@ describe.each([
 			lineNumberCount: plan.frames[0]?.lineCount ?? 1,
 			timeSeconds: 0,
 		});
-		const right = scene.window.x + scene.window.width;
 		const bottom = scene.window.y + scene.window.height;
 		for (const fade of fades) {
-			const rect =
-				fade.edge === "right"
-					? [
-							right - fade.width,
-							scene.window.y + fade.y,
-							fade.width,
-							bottom - scene.window.y - fade.y,
-						]
-					: [scene.window.x, bottom - fade.height, scene.window.width, fade.height];
-			const [x, y, w, h] = rect.map(round) as [number, number, number, number];
-			const id =
-				fade.edge === "right"
-					? `linear(${x},0,${round(x + w)},0)`
-					: `linear(0,${y},0,${round(y + h)})`;
+			const [x, y, w, h] = [
+				scene.window.x,
+				bottom - fade.height,
+				scene.window.width,
+				fade.height,
+			].map(round) as [number, number, number, number];
 			expect(ctx.commands).toContain(
-				`fillStyle=${id}[0:${THEME.background}00|1:${THEME.background}]`,
+				`fillStyle=linear(0,${y},0,${round(y + h)})[0:${THEME.background}00|1:${THEME.background}]`,
 			);
 			expect(ctx.commands).toContain(`fillRect(${x},${y},${w},${h})`);
 		}
+		// A long line is cut in the code column, through the fit's columns.
+		expect(scene.lineClip).toEqual(fit.lineClip);
 	});
 
 	it("the composition clips the window and lays the same fades", () => {
@@ -278,13 +284,35 @@ describe.each([
 				videoScale={scale}
 				charWidthRatio={ADVANCE}
 			>
-				<div />
+				{(lineClip) => (
+					<MagicMoveCanvas
+						tokens={plan.frames[0]?.tokens.slice(0, 1).map((t) => ({ ...t, opacity: 1 })) ?? []}
+						lineCount={plan.frames[0]?.lineCount ?? 1}
+						fontSize={THEME.fontSize * scale}
+						lineHeightRatio={LINE_HEIGHT_RATIO}
+						fontFamily={THEME.fontFamily}
+						color={FG}
+						padding={SETTINGS.padding * scale}
+						lineClip={lineClip}
+					/>
+				)}
 			</CenteredFrame>,
 		);
 		const windowEl = container.querySelector<HTMLElement>("[data-code-window]");
 		expect(Number.parseFloat(windowEl?.style.width ?? "")).toBeCloseTo(fit.natural.width, 6);
 		expect(Number.parseFloat(windowEl?.style.maxHeight ?? "")).toBeCloseTo(fit.windowHeight, 6);
 		expectFades(container, fades, 1);
+		// The code column gets the fit's line clip, as the painter's scene does.
+		const token = plan.frames[0]?.tokens[0]?.content;
+		const column = [...(windowEl?.querySelectorAll<HTMLElement>("span") ?? [])].find(
+			(span) => span.textContent === token,
+		)?.parentElement;
+		const clip = fit.lineClip;
+		expect(column?.style.maskImage).toBe(
+			clip
+				? `linear-gradient(to right, #000 ${clip.fadeStart}ch, transparent ${clip.fadeEnd}ch)`
+				: "",
+		);
 	});
 
 	it("the preview clips the window at editor size and lays the same fades", () => {
@@ -302,6 +330,7 @@ describe.each([
 		expect(placement.windowWidth).toBeCloseTo(fit.natural.width / scale, 6);
 		expect(placement.windowHeight).toBeCloseTo(fit.windowHeight / scale, 6);
 		expect(placement.clip).toEqual(fit.clip);
+		expect(placement.lineClip).toEqual(fit.lineClip);
 	});
 });
 
@@ -311,18 +340,13 @@ function expectFades(container: HTMLElement, fades: ReturnType<typeof clipFades>
 	expect(els.map((el) => el.dataset.clipFade).sort()).toEqual(
 		fades.map((fade) => fade.edge).sort(),
 	);
-	// Anchored to the window's right and bottom edges, so a step shorter than the
-	// clipped window still fades at its own edge, as the painter does.
+	// Anchored to the window's bottom edge, so a step shorter than the clipped
+	// window still fades at its own edge, as the painter does.
 	for (const fade of fades) {
 		const el = els.find((candidate) => candidate.dataset.clipFade === fade.edge);
 		expect(el?.style.right).toBe("0px");
 		expect(el?.style.bottom).toBe("0px");
-		if (fade.edge === "right") {
-			expect(Number.parseFloat(el?.style.top ?? "")).toBeCloseTo(fade.y / unit, 6);
-			expect(Number.parseFloat(el?.style.width ?? "")).toBeCloseTo(fade.width / unit, 6);
-		} else {
-			expect(el?.style.left).toBe("0px");
-			expect(Number.parseFloat(el?.style.height ?? "")).toBeCloseTo(fade.height / unit, 6);
-		}
+		expect(el?.style.left).toBe("0px");
+		expect(Number.parseFloat(el?.style.height ?? "")).toBeCloseTo(fade.height / unit, 6);
 	}
 }
