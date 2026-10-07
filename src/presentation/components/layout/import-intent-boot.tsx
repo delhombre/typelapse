@@ -1,10 +1,7 @@
 import { classifySource } from "@/application/import/classify-source";
 import { importConfirmLabel, importReplaceQuestion } from "@/application/import/import-wording";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
-import {
-	usePhoneSurfaceTop,
-	useReportTransientSurface,
-} from "@/presentation/hooks/use-phone-surface-top";
+import { SurfaceTop, useReportTransientSurface } from "@/presentation/hooks/use-phone-surface-top";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
 import { springs } from "@/presentation/motion";
 import { type ImportIntent, takeImportIntent } from "@/presentation/utils/import-intent";
@@ -42,9 +39,6 @@ export function ImportIntentBoot() {
 	/** True while the intent waits on a confirm, because importing would discard work. */
 	const [asking, setAsking] = useState(false);
 	const { loading, error, progress, run, reset } = useSourceImport();
-	const questionId = useId();
-	const phoneTop = usePhoneSurfaceTop();
-	const reportSurface = useReportTransientSurface();
 
 	const begin = useCallback(
 		async (taken: ImportIntent) => {
@@ -80,35 +74,18 @@ export function ImportIntentBoot() {
 	}
 
 	if (asking) {
-		const kind = classifySource(intent.source.trim());
 		return (
-			// Rendered beside the shell, not in it: `studio-root sc-tokens` hands the strip the
-			// studio's warm ramp and colour tokens, which the question's card reads. On a phone it
-			// starts where every transient surface does, under the corner row and one stage gap
-			// from it (after-the-gate D6, #207), so it follows the status bar and the Dynamic
-			// Island and covers no control; from 1280px it keeps its line under the status bar.
-			<div
-				ref={reportSurface}
-				role="alertdialog"
-				aria-labelledby={questionId}
-				className="studio-root sc-tokens fixed inset-x-0 z-[60] flex justify-center px-4"
-				style={{ top: phoneTop ?? "max(0.75rem, env(safe-area-inset-top))" }}
-			>
-				<ConfirmDiscard
-					messageId={questionId}
-					message={importReplaceQuestion(kind)}
-					confirmLabel={importConfirmLabel(kind)}
-					onCancel={() => {
-						setAsking(false);
-						setIntent(null);
-					}}
-					onConfirm={() => {
-						setAsking(false);
-						void run(intent.source, intent.playMode, ARRIVAL);
-					}}
-					className="sc-confirm-float w-full max-w-sm"
-				/>
-			</div>
+			<ReplaceQuestion
+				kind={classifySource(intent.source.trim())}
+				onCancel={() => {
+					setAsking(false);
+					setIntent(null);
+				}}
+				onConfirm={() => {
+					setAsking(false);
+					void run(intent.source, intent.playMode, ARRIVAL);
+				}}
+			/>
 		);
 	}
 
@@ -128,6 +105,51 @@ export function ImportIntentBoot() {
 				setIntent(null);
 			}}
 		/>
+	);
+}
+
+/** The strip's line from 1280px, under the status bar like the rest of the desktop chrome. */
+const DESKTOP_QUESTION_TOP = "max(0.75rem, env(safe-area-inset-top))";
+
+interface ReplaceQuestionProps {
+	kind: ReturnType<typeof classifySource>;
+	onCancel: () => void;
+	onConfirm: () => void;
+}
+
+/**
+ * The question an import asks when it would replace work. Rendered beside the shell,
+ * not in it: `studio-root sc-tokens` hands the strip the studio's warm ramp and colour
+ * tokens, which the question's card reads. On a phone it starts where every transient
+ * surface does, under the corner row and one stage gap from it (after-the-gate D6,
+ * #207), so it follows the status bar and the Dynamic Island and covers no control;
+ * from 1280px it keeps its own line.
+ */
+function ReplaceQuestion({ kind, onCancel, onConfirm }: ReplaceQuestionProps) {
+	const questionId = useId();
+	const reportSurface = useReportTransientSurface();
+
+	return (
+		<SurfaceTop desktop={DESKTOP_QUESTION_TOP}>
+			{(top) => (
+				<div
+					ref={reportSurface}
+					role="alertdialog"
+					aria-labelledby={questionId}
+					className="studio-root sc-tokens fixed inset-x-0 z-[60] flex justify-center px-4"
+					style={{ top }}
+				>
+					<ConfirmDiscard
+						messageId={questionId}
+						message={importReplaceQuestion(kind)}
+						confirmLabel={importConfirmLabel(kind)}
+						onCancel={onCancel}
+						onConfirm={onConfirm}
+						className="sc-confirm-float w-full max-w-sm"
+					/>
+				</div>
+			)}
+		</SurfaceTop>
 	);
 }
 
@@ -153,56 +175,58 @@ const DESKTOP_STATUS_TOP = 76;
  *
  * Under 1280px the shell is the phone's, at every width up to there, and its
  * corner row is the header: the status starts one stage gap under it, where the
- * frame starts (`usePhoneSurfaceTop`), so it follows the status bar and the
+ * frame starts (`SurfaceTop`), so it follows the status bar and the
  * Dynamic Island, and the replace question and the notices start from the same
  * line. It wraps onto a second line rather than ending in an ellipsis.
  */
 function ImportStatus({ show, loading, error, message, onDismiss }: ImportStatusProps) {
-	const phoneTop = usePhoneSurfaceTop();
 	const reportSurface = useReportTransientSurface();
-	const top = phoneTop ?? DESKTOP_STATUS_TOP;
 
 	return (
-		<div
-			className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
-			style={{ top }}
-			aria-live="polite"
-		>
-			<AnimatePresence>
-				{show && (
-					<motion.div
-						ref={reportSurface}
-						data-testid="import-status"
-						initial={{ opacity: 0, y: -8, filter: "blur(4px)" }}
-						animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-						exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
-						transition={springs.default}
-						className={`pointer-events-auto flex max-w-[min(100%,30rem)] items-center gap-2.5 rounded-[22px] border py-2 pl-3.5 pr-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.28)] ${
-							error
-								? "border-red-200 bg-white text-red-600 dark:border-red-900/60 dark:bg-neutral-900 dark:text-red-400"
-								: "border-neutral-200 bg-white text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
-						}`}
-					>
-						{loading && <Spinner />}
-						<span
-							data-testid="import-status-text"
-							className="min-w-0 flex-1 text-pretty font-mono text-[11px] leading-[1.45] [overflow-wrap:anywhere]"
-						>
-							{message}
-						</span>
-						{error && (
-							<button
-								type="button"
-								onClick={onDismiss}
-								className="hit-ext shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+		<SurfaceTop desktop={DESKTOP_STATUS_TOP}>
+			{(top) => (
+				<div
+					className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
+					style={{ top }}
+					aria-live="polite"
+				>
+					<AnimatePresence>
+						{show && (
+							<motion.div
+								ref={reportSurface}
+								data-testid="import-status"
+								initial={{ opacity: 0, y: -8, filter: "blur(4px)" }}
+								animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+								exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
+								transition={springs.default}
+								className={`pointer-events-auto flex max-w-[min(100%,30rem)] items-center gap-2.5 rounded-[22px] border py-2 pl-3.5 pr-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.28)] ${
+									error
+										? "border-red-200 bg-white text-red-600 dark:border-red-900/60 dark:bg-neutral-900 dark:text-red-400"
+										: "border-neutral-200 bg-white text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
+								}`}
 							>
-								Dismiss
-							</button>
+								{loading && <Spinner />}
+								<span
+									data-testid="import-status-text"
+									className="min-w-0 flex-1 text-pretty font-mono text-[11px] leading-[1.45] [overflow-wrap:anywhere]"
+								>
+									{message}
+								</span>
+								{error && (
+									<button
+										type="button"
+										onClick={onDismiss}
+										className="hit-ext shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+									>
+										Dismiss
+									</button>
+								)}
+							</motion.div>
 						)}
-					</motion.div>
-				)}
-			</AnimatePresence>
-		</div>
+					</AnimatePresence>
+				</div>
+			)}
+		</SurfaceTop>
 	);
 }
 

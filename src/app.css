@@ -3015,11 +3015,12 @@ html.dark:not([data-landing-theme]) {
 	gap: 2px;
 }
 
-/* The chip is the one that gives, but from 390 up it gives down to the name's
-   first word and no further: "Untitled" is 4.7em at the field's 16px, so a phone
-   never shows "Untitl…" (#167). A longer first word still ends in an ellipsis
-   past that. Below 390 the row has no room for it (375 is 15px short), and the
-   name goes on shrinking. */
+/* The chip is the one that gives, but it gives down to the name's first word and
+   no further, so a phone never shows "Untitl…" (#167, #182). A longer first word
+   still ends in an ellipsis past that. Two floors, because the row has room for
+   one and not for the other: from 390 up "Untitled" gets 4.7em (79px, 15px more
+   than its 64px) and below 390 it gets its own 4em plus 5px (69px), after the row
+   has given up the brand's tile and the chips' gap (next block). */
 .sc-corner-row .sc-title {
 	padding-inline: 2px;
 }
@@ -3032,9 +3033,10 @@ html.dark:not([data-landing-theme]) {
 
 /* Under 390 the name still keeps "Untitled" whole, down to 360 (the most common Android
    width, #182): the row finds the room first by reducing the brand to its glyph (the
-   dark tile goes, 10px; its target stays), then by tightening the gap between its chips
-   (8px to 4px, 12px). The floor is the word's own width, 60px at the field's 16px, and
-   its 2px of padding each side (4em), and 5px to spare for a font that lands wider. */
+   13px mark in a 16px box, the dark tile goes: 10px; its target stays), then by
+   tightening the gap between its chips (8px to 4px: 12px). The floor is the word's own
+   width, 60px at the field's 16px, and its 2px of padding each side (4em), and 5px to
+   spare for a font that lands wider. */
 @media (max-width: 389px) {
 	.sc-corner-row {
 		--row-gap: 4px;
@@ -3042,7 +3044,9 @@ html.dark:not([data-landing-theme]) {
 
 	.sc-corner-row .sc-brand {
 		width: 16px;
-		border-radius: 0;
+		/* The glyph has no tile, but a keyboard's focus ring is still drawn round it: a
+		   small radius, not a sharp rectangle inside a pill. */
+		border-radius: 6px;
 		background: transparent;
 		color: var(--color-neutral-900);
 	}
@@ -3192,7 +3196,7 @@ html.dark:not([data-landing-theme]) {
 	}
 
 	.sc-corner-row .sc-history button:last-child.hit-ext::after,
-	.sc-corner-row .sc-mobile-resources > .sc-showcase-trigger::after {
+	.sc-corner-row .sc-mobile-resources > button.sc-island-trigger:last-of-type::after {
 		inset: -11px calc(-1 * var(--edge-bleed)) -11px 0;
 	}
 

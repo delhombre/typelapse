@@ -1,4 +1,4 @@
-import { usePhoneSurfaceTop } from "@/presentation/hooks/use-phone-surface-top";
+import { SurfaceTop } from "@/presentation/hooks/use-phone-surface-top";
 import { springs } from "@/presentation/motion";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useTransientSurfaceStore } from "@/presentation/stores/transient-surface.store";
@@ -22,15 +22,21 @@ const DESKTOP_NOTICE_TOP = 76;
 const SURFACE_GAP = 8;
 
 export function NoticeHost() {
+	return (
+		<SurfaceTop desktop={DESKTOP_NOTICE_TOP}>
+			{(top, phone) => <NoticeStack top={top} phone={phone} />}
+		</SurfaceTop>
+	);
+}
+
+function NoticeStack({ top, phone }: { top: number | string; phone: boolean }) {
 	const notices = useNoticeStore((s) => s.notices);
 	const dismiss = useNoticeStore((s) => s.dismiss);
 	const reduce = useReducedMotion();
-	const phoneTop = usePhoneSurfaceTop();
 	const occupied = useTransientSurfaceStore((s) => s.occupied);
-	const top = phoneTop ?? DESKTOP_NOTICE_TOP;
 	// The room under the import surface is a transform, not a `top`, so the notices glide
 	// out of its way on the compositor when it arrives or leaves.
-	const below = phoneTop !== null && occupied > 0 ? occupied + SURFACE_GAP : 0;
+	const below = phone && occupied > 0 ? occupied + SURFACE_GAP : 0;
 
 	return (
 		<div
