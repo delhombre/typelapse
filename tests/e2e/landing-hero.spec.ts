@@ -147,6 +147,7 @@ test.describe("Landing: the hero's paste field", () => {
 const SHELLS = [
 	{ name: "390 phone", width: 390, height: 844 },
 	{ name: "375 phone", width: 375, height: 812 },
+	{ name: "360 phone", width: 360, height: 780 },
 	{ name: "1100 wide", width: 1100, height: 800 },
 	// The desktop shell keeps its line (#192): 76px, under the header.
 	{ name: "1280 desktop", width: 1280, height: 800 },
