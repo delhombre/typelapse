@@ -18,6 +18,8 @@ flowchart TD
   D6["D6 One placement rule for transient surfaces on the phone shell"]
   D7["D7 An existence endpoint answers 200, not a list and not a 404"]
   D8["D8 emil-prep-for-prod runs as a findings pass; owner items stay owner items"]
+  D9["D9 The focus push-in pivots on the left edge; the gutter stays in frame"]
+  D1 --> D9
 ```
 
 ## D1 A long line is clipped at the window's edge with a fade; the card never shrinks below its floor
@@ -173,3 +175,32 @@ the Suspense fallback draws the studio's outline; `/app` has its own tab title;
 `index.html` has a noscript and a pre-mount failure sentence. `/app` on mobile
 went from 1,954 KB to 839 KB and TTI from 11.9 s to 6.1 s; LCP did not move
 (6.2 s to 6.1 s), the next lever being Shiki's wasm and theme chunks.
+
+## D9 The focus push-in pivots on the left edge; the gutter stays in frame
+
+**Decision:** the focus zoom's push-in (`ZOOM_SCALE` 1.25) pivots on the
+code body's left edge, not its centre, for every zoom: the line-number
+gutter and the first columns stay in frame and the right edge, which the
+window fade already handles, absorbs what the push-in moves out. One pure
+value (`zoomOriginX`) states the rule and the DOM preview, the Remotion
+composition and the frame-painter read it. Ticket #227, PR #229.
+
+**Why:**
+
+- Measured on the fourth pass: under zoom a 300-character line was cut
+  mid-glyph on the left with no fade and the gutter vanished; on `main` an
+  ordinary snippet under zoom already lost its gutter from 37 columns and
+  code cells from about 66. A code frame's left side carries the meaning
+  (numbers, indentation); its right side is where lines end.
+
+**Rejected:**
+
+- A left window fade with the centred pivot: the gutter and margin (55px)
+  are smaller than the crop (about 164px), so the gutter would fade out
+  entirely.
+- Pivoting left only when a line is cut: two behaviours for one control,
+  and the ordinary case kept losing its gutter.
+
+**Impact:** `focus-zoom.ts`, `focus-zoom-body.tsx`, the painter's
+`applyZoom`, CONTEXT.md; zoomed exports change (the picture gains its
+gutter back). **Pivot:** "Centre the push-in."
