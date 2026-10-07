@@ -39,7 +39,9 @@
 
 .sk-pill {
 	height: 40px;
-	flex: none;
+	/* The row gives up width the way the studio's own does on a narrow phone. */
+	flex: 0 1 auto;
+	min-width: 0;
 	border-radius: var(--r-pill);
 }
 
