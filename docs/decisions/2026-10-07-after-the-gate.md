@@ -179,16 +179,18 @@ went from 1,954 KB to 839 KB and TTI from 11.9 s to 6.1 s; LCP did not move
 ## D9 The focus push-in pivots on the left edge; the gutter stays in frame
 
 **Decision:** the focus zoom's push-in (`ZOOM_SCALE` 1.25) pivots only as
-far left as needed to keep the line-number gutter in frame:
-`origin = min(0.5, leftRoom / crop)` where `crop` is the width the push-in
-moves out and `leftRoom` the margin plus gutter before the first column. A
-short snippet keeps its centred pivot, a wide window moves it left, a
-185-column cut gives 0. Whatever the push-in crops on the right is faded at
+far left as needed to keep the line-number gutter in frame with at least
+half the margin before it: `origin = min(0.5, (s·P − P/2) / ((s − 1)·W))`
+with `s` the zoom scale, `P` the window's padding as drawn and `W` the body
+width (3·P/W at 1.25). At the defaults a 37-column snippet pivots at about
+0.18, an 80-column window at 0.09, the 185-column cut at 0.04; a very
+narrow window stays centred. Whatever the push-in crops on the right is faded at
 the window level (a push-in fade whose opacity follows the zoom), so no
 glyph is sliced. One pure function states the rule and the DOM preview, the
 Remotion composition and the frame-painter read it. Ticket #227, PR #229.
-(Amended the same morning: an always-left pivot lost the end of short lines,
-"greet(name: stri…", which is worse than the centred crop.)
+(Amended twice the same morning: an always-left pivot lost the end of short
+lines, "greet(name: stri…"; a pivot that lets the gutter touch the window
+edge read as a crop; half the margin is the balance.)
 
 **Why:**
 
