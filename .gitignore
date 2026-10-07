@@ -35,3 +35,4 @@ playwright-report/
 # craft-harness: tester.army artifacts and verification rounds
 .e2e/
 .craft/rounds/
+.craft/evidence/
