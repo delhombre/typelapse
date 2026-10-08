@@ -21,8 +21,8 @@ import { Link } from "react-router-dom";
  * hairline is the same object on every backdrop, and the CTA is the primary
  * everywhere (D2).
  *
- * It is absent for the whole hero. The hero already is what the nav offers — the
- * product's name and the way in — so a pill repeating both, over the paste field
+ * It is absent for the whole hero. The hero already is what the nav offers: the
+ * product's name and the way in, so a pill repeating both, over the paste field
  * of all things, is a second copy of the page's first screen. Past the hero it
  * behaves as a header should: hidden on the way down, back on the way up. The
  * move is a clean slide with no stretch; reduced motion keeps it put once it is
