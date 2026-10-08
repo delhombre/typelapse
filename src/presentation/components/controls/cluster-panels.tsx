@@ -516,9 +516,15 @@ function ExportCluster() {
 				</button>
 			</ClusterGroup>
 
-			{/* The primary action and everything to know before pressing it stay in reach: on
-			    the phone the sheet scrolls under a frame-sized cap, and a Render that scrolled
-			    away with the rows above it was a button nobody found. */}
+			{/* What to know before pressing Render scrolls with the rows: a tooltip never
+			    shows on a phone, and a disabled button is not reached by a screen reader,
+			    so the reason it is greyed is on the page. */}
+			{deviceSupported === false ? <p className="si-cluster-note">{DEVICE_CANNOT_ENCODE}</p> : null}
+			<RenderNotes variant="sheet" />
+
+			{/* Only the button is the footer. On the phone, when the sheet's room holds it and
+			    two rows of chips, it stays pinned (app.css, \`data-roomy\`); below that it
+			    scrolls with everything else, so no control is ever out of reach. */}
 			<div className="si-cluster-group si-cluster-row si-cluster-footer">
 				<button
 					type="button"
@@ -540,12 +546,6 @@ function ExportCluster() {
 						shown={isExporting ? "Rendering…" : (cloudCta.label ?? `Render · ${current.aspect}`)}
 					/>
 				</button>
-				{/* A tooltip never shows on a phone, and a disabled button is not
-				    reached by a screen reader: the reason it is greyed is on the page. */}
-				{deviceSupported === false ? (
-					<p className="si-cluster-note">{DEVICE_CANNOT_ENCODE}</p>
-				) : null}
-				<RenderNotes variant="sheet" />
 			</div>
 		</>
 	);

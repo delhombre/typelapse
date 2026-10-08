@@ -8,8 +8,8 @@ import type { CodeUrlKind } from "./code-url";
 export function codeUrlFailure(status: number, kind: CodeUrlKind): string {
 	if (status === 404) {
 		return kind === "gist-api"
-			? "That gist was not found. Check the link or that it is public."
-			: "That file was not found. Check the link or that the repository is public.";
+			? "That gist was not found. Check the link, and that it is public."
+			: "That file was not found. Check the link, and that the repository is public.";
 	}
 	if (status === 403 || status === 429) {
 		return "GitHub's rate limit is reached. Try again in a few minutes, or paste the code.";

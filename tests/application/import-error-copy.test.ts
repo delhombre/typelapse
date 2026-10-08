@@ -21,8 +21,8 @@ describe("importErrorCopy", () => {
 		expect(importErrorCopy("Could not fetch the change: paste the diff instead")).toBe(
 			"Could not fetch the change: paste the diff instead",
 		);
-		expect(importErrorCopy("That gist was not found. Check the link or that it is public.")).toBe(
-			"That gist was not found. Check the link or that it is public.",
+		expect(importErrorCopy("That gist was not found. Check the link, and that it is public.")).toBe(
+			"That gist was not found. Check the link, and that it is public.",
 		);
 	});
 });

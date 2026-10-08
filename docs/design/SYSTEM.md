@@ -35,11 +35,10 @@ the one exception (DECISIONS D5).
 | Island hairline (studio) | `--dock-hairline: rgb(255 255 255 / 0.09)` `src/app.css` | same |
 | Studio ramp ends, warm stone | `--color-neutral-50: #fafaf9` `src/app.css` | `--color-neutral-950: #121110` `src/app.css` |
 | Studio scene hairline | `--sc-hairline: rgb(28 27 25 / 0.1)` `src/app.css @ .studio-root` | `--sc-hairline: rgb(245 243 239 / 0.12)` `src/app.css @ .dark .studio-root` |
-| Desktop studio paper, warm (D6) | `--camera-paper: var(--color-neutral-50)` `src/presentation/studio-camera.css` | `--camera-paper: var(--color-neutral-950)` `src/presentation/studio-camera.css` |
+| Desktop studio paper, warm (D6), which the code editor (Monaco) is painted on too, its line numbers and bracket levels pulled to 4.5:1 | `--camera-paper: var(--color-neutral-50)` `src/presentation/studio-camera.css` `paper: "#fafaf9"` `src/application/editor/monaco-theme.ts` | `--camera-paper: var(--color-neutral-950)` `src/presentation/studio-camera.css` `paper: "#121110"` `src/application/editor/monaco-theme.ts` |
 | Desktop studio ink | `--camera-ink: var(--color-neutral-900)` `src/presentation/studio-camera.css` | `--camera-ink: #f5f3ef` `src/presentation/studio-camera.css` |
 | Desktop muted, the landing's ash (4.87:1 on the pill) | `--camera-muted: #6e6b64` `src/presentation/studio-camera.css` | `--camera-muted: #a8a39a` `src/presentation/studio-camera.css` |
-| Disabled text, a colour and never an opacity (5.0:1 on white, 4.8:1 on the paper, 4.6:1 on the pill; dark: 5.3:1 on the surface, 4.7:1 on the pill) | `--camera-disabled: #726f68` `src/presentation/studio-camera.css` | `--camera-disabled: #958f87` `src/presentation/studio-camera.css` |
-| Disabled text on the island's plate and its status (5.6:1 on the plate, 4.6:1 on the 8% wash a disabled Render sits on), read by `--camera-disabled` inside the island | `--dock-disabled: #8e8e96` `--camera-disabled: var(--dock-disabled)` `src/app.css` | same |
+| Disabled text, a colour and never an opacity (5.0:1 on white, 4.8:1 on the paper, 4.6:1 on the pill; dark: 5.3:1 on the surface, 4.7:1 on the pill); on the island's plate and its status 5.6:1, 4.6:1 on the 8% wash a disabled Render sits on, read by `--camera-disabled` inside the island | `--camera-disabled: #726f68` `src/presentation/studio-camera.css` | `--camera-disabled: #958f87` `src/presentation/studio-camera.css` island: `--dock-disabled: #8e8e96` `--camera-disabled: var(--dock-disabled)` `src/app.css` |
 | Desktop line, the scene hairline | `--camera-line: var(--sc-hairline)` `src/presentation/studio-camera.css` | same |
 | Desktop pill (fields, selection plate) | `--camera-pill: var(--color-neutral-100)` `src/presentation/studio-camera.css` | `--camera-pill: #292624` `src/presentation/studio-camera.css` |
 | Desktop opaque surface (card, timeline), and the menus that hold rows of text: the source menu, its popovers, the project menu, the phone's More menu, the account panel and the phone's sheet at every stop (D5) | `--camera-surface: #ffffff` `src/presentation/studio-camera.css` `background: var(--camera-surface)` `src/presentation/studio-camera.css @ .sc-source-menu` `background: var(--camera-surface)` `src/app.css @ .sc-utility-overflow-menu` `background: var(--camera-surface)` `src/app.css @ .sc-sheet` | `--camera-surface: #1e1c1a` `src/presentation/studio-camera.css` |
@@ -47,7 +46,6 @@ the one exception (DECISIONS D5).
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css` | same |
 | Error ink: a refused link or diff, a recording state (4.94:1 on the landing paper, 4.98:1 on the studio's, 7.9:1 on the dark paper) | `--camera-danger: #c53a3a` `src/presentation/studio-camera.css` | `--camera-danger: #f28b82` `src/presentation/studio-camera.css` |
-| Code editor (Monaco), light and dark: the desktop paper and the warm near black; line numbers and bracket levels are pulled to 4.5:1 | `paper: "#fafaf9"` `src/application/editor/monaco-theme.ts` | `paper: "#121110"` `src/application/editor/monaco-theme.ts` |
 | Browser chrome before paint | `content="#FAF9F6"` `index.html` | `content="#121110"` `index.html` |
 | Document behind the studio | `background: #fafaf9` `src/app.css` | `background: #121110` `src/app.css @ html.dark` |
 
@@ -118,10 +116,8 @@ what has not adopted it yet.
 | Helper lane under the stage | `--helper-lane: 34px` `src/app.css` |
 | Phone fan row bleeds to the screen edge, clear of a notch | `margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)))` `src/app.css` |
 | Sheet side gutter, header and content alike; on a desktop its width is its content's, which each sheet names | `--sheet-inline: 28px` `--sheet-inline: 18px` `src/presentation/studio-camera.css` `width: min(var(--sheet-width, 100%), calc(100% - 2 * var(--sheet-margin)))` `src/presentation/studio-camera.css` |
-| Island gap (landing, studio phone) | `--island-gap: 5px` `src/app.css @ .lp-island-row` `--island-gap: 5px` `src/app.css @ .si-row` |
-| Island gap (desktop studio, 34px labelled controls on the landing plate) | `--island-gap: 2px` `src/presentation/studio-camera.css` |
-| Stacking above every shell: the drop veil, then the toasts | `--z-veil: 60` `--z-notice: 70` `src/app.css` |
-| Code card slot, scene gutter | `--sc-card-width: 356px` `--sc-gutter: 96px` `src/app.css` |
+| Island gap: landing and studio phone 5px; the desktop studio's 34px labelled controls on the landing plate 2px | `--island-gap: 5px` `src/app.css @ .lp-island-row` `--island-gap: 5px` `src/app.css @ .si-row` `--island-gap: 2px` `src/presentation/studio-camera.css` |
+| Code card slot, scene gutter; the stacking above every shell, the drop veil then the toasts | `--sc-card-width: 356px` `--sc-gutter: 96px` `--z-veil: 60` `--z-notice: 70` `src/app.css` |
 | Desktop header, timeline | `--camera-header: 80px` `--camera-timeline-height: 218px` `src/presentation/studio-camera.css` |
 | Header project name: the desktop corner stops 16px short of the centred Preview/Edit switch and the name ends in an ellipsis; the phone name is never narrower than "Untitled" from 390 up (#167) | `max-width: calc(50% - 22px - 78px - 16px)` `src/presentation/studio-camera.css @ .studio-camera-root .sc-corner-left` `max-width: 28ch` `src/presentation/studio-camera.css @ .studio-camera-root .sc-title` `min-width: calc(4.7em + 4px)` `src/app.css @ .sc-corner-row .sc-title` |
 
@@ -169,9 +165,8 @@ Which radius?
 | Desktop raised (card, timeline): ring inside the stack | `--camera-raised: 0 0 0 1px var(--camera-line), 0 1px 2px rgb(28 27 25 / 0.04)` `src/presentation/studio-camera.css` |
 | Desktop raised on dark | `--camera-raised: 0 0 0 1px var(--camera-line), 0 10px 32px rgb(0 0 0 / 0.28)` `src/presentation/studio-camera.css` |
 | Header capsules and the easing popover: the floating material | `--camera-material: color-mix(in oklch, var(--color-neutral-50) 88%, transparent)` `src/presentation/studio-camera.css` |
-| Bottom sheet, desktop panel and the phone's, no border and no blur: a ring and a shadow cast upward | `--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18)` `src/presentation/studio-camera.css` `box-shadow: var(--camera-sheet-shadow)` `src/app.css` |
+| Bottom sheet, desktop panel and the phone's, and the toast stack (mounted beside the shell as `studio-root sc-tokens`), no border and no blur: a ring and a shadow cast upward | `--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18)` `src/presentation/studio-camera.css` `box-shadow: var(--camera-sheet-shadow)` `src/app.css` `background: var(--camera-surface)` `box-shadow: var(--camera-raised)` `src/presentation/studio-camera.css @ .sc-notice` |
 | A hovered showcase card rises into the floating material's depth | `transition: box-shadow 150ms var(--ease-out)` `src/presentation/studio-camera.css @ .showcase-card` |
-| Toast: the opaque warm surface, no blur and no border, mounted beside the shell as `studio-root sc-tokens` | `background: var(--camera-surface)` `box-shadow: var(--camera-raised)` `src/presentation/studio-camera.css @ .sc-notice` | same |
 | Landing code card | `0 8px 20px -8px rgb(0 0 0 / 0.16)` `src/presentation/landing/static-frame.tsx` |
 | Code frame on the landing | `0 12px 32px -10px oklch(0 0 0 / 0.16)` `src/app.css` |
 | Chrome bar closing hairline | `borderAlpha: "0f"` `src/application/layout/frame-metrics.ts` |
@@ -230,8 +225,7 @@ landing has no intro at all. Nothing enters from `scale(0)`: reveal at 0.985.
 | 44px hit area, visual size unchanged | `width: 44px` `src/app.css` |
 | Hit extension for any control | `width: max(100%, 44px)` `src/app.css` |
 | Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css @ .lp-island` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css` `--island-cell: 44px` `src/app.css` |
-| The island's sheet and status row under a finger: every chip, swatch, field and Render is drawn 44px, and the row's reach is switched off so two hit areas never overlap (DECISIONS D17) | `min-width: 44px` `height: 44px` `src/app.css @ @media (pointer: coarse) / .studio-root :is(.si-sheet, .si-status) :is(.si-button, .si-cta)` |
-| Sheet chips under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-layer-pill` |
+| Sheet chips under a finger; the island's sheet and status row draw every chip, swatch, field and Render 44px with the row's reach switched off, so two hit areas never overlap (DECISIONS D10) | `height: 44px` `src/presentation/studio-camera.css @ .sc-layer-pill` `min-width: 44px` `height: 44px` `src/app.css @ @media (pointer: coarse) / .studio-root :is(.si-sheet, .si-status) :is(.si-button, .si-cta)` |
 | A picture built from code is not text to select | `shrink-0 snap-center select-none` `src/presentation/landing/frame-fan.tsx` |
 | Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` |
 | Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css @ .lp-field` `font-size: 16px` `src/presentation/studio-camera.css @ .sc-layer-field textarea` |

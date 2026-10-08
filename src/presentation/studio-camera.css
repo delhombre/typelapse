@@ -606,7 +606,7 @@
 
 .studio-camera-root .sc-history button:disabled {
 	color: var(--camera-disabled);
-	pointer-events: none;
+	cursor: not-allowed;
 }
 
 /* A header trigger wears the material of the capsules beside it: its fill, a ring
@@ -1618,6 +1618,7 @@ textarea.sc-source-field {
 
 .capture-card footer button:disabled {
 	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 .showcase-grid {
@@ -2293,6 +2294,7 @@ textarea.sc-source-field {
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:disabled {
 	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field {
@@ -2405,6 +2407,7 @@ textarea.sc-source-field {
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:disabled {
 	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-presets {
@@ -2620,8 +2623,14 @@ textarea.sc-source-field {
 	color: var(--camera-ink);
 }
 
+/* A muted layer is not a disabled control but it reads the same way, so it takes the
+   same token and a cue that is not colour: its name struck through (D16). */
 :is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-muted] {
-	opacity: 0.46;
+	color: var(--camera-disabled);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-muted] span {
+	text-decoration: line-through;
 }
 
 /* The desktop card under a finger (a touch laptop, an iPad in landscape): the
@@ -3886,6 +3895,7 @@ textarea.sc-source-field {
 
 .studio-timeline-actions button:disabled {
 	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 .studio-timeline-actions .studio-timeline-play {
@@ -4557,6 +4567,8 @@ textarea.sc-source-field {
 .sc-source-choice:disabled {
 	color: var(--camera-disabled);
 	pointer-events: none;
+	outline: 1px dashed color-mix(in oklch, currentColor 45%, transparent);
+	outline-offset: -1px;
 }
 
 .sc-source-choice:disabled :is(strong, small) {
@@ -4564,7 +4576,7 @@ textarea.sc-source-field {
 }
 
 /* Under a finger the scene's Undo chip, and the project menu's last row, are 44px
-   (DECISIONS D17). The chip's holder grows around it by its own padding. */
+   (DECISIONS D10). The chip's holder grows around it by its own padding. */
 @media (pointer: coarse) {
 	.studio-scene-undo button,
 	.scene-list-undo button {
@@ -5040,6 +5052,7 @@ textarea.sc-source-field {
 	height: 36px;
 	align-items: center;
 	justify-content: center;
+	gap: 6px;
 	border: 0;
 	border-radius: var(--r-control);
 	background: var(--camera-pill);
@@ -5048,6 +5061,16 @@ textarea.sc-source-field {
 	font-size: var(--sc-text-md);
 	font-weight: var(--sc-weight-medium);
 	transition: background-color 150ms var(--ease-out), transform 100ms var(--ease-out);
+}
+
+/* The label never changes; the chevron says which way the list goes. A state, not an
+   entrance: 150ms on transform, and none of it under reduced motion (the global rule). */
+.sc-scenes-toggle > svg {
+	transition: transform 150ms var(--ease-out);
+}
+
+.sc-scenes-toggle > svg[data-open] {
+	transform: rotate(180deg);
 }
 
 .sc-scenes-toggle:active {

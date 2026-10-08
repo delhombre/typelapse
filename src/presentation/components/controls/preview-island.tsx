@@ -751,6 +751,13 @@ function IslandFill({ totalSteps }: { totalSteps: number }) {
 	return <div className="si-fill" style={{ width: `${fill * 100}%` }} />;
 }
 
+/**
+ * The least scroller height that pins Render: its row (70px with padding) and two
+ * rows of 44px chips with their gap. Measured at 375x667, where the panel room is
+ * 106px, and at 390x844, where it holds them.
+ */
+const STICKY_FOOTER_ROOM = 70 + 2 * 44 + 12;
+
 function ClusterSheet({
 	cluster,
 	reduce,
@@ -770,6 +777,20 @@ function ClusterSheet({
 	// instead of being cut flat, and only once there is something above to show.
 	const bodyRef = useRef<HTMLDivElement>(null);
 	const { edges, measure } = useScrollEdges(bodyRef);
+	// Whether the sheet's scroller holds a pinned Render row and two rows of chips
+	// (STICKY_FOOTER_ROOM); under that the Render row is static (app.css).
+	const [roomy, setRoomy] = useState(true);
+	useEffect(() => {
+		const node = bodyRef.current;
+		if (!node || typeof ResizeObserver === "undefined") {
+			return;
+		}
+		const update = () => setRoomy(node.clientHeight >= STICKY_FOOTER_ROOM);
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(node);
+		return () => observer.disconnect();
+	}, []);
 
 	// On the way in, focus lands on the tab that is open: it says where you are,
 	// and it is also the fastest way back out (Escape) or sideways (the tab
@@ -845,6 +866,7 @@ function ClusterSheet({
 				ref={bodyRef}
 				className="si-sheet-body"
 				data-more-above={edges.above}
+				data-roomy={roomy}
 				onScroll={measure}
 				transition={reduce ? { duration: 0 } : springs.default}
 			>

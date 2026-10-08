@@ -15,6 +15,45 @@ function token(css: string, name: string): string | undefined {
 	return new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`).exec(css)?.[1]?.toLowerCase();
 }
 
+/** The declarations of the camera tokens' own rule: the light block, then the `.dark` one. */
+function cameraBlock(mode: "light" | "dark"): string {
+	const opener =
+		mode === "dark"
+			? ".dark :is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet) {"
+			: ":is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet) {";
+	const start = cameraCss.indexOf(`\n${opener}`);
+	if (start === -1) {
+		throw new Error(`The camera tokens' ${mode} block moved: ${opener}`);
+	}
+	return cameraCss.slice(start, cameraCss.indexOf("\n}", start));
+}
+
+/** `oklch(L C h)` as the sRGB hex Monaco takes, so the accent is read, not copied. */
+function oklchHex(value: string): string {
+	const [lightness, chroma, hue] = (/oklch\(([^)]+)\)/.exec(value)?.[1] ?? "")
+		.split(/\s+/)
+		.map(Number) as [number, number, number];
+	const a = chroma * Math.cos((hue * Math.PI) / 180);
+	const b = chroma * Math.sin((hue * Math.PI) / 180);
+	const l = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+	const m = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+	const s = (lightness - 0.0894841775 * a - 1.291485548 * b) ** 3;
+	const linear = [
+		4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+		-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+		-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+	];
+	return `#${linear
+		.map((channel) => {
+			const clamped = Math.min(1, Math.max(0, channel));
+			const encoded = clamped <= 0.0031308 ? 12.92 * clamped : 1.055 * clamped ** (1 / 2.4) - 0.055;
+			return Math.round(encoded * 255)
+				.toString(16)
+				.padStart(2, "0");
+		})
+		.join("")}`;
+}
+
 describe("the editor's themes are the studio's warm tokens", () => {
 	it("paints the light editor on the desktop paper and the dark one on the warm #121110", () => {
 		expect(STUDIO_EDITOR_PALETTES.light.paper).toBe(token(appCss, "--color-neutral-50"));
@@ -23,11 +62,22 @@ describe("the editor's themes are the studio's warm tokens", () => {
 		expect(studioEditorTheme("dark").colors["editor.background"]).not.toBe("#0a0a0a");
 	});
 
-	it("reads the same ink and muted grey as the camera tokens", () => {
-		expect(STUDIO_EDITOR_PALETTES.light.muted).toBe(token(cameraCss, "--camera-muted"));
-		expect(STUDIO_EDITOR_PALETTES.light.surface).toBe(token(cameraCss, "--camera-surface"));
-		expect(STUDIO_EDITOR_PALETTES.dark.surface).toBe("#1e1c1a");
-		expect(STUDIO_EDITOR_PALETTES.dark.ink).toBe("#f5f3ef");
+	it("reads the light ink, muted, surface, line and accent from the tokens", () => {
+		const light = STUDIO_EDITOR_PALETTES.light;
+		expect(light.ink).toBe(token(appCss, "--color-neutral-900"));
+		expect(light.line).toBe(token(appCss, "--color-neutral-200"));
+		expect(light.muted).toBe(token(cameraBlock("light"), "--camera-muted"));
+		expect(light.surface).toBe(token(cameraBlock("light"), "--camera-surface"));
+		expect(light.accent).toBe(
+			oklchHex(/--color-accent:\s*(oklch\([^)]+\))/.exec(appCss)?.[1] ?? ""),
+		);
+	});
+
+	it("reads the dark ink, muted and surface from the `.dark` block of the tokens", () => {
+		const dark = STUDIO_EDITOR_PALETTES.dark;
+		expect(dark.ink).toBe(token(cameraBlock("dark"), "--camera-ink"));
+		expect(dark.muted).toBe(token(cameraBlock("dark"), "--camera-muted"));
+		expect(dark.surface).toBe(token(cameraBlock("dark"), "--camera-surface"));
 	});
 
 	it.each(["light", "dark"] as const)("keeps %s line numbers and brackets at 4.5:1", (mode) => {

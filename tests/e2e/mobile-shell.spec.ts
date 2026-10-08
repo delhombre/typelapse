@@ -147,6 +147,45 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		expect(await card.boundingBox()).toEqual(scenesBox);
 	});
 
+	// The Export tab is the tallest panel and the one with the primary action. On a short phone
+	// its scroller is 106px (375x667): a pinned Render row, its note and a Capture shortcut
+	// came to 119px and left nothing to scroll to, so Format, Size, FPS, Where and PNG could
+	// not be reached (#244). Every control in it can be scrolled into view and answers a press
+	// at its centre, at the shortest phone and at a tall one, where Render stays pinned.
+	for (const { width, height } of [
+		{ width: 375, height: 667 },
+		{ width: 390, height: 844 },
+	]) {
+		test(`every Export control can be scrolled into view and hit, at ${width}x${height}`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height });
+			await openStudio(page);
+			await captureScenes(page, 1);
+			await page.locator(".si-cta").tap();
+			const panel = page.locator(".si-sheet");
+			await expect(panel).toBeVisible();
+			await settled(panel);
+
+			const controls = panel.locator(".si-sheet-body button");
+			const count = await controls.count();
+			// Format 3, Size 3, FPS 3, Where 2, PNG, Render.
+			expect(count).toBeGreaterThanOrEqual(13);
+			for (let index = 0; index < count; index++) {
+				const control = controls.nth(index);
+				const name = (await control.textContent())?.trim() ?? `control ${index}`;
+				const hit = await control.evaluate((element) => {
+					element.scrollIntoView({ block: "center" });
+					const box = element.getBoundingClientRect();
+					const at = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+					return { answers: at === element || element.contains(at), height: box.height };
+				});
+				expect(hit.answers, `${name} answers a press at its centre`).toBe(true);
+				expect(hit.height, `${name} is 44px tall`).toBeGreaterThanOrEqual(43);
+			}
+		});
+	}
+
 	// Opening a panel lowers the sheet, and the panel then rises from the instrument: Frame
 	// and Look are taller than the room between the frame and the island, and used to cover
 	// the frame (a top at y 400 and 416 under a frame ending at 451, ticket #187). Each

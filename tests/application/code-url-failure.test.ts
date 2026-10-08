@@ -5,13 +5,13 @@ import { describe, expect, it } from "vitest";
 describe("codeUrlFailure", () => {
 	it("says a missing gist was not found, and what to check", () => {
 		expect(codeUrlFailure(404, "gist-api")).toBe(
-			"That gist was not found. Check the link or that it is public.",
+			"That gist was not found. Check the link, and that it is public.",
 		);
 	});
 
 	it("says a missing file was not found, and that a private repository answers the same", () => {
 		expect(codeUrlFailure(404, "raw")).toBe(
-			"That file was not found. Check the link or that the repository is public.",
+			"That file was not found. Check the link, and that the repository is public.",
 		);
 	});
 

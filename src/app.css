@@ -1975,7 +1975,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 .studio-root button:disabled {
-	cursor: default;
+	cursor: not-allowed;
 }
 
 /* The phone's sheet is portaled to the body, out of `.studio-root`, and would read
@@ -2175,8 +2175,10 @@ html.dark:not([data-landing-theme]) {
 
 .studio-root .si-button:disabled,
 .studio-root .si-button[data-active]:disabled {
-	cursor: default;
+	cursor: not-allowed;
 	color: var(--camera-disabled);
+	outline: 1px dashed color-mix(in oklch, currentColor 45%, transparent);
+	outline-offset: -1px;
 }
 
 /* The pointer target: the control's box grown into the space that borders it,
@@ -2796,19 +2798,34 @@ html.dark:not([data-landing-theme]) {
 	margin-left: auto;
 }
 
-/* On the phone the sheet scrolls under a cap, so the Render row (and the notes
-   that explain it) is pinned to the sheet's foot with the sheet's own fill and a
-   hairline above it, and the fade the body gives its last rows would only dissolve
-   it. Elsewhere the sheet is as tall as its content and this is where the row
-   already is. */
-.sc-root-mobile .si-cluster-footer {
+/* On the phone the sheet scrolls under a cap. When that cap holds the Render row
+   and two rows of chips (`data-roomy`, measured by the sheet), the button is pinned
+   to the sheet's foot in the sheet's own fill, rows fading into it, rounded to
+   the sheet's corners it ends on. Under that room the footer is an ordinary row at
+   the end of the list: a pinned bar taller than the room left nothing to scroll
+   to (375x667: 119px of footer in a 106px scroller). The reasons and the Capture
+   shortcut are never pinned; they scroll with the rows. */
+.sc-root-mobile .si-sheet-body[data-roomy="true"] .si-cluster-footer {
 	position: sticky;
 	bottom: 0;
 	z-index: 1;
 	margin: 0 -14px -16px;
 	padding: 10px 14px 16px;
+	border-radius: 0 0 var(--r-sheet) var(--r-sheet);
 	background: var(--dock-bg);
-	box-shadow: 0 -1px 0 var(--dock-hairline);
+}
+
+/* The rows scrolling under it dissolve into the footer's fill instead of being cut
+   flat at its edge (a chip sliced across at rest). */
+.sc-root-mobile .si-sheet-body[data-roomy="true"] .si-cluster-footer::before {
+	content: "";
+	position: absolute;
+	right: 0;
+	bottom: 100%;
+	left: 0;
+	height: 18px;
+	background: linear-gradient(to top, var(--dock-bg), transparent);
+	pointer-events: none;
 }
 
 /* RenderCtaLabel: every label in one cell, so the widest sets the width. */
@@ -2849,7 +2866,7 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* ───────────────────── The sheet under a finger (DECISIONS D17) ─────────────────────
+/* ───────────────────── The sheet under a finger (DECISIONS D10) ─────────────────────
    The sheet's controls are 30px chips at a 5px pitch: a mouse's target. Under a
    coarse pointer every one of them is drawn 44px, which is all it takes, and the
    extension the island's row gives a control (`.si-button::after`) is switched
@@ -3292,7 +3309,7 @@ html.dark:not([data-landing-theme]) {
 
 .sc-corner-row .sc-history button:disabled {
 	color: var(--camera-disabled);
-	pointer-events: none;
+	cursor: not-allowed;
 }
 
 /* Under a finger the row keeps its 31px pitch, which is what nine controls get

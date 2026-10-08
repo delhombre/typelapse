@@ -24,19 +24,20 @@ import {
 } from "@/presentation/stores/studio-composition.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useRef, useState } from "react";
-import { Add } from "reicon-react";
+import { Add, ChevronDown } from "reicon-react";
 import { StudioLayerStrip } from "./studio-layer-strip";
 
 /**
  * A row's entrance: none for a scene the list already held, a short rise for one
- * that was just added, and under reduced motion a fade alone. No blur: a filter
- * on every row of a long list is a layer per row.
+ * that was just added. Under reduced motion there is none either: the row is there
+ * at once (a fade is still motion for the people who ask for less). No blur: a
+ * filter on every row of a long list is a layer per row.
  */
 function rowEntrance(known: boolean, reduce: boolean) {
-	if (known) {
+	if (known || reduce) {
 		return false;
 	}
-	return reduce ? { opacity: 0 } : { opacity: 0, y: 6 };
+	return { opacity: 0, y: 6 };
 }
 
 /** The first line of a scene's code. The row's own ellipsis is the only truncation. */
@@ -65,6 +66,7 @@ export function StepBuilder() {
 	const headRef = useRef<HTMLDivElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
 	const reasonId = useId();
+	const listId = useId();
 	const selectedStepId = steps[currentStepIndex]?.id;
 	const reason = captureBlockReason(emptyDraft);
 
@@ -210,7 +212,7 @@ export function StepBuilder() {
 			    inside the other (the wheel drove the inner one to its end and then stopped,
 			    40px short of the last step, with the outer scrollbar still showing room).
 			    The card owns the scroll now, on both layouts. */}
-			<div ref={listRef} className="sc-scene-list">
+			<div ref={listRef} id={listId} className="sc-scene-list">
 				{rows.map((step, offset) => {
 					const index = shown.start + offset;
 					const isSelected = index === currentStepIndex;
@@ -332,9 +334,23 @@ export function StepBuilder() {
 					type="button"
 					className="sc-scenes-toggle"
 					aria-expanded={expanded}
-					onClick={() => setExpanded(!expanded)}
+					aria-controls={listId}
+					onClick={() => {
+						if (expanded) {
+							// Folded back, the list is shorter and the scroller keeps its offset:
+							// bring the head (the count and Capture) back into view.
+							headRef.current?.scrollIntoView?.({ block: "nearest" });
+						}
+						setExpanded(!expanded);
+					}}
 				>
-					{expanded ? "Show fewer scenes" : `Show all ${steps.length} scenes`}
+					All {steps.length} scenes
+					<ChevronDown
+						size={13}
+						strokeWidth={2}
+						aria-hidden="true"
+						data-open={expanded ? "" : undefined}
+					/>
 				</button>
 			) : null}
 		</div>
