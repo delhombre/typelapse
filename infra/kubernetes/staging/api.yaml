@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: typelapse-api
+  namespace: typelapse-staging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: typelapse-api
+  template:
+    metadata:
+      labels:
+        app: typelapse-api
+      annotations:
+        # Changes on every workflow run so a new ConfigMap or Secret always
+        # rolls the pods (envFrom is read at start only).
+        typelapse.dev/deploy-run: "__DEPLOY_RUN__"
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      # Same restricted-ready shape as noctua. uid/gid 1001 must match the user
+      # the Dockerfile creates.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
+          # tsx runs the server straight from source: there is no compiled
+          # server entry, `pnpm build` only typechecks it. The binary is called
+          # directly (relative to the image's WORKDIR) so no pnpm or corepack
+          # runs at start, and SIGTERM reaches tsx without a wrapper in between.
+          command: ["node_modules/.bin/tsx", "server/index.ts"]
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - configMapRef:
+                name: typelapse-config
+            - secretRef:
+                name: typelapse-env
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          # Sized like noctua (a Node API that idles near 100 MiB). Limit is 2x
+          # the request.
+          resources:
+            requests:
+              memory: "192Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "500m"
+          # /health answers with no database round trip, so it is cheap and does
+          # not flap with Neon cold starts.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: typelapse-api
+  namespace: typelapse-staging
+spec:
+  selector:
+    app: typelapse-api
+  ports:
+    - port: 80
+      targetPort: 3001

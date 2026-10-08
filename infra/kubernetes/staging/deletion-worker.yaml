@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: typelapse-deletion-worker
+  namespace: typelapse-staging
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: typelapse-deletion-worker
+  template:
+    metadata:
+      labels:
+        app: typelapse-deletion-worker
+      annotations:
+        typelapse.dev/deploy-run: "__DEPLOY_RUN__"
+    spec:
+      imagePullSecrets:
+        - name: ghcr-secret
+      # SIGTERM aborts the loop (object-deletion.entrypoint.ts); the default
+      # 30 s grace period is plenty.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: deletion-worker
+          image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
+          command: ["node_modules/.bin/tsx", "server/workers/object-deletion.entrypoint.ts"]
+          envFrom:
+            - configMapRef:
+                name: typelapse-config
+            - secretRef:
+                name: typelapse-env
+          env:
+            - name: TYPELAPSE_OBJECT_DELETION_WORKER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          # A small Node loop that deletes R2 objects: half the API's size.
+          resources:
+            requests:
+              memory: "96Mi"
+              cpu: "50m"
+            limits:
+              memory: "192Mi"
+              cpu: "250m"

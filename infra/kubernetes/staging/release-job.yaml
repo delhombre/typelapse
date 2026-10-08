@@ -1,0 +1,55 @@
+# Runs before the Deployments are applied: migrate the Neon schema, then check
+# that every hosted capability is configured. A non-zero exit fails the deploy,
+# so a half-configured staging never takes traffic. The workflow deletes the
+# previous Job first (a Job's pod template is immutable) and leaves this one in
+# place afterwards so its logs can be read.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: typelapse-release
+  namespace: typelapse-staging
+spec:
+  # A failed migration is read by a human, not retried blindly.
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-secret
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: release
+          image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
+          # These are the `db:migrate` and `hosted:check` package scripts
+          # without pnpm, which would try to resolve itself at start as a
+          # non-root user. drizzle-kit and tsx are devDependencies: the image
+          # has to keep them.
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              node_modules/.bin/drizzle-kit migrate
+              node_modules/.bin/tsx server/config/hosted-check.entrypoint.ts
+          envFrom:
+            - configMapRef:
+                name: typelapse-config
+            - secretRef:
+                name: typelapse-env
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

@@ -1,0 +1,221 @@
+name: Deploy staging
+
+# Manual only: build one image, push it to GHCR, run the release Job (migrate +
+# hosted:check) on the craft-prod cluster, then roll the API and both workers.
+# Dispatch it against the ref you want to see running; the image is tagged with
+# that ref's commit SHA.
+#
+# Secrets and variables live in the GitHub Environment `staging`, never in the
+# repo. See infra/kubernetes/README.md for the full list and .env.staging.example
+# for what each one is.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  # One staging deploy at a time, and never cancelled mid-rollout.
+  group: deploy-staging
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: typelapse-staging
+  # The only place the hostname is written; production reuses the manifests
+  # with typelapse.com.
+  APP_HOST: staging.typelapse.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/typelapse
+      IMAGE_TAG: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # VITE_* values are read by `vite build`, so they are baked into the SPA
+      # here. The Dockerfile declares them as build ARGs.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VITE_TYPELAPSE_DEPLOYMENT_MODE=hosted
+            VITE_TYPELAPSE_AUTH_ENABLED=true
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      # Passed through the env rather than interpolated into the script, so the
+      # decoded value never lands in the step's shell source on the runner.
+      - name: Configure kubeconfig
+        env:
+          KUBECONFIG_B64: ${{ secrets.KUBECONFIG_INFOMANIAK }}
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_B64" | base64 -d > ~/.kube/config
+
+      # Fill the placeholders in a copy under RUNNER_TEMP. The values are
+      # identifiers (hostnames, IDs, sizes), checked against a strict pattern so
+      # nothing can break out of the sed expression.
+      - name: Render manifests
+        env:
+          R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          POLAR_CREATOR_MONTHLY_PRODUCT_ID: ${{ vars.POLAR_CREATOR_MONTHLY_PRODUCT_ID }}
+          POLAR_CREATOR_ANNUAL_PRODUCT_ID: ${{ vars.POLAR_CREATOR_ANNUAL_PRODUCT_ID }}
+          RENDER_MEMORY_REQUEST: ${{ vars.RENDER_MEMORY_REQUEST }}
+          RENDER_MEMORY_LIMIT: ${{ vars.RENDER_MEMORY_LIMIT }}
+          DEPLOY_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          for name in R2_ACCOUNT_ID R2_BUCKET POLAR_CREATOR_MONTHLY_PRODUCT_ID RENDER_MEMORY_REQUEST RENDER_MEMORY_LIMIT; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::The Environment variable $name is not set (render memory waits for a measurement)"
+              exit 1
+            fi
+          done
+          # POLAR_CREATOR_ANNUAL_PRODUCT_ID is optional and may be empty.
+          for name in APP_HOST IMAGE_TAG DEPLOY_RUN R2_ACCOUNT_ID R2_BUCKET POLAR_CREATOR_MONTHLY_PRODUCT_ID POLAR_CREATOR_ANNUAL_PRODUCT_ID RENDER_MEMORY_REQUEST RENDER_MEMORY_LIMIT; do
+            if ! printf '%s' "${!name:-}" | grep -Eq '^[A-Za-z0-9._-]*$'; then
+              echo "::error::$name contains characters outside [A-Za-z0-9._-]"
+              exit 1
+            fi
+          done
+          out="$RUNNER_TEMP/rendered"
+          mkdir -p "$out"
+          for file in infra/kubernetes/staging/*.yaml; do
+            sed \
+              -e "s|__IMAGE_TAG__|${IMAGE_TAG}|g" \
+              -e "s|__APP_HOST__|${APP_HOST}|g" \
+              -e "s|__DEPLOY_RUN__|${DEPLOY_RUN}|g" \
+              -e "s|__R2_ACCOUNT_ID__|${R2_ACCOUNT_ID}|g" \
+              -e "s|__R2_BUCKET__|${R2_BUCKET}|g" \
+              -e "s|__POLAR_CREATOR_MONTHLY_PRODUCT_ID__|${POLAR_CREATOR_MONTHLY_PRODUCT_ID}|g" \
+              -e "s|__POLAR_CREATOR_ANNUAL_PRODUCT_ID__|${POLAR_CREATOR_ANNUAL_PRODUCT_ID}|g" \
+              -e "s|__RENDER_MEMORY_REQUEST__|${RENDER_MEMORY_REQUEST}|g" \
+              -e "s|__RENDER_MEMORY_LIMIT__|${RENDER_MEMORY_LIMIT}|g" \
+              "$file" > "$out/$(basename "$file")"
+          done
+          if grep -nE '__[A-Z0-9_]+__' "$out"/*.yaml; then
+            echo "::error::A placeholder was left unreplaced"
+            exit 1
+          fi
+
+      # The Secret is built from an env file that exists only in RUNNER_TEMP
+      # (mode 600, removed on exit) and goes straight into kubectl's stdin.
+      # Nothing is echoed, and the values are already masked by GitHub.
+      - name: Write Secret and pull secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          POLAR_ACCESS_TOKEN: ${{ secrets.POLAR_ACCESS_TOKEN }}
+          POLAR_WEBHOOK_SECRET: ${{ secrets.POLAR_WEBHOOK_SECRET }}
+          TYPELAPSE_GITHUB_TOKEN: ${{ secrets.TYPELAPSE_GITHUB_TOKEN }}
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GHCR_PULL_USER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          umask 077
+          envfile="$(mktemp -p "$RUNNER_TEMP")"
+          trap 'rm -f "$envfile"' EXIT
+          for name in DATABASE_URL BETTER_AUTH_SECRET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY POLAR_ACCESS_TOKEN POLAR_WEBHOOK_SECRET; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::The Environment secret $name is not set"
+              exit 1
+            fi
+            printf '%s=%s\n' "$name" "${!name}" >> "$envfile"
+          done
+          if [ -n "${TYPELAPSE_GITHUB_TOKEN:-}" ]; then
+            printf '%s=%s\n' TYPELAPSE_GITHUB_TOKEN "$TYPELAPSE_GITHUB_TOKEN" >> "$envfile"
+          fi
+          # Server-side apply keeps the values out of the
+          # last-applied-configuration annotation.
+          kubectl -n "$NAMESPACE" create secret generic typelapse-env \
+            --from-env-file="$envfile" --dry-run=client -o yaml \
+            | kubectl apply --server-side -f -
+          # Optional: only while the repository or the package is private.
+          if [ -n "${GHCR_PULL_TOKEN:-}" ]; then
+            kubectl -n "$NAMESPACE" create secret docker-registry ghcr-secret \
+              --docker-server=ghcr.io --docker-username="$GHCR_PULL_USER" \
+              --docker-password="$GHCR_PULL_TOKEN" --dry-run=client -o yaml \
+              | kubectl apply --server-side -f -
+          fi
+
+      - name: Apply ConfigMap
+        run: kubectl apply -f "$RUNNER_TEMP/rendered/configmap.yaml"
+
+      # A Job's pod template is immutable, so the previous one goes first.
+      - name: Run release Job
+        run: |
+          set -euo pipefail
+          kubectl -n "$NAMESPACE" delete job typelapse-release --ignore-not-found --wait=true
+          kubectl apply -f "$RUNNER_TEMP/rendered/release-job.yaml"
+          # `kubectl wait` only knows one condition, so a failed Job would sit
+          # out the whole timeout. Poll both counters instead.
+          deadline=$((SECONDS + 660))
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            status="$(kubectl -n "$NAMESPACE" get job typelapse-release -o jsonpath='{.status.succeeded}/{.status.failed}')"
+            case "$status" in
+              1/*) echo "Release Job succeeded"; exit 0 ;;
+              */[1-9]*) break ;;
+            esac
+            sleep 5
+          done
+          echo "::error::Release Job failed or timed out; its logs follow"
+          kubectl -n "$NAMESPACE" get pods -l job-name=typelapse-release
+          kubectl -n "$NAMESPACE" logs job/typelapse-release --all-containers --tail=200 || true
+          exit 1
+
+      - name: Apply Deployments, Service and Ingress
+        run: |
+          set -euo pipefail
+          for file in api render-worker deletion-worker ingress; do
+            kubectl apply -f "$RUNNER_TEMP/rendered/$file.yaml"
+          done
+
+      # Timeout sized for the managed cluster's small (2 vCPU / 4 GB) nodes: an
+      # image pull plus a cold start is slow there.
+      - name: Wait for rollouts
+        run: |
+          set -euo pipefail
+          for deployment in typelapse-api typelapse-render-worker typelapse-deletion-worker; do
+            kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=420s
+          done
+
+      - name: Show pod state after a failed rollout
+        if: failure()
+        run: |
+          kubectl -n "$NAMESPACE" get pods -o wide || true
+          for app in typelapse-api typelapse-render-worker typelapse-deletion-worker; do
+            echo "::group::$app"
+            kubectl -n "$NAMESPACE" logs "deployment/$app" --tail=100 || true
+            echo "::endgroup::"
+          done
