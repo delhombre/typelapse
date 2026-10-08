@@ -49,6 +49,17 @@ once `TYPELAPSE_RENDER_LEASE_MS` (120 s by default) has run out. Give the proces
 a grace period of a few seconds, not a render's length. The image starts the
 workers under `tini` so the signal arrives.
 
+Both workers can also run as scheduled jobs instead of long-running processes.
+Set `TYPELAPSE_WORKER_EXIT_WHEN_IDLE=true` on the job and the worker claims and
+finishes work until a claim comes back empty, then exits with code 0. It never
+sleeps in that mode, so a run with nothing to do ends at once. Unset or `false`
+keeps the polling loop. Any other value stops the worker at startup. SIGTERM
+behaves the same in both modes. A failed iteration still waits
+`TYPELAPSE_RENDER_FAILURE_MS` (or `TYPELAPSE_OBJECT_DELETION_FAILURE_MS`) and
+tries again rather than exiting, so give the job a deadline. Overlapping runs
+are safe, since each claim locks its job, but each render run needs its own
+2 GiB (see Sizing): forbid concurrent runs unless the node has the room.
+
 The API listens on `PORT` (3001). With `TYPELAPSE_STATIC_ROOT` set, which the
 image does (`/app/dist`), it also serves the built app, so one origin answers
 `/`, `/app`, `/api/*`, `/v/*` and `/health`. Hashed files under `/assets/` are

@@ -38,6 +38,7 @@ describe("object deletion runtime configuration", () => {
 			idleMinDelayMs: 250,
 			idleMaxDelayMs: 5_000,
 			failureDelayMs: 5_000,
+			exitWhenIdle: false,
 		});
 	});
 
@@ -54,6 +55,7 @@ describe("object deletion runtime configuration", () => {
 			idleMinDelayMs: 100,
 			idleMaxDelayMs: 800,
 			failureDelayMs: 1_200,
+			exitWhenIdle: false,
 		});
 		expect(() =>
 			objectDeletionRuntimeConfigFromEnv({

@@ -23,6 +23,7 @@ import {
 	hostedRenderObjectStorageFromEnv,
 	type HostedRenderObjectStorage,
 } from "../storage/hosted-render-object-storage";
+import { exitWhenIdleFrom } from "./exit-when-idle";
 
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 type AbortableSleep = (delayMs: number, signal: AbortSignal) => Promise<void>;
@@ -38,6 +39,8 @@ export interface HostedRenderRuntimeConfig {
 	readonly idleMaxDelayMs: number;
 	readonly failureDelayMs: number;
 	readonly renderTimeoutMs: number;
+	/** Drain mode: exit when a claim finds nothing, instead of polling again. */
+	readonly exitWhenIdle: boolean;
 	readonly temporaryRoot?: string;
 	/** Frames Chromium renders at once; absent leaves Remotion's choice. */
 	readonly concurrency?: number;
@@ -166,6 +169,7 @@ export function hostedRenderRuntimeConfigFromEnv(
 			30_000,
 			2 * 60 * 60_000,
 		),
+		exitWhenIdle: exitWhenIdleFrom(environment),
 		...(environment.TYPELAPSE_RENDER_TEMP_ROOT?.trim()
 			? { temporaryRoot: environment.TYPELAPSE_RENDER_TEMP_ROOT.trim() }
 			: {}),
@@ -248,6 +252,8 @@ export async function runHostedRenderLoop(input: {
 	readonly idleMaxDelayMs: number;
 	readonly failureDelayMs: number;
 	readonly renderTimeoutMs?: number;
+	/** Return the first time a claim finds nothing, instead of sleeping. */
+	readonly exitWhenIdle?: boolean;
 	readonly sleep?: AbortableSleep;
 	readonly logger?: HostedRenderRuntimeLogger;
 }): Promise<void> {
@@ -276,6 +282,9 @@ export async function runHostedRenderLoop(input: {
 				continue;
 			}
 			if (result === "idle") {
+				if (input.exitWhenIdle) {
+					return;
+				}
 				await sleep(idleDelayMs, input.signal);
 				idleDelayMs = Math.min(input.idleMaxDelayMs, idleDelayMs * 2);
 				continue;
@@ -423,6 +432,7 @@ export function createHostedRenderRuntimeFromEnv(input: {
 				idleMaxDelayMs: config.idleMaxDelayMs,
 				failureDelayMs: config.failureDelayMs,
 				renderTimeoutMs: config.renderTimeoutMs,
+				exitWhenIdle: config.exitWhenIdle,
 				...(input.sleep ? { sleep: input.sleep } : {}),
 				...(input.logger ? { logger: input.logger } : {}),
 			}),

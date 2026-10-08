@@ -7,6 +7,7 @@ import {
 import { databaseFromEnv, type CreatorDatabase } from "../db/database";
 import { createObjectDeletionQueue } from "../db/object-deletion-outbox.repository";
 import { r2ObjectStorageFromEnv } from "../storage/r2-object-storage";
+import { exitWhenIdleFrom } from "./exit-when-idle";
 
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -15,6 +16,8 @@ export interface ObjectDeletionRuntimeConfig {
 	readonly idleMinDelayMs: number;
 	readonly idleMaxDelayMs: number;
 	readonly failureDelayMs: number;
+	/** Drain mode: exit when a claim finds nothing, instead of polling again. */
+	readonly exitWhenIdle: boolean;
 }
 
 export interface ObjectDeletionRuntimeLogger {
@@ -33,6 +36,7 @@ const DEFAULT_CONFIG: ObjectDeletionRuntimeConfig = {
 	idleMinDelayMs: 250,
 	idleMaxDelayMs: 5_000,
 	failureDelayMs: 5_000,
+	exitWhenIdle: false,
 };
 
 function boundedInteger(
@@ -88,6 +92,7 @@ export function objectDeletionRuntimeConfigFromEnv(
 			100,
 			60_000,
 		),
+		exitWhenIdle: exitWhenIdleFrom(environment),
 	};
 	if (config.idleMaxDelayMs < config.idleMinDelayMs) {
 		throw new Error("Object deletion idle maximum must cover the idle minimum");
@@ -120,6 +125,8 @@ export async function runObjectDeletionLoop(input: {
 	readonly idleMinDelayMs: number;
 	readonly idleMaxDelayMs: number;
 	readonly failureDelayMs: number;
+	/** Return the first time a claim finds nothing, instead of sleeping. */
+	readonly exitWhenIdle?: boolean;
 	readonly sleep?: AbortableSleep;
 	readonly logger?: ObjectDeletionRuntimeLogger;
 }): Promise<void> {
@@ -131,6 +138,9 @@ export async function runObjectDeletionLoop(input: {
 		try {
 			const result = await input.worker.runOnce(input.workerId);
 			if (result === "idle") {
+				if (input.exitWhenIdle) {
+					return;
+				}
 				await sleep(idleDelayMs, input.signal);
 				idleDelayMs = Math.min(input.idleMaxDelayMs, idleDelayMs * 2);
 				continue;
@@ -221,6 +231,7 @@ export function createObjectDeletionRuntimeFromEnv(input: {
 				idleMinDelayMs: config.idleMinDelayMs,
 				idleMaxDelayMs: config.idleMaxDelayMs,
 				failureDelayMs: config.failureDelayMs,
+				exitWhenIdle: config.exitWhenIdle,
 				...(input.sleep ? { sleep: input.sleep } : {}),
 				...(input.logger ? { logger: input.logger } : {}),
 			}),
