@@ -151,3 +151,41 @@ test.describe("Hosted account: a refused code leaves the form where it was", () 
 		await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();
 	});
 });
+
+test.describe("Hosted account: the sign-in form follows the forms checklist", () => {
+	// Placeholders are examples under a label that stays; a mouse's cursor lands in the field the
+	// form opens on and follows the person through the two steps; a wrong address is said when the
+	// field is left, beside it. A finger's version of this (no raised keyboard) is in the phone
+	// shell's sign-in journey.
+	test("an example in each field, the cursor where the person types, a wrong address said on leaving", async ({
+		page,
+	}) => {
+		const account = newAccount("checklist");
+		await openStudio(page);
+		await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
+		await page.getByRole("button", { name: "Sign in", exact: true }).click();
+		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		const email = panel.getByRole("textbox", { name: "Email" });
+
+		await expect(email).toBeFocused();
+		await expect(email).toHaveAttribute("placeholder", "you@company.com");
+
+		await email.fill("ada@");
+		await expect(email).not.toHaveAttribute("aria-invalid", "true");
+		await email.press("Tab");
+		await expect(email).toHaveAttribute("aria-invalid", "true");
+		await expect(panel.getByText("Enter an email address like ada@example.com.")).toBeVisible();
+		await email.fill(account.email);
+		await expect(email).not.toHaveAttribute("aria-invalid", "true");
+
+		await panel.getByRole("button", { name: "Email me a code" }).click();
+		const code = panel.getByRole("textbox", { name: "Code" });
+		await expect(code).toBeFocused();
+		await expect(code).toHaveAttribute("placeholder", "123456");
+		await expect(code).toHaveAttribute("data-1p-ignore", "true");
+
+		await panel.getByRole("button", { name: "Use another email" }).click();
+		await expect(email).toBeFocused();
+		await expect(email).toHaveValue(account.email);
+	});
+});

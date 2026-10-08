@@ -363,11 +363,22 @@
 	gap: 5px;
 }
 
-/* Said beside the field it is about, in words that name the fix. */
+/* Said beside the field it is about, in words that name the fix. The mark and the red
+   border carry it for an eye that cannot tell the red from the ink. */
 .mm-account-field-error {
+	display: flex;
+	align-items: flex-start;
+	gap: 5px;
 	color: var(--mm-danger);
 	font-size: var(--sc-text-sm);
 	line-height: 1.4;
+}
+
+.mm-account-field-error > svg,
+.mm-account-error > svg {
+	flex: none;
+	/* Centred on the first line, however many lines the words take. */
+	margin-top: calc((1.4 * var(--sc-text-sm) - 13px) / 2);
 }
 
 .mm-account-form input[aria-invalid="true"] {
@@ -397,6 +408,14 @@
 
 .dark .mm-account-form input {
 	background: rgb(255 255 255 / 0.055);
+}
+
+/* An example of the shape, never the name: the label stays above. The muted ink is the
+   label's own (AA on the field's tint in both themes); `opacity: 1` because Firefox
+   dims a placeholder on top of its colour. */
+.mm-account-form input::placeholder {
+	color: var(--mm-muted);
+	opacity: 1;
 }
 
 /* Focus is the accent, as everywhere else (DECISIONS D9): yellow is the one
@@ -448,6 +467,7 @@
 }
 
 .mm-account-primary:active:not(:disabled, [aria-disabled="true"]),
+.mm-account-switch:active:not(:disabled, [aria-disabled="true"]),
 .mm-account-actions :is(a, button):active:not(:disabled),
 .mm-account-plan-card > button:active:not(:disabled) {
 	transform: scale(0.97);
@@ -487,6 +507,12 @@
 	letter-spacing: 0.24em;
 }
 
+/* The heading takes focus when a finger's code step opens, so a screen reader lands on
+   it: a target, not a control, as the sheet and the gallery panel are. */
+.mm-account-form h2:focus-visible {
+	outline: none;
+}
+
 .mm-account-form > p strong {
 	color: var(--mm-ink);
 	font-weight: 600;
@@ -521,6 +547,9 @@
 }
 
 .mm-account-error {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
 	margin: 0;
 	padding: 9px 10px;
 	border-radius: var(--r-control);
@@ -564,6 +593,7 @@
 @media (prefers-reduced-motion: reduce) {
 	.mm-account-trigger:active:not(:disabled),
 	.mm-account-primary:active:not(:disabled, [aria-disabled="true"]),
+	.mm-account-switch:active:not(:disabled, [aria-disabled="true"]),
 	.mm-account-actions :is(a, button):active:not(:disabled),
 	.mm-account-cadence button:active {
 		transform: none;

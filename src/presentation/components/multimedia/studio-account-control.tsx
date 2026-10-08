@@ -7,8 +7,10 @@ import {
 } from "@/presentation/stores/auth.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
+	type FocusEvent,
 	type FormEvent,
 	type KeyboardEvent,
+	type PointerEvent as ReactPointerEvent,
 	type RefObject,
 	useCallback,
 	useEffect,
@@ -17,7 +19,17 @@ import {
 	useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Cloud, HardDrive, Key, Logout, Profile, X } from "reicon-react";
+import {
+	AlertCircle,
+	ChevronLeft,
+	ChevronRight,
+	Cloud,
+	HardDrive,
+	Key,
+	Logout,
+	Profile,
+	X,
+} from "reicon-react";
 import { StudioApiKeys, type StudioApiKeysControl } from "./studio-api-keys";
 import { StudioCloudProjects, type StudioCloudProjectsControl } from "./studio-cloud-projects";
 import "./studio-account-control.css";
@@ -126,7 +138,10 @@ export function StudioAccountControl({
 	// way back, the first thing in it.
 	const backRef = useRef<HTMLButtonElement>(null);
 	useEffect(() => {
-		if (inMenu && open) backRef.current?.focus();
+		// The sign-in form's field may have taken focus already (children's effects run first).
+		if (inMenu && open && !rootRef.current?.contains(document.activeElement)) {
+			backRef.current?.focus();
+		}
 	}, [inMenu, open]);
 	// The menu closing takes the panel with it: it opens on the rows next time.
 	useEffect(() => {
@@ -679,12 +694,19 @@ function AuthForm({
 	readonly onForgetCode: () => void;
 }) {
 	const [email, setEmail] = useState(pendingCode?.email ?? "");
-	// Back from the code step, focus returns to the address; on first open it stays put.
+	// Back from the code step, focus returns to the address, whatever the pointer.
 	const cameBack = useRef(false);
+	// The address step has been on screen in this form: the code step is the answer to its
+	// button, not a panel that was opened on it.
+	const sawAddress = useRef(false);
+	useEffect(() => {
+		if (!pendingCode) sawAddress.current = true;
+	}, [pendingCode]);
 	if (pendingCode) {
 		return (
 			<CodeStep
 				pending={pendingCode}
+				arrived={sawAddress.current}
 				signingIn={operation === "signing-in"}
 				sending={operation === "sending-code"}
 				error={error}
@@ -702,11 +724,50 @@ function AuthForm({
 			email={email}
 			busy={operation === "sending-code"}
 			error={error}
-			focusOnMount={cameBack.current}
+			// A cursor goes in the address when the form opens; a finger's keyboard is not raised
+			// for a field nobody tapped.
+			focusOnMount={cameBack.current || !onTouch()}
 			onEmail={setEmail}
 			onSend={onSendCode}
 		/>
 	);
+}
+
+/** A finger, not a cursor: the primary pointer is imprecise and the keyboard is on screen. */
+function onTouch(): boolean {
+	return window.matchMedia?.("(pointer: coarse)").matches === true;
+}
+
+/**
+ * A field is checked when it is left, not while it is typed (reward early, punish late).
+ * Two leavings are not that: a press on one of the form's buttons, where a message that
+ * arrives above the button would move it between the press and the release and lose the
+ * click (the submit checks anyway); and a leaving to nowhere in the panel, a press outside
+ * that is closing it or another window coming forward.
+ */
+function useCheckOnLeave(check: () => void) {
+	const pressing = useRef(false);
+	return {
+		holdWhilePressing: (event: ReactPointerEvent<HTMLFormElement>) => {
+			if (!(event.target as Element).closest("button")) return;
+			pressing.current = true;
+			const release = () => {
+				pressing.current = false;
+			};
+			document.addEventListener("pointerup", release, { once: true });
+			document.addEventListener("pointercancel", release, { once: true });
+		},
+		onBlur: (event: FocusEvent<HTMLInputElement>) => {
+			const to = event.relatedTarget;
+			const panel = event.currentTarget.closest(".mm-account-popover");
+			if (pressing.current || !(to instanceof Node) || !panel?.contains(to)) return;
+			check();
+		},
+	};
+}
+
+function ErrorMark() {
+	return <AlertCircle size={13} aria-hidden="true" />;
 }
 
 function EmailStep({
@@ -730,6 +791,9 @@ function EmailStep({
 	// After it, the field is checked as it changes, so a fixed address clears at once.
 	const [checked, setChecked] = useState(false);
 	const invalid = checked && !EMAIL.test(email.trim());
+	const leave = useCheckOnLeave(() => {
+		if (email.trim()) setChecked(true);
+	});
 
 	useEffect(() => {
 		if (focusOnMount) inputRef.current?.focus();
@@ -749,7 +813,13 @@ function EmailStep({
 	return (
 		// The checks are ours, beside the field and in the studio's voice; the
 		// browser's bubbles disappeared.
-		<form className="mm-account-form" onSubmit={submit} aria-busy={busy} noValidate>
+		<form
+			className="mm-account-form"
+			onSubmit={submit}
+			onPointerDownCapture={leave.holdWhilePressing}
+			aria-busy={busy}
+			noValidate
+		>
 			<p className="mm-eyebrow">Typelapse Cloud</p>
 			<h2>Continue your work.</h2>
 			<p>Sync projects and private media, then render in the background.</p>
@@ -762,16 +832,22 @@ function EmailStep({
 						ref={inputRef}
 						name="email"
 						type="email"
+						inputMode="email"
 						autoComplete="email"
+						autoCapitalize="off"
 						spellCheck="false"
+						enterKeyHint="send"
+						placeholder="you@company.com"
 						value={email}
 						onChange={(event) => onEmail(event.target.value)}
+						onBlur={leave.onBlur}
 						aria-invalid={invalid ? true : undefined}
 						aria-describedby={invalid ? messageId : undefined}
 					/>
 				</label>
 				{invalid ? (
 					<span id={messageId} className="mm-account-field-error">
+						<ErrorMark />
 						Enter an email address like ada@example.com.
 					</span>
 				) : null}
@@ -793,6 +869,7 @@ function AlertSlot({ error }: { readonly error: string | null }) {
 		<div className="mm-account-alert">
 			{error ? (
 				<p role="alert" className="mm-account-error">
+					<ErrorMark />
 					{error}
 				</p>
 			) : null}
@@ -822,6 +899,7 @@ function useResendWait(sentAt: Date): number {
 
 function CodeStep({
 	pending,
+	arrived,
 	signingIn,
 	sending,
 	error,
@@ -830,6 +908,8 @@ function CodeStep({
 	onUseAnotherEmail,
 }: {
 	readonly pending: PendingSignInCode;
+	/** Opened by the address step's button, rather than the panel opening on the code. */
+	readonly arrived: boolean;
 	readonly signingIn: boolean;
 	readonly sending: boolean;
 	readonly error: string | null;
@@ -840,6 +920,7 @@ function CodeStep({
 	const hintId = useId();
 	const shortId = useId();
 	const inputRef = useRef<HTMLInputElement>(null);
+	const headingRef = useRef<HTMLHeadingElement>(null);
 	const [code, setCode] = useState("");
 	// Pressed with fewer than six digits: said beside the field, cleared as digits arrive.
 	const [short, setShort] = useState(false);
@@ -847,11 +928,17 @@ function CodeStep({
 	const busy = signingIn || sending;
 
 	// The button that led here is gone: focus goes to the field the person types into
-	// next, which reads out where the code went. A new code is a fresh field.
+	// next, which reads out where the code went. A new code is a fresh field. A finger
+	// types where it taps, so its keyboard is not raised for it; the heading takes the
+	// focus the button held, so a screen reader lands on what changed.
+	const first = useRef(true);
 	// biome-ignore lint/correctness/useExhaustiveDependencies: refocus on each code sent
 	useEffect(() => {
 		setCode("");
-		inputRef.current?.focus();
+		const opening = first.current;
+		first.current = false;
+		if (!onTouch()) inputRef.current?.focus();
+		else if (opening && arrived) headingRef.current?.focus();
 	}, [pending.sentAt]);
 
 	// A refused code is cleared and the field is ready again, the refusal under the button.
@@ -873,6 +960,10 @@ function CodeStep({
 		}
 		void onSignIn(value);
 	};
+
+	const leave = useCheckOnLeave(() => {
+		if (code.length > 0 && code.length < CODE_LENGTH) setShort(true);
+	});
 
 	const change = (raw: string) => {
 		// A pasted "042 917" or "Code: 042917" still reads as the six digits.
@@ -898,11 +989,14 @@ function CodeStep({
 				event.preventDefault();
 				signIn(code);
 			}}
+			onPointerDownCapture={leave.holdWhilePressing}
 			aria-busy={busy}
 			noValidate
 		>
 			<p className="mm-eyebrow">Typelapse Cloud</p>
-			<h2>Check your email.</h2>
+			<h2 ref={headingRef} tabIndex={-1}>
+				Check your email.
+			</h2>
 			<p id={hintId}>
 				Enter the six-digit code sent to <strong>{pending.email}</strong>. It expires in 10 minutes.
 			</p>
@@ -918,14 +1012,21 @@ function CodeStep({
 						autoComplete="one-time-code"
 						pattern="[0-9]*"
 						spellCheck="false"
+						enterKeyHint="go"
+						placeholder="123456"
+						// A code is typed once and never remembered: no manager offers to fill or save it.
+						data-1p-ignore
+						data-lpignore="true"
 						value={code}
 						onChange={(event) => change(event.target.value)}
+						onBlur={leave.onBlur}
 						aria-describedby={short ? `${hintId} ${shortId}` : hintId}
 						aria-invalid={short || error ? true : undefined}
 					/>
 				</label>
 				{short ? (
 					<span id={shortId} className="mm-account-field-error">
+						<ErrorMark />
 						Enter the six digits from the email.
 					</span>
 				) : null}

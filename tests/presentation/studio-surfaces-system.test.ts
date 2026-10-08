@@ -704,6 +704,26 @@ describe("the account panel (DECISIONS D5, next-wave D6)", () => {
 		expect(lastValue(panel, ".mm-account-alert", "min-height")).toBeDefined();
 	});
 
+	// The forms checklist (passwordless-auth D4): an example in the label's own muted ink, which
+	// the camera tokens keep at AA on the field's tint in both themes, and a press on every button.
+	it("paints a placeholder in the muted token at full opacity", () => {
+		expect(lastValue(panel, ".mm-account-form input::placeholder", "color")).toBe(
+			"var(--mm-muted)",
+		);
+		expect(lastValue(panel, ".mm-account-form input::placeholder", "opacity")).toBe("1");
+		expect(lastValue(island, ".sc-account-island", "--mm-muted")).toBe("var(--camera-muted)");
+	});
+
+	it("presses every button of the form, and lets go of the press under reduced motion", () => {
+		for (const selector of [
+			'.mm-account-primary:active:not(:disabled, [aria-disabled="true"])',
+			'.mm-account-switch:active:not(:disabled, [aria-disabled="true"])',
+		]) {
+			expect(lastValue(panel, selector, "transform", null), selector).toBe("scale(0.97)");
+			expect(lastValue(panel, selector, "transform", /reduced-motion/), selector).toBe("none");
+		}
+	});
+
 	it("dims a busy button without taking it out of the tab order", () => {
 		const busy = parseCss(panel).filter((rule) =>
 			rule.selectors.some((selector) => selector.includes('[aria-disabled="true"]')),
