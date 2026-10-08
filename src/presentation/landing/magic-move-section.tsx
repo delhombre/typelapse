@@ -33,6 +33,9 @@ const HOLDS = [900, 1050, 1800];
 const PLAYBACK_MS =
 	HOLDS.reduce((total, hold) => total + hold, 0) + (STEPS.length - 1) * TRANSITION_MS;
 
+/** The code's theme, and so the frame's own surface behind it. */
+const MORPH_THEME = Theme.oneDark();
+
 /** The size the code is designed at, and the most it is ever drawn at. */
 const MORPH_FONT = 15;
 
@@ -211,11 +214,11 @@ function LiveMorph() {
 
 	return (
 		<div className="lp-morph-demo">
-			<div ref={frame} className="lp-morph-frame">
+			<div ref={frame} className="lp-morph-frame" style={{ background: MORPH_THEME.background }}>
 				<LoopingFrames
 					frames={STEPS}
 					holds={HOLDS}
-					theme={Theme.oneDark()}
+					theme={MORPH_THEME}
 					fontSize={fontSize}
 					lineNumbers
 					loop={false}
@@ -226,7 +229,12 @@ function LiveMorph() {
 			{!reduce && (
 				<button type="button" className="lp-demo-replay hit-ext" onClick={replay}>
 					<ReplayIcon />
-					<span>{playing ? "Replay" : "Play motion"}</span>
+					{/* Both words laid out, the other hidden: the button holds the width
+					    of the wider one, so it does not step as it changes (D8). */}
+					<span className="lp-swap">
+						<span aria-hidden={playing}>Play motion</span>
+						<span aria-hidden={!playing}>Replay</span>
+					</span>
 				</button>
 			)}
 		</div>

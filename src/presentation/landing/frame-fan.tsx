@@ -1,63 +1,4 @@
-import { motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
 import { StaticFrame } from "./static-frame";
-
-/** Picking a card up and putting it down are not the same gesture, so they do
-    not share a curve. Reaching in is deliberate and carries one soft breath of
-    overshoot — about a pixel and a half past where it lands, then down onto it,
-    which is what makes it read as a thing with mass rather than a layer whose
-    top value changed. The bounce is set by what that overshoot measures, not by
-    a number that sounds restrained: below roughly a pixel there is nothing left
-    to feel and the spring may as well be flat. Letting go is quicker and dead
-    flat: a release nobody should have to watch finish. */
-const PICK_UP = { type: "spring" as const, bounce: 0.4, duration: 0.4 };
-const PUT_DOWN = { type: "spring" as const, bounce: 0, duration: 0.3 };
-
-/** What the hover does to the card under the cursor: off the table (y), toward
-    the viewer (scale), and turned almost square to be read (rotate). The card
-    keeps a quarter of its fanned angle so it still belongs to the hand. */
-const LIFT_Y = -16;
-const LIFT_SCALE = 1.035;
-const LIFT_STRAIGHTEN = 0.25;
-
-/** And what it does to the two cards either side: they lean out of the way. The
-    rest of the hand holds still — a fan where every card answers every hover is
-    a fan that is never at rest, and the gesture stops meaning anything. */
-const NUDGE_X = 7;
-const NUDGE_ROT = 1.5;
-
-/** The stack is asymmetric because the lift is: a card takes the front the
-    instant it starts rising, and a card that is coming back down still has to
-    cover the fan it has not yet rejoined — demote it on the frame the hover
-    leaves and its raised edge is clipped by neighbours it is still standing
-    above, which is the pop. But holding it at the *front* is the other error:
-    the cursor has usually moved to the next card, and an abandoned card that
-    keeps the front paints over the one being pointed at. So three tiers, not
-    two. Only the hovered card is at the front; a descending card outranks the
-    fan and nothing else; everyone else sits where the fan put them. This is why
-    it cannot be a CSS delay: a delay can only hold the value a card used to
-    have, and what a descending card needs is a value it has never held.
-
-    The tier is ordered by the fan's own resting order, so cards falling
-    together never trade places. A flat value for the whole tier would rank them
-    by document order instead the moment more than one is in the air — a sweep
-    across the fan replaces the hand's stacking with the DOM's, then unpicks it
-    in a series of snaps as each card lands, motionless. Lifting every descending
-    card by the same amount keeps their mutual order exactly as it will be when
-    they arrive, so the only overlaps that ever change are the ones the lift
-    itself owns. Between tiers: hovered above descending above at rest. */
-const Z_DESCENDING_BOOST = 50;
-const Z_HOVERED = 100;
-
-function stackZ(hovered: boolean, descending: boolean, baseZ: number): number {
-	if (hovered) {
-		return Z_HOVERED;
-	}
-	if (descending) {
-		return baseZ + Z_DESCENDING_BOOST;
-	}
-	return baseZ;
-}
 
 /** The hand, refanned 2026-08-10: five cards, five *shapes*.
     The section's claim is "every aspect", and the previous fan showed five
@@ -158,39 +99,16 @@ const TALLEST = FAN_CARDS.reduce((a, b) => (heightOf(b) > heightOf(a) ? b : a));
 export const ROW_CARDS = [TALLEST, ...FAN_CARDS.filter((card) => card !== TALLEST)];
 
 /**
- * A held hand of code cards. On desktop they overlap
- * in a fan; hovering one springs it up and straightens it, quietly. Below `lg` the
- * fan collapses to a horizontal scroll-snap row with no rotation.
+ * A held hand of code cards. On desktop they overlap in a fan; below `lg` the fan
+ * collapses to a horizontal scroll-snap row with no rotation.
+ *
+ * The cards sit still. They used to spring up and straighten under the pointer,
+ * and a card that answers a hover is a card that looks like a button: these are
+ * pictures of the five cuts, they open nothing, and a lift promised a click that
+ * was not there. Nothing here moves, so there is nothing for reduced motion to
+ * turn off.
  */
 export function FrameFan() {
-	const reduce = useReducedMotion();
-	const [hovered, setHovered] = useState<number | null>(null);
-	/* A set, not a slot: flicking across the fan leaves several cards falling at
-	   once, and a single slot would evict the first one while it was still in
-	   the air — the very clip this tier exists to prevent. Under reduced motion
-	   nothing lifts, so nothing is ever entered here and the demotion is plain. */
-	const [descending, setDescending] = useState<ReadonlySet<number>>(new Set());
-
-	const beginDescent = (i: number) => {
-		if (reduce) {
-			return;
-		}
-		setDescending((prev) => new Set(prev).add(i));
-	};
-
-	/* The descent is over when the spring says so, not when a timer guesses: the
-	   card reports its own landing, so the tier can never outlive the motion. */
-	const endDescent = (i: number) => {
-		setDescending((prev) => {
-			if (!prev.has(i)) {
-				return prev;
-			}
-			const next = new Set(prev);
-			next.delete(i);
-			return next;
-		});
-	};
-
 	return (
 		<section className="mx-auto w-full max-w-5xl py-6">
 			{/* Desktop: the fan. It switches on at `lg`, not `md`: the hand is about
@@ -198,92 +116,34 @@ export function FrameFan() {
 			    at a 768px tablet it ran off both sides of the page and gave the whole
 			    landing a horizontal scroll. */}
 			<div className="relative hidden h-[380px] lg:block">
-				{FAN_CARDS.map((card, i) => {
-					const baseZ = 30 - Math.abs(i - 2) * 10;
-					/* Only the cards touching the hovered one move aside, and they move
-					   *away* from it: the sign comes from which side of the hover they
-					   sit on, never from their own position in the fan. The centre card
-					   is the reason the outward lean cannot simply follow the card's own
-					   angle — it has none, so it borrows the direction it is being
-					   pushed. */
-					const isNeighbour = !reduce && hovered !== null && Math.abs(hovered - i) === 1;
-					const away = hovered === null ? 0 : Math.sign(i - hovered);
-					const leanOut = card.rot === 0 ? away : Math.sign(card.rot);
-					const restX = isNeighbour ? NUDGE_X * away : 0;
-					const restRot = card.rot + (isNeighbour ? NUDGE_ROT * leanOut : 0);
-					return (
-						/* Three jobs, three owners. The card's place in the fan is static, so
-						   it is a transform in the style: it never animates and does not need
-						   a motion value to hold it. Its place in the *stack* is an integer
-						   and has to arrive whole — inside the motion element it was a
-						   target like any other, so the spring interpolated it and the
-						   lifted card climbed through its neighbours over the length of the
-						   lift instead of coming to the front. Out here it is a step, taken
-						   at once on the way up and one settle late on the way down. Only
-						   the lift itself is animated. */
-						<div
-							key={card.ratio}
-							className="lp-nogutter absolute bottom-4 left-1/2 select-none"
-							style={{
-								zIndex: stackZ(hovered === i, descending.has(i), baseZ),
-								width: card.width,
-								aspectRatio: card.aspect,
-								transform: `translateX(${card.x - card.width / 2}px)`,
-							}}
-						>
-							{/* The entrance is its own layer, between the wrapper that owns the
-							    stacking and the element that owns the hover. It has to be: the
-							    deal and the lift are different gestures on different clocks,
-							    and one element cannot hold two sets of transforms without one
-							    of them overwriting the other the moment they overlap. */}
-							<div className="h-full w-full">
-								<motion.div
-									onHoverStart={() => setHovered(i)}
-									onHoverEnd={() => {
-										setHovered(null);
-										beginDescent(i);
-									}}
-									onAnimationComplete={() => endDescent(i)}
-									className="h-full w-full"
-									initial={false}
-									animate={{
-										x: restX,
-										y: 0,
-										rotate: restRot,
-										scale: 1,
-										transition: isNeighbour ? PICK_UP : PUT_DOWN,
-									}}
-									whileHover={
-										reduce
-											? undefined
-											: {
-													y: LIFT_Y,
-													scale: LIFT_SCALE,
-													rotate: card.rot * LIFT_STRAIGHTEN,
-													transition: PICK_UP,
-												}
-									}
-								>
-									<StaticFrame
-										themeName={card.themeName}
-										presetId={card.presetId}
-										title={card.title}
-										language={card.language}
-										code={card.code}
-										label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
-										meshTime={card.meshTime}
-										fontSize={FAN_FONT}
-										framePadding={FAN_FRAME_PADDING}
-										meshPadding={FAN_MESH_PADDING}
-										fill
-										badge={card.ratio}
-										className="h-full w-full"
-									/>
-								</motion.div>
-							</div>
-						</div>
-					);
-				})}
+				{FAN_CARDS.map((card, i) => (
+					<div
+						key={card.ratio}
+						className="lp-nogutter absolute bottom-4 left-1/2 select-none"
+						style={{
+							zIndex: 30 - Math.abs(i - 2) * 10,
+							width: card.width,
+							aspectRatio: card.aspect,
+							transform: `translateX(${card.x - card.width / 2}px) rotate(${card.rot}deg)`,
+						}}
+					>
+						<StaticFrame
+							themeName={card.themeName}
+							presetId={card.presetId}
+							title={card.title}
+							language={card.language}
+							code={card.code}
+							label={`Code video frame, ${card.ratio}, ${card.themeName} theme, ${card.title}`}
+							meshTime={card.meshTime}
+							fontSize={FAN_FONT}
+							framePadding={FAN_FRAME_PADDING}
+							meshPadding={FAN_MESH_PADDING}
+							fill
+							badge={card.ratio}
+							className="h-full w-full"
+						/>
+					</div>
+				))}
 			</div>
 
 			{/* Mobile: a plain scroll-snap row, no rotation. It deals itself in too —

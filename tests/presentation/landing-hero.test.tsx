@@ -75,6 +75,33 @@ describe("landing hero", () => {
 		expect(screen.getByRole("button", { name: "Import & animate" })).toBeTruthy();
 	});
 
+	/* D8: a label that swaps holds the width of its widest. Both are laid out, the
+	   one not shown is hidden from the name, so the button never changes width
+	   under a keystroke and the field keeps its room. */
+	it("lays out both labels so the button holds one width while you type", () => {
+		const { container } = renderHero();
+		const button = container.querySelector(".lp-field-cta");
+		const labels = () =>
+			[...(button?.querySelectorAll(".lp-swap > span") ?? [])].map((label) => [
+				label.textContent,
+				label.getAttribute("aria-hidden"),
+			]);
+
+		expect(labels()).toEqual([
+			["Open studio", "false"],
+			["Import & animate", "true"],
+		]);
+
+		fireEvent.change(screen.getByRole("textbox", { name: /paste a pull request/i }), {
+			target: { value: "const answer = 42" },
+		});
+
+		expect(labels()).toEqual([
+			["Open studio", "true"],
+			["Import & animate", "false"],
+		]);
+	});
+
 	/* #40: the drawn block is a sibling after the field, so it can only stand at
 	   the end of the text. It holds the empty field alone, where the end is the
 	   only place the caret can be; with content the native caret takes over, the

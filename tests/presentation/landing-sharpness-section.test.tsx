@@ -33,7 +33,9 @@ describe("landing sharpness section", () => {
 		const { container } = render(<SharpnessSection />);
 		const caption = container.querySelector("figcaption");
 
-		expect(caption?.textContent).toMatch(/PSNR in RGB against the painter.s lossless frame/);
+		expect(caption?.textContent).toMatch(/PSNR in RGB against the lossless reference frame/);
+		// "The painter" is our internal name for the renderer, not a word a reader has.
+		expect(caption?.textContent).not.toMatch(/painter/i);
 		expect(caption?.textContent).toMatch(/1\.6 s clip/);
 		expect(within(caption as HTMLElement).getByText("pnpm sharpness:render")).toBeTruthy();
 		// AV1 High is the browser's, not ours: the page says where the files came from.

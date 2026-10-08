@@ -69,7 +69,7 @@ function Cta() {
 				</h2>
 				<div className="mt-8 flex justify-center">
 					<InkButton to="/app" size="lg">
-						Open the studio
+						Open studio
 					</InkButton>
 				</div>
 				<p className="lp-micro mt-5">Start without an account. Render locally by default.</p>

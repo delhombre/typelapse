@@ -23,12 +23,12 @@ the one exception (DECISIONS D5).
 | Primary hover, one step lighter | `--color-primary-hover: #f5c92a` `src/app.css` | same |
 | Text on primary (12:1; white is 1.75:1) | `--color-on-primary: #1c1b19` `src/app.css` | same |
 | Accent: focus ring and selection only | `--color-accent: oklch(0.62 0.19 268)` `src/app.css` | same |
-| Paper (landing, 404, error) | `--color-paper: #faf9f6` `src/app.css` | `--color-paper: #121110` `src/app.css` |
-| Ink | `--color-ink: #1c1b19` `src/app.css` | `--color-ink: #f5f3ef` `src/app.css @ .landing-root[data-theme="dark"]` |
-| Ash, secondary text | `--color-ash: #6e6b64` `src/app.css` | `--color-ash: #a8a39a` `src/app.css @ .landing-root[data-theme="dark"]` |
+| Paper (landing, 404, error) | `--color-paper: #faf9f6` `src/app.css @ @theme` | `--color-paper: #121110` `src/app.css` |
+| Ink | `--color-ink: #1c1b19` `src/app.css @ @theme` | `--color-ink: #f5f3ef` `src/app.css @ .landing-root[data-theme="dark"]` |
+| Ash, secondary text | `--color-ash: #6e6b64` `src/app.css @ @theme` | `--color-ash: #a8a39a` `src/app.css @ .landing-root[data-theme="dark"]` |
 | Raised surface | `--color-surface: #ffffff` `src/app.css` | `--color-surface: #1e1c1a` `src/app.css` |
 | The one hairline | `--color-hairline: rgb(28 27 25 / 0.1)` `src/app.css` | `--color-hairline: rgb(245 243 239 / 0.12)` `src/app.css` |
-| Landing full-bleed band | `background: #171614` `src/app.css` | `background: #1c1a18` `src/app.css` |
+| Landing full-bleed band, and the ink on it in both themes (what floats over it, the theme toggle's glyph, reads it too) | `background: #171614` `src/app.css` `--color-band-ink: #f5f3ef` `src/app.css` | `background: #1c1a18` `src/app.css` |
 | Island fill (landing) | `--dock-bg: #151517` `src/app.css @ .landing-root` | `--dock-bg: #24232a` `src/app.css` |
 | Island ink, dim ink | `--dock-ink: #f2f2f4` `--dock-dim: #9a9aa2` `src/app.css @ .landing-root` | same |
 | Island hairline (landing) | `--dock-hairline: rgb(255 255 255 / 0.1)` `src/app.css` | `--dock-hairline: rgb(255 255 255 / 0.12)` `src/app.css` |
@@ -87,9 +87,9 @@ Which background?
 | Lead | `clamp(1.1875rem, 1.05rem + 0.7vw, 1.4375rem)` `line-height: 1.5` `src/app.css @ .lp-lead` |
 | Feature line | `clamp(1.0625rem, 1rem + 0.3vw, 1.1875rem)` `line-height: 1.6` `src/app.css` |
 | Prompt kicker, mono | `font-size: 0.8125rem` `src/app.css` |
-| Eyebrow, uppercase 600 | `font-size: 0.6875rem` `letter-spacing: 0.18em` `src/app.css @ .lp-eyebrow` |
-| Micro stamp | `font-size: 0.75rem` `src/app.css` |
-| Hero meta | `font-size: 13px` `line-height: 20px` `src/app.css @ .lp-hero-meta` |
+| Eyebrow, uppercase 600 | `font-size: 0.75rem` `letter-spacing: 0.18em` `src/app.css @ .lp-eyebrow` |
+| Micro stamp | `font-size: 0.75rem` `src/app.css @ .lp-micro` |
+| Hero meta, leading as a ratio so it follows the size | `font-size: 13px` `line-height: calc(20 / 13)` `src/app.css @ .lp-hero-meta` |
 | Island CTA label, tabular | `font-size: 11px` `font-weight: 650` `src/app.css @ .si-cta` |
 | Studio tooltip | `font-size: 11px` `font-weight: 500` `src/presentation/studio-camera.css @ .studio-tooltip` |
 | Code row height, every renderer | `LINE_HEIGHT_RATIO = 1.6` `src/application/layout/frame-metrics.ts` |
@@ -156,7 +156,7 @@ Which radius?
 
 | Role | Value |
 | --- | --- |
-| Island lift | `box-shadow: 0 8px 24px rgb(18 18 20 / 0.18)` `src/app.css @ .si-island` |
+| Island lift | `box-shadow: 0 8px 24px rgb(18 18 20 / 0.18)` `src/app.css @ .si-island` `--island-lift: 0 8px 24px rgb(18 18 20 / 0.18)` `--island-edge: inset 0 0 0 1px var(--dock-hairline)` `src/app.css @ .landing-root` (the landing's pair: the hero island, its helper and the nav pill, `box-shadow: var(--island-lift), var(--island-edge)` `src/app.css @ .lp-nav-pill`, never inverted, D5) |
 | Island on dark: shadow plus edge | `0 8px 24px rgb(0 0 0 / 0.4), inset 0 0 0 1px var(--dock-hairline)` `src/app.css @ .dark .studio-root .si-island` |
 | Island sheet | `0 18px 48px rgb(18 18 20 / 0.28)` `src/app.css` |
 | Floating material: fill, blur | `color-mix(in oklch, var(--color-neutral-50) 88%, transparent)` `blur(18px) saturate(1.4)` `src/app.css @ .sc-chip` |
@@ -168,7 +168,7 @@ Which radius?
 | Bottom sheet, desktop panel and the phone's, no border and no blur: a ring and a shadow cast upward | `--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18)` `src/presentation/studio-camera.css` `box-shadow: var(--camera-sheet-shadow)` `src/app.css` |
 | A hovered showcase card rises into the floating material's depth | `transition: box-shadow 150ms var(--ease-out)` `src/presentation/studio-camera.css @ .showcase-card` |
 | Landing code card | `0 8px 20px -8px rgb(0 0 0 / 0.16)` `src/presentation/landing/static-frame.tsx` |
-| Code frame on the landing | `0 12px 32px -10px oklch(0 0 0 / 0.16)` `src/app.css` |
+| Code frame on the landing; its halo, where on dark a ring stands in for the shadow nothing shows against; a raised light picture takes its ring in its stack, never a border | `0 12px 32px -10px oklch(0 0 0 / 0.16)` `src/app.css` `--object-lift: 0 30px 80px -24px rgb(0 0 0 / 0.25), 0 2px 8px rgb(0 0 0 / 0.06)` `--raised-ring: 0 0 0 1px var(--color-hairline)` `src/app.css @ .landing-root` `--object-lift: 0 30px 80px -24px rgb(0 0 0 / 0.6), 0 0 0 1px var(--color-hairline)` `src/app.css @ .landing-root[data-theme="dark"]` |
 | Chrome bar closing hairline | `borderAlpha: "0f"` `src/application/layout/frame-metrics.ts` |
 | Opaque line where hairlines cross | `--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper))` `src/app.css` |
 | The landing's only border | `HAIRLINE = "border-hairline"` `src/presentation/landing/tokens.ts` |
