@@ -50,7 +50,7 @@ import { createBillingRoute } from "./routes/billing";
 import { createCloudRoute } from "./routes/cloud";
 import { createLocalMultimediaRenderRoute } from "./routes/local-multimedia-render";
 import { createProjectsRoute } from "./routes/projects";
-import { createRenderPageRoute } from "./routes/render-page";
+import { createRenderPageNotFoundRoute, createRenderPageRoute } from "./routes/render-page";
 import { renderBySourceServiceFor } from "./render/render-by-source-service";
 import { hostedRenderJobServiceFromEnv } from "./render/render-job-service";
 import { createStaticSite, staticRootFrom } from "./static/static-site";
@@ -308,6 +308,10 @@ export async function createApp(
 		// The app's origin routes /v/* here, as it does /api/*: crawlers read this
 		// document, they never run the SPA.
 		app.route("/v", createRenderPageRoute({ pages: renderPages, ...(appUrl ? { appUrl } : {}) }));
+	} else {
+		// Nothing is published without them, but /v still belongs to the API (the
+		// static site steps aside for it): a themed 404, not Hono's bare line.
+		app.route("/v", createRenderPageNotFoundRoute(appUrl));
 	}
 	app.route(
 		"/api/billing",

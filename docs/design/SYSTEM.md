@@ -74,13 +74,13 @@ Which background?
 | --- | --- |
 | Sans, every UI role | `--font-sans: "Geist", "Geist Fallback"` `src/app.css` |
 | Mono, every UI mono role | `--font-mono: "Ioskeley Mono"` `src/app.css` |
-| Desktop studio face, as the phone and the landing | `font-family: var(--font-sans)` `src/presentation/studio-camera.css` |
+| Desktop studio face, as the phone and the landing | `font-family: var(--font-sans)` `src/presentation/studio-camera.css @ .studio-camera-root` |
 | Studio type scale, five sizes, both shells | `--sc-text-2xs: 9px` `--sc-text-lg: 13px` `src/presentation/studio-camera.css` |
 | Studio weights, three | `--sc-weight-regular: 500` `--sc-weight-strong: 650` `src/presentation/studio-camera.css` |
 | Video chrome bar | `'JetBrains Mono', ui-monospace` `src/application/layout/frame-metrics.ts` |
 | Fallback metrics, no layout shift | `size-adjust: 101.77%` `src/app.css` |
 | Never fake a weight | `font-synthesis: none` `src/app.css` |
-| Preloaded first-paint files: Geist on every route; Ioskeley and the frame's JetBrains Mono on `/` and `/app` only, the 404 sets text in neither (#214) | `/fonts/Geist-latin.woff2` `/fonts/IoskeleyMono-Regular.woff2` `/fonts/JetBrainsMono-latin.woff2` `index.html` |
+| Preloaded first-paint files: Geist on every route; Ioskeley and the frame's JetBrains Mono on `/` and `/app` only, the 404 sets text in neither (#214) | `href="/fonts/Geist-latin.woff2"` `/fonts/IoskeleyMono-Regular.woff2` `/fonts/JetBrainsMono-latin.woff2` `index.html` |
 | Hero headline, mono 600 | `clamp(2rem, 1.2rem + 3vw, 3.25rem)` `line-height: 1.12` `letter-spacing: -0.02em` `src/app.css` |
 | Display, sans 600 | `clamp(2.75rem, 1.4rem + 5.6vw, 4.75rem)` `line-height: 1.02` `letter-spacing: -0.028em` `src/app.css` |
 | Section heading, sans 600 | `clamp(2rem, 1.25rem + 2.8vw, 3.05rem)` `line-height: 1.05` `letter-spacing: -0.021em` `src/app.css @ .lp-h2` |
@@ -227,7 +227,7 @@ landing has no intro at all. Nothing enters from `scale(0)`: reveal at 0.985.
 | Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css @ .lp-island` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css` `--island-cell: 44px` `src/app.css` |
 | Sheet chips under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-layer-pill` |
 | A picture built from code is not text to select | `shrink-0 snap-center select-none` `src/presentation/landing/frame-fan.tsx` |
-| Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` |
+| Popover controls, the sheet's close, the replace question's buttons, the import status's Dismiss (28px drawn, 6px reach, 40 to a pointer), the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` `height: 28px` `inset: -6px 0` `src/presentation/studio-camera.css @ .sc-import-dismiss` |
 | Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css @ .lp-field` `font-size: 16px` `src/presentation/studio-camera.css @ .sc-layer-field textarea` |
 | Hover exists only here | `@media (hover: hover) and (pointer: fine)` `src/app.css` |
 | Hover-only helpers vanish on touch | `@media (hover: none)` `src/app.css` |

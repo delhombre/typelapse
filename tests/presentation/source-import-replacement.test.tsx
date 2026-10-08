@@ -240,11 +240,11 @@ describe("an import link on an open studio", () => {
 	});
 
 	// Under 1280px the question starts where every transient surface does, one stage gap under
-	// the corner row (10 + 40 + 18); from 1280px it keeps its own line under the status bar
+	// the corner row (10 + 40 + 18); from 1280px it starts at the header's line, under the Preview/Edit switch
 	// (after-the-gate D6, #207).
 	for (const { name, wide, top } of [
 		{ name: "on the phone shell", wide: false, top: "68px" },
-		{ name: "from 1280px", wide: true, top: "max(0.75rem, env(safe-area-inset-top))" },
+		{ name: "from 1280px", wide: true, top: "76px" },
 	]) {
 		it(`starts at ${top} ${name}`, async () => {
 			viewport.desktop = wide;

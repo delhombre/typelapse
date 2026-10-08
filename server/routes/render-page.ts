@@ -14,8 +14,14 @@ export interface RenderPageRouteDeps {
 /** Job ids are `job_<uuid>`; anything else is a 404 before the database is asked. */
 const JOB_ID = /^[A-Za-z0-9_-]{1,128}$/;
 
-const NOT_FOUND_SENTENCE = "This video is private or no longer exists.";
-const UNAVAILABLE_SENTENCE = "This video cannot be shown right now. Try again in a moment.";
+/** One heading for every dead end; the reason under it is what differs. */
+const UNAVAILABLE_HEADING = "This video is not available";
+const NOT_FOUND_REASON = "It is private or no longer exists.";
+const UNAVAILABLE_REASON = "It cannot be shown right now. Try again in a moment.";
+
+/** What a card or a screen reader is told about the site card used when a render has no poster. */
+const SITE_CARD_ALT =
+	"A code window on a purple and blue gradient, showing a function that captures code, morphs its steps and renders the video.";
 
 /** The site card, used when a render has no poster frame of its own. */
 const SITE_CARD = { path: "/og.png", width: 1200, height: 630 } as const;
@@ -41,7 +47,9 @@ function seconds(durationMs: number): string {
 /**
  * The landing's paper palette, inline: this page is the API's own document and
  * loads no bundle. The values are app.css's `--color-*` tokens at both
- * temperatures; the font is the landing's Geist from the app's /fonts.
+ * temperatures, spelled as app.css spells them so that
+ * `tests/server/render-page-tokens.test.ts` can compare the two files as text;
+ * the font is the landing's Geist from the app's /fonts.
  */
 const STYLES = `
 @font-face {
@@ -52,23 +60,33 @@ const STYLES = `
 }
 @font-face {
 	font-family: "Geist Fallback";
-	src: local("Arial"),local("ArialMT"),local("Liberation Sans");
+	src: local("Arial"), local("ArialMT"), local("Liberation Sans");
+	font-weight: 100 500;
 	size-adjust: 101.77%;
 	ascent-override: 98.75%;
 	descent-override: 28.99%;
+	line-gap-override: 0%;
+}
+@font-face {
+	font-family: "Geist Fallback";
+	src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");
+	font-weight: 600 900;
+	size-adjust: 100.08%;
+	ascent-override: 100.42%;
+	descent-override: 29.48%;
 	line-gap-override: 0%;
 }
 :root {
 	--paper: #faf9f6;
 	--ink: #1c1b19;
 	--ash: #6e6b64;
-	--hairline: rgb(28 27 25/.1);
+	--hairline: rgb(28 27 25 / 0.1);
 	--primary: #f1be01;
 	--primary-hover: #f5c92a;
 	--on-primary: #1c1b19;
-	--primary-glow: rgb(241 190 1/.45);
-	--accent: oklch(.62 .19 268);
-	--ease-out: cubic-bezier(.23,1,.32,1);
+	--primary-glow: rgb(241 190 1 / 0.45);
+	--accent: oklch(0.62 0.19 268);
+	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 	/* The landing's code frame (app.css .code-frame-glow): a black ring at 7% and
 	   three soft layers on paper. */
 	--frame-depth: 0 0 0 1px oklch(0 0 0/.07),0 2px 6px -2px oklch(0 0 0/.08),
@@ -80,7 +98,7 @@ const STYLES = `
 		--paper: #121110;
 		--ink: #f5f3ef;
 		--ash: #a8a39a;
-		--hairline: rgb(245 243 239/.12);
+		--hairline: rgb(245 243 239 / 0.12);
 		/* A black video on near-black paper: the shadows cannot be seen, so the
 		   edge is a white ring at 9%, as on the landing's dark frame. */
 		--frame-depth: 0 0 0 1px oklch(1 0 0/.09),0 12px 32px -10px oklch(0 0 0/.55);
@@ -115,7 +133,8 @@ main {
 	padding-block: clamp(8px,4svh,48px);
 }
 .stage {
-	width: min(100%,1100px,calc(70svh * var(--w) / var(--h)));
+	--cap: 70svh;
+	width: min(100%,1100px,calc(var(--cap) * var(--w) / var(--h)));
 	min-width: min(100%,320px);
 	margin-inline: auto;
 }
@@ -169,6 +188,7 @@ h1 {
 	font-weight: 500;
 	text-decoration: none;
 	white-space: nowrap;
+	touch-action: manipulation;
 	/* The glow is the primary's own light, as under the landing's filled actions. */
 	box-shadow: 0 6px 20px -6px var(--primary-glow);
 	transition: background-color .15s var(--ease-out),box-shadow .15s var(--ease-out),
@@ -193,6 +213,44 @@ h1 {
 	.stage {
 		margin-block: 0 auto;
 	}
+	/* A 9:16 video at the page's width is taller than the phone: the action
+	   went below the fold. The picture takes 60% of the screen's height, and a
+	   long title takes two lines; the whole of it stays in the tab's title and
+	   the player's label. */
+	.stage[data-portrait] {
+		--cap: 60svh;
+	}
+	.stage[data-portrait] h1 {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+	}
+}
+@media (min-width:640px) {
+	/* Taller than wide, on a window with room: the text sits beside the picture
+	   instead of under it, so neither is pushed past the window's height. */
+	.stage[data-portrait] {
+		--cap: 72svh;
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		gap: 40px;
+		width: min(100%,calc(var(--cap) * var(--w) / var(--h) + 40px + 320px));
+		min-width: 0;
+	}
+	.stage[data-portrait] .frame {
+		flex: none;
+		width: min(calc(var(--cap) * var(--w) / var(--h)),calc(100% - 280px));
+	}
+	.stage[data-portrait] .about {
+		flex: 0 1 320px;
+		min-width: 0;
+		flex-direction: column;
+		align-items: flex-start;
+		margin-top: 0;
+	}
 }
 .gone {
 	display: flex;
@@ -207,6 +265,13 @@ h1 {
 	font-size: clamp(22px,.5vw + 20px,24px);
 	letter-spacing: -.012em;
 }
+.reason {
+	margin: -8px 0 0;
+	color: var(--ash);
+	font-size: 15px;
+	line-height: 1.5;
+	text-wrap: pretty;
+}
 footer {
 	padding-top: 12px;
 	text-align: center;
@@ -220,7 +285,8 @@ footer a {
 	padding: 0 8px;
 	color: inherit;
 	text-underline-offset: 3px;
-	text-decoration-color: var(--hairline);
+	touch-action: manipulation;
+	text-decoration-color: color-mix(in oklch, var(--ash) 50%, transparent);
 }
 @media (hover:hover) {
 	footer a:hover {
@@ -245,7 +311,9 @@ function documentShell(head: string, body: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 ${head}
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110">
 <link rel="preload" href="/fonts/Geist-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -266,10 +334,20 @@ export function renderPageHtml(page: PublicRenderPage, appUrl: string): string {
 	const id = encodeURIComponent(page.jobId);
 	const videoPath = `/v/${id}/video`;
 	const posterPath = `/v/${id}/poster.jpg`;
-	const image = page.hasPoster
-		? { url: `${origin}${posterPath}`, width: page.width, height: page.height }
-		: { url: `${origin}${SITE_CARD.path}`, width: SITE_CARD.width, height: SITE_CARD.height };
 	const title = escapeHtml(page.title);
+	const image = page.hasPoster
+		? {
+				url: `${origin}${posterPath}`,
+				width: page.width,
+				height: page.height,
+				alt: `The first frame of ${title}, a code video made with Typelapse.`,
+			}
+		: {
+				url: `${origin}${SITE_CARD.path}`,
+				width: SITE_CARD.width,
+				height: SITE_CARD.height,
+				alt: SITE_CARD_ALT,
+			};
 	const description = escapeHtml(
 		page.durationMs === null
 			? "A code video made with Typelapse."
@@ -309,10 +387,12 @@ export function renderPageHtml(page: PublicRenderPage, appUrl: string): string {
 <meta property="og:image" content="${image.url}">
 <meta property="og:image:width" content="${image.width}">
 <meta property="og:image:height" content="${image.height}">
+<meta property="og:image:alt" content="${image.alt}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${description}">
-<meta name="twitter:image" content="${image.url}">${
+<meta name="twitter:image" content="${image.url}">
+<meta name="twitter:image:alt" content="${image.alt}">${
 		// The poster is the first thing painted; fetching it with the HTML keeps the
 		// frame from flashing black before the player asks for it.
 		page.hasPoster ? `\n<link rel="preload" as="image" href="${posterPath}">` : ""
@@ -320,7 +400,7 @@ export function renderPageHtml(page: PublicRenderPage, appUrl: string): string {
 
 	const poster = page.hasPoster ? ` poster="${posterPath}"` : "";
 	const body = `<main>
-<div class="stage" style="--w:${page.width};--h:${page.height}">
+<div class="stage"${page.height > page.width ? " data-portrait" : ""} style="--w:${page.width};--h:${page.height}">
 <figure class="frame">
 <video src="${videoPath}"${poster} width="${page.width}" height="${page.height}"
 controls playsinline preload="metadata" aria-label="${title}"></video>
@@ -338,14 +418,36 @@ controls playsinline preload="metadata" aria-label="${title}"></video>
 	return documentShell(head, body);
 }
 
-/** A page with nothing to play: the sentence, and the one way on from it. */
-function sentencePage(sentence: string, next: { href: string; label: string }): string {
+/** A page with nothing to play: why, and the one way on from it. */
+function sentencePage(reason: string, next: { href: string; label: string }): string {
 	const action = `\n<a class="button" href="${escapeHtml(next.href)}">${next.label}</a>`;
 	return documentShell(
-		`<title>Typelapse</title>\n<meta name="robots" content="noindex">`,
-		`<main><div class="gone"><h1>${sentence}</h1>${action}</div></main>`,
+		`<title>${UNAVAILABLE_HEADING} · Typelapse</title>\n<meta name="robots" content="noindex">`,
+		`<main><div class="gone"><h1>${UNAVAILABLE_HEADING}</h1>\n<p class="reason">${reason}</p>${action}</div></main>`,
 	);
 }
+
+function notFoundResponse(c: Context, appUrl: string) {
+	c.header("Cache-Control", "no-store");
+	// A shared link that went dark is still someone arriving from a post: the
+	// studio is the one useful next step, and the status stays a 404.
+	const studio = `${new URL(appUrl).origin}/app`;
+	return c.html(
+		sentencePage(NOT_FOUND_REASON, { href: studio, label: "Make one in the studio" }),
+		404,
+	);
+}
+
+/**
+ * The themed 404 for an address under `/v` that names no render: `/v`, `/v/`,
+ * `/v/a/b`. Mounted by the API on its own when no render page is (local mode,
+ * where nothing is published), so those addresses do not fall to a bare line.
+ */
+export const createRenderPageNotFoundRoute = (appUrl?: string): Hono => {
+	const route = new Hono();
+	route.all("*", (c) => notFoundResponse(c, appUrl ?? new URL(c.req.url).origin));
+	return route;
+};
 
 /**
  * `/v/<id>`: the public page of a Cloud render (decision log 2026-10-04 D4.1).
@@ -357,21 +459,12 @@ export const createRenderPageRoute = (deps: RenderPageRouteDeps): Hono => {
 	const route = new Hono();
 	const appUrlOf = (c: Context) => deps.appUrl ?? new URL(c.req.url).origin;
 
-	const notFound = (c: Context) => {
-		c.header("Cache-Control", "no-store");
-		// A shared link that went dark is still someone arriving from a post: the
-		// studio is the one useful next step, and the status stays a 404.
-		const studio = `${new URL(appUrlOf(c)).origin}/app`;
-		return c.html(
-			sentencePage(NOT_FOUND_SENTENCE, { href: studio, label: "Make one in the studio" }),
-			404,
-		);
-	};
+	const notFound = (c: Context) => notFoundResponse(c, appUrlOf(c));
 	const unavailable = (c: Context) => {
 		c.header("Cache-Control", "no-store");
 		// The sentence says try again; the page's own address is the way to.
 		const again = { href: c.req.path, label: "Try again" };
-		return c.html(sentencePage(UNAVAILABLE_SENTENCE, again), 503);
+		return c.html(sentencePage(UNAVAILABLE_REASON, again), 503);
 	};
 
 	const media = (kind: "video" | "poster") => async (c: Context) => {
@@ -413,6 +506,9 @@ export const createRenderPageRoute = (deps: RenderPageRouteDeps): Hono => {
 		c.header("Cache-Control", "public, max-age=60");
 		return c.html(renderPageHtml(page, appUrlOf(c)));
 	});
+
+	// Last: `/v`, `/v/` and anything deeper than a render's own addresses.
+	route.all("*", notFound);
 
 	return route;
 };

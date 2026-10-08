@@ -207,7 +207,8 @@ describe("static site: what the API owns stays the API's", () => {
 			const response = await get(path, { headers: { accept: "text/html" } });
 
 			expect(response.status, path).toBe(404);
-			expect(await response.text(), path).not.toContain("<title>");
+			// Not the app's shell. /v answers the API's own themed 404, which has a title of its own.
+			expect(await response.text(), path).not.toContain(INDEX);
 		}
 	});
 

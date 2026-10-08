@@ -48,14 +48,25 @@
 
 /* ── Phone: one row, the frame, the island, the sheet's peek ─────────────── */
 
+/* The corner row's own edges and gap (`.sc-corner-row` in app.css): 10px in, 8px
+   between the chips, 4px under 390. The widths below were measured off the real
+   row at 360, 390 and 430: the history and resources chips and the More chip keep
+   theirs, and the project chip is the one that gives, so it takes what is left. */
 .sk-header {
 	position: absolute;
-	inset: max(10px, env(safe-area-inset-top)) 9px auto;
+	inset: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) auto
+		max(10px, env(safe-area-inset-left));
 }
 
 .sk-group-start {
 	display: flex;
-	gap: 6px;
+	gap: 8px;
+}
+
+@media (max-width: 389px) {
+	.sk-group-start {
+		gap: 4px;
+	}
 }
 
 .sk-group-end,
@@ -64,19 +75,23 @@
 }
 
 .sk-project {
-	width: 141px;
+	flex: 1 1 auto;
+	width: auto;
 }
 
 .sk-history {
-	width: 68px;
+	flex: none;
+	width: 67px;
 }
 
 .sk-resources {
-	width: 150px;
+	flex: none;
+	width: 98px;
 }
 
 .sk-more {
-	width: 44px;
+	flex: none;
+	width: 42px;
 }
 
 /* The frame's box is inline (studio-skeleton.tsx): it is the shells' own layout
@@ -117,6 +132,7 @@
 	}
 
 	.sk-project {
+		flex: 0 1 auto;
 		width: 166px;
 	}
 

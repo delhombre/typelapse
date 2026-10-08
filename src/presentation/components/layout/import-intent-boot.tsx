@@ -1,5 +1,9 @@
 import { classifySource } from "@/application/import/classify-source";
-import { importConfirmLabel, importReplaceQuestion } from "@/application/import/import-wording";
+import {
+	importConfirmLabel,
+	importNextStep,
+	importReplaceQuestion,
+} from "@/application/import/import-wording";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { SurfaceTop, useReportTransientSurface } from "@/presentation/hooks/use-phone-surface-top";
 import { useSourceImport } from "@/presentation/hooks/use-source-import";
@@ -9,6 +13,7 @@ import { whenStudioCompositionReady } from "@/presentation/utils/studio-composit
 import { hasStudioWorkToLose } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useId, useState } from "react";
+import { AlertCircle } from "reicon-react";
 
 /**
  * A pasted snippet arrives as scene one. The landing button says "Import & animate"
@@ -100,6 +105,7 @@ export function ImportIntentBoot() {
 			loading={loading}
 			error={error !== null}
 			message={message}
+			nextStep={importNextStep(classifySource(intent.source.trim()))}
 			onDismiss={() => {
 				reset();
 				setIntent(null);
@@ -108,8 +114,14 @@ export function ImportIntentBoot() {
 	);
 }
 
-/** The strip's line from 1280px, under the status bar like the rest of the desktop chrome. */
-const DESKTOP_QUESTION_TOP = "max(0.75rem, env(safe-area-inset-top))";
+/**
+ * The desktop header's height, and the line the code card, the notices, the status
+ * and the replace question start from. The header row, with the Preview/Edit switch
+ * centred in it, owns the top 76px from 1280px: nothing transient covers it.
+ * 1280px is DESKTOP_SCENE_MIN_WIDTH (scene-stage.ts) and 76px the line shared with
+ * .sc-card-slot and notice-host.tsx; change them together.
+ */
+const DESKTOP_TRANSIENT_TOP = 76;
 
 interface ReplaceQuestionProps {
 	kind: ReturnType<typeof classifySource>;
@@ -123,14 +135,14 @@ interface ReplaceQuestionProps {
  * tokens, which the question's card reads. On a phone it starts where every transient
  * surface does, under the corner row and one stage gap from it (after-the-gate D6,
  * #207), so it follows the status bar and the Dynamic Island and covers no control;
- * from 1280px it keeps its own line.
+ * from 1280px it starts at the header's line, under the Preview/Edit switch.
  */
 function ReplaceQuestion({ kind, onCancel, onConfirm }: ReplaceQuestionProps) {
 	const questionId = useId();
 	const reportSurface = useReportTransientSurface();
 
 	return (
-		<SurfaceTop desktop={DESKTOP_QUESTION_TOP}>
+		<SurfaceTop desktop={DESKTOP_TRANSIENT_TOP}>
 			{(top) => (
 				<div
 					ref={reportSurface}
@@ -158,35 +170,36 @@ interface ImportStatusProps {
 	loading: boolean;
 	error: boolean;
 	message: string;
+	/** What to do after a failure, under the reason. */
+	nextStep: string;
 	onDismiss: () => void;
 }
-
-/** The desktop header's height, and the line the code card and the notices start from. */
-const DESKTOP_STATUS_TOP = 76;
 
 /**
  * The status strip. It is a toast, so it covers no control on any shell
  * (verify-gate-findings D8, #202).
  *
- * From 1280px the header row, with the Preview/Edit switch centred in it, owns the
- * top 76px (the same line the code card and the notices start from): the status
- * sits below it. 1280px is DESKTOP_SCENE_MIN_WIDTH (scene-stage.ts) and 76px the
- * line shared with .sc-card-slot and notice-host.tsx; change them together.
+ * From 1280px it starts below the header row (DESKTOP_TRANSIENT_TOP). Under
+ * 1280px the shell is the phone's, at every width up to there, and its corner row
+ * is the header: the status starts one stage gap under it, where the frame starts
+ * (`SurfaceTop`), so it follows the status bar and the Dynamic Island, and the
+ * replace question and the notices start from the same line. It wraps onto more
+ * lines rather than ending in an ellipsis.
  *
- * Under 1280px the shell is the phone's, at every width up to there, and its
- * corner row is the header: the status starts one stage gap under it, where the
- * frame starts (`SurfaceTop`), so it follows the status bar and the
- * Dynamic Island, and the replace question and the notices start from the same
- * line. It wraps onto a second line rather than ending in an ellipsis.
+ * It is rendered beside the shell, so it carries `studio-root sc-tokens` to read the
+ * studio's warm ramp and role tokens like the question does (design audit D9): the
+ * opaque studio surface, its ring inside the shadow stack, the surface radius, the
+ * UI face at the studio's scale. A failure is the danger ink with an icon and a next
+ * step, never colour alone.
  */
-function ImportStatus({ show, loading, error, message, onDismiss }: ImportStatusProps) {
+function ImportStatus({ show, loading, error, message, nextStep, onDismiss }: ImportStatusProps) {
 	const reportSurface = useReportTransientSurface();
 
 	return (
-		<SurfaceTop desktop={DESKTOP_STATUS_TOP}>
+		<SurfaceTop desktop={DESKTOP_TRANSIENT_TOP}>
 			{(top) => (
 				<div
-					className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
+					className="studio-root sc-tokens pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
 					style={{ top }}
 					aria-live="polite"
 				>
@@ -195,29 +208,23 @@ function ImportStatus({ show, loading, error, message, onDismiss }: ImportStatus
 							<motion.div
 								ref={reportSurface}
 								data-testid="import-status"
+								data-state={error ? "error" : "loading"}
 								initial={{ opacity: 0, y: -8, filter: "blur(4px)" }}
 								animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
 								exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
 								transition={springs.default}
-								className={`pointer-events-auto flex max-w-[min(100%,30rem)] items-center gap-2.5 rounded-[22px] border py-2 pl-3.5 pr-2 shadow-[0_16px_40px_-12px_rgb(0_0_0/0.28)] ${
-									error
-										? "border-red-200 bg-white text-red-600 dark:border-red-900/60 dark:bg-neutral-900 dark:text-red-400"
-										: "border-neutral-200 bg-white text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200"
-								}`}
+								className="sc-import-status pointer-events-auto"
 							>
 								{loading && <Spinner />}
-								<span
-									data-testid="import-status-text"
-									className="min-w-0 flex-1 text-pretty font-mono text-[11px] leading-[1.45] [overflow-wrap:anywhere]"
-								>
-									{message}
-								</span>
+								{error && <AlertCircle size={16} strokeWidth={1.7} aria-hidden="true" />}
+								<div className="sc-import-body">
+									<span data-testid="import-status-text" className="sc-import-text">
+										{message}
+									</span>
+									{error && <span className="sc-import-next">{nextStep}</span>}
+								</div>
 								{error && (
-									<button
-										type="button"
-										onClick={onDismiss}
-										className="hit-ext shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium text-neutral-500 transition-colors hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-									>
+									<button type="button" onClick={onDismiss} className="sc-import-dismiss">
 										Dismiss
 									</button>
 								)}
@@ -254,7 +261,7 @@ function trim(source: string): string {
 function Spinner() {
 	return (
 		<svg
-			className="size-3.5 shrink-0 animate-spin"
+			className="sc-import-spinner animate-spin"
 			viewBox="0 0 24 24"
 			fill="none"
 			role="img"
