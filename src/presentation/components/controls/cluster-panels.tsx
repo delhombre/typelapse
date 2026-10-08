@@ -437,6 +437,14 @@ function ExportCluster() {
 
 	return (
 		<>
+			{/* What blocks or changes Render comes first, in the one place a person looks when
+			    Render is greyed: a tooltip never shows on a phone, a disabled button is not
+			    reached by a screen reader, and the pinned Render row is below the fold of a
+			    scrolled sheet. The reason and its Capture shortcut, then the GIF and captions
+			    caveats, then what this browser cannot encode. */}
+			<RenderNotes variant="sheet" />
+			{deviceSupported === false ? <p className="si-cluster-note">{DEVICE_CANNOT_ENCODE}</p> : null}
+
 			<ClusterGroup>
 				<IslandSegmented
 					group="format"
@@ -516,15 +524,9 @@ function ExportCluster() {
 				</button>
 			</ClusterGroup>
 
-			{/* What to know before pressing Render scrolls with the rows: a tooltip never
-			    shows on a phone, and a disabled button is not reached by a screen reader,
-			    so the reason it is greyed is on the page. */}
-			{deviceSupported === false ? <p className="si-cluster-note">{DEVICE_CANNOT_ENCODE}</p> : null}
-			<RenderNotes variant="sheet" />
-
 			{/* Only the button is the footer. On the phone, when the sheet's room holds it and
 			    two rows of chips, it stays pinned (app.css, \`data-roomy\`); below that it
-			    scrolls with everything else, so no control is ever out of reach. */}
+			    scrolls with everything else, so no control is ever out of reach. The reasons are above the rows. */}
 			<div className="si-cluster-group si-cluster-row si-cluster-footer">
 				<button
 					type="button"

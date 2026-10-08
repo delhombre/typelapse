@@ -186,6 +186,37 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		});
 	}
 
+	// Render greyed with nothing pointing at it is a button that looks broken (D16): with no
+	// scene, the reason and its Capture shortcut are the first thing in the Export tab, inside
+	// the scroller's own viewport at scroll 0, on the shortest phone and a tall one.
+	for (const { width, height } of [
+		{ width: 375, height: 667 },
+		{ width: 390, height: 844 },
+	]) {
+		test(`the reason Render is off is the first thing in the Export tab, at ${width}x${height}`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height });
+			await openStudio(page);
+			await page.locator(".si-cta").tap();
+			const panel = page.locator(".si-sheet");
+			await expect(panel).toBeVisible();
+			await settled(panel);
+
+			const reason = panel.getByText("A video needs at least one scene.");
+			await expect(reason).toBeVisible();
+			const inside = await reason.evaluate((element) => {
+				const body = element.closest(".si-sheet-body");
+				if (!body) return false;
+				const area = body.getBoundingClientRect();
+				const box = element.getBoundingClientRect();
+				return body.scrollTop === 0 && box.top >= area.top && box.bottom <= area.bottom;
+			});
+			expect(inside, "the reason is in the scroller's viewport at scroll 0").toBe(true);
+			await expect(panel.getByRole("button", { name: "Capture a scene" })).toBeVisible();
+		});
+	}
+
 	// Opening a panel lowers the sheet, and the panel then rises from the instrument: Frame
 	// and Look are taller than the room between the frame and the island, and used to cover
 	// the frame (a top at y 400 and 416 under a frame ending at 451, ticket #187). Each
