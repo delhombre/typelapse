@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
+import { createApp } from "../../server/index";
 import { createCloudRoute } from "../../server/routes/cloud";
 import { createRenderPageRoute } from "../../server/routes/render-page";
 import type { SignGetRequest } from "../../src/application/assets/object-storage.port";
@@ -236,7 +237,9 @@ describe("public render page (D4.1)", () => {
 			expect(response.headers.get("cache-control")).toBe("no-store");
 		}
 		const sentence = await privatePage.text();
-		expect(sentence).toContain("This video is private or no longer exists.");
+		// The heading is the same on every dead end; the reason is a second, ash line.
+		expect(sentence).toContain("<h1>This video is not available</h1>");
+		expect(sentence).toContain('<p class="reason">It is private or no longer exists.</p>');
 		expect(await missing.text()).toBe(sentence);
 		expect(await expired.text()).toBe(sentence);
 		expect(sentence).not.toContain("og:video");
@@ -258,9 +261,69 @@ describe("public render page (D4.1)", () => {
 		expect(response.status).toBe(503);
 		expect(response.headers.get("cache-control")).toBe("no-store");
 		const html = await response.text();
-		expect(html).toContain("This video cannot be shown right now. Try again in a moment.");
+		expect(html).toContain("<h1>This video is not available</h1>");
+		expect(html).toContain('<p class="reason">It cannot be shown right now. Try again in a moment.</p>');
 		expect(html).toContain('<a class="button" href="/v/job_1">Try again</a>');
 		expect(html).not.toContain("og:video");
+	});
+
+	it("names a portrait video so its page can sit the text beside it", async () => {
+		const { repository } = rows([
+			{ ...record(), isPublic: true },
+			{
+				...record({
+					jobId: "job_tall",
+					renderOptions: { format: "mp4", width: 1080, height: 1920, fps: 30, includeAudio: true },
+				}),
+				isPublic: true,
+			},
+		]);
+		const app = publicApp(pages(repository));
+		const wide = await (await app.request("/v/job_1")).text();
+		const tall = await (await app.request("/v/job_tall")).text();
+
+		// The layout cannot compare two custom properties, so the page says it.
+		expect(wide).toContain('<div class="stage" style="--w:1920;--h:1080">');
+		expect(tall).toContain('<div class="stage" data-portrait style="--w:1080;--h:1920">');
+	});
+
+	it("describes the picture to a screen reader and to a card", async () => {
+		const { repository } = rows([
+			{ ...record(), isPublic: true },
+			{ ...record({ jobId: "job_bare", posterObjectKey: null }), isPublic: true },
+		]);
+		const app = publicApp(pages(repository));
+		const withPoster = await (await app.request("/v/job_1")).text();
+		const withoutPoster = await (await app.request("/v/job_bare")).text();
+
+		expect(withPoster).toContain(
+			'<meta property="og:image:alt" content="The first frame of Retry with backoff, a code video made with Typelapse.">',
+		);
+		expect(withPoster).toContain('<meta name="twitter:image:alt"');
+		expect(withoutPoster).toMatch(/<meta property="og:image:alt" content="[^"]*code window[^"]*">/);
+	});
+
+	it("carries the app's icons, so a shared tab is not a blank page", async () => {
+		const { repository } = rows([{ ...record(), isPublic: true }]);
+		const app = publicApp(pages(repository));
+		for (const html of [
+			await (await app.request("/v/job_1")).text(),
+			await (await app.request("/v/job_nope")).text(),
+		]) {
+			expect(html).toContain('<link rel="icon" href="/favicon.ico" sizes="32x32">');
+			expect(html).toContain('<link rel="icon" type="image/svg+xml" href="/favicon.svg" sizes="any">');
+			expect(html).toContain('<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">');
+		}
+	});
+
+	it("keeps a tall title to two lines on a phone, and the full one in the tab and the player", async () => {
+		const long = "feat(router): stream the response body through the edge adapter without buffering";
+		const { repository } = rows([{ ...record({ title: long }), isPublic: true }]);
+		const html = await (await publicApp(pages(repository)).request("/v/job_1")).text();
+
+		expect(html).toContain(`<title>${long} · Typelapse</title>`);
+		expect(html).toContain(`aria-label="${long}"`);
+		expect(html).toMatch(/@media \(max-width:639px\)[\s\S]*-webkit-line-clamp:\s*2/);
 	});
 
 	it("keeps a page live through a downgraded owner's grace period", async () => {
@@ -299,6 +362,39 @@ describe("public render page (D4.1)", () => {
 
 		expect((await app.request("/v/job_1")).status).toBe(404);
 		expect((await app.request("/v/job_1/video")).status).toBe(404);
+	});
+});
+
+describe("addresses under /v that name no render", () => {
+	const app = () => {
+		const { repository } = rows([{ ...record(), isPublic: true }]);
+		return publicApp(pages(repository));
+	};
+
+	it("answers the themed page for /v, /v/ and anything deeper, never a bare line", async () => {
+		for (const path of ["/v", "/v/", "/v/a/b", "/v/job_1/other"]) {
+			const response = await app().request(path);
+			expect(response.status, path).toBe(404);
+			expect(response.headers.get("content-type"), path).toContain("text/html");
+			expect(await response.text(), path).toContain("<h1>This video is not available</h1>");
+		}
+	});
+
+	it("answers it in local mode too, where no render page is mounted", async () => {
+		const local = await createApp({
+			deploymentMode: "local",
+			synchronousRenderRoute: new Hono(),
+			localMultimediaRenderRoute: new Hono(),
+			database: null,
+			auth: null,
+			staticRoot: null,
+		});
+		for (const path of ["/v", "/v/", "/v/job_1", "/v/job_1/video"]) {
+			const response = await local.request(path);
+			expect(response.status, path).toBe(404);
+			expect(response.headers.get("content-type"), path).toContain("text/html");
+			expect(await response.text(), path).toContain("<h1>This video is not available</h1>");
+		}
 	});
 });
 

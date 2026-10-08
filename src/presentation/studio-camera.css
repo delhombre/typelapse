@@ -998,6 +998,128 @@ textarea.sc-source-field {
 	box-shadow: var(--camera-material-shadow);
 }
 
+/* On the phone the question sits between the corner row and the frame, which at
+   360px is about 185px tall: the card is tightened (padding, the gap before the
+   answers) until the whole question ends above the frame and covers none of it.
+   Both answers keep their 44px under a finger. */
+@media (max-width: 1279px) {
+	.sc-confirm-float {
+		padding: 14px 14px 12px;
+	}
+
+	.sc-confirm-float .sc-confirm-text {
+		margin-top: 2px;
+		line-height: 1.4;
+	}
+
+	.sc-confirm-float .sc-confirm-actions {
+		margin-top: 8px;
+	}
+}
+
+/* The strip an import raises while it fetches, and when it fails (import-intent-boot.tsx).
+   It is rendered beside the shell under `.studio-root .sc-tokens`, so it reads the
+   studio's warm ramp: the opaque surface, the ring inside the shadow stack (no border
+   beside a shadow), the surface radius, the UI face at the studio's scale. A failure
+   is the danger ink with an icon and a next step, never colour alone. */
+.sc-import-status {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	max-width: min(100%, 30rem);
+	padding: 10px 6px 10px 14px;
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-material-shadow);
+	color: var(--camera-muted);
+	font-family: var(--font-sans);
+	font-size: var(--sc-text-md);
+	line-height: 1.45;
+}
+
+.sc-import-status > svg {
+	flex: none;
+	margin-top: 1px;
+}
+
+.sc-import-status[data-state="error"] > svg {
+	color: var(--camera-danger);
+}
+
+.sc-import-spinner {
+	flex: none;
+	width: 14px;
+	height: 14px;
+	margin-top: 2px;
+}
+
+.sc-import-body {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.sc-import-text {
+	min-width: 0;
+	color: var(--camera-ink);
+	font-weight: var(--sc-weight-regular);
+	overflow-wrap: anywhere;
+	text-wrap: pretty;
+}
+
+.sc-import-status[data-state="error"] .sc-import-text {
+	color: var(--camera-danger);
+	font-weight: var(--sc-weight-medium);
+}
+
+.sc-import-next {
+	color: var(--camera-muted);
+	text-wrap: pretty;
+}
+
+/* 28px drawn, 40px tall to a pointer and 44px under a finger, so the target grows
+   upward and downward only and stays inside the strip's own padding. */
+.sc-import-dismiss {
+	position: relative;
+	flex: none;
+	height: 28px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: var(--r-control);
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 100ms
+		var(--ease-out);
+}
+
+.sc-import-dismiss:active {
+	transform: scale(0.97);
+}
+
+.sc-import-dismiss::after {
+	content: "";
+	position: absolute;
+	inset: -6px 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-import-dismiss:hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+}
+
+@media (pointer: coarse) {
+	.sc-import-dismiss {
+		height: 32px;
+	}
+}
+
 .sc-confirm-title {
 	margin: 0;
 	font-size: var(--sc-text-lg);

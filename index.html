@@ -34,6 +34,10 @@
 				} catch (error) {}
 				// A forced side wins; anything else (nothing stored, System) is the OS's.
 				var dark = stored === "dark" || (stored !== "light" && osDark);
+				// The two pre-bundle screens below read this one marker, on every route: the
+				// stored choice beats the OS, as it does for the app, and without the script
+				// (no JavaScript) the media query in the style below answers for the OS.
+				root.dataset.bootTheme = dark ? "dark" : "light";
 				if (landing) {
 					root.dataset.landingTheme = dark ? "dark" : "light";
 				} else if (dark) {
@@ -41,24 +45,127 @@
 				}
 			} catch (error) {}
 		</script>
-		<!-- The two sentences below that run before the app does (the noscript and the
-		     failed boot) each carry a link, and neither has the app's stylesheet to
-		     lean on, so the link's treatment is written here: underlined, in the
-		     accent's own hue and chroma at the lightness text needs (5.5:1 on the
-		     light paper, 7:1 on the dark one; the accent itself reads 3.6:1 on paper
-		     and is for rings). The theme is the one the script above sets, and a
-		     visitor without JavaScript has none of them and is on the light paper. -->
+		<!-- The two screens below that run before the app does (the noscript and the
+		     failed boot) have none of the app's stylesheet to lean on, or have it and
+		     meet Tailwind's preflight, which flattens a heading's weight and a
+		     paragraph's margin to nothing. So they are drawn here, in the 404 family's
+		     own material: Geist centred on the paper, a heading, an ash sentence, the
+		     link a 44px target. The unlayered rules win over preflight's layer.
+		     The theme is the marker the script above sets (the stored choice, then the
+		     OS); a visitor without JavaScript has no marker and gets the OS from the
+		     media query. The paper, ink and ash are app.css's, light and dark.
+		     Each link is underlined, in the accent's own hue and chroma at the
+		     lightness text needs (5.5:1 on the light paper, 7:1 on the dark one; the
+		     accent itself reads 3.6:1 on paper and is for rings). -->
 		<style>
+			@font-face {
+				font-family: "Geist";
+				src: url(/fonts/Geist-latin.woff2) format("woff2");
+				font-weight: 100 900;
+				font-display: swap;
+			}
+			@font-face {
+				font-family: "Geist Fallback";
+				src: local("Arial"), local("ArialMT"), local("Liberation Sans");
+				font-weight: 100 500;
+				size-adjust: 101.77%;
+				ascent-override: 98.75%;
+				descent-override: 28.99%;
+				line-gap-override: 0%;
+			}
+			@font-face {
+				font-family: "Geist Fallback";
+				src: local("Arial Bold"), local("Arial-BoldMT"), local("Liberation Sans Bold");
+				font-weight: 600 900;
+				size-adjust: 100.08%;
+				ascent-override: 100.42%;
+				descent-override: 29.48%;
+				line-gap-override: 0%;
+			}
+			:root {
+				--boot-paper: #faf9f6;
+				--boot-ink: #1c1b19;
+				--boot-ash: #6e6b64;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-boot-theme]) {
+					--boot-paper: #121110;
+					--boot-ink: #f5f3ef;
+					--boot-ash: #a8a39a;
+				}
+			}
+			:root[data-boot-theme="dark"] {
+				--boot-paper: #121110;
+				--boot-ink: #f5f3ef;
+				--boot-ash: #a8a39a;
+			}
+			html {
+				background: var(--boot-paper);
+			}
+			body {
+				margin: 0;
+			}
+			.boot-screen {
+				box-sizing: border-box;
+				min-height: 100vh;
+				min-height: 100dvh;
+				margin: 0;
+				padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+					max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				background: var(--boot-paper);
+				color: var(--boot-ash);
+				font: 400 15px/1.6 "Geist", "Geist Fallback", ui-sans-serif, system-ui, sans-serif;
+				text-align: center;
+				text-wrap: pretty;
+				-webkit-font-smoothing: antialiased;
+			}
+			.boot-screen[hidden] {
+				display: none;
+			}
+			.boot-screen h1 {
+				max-width: 24ch;
+				margin: 0 0 4px;
+				color: var(--boot-ink);
+				font-size: 22px;
+				font-weight: 600;
+				line-height: 1.2;
+				letter-spacing: -0.012em;
+				text-wrap: balance;
+			}
+			.boot-screen p {
+				max-width: 38ch;
+				margin: 0;
+			}
 			.boot-link {
 				--boot-link: #3b5bd4;
+				/* 44px to a finger without moving a line, and without a ring that spans
+				   it: the target is a pseudo-element, the box a ring is drawn round is the
+				   text. */
+				position: relative;
 				color: var(--boot-link);
 				text-decoration: underline;
 				text-decoration-thickness: 1px;
 				text-underline-offset: 0.2em;
 			}
 			[data-landing-theme="dark"] .boot-link,
+			[data-boot-theme="dark"] .boot-link,
 			.dark .boot-link {
 				--boot-link: #729bff;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root:not([data-boot-theme]) .boot-link {
+					--boot-link: #729bff;
+				}
+			}
+			.boot-link::after {
+				content: "";
+				position: absolute;
+				inset: -13px -6px;
 			}
 			.boot-link:hover {
 				text-decoration-thickness: 2px;
@@ -183,15 +290,15 @@
 	</head>
 	<body>
 		<noscript>
-			<main style="max-width: 36rem; margin: 0 auto; padding: 4rem 1.5rem; font: 16px/1.5 system-ui, sans-serif; color: CanvasText">
-				<h1 style="margin: 0 0 1rem; font-size: 1.75rem; line-height: 1.2">Typelapse: sharp code videos from a pull request</h1>
+			<main class="boot-screen">
+				<h1>Typelapse: sharp code videos from a pull request</h1>
 				<p>Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes.</p>
 				<p>Typelapse draws and encodes the video in your browser, so it needs JavaScript. Turn it on, then <a class="boot-link" href="">reload this page</a>.</p>
 			</main>
 		</noscript>
 		<div id="root">
-			<p id="boot-failed" hidden style="max-width: 36rem; margin: 0 auto; padding: 4rem 1.5rem; font: 16px/1.5 system-ui, sans-serif; color: CanvasText">
-				Still loading. <a class="boot-link" href="">Reload</a> if this stays.
+			<p id="boot-failed" class="boot-screen" hidden>
+				<span>Still loading. <a class="boot-link" href="">Reload</a> if this stays.</span>
 			</p>
 		</div>
 		<script type="module" src="/src/main.tsx"></script>

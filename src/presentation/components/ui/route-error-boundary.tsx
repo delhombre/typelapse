@@ -1,3 +1,4 @@
+import { RouteStateHead } from "@/presentation/components/ui/route-state-head";
 import { Component, type ComponentType, type ErrorInfo, type ReactNode, useState } from "react";
 
 interface RouteErrorBoundaryState {
@@ -36,7 +37,8 @@ export const ROUTE_STATE = {
 	heading:
 		"text-balance text-[22px] leading-tight font-semibold tracking-[-0.012em] text-ink sm:text-2xl",
 	body: "mt-2 max-w-[38ch] text-pretty text-[15px] leading-6 text-ash",
-	actions: "mt-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-3",
+	actions:
+		"mt-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-3 max-[379px]:flex-col max-[379px]:items-stretch max-[379px]:self-stretch",
 	primary:
 		"inline-flex h-11 items-center justify-center rounded-full bg-primary px-5 text-[15px] font-medium text-on-primary shadow-[0_6px_20px_-6px_var(--color-primary-glow)] transition-[background-color,box-shadow,scale] duration-150 ease-out hover:bg-primary-hover hover:shadow-[0_11px_28px_-7px_var(--color-primary-glow)] active:scale-[0.97] motion-reduce:active:scale-100",
 	secondary:
@@ -106,6 +108,7 @@ export class RouteErrorBoundary extends Component<
 			return (
 				<Shell>
 					<main role="alert" className={ROUTE_STATE.main}>
+						<RouteStateHead />
 						<h1 className={ROUTE_STATE.heading}>
 							{this.props.heading ?? "Typelapse hit a problem"}
 						</h1>
@@ -122,6 +125,7 @@ export class RouteErrorBoundary extends Component<
 		return (
 			<Shell>
 				<main role="alert" className={ROUTE_STATE.main}>
+					<RouteStateHead />
 					<h1 className={ROUTE_STATE.heading}>{this.props.heading ?? "Typelapse hit a problem"}</h1>
 					<p className={ROUTE_STATE.body}>
 						{this.props.message ??
