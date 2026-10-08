@@ -1,7 +1,16 @@
 import { type Locator, type Page, devices } from "@playwright/test";
 import { STAGE_TOP_GAP } from "../../src/application/layout/phone-sheet";
 import { GREET_DIFF, quadrantPng } from "./support/fixtures";
+import { codeFor, newAccount } from "./support/hosted";
 import { addSource, expect, hitBox, importHash, openStudio, settled, test } from "./support/studio";
+
+/**
+ * This file runs in both profiles: `pnpm e2e` (local, no account) and `pnpm e2e:hosted`
+ * (a hosted build with its API, where the account exists). The phone's corner row was
+ * only ever measured in the first, and in the second a fifth chip covered the project
+ * menu's button (#222, design audit 2026-10-08 D3).
+ */
+const HOSTED_PROFILE = process.env.E2E_PROFILE === "hosted";
 
 // A phone: 390 px wide, touch, a mobile user agent. Chromium only, like the rest.
 const { defaultBrowserType: _engine, ...phone } = devices["iPhone 13"];
@@ -125,7 +134,8 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
 		await settled(card);
 		const scenesBox = await card.boundingBox();
-		expect(scenesBox).not.toEqual(peekBox);
+		// The frame hangs under the corner row at every stop (D4): the sheet slides under it.
+		expect(scenesBox).toEqual(peekBox);
 
 		await page.locator(".si-cta").tap();
 		const panel = page.locator(".si-sheet");
@@ -169,8 +179,9 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 
 			const controls = panel.locator(".si-sheet-body button");
 			const count = await controls.count();
-			// Format 3, Size 3, FPS 3, Where 2, PNG, Render.
-			expect(count).toBeGreaterThanOrEqual(13);
+			// Format 3, Size 3, FPS 3, Where, PNG, Render. Where offers two in a local build, and
+			// This device alone in a hosted one signed out.
+			expect(count).toBe(HOSTED_PROFILE ? 12 : 13);
 			for (let index = 0; index < count; index++) {
 				const control = controls.nth(index);
 				const name = (await control.textContent())?.trim() ?? `control ${index}`;
@@ -223,10 +234,13 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 	// panel is capped to that room, which the sheet's own math gives, and scrolls inside.
 	// The third run puts a notch and a home indicator on the phone: the room follows them.
 	const insets = { top: 47, bottom: 34, left: 0, right: 0 };
-	for (const { width, height, notch } of [
-		{ width: 390, height: 844, notch: false },
-		{ width: 375, height: 812, notch: false },
-		{ width: 390, height: 844, notch: true },
+	// The frame now hangs under the corner row (D4), so a 390 phone leaves every panel the
+	// room it needs; a short phone is where the tallest two still have to scroll.
+	for (const { width, height, notch, short } of [
+		{ width: 390, height: 844, notch: false, short: false },
+		{ width: 375, height: 812, notch: false, short: false },
+		{ width: 390, height: 844, notch: true, short: false },
+		{ width: 360, height: 640, notch: false, short: true },
 	]) {
 		const label = `${width}x${height}${notch ? " with a notch" : ""}`;
 		test(
@@ -284,8 +298,9 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 						expect(tabs?.y).toBeCloseTo(panelBox.y, 0);
 					}
 				}
-				// Frame and Look are the two taller than the room under the frame, here and on a
-				// shorter phone: both scroll, and Motion and Export need not.
+				// On a short phone Frame and Look are the two taller than the room under the
+				// frame: both scroll, and Motion and Export need not.
+				if (!short) return;
 				expect(scrolls).toEqual(expect.arrayContaining(["Frame", "Look"]));
 
 				// Changing a control in a scrolled panel leaves it where it is.
@@ -441,6 +456,21 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 						).toBeGreaterThanOrEqual(wanted - 0.5);
 					}
 				}
+				// Nothing in the project chip hangs past its edge, and the middle of its menu
+				// button is the button, not the chip beside it (#222).
+				const chip = await page.locator(".sc-corner-row .sc-project").evaluate((element) => ({
+					scrollWidth: element.scrollWidth,
+					clientWidth: element.clientWidth,
+				}));
+				expect(chip.scrollWidth, "the project chip overflows").toBeLessThanOrEqual(
+					chip.clientWidth,
+				);
+				const atTrigger = await trigger.evaluate((element) => {
+					const box = element.getBoundingClientRect();
+					const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+					return hit === element || element.contains(hit);
+				});
+				expect(atTrigger, "the project menu's button is under another control").toBe(true);
 				// A renamed or missing control fails here instead of being skipped by the loop.
 				expect(seen.sort()).toEqual(
 					[
@@ -628,7 +658,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 	for (const theme of ["light", "dark"] as const) {
 		test(`the menus that hold text are opaque, ${theme}`, async ({ page }) => {
 			await page.addInitScript(
-				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				(mode) => window.localStorage.setItem("typelapse.studio-appearance", mode),
 				theme,
 			);
 			await openStudio(page);
@@ -666,7 +696,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 	for (const theme of ["light", "dark"] as const) {
 		test(`the More menu is opaque, and the sheet is warm, ${theme}`, async ({ page }) => {
 			await page.addInitScript(
-				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				(mode) => window.localStorage.setItem("typelapse.studio-appearance", mode),
 				theme,
 			);
 			await openStudio(page);
@@ -691,10 +721,16 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 				border: "0px",
 			});
 			const rows = await page
-				.locator(".sc-utility-overflow-menu button")
+				.locator(".sc-utility-overflow-menu > button, .sc-more-account button")
 				.evaluateAll((buttons) => buttons.map((button) => (button as HTMLElement).offsetHeight));
 			expect(rows.length).toBeGreaterThan(0);
 			expect(rows.filter((height) => height < 44)).toEqual([]);
+			// The appearance's three segments are drawn at 32px and reach the row's 44 (D6).
+			const appearance = page.getByRole("group", { name: "Appearance" });
+			for (const name of ["Light", "Dark", "System"]) {
+				const reach = await hitBox(appearance.getByRole("button", { name }));
+				expect(reach.height, `${name} reaches ${reach.height} tall`).toBeGreaterThanOrEqual(44);
+			}
 			await page.getByRole("button", { name: "More actions" }).tap();
 
 			const tokens = (selector: string) =>
@@ -716,7 +752,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 	for (const theme of ["light", "dark"] as const) {
 		test(`the sheet is opaque at every stop, ${theme}`, async ({ page }) => {
 			await page.addInitScript(
-				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				(mode) => window.localStorage.setItem("typelapse.studio-appearance", mode),
 				theme,
 			);
 			await openStudio(page);
@@ -1141,5 +1177,100 @@ test.describe("Mobile shell: the Showcase's replace question keeps its parts apa
 			await page.getByRole("button", { name: "Close showcase" }).tap();
 			await expect(page.locator(".studio-sheet-panel")).toHaveCount(0);
 		}
+	});
+});
+
+// Design audit 2026-10-08, D3 and D4: the corner row holds four chips in both profiles, a
+// long title never pushes the project menu's button under a neighbour and reads in full
+// in the menu, and the frame takes the stage's width under the row at every stop.
+test.describe("Mobile shell: the corner row and the frame after the design audit", () => {
+	const TITLE = "feat(render): stream hosted renders to R2 with resumable parts";
+
+	for (const width of [360, 390, 412]) {
+		test(`a long title leaves every control of the row reachable, at ${width}px`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height: 844 });
+			await openStudio(page);
+			await expect(page.locator(".sc-corner-row > *")).toHaveCount(4);
+			await expect(page.locator(".sc-corner-row .sc-account-island")).toHaveCount(0);
+			const name = page.getByRole("textbox", { name: "Project name" });
+			await name.fill(TITLE);
+			await name.blur();
+			await page.evaluate(() => document.fonts.ready);
+
+			const row = await page.locator(".sc-corner-row").evaluate((element) => {
+				const chip = element.querySelector(".sc-project");
+				const controls = [...element.querySelectorAll<HTMLElement>("button:not(:disabled), a")];
+				return {
+					chip: chip ? { scroll: chip.scrollWidth, client: chip.clientWidth } : null,
+					missed: controls
+						.filter((control) => {
+							const box = control.getBoundingClientRect();
+							const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+							return !(hit === control || control.contains(hit));
+						})
+						.map((control) => control.getAttribute("aria-label") ?? control.tagName),
+				};
+			});
+			expect(row.chip?.scroll).toBeLessThanOrEqual(row.chip?.client ?? 0);
+			expect(row.missed, "controls under another control").toEqual([]);
+
+			// The menu says the name in full, and its rows answer a thumb.
+			await page.getByRole("button", { name: "Open project menu" }).tap();
+			const menu = page.getByRole("menu", { name: "Local projects" });
+			await expect(menu.getByText(TITLE, { exact: true })).toBeVisible();
+			const create = menu.getByRole("menuitem", { name: "New project" });
+			await expect(create).toBeVisible();
+			const reachable = await create.evaluate((element) => {
+				const box = element.getBoundingClientRect();
+				const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+				return hit === element || element.contains(hit);
+			});
+			expect(reachable).toBe(true);
+		});
+	}
+
+	test("the frame takes the stage's width under the row and holds still at every stop", async ({
+		page,
+	}) => {
+		await page.setViewportSize({ width: 390, height: 844 });
+		await openStudio(page);
+		const frame = page.getByTestId("preview-frame");
+		const handle = page.getByRole("slider", { name: "Sheet height" });
+		const boxes = [];
+		for (const key of ["Home", "ArrowUp", "End"]) {
+			await handle.press(key);
+			await settled(frame);
+			boxes.push(await frame.boundingBox());
+		}
+		const [peek] = boxes;
+		if (!peek) throw new Error("no frame");
+		expect(peek.x).toBeCloseTo(8, 0);
+		expect(peek.y).toBeCloseTo(ROW_MARGIN + ROW_HEIGHT + STAGE_TOP_GAP, 0);
+		expect(peek.width).toBeCloseTo(374, 0);
+		expect(peek.height).toBeCloseTo(210.4, 0);
+		for (const box of boxes) expect(box).toEqual(peek);
+	});
+
+	test("signs in from the More menu: the address, then the code", async ({ page }) => {
+		test.skip(!HOSTED_PROFILE, "accounts exist in the hosted profile only");
+		const account = newAccount("phone-menu");
+		await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
+		await openStudio(page);
+		await page.getByRole("button", { name: "More actions" }).tap();
+		const signIn = page.getByRole("button", { name: "Sign in", exact: true });
+		await expect(signIn).toBeEnabled();
+		await signIn.tap();
+		const panel = page.getByRole("region", { name: "Sign in to Typelapse" });
+		await panel.getByRole("textbox", { name: "Email" }).fill(account.email);
+		const since = new Date();
+		await panel.getByRole("button", { name: "Email me a code" }).tap();
+		const code = await codeFor(account.email, since);
+		await panel.getByRole("textbox", { name: "Code" }).fill(code);
+		await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();
+		await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+		// Still four chips once signed in.
+		await expect(page.locator(".sc-corner-row > *")).toHaveCount(4);
 	});
 });

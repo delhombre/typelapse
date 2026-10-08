@@ -440,6 +440,32 @@
 	color: var(--camera-ink);
 }
 
+/* The open project's name in full, wrapped rather than cut: the chip ends it in an
+   ellipsis, and the menu is the one place a finger can read the rest. */
+.sc-project-menu-current {
+	display: grid;
+	gap: 2px;
+	margin: 0;
+	padding: 14px 14px 12px;
+	border-bottom: 1px solid var(--camera-line);
+}
+
+.sc-project-menu-current span {
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-regular);
+}
+
+.sc-project-menu-current strong {
+	color: var(--camera-ink);
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	line-height: 1.35;
+	letter-spacing: -0.012em;
+	overflow-wrap: anywhere;
+	text-wrap: pretty;
+}
+
 .sc-project-menu-head {
 	display: flex;
 	align-items: flex-start;

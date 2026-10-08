@@ -16,7 +16,8 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { ChevronRight, Cloud, HardDrive, Key, Logout, Profile, X } from "reicon-react";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight, Cloud, HardDrive, Key, Logout, Profile, X } from "reicon-react";
 import { StudioApiKeys, type StudioApiKeysControl } from "./studio-api-keys";
 import { StudioCloudProjects, type StudioCloudProjectsControl } from "./studio-cloud-projects";
 import "./studio-account-control.css";
@@ -37,6 +38,13 @@ export interface StudioAccountControlProps {
 	readonly apiKeys?: StudioApiKeysControl;
 	/** Offered to a signed-in account only; without it the panel has no cloud projects view. */
 	readonly cloudProjects?: StudioCloudProjectsControl;
+	/**
+	 * Present on the phone: the account is the first section of the More menu
+	 * (design audit 2026-10-08, D3), portaled into this element, and null while
+	 * the menu is closed. The control stays mounted either way, so the session
+	 * check and everything that hangs off it run whether the menu is open or not.
+	 */
+	readonly menuSection?: HTMLElement | null;
 }
 
 export interface StudioBillingControl {
@@ -76,7 +84,9 @@ export function StudioAccountControl({
 	allowance,
 	apiKeys,
 	cloudProjects,
+	menuSection,
 }: StudioAccountControlProps) {
+	const inMenu = menuSection !== undefined;
 	const {
 		status,
 		operation,
@@ -96,11 +106,32 @@ export function StudioAccountControl({
 	openRef.current = open;
 
 	// The panel unmounts under the focus it holds; a keyboard user goes back to
-	// the trigger rather than to the top of the page.
+	// the trigger rather than to the top of the page. In the menu the trigger is a
+	// row the panel replaced, so it is focused once it is back.
+	const refocusTrigger = useRef(false);
 	const closeToTrigger = () => {
+		refocusTrigger.current = true;
 		setOpen(false);
-		triggerRef.current?.focus();
 	};
+	// Signing out from the menu's row swaps the rows under the focus too: the Sign
+	// in row that comes back takes it, once the status says signed out.
+	const statusKind = status.kind;
+	useEffect(() => {
+		if (!open && refocusTrigger.current && statusKind !== "checking") {
+			refocusTrigger.current = false;
+			triggerRef.current?.focus();
+		}
+	}, [open, statusKind]);
+	// In the menu the panel takes the rows' place, so focus goes into it: to the
+	// way back, the first thing in it.
+	const backRef = useRef<HTMLButtonElement>(null);
+	useEffect(() => {
+		if (inMenu && open) backRef.current?.focus();
+	}, [inMenu, open]);
+	// The menu closing takes the panel with it: it opens on the rows next time.
+	useEffect(() => {
+		if (menuSection === null) setOpen(false);
+	}, [menuSection]);
 	const [view, setView] = useState<PanelView>("account");
 	const keysEntryRef = useRef<HTMLButtonElement>(null);
 	const projectsEntryRef = useRef<HTMLButtonElement>(null);
@@ -137,6 +168,7 @@ export function StudioAccountControl({
 	useEffect(() => {
 		if (status.kind !== "authenticated") return;
 		const signedInFromPanel = openRef.current;
+		if (inMenu && signedInFromPanel) refocusTrigger.current = true;
 		setOpen(false);
 		// Signed in from the panel: focus was on Continue, which is going away. A
 		// session found at page load leaves focus where it is.
@@ -147,19 +179,21 @@ export function StudioAccountControl({
 		) {
 			triggerRef.current?.focus();
 		}
-	}, [status.kind]);
+	}, [status.kind, inMenu]);
 
 	useEffect(() => {
-		if (!open) return;
+		// In the menu, a press outside closes the menu, and the panel with it.
+		if (!open || inMenu) return;
 		const closeOutside = (event: PointerEvent) => {
 			if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
 		};
 		document.addEventListener("pointerdown", closeOutside);
 		return () => document.removeEventListener("pointerdown", closeOutside);
-	}, [open]);
+	}, [open, inMenu]);
 
 	const closeOnEscape = (event: KeyboardEvent<HTMLDivElement>) => {
-		if (event.key === "Escape") {
+		// In the menu, Escape on the rows is the menu's: it closes the menu.
+		if (event.key === "Escape" && (open || !inMenu)) {
 			event.stopPropagation();
 			closeToTrigger();
 		}
@@ -181,6 +215,103 @@ export function StudioAccountControl({
 		return { label: "Sign in", icon: <Profile size={15} aria-hidden="true" /> };
 	})();
 
+	const panel = (
+		<AccountPanel
+			status={status}
+			operation={operation}
+			error={error}
+			pendingCode={pendingCode}
+			cloudProjectState={cloudProjectState}
+			billing={billing}
+			allowance={allowance}
+			apiKeys={apiKeys}
+			view={view}
+			cloudProjects={cloudProjects}
+			keysEntryRef={keysEntryRef}
+			projectsEntryRef={projectsEntryRef}
+			onView={(next) => (next === "account" ? showAccount() : setView(next))}
+			onSaveToCloud={onSaveToCloud}
+			onSendCode={sendCode}
+			onSignInWithCode={signInWithCode}
+			onForgetCode={forgetCode}
+			onSignOut={signOut}
+		/>
+	);
+
+	const openPanel = () => {
+		// Opened, the panel starts at the account, unless a key made a moment ago is
+		// still to be copied: that is where the person returns to. Closing leaves the
+		// view as it is, so the panel does not change under its own exit.
+		if (!open) setView(keyStore?.getState().created ? "keys" : "account");
+		setOpen((current) => !current);
+	};
+
+	if (inMenu) {
+		if (!menuSection) return null;
+		const signedIn = status.kind === "authenticated" ? status.session.account : null;
+		return createPortal(
+			<div
+				ref={rootRef}
+				className="mm-account mm-account-section"
+				data-open={open ? "" : undefined}
+				onKeyDown={closeOnEscape}
+			>
+				{open ? (
+					<section
+						className="mm-account-popover mm-account-inline"
+						aria-label={signedIn ? "Typelapse account" : "Sign in to Typelapse"}
+					>
+						<button ref={backRef} type="button" className="mm-keys-back" onClick={closeToTrigger}>
+							<ChevronLeft size={14} aria-hidden="true" />
+							More
+						</button>
+						{panel}
+					</section>
+				) : (
+					<>
+						{/* Who is signed in and on which plan, one press from the panel; or
+						    the way in. The rows are the menu's own (44px, the same ink). */}
+						<button
+							ref={triggerRef}
+							type="button"
+							className="mm-account-row"
+							aria-label={signedIn ? `Account for ${signedIn.name}` : trigger.label}
+							disabled={status.kind === "checking"}
+							onClick={openPanel}
+						>
+							{trigger.icon}
+							<span>{signedIn ? signedIn.name : trigger.label}</span>
+							{signedIn && billing ? <small>{billing.planLabel}</small> : null}
+						</button>
+						{signedIn ? (
+							<button
+								type="button"
+								className="mm-account-row"
+								disabled={operation === "signing-out"}
+								onClick={() => {
+									refocusTrigger.current = true;
+									// Refused, the row stays: focus stays where it is.
+									const keepFocus = () => {
+										refocusTrigger.current = false;
+									};
+									void signOut().then(() => {
+										if (store.getState().status.kind === "authenticated") {
+											keepFocus();
+										}
+									}, keepFocus);
+								}}
+							>
+								<Logout size={14} aria-hidden="true" />
+								<span>{operation === "signing-out" ? "Signing out…" : "Sign out"}</span>
+							</button>
+						) : null}
+					</>
+				)}
+			</div>,
+			menuSection,
+		);
+	}
+
 	return (
 		<div ref={rootRef} className="mm-account" onKeyDown={closeOnEscape}>
 			<button
@@ -191,13 +322,7 @@ export function StudioAccountControl({
 				aria-haspopup="dialog"
 				aria-expanded={open}
 				disabled={status.kind === "checking"}
-				onClick={() => {
-					// Opened, the panel starts at the account, unless a key made a moment ago is
-					// still to be copied: that is where the person returns to. Closing leaves the
-					// view as it is, so the panel does not change under its own exit.
-					if (!open) setView(keyStore?.getState().created ? "keys" : "account");
-					setOpen((current) => !current);
-				}}
+				onClick={openPanel}
 			>
 				{trigger.icon}
 			</button>
@@ -230,26 +355,7 @@ export function StudioAccountControl({
 						>
 							<X size={15} aria-hidden="true" />
 						</button>
-						<AccountPanel
-							status={status}
-							operation={operation}
-							error={error}
-							pendingCode={pendingCode}
-							cloudProjectState={cloudProjectState}
-							billing={billing}
-							allowance={allowance}
-							apiKeys={apiKeys}
-							view={view}
-							cloudProjects={cloudProjects}
-							keysEntryRef={keysEntryRef}
-							projectsEntryRef={projectsEntryRef}
-							onView={(next) => (next === "account" ? showAccount() : setView(next))}
-							onSaveToCloud={onSaveToCloud}
-							onSendCode={sendCode}
-							onSignInWithCode={signInWithCode}
-							onForgetCode={forgetCode}
-							onSignOut={signOut}
-						/>
+						{panel}
 					</motion.dialog>
 				) : null}
 			</AnimatePresence>

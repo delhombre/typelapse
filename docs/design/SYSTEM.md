@@ -54,11 +54,9 @@ phone root, by one rule (`:is(.studio-camera-root, .sc-root-mobile, .sc-tokens)`
 the last for the strip an import link raises, rendered beside the shell, and the
 phone's sheet, portaled to the body, which draws only its own hairline and radius).
 
-Theme switch: the landing sets `data-theme` on `.landing-root` and
-`data-landing-theme` on `<html>`; the studio toggles `.dark` on `<html>`. The
-inline script in `index.html` paints the right one before the bundle runs.
-Colour is semantic only (syntax, diff state, the one primary); the chassis
-stays neutral.
+Theme switch: the landing sets `data-theme` on `.landing-root` and `data-landing-theme` on `<html>`; the studio toggles `.dark` on `<html>`, and the inline script in `index.html` paints the right one before the bundle runs.
+The studio's appearance is Light, Dark or System, System by default and following the OS live (design audit 2026-10-08 D6); only a forced side rewrites the `theme-color` metas, and a side the old two-state toggle stored is read as System once.
+Colour is semantic only (syntax, diff state, the one primary); the chassis stays neutral.
 
 ```text
 Which background?
@@ -119,7 +117,7 @@ what has not adopted it yet.
 | Island gap: landing and studio phone 5px; the desktop studio's 34px labelled controls on the landing plate 2px | `--island-gap: 5px` `src/app.css @ .lp-island-row` `--island-gap: 5px` `src/app.css @ .si-row` `--island-gap: 2px` `src/presentation/studio-camera.css` |
 | Code card slot, scene gutter; the stacking above every shell, the drop veil then the toasts | `--sc-card-width: 356px` `--sc-gutter: 96px` `--z-veil: 60` `--z-notice: 70` `src/app.css` |
 | Desktop header, timeline | `--camera-header: 80px` `--camera-timeline-height: 218px` `src/presentation/studio-camera.css` |
-| Header project name: the desktop corner stops 16px short of the centred Preview/Edit switch and the name ends in an ellipsis; the phone name is never narrower than "Untitled" from 390 up (#167) | `max-width: calc(50% - 22px - 78px - 16px)` `src/presentation/studio-camera.css @ .studio-camera-root .sc-corner-left` `max-width: 28ch` `src/presentation/studio-camera.css @ .studio-camera-root .sc-title` `min-width: calc(4.7em + 4px)` `src/app.css @ .sc-corner-row .sc-title` |
+| Header project name: the desktop corner stops 16px short of the centred Preview/Edit switch and the name ends in an ellipsis; the phone name is never narrower than "Untitled" from 390 up (#167) | `max-width: calc(50% - 22px - 78px - 16px)` `src/presentation/studio-camera.css @ .studio-camera-root .sc-corner-left` `max-width: 28ch` `src/presentation/studio-camera.css @ .studio-camera-root .sc-title` `min-width: calc(4.6em + 4px)` `src/app.css @ .sc-corner-row .sc-title` |
 
 TSX uses Tailwind's 4px steps; CSS writes px and names a value only when
 something else derives from it (the island gap feeds the hit extents). A
@@ -227,7 +225,7 @@ landing has no intro at all. Nothing enters from `scale(0)`: reveal at 0.985.
 | Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css @ .lp-island` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css` `--island-cell: 44px` `src/app.css` |
 | Sheet chips under a finger; the island's sheet and status row draw every chip, swatch, field and Render 44px with the row's reach switched off, so two hit areas never overlap (DECISIONS D10) | `height: 44px` `src/presentation/studio-camera.css @ .sc-layer-pill` `min-width: 44px` `height: 44px` `src/app.css @ @media (pointer: coarse) / .studio-root :is(.si-sheet, .si-status) :is(.si-button, .si-cta)` |
 | A picture built from code is not text to select | `shrink-0 snap-center select-none` `src/presentation/landing/frame-fan.tsx` |
-| Popover controls, the sheet's close, the replace question's buttons, the import status's Dismiss (28px drawn, 6px reach, 40 to a pointer), the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` `height: 28px` `inset: -6px 0` `src/presentation/studio-camera.css @ .sc-import-dismiss` |
+| Popover controls, the sheet's close, the replace question's buttons, the import status's Dismiss (28px drawn, 6px reach, 40 to a pointer), the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu > button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` `height: 28px` `inset: -6px 0` `src/presentation/studio-camera.css @ .sc-import-dismiss` |
 | Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css @ .lp-field` `font-size: 16px` `src/presentation/studio-camera.css @ .sc-layer-field textarea` |
 | Hover exists only here | `@media (hover: hover) and (pointer: fine)` `src/app.css` |
 | Hover-only helpers vanish on touch | `@media (hover: none)` `src/app.css` |

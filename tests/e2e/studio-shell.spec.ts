@@ -31,7 +31,7 @@ test.describe("Studio shell: the scene stays put and stays legible", () => {
 	for (const theme of ["light", "dark"] as const) {
 		test(`the menus that hold text are opaque on the desktop too, ${theme}`, async ({ page }) => {
 			await page.addInitScript(
-				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				(mode) => window.localStorage.setItem("typelapse.studio-appearance", mode),
 				theme,
 			);
 			await openStudio(page);
@@ -58,7 +58,9 @@ test.describe("Studio shell: the scene stays put and stays legible", () => {
 	}
 
 	test("a layer's fields are written in light ink on the dark theme", async ({ page }) => {
-		await page.addInitScript(() => window.localStorage.setItem("typelapse.studio-theme", "dark"));
+		await page.addInitScript(() =>
+			window.localStorage.setItem("typelapse.studio-appearance", "dark"),
+		);
 		await openStudio(page);
 		const edit = page.getByRole("button", { name: "Edit", exact: true });
 		if ((await edit.getAttribute("aria-pressed")) !== "true") await edit.click();

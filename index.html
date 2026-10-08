@@ -30,8 +30,9 @@
 				var landing = location.pathname === "/";
 				var stored = null;
 				try {
-					stored = localStorage.getItem(landing ? "typelapse.landing-theme" : "typelapse.studio-theme");
+					stored = localStorage.getItem(landing ? "typelapse.landing-theme" : "typelapse.studio-appearance");
 				} catch (error) {}
+				// A forced side wins; anything else (nothing stored, System) is the OS's.
 				var dark = stored === "dark" || (stored !== "light" && osDark);
 				// The two pre-bundle screens below read this one marker, on every route: the
 				// stored choice beats the OS, as it does for the app, and without the script

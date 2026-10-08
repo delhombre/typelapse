@@ -262,6 +262,12 @@ export function ProjectChip() {
 						transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
 						style={{ transformOrigin: "top left" }}
 					>
+						{/* The name in full: on a phone the chip shows its first word, and a
+						    tooltip is no way to read the rest under a finger (design audit D3). */}
+						<p className="sc-project-menu-current">
+							<span>This project</span>
+							<strong>{title.trim() === "" ? "Untitled" : title}</strong>
+						</p>
 						<header className="sc-project-menu-head">
 							<div>
 								<span>Local projects</span>

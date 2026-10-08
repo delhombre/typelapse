@@ -272,7 +272,9 @@ test.describe("Studio boot: the files, the tab, the outline", () => {
 	});
 
 	test("the failed boot's link is readable on the dark studio's paper", async ({ page }) => {
-		await page.addInitScript(() => window.localStorage.setItem("typelapse.studio-theme", "dark"));
+		await page.addInitScript(() =>
+			window.localStorage.setItem("typelapse.studio-appearance", "dark"),
+		);
 		await page.route(/\/assets\/index-.*\.js/, (route) => route.abort());
 		await page.goto("/app");
 		const reload = page.getByRole("link", { name: "Reload" });

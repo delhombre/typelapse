@@ -625,6 +625,7 @@ export function PreviewIsland({
 									{...(cluster !== null ? { "data-active": "" } : {})}
 								>
 									<SettingsGlyph />
+									<span className="si-label">Settings</span>
 								</button>
 							) : (
 								CLUSTERS.filter((entry) => entry.id !== "export").map((entry) => (

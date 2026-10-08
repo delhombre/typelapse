@@ -612,16 +612,24 @@ describe("the phone's More menu (was SYSTEM.md Drift 19, DECISIONS D5)", () => {
 
 	it("takes its radius from the scale and its rows nest in its corner", () => {
 		expect(lastValue(app, menu, "border-radius")).toBe("var(--r-surface)");
-		expect(lastValue(app, `${menu} button`, "border-radius")).toBe("calc(var(--r-surface) - 5px)");
+		expect(lastValue(app, `${menu} > button`, "border-radius")).toBe(
+			"calc(var(--r-surface) - 5px)",
+		);
 	});
 
 	it("makes each row a finger's height", () => {
-		expect(lastValue(app, `${menu} button`, "height")).toBe("44px");
+		expect(lastValue(app, `${menu} > button`, "height")).toBe("44px");
+		// The account's rows on the phone are the menu's rows (design audit D3).
+		expect(lastValue(app, ".sc-more-account .mm-account-row", "height")).toBe("44px");
+		// "Checking account" reads disabled, through the token, never an opacity (D7).
+		expect(lastValue(app, ".sc-more-account .mm-account-row:disabled", "color")).toBe(
+			"var(--camera-disabled, var(--camera-muted))",
+		);
 	});
 
 	it("sets its rows in the studio's scale", () => {
-		expect(lastValue(app, `${menu} button`, "font-size")).toBe("var(--sc-text-md)");
-		expect(lastValue(app, `${menu} button`, "font-weight")).toBe("var(--sc-weight-medium)");
+		expect(lastValue(app, `${menu} > button`, "font-size")).toBe("var(--sc-text-md)");
+		expect(lastValue(app, `${menu} > button`, "font-weight")).toBe("var(--sc-weight-medium)");
 	});
 });
 

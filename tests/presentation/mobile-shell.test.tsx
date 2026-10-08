@@ -26,6 +26,14 @@ function dragEvent(type: string, files: readonly File[] = []) {
 	return event;
 }
 
+/**
+ * The shell is a phone's: its frame is the stage's width (design audit D4), so
+ * jsdom's 1024px window would be a tablet on its side with no scenes stop.
+ */
+beforeEach(() => {
+	Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+});
+
 const shell = () =>
 	render(
 		<MemoryRouter>
@@ -84,16 +92,43 @@ describe("the phone studio", () => {
 		expect(useSnippetStore.getState().snippet.title).toBe("Edited on a phone");
 	});
 
-	it("keeps the appearance and sound toggles one tap away, in the More menu", () => {
+	it("keeps the appearance and sound one tap away, in the More menu", () => {
 		shell();
-		expect(screen.queryByRole("button", { name: "Switch to dark mode", hidden: true })).toBeNull();
+		expect(screen.queryByRole("group", { name: "Appearance", hidden: true })).toBeNull();
 
 		fireEvent.click(screen.getByRole("button", { name: "More actions", hidden: true }));
 
-		expect(
-			screen.getByRole("menuitem", { name: /dark mode|light mode/, hidden: true }),
-		).toBeTruthy();
-		expect(screen.getByRole("menuitem", { name: /interface feedback/, hidden: true })).toBeTruthy();
+		expect(screen.getByRole("group", { name: "Appearance", hidden: true })).toBeTruthy();
+		expect(screen.getByRole("button", { name: /interface feedback/, hidden: true })).toBeTruthy();
+	});
+
+	// D6 of the 2026-10-08 design audit: three states, System by default, all in view.
+	it("offers Light, Dark and System, marks the one in force, and paints the choice", () => {
+		shell();
+		fireEvent.click(screen.getByRole("button", { name: "More actions", hidden: true }));
+		const appearance = screen.getByRole("group", { name: "Appearance", hidden: true });
+		const option = (name: string) => within(appearance).getByRole("button", { name, hidden: true });
+		const pressed = () =>
+			["Light", "Dark", "System"].filter(
+				(name) => option(name).getAttribute("aria-pressed") === "true",
+			);
+		expect(pressed()).toEqual(["System"]);
+
+		fireEvent.click(option("Dark"));
+		expect(pressed()).toEqual(["Dark"]);
+		expect(document.documentElement.classList.contains("dark")).toBe(true);
+
+		fireEvent.click(option("System"));
+		expect(pressed()).toEqual(["System"]);
+		expect(document.documentElement.classList.contains("dark")).toBe(false);
+	});
+
+	// D3: four chips, as the row's width was planned; the account is no fifth chip.
+	it("keeps the account out of the corner row", () => {
+		const { container } = shell();
+		const row = container.querySelector(".sc-corner-row");
+		expect(row?.children).toHaveLength(4);
+		expect(row?.querySelector(".sc-account-island")).toBeNull();
 	});
 
 	it("lets the project name take focus while the sheet is open, so it can be renamed", async () => {

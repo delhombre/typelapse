@@ -67,12 +67,12 @@ describe("the screens that run before the bundle", () => {
 	});
 
 	it("names the stored theme before anything is painted", () => {
-		const run = (stored: string | null, osDark: boolean) => {
+		const run = (stored: string | null, osDark: boolean, key = "typelapse.studio-appearance") => {
 			document.documentElement.removeAttribute("data-boot-theme");
 			window.history.replaceState(null, "", "/app");
 			localStorage.clear();
 			if (stored) {
-				localStorage.setItem("typelapse.studio-theme", stored);
+				localStorage.setItem(key, stored);
 			}
 			vi.stubGlobal("matchMedia", (query: string) => ({
 				matches: osDark && query === "(prefers-color-scheme: dark)",
@@ -84,5 +84,7 @@ describe("the screens that run before the bundle", () => {
 		expect(run(null, true)).toBe("dark");
 		expect(run("light", true)).toBe("light");
 		expect(run("dark", false)).toBe("dark");
+		// The old two-state toggle's side is read as System (design audit D6).
+		expect(run("light", true, "typelapse.studio-theme")).toBe("dark");
 	});
 });
