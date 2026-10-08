@@ -5,9 +5,19 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 describe("landing export stage: the shapes", () => {
+	it("leads with the card and caption at a readable size, sized before it loads", () => {
+		render(<ExportShapes />);
+		const card = screen.getByRole("img", { name: /code card and the caption under it/i });
+
+		expect([card.getAttribute("width"), card.getAttribute("height")]).toEqual(["711", "374"]);
+		expect(existsSync(resolve(__dirname, "../../public", `.${card.getAttribute("src")}`))).toBe(
+			true,
+		);
+	});
+
 	it("shows all five of the export's shapes as pictures that hold their box before they load", () => {
 		render(<ExportShapes />);
-		const images = screen.getAllByRole("img");
+		const images = screen.getAllByRole("img", { name: /same scene in/ });
 
 		expect(images.map((image) => image.getAttribute("alt"))).toEqual([
 			"The same scene in 16:9.",

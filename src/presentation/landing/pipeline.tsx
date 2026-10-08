@@ -67,26 +67,25 @@ interface StageProps {
 	eyebrow: string;
 	title: string;
 	children: ReactNode;
-	figure: { load: FigureLoader; label: string; hint: string };
+	/** `flat`: a figure drawn lying flat (a sheet, a window, a phone's glass)
+	    spreads its ink wide and thin, so it is held narrower to weigh what the
+	    standing ones weigh down the rail. */
+	figure: { load: FigureLoader; label: string; hint: string; flat?: boolean };
 	picture: ReactNode;
 	/** Picture first on a wide screen, so the figures alternate sides down the rail. */
 	flip?: boolean;
-	/** Figure and picture stand at the top of the row, for a picture much taller than the figure. */
-	top?: boolean;
 }
 
-function Stage({
-	step,
-	eyebrow,
-	title,
-	children,
-	figure,
-	picture,
-	flip = false,
-	top = false,
-}: StageProps) {
+function Stage({ step, eyebrow, title, children, figure, picture, flip = false }: StageProps) {
 	const found = STEPS.find((s) => s.id === step);
-	const drawing = <HairlineFigure load={figure.load} label={figure.label} hint={figure.hint} />;
+	const drawing = (
+		<HairlineFigure
+			load={figure.load}
+			label={figure.label}
+			hint={figure.hint}
+			className={figure.flat ? "lp-fig-flat" : ""}
+		/>
+	);
 	const shot = <div className="lp-pair-picture">{picture}</div>;
 	return (
 		<article id={step} className="lp-stage-item" aria-labelledby={`${step}-title`}>
@@ -102,11 +101,7 @@ function Stage({
 			</header>
 			{/* Picture first in the markup when it is first on screen, so the
 			    reading order and the visual order are one order. */}
-			<div
-				className="lp-pair"
-				data-flip={flip ? "" : undefined}
-				data-align={top ? "top" : undefined}
-			>
+			<div className="lp-pair" data-flip={flip ? "" : undefined}>
 				{flip ? shot : drawing}
 				{flip ? drawing : shot}
 			</div>
@@ -133,20 +128,28 @@ export function PipelineSection() {
 					figure={{
 						load: loadScenes,
 						label:
-							"A pull request lying flat, cut into five slices; the slice under the pointer stands up as a scene.",
+							"A pull request lying flat, cut into three slices; the slice under the pointer stands up as a scene.",
 						hint: "Move over the slices",
+						flat: true,
 					}}
 					picture={
 						<figure className="m-0">
 							<ThemedShot
 								light="/landing/studio-import-light.webp"
 								dark="/landing/studio-import-dark.webp"
-								width={1600}
-								height={878}
-								alt="The Typelapse studio right after a diff of orders.ts is pasted: the frame shows the code before the change, and the timeline holds three scenes."
+								width={658}
+								height={757}
+								phone={{
+									light: "/landing/studio-import-phone-light.webp",
+									dark: "/landing/studio-import-phone-dark.webp",
+									width: 658,
+									height: 771,
+								}}
+								alt="The Typelapse studio right after a diff of orders.ts is pasted: the frame shows the code before the change, labelled Before, and under it the timeline holds three scenes."
+								bare
 							/>
 							<figcaption className="lp-pic-cap">
-								The studio right after a paste: a diff of two hunks, three scenes.
+								The studio right after a paste: the code before the change, then a scene per hunk.
 							</figcaption>
 						</figure>
 					}
@@ -167,6 +170,7 @@ export function PipelineSection() {
 						label:
 							"A code window lying flat; the pointer’s position sets how far its tokens have glided from the first frame to the second.",
 						hint: "Move across the window",
+						flat: true,
 					}}
 					picture={
 						<figure className="m-0">
@@ -185,7 +189,6 @@ export function PipelineSection() {
 
 				<Stage
 					step="check"
-					top
 					eyebrow="Check"
 					title="Under the feed’s chrome."
 					figure={{
@@ -193,12 +196,13 @@ export function PipelineSection() {
 						label:
 							"A phone with a feed’s chrome marked on its glass; drawing the code card under the rail or the caption lights that zone.",
 						hint: "Move over the glass",
+						flat: true,
 					}}
 					picture={<FeedCheck />}
 				>
 					Preview the cut inside TikTok, Reels, Shorts, X or LinkedIn, with each feed’s real safe
 					zones. If a caption or the action rail would cover your code, you see it before you post.{" "}
-					<strong>The chrome stays in the preview</strong>; it never reaches the file.
+					<strong>The chrome stays in the preview</strong>; it never reaches the&nbsp;file.
 				</Stage>
 
 				<Stage
@@ -231,19 +235,19 @@ export function PipelineSection() {
 					}}
 					picture={
 						<figure className="m-0">
-							<div className="lp-pic">
-								<img
-									src="/landing/hosted-caption.webp"
-									width={1200}
-									height={675}
-									loading="lazy"
-									decoding="async"
-									alt="A frame of orders.ts on a warm mesh, with its caption under the card: Then match each order in memory."
-								/>
-							</div>
+							<img
+								className="lp-hosted-card"
+								src="/landing/hosted-caption.webp"
+								width={552}
+								height={413}
+								loading="lazy"
+								decoding="async"
+								draggable={false}
+								alt="A scene of orders.ts on a warm mesh, with its caption under the card: Then match each order in memory."
+							/>
 							<figcaption className="lp-pic-cap">
-								A scene with its caption, from the studio’s preview: a hosted render bakes it into
-								the file, with the sound.
+								A scene and its caption, from the studio’s preview: a hosted render bakes the
+								caption into the file, with the&nbsp;sound.
 							</figcaption>
 						</figure>
 					}

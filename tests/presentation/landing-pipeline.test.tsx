@@ -53,8 +53,8 @@ describe("landing pipeline", () => {
 	it("shows real captures, sized before they load, and the studio in the page's theme", () => {
 		render(<PipelineSection />);
 		const still = screen.getByRole("img", { name: /with its caption under the card/i });
-		expect(still.getAttribute("width")).toBe("1200");
-		expect(still.getAttribute("height")).toBe("675");
+		expect(still.getAttribute("width")).toBe("552");
+		expect(still.getAttribute("height")).toBe("413");
 		expect(still.getAttribute("loading")).toBe("lazy");
 
 		// Stage 01 is a capture of the studio after a paste, one per theme, never a lookalike.
@@ -65,8 +65,22 @@ describe("landing pipeline", () => {
 		]);
 		expect(studio.map((img) => img.className)).toEqual(["lp-shot-light", "lp-shot-dark"]);
 		for (const img of studio) {
-			expect([img.getAttribute("width"), img.getAttribute("height")]).toEqual(["1600", "878"]);
+			expect([img.getAttribute("width"), img.getAttribute("height")]).toEqual(["658", "757"]);
 			expect(img.getAttribute("loading")).toBe("lazy");
+		}
+		// A phone gets its own crop, the scene cards without the track's
+		// connectors, so they keep what size a phone allows; sized too.
+		const phones = studio.map((img) => img.parentElement?.querySelector("source"));
+		expect(phones.map((source) => source?.getAttribute("srcset"))).toEqual([
+			"/landing/studio-import-phone-light.webp",
+			"/landing/studio-import-phone-dark.webp",
+		]);
+		for (const source of phones) {
+			expect(source?.getAttribute("media")).toBe("(max-width: 639px)");
+			expect([source?.getAttribute("width"), source?.getAttribute("height")]).toEqual([
+				"658",
+				"771",
+			]);
 		}
 	});
 

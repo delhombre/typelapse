@@ -23,7 +23,7 @@ import { Link } from "react-router-dom";
  * It is there from the first screen, because it now offers what the hero does
  * not: the way to the stages, the proof and the pricing (three links, which a
  * phone has no room for and drops under 640px). While the hero is in view it
- * carries only those links, and on a phone nothing at all: the hero's field is
+ * carries only those links, and on a phone only the logo: the hero's field is
  * the first screen's one way into the studio (D2), so the CTA joins the pill
  * once the hero has gone. Past the hero it also behaves as a header should:
  * hidden on the way down, back on the way up. Reduced motion keeps it put.
@@ -116,13 +116,17 @@ export function DynamicNav() {
 				{/* The capsule nests concentric in the pill: pill h44 r22, capsule h32
 				    r16, so an even 6px inset (pr-[6px] + the 6px top/bottom gap). It is
 				    the primary on the plate, as every filled action is (D2), and it is
-				    not there at all while the hero is: the hero's field holds the first
-				    screen's one way in, so "Open studio" is said once. */}
+				    held back while the hero is in view: the hero's field holds the first
+				    screen's one way in, so "Open studio" is said once. Held back, not
+				    removed: it keeps its place and fades, so the pill never changes
+				    width under the reader (a phone, with no links, drops it instead). */}
 				<Link
 					to="/app"
 					aria-label="Open studio"
-					className="flex h-full items-center outline-offset-4"
-					hidden={overHero}
+					className="lp-nav-cta-link flex h-full items-center outline-offset-4"
+					aria-hidden={overHero || undefined}
+					inert={overHero}
+					tabIndex={overHero ? -1 : undefined}
 				>
 					<span className="lp-nav-cta inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-[var(--color-on-primary)] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] transition-[background-color,box-shadow] duration-150 ease-[var(--ease-out)] hover:bg-[var(--color-primary-hover)]">
 						Open studio

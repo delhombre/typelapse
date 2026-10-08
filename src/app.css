@@ -483,12 +483,18 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* Two sentences, two lines, from the width where each fits on its own; on a
-   phone they run on, "pull request" held together. */
-@media (min-width: 640px) {
-	.landing-root .lp-hero-title > span {
-		display: block;
-		white-space: nowrap;
+/* Two sentences, two lines, at every width: "A pull request in." over "A
+   video out.". On a phone the display answers to the screen so the longer
+   sentence fits its line whole (about 7.5em of it, beside the gutters and the
+   text inset): 38px at 360, 42px at 390, 44px from about 405. */
+.landing-root .lp-hero-title > span {
+	display: block;
+	white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+	.landing-root .lp-hero-title {
+		font-size: min(2.75rem, calc((100vw - 64px) / 7.7));
 	}
 }
 
@@ -1791,12 +1797,6 @@ html.dark:not([data-landing-theme]) {
 		gap: 40px;
 		align-items: last baseline;
 	}
-
-	/* A picture far taller than the figure (the phone): both stand at the top,
-	   or the figure floats in a void beside it. */
-	.landing-root .lp-pair[data-align="top"] {
-		align-items: start;
-	}
 }
 
 /* Stacked, a figure is held to the width it reads at, centred: full width on a
@@ -1827,6 +1827,15 @@ html.dark:not([data-landing-theme]) {
 .landing-root .lp-fig {
 	margin-block: 0;
 	padding: 4px 4px 0;
+}
+
+/* The three flat figures (a sheet, a window, a phone's glass) spread their ink
+   wide and thin; held to about 360px of ink they weigh what the two standing
+   ones (the laptop, the server) weigh at full width. */
+.landing-root .lp-fig.lp-fig-flat {
+	width: 100%;
+	max-width: 424px;
+	margin-inline: auto;
 }
 
 .landing-root .lp-fig-stage {
@@ -1921,13 +1930,33 @@ html.dark:not([data-landing-theme]) {
 
 /* A capture in the page's theme: the other one is not displayed, so, lazy, it
    is never fetched. */
-.landing-root .lp-pic .lp-shot-dark,
-.landing-root[data-theme="dark"] .lp-pic .lp-shot-light {
+.landing-root :is(.lp-pic, .lp-pic-bare) .lp-shot-dark,
+.landing-root[data-theme="dark"] :is(.lp-pic, .lp-pic-bare) .lp-shot-light {
 	display: none;
 }
 
-.landing-root[data-theme="dark"] .lp-pic .lp-shot-dark {
+.landing-root[data-theme="dark"] :is(.lp-pic, .lp-pic-bare) .lp-shot-dark {
 	display: block;
+}
+
+/* The theme's two pictures (and a phone's crop) sit in `<picture>`s that
+   take no box of their own. */
+.landing-root :is(.lp-pic, .lp-pic-bare) picture {
+	display: contents;
+}
+
+/* A picture of pieces on a transparent ground: they carry their own corners
+   and edges. Its code reads at about 17px at 1440 and 12px on a 390 phone. */
+.landing-root .lp-pic-bare {
+	max-width: 520px;
+	margin-inline: auto;
+}
+
+.landing-root .lp-pic-bare img {
+	width: 100%;
+	height: auto;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 /* Stage 03: the phone at a size that leaves its chips beside it on a laptop. */
@@ -1941,37 +1970,41 @@ html.dark:not([data-landing-theme]) {
 	width: min(280px, 72vw);
 }
 
-/* Stage 04: the landscape shape leads at the column's width; the four upright
-   ones share the row under it at one height, the height at which their widths
-   (1 + 0.8 + 0.75 + 0.5625 of it) and three 10px gaps fill the column. Each
-   image declares both sides, so its box holds before it loads. */
-.landing-root .lp-aspects {
-	container-type: inline-size;
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	gap: 14px 10px;
-}
-
-.landing-root .lp-aspects li:first-child {
-	flex: 0 0 100%;
-}
-
-.landing-root .lp-aspects img {
+/* Stage 04 and 05: a card and its caption at a size the code reads at (held to
+   480px, where its code is about 16px), with the image's own edge. */
+.landing-root :is(.lp-export-card, .lp-hosted-card) {
 	display: block;
-	width: auto;
-	height: calc((100cqi - 34px) / 3.1125);
-	border-radius: 8px;
+	width: 100%;
+	max-width: 480px;
+	height: auto;
+	margin-inline: auto;
+	border-radius: 12px;
 	outline: 1px solid var(--image-edge);
 	outline-offset: -1px;
 	user-select: none;
 	-webkit-user-select: none;
 }
 
-.landing-root .lp-aspects li:first-child img {
-	width: 100%;
-	height: auto;
-	border-radius: 12px;
+/* Then the five shapes side by side at one height, the height at which their
+   widths (1.78 + 1 + 0.8 + 0.75 + 0.5625 of it) and four 8px gaps fill the
+   column. Each image declares both sides, so its box holds before it loads. */
+.landing-root .lp-aspects {
+	container-type: inline-size;
+	display: flex;
+	align-items: flex-end;
+	gap: 8px;
+	margin-top: 20px;
+}
+
+.landing-root .lp-aspects img {
+	display: block;
+	width: auto;
+	height: calc((100cqi - 36px) / 4.8903);
+	border-radius: 6px;
+	outline: 1px solid var(--image-edge);
+	outline-offset: -1px;
+	user-select: none;
+	-webkit-user-select: none;
 }
 
 .landing-root .lp-aspects span {
@@ -2014,15 +2047,22 @@ html.dark:not([data-landing-theme]) {
 	position: relative;
 	width: min(100%, calc(var(--crop-w) * var(--proof-scale)));
 	height: calc(var(--crop-h) * var(--proof-scale));
-	overflow: hidden;
-	border-radius: 12px;
-	outline: 1px solid var(--image-edge);
-	outline-offset: -1px;
 	/* The vertical swipe stays the page's; a sideways one moves the split. */
 	touch-action: pan-y;
 	user-select: none;
 	-webkit-user-select: none;
 	cursor: ew-resize;
+}
+
+/* The pictures are clipped to the frame; the handle is not, so its grip can
+   sit on the bottom edge, under the glyphs rather than over them. */
+.landing-root .lp-proof-window {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	border-radius: 12px;
+	outline: 1px solid var(--image-edge);
+	outline-offset: -1px;
 }
 
 .landing-root .lp-proof-picture {
@@ -2039,16 +2079,17 @@ html.dark:not([data-landing-theme]) {
 	inset: 0;
 }
 
-/* The split: a 2px line in the band's ink, and a 44px handle centred on it
-   whose drawn grip is 28px, so a thumb finds it without it covering the line. */
+/* The split: a 2px line in the band's ink, and a 44px handle on it whose
+   drawn 28px grip straddles the picture's bottom edge, below the glyph band,
+   so a thumb finds it and it never covers the letters it compares. */
 .landing-root .lp-proof-handle {
 	position: absolute;
 	top: 0;
-	bottom: 0;
+	bottom: -14px;
 	width: 2.75rem;
 	margin-left: -22px;
 	display: grid;
-	place-items: center;
+	place-items: end center;
 	cursor: ew-resize;
 }
 
@@ -2056,7 +2097,7 @@ html.dark:not([data-landing-theme]) {
 	content: "";
 	position: absolute;
 	top: 0;
-	bottom: 0;
+	bottom: 14px;
 	left: 21px;
 	width: 2px;
 	background: var(--color-ink);
@@ -2108,7 +2149,7 @@ html.dark:not([data-landing-theme]) {
 	justify-content: space-between;
 	gap: 12px 24px;
 	width: min(100%, calc(var(--crop-w) * var(--proof-scale)));
-	margin-top: 14px;
+	margin-top: 28px;
 }
 
 .landing-root .lp-proof-hint {
@@ -2253,8 +2294,14 @@ html.dark:not([data-landing-theme]) {
 }
 
 /* The anchors the nav pill jumps to land clear of it. */
-.landing-root :is(#how-it-works, #proof, #pricing) {
+.landing-root :is(#how-it-works, #proof) {
 	scroll-margin-top: 16px;
+}
+
+/* Pricing opens on its own padding, right under the dark band: a margin
+   would land the jump with a sliver of the band still showing. */
+.landing-root #pricing {
+	scroll-margin-top: 0;
 }
 
 /* The nav pill's section links, which a phone has no room for. */
@@ -2297,11 +2344,26 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* Over the hero a phone's pill would hold only the logo (the links do not fit
-   and the CTA waits for the hero to go), and the hero already says the name:
-   nothing is there until the hero has gone. */
+/* Over the hero the CTA is held back (the hero's field is the one way in) but
+   keeps its place, so the pill does not change width when it arrives: it only
+   fades. On a phone, where the links are gone, the pill is the logo alone over
+   the hero, padded evenly, and the CTA joins it once the hero has gone. */
+.landing-root .lp-nav-cta-link {
+	transition: opacity 200ms var(--ease-out), visibility 0s linear 0s;
+}
+
+.landing-root .lp-nav-pill[data-over-hero] .lp-nav-cta-link {
+	visibility: hidden;
+	opacity: 0;
+	transition: opacity 150ms var(--ease-out), visibility 0s linear 150ms;
+}
+
 @media (max-width: 639px) {
 	.landing-root .lp-nav-pill[data-over-hero] {
+		padding-right: 15px;
+	}
+
+	.landing-root .lp-nav-pill[data-over-hero] .lp-nav-cta-link {
 		display: none;
 	}
 }

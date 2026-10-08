@@ -254,7 +254,7 @@ from literals copied between renderers. At 374px a 1080p frame draws its code at
 **Decision:** A status, an error, an empty state or a refusal is one plain
 sentence: what happened, what to do. No exclamation mark, no "seamlessly",
 no superlative the repository cannot measure; a landing claim is the
-measured form ("42.81 dB"). No em-dash or en-dash in copy, meta tags, docs,
+measured form ("43.63 dB"). No em-dash or en-dash in copy, meta tags, docs,
 comments or commits: a comma, a colon, a period or parentheses (CSS
 box-drawing rules and the windowing ellipsis are not dashes).
 

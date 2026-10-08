@@ -12,7 +12,7 @@ const SIDES = [
 		line: "Free, under AGPL-3.0.",
 		points: [
 			"Every import, every look, every motion",
-			"MP4, WebM, GIF and PNG, up to 4K",
+			"MP4, WebM, GIF and PNG, up to\u00a04K",
 			"No account, nothing uploaded",
 		],
 	},
@@ -20,7 +20,7 @@ const SIDES = [
 		title: "Hosted",
 		line: "Paid, when you want our servers.",
 		points: [
-			"Renders that bake captions and audio",
+			"Renders that bake captions and\u00a0audio",
 			"Projects kept in your account",
 			"Works in a browser with no encoder",
 		],

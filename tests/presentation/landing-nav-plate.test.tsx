@@ -80,10 +80,16 @@ describe("landing nav over the hero", () => {
 				);
 
 			expect(cta()).toBeNull();
+			// Held back, not removed: it keeps its place, so the pill never
+			// changes width when the hero goes (re-review of #248).
+			const link = container.querySelector('a[href="/app"]');
+			expect(link?.hasAttribute("hidden")).toBe(false);
+			expect(link?.closest("[inert]")).not.toBeNull();
 			expect(container.querySelector(".lp-nav-pill")?.hasAttribute("data-over-hero")).toBe(true);
 			expect(screen.getByRole("navigation", { name: "Sections", hidden: true })).toBeTruthy();
 			say(false);
 			expect(cta()).not.toBeNull();
+			expect(container.querySelector('a[href="/app"]')?.closest("[inert]")).toBeNull();
 		} finally {
 			hero.remove();
 			globalThis.IntersectionObserver = original;

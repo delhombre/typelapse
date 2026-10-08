@@ -1,7 +1,7 @@
 /**
  * Glide: a code window lying flat, its code laid out as tokens, small rounded
  * slabs on a monospace grid. The pointer's x is the morph between two frames
- * of the same file: tokens both frames share hop and glide to their new place,
+ * of the same file: shared tokens that move hop over the lines to their place,
  * a token the second frame drops shrinks away first, and the new ones grow in
  * last, the product's two-beat morph. At rest the window is caught mid-morph.
  * The token that travels furthest has the bright edge. The tuned number is how
@@ -43,8 +43,8 @@ const W = 124;
 const D = TOP + 6 * LH + 5;
 const TH = 2.2;
 const DEPTH = 5.4;
-const HOP = 7;
-const REST = 0.42;
+const HOP = 12;
+const REST = 0.06;
 /** The token that travels furthest, three lines down: the one with the bright edge. */
 const FAR = 2;
 
@@ -112,6 +112,7 @@ const box = ([r, c, l]: Cell): Box => ({ x: X0 + c * CH, y: Y0 + r * LH, w: l * 
 interface Token {
 	a: Box | null;
 	b: Box | null;
+	hop: number;
 	row: number;
 	el: Solid;
 	drawn: string;
@@ -154,6 +155,8 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 	const toks: Token[] = TOKENS.map(([a, b]) => ({
 		a: a && box(a),
 		b: b && box(b),
+		// a token that stays put stays on the glass; one that travels hops by how far
+		hop: a && b ? HOP * Math.min(1, Math.abs(b[0] - a[0]) / 3) : 0,
 		row: (b ?? a ?? [0])[0],
 		el: solid(g),
 		drawn: "",
@@ -169,7 +172,7 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 			return [
 				lerp(t.a.x, t.b.x, e),
 				lerp(t.a.y, t.b.y, e),
-				HOP * Math.sin(Math.PI * e),
+				t.hop * Math.sin(Math.PI * e),
 				lerp(t.a.w, t.b.w, e),
 			];
 		}
@@ -203,7 +206,8 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 				if (key !== t.drawn) {
 					put(t.el, prism(P, front, ring, inner, s[2], s[2] + TH));
 				}
-				order.push([s[0] + w / 2 + s[1] + DEPTH / 2, t]);
+				// in the air, painted last: it passes above the lines it crosses
+				order.push([s[0] + w / 2 + s[1] + DEPTH / 2 + (s[2] > 0.5 ? 1e4 : 0), t]);
 			} else if (t.drawn) {
 				put(t.el, { sil: "", crease: "" });
 			}

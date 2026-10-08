@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { nextSplit, splitAt } from "@/presentation/landing/compare-split";
+import {
+	SPLIT_REST,
+	dragIntent,
+	nextSplit,
+	onFrame,
+	splitAt,
+	sweepSplit,
+} from "@/presentation/landing/compare-split";
 import { SharpnessSection } from "@/presentation/landing/sharpness-section";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -27,6 +34,46 @@ describe("the split between the two files", () => {
 		expect(nextSplit(50, "End")).toBe(100);
 		expect(nextSplit(50, "a")).toBeNull();
 	});
+
+	/* Re-review of #248: a thumb landing on the picture to scroll the page used
+	   to jump the split. A mouse follows at once; a finger or a pen only once
+	   it has moved sideways more than it has moved down. */
+	it("follows a mouse at once, and a finger only once it moves sideways", () => {
+		expect(dragIntent("mouse", 0, 0)).toBe("follow");
+		expect(dragIntent("touch", 0, 0)).toBe("wait");
+		expect(dragIntent("touch", 6, 1)).toBe("wait");
+		expect(dragIntent("touch", 12, 3)).toBe("follow");
+		expect(dragIntent("touch", -12, 3)).toBe("follow");
+		expect(dragIntent("pen", 12, 3)).toBe("follow");
+		expect(dragIntent("touch", 10, 14)).toBe("release");
+		expect(dragIntent("touch", 2, -20)).toBe("release");
+	});
+
+	it("puts a split given on the picture where the frame shows that point", () => {
+		// Desktop: the frame shows the whole picture.
+		expect(onFrame(22, 864, 864)).toBe(22);
+		// A 390 phone: the frame shows the first 342px of a 576px picture.
+		expect(onFrame(22, 576, 342)).toBe(37);
+		expect(onFrame(80, 576, 342)).toBe(100);
+		expect(onFrame(22, 576, 0)).toBe(22);
+	});
+
+	it("rests in the middle of the first word, and sweeps through it once from there back to there", () => {
+		expect(SPLIT_REST).toBe(22);
+		expect(sweepSplit(0)).toBe(SPLIT_REST);
+		expect(sweepSplit(1)).toBe(SPLIT_REST);
+		const path = Array.from({ length: 101 }, (_, i) => sweepSplit(i / 100));
+		expect(Math.min(...path)).toBeLessThan(10);
+		expect(Math.max(...path)).toBeGreaterThan(34);
+		for (const value of path) {
+			expect(value).toBeGreaterThanOrEqual(0);
+			expect(value).toBeLessThanOrEqual(100);
+		}
+		// Slow and smooth: no step between two hundredths is larger than a couple of points.
+		for (let i = 1; i < path.length; i += 1) {
+			expect(Math.abs((path[i] ?? 0) - (path[i - 1] ?? 0))).toBeLessThan(2.5);
+		}
+	});
 });
 
 describe("landing sharpness section", () => {
@@ -36,20 +83,23 @@ describe("landing sharpness section", () => {
 		expect(
 			screen.getByRole("heading", { level: 2, name: "Thin coloured code stays crisp." }),
 		).toBeTruthy();
-		expect(container.textContent).toMatch(/one colour for every four pixels/);
-		expect(container.textContent).toMatch(/keeps every pixel’s colour/);
+		expect(container.textContent).toMatch(
+			/An H\.264 MP4, ours included, keeps one colour for every four pixels/,
+		);
+		expect(container.textContent).toMatch(/the worst case: thin red on dark/i);
+		expect(container.textContent).toMatch(/keeps every pixel’s\scolour/);
 	});
 
 	it("is one comparison: a slider over the same line, WebM on one side, MP4 on the other", () => {
 		const { container } = render(<SharpnessSection />);
 		const slider = screen.getByRole("slider", { name: /webm.*mp4/i });
 
-		expect(slider.getAttribute("aria-valuenow")).toBe("50");
+		expect(slider.getAttribute("aria-valuenow")).toBe(String(SPLIT_REST));
 		expect(slider.getAttribute("aria-valuemin")).toBe("0");
 		expect(slider.getAttribute("aria-valuemax")).toBe("100");
 		expect(slider.tabIndex).toBe(0);
 		fireEvent.keyDown(slider, { key: "ArrowRight" });
-		expect(slider.getAttribute("aria-valuenow")).toBe("55");
+		expect(slider.getAttribute("aria-valuenow")).toBe(String(SPLIT_REST + 5));
 		fireEvent.keyDown(slider, { key: "End" });
 		expect(slider.getAttribute("aria-valuenow")).toBe("100");
 
@@ -78,6 +128,8 @@ describe("landing sharpness section", () => {
 		expect(screen.getAllByRole("img")[0]?.getAttribute("alt")).toMatch(
 			/departs from the original/i,
 		);
+		// The WebM's map is an even grey: say what it is, a level offset, not lost detail.
+		expect(document.querySelector(".lp-proof-hint")?.textContent).toMatch(/one step in 255/);
 	});
 
 	/* The numbers are the manifest's, so the page cannot print a figure the files
