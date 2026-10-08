@@ -116,8 +116,8 @@ describe("API keys in the account island", () => {
 			{
 				kind: "hosted",
 				port: {
-					signUpEmail: async () => undefined,
-					signInEmail: async () => undefined,
+					sendSignInCode: async () => undefined,
+					signInWithCode: async () => undefined,
 					signOut: async () => undefined,
 					getSession: async () => null,
 				},

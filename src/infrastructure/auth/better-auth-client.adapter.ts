@@ -1,10 +1,10 @@
 import { createAuthClient } from "better-auth/client";
+import { emailOTPClient } from "better-auth/client/plugins";
 import type {
 	ClientAuthPort,
 	ClientAuthRequestOptions,
 	ClientSession,
-	EmailCredentials,
-	SignUpWithEmail,
+	SignInCode,
 } from "../../application/auth/client-auth.port";
 import { ClientAuthFailure } from "../../application/auth/client-auth.port";
 
@@ -39,13 +39,17 @@ interface BetterAuthFetchOptions {
 	};
 }
 
-/** Structural slice of `createAuthClient()` kept injectable for adapter tests. */
+/** Structural slice of `createAuthClient()` with the email OTP plugin, kept injectable for adapter tests. */
 export interface BetterAuthBrowserClient {
-	readonly signUp: {
-		email(input: SignUpWithEmail & BetterAuthFetchOptions): Promise<BetterAuthResponse<unknown>>;
+	readonly emailOtp: {
+		sendVerificationOtp(
+			input: { readonly email: string; readonly type: "sign-in" } & BetterAuthFetchOptions,
+		): Promise<BetterAuthResponse<unknown>>;
 	};
 	readonly signIn: {
-		email(input: EmailCredentials & BetterAuthFetchOptions): Promise<BetterAuthResponse<unknown>>;
+		emailOtp(
+			input: { readonly email: string; readonly otp: string } & BetterAuthFetchOptions,
+		): Promise<BetterAuthResponse<unknown>>;
 	};
 	signOut(input?: BetterAuthFetchOptions): Promise<BetterAuthResponse<unknown>>;
 	getSession(
@@ -99,20 +103,15 @@ function providerFailure(
 	if (error.status === 429) {
 		return new ClientAuthFailure("rate-limited", { retryAfterSeconds });
 	}
-	if (error.code === "INVALID_EMAIL_OR_PASSWORD") {
-		return new ClientAuthFailure("invalid-credentials");
+	if (error.code === "INVALID_EMAIL") {
+		return new ClientAuthFailure("invalid-email");
 	}
-	if (
-		error.code === "USER_ALREADY_EXISTS" ||
-		error.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL"
-	) {
-		return new ClientAuthFailure("account-exists");
+	if (error.code === "INVALID_OTP") {
+		return new ClientAuthFailure("invalid-code");
 	}
-	if (error.code === "PASSWORD_TOO_SHORT" || error.code === "PASSWORD_TOO_LONG") {
-		return new ClientAuthFailure("password-rejected");
-	}
-	if (error.code === "EMAIL_NOT_VERIFIED") {
-		return new ClientAuthFailure("email-not-verified");
+	// Expired, or its three tries spent: either way the person needs a new one.
+	if (error.code === "OTP_EXPIRED" || error.code === "TOO_MANY_ATTEMPTS") {
+		return new ClientAuthFailure("code-expired");
 	}
 	if (error.status >= 500) {
 		return new ClientAuthFailure("unavailable");
@@ -133,20 +132,28 @@ async function providerRequest<T>(
 export class BetterAuthClientAdapter implements ClientAuthPort {
 	constructor(private readonly client: BetterAuthBrowserClient) {}
 
-	async signUpEmail(input: SignUpWithEmail, options?: ClientAuthRequestOptions): Promise<void> {
+	async sendSignInCode(email: string, options?: ClientAuthRequestOptions): Promise<void> {
 		const call = providerCall(options);
 		const response = await providerRequest(() =>
-			this.client.signUp.email({ ...input, fetchOptions: call.fetchOptions }),
+			this.client.emailOtp.sendVerificationOtp({
+				email,
+				type: "sign-in",
+				fetchOptions: call.fetchOptions,
+			}),
 		);
 		if (response.error) {
 			throw providerFailure(response.error, call.retryAfterSeconds);
 		}
 	}
 
-	async signInEmail(input: EmailCredentials, options?: ClientAuthRequestOptions): Promise<void> {
+	async signInWithCode(input: SignInCode, options?: ClientAuthRequestOptions): Promise<void> {
 		const call = providerCall(options);
 		const response = await providerRequest(() =>
-			this.client.signIn.email({ ...input, fetchOptions: call.fetchOptions }),
+			this.client.signIn.emailOtp({
+				email: input.email,
+				otp: input.code,
+				fetchOptions: call.fetchOptions,
+			}),
 		);
 		if (response.error) {
 			throw providerFailure(response.error, call.retryAfterSeconds);
@@ -205,8 +212,9 @@ export interface BetterAuthClientAdapterOptions {
 export function createBetterAuthClientPort(
 	options: BetterAuthClientAdapterOptions = {},
 ): ClientAuthPort {
+	const plugins = [emailOTPClient()];
 	const client = options.baseURL
-		? createAuthClient({ baseURL: options.baseURL })
-		: createAuthClient();
+		? createAuthClient({ baseURL: options.baseURL, plugins })
+		: createAuthClient({ plugins });
 	return new BetterAuthClientAdapter(client);
 }

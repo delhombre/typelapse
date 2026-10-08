@@ -29,8 +29,8 @@ const SESSION: ClientSession = {
 };
 
 const authPort = (session: ClientSession | null): ClientAuthPort => ({
-	signUpEmail: async () => undefined,
-	signInEmail: async () => undefined,
+	sendSignInCode: async () => undefined,
+	signInWithCode: async () => undefined,
 	signOut: async () => undefined,
 	getSession: async () => session,
 });

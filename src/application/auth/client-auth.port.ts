@@ -1,10 +1,7 @@
-export interface EmailCredentials {
+/** A six-digit code mailed to an address, typed back to prove the person reads that mailbox. */
+export interface SignInCode {
 	readonly email: string;
-	readonly password: string;
-}
-
-export interface SignUpWithEmail extends EmailCredentials {
-	readonly name: string;
+	readonly code: string;
 }
 
 export interface ClientAccount {
@@ -23,19 +20,21 @@ export interface ClientAuthRequestOptions {
 	readonly signal?: AbortSignal;
 }
 
-/** The provider operations needed by the client-side account use cases. */
+/**
+ * The provider operations needed by the client-side account use cases. One flow
+ * for a new address and a known one: mail a code, then sign in with it.
+ */
 export interface ClientAuthPort {
-	signUpEmail(input: SignUpWithEmail, options?: ClientAuthRequestOptions): Promise<void>;
-	signInEmail(input: EmailCredentials, options?: ClientAuthRequestOptions): Promise<void>;
+	sendSignInCode(email: string, options?: ClientAuthRequestOptions): Promise<void>;
+	signInWithCode(input: SignInCode, options?: ClientAuthRequestOptions): Promise<void>;
 	signOut(options?: ClientAuthRequestOptions): Promise<void>;
 	getSession(options?: ClientAuthRequestOptions): Promise<ClientSession | null>;
 }
 
 export type ClientAuthFailureCode =
-	| "invalid-credentials"
-	| "account-exists"
-	| "password-rejected"
-	| "email-not-verified"
+	| "invalid-email"
+	| "invalid-code"
+	| "code-expired"
 	| "rate-limited"
 	| "not-configured"
 	| "unavailable"
@@ -55,10 +54,10 @@ function rateLimitedMessage(retryAfterSeconds: number | null): string {
 }
 
 const SAFE_AUTH_MESSAGES: Record<ClientAuthFailureCode, string> = {
-	"invalid-credentials": "Email or password is incorrect.",
-	"account-exists": "An account already uses this email.",
-	"password-rejected": "Choose a password that meets the account requirements.",
-	"email-not-verified": "Verify your email before signing in.",
+	"invalid-email": "Enter an email address like ada@example.com.",
+	// Said the same for every address: a wrong code never tells whether an account exists.
+	"invalid-code": "That code does not match. Check the email and try again.",
+	"code-expired": "This code no longer works. Send a new one.",
 	"rate-limited": rateLimitedMessage(null),
 	"not-configured": "Accounts are not configured for this hosted deployment.",
 	unavailable: "Account service is temporarily unavailable.",

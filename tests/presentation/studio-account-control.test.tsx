@@ -3,12 +3,12 @@ import {
 	ClientAuthFailure,
 	type ClientAuthPort,
 	type ClientSession,
-	type EmailCredentials,
+	type SignInCode,
 } from "@/application/auth/client-auth.port";
 import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
 import { StudioAccountControl } from "@/presentation/components/multimedia/studio-account-control";
 import { createAuthStore } from "@/presentation/stores/auth.store";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /** A fixed clock: the session below must stay live however long this test outlives it. */
@@ -21,8 +21,8 @@ const SESSION: ClientSession = {
 
 function port(overrides: Partial<ClientAuthPort> = {}): ClientAuthPort {
 	return {
-		signUpEmail: async () => undefined,
-		signInEmail: async () => undefined,
+		sendSignInCode: async () => undefined,
+		signInWithCode: async () => undefined,
 		signOut: async () => undefined,
 		getSession: async () => null,
 		...overrides,
@@ -31,6 +31,7 @@ function port(overrides: Partial<ClientAuthPort> = {}): ClientAuthPort {
 
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 	vi.restoreAllMocks();
 });
 
@@ -74,72 +75,186 @@ describe("StudioAccountControl", () => {
 		expect(document.activeElement).toBe(document.body);
 	});
 
-	it("boots hosted session state and signs in without a toast", async () => {
-		let authenticated = false;
-		const signInEmail = vi.fn(async (_input: EmailCredentials) => {
-			authenticated = true;
-		});
-		const store = createAuthStore(
-			{
-				kind: "hosted",
-				port: port({
-					signInEmail,
-					getSession: async () => (authenticated ? SESSION : null),
-				}),
-			},
-			{ now: () => NOW },
-		);
+	/** A hosted store over the port, its session check settled, and the panel open on the address step. */
+	async function openSignIn(overrides: Partial<ClientAuthPort> = {}, now = () => NOW) {
+		const store = createAuthStore({ kind: "hosted", port: port(overrides) }, { now });
 		render(<StudioAccountControl store={store} />);
-
 		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
 		fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-		fireEvent.change(screen.getByRole("textbox", { name: "Email" }), {
-			target: { value: "ada@example.com" },
+		return { store, panel: screen.getByRole("dialog", { name: "Typelapse account" }) };
+	}
+
+	function askForCode(panel: HTMLElement, email = "ada@example.com") {
+		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
+			target: { value: email },
 		});
-		fireEvent.change(screen.getByLabelText("Password"), {
-			target: { value: "correct horse battery staple" },
+		fireEvent.click(within(panel).getByRole("button", { name: "Email me a code" }));
+	}
+
+	it("signs in with the address, then the code typed back, and no password anywhere", async () => {
+		let authenticated = false;
+		const sendSignInCode = vi.fn(async (_email: string) => undefined);
+		const signInWithCode = vi.fn(async (_input: SignInCode) => {
+			authenticated = true;
 		});
-		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
-		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
+		const { panel } = await openSignIn({
+			sendSignInCode,
+			signInWithCode,
+			getSession: async () => (authenticated ? SESSION : null),
+		});
+		expect(within(panel).queryByLabelText("Password")).toBeNull();
+		expect(within(panel).queryByLabelText("Name")).toBeNull();
+
+		askForCode(panel);
+
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+		expect(sendSignInCode).toHaveBeenCalledWith("ada@example.com", expect.anything());
+		// The button that led here is gone: focus is on the field typed into next.
+		expect(document.activeElement).toBe(code);
+		expect(within(panel).getByText("ada@example.com")).toBeTruthy();
+		expect(code.getAttribute("inputmode")).toBe("numeric");
+		expect(code.getAttribute("autocomplete")).toBe("one-time-code");
+		// The field reads out where the code went and how long it lasts.
+		const hint = document.getElementById(code.getAttribute("aria-describedby") ?? "");
+		expect(hint?.textContent).toBe(
+			"Enter the six-digit code sent to ada@example.com. It expires in 10 minutes.",
+		);
+
+		// Six digits is the whole code: it goes without a press.
+		fireEvent.change(code, { target: { value: "042917" } });
 
 		await waitFor(() =>
 			expect(screen.getByRole("button", { name: "Account for Ada Lovelace" })).toBeTruthy(),
 		);
-		expect(signInEmail.mock.calls[0]?.[0]).toEqual({
+		expect(signInWithCode).toHaveBeenCalledOnce();
+		expect(signInWithCode.mock.calls[0]?.[0]).toEqual({
 			email: "ada@example.com",
-			password: "correct horse battery staple",
+			code: "042917",
 		});
 		expect(screen.queryByRole("alert")).toBeNull();
-		// The panel closed under the Sign in button that had focus.
+		// The panel closed under the field that had focus.
 		expect(document.activeElement).toBe(
 			screen.getByRole("button", { name: "Account for Ada Lovelace" }),
 		);
 	});
 
-	it("checks the sign-up form on submit, beside each field, and clears a fixed field as it is typed", async () => {
-		const signUpEmail = vi.fn(async (_input: { name: string } & EmailCredentials) => undefined);
-		const store = createAuthStore(
-			{ kind: "hosted", port: port({ signUpEmail }) },
-			{ now: () => NOW },
-		);
-		render(<StudioAccountControl store={store} />);
+	it("reads a pasted code with spaces or words around it as its six digits", async () => {
+		const signInWithCode = vi.fn(async (_input: SignInCode) => undefined);
+		const { panel } = await openSignIn({ signInWithCode });
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
 
-		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
-		fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
-		fireEvent.click(within(panel).getByRole("button", { name: "New here? Create an account" }));
+		fireEvent.change(code, { target: { value: "Code: 042 917" } });
+
+		expect((code as HTMLInputElement).value).toBe("042917");
+		await waitFor(() => expect(signInWithCode).toHaveBeenCalledOnce());
+		expect(signInWithCode.mock.calls[0]?.[0]).toMatchObject({ code: "042917" });
+	});
+
+	it("says beside the field when Sign in is pressed before six digits are there", async () => {
+		const signInWithCode = vi.fn(async (_input: SignInCode) => undefined);
+		const { panel } = await openSignIn({ signInWithCode });
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+
+		fireEvent.change(code, { target: { value: "0429" } });
+		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
+
+		expect(signInWithCode).not.toHaveBeenCalled();
+		expect(code.getAttribute("aria-invalid")).toBe("true");
+		expect(within(panel).getByText("Enter the six digits from the email.")).toBeTruthy();
+	});
+
+	it("clears a refused code and puts focus back in the field, the refusal under the button", async () => {
+		const { panel } = await openSignIn({
+			signInWithCode: async () => {
+				throw new ClientAuthFailure("invalid-code");
+			},
+		});
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+
+		fireEvent.change(code, { target: { value: "000000" } });
+
+		const alert = await within(panel).findByRole("alert");
+		expect(alert.textContent).toBe("That code does not match. Check the email and try again.");
+		expect(alert.parentElement?.previousElementSibling?.textContent).toBe("Sign in");
+		await waitFor(() => expect((code as HTMLInputElement).value).toBe(""));
+		expect(document.activeElement).toBe(code);
+		expect(within(panel).getByRole("textbox", { name: "Code" })).toBe(code);
+	});
+
+	it("offers another code after a minute, counting down until then", async () => {
+		vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+		vi.setSystemTime(NOW);
+		const sendSignInCode = vi.fn(async (_email: string) => undefined);
+		const { panel } = await openSignIn({ sendSignInCode }, () => new Date());
+		askForCode(panel);
+		await within(panel).findByRole("textbox", { name: "Code" });
+
+		const resend = within(panel).getByRole("button", { name: "Send a new code in 1:00" });
+		expect(resend.getAttribute("aria-disabled")).toBe("true");
+		fireEvent.click(resend);
+		expect(sendSignInCode).toHaveBeenCalledTimes(1);
+
+		act(() => {
+			vi.advanceTimersByTime(18_000);
+		});
+		expect(resend.textContent).toBe("Send a new code in 0:42");
+
+		act(() => {
+			vi.advanceTimersByTime(42_000);
+		});
+		expect(resend.textContent).toBe("Send a new code");
+		expect(resend.getAttribute("aria-disabled")).toBeNull();
+
+		fireEvent.click(resend);
+		await waitFor(() => expect(sendSignInCode).toHaveBeenCalledTimes(2));
+		expect(sendSignInCode.mock.calls[1]?.[0]).toBe("ada@example.com");
+		// A new code starts a new minute, and the field is ready for it.
+		await waitFor(() => expect(resend.textContent).toBe("Send a new code in 1:00"));
+		expect(document.activeElement).toBe(within(panel).getByRole("textbox", { name: "Code" }));
+	});
+
+	it("goes back to the address with what was typed, and focus on it", async () => {
+		const { panel } = await openSignIn();
+		askForCode(panel, "ada@example.com");
+		await within(panel).findByRole("textbox", { name: "Code" });
+
+		fireEvent.click(within(panel).getByRole("button", { name: "Use another email" }));
+
+		const email = within(panel).getByRole("textbox", { name: "Email" }) as HTMLInputElement;
+		expect(email.value).toBe("ada@example.com");
+		expect(document.activeElement).toBe(email);
+		expect(within(panel).queryByRole("textbox", { name: "Code" })).toBeNull();
+	});
+
+	it("keeps the code step when the panel closes and opens again", async () => {
+		const { panel } = await openSignIn();
+		askForCode(panel);
+		await within(panel).findByRole("textbox", { name: "Code" });
+
+		const trigger = screen.getByRole("button", { name: "Sign in", expanded: true });
+		fireEvent.click(screen.getByRole("button", { name: "Close account panel" }));
+		expect(trigger.getAttribute("aria-expanded")).toBe("false");
+		fireEvent.click(trigger);
+
+		const reopened = screen.getAllByRole("dialog", { name: "Typelapse account" }).at(-1);
+		expect(within(reopened as HTMLElement).getByRole("textbox", { name: "Code" })).toBeTruthy();
+	});
+
+	it("checks the address on submit, beside the field, and clears it as it is typed", async () => {
+		const sendSignInCode = vi.fn(async (_email: string) => undefined);
+		const { panel } = await openSignIn({ sendSignInCode });
 		const email = within(panel).getByRole("textbox", { name: "Email" });
 		fireEvent.change(email, { target: { value: "ada@" } });
 		// Typing a first attempt is never flagged.
 		expect(email.getAttribute("aria-invalid")).toBeNull();
 
-		fireEvent.click(within(panel).getByRole("button", { name: "Create account" }));
+		fireEvent.click(within(panel).getByRole("button", { name: "Email me a code" }));
 
-		expect(signUpEmail).not.toHaveBeenCalled();
+		expect(sendSignInCode).not.toHaveBeenCalled();
 		expect(email.getAttribute("aria-invalid")).toBe("true");
-		expect(within(panel).getByText("Enter an email address like ada@example.com.")).toBeTruthy();
-		expect(within(panel).getByText("Add your name.")).toBeTruthy();
-		expect(within(panel).getByText("Use at least 8 characters.")).toBeTruthy();
 		// The message is the field's description, so a screen reader hears it with the field.
 		const described = email.getAttribute("aria-describedby") ?? "";
 		expect(document.getElementById(described)?.textContent).toBe(
@@ -154,83 +269,57 @@ describe("StudioAccountControl", () => {
 	// A button that goes `disabled` under a focused finger or key drops focus to the page:
 	// the next Tab starts from the top of the document, and a screen reader says nothing.
 	// Busy is `aria-disabled`, the press is ignored, and focus stays where it was.
-	it("keeps focus on its button while a sign-in is out, and ignores a second press", async () => {
+	it("keeps focus on its button while a code is on its way, and ignores a second press", async () => {
 		let refuse: (reason: Error) => void = () => undefined;
-		const signInEmail = vi.fn(
-			(_input: EmailCredentials) =>
+		const sendSignInCode = vi.fn(
+			(_email: string) =>
 				new Promise<void>((_resolve, reject) => {
 					refuse = reject;
 				}),
 		);
-		const store = createAuthStore(
-			{ kind: "hosted", port: port({ signInEmail }) },
-			{ now: () => NOW },
-		);
-		render(<StudioAccountControl store={store} />);
-
-		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
-		fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
+		const { panel } = await openSignIn({ sendSignInCode });
 		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
 			target: { value: "ada@example.com" },
 		});
-		fireEvent.change(within(panel).getByLabelText("Password"), {
-			target: { value: "correct horse battery staple" },
-		});
-		const submit = within(panel).getByRole("button", { name: "Sign in" });
+		const submit = within(panel).getByRole("button", { name: "Email me a code" });
 		submit.focus();
 		fireEvent.click(submit);
 
-		await waitFor(() => expect(submit.textContent).toBe("Signing in…"));
+		await waitFor(() => expect(submit.textContent).toBe("Sending code…"));
 		expect(submit.hasAttribute("disabled")).toBe(false);
 		expect(submit.getAttribute("aria-disabled")).toBe("true");
 		// A screen reader hears that the form is working, not only that a label changed.
 		expect(submit.closest("form")?.getAttribute("aria-busy")).toBe("true");
 		expect(document.activeElement).toBe(submit);
 		fireEvent.click(submit);
-		expect(signInEmail).toHaveBeenCalledTimes(1);
+		expect(sendSignInCode).toHaveBeenCalledTimes(1);
 
-		refuse(new ClientAuthFailure("invalid-credentials"));
-		await waitFor(() => expect(within(panel).getByRole("alert")).toBeTruthy());
-		expect(submit.getAttribute("aria-disabled")).toBeNull();
-		expect(submit.closest("form")?.getAttribute("aria-busy")).toBe("false");
-		expect(document.activeElement).toBe(submit);
+		refuse(new ClientAuthFailure("invalid-email"));
+		await waitFor(() => expect(submit.getAttribute("aria-disabled")).toBeNull());
 	});
 
-	// The alert used to land between the password and the button and push the button, the
+	// The alert used to land between the fields and the button and push the button, the
 	// thing being pressed, 43px down. Its room is a slot that is there before the alert is,
 	// under the button, so the form above it never moves.
 	it("puts a refusal in a slot under the button that was there before it", async () => {
-		const signInEmail = vi.fn(async (_input: EmailCredentials) => {
-			throw new ClientAuthFailure("rate-limited", { retryAfterSeconds: 45 });
+		const { panel } = await openSignIn({
+			sendSignInCode: async () => {
+				throw new ClientAuthFailure("rate-limited", { retryAfterSeconds: 45 });
+			},
 		});
-		const store = createAuthStore(
-			{ kind: "hosted", port: port({ signInEmail }) },
-			{ now: () => NOW },
-		);
-		render(<StudioAccountControl store={store} />);
-
-		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
-		fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
-		const submit = within(panel).getByRole("button", { name: "Sign in" });
+		const submit = within(panel).getByRole("button", { name: "Email me a code" });
 		const slot = submit.nextElementSibling;
 		expect(slot?.classList.contains("mm-account-alert")).toBe(true);
 		expect(slot?.textContent).toBe("");
 		expect(within(panel).queryByRole("alert")).toBeNull();
 
-		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
-			target: { value: "ada@example.com" },
-		});
-		fireEvent.change(within(panel).getByLabelText("Password"), {
-			target: { value: "correct horse battery staple" },
-		});
-		fireEvent.click(submit);
+		askForCode(panel);
 
 		const alert = await within(panel).findByRole("alert");
 		expect(alert.textContent).toBe("Too many attempts. Try again in 45 seconds.");
 		expect(alert.parentElement).toBe(slot);
 		expect(submit.nextElementSibling).toBe(slot);
+		expect(within(panel).queryByRole("textbox", { name: "Code" })).toBeNull();
 	});
 
 	it("does not claim cloud sync before the authenticated user opts this project in", () => {

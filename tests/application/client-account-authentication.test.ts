@@ -11,107 +11,91 @@ const ACTIVE_SESSION: ClientSession = {
 	expiresAt: new Date("2026-08-31T12:00:00.000Z"),
 };
 
-describe("client account authentication", () => {
-	it("establishes sign-in from the authoritative session, not from the credential response", async () => {
-		const events: string[] = [];
-		const port: ClientAuthPort = {
-			signUpEmail: async () => undefined,
-			signInEmail: async () => {
-				events.push("sign-in");
-			},
-			signOut: async () => undefined,
-			getSession: async () => {
-				events.push("session");
-				return ACTIVE_SESSION;
-			},
-		};
-		const authentication = createClientAccountAuthentication(port, {
-			now: () => new Date("2026-08-31T11:00:00.000Z"),
-		});
+function port(overrides: Partial<ClientAuthPort> = {}): ClientAuthPort {
+	return {
+		sendSignInCode: async () => undefined,
+		signInWithCode: async () => undefined,
+		signOut: async () => undefined,
+		getSession: async () => ACTIVE_SESSION,
+		...overrides,
+	};
+}
 
-		const session = await authentication.signIn({
+const NOW = () => new Date("2026-08-31T11:00:00.000Z");
+
+describe("client account authentication", () => {
+	it("asks the provider to mail a code to the address", async () => {
+		const sentTo: string[] = [];
+		const authentication = createClientAccountAuthentication(
+			port({
+				sendSignInCode: async (email) => {
+					sentTo.push(email);
+				},
+			}),
+			{ now: NOW },
+		);
+
+		await authentication.sendCode("ada@example.com");
+
+		expect(sentTo).toEqual(["ada@example.com"]);
+	});
+
+	it("establishes sign-in from the authoritative session, not from the code response", async () => {
+		const events: string[] = [];
+		const authentication = createClientAccountAuthentication(
+			port({
+				signInWithCode: async (input) => {
+					events.push(`code ${input.email} ${input.code}`);
+				},
+				getSession: async () => {
+					events.push("session");
+					return ACTIVE_SESSION;
+				},
+			}),
+			{ now: NOW },
+		);
+
+		const session = await authentication.signInWithCode({
 			email: "ada@example.com",
-			password: "correct horse battery staple",
+			code: "042917",
 		});
 
 		expect(session).toEqual(ACTIVE_SESSION);
-		expect(events).toEqual(["sign-in", "session"]);
+		expect(events).toEqual(["code ada@example.com 042917", "session"]);
 	});
 
 	it("never exposes an expired session as authenticated", async () => {
-		const port: ClientAuthPort = {
-			signUpEmail: async () => undefined,
-			signInEmail: async () => undefined,
-			signOut: async () => undefined,
-			getSession: async () => ({
-				...ACTIVE_SESSION,
-				expiresAt: new Date("2026-08-31T10:59:59.000Z"),
+		const authentication = createClientAccountAuthentication(
+			port({
+				getSession: async () => ({
+					...ACTIVE_SESSION,
+					expiresAt: new Date("2026-08-31T10:59:59.000Z"),
+				}),
 			}),
-		};
-		const authentication = createClientAccountAuthentication(port, {
-			now: () => new Date("2026-08-31T11:00:00.000Z"),
-		});
+			{ now: NOW },
+		);
 
 		expect(
-			await authentication.signIn({ email: "ada@example.com", password: "password" }),
+			await authentication.signInWithCode({ email: "ada@example.com", code: "042917" }),
 		).toBeNull();
 	});
 
-	it("registers by email and only returns the session created by the provider", async () => {
-		let registered: { email: string; name: string; password: string } | null = null;
-		const port: ClientAuthPort = {
-			signUpEmail: async (input) => {
-				registered = input;
-			},
-			signInEmail: async () => undefined,
-			signOut: async () => undefined,
-			getSession: async () => ACTIVE_SESSION,
-		};
-		const authentication = createClientAccountAuthentication(port, {
-			now: () => new Date("2026-08-31T11:00:00.000Z"),
-		});
-
-		const session = await authentication.signUp({
-			email: "ada@example.com",
-			name: "Ada",
-			password: "correct horse battery staple",
-		});
-
-		expect(registered).toEqual({
-			email: "ada@example.com",
-			name: "Ada",
-			password: "correct horse battery staple",
-		});
-		expect(session).toEqual(ACTIVE_SESSION);
-	});
-
-	it("refreshes the current session without replaying credentials", async () => {
-		const port: ClientAuthPort = {
-			signUpEmail: async () => undefined,
-			signInEmail: async () => undefined,
-			signOut: async () => undefined,
-			getSession: async () => ACTIVE_SESSION,
-		};
-		const authentication = createClientAccountAuthentication(port, {
-			now: () => new Date("2026-08-31T11:00:00.000Z"),
-		});
+	it("refreshes the current session without replaying a code", async () => {
+		const authentication = createClientAccountAuthentication(port(), { now: NOW });
 
 		expect(await authentication.refreshSession()).toEqual(ACTIVE_SESSION);
 	});
 
 	it("signs out through the provider boundary", async () => {
 		let signedOut = false;
-		const port: ClientAuthPort = {
-			signUpEmail: async () => undefined,
-			signInEmail: async () => undefined,
-			signOut: async () => {
-				signedOut = true;
-			},
-			getSession: async () => ACTIVE_SESSION,
-		};
-		const authentication = createClientAccountAuthentication(port, {
-			now: () => new Date("2026-08-31T11:00:00.000Z"),
-		});
+		const authentication = createClientAccountAuthentication(
+			port({
+				signOut: async () => {
+					signedOut = true;
+				},
+			}),
+			{ now: NOW },
+		);
 
 		await authentication.signOut();
 

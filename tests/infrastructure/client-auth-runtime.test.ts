@@ -3,8 +3,8 @@ import { clientAuthRuntimeFromEnvironment } from "@/infrastructure/auth/client-a
 import { describe, expect, it } from "vitest";
 
 const port: ClientAuthPort = {
-	signUpEmail: async () => undefined,
-	signInEmail: async () => undefined,
+	sendSignInCode: async () => undefined,
+	signInWithCode: async () => undefined,
 	signOut: async () => undefined,
 	getSession: async () => null,
 };

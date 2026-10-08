@@ -30,8 +30,8 @@ const refusedWith =
 	};
 
 const clientWith = (overrides: Partial<BetterAuthBrowserClient> = {}): BetterAuthBrowserClient => ({
-	signUp: { email: async () => successful({}) },
-	signIn: { email: async () => successful({}) },
+	emailOtp: { sendVerificationOtp: async () => successful({ success: true }) },
+	signIn: { emailOtp: async () => successful({}) },
 	signOut: async () => successful({ success: true }),
 	getSession: async () => successful(null),
 	...overrides,
@@ -62,40 +62,35 @@ describe("the Better Auth browser adapter", () => {
 		});
 	});
 
-	it("uses Better Auth's email registration action", async () => {
-		let received: { email: string; name: string; password: string } | null = null;
+	it("asks Better Auth to mail a sign-in code, the one type of code there is", async () => {
+		let received: unknown = null;
 		const adapter = new BetterAuthClientAdapter(
 			clientWith({
-				signUp: {
-					email: async (input) => {
+				emailOtp: {
+					sendVerificationOtp: async (input) => {
 						received = input;
-						return successful({});
+						return successful({ success: true });
 					},
 				},
 			}),
 		);
 
-		await adapter.signUpEmail({
-			email: "ada@example.com",
-			name: "Ada",
-			password: "correct horse battery staple",
-		});
+		await adapter.sendSignInCode("ada@example.com");
 
 		// The one thing the adapter adds is the hook that reads a limiter's wait.
 		expect(received).toEqual({
 			email: "ada@example.com",
-			name: "Ada",
-			password: "correct horse battery staple",
+			type: "sign-in",
 			fetchOptions: { onError: expect.any(Function) },
 		});
 	});
 
-	it("uses Better Auth's email sign-in action", async () => {
-		let received: { email: string; password: string } | null = null;
+	it("signs in with the address and the code through Better Auth's code sign-in", async () => {
+		let received: unknown = null;
 		const adapter = new BetterAuthClientAdapter(
 			clientWith({
 				signIn: {
-					email: async (input) => {
+					emailOtp: async (input) => {
 						received = input;
 						return successful({});
 					},
@@ -103,11 +98,11 @@ describe("the Better Auth browser adapter", () => {
 			}),
 		);
 
-		await adapter.signInEmail({ email: "ada@example.com", password: "password" });
+		await adapter.signInWithCode({ email: "ada@example.com", code: "042917" });
 
 		expect(received).toEqual({
 			email: "ada@example.com",
-			password: "password",
+			otp: "042917",
 			fetchOptions: { onError: expect.any(Function) },
 		});
 	});
@@ -118,7 +113,7 @@ describe("the Better Auth browser adapter", () => {
 		const adapter = new BetterAuthClientAdapter(
 			clientWith({
 				signIn: {
-					email: async (input) => {
+					emailOtp: async (input) => {
 						receivedSignal = input.fetchOptions?.signal;
 						return successful({});
 					},
@@ -126,8 +121,8 @@ describe("the Better Auth browser adapter", () => {
 			}),
 		);
 
-		await adapter.signInEmail(
-			{ email: "ada@example.com", password: "password" },
+		await adapter.signInWithCode(
+			{ email: "ada@example.com", code: "042917" },
 			{ signal: controller.signal },
 		);
 
@@ -154,20 +149,19 @@ describe("the Better Auth browser adapter", () => {
 		const adapter = new BetterAuthClientAdapter(
 			clientWith({
 				signIn: {
-					email: async () =>
-						failed(401, "INVALID_EMAIL_OR_PASSWORD", "database password=super-secret"),
+					emailOtp: async () => failed(400, "INVALID_OTP", "database otp=super-secret"),
 				},
 			}),
 		);
 
 		const failure = await adapter
-			.signInEmail({ email: "ada@example.com", password: "wrong" })
+			.signInWithCode({ email: "ada@example.com", code: "000000" })
 			.catch((error: unknown) => error);
 
 		expect(failure).toBeInstanceOf(ClientAuthFailure);
 		expect(failure).toMatchObject({
-			code: "invalid-credentials",
-			message: "Email or password is incorrect.",
+			code: "invalid-code",
+			message: "That code does not match. Check the email and try again.",
 		});
 		expect(String(failure)).not.toContain("super-secret");
 	});
@@ -185,25 +179,21 @@ describe("the Better Auth browser adapter", () => {
 		});
 	});
 
-	it("reports an existing account without reflecting provider details", async () => {
+	it.each([
+		[400, "OTP_EXPIRED"],
+		[403, "TOO_MANY_ATTEMPTS"],
+	] as const)("says a code refused with %s %s no longer works", async (status, providerCode) => {
 		const adapter = new BetterAuthClientAdapter(
 			clientWith({
-				signUp: {
-					email: async () =>
-						failed(
-							422,
-							"USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL",
-							"duplicate key value violates users_email_key",
-						),
-				},
+				signIn: { emailOtp: async () => failed(status, providerCode, "provider wording") },
 			}),
 		);
 
 		await expect(
-			adapter.signUpEmail({ email: "ada@example.com", name: "Ada", password: "password" }),
+			adapter.signInWithCode({ email: "ada@example.com", code: "042917" }),
 		).rejects.toMatchObject({
-			code: "account-exists",
-			message: "An account already uses this email.",
+			code: "code-expired",
+			message: "This code no longer works. Send a new one.",
 		});
 	});
 
@@ -224,8 +214,8 @@ describe("the Better Auth browser adapter", () => {
 		const limitedWith = (headers?: Record<string, string>) =>
 			new BetterAuthClientAdapter(
 				clientWith({
-					signUp: { email: refusedWith(429, headers) },
-					signIn: { email: refusedWith(429, headers) },
+					emailOtp: { sendVerificationOtp: refusedWith(429, headers) },
+					signIn: { emailOtp: refusedWith(429, headers) },
 					signOut: refusedWith(429, headers),
 					getSession: refusedWith(429, headers),
 				}),
@@ -233,14 +223,13 @@ describe("the Better Auth browser adapter", () => {
 
 		it.each([
 			[
-				"a sign-up",
-				(adapter: BetterAuthClientAdapter) =>
-					adapter.signUpEmail({ email: "ada@example.com", name: "Ada", password: "password" }),
+				"a code sent",
+				(adapter: BetterAuthClientAdapter) => adapter.sendSignInCode("ada@example.com"),
 			],
 			[
-				"a sign-in",
+				"a code tried",
 				(adapter: BetterAuthClientAdapter) =>
-					adapter.signInEmail({ email: "ada@example.com", password: "password" }),
+					adapter.signInWithCode({ email: "ada@example.com", code: "042917" }),
 			],
 			["a sign-out", (adapter: BetterAuthClientAdapter) => adapter.signOut()],
 			["a session read", (adapter: BetterAuthClientAdapter) => adapter.getSession()],
@@ -265,9 +254,7 @@ describe("the Better Auth browser adapter", () => {
 			["a whole minute", { "x-retry-after": "60" }, 60, "1 minute"],
 			["minutes, rounded up", { "x-retry-after": "125" }, 125, "3 minutes"],
 		])("reads the wait from %s", async (_name, headers, seconds, phrase) => {
-			await expect(
-				limitedWith(headers).signInEmail({ email: "a@b.co", password: "x" }),
-			).rejects.toMatchObject({
+			await expect(limitedWith(headers).sendSignInCode("a@b.co")).rejects.toMatchObject({
 				code: "rate-limited",
 				retryAfterSeconds: seconds,
 				message: `Too many attempts. Try again in ${phrase}.`,
@@ -281,9 +268,7 @@ describe("the Better Auth browser adapter", () => {
 			["a negative number", { "x-retry-after": "-3" }],
 			["words", { "x-retry-after": "soon" }],
 		])("says to try again in a moment when it gets %s", async (_name, headers) => {
-			await expect(
-				limitedWith(headers).signInEmail({ email: "a@b.co", password: "x" }),
-			).rejects.toMatchObject({
+			await expect(limitedWith(headers).sendSignInCode("a@b.co")).rejects.toMatchObject({
 				code: "rate-limited",
 				retryAfterSeconds: null,
 				message: "Too many attempts. Try again in a moment.",
@@ -309,22 +294,20 @@ describe("the Better Auth browser adapter", () => {
 		expect(String(failure)).not.toContain("secret.example");
 	});
 
-	it.each([
-		["PASSWORD_TOO_SHORT", "password-rejected"],
-		["PASSWORD_TOO_LONG", "password-rejected"],
-		["EMAIL_NOT_VERIFIED", "email-not-verified"],
-	] as const)("maps %s to the stable %s failure", async (providerCode, expectedCode) => {
+	it("maps an address the provider will not mail to the stable invalid-email failure", async () => {
 		const adapter = new BetterAuthClientAdapter(
 			clientWith({
-				signIn: {
-					email: async () => failed(400, providerCode, "provider wording may change"),
+				emailOtp: {
+					sendVerificationOtp: async () =>
+						failed(400, "INVALID_EMAIL", "provider wording may change"),
 				},
 			}),
 		);
 
-		await expect(
-			adapter.signInEmail({ email: "ada@example.com", password: "password" }),
-		).rejects.toMatchObject({ code: expectedCode });
+		await expect(adapter.sendSignInCode("ada@")).rejects.toMatchObject({
+			code: "invalid-email",
+			message: "Enter an email address like ada@example.com.",
+		});
 	});
 
 	it("treats an expired or revoked session as anonymous", async () => {

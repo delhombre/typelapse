@@ -36,8 +36,8 @@ const SESSION: ClientSession = {
 
 function authPort(session: ClientSession | null): ClientAuthPort {
 	return {
-		signUpEmail: async () => undefined,
-		signInEmail: async () => undefined,
+		sendSignInCode: async () => undefined,
+		signInWithCode: async () => undefined,
 		signOut: async () => undefined,
 		getSession: async () => session,
 	};
@@ -400,14 +400,18 @@ describe("StudioAccountIsland when the auth rate limiter answers", () => {
 			});
 		const server = {
 			signedIn: false,
-			signUp: (): Response => json({ token: "t", user: SESSION.account }),
+			sendCode: (): Response => json({ success: true }),
+			signIn: (): Response => json({ token: "t", user: SESSION.account }),
 		};
 		vi.stubGlobal(
 			"fetch",
 			vi.fn(async (input: RequestInfo | URL) => {
 				const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
-				if (path.endsWith("/sign-up/email")) {
-					const answer = server.signUp();
+				if (path.endsWith("/email-otp/send-verification-otp")) {
+					return server.sendCode();
+				}
+				if (path.endsWith("/sign-in/email-otp")) {
+					const answer = server.signIn();
 					server.signedIn = answer.ok;
 					return answer;
 				}
@@ -451,19 +455,14 @@ describe("StudioAccountIsland when the auth rate limiter answers", () => {
 		);
 	}
 
-	/** Open the panel on its sign-up form and press Create account. */
-	async function createAccount() {
+	/** Open the panel, type an address and ask for a code. */
+	async function askForCode() {
 		fireEvent.click(await screen.findByRole("button", { name: "Sign in" }));
 		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
-		fireEvent.click(within(panel).getByRole("button", { name: "New here? Create an account" }));
-		fireEvent.change(within(panel).getByLabelText("Name"), { target: { value: "Ada Lovelace" } });
 		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
 			target: { value: "ada@example.com" },
 		});
-		fireEvent.change(within(panel).getByLabelText("Password"), {
-			target: { value: "correct horse battery staple" },
-		});
-		fireEvent.click(within(panel).getByRole("button", { name: "Create account" }));
+		fireEvent.click(within(panel).getByRole("button", { name: "Email me a code" }));
 		return panel;
 	}
 
@@ -471,12 +470,23 @@ describe("StudioAccountIsland when the auth rate limiter answers", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("keeps the sign-up form and says how long to wait, and the next press goes through", async () => {
-		const { server, json, limited } = authServer();
-		server.signUp = () => limited("8");
+	it("signs in through the real client: the address, then the code typed back", async () => {
+		authServer();
 		renderIsland();
 
-		const panel = await createAccount();
+		const panel = await askForCode();
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+		fireEvent.change(code, { target: { value: "042917" } });
+
+		expect(await screen.findByRole("button", { name: "Account for Ada Lovelace" })).toBeTruthy();
+	});
+
+	it("keeps the address form and says how long to wait, and the next press goes through", async () => {
+		const { server, json, limited } = authServer();
+		server.sendCode = () => limited("8");
+		renderIsland();
+
+		const panel = await askForCode();
 
 		const refusal = await within(panel).findByRole("alert");
 		expect(refusal.textContent).toBe("Too many attempts. Try again in 8 seconds.");
@@ -485,12 +495,11 @@ describe("StudioAccountIsland when the auth rate limiter answers", () => {
 		expect((within(panel).getByRole("textbox", { name: "Email" }) as HTMLInputElement).value).toBe(
 			"ada@example.com",
 		);
-		expect(within(panel).getByRole("button", { name: "Create account" })).toBeTruthy();
 
-		server.signUp = () => json({ token: "t", user: SESSION.account });
-		fireEvent.click(within(panel).getByRole("button", { name: "Create account" }));
+		server.sendCode = () => json({ success: true });
+		fireEvent.click(within(panel).getByRole("button", { name: "Email me a code" }));
 
-		expect(await screen.findByRole("button", { name: "Account for Ada Lovelace" })).toBeTruthy();
+		expect(await within(panel).findByRole("textbox", { name: "Code" })).toBeTruthy();
 	});
 
 	// The other half of the rule: "Cloud unavailable" is for a service that is
@@ -509,10 +518,10 @@ describe("StudioAccountIsland when the auth rate limiter answers", () => {
 		],
 	])("still reads Cloud unavailable, with no form, when the service %s", async (_case, answer) => {
 		const { server, json } = authServer();
-		server.signUp = () => answer(json);
+		server.sendCode = () => answer(json);
 		renderIsland();
 
-		const panel = await createAccount();
+		const panel = await askForCode();
 
 		expect(await within(panel).findByText("Cloud unavailable")).toBeTruthy();
 		expect(within(panel).queryByRole("textbox", { name: "Email" })).toBeNull();

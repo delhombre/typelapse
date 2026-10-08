@@ -15,7 +15,7 @@ export function fakeMail(): FakeMail {
 			sent.push(message);
 		},
 		codeFor(address) {
-			const mail = sent.findLast((message) => message.to === address);
+			const mail = [...sent].reverse().find((message) => message.to === address);
 			const code = mail?.text.match(/\b\d{6}\b/)?.[0];
 			if (!code) {
 				throw new Error(`no code was mailed to ${address}`);
