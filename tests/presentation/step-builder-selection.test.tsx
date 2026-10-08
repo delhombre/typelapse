@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { addTextLayer } from "@/application/project/multimedia-authoring";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { TEMPLATE_CATALOG } from "@/application/templates/catalog";
@@ -59,8 +60,13 @@ describe("StepBuilder selection follow", () => {
 		expect(screen.getAllByRole("textbox", { name: /focus lines/ }).length).toBeGreaterThan(0);
 		expect(screen.getAllByRole("textbox", { name: /caption/ }).length).toBeGreaterThan(0);
 		for (const field of fields) {
-			expect(field.className).toContain("pointer-coarse:text-base");
+			expect(field.className).toContain("sc-scene-field");
 		}
+		const css = readFileSync("src/presentation/studio-camera.css", "utf8");
+		const coarse = css
+			.split("@media (pointer: coarse) {")
+			.filter((b) => b.includes(".sc-scene-field {"));
+		expect(coarse.join("\n")).toMatch(/\.sc-scene-field \{[^}]*font-size:\s*16px/);
 	});
 
 	it("keeps the full scene list on mobile and restores a deleted scene in place", () => {

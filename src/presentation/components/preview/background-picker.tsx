@@ -31,30 +31,36 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
 		value: "radial-gradient(ellipse at 50% 30%, #e8f0fe 0%, #f0f4f8 50%, #e2e8f0 100%)",
 		preview: "linear-gradient(135deg, #e8f0fe, #e2e8f0)",
 	},
+	/* The five colour presets are cut from the animated meshes' own ramps
+	   (application/backgrounds/mesh-gradient.ts), two stops each, so a static
+	   backdrop and the mesh beside it are one family. They used to be the stock
+	   "uiGradients" set (a violet, a pink, a neon cyan and a neon green) that no
+	   other surface in the product shares. A two-stop linear gradient is also the
+	   one form the canvas painter reads as is. */
 	{
-		name: "Candy",
-		value: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-		preview: "linear-gradient(135deg, #667eea, #764ba2)",
+		name: "Honey",
+		value: "linear-gradient(135deg, #f1be01 0%, #b45309 100%)",
+		preview: "linear-gradient(135deg, #f1be01, #b45309)",
 	},
 	{
 		name: "Sunset",
-		value: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-		preview: "linear-gradient(135deg, #f093fb, #f5576c)",
+		value: "linear-gradient(135deg, #f97316 0%, #dc2626 100%)",
+		preview: "linear-gradient(135deg, #f97316, #dc2626)",
 	},
 	{
 		name: "Ocean",
-		value: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-		preview: "linear-gradient(135deg, #4facfe, #00f2fe)",
+		value: "linear-gradient(135deg, #0ea5e9 0%, #14b8a6 100%)",
+		preview: "linear-gradient(135deg, #0ea5e9, #14b8a6)",
 	},
 	{
 		name: "Forest",
-		value: "linear-gradient(135deg, #38ef7d 0%, #11998e 100%)",
-		preview: "linear-gradient(135deg, #38ef7d, #11998e)",
+		value: "linear-gradient(135deg, #059669 0%, #65a30d 100%)",
+		preview: "linear-gradient(135deg, #059669, #65a30d)",
 	},
 	{
 		name: "Ember",
-		value: "linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
-		preview: "linear-gradient(135deg, #f7971e, #ffd200)",
+		value: "linear-gradient(135deg, #e11d48 0%, #f59e0b 100%)",
+		preview: "linear-gradient(135deg, #e11d48, #f59e0b)",
 	},
 	{
 		name: "None",

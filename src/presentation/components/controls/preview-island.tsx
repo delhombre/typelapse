@@ -1,5 +1,10 @@
 import { exportCtaDetail, exportCtaLabel } from "@/application/export/export-label";
-import { FEED_ASPECTS, feedEntryFor, socialCorrection } from "@/application/social/feed-aspects";
+import {
+	FEED_ASPECTS,
+	feedEntryFor,
+	lockedFeeds,
+	socialCorrection,
+} from "@/application/social/feed-aspects";
 import {
 	PLATFORM_LABELS,
 	type SocialPlatform,
@@ -48,7 +53,7 @@ import {
 	WavePulse,
 	X,
 } from "reicon-react";
-import { CLUSTERS, type ClusterId, ClusterPanel } from "./cluster-panels";
+import { CLUSTERS, type ClusterId, ClusterPanel, RenderNotes } from "./cluster-panels";
 import { ISLAND_SPRING } from "./island-motion";
 import { StudioAspectMode, StudioClusterMode } from "./studio-cluster-mode";
 
@@ -455,6 +460,8 @@ export function PreviewIsland({
 		>
 			{sheetLayer}
 
+			{variant === "timeline" && cluster === "export" ? <RenderNotes variant="pill" /> : null}
+
 			<motion.div
 				className="si-island"
 				role="toolbar"
@@ -473,6 +480,7 @@ export function PreviewIsland({
 							key={platforms.length === 0 ? "social-shape" : "social-feed"}
 							ref={mountSocialRow}
 							className="si-row"
+							data-row="social"
 							{...rowMotion(reduce)}
 						>
 							<button
@@ -744,6 +752,13 @@ function IslandFill({ totalSteps }: { totalSteps: number }) {
 	return <div className="si-fill" style={{ width: `${fill * 100}%` }} />;
 }
 
+/**
+ * The least scroller height that pins Render: its row (70px with padding) and two
+ * rows of 44px chips with their gap. Measured at 375x667, where the panel room is
+ * 106px, and at 390x844, where it holds them.
+ */
+const STICKY_FOOTER_ROOM = 70 + 2 * 44 + 12;
+
 function ClusterSheet({
 	cluster,
 	reduce,
@@ -763,6 +778,20 @@ function ClusterSheet({
 	// instead of being cut flat, and only once there is something above to show.
 	const bodyRef = useRef<HTMLDivElement>(null);
 	const { edges, measure } = useScrollEdges(bodyRef);
+	// Whether the sheet's scroller holds a pinned Render row and two rows of chips
+	// (STICKY_FOOTER_ROOM); under that the Render row is static (app.css).
+	const [roomy, setRoomy] = useState(true);
+	useEffect(() => {
+		const node = bodyRef.current;
+		if (!node || typeof ResizeObserver === "undefined") {
+			return;
+		}
+		const update = () => setRoomy(node.clientHeight >= STICKY_FOOTER_ROOM);
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(node);
+		return () => observer.disconnect();
+	}, []);
 
 	// On the way in, focus lands on the tab that is open: it says where you are,
 	// and it is also the fastest way back out (Escape) or sideways (the tab
@@ -838,6 +867,7 @@ function ClusterSheet({
 				ref={bodyRef}
 				className="si-sheet-body"
 				data-more-above={edges.above}
+				data-roomy={roomy}
 				onScroll={measure}
 				transition={reduce ? { duration: 0 } : springs.default}
 			>
@@ -939,6 +969,21 @@ function FeedPicker({
 					</button>
 				);
 			})}
+			{lockedFeeds(platforms).map((locked) => (
+				// Off, with the reason in its own words: "where did LinkedIn go" has an
+				// answer on the row. There is no room for it at phone width (the row is
+				// the whole screen already), so it is hidden there (app.css).
+				<button
+					key={locked.platform}
+					type="button"
+					disabled
+					data-island-feed-locked=""
+					className="si-button si-seg-option si-seg-locked"
+				>
+					<span className="si-seg-label">{PLATFORM_LABELS[locked.platform]}</span>
+					<span className="si-seg-reason">{locked.needs}</span>
+				</button>
+			))}
 		</div>
 	);
 }

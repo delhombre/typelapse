@@ -51,7 +51,7 @@ test.describe("Studio shell: the scene stays put and stays legible", () => {
 			await expect(page.locator(".sc-source-menu")).toBeVisible();
 			expect(await paint(".sc-source-menu")).toEqual({ alpha: 1, blur: "none" });
 
-			await page.getByRole("menuitem", { name: "Import from URL" }).click();
+			await page.getByRole("menuitem", { name: "Paste a link" }).click();
 			await expect(page.locator(".sc-source-form-popover")).toBeVisible();
 			expect(await paint(".sc-source-form-popover")).toEqual({ alpha: 1, blur: "none" });
 		});

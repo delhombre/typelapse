@@ -25,7 +25,7 @@ async function importTitledPullRequest(page: Page): Promise<void> {
 		return route.fulfill({ status: 200, json: { title: PR_TITLE } });
 	});
 	await openStudio(page);
-	await addSource(page, "Import a git diff");
+	await addSource(page, "Import a change");
 	await page.getByRole("textbox", { name: "Git diff or GitHub pull request link" }).fill(PR_URL);
 	await page.getByRole("button", { name: "Apply" }).click();
 	await expect(page.getByRole("textbox", { name: "Project name" })).toHaveValue(PR_TITLE);

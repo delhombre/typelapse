@@ -18,6 +18,7 @@ import {
 	useState,
 } from "react";
 import { ChevronLeft, Link } from "reicon-react";
+import { SourceError } from "./source-error";
 import { sourcePopoverMotion } from "./source-popover-motion";
 
 /**
@@ -241,11 +242,7 @@ export function UrlImportMenu({
 										<BusyLabel busy={loading}>Fetch</BusyLabel>
 									</motion.button>
 								</form>
-								{message && (
-									<p id={errorId} role="alert" className="sc-source-error">
-										{message}
-									</p>
-								)}
+								{message && <SourceError id={errorId} message={message} />}
 							</>
 						)}
 					</motion.div>

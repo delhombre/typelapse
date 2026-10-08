@@ -29,6 +29,10 @@
 	--camera-ink: var(--color-neutral-900);
 	--camera-line: var(--sc-hairline);
 	--camera-muted: #6e6b64;
+	/* A disabled control is a colour, never an opacity (DECISIONS D16): 5.0:1 on
+	   white, 4.8:1 on the paper, 4.6:1 on the pill. The island and its status
+	   restate it for their dark plate (app.css, `--dock-disabled`). */
+	--camera-disabled: #726f68;
 	--camera-pill: var(--color-neutral-100);
 	--camera-paper: var(--color-neutral-50);
 	/* The opaque floating surface: the card and the timeline. Opaque rather than
@@ -52,7 +56,7 @@
 	/* A bottom sheet's depth: a ring and a shadow cast upward, since it rises from
 	   the bottom edge. */
 	--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18);
-	/* An error in a field's own words: 5.0:1 on the paper, 7.3:1 on the dark paper. */
+	/* An error in a field's own words: 4.94:1 on the landing paper, 7.9:1 on the dark paper. */
 	--camera-danger: #c53a3a;
 	/* The studio's type scale: five sizes, three weights, on both shells. Anything
 	   smaller than 9px is a texture (the clips' code), not text. */
@@ -126,6 +130,7 @@
 .dark :is(.studio-camera-root, .sc-root-mobile, .sc-tokens, .sc-sheet) {
 	--camera-ink: #f5f3ef;
 	--camera-muted: #a8a39a;
+	--camera-disabled: #958f87;
 	--camera-pill: #292624;
 	--camera-paper: var(--color-neutral-950);
 	--camera-surface: #1e1c1a;
@@ -626,8 +631,8 @@
 }
 
 .studio-camera-root .sc-history button:disabled {
-	opacity: 0.32;
-	pointer-events: none;
+	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 /* A header trigger wears the material of the capsules beside it: its fill, a ring
@@ -812,11 +817,20 @@
 
 /* A refusal, under the field it is about. */
 .sc-source-error {
+	display: flex;
+	align-items: flex-start;
+	gap: 6px;
 	margin: 6px 2px 0;
 	color: var(--camera-danger);
-	font-size: var(--sc-text-sm);
+	font-size: var(--sc-text-md);
 	line-height: 1.45;
 	text-wrap: pretty;
+}
+
+/* The icon sits on the first line's centre, whatever the sentence's length. */
+.sc-source-error > svg {
+	flex: none;
+	margin-top: 2px;
 }
 
 /* The link field and the diff box, drawn like the inspector's fields
@@ -1751,7 +1765,8 @@ textarea.sc-source-field {
 }
 
 .capture-card footer button:disabled {
-	opacity: 0.45;
+	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 .showcase-grid {
@@ -2031,9 +2046,7 @@ textarea.sc-source-field {
 	color: var(--camera-muted);
 	font-size: var(--sc-text-xs);
 	font-weight: var(--sc-weight-medium);
-	opacity: 0.62;
-	transition: color 150ms var(--ease-out), opacity 150ms var(--ease-out), transform 150ms
-		var(--ease-out);
+	transition: color 150ms var(--ease-out), transform 150ms var(--ease-out);
 }
 
 .showcase-card-action svg {
@@ -2428,7 +2441,8 @@ textarea.sc-source-field {
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-strip-head button:disabled {
-	opacity: 0.28;
+	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-field {
@@ -2540,7 +2554,8 @@ textarea.sc-source-field {
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-layout > header button:disabled {
-	opacity: 0.26;
+	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 :is(.studio-camera-root, .sc-sheet) .sc-layer-presets {
@@ -2756,8 +2771,14 @@ textarea.sc-source-field {
 	color: var(--camera-ink);
 }
 
+/* A muted layer is not a disabled control but it reads the same way, so it takes the
+   same token and a cue that is not colour: its name struck through (D16). */
 :is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-muted] {
-	opacity: 0.46;
+	color: var(--camera-disabled);
+}
+
+:is(.studio-camera-root, .sc-sheet) .sc-layer-pill[data-muted] span {
+	text-decoration: line-through;
 }
 
 /* The desktop card under a finger (a touch laptop, an iPad in landscape): the
@@ -3241,22 +3262,6 @@ textarea.sc-source-field {
 
 .studio-camera-root .si-status .si-status-dismiss {
 	min-width: 34px;
-}
-
-/* Busy, Render keeps its fill: an amber at 55% opacity on the dark plate read
-   as olive, a broken button rather than a working one. The words carry the
-   state; the cursor says to wait. */
-.studio-camera-root .si-cta[aria-disabled="true"] {
-	cursor: progress;
-	opacity: 1;
-}
-
-/* Nothing to render is a refusal, so it takes a muted fill of its own rather
-   than a translucent amber. */
-.studio-camera-root .si-cta:disabled {
-	background: rgb(255 255 255 / 0.08);
-	color: #8e8c95;
-	opacity: 1;
 }
 
 /* Sizes and rates are read as a set; their figures keep one width. */
@@ -4037,7 +4042,8 @@ textarea.sc-source-field {
 }
 
 .studio-timeline-actions button:disabled {
-	opacity: 0.32;
+	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 .studio-timeline-actions .studio-timeline-play {
@@ -4416,8 +4422,11 @@ textarea.sc-source-field {
 }
 
 /* Add scene captures the editor, and an empty editor has nothing to capture. */
-.studio-timeline-add:disabled {
-	opacity: 0.4;
+.studio-timeline-add:disabled,
+.dark .studio-timeline-add:disabled {
+	border-color: var(--camera-line);
+	background: transparent;
+	color: var(--camera-disabled);
 	pointer-events: none;
 }
 
@@ -4667,7 +4676,7 @@ textarea.sc-source-field {
 	position: fixed;
 	inset: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px))
 		max(10px, env(safe-area-inset-bottom, 0px)) max(10px, env(safe-area-inset-left, 0px));
-	z-index: 60;
+	z-index: var(--z-veil);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -4704,6 +4713,539 @@ textarea.sc-source-field {
 
 /* A media choice waits while the files already chosen are being added. */
 .sc-source-choice:disabled {
-	opacity: 0.5;
+	color: var(--camera-disabled);
 	pointer-events: none;
+	outline: 1px dashed color-mix(in oklch, currentColor 45%, transparent);
+	outline-offset: -1px;
+}
+
+.sc-source-choice:disabled :is(strong, small) {
+	color: inherit;
+}
+
+/* Under a finger the scene's Undo chip, and the project menu's last row, are 44px
+   (DECISIONS D10). The chip's holder grows around it by its own padding. */
+@media (pointer: coarse) {
+	.studio-scene-undo button,
+	.scene-list-undo button {
+		min-width: 66px;
+		height: 44px;
+	}
+
+	.studio-scene-undo,
+	.scene-list-undo {
+		height: auto;
+		min-height: 54px;
+	}
+
+	.sc-project-new {
+		height: 44px;
+	}
+}
+
+/* ───────────────────────────── Notices ─────────────────────────────
+   The toast stack is mounted beside the shell and reads the studio's tokens by
+   name (`sc-tokens`). One opaque warm surface like every menu: the ring is inside
+   the shadow stack, no border beside a shadow and no blur behind text. The mark's
+   tile is the card's 16px less the 8px it is inset by, so the corners share a
+   centre (DECISIONS D3). */
+.sc-notice {
+	display: flex;
+	width: 100%;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 8px;
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	box-shadow: var(--camera-raised);
+	color: var(--camera-ink);
+}
+
+.sc-notice-mark {
+	display: flex;
+	width: 36px;
+	height: 36px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border-radius: calc(var(--r-surface) - 8px);
+	background: var(--camera-pill);
+	color: var(--camera-muted);
+}
+
+.sc-notice-mark[data-tone="error"] {
+	background: color-mix(in oklch, var(--camera-danger) 12%, var(--camera-surface));
+	color: var(--camera-danger);
+}
+
+.sc-notice-copy {
+	min-width: 0;
+	flex: 1 1 auto;
+	padding-block: 4px;
+}
+
+.sc-notice-copy p {
+	margin: 0;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-medium);
+	letter-spacing: -0.01em;
+	line-height: 1.35;
+}
+
+.sc-notice-copy small {
+	display: block;
+	margin-top: 2px;
+	overflow: hidden;
+	color: var(--camera-muted);
+	font-family: var(--font-mono);
+	font-size: var(--sc-text-md);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sc-notice-action,
+.sc-notice-dismiss {
+	display: inline-flex;
+	height: 40px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border: 0;
+	border-radius: calc(var(--r-surface) - 8px);
+	background: transparent;
+	font-family: inherit;
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+
+.sc-notice-action {
+	padding: 0 12px;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-strong);
+}
+
+.sc-notice-dismiss {
+	width: 40px;
+	color: var(--camera-muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-notice-action:hover,
+	.sc-notice-dismiss:hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+}
+
+/* Under a finger both are 44px, side by side with no gap to spare: the card's own
+   8px of padding holds them. */
+@media (pointer: coarse) {
+	.sc-notice-action,
+	.sc-notice-dismiss {
+		height: 44px;
+	}
+
+	.sc-notice-dismiss {
+		width: 44px;
+	}
+}
+
+/* Monaco draws a floating keyboard button over the editor whenever it thinks it is
+   on an iPad, and on any coarse-pointer phone it sits on top of the last line of
+   code. The phone's keyboard comes up from the field itself. */
+.monaco-editor .iPadShowKeyboard {
+	display: none !important;
+}
+
+/* ───────────────────────────── The scene list ─────────────────────────────
+   The phone sheet's list and the desktop card's inspector, on the studio's own
+   tokens. A row is a surface of the card's radius with a ring inside its shadow;
+   the fields in it are the field radius, which is the card's less the 8px of
+   padding (DECISIONS D3). Prose and states are 12px, the floor (D10 of the
+   2026-10-08 audit); a field types at 16px under a finger. */
+.sc-scenes {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+/* A delete leaves the list shorter and the scroller where it was: the head keeps
+   a margin when it is scrolled back to, so the count and Capture are not flush
+   against the top edge. */
+.sc-scenes-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	scroll-margin-top: 12px;
+}
+
+.sc-scenes-head[data-wrap] {
+	flex-wrap: wrap;
+	gap: 8px 12px;
+}
+
+.sc-scenes-count {
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--sc-weight-regular);
+}
+
+.sc-scenes-title {
+	margin: 0;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-strong);
+	letter-spacing: -0.01em;
+	white-space: nowrap;
+}
+
+.sc-scenes-actions {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 4px;
+}
+
+.sc-scenes-reason {
+	margin: 0;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	line-height: 16px;
+}
+
+.sc-scenes-empty {
+	margin: 0;
+	padding: 16px 12px;
+	border: 1px dashed var(--camera-line);
+	border-radius: var(--r-surface);
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	text-align: center;
+}
+
+.sc-scene-action {
+	display: inline-flex;
+	height: 32px;
+	align-items: center;
+	gap: 6px;
+	padding: 0 12px;
+	border: 1px solid transparent;
+	border-radius: var(--r-control);
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 100ms
+		var(--ease-out);
+}
+
+.sc-scene-action[data-kind="capture"] {
+	border: 1px dashed color-mix(in oklch, var(--camera-ink) 22%, transparent);
+}
+
+.sc-scene-action:active:not(:disabled) {
+	transform: scale(0.97);
+}
+
+.sc-scene-action:disabled {
+	border-color: var(--camera-line);
+	color: var(--camera-disabled);
+}
+
+/* Armed: the error ink and a dot in it, the one red a state may wear. The wash is
+   8% of the same colour, which keeps the label at 4.7:1 on the pill. */
+.sc-scene-action[data-kind="record"][aria-pressed="true"] {
+	background: color-mix(in oklch, var(--camera-danger) 8%, transparent);
+	color: var(--camera-danger);
+}
+
+.sc-scene-record-dot {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	flex: none;
+	border-radius: 999px;
+	background: currentColor;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-scene-action:hover:not(:disabled) {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+
+	.sc-scene-action[data-kind="record"][aria-pressed="true"]:hover {
+		color: var(--camera-danger);
+	}
+}
+
+.sc-scene-list {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.sc-scene-row {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	padding: 8px;
+	border-radius: var(--r-surface);
+	box-shadow: 0 0 0 1px var(--camera-line);
+	transition: background-color 150ms var(--ease-out), box-shadow 150ms var(--ease-out);
+	scroll-margin-top: 12px;
+	cursor: grab;
+}
+
+.sc-scene-row[data-selected] {
+	background: var(--camera-pill);
+}
+
+.sc-scene-row[data-dragging] {
+	cursor: grabbing;
+	opacity: 0.4;
+}
+
+.sc-scene-row[data-drop] {
+	box-shadow: 0 0 0 2px var(--camera-accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-scene-row:hover:not([data-selected]) {
+		background: color-mix(in oklch, var(--camera-pill) 55%, transparent);
+	}
+}
+
+.sc-scene-row-head {
+	display: flex;
+	width: 100%;
+	min-width: 0;
+	align-items: center;
+	gap: 8px;
+}
+
+.sc-scene-handle {
+	display: flex;
+	flex: none;
+	color: var(--camera-muted);
+}
+
+/* The browser's drag-and-drop does not start from a finger. */
+@media (pointer: coarse) {
+	.sc-scene-handle {
+		display: none;
+	}
+
+	.sc-scene-row {
+		cursor: default;
+	}
+}
+
+.sc-scene-pick {
+	display: flex;
+	min-width: 0;
+	min-height: 32px;
+	flex: 1 1 auto;
+	align-items: center;
+	gap: 8px;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--camera-ink);
+	font: inherit;
+	text-align: left;
+}
+
+.sc-scene-number {
+	display: flex;
+	width: 20px;
+	height: 20px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	border-radius: calc(var(--r-field) - 2px);
+	background: var(--camera-pill);
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--sc-weight-medium);
+}
+
+.sc-scene-row[data-selected] .sc-scene-number {
+	background: var(--camera-surface);
+}
+
+/* The one truncation: a single line ends in an ellipsis at the room it has. */
+.sc-scene-preview {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sc-scene-preview[data-code] {
+	font-family: var(--font-mono);
+}
+
+.sc-scene-seconds {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 4px;
+	color: var(--camera-muted);
+	font-family: var(--font-mono);
+	font-size: var(--sc-text-md);
+}
+
+.sc-scene-duration-field {
+	width: 48px;
+	text-align: center;
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+}
+
+.sc-scene-delete {
+	position: relative;
+	display: flex;
+	width: 24px;
+	height: 24px;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--camera-muted);
+	transition: color 150ms var(--ease-out);
+}
+
+.sc-scene-delete::after {
+	content: "";
+	position: absolute;
+	inset: -3px -10px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-scene-delete:hover {
+		color: var(--camera-ink);
+	}
+}
+
+.sc-scene-fields {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 6px;
+}
+
+.sc-scene-fields[data-solo] {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.sc-scene-fields-labelled {
+	gap: 8px;
+}
+
+.sc-scene-labelled {
+	display: grid;
+	min-width: 0;
+	gap: 6px;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+}
+
+.sc-scene-field {
+	width: 100%;
+	min-width: 0;
+	height: 28px;
+	padding: 0 8px;
+	border: 0;
+	border-radius: var(--r-field);
+	background: var(--camera-surface);
+	box-shadow: inset 0 0 0 1px var(--camera-line);
+	color: var(--camera-ink);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
+	text-overflow: ellipsis;
+	transition: box-shadow 150ms var(--ease-out);
+}
+
+.sc-scene-field[data-mono] {
+	font-family: var(--font-mono);
+}
+
+.sc-scene-field::placeholder {
+	color: var(--camera-muted);
+}
+
+.sc-scene-field[aria-invalid="true"] {
+	box-shadow: inset 0 0 0 1px var(--camera-danger);
+}
+
+.sc-scene-error {
+	grid-column: 1 / -1;
+	color: var(--camera-danger);
+	font-size: var(--sc-text-md);
+	line-height: 16px;
+}
+
+.sc-scenes-toggle {
+	display: flex;
+	width: 100%;
+	height: 36px;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	border: 0;
+	border-radius: var(--r-control);
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+	transition: background-color 150ms var(--ease-out), transform 100ms var(--ease-out);
+}
+
+/* The label never changes; the chevron says which way the list goes. A state, not an
+   entrance: 150ms on transform, and none of it under reduced motion (the global rule). */
+.sc-scenes-toggle > svg {
+	transition: transform 150ms var(--ease-out);
+}
+
+.sc-scenes-toggle > svg[data-open] {
+	transform: rotate(180deg);
+}
+
+.sc-scenes-toggle:active {
+	transform: scale(0.98);
+}
+
+/* Under a finger: 44px targets, 16px fields (iOS zooms into anything smaller). */
+@media (pointer: coarse) {
+	.sc-scene-action,
+	.sc-scenes-toggle {
+		height: 44px;
+	}
+
+	.sc-scene-pick {
+		min-height: 44px;
+	}
+
+	.sc-scene-field {
+		height: 44px;
+		font-size: 16px;
+	}
+
+	.sc-scene-duration-field {
+		width: 56px;
+	}
+
+	.sc-scene-delete::after {
+		inset: -10px;
+	}
 }

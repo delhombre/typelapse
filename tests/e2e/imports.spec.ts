@@ -20,7 +20,7 @@ const REAL_PR = "https://github.com/honojs/hono/pull/5189";
 const REAL_PR_TITLE = "fix(trie-router): count every slash a pattern consumes";
 
 async function pasteChange(page: Page, source: string): Promise<void> {
-	await addSource(page, "Import a git diff");
+	await addSource(page, "Import a change");
 	await page.getByRole("textbox", { name: "Git diff or GitHub pull request link" }).fill(source);
 	await page.getByRole("button", { name: "Apply" }).click();
 }

@@ -20,6 +20,7 @@ import {
 	type ReactNode,
 	useCallback,
 	useEffect,
+	useId,
 	useRef,
 	useState,
 } from "react";
@@ -408,17 +409,17 @@ function SourceChoice({
 	/** A chevron promises a second view; a choice that acts at once makes no such promise. */
 	opensView?: boolean;
 }) {
+	// Named by the words on it and nothing else: the line under them is its
+	// description, so a screen reader hears "Paste a link", not a longer name that
+	// does not contain what is printed (WCAG 2.5.3, Label in Name).
+	const labelId = useId();
+	const detailId = useId();
 	return (
 		<button
 			type="button"
 			role="menuitem"
-			aria-label={
-				label === "Paste a link"
-					? "Import from URL"
-					: label === "Import a change"
-						? "Import a git diff"
-						: label
-			}
+			aria-labelledby={labelId}
+			aria-describedby={detailId}
 			className="sc-source-choice"
 			disabled={disabled}
 			onClick={() => {
@@ -430,8 +431,8 @@ function SourceChoice({
 				{icon}
 			</span>
 			<span>
-				<strong>{label}</strong>
-				<small>{detail}</small>
+				<strong id={labelId}>{label}</strong>
+				<small id={detailId}>{detail}</small>
 			</span>
 			{opensView ? <ChevronRight size={12} aria-hidden="true" /> : null}
 		</button>

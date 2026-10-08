@@ -1,4 +1,9 @@
-import { FEED_ASPECTS, feedEntryFor, socialCorrection } from "@/application/social/feed-aspects";
+import {
+	FEED_ASPECTS,
+	feedEntryFor,
+	lockedFeeds,
+	socialCorrection,
+} from "@/application/social/feed-aspects";
 import { platformsForAspect } from "@/application/social/safe-zones";
 import { ASPECT_LABELS, RESOLUTION_TIERS, dimensionsFor } from "@/domain/entities/render-config";
 import { describe, expect, it } from "vitest";
@@ -115,5 +120,18 @@ describe("what the social preview owes the shape it is drawn on", () => {
 				disable: true,
 			});
 		}
+	});
+});
+
+describe("lockedFeeds", () => {
+	it("shows LinkedIn greyed, with the shapes that unlock it, beside the vertical feeds", () => {
+		expect(lockedFeeds(["reels", "tiktok", "shorts", "x"])).toEqual([
+			{ platform: "linkedin", needs: "1:1 or 4:5" },
+		]);
+	});
+
+	it("shows nothing when LinkedIn is already offered, or when no feed fits the shape", () => {
+		expect(lockedFeeds(["linkedin"])).toEqual([]);
+		expect(lockedFeeds([])).toEqual([]);
 	});
 });

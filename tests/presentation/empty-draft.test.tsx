@@ -120,7 +120,7 @@ describe("Capture while the editor is empty", () => {
 
 		act(() => useSnippetStore.getState().setCode(""));
 		expect(capture.disabled).toBe(true);
-		expect(screen.getByText("Capture a scene to animate this code.")).toBeTruthy();
+		expect(screen.getByText("Write some code to capture.")).toBeTruthy();
 
 		act(() => useSnippetStore.getState().setCode("const b = 2;"));
 		expect(capture.disabled).toBe(false);

@@ -37,8 +37,8 @@ step of white on hover). The nav island's CTA, hidden until the hero has
 scrolled out, is the filled one past it.
 
 **Why:** hierarchy by subtraction; the old toolbar gave its only filled disc
-to Play, the least important action. Ink on the yellow reads 12:1, white
-1.75:1.
+to Play, the least important action. Ink on the yellow reads 9.92:1, white
+1.73:1.
 
 **Enforced by:** `src/app.css` (`--color-primary`, `--color-cta`, `.si-cta`,
 `.lp-island-cta[data-quiet]`), `tests/presentation/landing-hero.test.tsx`,
@@ -206,8 +206,14 @@ half the gap to the next chip (`--edge-bleed`).
 in a 35px pitch overhung its neighbour by 9px and stole its presses.
 
 **Enforced by:** `src/app.css`, `src/presentation/studio-camera.css`,
+`tests/e2e/mobile-shell.spec.ts` (every Export control reachable at 375x667),
 `tests/presentation/layer-editor-in-sheet.test.ts`,
 `tests/application/phone-sheet.test.ts`.
+
+On the island's sheet and status row the 44px is drawn, not extended: rows are
+7 to 12px apart, so a reach past a 44px box would be shared with the row beside
+it (`src/app.css`, the coarse block above the export status). The phone's social
+row joins the 44px cells with no gap.
 
 **Pivot:** "Desktop only; drop the touch rules."
 
@@ -296,3 +302,21 @@ be scrolled at all.
 `docs/design/passes/2026-10-05-studio-drift.md`).
 
 **Pivot:** "Let the studio scroll to reveal an overhang."
+
+## D16 Disabled is a colour, a reason and a cue, never an opacity
+
+**Decision:** A disabled control takes `--camera-disabled` (the island and its
+status restate it as `--dock-disabled`, for the dark plate). 4.5:1 is the
+readability floor; the reason and the cue carry the state, since the disabled
+ink sits within a step of the muted one: a disabled primary action says why in
+words beside it (Render with no scene: a note and a Capture shortcut, on the
+phone's sheet and above the desktop rail), and a muted-ink control that can be
+disabled gets a cue that is not colour (a dashed hairline, the not-allowed
+cursor, a struck-through name on a muted layer). A busy control is not a
+disabled one: Render keeps its fill and says "Rendering…", with `aria-busy`.
+
+**Why:** opacity as state failed contrast (Render at .55, 2.1:1) and a `title` never shows on a phone.
+
+**Enforced by:** `src/presentation/studio-camera.css`, `src/app.css`, `src/application/export/render-block.ts`, `tests/presentation/export-panel-playable.test.tsx`.
+
+**Pivot:** "Dim it to 40%."

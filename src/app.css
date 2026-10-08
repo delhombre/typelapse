@@ -40,7 +40,7 @@
 
 	/* The brand's primary: every filled action in the product wears it, on the
 	   landing and in the studio alike. Black on it, not white — at this
-	   lightness white reads 1.75:1 against it and ink reads 12:1, so the
+	   lightness white reads 1.73:1 against it and ink reads 9.92:1, so the
 	   choice makes itself.
 
 	   The hover is the same colour a step lighter rather than a filter, because
@@ -75,6 +75,13 @@
 	/* Strong custom easings: the built-in CSS curves are too weak. */
 	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 	--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+	/* The studio's stacking scale for what floats above its shells. The sheets and
+	   the dock keep their local numbers (20, 25) because they only compete with
+	   each other; anything that has to clear every one of them takes a name here,
+	   so a toast can never be out-ranked by a number somebody typed. */
+	--z-veil: 60;
+	--z-notice: 70;
 }
 
 html {
@@ -2130,7 +2137,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 .studio-root button:disabled {
-	cursor: default;
+	cursor: not-allowed;
 }
 
 /* The phone's sheet is portaled to the body, out of `.studio-root`, and would read
@@ -2176,6 +2183,9 @@ html.dark:not([data-landing-theme]) {
 	--dock-bg: #151517;
 	--dock-ink: #f2f2f4;
 	--dock-dim: #9a9aa2;
+	/* A disabled control on the plate: 5.6:1 on it, 4.6:1 on the 8% wash a
+	   disabled Render sits on. `--camera-disabled` reads this inside the island. */
+	--dock-disabled: #8e8e96;
 	--dock-hairline: rgb(255 255 255 / 0.09);
 	/* The one filled shape in the island reads this. `--color-cta` was published
 	   under `.landing-root` only, where it was born; the studio's own CTA
@@ -2242,6 +2252,10 @@ html.dark:not([data-landing-theme]) {
 	flex-direction: column;
 	align-items: center;
 	padding: 0 8px 12px;
+}
+
+.studio-root :is(.si-island, .si-sheet, .si-status) {
+	--camera-disabled: var(--dock-disabled);
 }
 
 .studio-root .si-island {
@@ -2321,9 +2335,12 @@ html.dark:not([data-landing-theme]) {
 	border-radius: var(--r-pill);
 }
 
-.studio-root .si-button:disabled {
-	cursor: default;
-	opacity: 0.7;
+.studio-root .si-button:disabled,
+.studio-root .si-button[data-active]:disabled {
+	cursor: not-allowed;
+	color: var(--camera-disabled);
+	outline: 1px dashed color-mix(in oklch, currentColor 45%, transparent);
+	outline-offset: -1px;
 }
 
 /* The pointer target: the control's box grown into the space that borders it,
@@ -2713,8 +2730,53 @@ html.dark:not([data-landing-theme]) {
 	margin: 0;
 	padding: 0 2px;
 	color: var(--dock-dim);
-	font-size: 11.5px;
+	font-size: 12px;
 	line-height: 16px;
+}
+
+/* What to know before Render: the reason it is off, what a GIF does to the
+   rate, what this device leaves out. One line each, the first with its way out. */
+.studio-root .si-cluster-notes {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.studio-root .si-note-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0 10px;
+}
+
+/* A shortcut inside a note: ink, underlined, a button and not a link (it acts). */
+.studio-root .si-note-action {
+	position: relative;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--dock-ink);
+	font: inherit;
+	font-weight: 650;
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+}
+
+/* The same words above the desktop rail, whose one row has no room for a line:
+   the status pill's material, as wide as its sentence. */
+.studio-root .si-render-notes {
+	width: fit-content;
+	max-width: min(660px, 100%);
+	padding: 8px 14px;
+	color: var(--dock-dim);
+}
+
+.studio-root .si-render-notes-lines {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
 }
 
 .studio-root .si-cluster-field {
@@ -2865,10 +2927,21 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-.studio-root .si-cta:disabled,
-.studio-root .si-cta[aria-disabled="true"] {
+/* Nothing to render is a refusal, so it takes a flat wash of its own, in the
+   disabled ink, and never the primary at a lower opacity: an amber at 55% on the
+   dark plate read as olive, 2.1:1, a broken button. The reason is a note beside
+   it (RenderNotes). */
+.studio-root .si-cta:disabled {
 	cursor: default;
-	opacity: 0.55;
+	background: rgb(255 255 255 / 0.08);
+	color: var(--camera-disabled);
+}
+
+/* Busy is not disabled: Render keeps its fill and its ink and says so in words
+   ("Rendering…"); the cursor says to wait, and the one progress is the status
+   row's. It stays focusable (aria-disabled, not disabled). */
+.studio-root .si-cta[aria-busy="true"] {
+	cursor: progress;
 }
 
 /* Open, it hands its fill to the sheet's own render button, so the zone still
@@ -2897,6 +2970,36 @@ html.dark:not([data-landing-theme]) {
 	margin-left: auto;
 }
 
+/* On the phone the sheet scrolls under a cap. When that cap holds the Render row
+   and two rows of chips (`data-roomy`, measured by the sheet), the button is pinned
+   to the sheet's foot in the sheet's own fill, rows fading into it, rounded to
+   the sheet's corners it ends on. Under that room the footer is an ordinary row at
+   the end of the list: a pinned bar taller than the room left nothing to scroll
+   to (375x667: 119px of footer in a 106px scroller). The reasons and the Capture
+   shortcut are never pinned; they scroll with the rows. */
+.sc-root-mobile .si-sheet-body[data-roomy="true"] .si-cluster-footer {
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	margin: 0 -14px -16px;
+	padding: 10px 14px 16px;
+	border-radius: 0 0 var(--r-sheet) var(--r-sheet);
+	background: var(--dock-bg);
+}
+
+/* The rows scrolling under it dissolve into the footer's fill instead of being cut
+   flat at its edge (a chip sliced across at rest). */
+.sc-root-mobile .si-sheet-body[data-roomy="true"] .si-cluster-footer::before {
+	content: "";
+	position: absolute;
+	right: 0;
+	bottom: 100%;
+	left: 0;
+	height: 18px;
+	background: linear-gradient(to top, var(--dock-bg), transparent);
+	pointer-events: none;
+}
+
 /* RenderCtaLabel: every label in one cell, so the widest sets the width. */
 .studio-root .si-cta-labels {
 	display: inline-grid;
@@ -2919,6 +3022,57 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* A feed this shape cannot preview: greyed, with the shapes that unlock it in
+   mono beside its name, in the disabled ink. */
+.studio-root .si-seg-reason {
+	margin-left: 5px;
+	font-family: var(--font-mono);
+	font-size: 10px;
+	letter-spacing: 0.02em;
+}
+
+/* The phone's row is the whole screen already. */
+@media (max-width: 639px) {
+	.studio-root .si-seg-locked {
+		display: none;
+	}
+}
+
+/* ───────────────────── The sheet under a finger (DECISIONS D10) ─────────────────────
+   The sheet's controls are 30px chips at a 5px pitch: a mouse's target. Under a
+   coarse pointer every one of them is drawn 44px, which is all it takes, and the
+   extension the island's row gives a control (`.si-button::after`) is switched
+   off inside it: two rows are 7 to 12px apart, so any reach past a 44px box
+   would be shared with the row beside it. A swatch keeps its 18x15 miniature;
+   only the box around it grows. The status row's Cancel, Dismiss and action
+   take the same step. */
+@media (pointer: coarse) {
+	.studio-root :is(.si-sheet, .si-status) :is(.si-button, .si-cta) {
+		min-width: 44px;
+		height: 44px;
+	}
+
+	.studio-root :is(.si-sheet, .si-status) .si-button::after {
+		inset: 0;
+	}
+
+	.studio-root .si-sheet .si-swatch-button {
+		padding: 0;
+	}
+
+	.studio-root .si-sheet .si-input {
+		height: 44px;
+	}
+
+	.studio-root .si-status {
+		min-height: 44px;
+	}
+
+	.studio-root .si-note-action {
+		min-height: 44px;
+	}
+}
+
 /* ─────────────────────────── The export status ─────────────────────────── */
 
 /* It floats just above the island, in the island's material: the bar it used to
@@ -2932,11 +3086,14 @@ html.dark:not([data-landing-theme]) {
 	gap: 10px;
 	margin-bottom: 10px;
 	padding: 0 8px 0 14px;
-	border-radius: 999px;
+	/* The sheet's radius and not a pill's: a status that wraps to two or three
+	   lines is taller than it is round, and 999px would bow its sides (D3). On
+	   one line (36px) 20px is already half its height, so it still reads as a pill. */
+	border-radius: var(--r-sheet);
 	background: var(--dock-bg);
 	color: var(--dock-ink);
 	box-shadow: 0 8px 24px rgb(18 18 20 / 0.18);
-	font-size: 11.5px;
+	font-size: 12px;
 }
 
 .dark .studio-root .si-status {
@@ -3003,6 +3160,9 @@ html.dark:not([data-landing-theme]) {
 	flex: 1 1 auto;
 	padding: 8px 0;
 	color: inherit;
+	/* A filename has no spaces to break at: it wraps where it must, so the row
+	   keeps its own width and never pushes the sheet under it off the screen. */
+	overflow-wrap: anywhere;
 }
 
 /* An action beside the sentence keeps its words on one line; the sentence is
@@ -3338,8 +3498,8 @@ html.dark:not([data-landing-theme]) {
 }
 
 .sc-corner-row .sc-history button:disabled {
-	opacity: 0.32;
-	pointer-events: none;
+	color: var(--camera-disabled);
+	cursor: not-allowed;
 }
 
 /* Under a finger the row keeps its 31px pitch, which is what nine controls get
@@ -4086,6 +4246,23 @@ html.dark:not([data-landing-theme]) {
 		inset-block: -6px;
 	}
 
+	/* The social row too: Back, Off, X and the guides toggle were 30px wide at a
+	   5px pitch. Each is a 44px cell now with no gap, so the targets tile and the
+	   row still fits 360 (about 337px of 344). */
+	.sc-root-mobile .si-row .si-button {
+		min-width: 44px;
+	}
+
+	.sc-root-mobile .si-row[data-row="social"] {
+		--island-gap: 0px;
+	}
+
+	/* 360 holds 328px of island: seven 44px cells and the feed names' own padding
+	   came to 339. The names give up 4px a side, never a cell's 44px. */
+	.sc-root-mobile .si-row[data-row="social"] .si-button {
+		padding-inline: 4px;
+	}
+
 	.sc-root-mobile .si-row[data-dots] {
 		--island-cell: 44px;
 		--island-gap: 0px;
@@ -4144,6 +4321,11 @@ html.dark:not([data-landing-theme]) {
 	   studio-camera.css, which names the sheet beside the two roots.) */
 	--sc-hairline: rgb(28 27 25 / 0.1);
 	--r-sheet: 20px;
+	/* The scene list in it is built of the same radii as the card on a desktop,
+	   and the sheet is portaled out of `.studio-root` where they are defined. */
+	--r-surface: 16px;
+	--r-control: 10px;
+	--r-field: 8px;
 	position: fixed;
 	right: 0;
 	bottom: 0;
