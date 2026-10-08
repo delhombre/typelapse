@@ -1,56 +1,42 @@
 import { PLATFORM_LABELS } from "@/application/social/safe-zones";
 import type { SocialPlatform } from "@/application/social/safe-zones";
 import { CYCLE_PLATFORMS, IphoneShowcase, usePlatformCycle } from "./iphone-showcase";
-import { Eyebrow, Reveal } from "./primitives";
-import { CONTAINER, SECTION_PY } from "./tokens";
 
 /**
- * Feature c: the social preview, given the one dark, full-bleed section so the
- * device pops. Copy on the left, a large hero shot of the phone on the right
- * whose screen can be switched or swiped through faithful TikTok / Reels /
- * Shorts feeds of our code. The platform chips are both picker and indicator.
+ * Stage 03's picture: the studio's feed preview in a phone whose screen can be
+ * switched or swiped through faithful TikTok, Reels, Shorts, X and LinkedIn
+ * feeds of our code, with the platform chips under it as both picker and
+ * indicator. It used to be the page's dark band; on the pipeline it sits on the
+ * paper like every other stage, and the band went to the measured proof.
  */
-export function SocialSection() {
+export function FeedCheck() {
 	/* The whole picker, not just what it is showing: chips and swipe move the
 	   same ring. Nothing advances without the visitor asking it to. */
 	const cycle = usePlatformCycle();
 	const platform = cycle.platform;
 
 	return (
-		<section className="lp-dark relative overflow-hidden">
-			<div className={`${CONTAINER} ${SECTION_PY} relative`}>
-				<div className="grid grid-cols-1 items-center gap-14 lg:grid-cols-2 lg:gap-16">
-					<Reveal>
-						<Eyebrow>Step 03 · Check</Eyebrow>
-						<h2 className="lp-h2 mt-4">Check where it lands.</h2>
-						<p className="lp-line mt-4 max-w-md">
-							The same clip in a faithful TikTok, Reels, Shorts, X or LinkedIn frame with the real
-							safe zones, so you see what a caption or an action rail would cover before you leave
-							the studio.
-						</p>
-						{/* The row and the phone drive the same selected platform. Nothing
-						    moves unless a chip, key press or swipe asks it to. */}
-						<div className="lp-chip-row mt-8 flex flex-wrap">
-							{CYCLE_PLATFORMS.map((p, i) => (
-								<PlatformChip
-									key={p}
-									platform={p}
-									active={p === platform}
-									onSelect={() => cycle.controls.select(i)}
-								/>
-							))}
-						</div>
-					</Reveal>
-
-					<Reveal delay={0.1} className="flex items-center justify-center">
-						{/* The device's own contact shadow is its one depth cue: the radial
-						    glow that stood behind it is gone, so the only colour on the
-						    section is the product mesh inside the phone. */}
-						<IphoneShowcase cycle={cycle} className="relative z-10" />
-					</Reveal>
-				</div>
+		<figure className="lp-feed-check m-0">
+			{/* The device's own contact shadow is its one depth cue. */}
+			<div className="lp-feed-phone">
+				<IphoneShowcase cycle={cycle} />
 			</div>
-		</section>
+			{/* The row and the phone drive the same selected platform. Nothing
+			    moves unless a chip, key press or swipe asks it to. */}
+			<div className="lp-chip-row flex flex-wrap justify-center">
+				{CYCLE_PLATFORMS.map((p, i) => (
+					<PlatformChip
+						key={p}
+						platform={p}
+						active={p === platform}
+						onSelect={() => cycle.controls.select(i)}
+					/>
+				))}
+			</div>
+			<figcaption className="lp-pic-cap text-center">
+				Swipe the phone or pick a feed. The handle and the counts are placeholders.
+			</figcaption>
+		</figure>
 	);
 }
 
@@ -94,14 +80,13 @@ function PlatformChip({
 	   a class Tailwind never sees to generate. */
 	const base =
 		"relative inline-flex h-9 items-center rounded-full border font-medium text-[13px] tabular-nums active:scale-[0.97]";
-	/* The selected one wears the primary. This section is the darkest surface on
-	   the page, which is exactly where that colour is at its strongest, and a
-	   white-on-white indicator here was the one live control that had no idea
-	   what the product's colour was. The unselected ones stay a dim white: the
-	   brand marks the one that is playing, not the row. */
+	/* On the paper the primary cannot be text (1.67:1), so the selected chip is a
+	   raised one in ink and the primary is its dot: the brand marks the one that
+	   is playing, not the row. The others are ash, which clears 4.5:1 on the
+	   paper in both themes. */
 	const tone = active
-		? "border-[var(--color-primary)]/45 bg-[var(--color-primary)]/12 text-[var(--color-primary)]"
-		: "border-band-ink/12 bg-transparent text-band-ink/65 hover:border-band-ink/20 hover:text-band-ink/80";
+		? "border-ink/25 bg-surface text-ink"
+		: "border-hairline bg-transparent text-ash hover:border-ink/20 hover:text-ink";
 	/* The dot is always here. Mounted only while active it had to appear from
 	   nothing on the frame the carousel turned, in the middle of a 500ms colour
 	   fade — the one hard cut inside an otherwise slow change. And it sat in the

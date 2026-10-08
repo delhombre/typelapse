@@ -1,23 +1,22 @@
 import { Link } from "react-router-dom";
-import { CapabilityLedger } from "./capability-ledger";
-import { DiffSection } from "./diff-section";
-import { ExportSection } from "./export-section";
 import { Hero } from "./hero";
-import { MagicMoveSection } from "./magic-move-section";
 import { Nav } from "./nav";
+import { PipelineSection, StepStrip } from "./pipeline";
+import { PricingSection } from "./pricing-section";
 import { InkButton, LandingIntroProvider, LogoLockup, Reveal } from "./primitives";
 import { SharpnessSection } from "./sharpness-section";
-import { SocialSection } from "./social-section";
 import { ThemeToggle } from "./theme-toggle";
 import { CONTAINER, HAIRLINE, SECTION_PY } from "./tokens";
 import { useLandingTheme } from "./use-landing-theme";
 import { useStudioPrefetch } from "./use-studio-prefetch";
 
 /**
- * Marketing landing at `/`. A refined, product-forward page:
- * a translucent nav, the live Instrument as the hero, four spacious feature
- * blocks (one of them a dark, full-bleed social showcase), a quiet capability
- * ledger, and a confident close. Presentation only.
+ * Marketing landing at `/`: the pipeline (decision 2026-10-08-landing-pipeline).
+ * The page reads as one line from a pull request to a file: the hero with the
+ * live engine beside the paste field, a strip of the five steps, the five
+ * stages on a rail, each a hairline figure beside the product itself, then the
+ * measured proof with the specification on the dark band, pricing in two
+ * columns and a close. Presentation only.
  *
  * The theme lives here rather than in a store: it is one boolean that nothing
  * outside the landing reads, and every section already takes its colour from
@@ -37,19 +36,12 @@ export function LandingPage() {
 				<ThemeToggle theme={theme} onToggle={toggleTheme} />
 				<main className="flex-1">
 					<Hero />
-					{/* The order follows the visitor's own workflow — bring a change in,
-				    watch it become motion, check where it lands, ship it — and each
-				    section is a numbered step of the same story rather than an
-				    independent feature card. */}
-					<DiffSection />
-					<MagicMoveSection />
-					<SocialSection />
-					<ExportSection />
-					{/* The proof under the step that makes the file: the same frame out of
-					    two of its formats, measured, so "preview matches export" is a
-					    number on the page rather than a promise in the hero. */}
+					<StepStrip />
+					<PipelineSection />
+					{/* The proof under the stage that makes the file: the same frame out of
+					    two of its formats, measured, then the whole product on one sheet. */}
 					<SharpnessSection />
-					<CapabilityLedger />
+					<PricingSection />
 					<Cta />
 				</main>
 				<Footer />
@@ -62,7 +54,7 @@ export function LandingPage() {
 
 function Cta() {
 	return (
-		<section className={`${CONTAINER} ${SECTION_PY} text-center`}>
+		<section className={`${CONTAINER} ${SECTION_PY} pt-0 text-center sm:pt-0 lg:pt-0`}>
 			<Reveal>
 				<h2 className="lp-h2 mx-auto max-w-[18ch] text-ink">
 					Paste a change and make your first clip.
@@ -97,6 +89,16 @@ function Footer() {
 					>
 						Studio
 					</Link>
+					{/* The figures are drawn on hairline's kernel (MIT); its notice ships at
+					    /licenses/hairline-MIT.txt and in the kernel's own header. */}
+					<a
+						href="https://hairline.lucasmarkes.com"
+						target="_blank"
+						rel="noreferrer"
+						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
+					>
+						Figures: hairline
+					</a>
 				</div>
 			</div>
 		</footer>

@@ -1,5 +1,4 @@
 import type { CSSProperties } from "react";
-import { FeatureSection } from "./feature-section";
 import { StaticFrame } from "./static-frame";
 
 const FINAL_CODE = `export async function GET(req: Request) {
@@ -22,22 +21,10 @@ const RULER_TICKS = Array.from({ length: 25 }, (_, position) => ({
 	major: position % 4 === 0,
 }));
 
-/** Feature b: import a diff or a whole PR, windowed into steps. */
-export function DiffSection() {
-	return (
-		<FeatureSection
-			eyebrow="Step 01 · Paste"
-			title="It starts with a diff."
-			line="Paste a unified diff or a GitHub pull request, and Typelapse turns the change into editable scenes on the timeline."
-			align="right"
-			visual={<ImportProductShot />}
-		/>
-	);
-}
-
-/** A compact crop of the real workflow. Source context, exportable preview and
- * scene timeline share a single frame instead of reading as three mock cards. */
-function ImportProductShot() {
+/** Stage 01's picture: a compact crop of the real workflow. Source context,
+ * exportable preview and scene timeline share a single frame instead of reading
+ * as three mock cards. */
+export function ImportProductShot() {
 	return (
 		<div
 			className="lp-import-shot"

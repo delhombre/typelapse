@@ -1,15 +1,35 @@
-import { ExportSection } from "@/presentation/landing/export-section";
-import { render } from "@testing-library/react";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
+import { ExportShapes } from "@/presentation/landing/export-section";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-describe("landing export section", () => {
-	it("names the four formats once, in its line, and lets the fan show the shapes", () => {
-		// The formats were said three times in one screen: the line, a chip row
-		// under it, and the hero's meta. The chips added nothing the line did not.
-		const { container } = render(<ExportSection />);
-		const text = container.textContent ?? "";
-		expect(text.match(/MP4/g)).toHaveLength(1);
-		expect(text).toMatch(/MP4, WebM, GIF or PNG/);
-		expect(container.querySelector('[role="region"][aria-label="Export ratios"]')).toBeTruthy();
+describe("landing export stage: the shapes", () => {
+	it("shows four of the export's shapes as pictures that hold their box before they load", () => {
+		render(<ExportShapes />);
+		const images = screen.getAllByRole("img");
+
+		expect(images.map((image) => image.getAttribute("alt"))).toEqual([
+			"The same scene in 16:9.",
+			"The same scene in 1:1.",
+			"The same scene in 4:5.",
+			"The same scene in 9:16.",
+		]);
+		for (const image of images) {
+			const width = Number(image.getAttribute("width"));
+			const height = Number(image.getAttribute("height"));
+			expect(width).toBeGreaterThan(0);
+			expect(height).toBe(320);
+			expect(image.getAttribute("loading")).toBe("lazy");
+			const file = resolve(__dirname, "../../public", `.${image.getAttribute("src")}`);
+			expect(existsSync(file), file).toBe(true);
+		}
+	});
+
+	it("names the list it is, and writes its copy without em-dashes", () => {
+		const { container } = render(<ExportShapes />);
+
+		expect(screen.getByRole("list", { name: "Export shapes" })).toBeTruthy();
+		expect(container.textContent).not.toContain("—");
 	});
 });

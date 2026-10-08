@@ -1,6 +1,15 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.0.x/schema.json",
-	"files": { "ignore": ["dist/**", "server/**", ".tmp/**", ".lapse/**", ".craft/evidence/**"] },
+	"files": {
+		"ignore": [
+			"dist/**",
+			"server/**",
+			".tmp/**",
+			".lapse/**",
+			".craft/evidence/**",
+			"src/presentation/landing/figures/kernel.js"
+		]
+	},
 	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
 	"organizeImports": { "enabled": true },
 	"formatter": {

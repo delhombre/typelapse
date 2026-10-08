@@ -2,6 +2,7 @@ import av1Crop from "../../../docs/sharpness/av1-444.png";
 import h264Crop from "../../../docs/sharpness/h264-420.png";
 import manifest from "../../../docs/sharpness/sharpness.json";
 import { Eyebrow } from "./primitives";
+import { SpecSheet } from "./spec-sheet";
 import { CONTAINER, SECTION_PY } from "./tokens";
 
 /**
@@ -53,62 +54,69 @@ export function SharpnessSection() {
 	const seconds = (manifest.files[0]?.frames ?? 0) / manifest.fps;
 
 	return (
-		<section className={`${CONTAINER} ${SECTION_PY}`} aria-labelledby="sharpness-heading">
-			<div className="mx-auto max-w-2xl text-center">
-				<Eyebrow>Measured on the file</Eyebrow>
-				<h2 id="sharpness-heading" className="lp-h2 mt-4 text-ink">
-					The WebM is as sharp as the preview.
-				</h2>
-				<p className="lp-line mx-auto mt-4 max-w-xl">
-					One frame of the same 1080p60 export, decoded from each file and enlarged without
-					smoothing; only the codec differs.
-				</p>
-			</div>
-
-			<figure className="mx-auto mt-12 w-full max-w-[576px] lg:max-w-[864px]">
-				<div className="flex flex-col gap-6">
-					{manifest.files.map((file) => (
-						<div key={file.format}>
-							<div className="mb-2 flex items-baseline justify-between gap-4 text-[13px]">
-								<span className="font-mono text-ink">{NAMES[file.format]}</span>
-								{/* The decibels are the claim and the bytes are its price, so the
-								    first takes the ink and the second stays ash. */}
-								<span className="text-ash tabular-nums">
-									<span className="text-ink">{decibels(file.psnr)}</span> · {megabytes(file.bytes)}
-								</span>
-							</div>
-							<div className="h-[96px] overflow-hidden rounded-[12px] bg-[#0d1117] outline outline-1 outline-hairline -outline-offset-1 lg:h-[144px]">
-								<img
-									src={CROPS[file.crop]}
-									width={crop.width}
-									height={crop.height}
-									alt={ALTS[file.format]}
-									loading="lazy"
-									decoding="async"
-									draggable={false}
-									className="block h-[96px] w-[576px] max-w-none select-none [image-rendering:pixelated] lg:h-[144px] lg:w-[864px]"
-								/>
-							</div>
-						</div>
-					))}
+		<section id="proof" className="lp-dark" aria-labelledby="sharpness-heading">
+			<div className={`${CONTAINER} ${SECTION_PY}`}>
+				<div className="max-w-2xl">
+					<Eyebrow>Measured on the file</Eyebrow>
+					<h2 id="sharpness-heading" className="lp-h2 mt-4 text-ink">
+						The WebM is as sharp as the preview.
+					</h2>
+					<p className="lp-line mt-4 max-w-xl">
+						One frame of the same 1080p60 export, decoded from each file and enlarged without
+						smoothing; only the codec differs.
+					</p>
 				</div>
-				{/* Why first, then how: the reason the bottom crop looks the way it does
+
+				<figure className="mt-12 w-full max-w-[576px] lg:max-w-[864px]">
+					<div className="flex flex-col gap-6">
+						{manifest.files.map((file) => (
+							<div key={file.format}>
+								<div className="mb-2 flex items-baseline justify-between gap-4 text-[13px]">
+									<span className="font-mono text-ink">{NAMES[file.format]}</span>
+									{/* The decibels are the claim and the bytes are its price, so the
+								    first takes the ink and the second stays ash. */}
+									<span className="text-ash tabular-nums">
+										<span className="text-ink">{decibels(file.psnr)}</span> ·{" "}
+										{megabytes(file.bytes)}
+									</span>
+								</div>
+								<div className="h-[96px] overflow-hidden rounded-[12px] bg-[#0d1117] outline outline-1 outline-hairline -outline-offset-1 lg:h-[144px]">
+									<img
+										src={CROPS[file.crop]}
+										width={crop.width}
+										height={crop.height}
+										alt={ALTS[file.format]}
+										loading="lazy"
+										decoding="async"
+										draggable={false}
+										className="block h-[96px] w-[576px] max-w-none select-none [image-rendering:pixelated] lg:h-[144px] lg:w-[864px]"
+									/>
+								</div>
+							</div>
+						))}
+					</div>
+					{/* Why first, then how: the reason the bottom crop looks the way it does
 				    is what a reader wants after looking, and the method is the fine print. */}
-				<figcaption className="mt-6">
-					<p className="text-[15px] text-ink leading-relaxed">
-						H.264 keeps one colour sample for every four pixels, so thin red and orange strokes
-						bleed into a dark background.
-					</p>
-					<p className="lp-micro mt-2 leading-relaxed">
-						PSNR in RGB against the lossless reference frame, on this line only; sizes are for the
-						whole {seconds.toFixed(1)}&nbsp;s clip.{" "}
-						<code className="whitespace-nowrap font-mono text-[0.95em]">pnpm sharpness:render</code>{" "}
-						rebuilds both crops from a committed project. Exported in {manifest.browser} on{" "}
-						{manifest.platform}; a browser without an AV1 High encoder falls back to 4:2:0, and the
-						export says which codec it used.
-					</p>
-				</figcaption>
-			</figure>
+					<figcaption className="mt-6">
+						<p className="text-[15px] text-ink leading-relaxed">
+							H.264 keeps one colour sample for every four pixels, so thin red and orange strokes
+							bleed into a dark background.
+						</p>
+						<p className="lp-micro mt-2 leading-relaxed">
+							PSNR in RGB against the lossless reference frame, on this line only; sizes are for the
+							whole {seconds.toFixed(1)}&nbsp;s clip.{" "}
+							<code className="whitespace-nowrap font-mono text-[0.95em]">
+								pnpm sharpness:render
+							</code>{" "}
+							rebuilds both crops from a committed project. Exported in {manifest.browser} on{" "}
+							{manifest.platform}; a browser without an AV1 High encoder falls back to 4:2:0, and
+							the export says which codec it used.
+						</p>
+					</figcaption>
+				</figure>
+
+				<SpecSheet />
+			</div>
 		</section>
 	);
 }

@@ -12,14 +12,18 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
+import { CONTAINER } from "./tokens";
 
 /**
  * Hero.
  *
- * No headline: the product's own field is the first thing on the page, and what
- * you can paste into it is not described beside it — it *is* the field's modes.
- * The Instrument sits below as the product shot, running the real engine,
- * because a product that sells motion should not advertise itself with a still.
+ * The pipeline in one line: a headline that is the whole product ("A pull
+ * request in. A video out."), the lead naming its steps, and the product's own
+ * field under them; what you can paste is not described beside it, it *is* the
+ * field's modes. The Instrument stands beside the copy on a wide screen and
+ * under it on a phone, running the real engine, because a product that sells
+ * motion should not advertise itself with a still (decision
+ * 2026-10-08-landing-pipeline D3).
  *
  * The field is the product, so it does the product's work: what you paste is
  * carried into the studio and imported there, through the same reader the
@@ -144,116 +148,120 @@ export function Hero() {
 		}
 	}
 
-	/* Below `sm` the column reaches the corner the fixed theme switch floats in,
-	   and its 44px target ends 60px down, so the lead starts at 64 rather than
-	   under the switch's hit area. */
+	/* The nav pill floats over the top 56px and the theme switch's target ends
+	   60px down, so the headline starts under both. */
 	return (
-		<section className="lp-hero flex min-h-[100svh] flex-col justify-center pt-16 pb-8 sm:pt-8">
-			<RevealGroup immediate className="mx-auto w-full max-w-[680px] lp-gutter">
-				<RevealItem>
-					<h1 className="lp-hero-lead">
-						<strong>Typelapse.</strong> Code videos as sharp as their preview, made in your browser
-						from a pull request. Text, images, video and audio share the same scenes.
-					</h1>
-				</RevealItem>
-				<RevealItem>
-					<div className="lp-modes" role="radiogroup" aria-label="What you are pasting">
-						{MODES.map((m) => (
-							<label key={m} className="lp-mode" data-active={m === mode ? "" : undefined}>
-								<input
-									type="radio"
-									name="landing-source-kind"
-									value={m}
-									checked={m === mode}
-									className="sr-only"
-									onChange={() => {
-										/* Only a change of mode ticks; re-tapping the one already
+		<section className="lp-hero">
+			<div className={`${CONTAINER} lp-hero-grid`}>
+				<RevealGroup immediate className="lp-hero-copy">
+					<RevealItem>
+						<h1 className="lp-display lp-hero-title">A pull request in. A video out.</h1>
+					</RevealItem>
+					<RevealItem>
+						<p className="lp-lead lp-hero-lead">
+							Typelapse cuts a change into scenes, glides the tokens between them, checks the frame
+							against the feed, and writes a file as sharp as the preview, in your browser.
+						</p>
+					</RevealItem>
+					<RevealItem>
+						<div className="lp-modes" role="radiogroup" aria-label="What you are pasting">
+							{MODES.map((m) => (
+								<label key={m} className="lp-mode" data-active={m === mode ? "" : undefined}>
+									<input
+										type="radio"
+										name="landing-source-kind"
+										value={m}
+										checked={m === mode}
+										className="sr-only"
+										onChange={() => {
+											/* Only a change of mode ticks; re-tapping the one already
 							   selected did nothing, so it says nothing. */
-										trigger("selection");
-										setMode(m);
-									}}
-								/>
-								<span>{m}</span>
-							</label>
-						))}
-					</div>
-					<div
-						className="lp-field"
-						data-multiline={multiline ? "" : undefined}
-						/* The drawn caret can only stand where the text ends, and once there
+											trigger("selection");
+											setMode(m);
+										}}
+									/>
+									<span>{m}</span>
+								</label>
+							))}
+						</div>
+						<div
+							className="lp-field"
+							data-multiline={multiline ? "" : undefined}
+							/* The drawn caret can only stand where the text ends, and once there
 						   is text that is not where you are: click into the middle of a
 						   pasted URL and the block stays at the end, pointing at the wrong
 						   character. It is a sibling of the field, so it cannot follow a
 						   selection. So it holds the empty state only — where it is exact,
 						   and where the real caret has nothing to show — and hands over the
 						   moment there is content. The drawing is in app.css. */
-						data-empty={value === "" ? "" : undefined}
-						onMouseDown={(e) => {
-							if (e.target === e.currentTarget) {
-								e.preventDefault();
-								field.current?.focus();
-							}
-						}}
-					>
-						<textarea
-							ref={field}
-							rows={1}
-							value={value}
-							onChange={(e) => onChange(e.target.value)}
-							onKeyDown={onKeyDown}
-							onFocus={() => setFocused(true)}
-							onBlur={() => setFocused(false)}
-							placeholder={focused ? "" : PLACEHOLDERS[mode]}
-							aria-label={`Paste a ${mode}`}
-							data-studio-intent=""
-							spellCheck={false}
-							autoComplete="off"
-							autoCorrect="off"
-							autoCapitalize="off"
-						/>
-						{/* Kept in the row while the field is one line, and hidden rather
+							data-empty={value === "" ? "" : undefined}
+							onMouseDown={(e) => {
+								if (e.target === e.currentTarget) {
+									e.preventDefault();
+									field.current?.focus();
+								}
+							}}
+						>
+							<textarea
+								ref={field}
+								rows={1}
+								value={value}
+								onChange={(e) => onChange(e.target.value)}
+								onKeyDown={onKeyDown}
+								onFocus={() => setFocused(true)}
+								onBlur={() => setFocused(false)}
+								placeholder={focused ? "" : PLACEHOLDERS[mode]}
+								aria-label={`Paste a ${mode}`}
+								data-studio-intent=""
+								spellCheck={false}
+								autoComplete="off"
+								autoCorrect="off"
+								autoCapitalize="off"
+							/>
+							{/* Kept in the row while the field is one line, and hidden rather
 						    than unmounted when it stands down, so the Render button does not
 						    step sideways on the first keystroke. */}
-						{!multiline && <span className="lp-caret" aria-hidden="true" />}
-						{/* Both labels are laid out, the one not shown hidden, so the button
+							{!multiline && <span className="lp-caret" aria-hidden="true" />}
+							{/* Both labels are laid out, the one not shown hidden, so the button
 						    holds the width of the wider and the field keeps its room while
 						    you type (D8). */}
-						<button type="button" className="lp-field-cta" onClick={submit}>
-							<span className="lp-swap">
-								<span aria-hidden={value.trim() !== ""}>Open studio</span>
-								<span aria-hidden={value.trim() === ""}>Import &amp; animate</span>
-							</span>
-						</button>
-					</div>
-				</RevealItem>
-				<RevealItem>
-					<ul className="lp-log">
-						{EXAMPLES.map((e) => (
-							<ExampleRow key={e.url} example={e} />
-						))}
-					</ul>
-				</RevealItem>
-				<RevealItem>
-					{/* Each fact is the unit that wraps: at 375 the line used to break
+							<button type="button" className="lp-field-cta" onClick={submit}>
+								<span className="lp-swap">
+									<span aria-hidden={value.trim() !== ""}>Open studio</span>
+									<span aria-hidden={value.trim() === ""}>Import &amp; animate</span>
+								</span>
+							</button>
+						</div>
+					</RevealItem>
+					<RevealItem>
+						<ul className="lp-log">
+							{EXAMPLES.map((e) => (
+								<ExampleRow key={e.url} example={e} />
+							))}
+						</ul>
+					</RevealItem>
+					<RevealItem>
+						{/* Each fact is the unit that wraps: at 375 the line used to break
 					    inside the format list and leave "WebM, GIF and PNG" orphaned. */}
-					<p className="lp-hero-meta">
-						{META.map((fact, i) => (
-							<Fragment key={fact}>
-								{/* Held to the fact before it, so a wrapped line never opens on a dot. */}
-								{i > 0 && <span aria-hidden="true">{"\u00a0\u00a0·\u00a0 "}</span>}
-								<span className="whitespace-nowrap">{fact}</span>
-							</Fragment>
-						))}
-					</p>
-				</RevealItem>
-			</RevealGroup>
+						<p className="lp-hero-meta">
+							{META.map((fact, i) => (
+								<Fragment key={fact}>
+									{/* Held to the fact before it, so a wrapped line never opens on a dot. */}
+									{i > 0 && <span aria-hidden="true">{"\u00a0\u00a0·\u00a0 "}</span>}
+									<span className="whitespace-nowrap">{fact}</span>
+								</Fragment>
+							))}
+						</p>
+					</RevealItem>
+				</RevealGroup>
 
-			<Reveal immediate delay={0.26} className="mt-10">
-				{/* The field's button is this screen's primary, and the island sits
+				<Reveal immediate delay={0.26} className="lp-hero-instrument">
+					{/* The field's button is this screen's primary, and the island sits
 				    inside the same screen, so its own "Open studio" stays a text
-				    action. The nav's filled one only appears once the hero is gone. */}
-				<Instrument quietCta />
-			</Reveal>
+				    action, as the nav's does while the hero is in view. */}
+					<Instrument quietCta />
+				</Reveal>
+			</div>
 		</section>
 	);
 }

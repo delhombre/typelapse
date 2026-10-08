@@ -73,7 +73,7 @@ describe("landing sharpness section", () => {
 
 	/* Read from the source rather than rendered: the whole page needs a canvas,
 	   matchMedia and the Instrument's engine, none of which this order depends on. */
-	it("sits in the landing, right after the export section", () => {
+	it("sits in the landing, right after the pipeline's last stage", () => {
 		const page = readFileSync(
 			resolve(__dirname, "../../src/presentation/landing/landing-page.tsx"),
 			"utf8",
@@ -81,6 +81,15 @@ describe("landing sharpness section", () => {
 
 		const elements = page.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
 
-		expect(elements).toMatch(/<ExportSection \/>\s*<SharpnessSection \/>/);
+		expect(elements).toMatch(/<PipelineSection \/>\s*<SharpnessSection \/>/);
+	});
+
+	/* The proof is the page's one dark band, and the nav pill's "Proof" lands on it. */
+	it("stands on the dark band, under the anchor the nav jumps to", () => {
+		const { container } = render(<SharpnessSection />);
+		const section = container.querySelector("section");
+
+		expect(section?.id).toBe("proof");
+		expect(section?.className).toContain("lp-dark");
 	});
 });

@@ -3,9 +3,9 @@ import { expect, test } from "./support/studio";
 
 /**
  * Bring a call to action to where a visitor's pointer can reach it. Links in
- * the page flow scroll into view. The floating nav cannot be scrolled to: it
- * hides over the hero, so scrolling "to" it toggles it. A visitor gets it back
- * by scrolling past the hero.
+ * the page flow scroll into view. The floating nav cannot be scrolled to: past
+ * the hero it hides on the way down, so scrolling "to" it toggles it. A visitor
+ * gets it back by scrolling up, and there its call to action is the filled one.
  */
 async function reach(page: Page, link: Locator): Promise<void> {
 	if (await link.evaluate(isFloating)) {
@@ -24,7 +24,7 @@ function isFloating(element: Element): boolean {
 	return false;
 }
 
-const HERO = /^Typelapse\. Code videos as sharp as their preview/;
+const HERO = "A pull request in. A video out.";
 
 test.describe(
 	"Landing: a visitor reads it on any screen and reaches the studio",
@@ -103,44 +103,58 @@ test.describe(
 			await Promise.all([moving.close(), still.close()]);
 		});
 
-		test("the export row on a phone leads with its tallest card and runs to the screen's edges", async ({
+		test("a 360 px phone never scrolls sideways either, the step strip scrolling on its own", async ({
 			page,
 		}) => {
-			await page.setViewportSize({ width: 375, height: 812 });
+			await page.setViewportSize({ width: 360, height: 780 });
 			await page.goto("/");
-			const row = page.getByRole("region", { name: "Export ratios" });
-			await row.scrollIntoViewIfNeeded();
-			const rowBox = await row.boundingBox();
-			expect(rowBox?.x).toBe(0);
-			expect(rowBox?.width).toBe(375);
-
-			const cards = await row.locator(":scope > *").evaluateAll((nodes) =>
-				nodes.map((node) => {
-					const { x, y, width, height } = node.getBoundingClientRect();
-					return {
-						x,
-						width,
-						height,
-						bottom: y + height,
-						userSelect: getComputedStyle(node).userSelect,
-					};
-				}),
-			);
-			expect(cards).toHaveLength(5);
-			const [first, second] = cards;
-			if (!first || !second) {
-				throw new Error("the row should hold five cards");
+			const height = await page.evaluate(() => document.documentElement.scrollHeight);
+			for (let y = 0; y <= height; y += 600) {
+				await page.evaluate((top) => window.scrollTo(0, top), y);
+				const overflow = await page.evaluate(
+					() => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+				);
+				expect(overflow, `horizontal overflow at y=${y}`).toBeLessThanOrEqual(0);
 			}
-			// Starts on the text's column, and is the card that sets the row's height.
-			expect(first.x).toBeCloseTo(24, 0);
-			expect(first.height).toBe(Math.max(...cards.map((card) => card.height)));
-			// The next card runs off the screen: that is what says the row scrolls.
-			expect(second.x).toBeLessThan(375);
-			expect(second.x + second.width).toBeGreaterThan(375);
-			// Every card stands on one baseline, and none of them is a text selection.
-			const bottoms = cards.map((card) => card.bottom);
-			expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(1);
-			expect(cards.map((card) => card.userSelect)).toEqual(Array(5).fill("none"));
+			// The strip runs edge to edge and holds the five steps in its own scroll.
+			const strip = page.getByRole("navigation", { name: "The five steps" }).locator("ol");
+			const box = await strip.boundingBox();
+			expect(box?.x).toBe(0);
+			expect(box?.width).toBe(360);
+			await expect(strip.getByRole("link")).toHaveCount(5);
+		});
+
+		test("the five figures load only as the pipeline nears, and each answers with a read-out", async ({
+			page,
+		}) => {
+			const figures: string[] = [];
+			page.on("request", (request) => {
+				if (/\/(kernel|scenes|glide|safezone|local|queue|mount-figure)[-.]/.test(request.url())) {
+					figures.push(request.url());
+				}
+			});
+			await page.goto("/");
+			await page.waitForLoadState("networkidle");
+			// The hero never waits on them.
+			expect(figures).toEqual([]);
+
+			for (const stage of ["paste", "morph", "check", "export", "hosted"]) {
+				const figure = page.locator(`#${stage} .lp-fig-stage`);
+				await figure.scrollIntoViewIfNeeded();
+				await expect(figure.locator("svg path").first()).toBeAttached();
+				await expect(page.locator(`#${stage} .lp-fig-read`)).toHaveText("rest");
+			}
+			expect(figures.length).toBeGreaterThan(0);
+
+			// The pointer over the pull request stands a slice up as a scene.
+			const scenes = page.locator("#paste .lp-fig-stage");
+			await scenes.scrollIntoViewIfNeeded();
+			const box = await scenes.boundingBox();
+			if (!box) {
+				throw new Error("the scenes figure should be laid out");
+			}
+			await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.55, { steps: 4 });
+			await expect(page.locator("#paste .lp-fig-read")).toHaveText(/^scene \d\d$/);
 		});
 
 		test("the head carries the share card's alt text and a home-screen icon", async ({

@@ -289,6 +289,9 @@ html.dark:not([data-landing-theme]) {
 	   accent so white text could clear AA on it; there is one primary now, and
 	   it carries its own text colour with it. */
 	--color-cta: var(--color-primary);
+	/* The opaque line where hairlines cross or the backdrop changes under one:
+	   the hero's field and pastilles, and the pipeline's rail and its stops. */
+	--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
 	font-family: var(--font-sans);
 	font-optical-sizing: auto;
 	/* Only Regular and SemiBold of the mono are loaded: never fabricate one. */
@@ -442,35 +445,57 @@ html.dark:not([data-landing-theme]) {
 	   which silently crushes the small one. Computed style reports the radius
 	   asked for, not the one used — only the pixels show it. */
 	--cap-r: calc(var(--field-h) / 2);
-	--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
+	/* Under the fixed nav pill (12px down, 44px tall) and the theme switch, whose
+	   target ends 60px down, with the notch cleared on a phone in portrait. */
+	padding-top: max(96px, calc(env(safe-area-inset-top, 0px) + 84px));
+	padding-bottom: clamp(48px, 7vw, 88px);
 }
 
+.landing-root .lp-hero-grid {
+	display: grid;
+	gap: 40px;
+	align-items: center;
+}
+
+/* The engine beside the copy once the column can hold both: the stage is then
+   bound by its width rather than by what the copy leaves of the viewport, so
+   the fixed chrome it budgets for is only the island under it. */
+@media (min-width: 960px) {
+	.landing-root .lp-hero {
+		--hero-chrome: 220px;
+		display: flex;
+		align-items: center;
+		min-height: 100svh;
+	}
+
+	.landing-root .lp-hero-grid {
+		grid-template-columns: 5fr 6fr;
+		gap: 56px;
+	}
+}
+
+/* The Instrument brings its own gutter for a page that gives it the full
+   width; in the hero's grid the container already has one. */
+.landing-root .lp-hero-instrument .lp-gutter {
+	padding-inline: 0;
+}
+
+.landing-root .lp-hero-title,
 .landing-root .lp-hero-lead,
 .landing-root .lp-log,
 .landing-root .lp-hero-meta {
 	padding-left: var(--text-x);
 }
 
-/* The only prose in the hero, and this direction has no headline, so it
-   carries the voice. The name takes the ink and the weight; the rest stays
-   ash, so there is one thing to land on and one to read after. */
+/* The headline is the whole product in two sentences; the lead names its
+   steps in the order the page then shows them. */
 .landing-root .lp-hero-lead {
-	/* 52ch of Geist, whose zero is 0.663em. Written in em because ch follows the
+	/* 36ch of Geist, whose zero is 0.663em. Written in em because ch follows the
 	   face on screen: while Geist loads, the fallback's narrower zero made the
-	   measure 86px shorter, the lead took a line more, and the hero jumped when
-	   Geist landed. */
-	max-width: calc(52 * 0.663em);
-	font-size: 17px;
-	/* 26px at this size, written as the ratio so it follows the size. */
-	line-height: calc(26 / 17);
-	letter-spacing: -0.01em;
-	color: var(--color-ash);
-	text-wrap: pretty;
-}
-
-.landing-root .lp-hero-lead strong {
-	font-weight: 600;
-	color: var(--color-ink);
+	   measure shorter, the lead took a line more, and the hero jumped when Geist
+	   landed. */
+	max-width: calc(36 * 0.663em);
+	margin-top: 20px;
 }
 
 /* The block. Its border is all four sides and the bottom one is the join: a
@@ -914,6 +939,9 @@ html.dark:not([data-landing-theme]) {
 .landing-root .lp-dark {
 	--color-ink: var(--color-band-ink);
 	--color-ash: #a8a39a;
+	/* The paper's hairline is ink at 10%, which on the band is nothing: the band's
+	   own ink at 12%, as the dark theme's hairline is. */
+	--color-hairline: color-mix(in oklch, var(--color-band-ink) 12%, transparent);
 	background: #171614;
 	color: var(--color-band-ink);
 }
@@ -1525,27 +1553,448 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* The export fan's phone row, edge to edge: it takes back the whole gutter its
-   section sits in (the same max() as `.lp-gutter`, so a notch is cleared on
-   each side) and pads its first and last card with it. The cards start on the
-   text's column and run off the screen, which is what says the row scrolls.
-   `overflow-x: auto` clips on y too, and the cards' shadows reach 60px under
-   them: the room for them is padding, given back to the layout as a negative
-   margin so the page does not grow. */
-.landing-root .lp-fan-row {
-	margin-right: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px)));
-	margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)));
-	padding-right: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px));
-	padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
-	margin-block: -1rem -4rem;
-	padding-block: 1rem 4rem;
+/* ─────────────────────────────────────────────────────────────────────────
+   The pipeline (decision 2026-10-08-landing-pipeline): the strip of the five
+   steps, then the five stages on one rail, each a hairline figure beside the
+   product itself.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* The hairline figures' palette, read by the kernel as `--hairline-*`. Derived
+   from the page's own ink and paper, so they are the warm ramp of whichever
+   theme is on: the bright stroke is the ink, a plate is filled with the paper it
+   stands on (an opaque plate is what hides the line behind it), and the
+   silhouette, the middle and the dim strokes are ink mixed into paper. The dark
+   theme takes a little more ink at each step, since a dim line on near-black
+   disappears sooner than on paper. Never the primary: one bright stroke is the
+   figures' only highlight. */
+.landing-root {
+	--hairline-plate: var(--color-paper);
+	--hairline-hi: var(--color-ink);
+	--hairline-edge: color-mix(in oklch, var(--color-ink) 38%, var(--color-paper));
+	--hairline-mid: color-mix(in oklch, var(--color-ink) 20%, var(--color-paper));
+	--hairline-lo: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
+	--hairline-stroke: 1;
 }
 
-/* The export fan's phone row runs edge to edge, so a ring drawn outside it
-   falls off both sides of the screen and only its top and bottom show. Drawn
-   inside, it frames the row the keyboard is about to scroll. */
-.landing-root .lp-fan-row:focus-visible {
-	outline-offset: -2px;
+.landing-root[data-theme="dark"] {
+	--hairline-edge: color-mix(in oklch, var(--color-ink) 44%, var(--color-paper));
+	--hairline-mid: color-mix(in oklch, var(--color-ink) 26%, var(--color-paper));
+	--hairline-lo: color-mix(in oklch, var(--color-ink) 15%, var(--color-paper));
+}
+
+/* The strip: five steps in a row, each a link to its stage. */
+.landing-root .lp-steps {
+	border-block: 1px solid var(--color-hairline);
+}
+
+.landing-root .lp-steps ol {
+	display: grid;
+	grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.landing-root .lp-steps li + li {
+	border-left: 1px solid var(--color-hairline);
+}
+
+.landing-root .lp-steps a {
+	display: block;
+	padding: 18px 12px 18px 14px;
+	font-size: 13px;
+	line-height: calc(20 / 13);
+	color: var(--color-ash);
+	text-decoration: none;
+	transition: color 150ms var(--ease-out);
+}
+
+.landing-root .lp-steps li:first-child a {
+	padding-left: 0;
+}
+
+.landing-root .lp-steps b {
+	display: block;
+	margin-bottom: 2px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--color-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-steps a:hover {
+		color: var(--color-ink);
+	}
+}
+
+/* On a phone the five do not fit across, so the row scrolls on its own, edge to
+   edge: it takes back the whole gutter its section sits in (the same max() as
+   `.lp-gutter`, so a notch is cleared on each side) and pads its ends with it.
+   Every step is a link, so the keyboard scrolls it too. */
+@media (max-width: 720px) {
+	.landing-root .lp-steps ol {
+		grid-template-columns: repeat(5, 136px);
+		overflow-x: auto;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+		margin-right: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px)));
+		margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)));
+		padding-right: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px));
+		padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
+		scroll-padding-inline: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
+	}
+
+	.landing-root .lp-steps li {
+		scroll-snap-align: start;
+	}
+}
+
+/* The rail: one opaque line down the left, a numbered stop on it per stage. */
+.landing-root .lp-line-rail {
+	--stop: 31px;
+	--stage-indent: 52px;
+	position: relative;
+	padding-top: clamp(72px, 9vw, 112px);
+}
+
+@media (max-width: 639px) {
+	.landing-root .lp-line-rail {
+		--stop: 27px;
+		--stage-indent: 40px;
+	}
+}
+
+.landing-root .lp-rail {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: calc(var(--stop) / 2);
+	width: 1px;
+	background: var(--edge);
+}
+
+.landing-root .lp-stage-item {
+	position: relative;
+	display: grid;
+	gap: 28px;
+	padding-left: var(--stage-indent);
+	padding-bottom: clamp(80px, 10vw, 128px);
+	/* The fixed nav pill: a jump to a stage lands its heading clear of it. */
+	scroll-margin-top: 72px;
+}
+
+.landing-root .lp-stop {
+	position: absolute;
+	top: 2px;
+	left: 0;
+	display: grid;
+	place-items: center;
+	width: var(--stop);
+	height: var(--stop);
+	border-radius: 999px;
+	background: var(--color-paper);
+	box-shadow: 0 0 0 1px var(--edge);
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1;
+	color: var(--color-ink);
+	font-variant-numeric: tabular-nums;
+}
+
+.landing-root .lp-stage-head {
+	display: grid;
+	gap: 12px;
+	max-width: 640px;
+}
+
+.landing-root .lp-stage-line strong {
+	font-weight: 500;
+	color: var(--color-ink);
+}
+
+.landing-root .lp-pair {
+	display: grid;
+	gap: 24px;
+	align-items: center;
+}
+
+/* Grid children default to `min-width: auto`, and a picture that measures its
+   own room (the morph fits its font to its column) must be allowed to shrink. */
+.landing-root .lp-pair > * {
+	min-width: 0;
+}
+
+@media (min-width: 960px) {
+	.landing-root .lp-pair {
+		grid-template-columns: 1fr 1fr;
+		gap: 40px;
+	}
+
+	.landing-root .lp-pair[data-flip] > :first-child {
+		order: 2;
+	}
+}
+
+/* On a phone the indent under the rail would cost the pictures a sixth of the
+   screen (the phone's five chips wrapped, the import shot lost its corner), so
+   the pair takes the column back and stands on the paper over the rail, which
+   runs on between the stages it links. */
+@media (max-width: 639px) {
+	.landing-root .lp-pair {
+		position: relative;
+		margin-left: calc(-1 * var(--stage-indent));
+		padding-block: 8px;
+		background: var(--color-paper);
+	}
+}
+
+/* A figure: a 5:4 stage reserved before the kernel arrives, so the drawing
+   landing moves nothing, and a caption with the gesture and the read-out. */
+.landing-root .lp-fig {
+	margin: 0;
+	padding: 4px 4px 0;
+}
+
+.landing-root .lp-fig-stage {
+	position: relative;
+	width: 100%;
+	aspect-ratio: 5 / 4;
+	/* Vertical scroll stays the page's; a sideways drag is the figure's. */
+	touch-action: pan-y;
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: crosshair;
+}
+
+.landing-root .lp-fig-cap {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 8px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.landing-root .lp-fig-hint {
+	color: var(--color-ash);
+}
+
+/* Held at the width of the longest thing any figure says ("6 of 6 · 0 B sent"),
+   so a read-out that grows under the pointer never rewraps the gesture beside
+   it and moves the page on a phone. */
+.landing-root .lp-fig-read {
+	min-width: 17ch;
+	text-align: right;
+	font-weight: 500;
+	color: var(--color-ink);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.landing-root .lp-pic-cap {
+	margin-top: 12px;
+	font-size: 13px;
+	line-height: calc(20 / 13);
+	color: var(--color-ash);
+	text-wrap: pretty;
+}
+
+/* A product picture on the paper: its corner, and its depth from the object's
+   own lift (a ring on the dark theme), never a border. */
+.landing-root .lp-pic {
+	overflow: hidden;
+	border-radius: 12px;
+	box-shadow: var(--object-lift);
+}
+
+.landing-root .lp-pic img {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+/* Stage 03: the phone at a size that leaves its chips beside it on a laptop. */
+.landing-root .lp-feed-check {
+	display: grid;
+	justify-items: center;
+	gap: 20px;
+}
+
+.landing-root .lp-feed-phone {
+	width: min(280px, 72vw);
+}
+
+/* Stage 04: the shapes stand on one baseline, each image sized by its height
+   alone so its declared width and height keep the box before it loads. */
+.landing-root .lp-aspects {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 12px 10px;
+}
+
+.landing-root .lp-aspects img {
+	display: block;
+	width: auto;
+	height: clamp(56px, 7.2vw, 100px);
+	border-radius: 6px;
+	box-shadow: var(--raised-ring);
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.landing-root .lp-aspects span {
+	display: block;
+	margin-top: 6px;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--color-ash);
+	font-variant-numeric: tabular-nums;
+}
+
+/* The specification, under the proof on the dark band. */
+.landing-root .lp-spec-sheet {
+	margin-top: clamp(56px, 8vw, 88px);
+	max-width: 864px;
+}
+
+.landing-root .lp-spec-sheet dl {
+	margin-top: 16px;
+	border-top: 1px solid var(--color-ink);
+}
+
+.landing-root .lp-spec-sheet dl > div {
+	display: grid;
+	grid-template-columns: 112px minmax(0, 1fr);
+	gap: 4px 24px;
+	align-items: baseline;
+	padding-block: 12px;
+	border-bottom: 1px solid var(--color-hairline);
+}
+
+.landing-root .lp-spec-sheet dt {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.6;
+	color: var(--color-ink);
+}
+
+.landing-root .lp-spec-sheet dd {
+	font-size: 15px;
+	line-height: 1.6;
+	color: var(--color-ash);
+}
+
+@media (max-width: 479px) {
+	.landing-root .lp-spec-sheet dl > div {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+/* Pricing: two sides of one card, split by the hairline. */
+.landing-root .lp-h3 {
+	font-family: var(--font-display);
+	font-weight: 600;
+	font-size: clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+	line-height: 1.2;
+	letter-spacing: -0.012em;
+	color: var(--color-ink);
+	text-wrap: balance;
+}
+
+.landing-root .lp-cost-grid {
+	display: grid;
+	gap: 1px;
+	margin-top: 40px;
+	overflow: hidden;
+	border-radius: 16px;
+	background: var(--color-hairline);
+	box-shadow: var(--raised-ring);
+}
+
+@media (min-width: 760px) {
+	.landing-root .lp-cost-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.landing-root .lp-cost-grid > div {
+	display: grid;
+	align-content: start;
+	gap: 12px;
+	padding: 28px;
+	background: var(--color-surface);
+}
+
+.landing-root .lp-cost-grid ul {
+	margin-top: 4px;
+	padding-left: 18px;
+	list-style: disc;
+	font-size: 16px;
+	line-height: 1.7;
+	color: var(--color-ash);
+}
+
+/* The anchors the nav pill jumps to land clear of it. */
+.landing-root :is(#how-it-works, #proof, #pricing) {
+	scroll-margin-top: 16px;
+}
+
+/* The nav pill's section links, which a phone has no room for. */
+.landing-root .lp-nav-links {
+	display: flex;
+	margin-inline: -2px;
+}
+
+.landing-root .lp-nav-links a {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	height: 32px;
+	padding: 0 10px;
+	border-radius: 999px;
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--dock-dim);
+	text-decoration: none;
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+
+/* 32px drawn, the pill's full 44px to a finger. */
+.landing-root .lp-nav-links a::after {
+	content: "";
+	position: absolute;
+	inset: -6px 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-nav-links a:hover {
+		color: var(--dock-ink);
+		background: rgb(255 255 255 / 0.07);
+	}
+}
+
+@media (max-width: 639px) {
+	.landing-root .lp-nav-links {
+		display: none;
+	}
+}
+
+/* While the hero's filled button is on screen, the nav's is a text action on
+   the plate: one filled action per zone (D2). */
+.landing-root .lp-nav-cta[data-quiet] {
+	background: transparent;
+	color: var(--dock-ink);
+	box-shadow: inset 0 0 0 1px var(--dock-hairline);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-nav-cta[data-quiet]:hover {
+		background: rgb(255 255 255 / 0.07);
+	}
 }
 
 /* PR → timeline. One crop of the actual workflow rather than a diagram made of

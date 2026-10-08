@@ -1,10 +1,10 @@
-import { DiffSection } from "@/presentation/landing/diff-section";
+import { ImportProductShot } from "@/presentation/landing/diff-section";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-describe("landing diff section", () => {
+describe("landing paste stage: the import picture", () => {
 	it("shows the import as a believable product slice instead of a generic diagram", () => {
-		render(<DiffSection />);
+		render(<ImportProductShot />);
 
 		expect(
 			screen.getByRole("img", {
@@ -18,7 +18,7 @@ describe("landing diff section", () => {
 	});
 
 	it("leaves no tab stop on the highlighted code inside the picture", async () => {
-		const { container } = render(<DiffSection />);
+		const { container } = render(<ImportProductShot />);
 
 		// Shiki emits <pre tabindex="0">; the frame is aria-hidden decoration, so a
 		// keyboard user would land on code they are told is not there.
@@ -35,7 +35,7 @@ describe("landing diff section", () => {
 	});
 
 	it("writes its copy without em-dashes", () => {
-		const { container } = render(<DiffSection />);
+		const { container } = render(<ImportProductShot />);
 
 		expect(container.textContent).not.toContain("\u2014");
 	});

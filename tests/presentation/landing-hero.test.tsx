@@ -38,18 +38,18 @@ function renderHeroWithStudio() {
 }
 
 describe("landing hero", () => {
-	/* Viability D1: sharp, in the browser, from a pull request first; mixed
-	   media is the second sentence, not the first. */
-	it("says what the product sells in its heading, and mixed media second", () => {
-		renderHero();
+	/* Decision 2026-10-08-landing-pipeline: the headline is the pipeline, a pull
+	   request in and a video out, and the lead under it keeps Viability D1's
+	   other two facts, sharp as the preview and in the browser. */
+	it("says what the product does in its heading, and what it sells in the lead", () => {
+		const { container } = renderHero();
 
 		const heading = screen.getByRole("heading", { level: 1 });
-		const text = heading.textContent ?? "";
-		expect(text).toMatch(/as sharp as their preview/i);
-		expect(text).toMatch(/in your browser from a pull request/i);
-		expect(text).toMatch(/text, images, video and audio/i);
-		expect(text.search(/sharp/i)).toBeLessThan(text.search(/text, images/i));
-		expect(text).not.toContain("\u2014");
+		expect(heading.textContent).toBe("A pull request in. A video out.");
+		const lead = container.querySelector(".lp-hero-lead")?.textContent ?? "";
+		expect(lead).toMatch(/as sharp as the preview/i);
+		expect(lead).toMatch(/in your browser/i);
+		expect(`${heading.textContent} ${lead}`).not.toContain("\u2014");
 	});
 
 	it("presents source kinds as one mutually exclusive choice", () => {
