@@ -1,0 +1,38 @@
+# Non-secret settings, shared by the API, both workers and the release Job
+# through `envFrom`. Secrets are in the Secret `typelapse-env`, which the
+# workflow writes from the GitHub Environment `staging` and which is never
+# in this repo.
+#
+# Placeholders are replaced by .github/workflows/deploy-staging.yaml:
+#   __IMAGE_TAG__  the commit SHA being deployed
+#   __APP_HOST__   the public hostname (staging.typelapse.com here, typelapse.com for production)
+#   __R2_ACCOUNT_ID__, __R2_BUCKET__, __POLAR_CREATOR_MONTHLY_PRODUCT_ID__,
+#   __POLAR_CREATOR_ANNUAL_PRODUCT_ID__  GitHub Environment variables (not secrets)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: typelapse-config
+  namespace: typelapse-staging
+data:
+  NODE_ENV: "production"
+  # Same as the image's PORT and the Service targetPort. The image also sets
+  # TYPELAPSE_STATIC_ROOT and TYPELAPSE_RENDER_CONCURRENCY=1.
+  # The workers are CronJobs: they drain the queue and exit instead of polling.
+  TYPELAPSE_WORKER_EXIT_WHEN_IDLE: "true" # name confirmed by feat/70-worker-drain
+  PORT: "3001"
+  TYPELAPSE_DEPLOYMENT_MODE: "hosted"
+  # One origin: the API serves the SPA, /api/* and /v/*.
+  TYPELAPSE_APP_URL: "https://__APP_HOST__"
+  CORS_ORIGIN: "https://__APP_HOST__"
+  BETTER_AUTH_URL: "https://__APP_HOST__"
+  POLAR_ENVIRONMENT: "sandbox"
+  POLAR_CREATOR_MONTHLY_PRODUCT_ID: "__POLAR_CREATOR_MONTHLY_PRODUCT_ID__"
+  POLAR_CREATOR_ANNUAL_PRODUCT_ID: "__POLAR_CREATOR_ANNUAL_PRODUCT_ID__"
+  R2_ACCOUNT_ID: "__R2_ACCOUNT_ID__"
+  R2_BUCKET: "__R2_BUCKET__"
+  # Part of hosted job idempotency. The commit SHA means every deploy is a new
+  # compiler version, which is right for staging: an old render is never taken
+  # for output of the code now running. The cost: a job queued across a deploy
+  # can fail with compiler-version-mismatch, and renders finished before it are
+  # rendered again.
+  TYPELAPSE_COMPILER_VERSION: "__IMAGE_TAG__"

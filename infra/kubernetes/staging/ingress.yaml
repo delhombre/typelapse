@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: typelapse-ingress
+  namespace: typelapse-staging
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # The biggest JSON body the API accepts is 4 MiB (render by source, in
+    # server/routes/cloud.ts). Media uploads do not pass here: the browser PUTs
+    # them straight to R2.
+    nginx.ingress.kubernetes.io/proxy-body-size: "8m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - __APP_HOST__
+      secretName: typelapse-staging-tls
+  rules:
+    - host: __APP_HOST__
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: typelapse-api
+                port:
+                  number: 80
