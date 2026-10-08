@@ -107,6 +107,20 @@ describe("the studio's appearance", () => {
 		expect(themeColors()).toEqual(["#FAF9F6", "#121110"]);
 	});
 
+	// Re-review of #245: back in the studio by SPA after the OS changed on the landing, the
+	// studio kept the side it left with, light under a dark status bar.
+	it("answers the OS as it is now when the studio comes back under System", async () => {
+		const os = fakeOs(false);
+		const theme = await freshModule();
+		const leave = theme.followStudioTheme();
+		expect(isDark()).toBe(false);
+		leave();
+		os.switchTo("dark");
+		theme.followStudioTheme();
+		expect(isDark()).toBe(true);
+		expect(theme.useThemeModeStore.getState().mode).toBe("dark");
+	});
+
 	it("holds a forced side when the system changes", async () => {
 		const os = fakeOs(false);
 		const store = await freshStore();

@@ -290,7 +290,15 @@ export function StudioAccountControl({
 								disabled={operation === "signing-out"}
 								onClick={() => {
 									refocusTrigger.current = true;
-									void signOut();
+									// Refused, the row stays: focus stays where it is.
+									const keepFocus = () => {
+										refocusTrigger.current = false;
+									};
+									void signOut().then(() => {
+										if (store.getState().status.kind === "authenticated") {
+											keepFocus();
+										}
+									}, keepFocus);
 								}}
 							>
 								<Logout size={14} aria-hidden="true" />

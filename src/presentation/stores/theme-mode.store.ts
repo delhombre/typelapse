@@ -140,6 +140,12 @@ export function paintStudioTheme(): void {
  * the landing's theme attribute is on the document is the landing's, too.
  */
 export function followStudioTheme(): () => void {
+	// Back from the landing, under System the OS may have changed while the studio
+	// was away: answer it as it is now, not as the studio left it.
+	const { preference } = useThemeModeStore.getState();
+	if (preference === "system") {
+		useThemeModeStore.setState({ mode: resolve(preference) });
+	}
 	paintStudioTheme();
 	if (typeof window.matchMedia !== "function") {
 		return () => undefined;
