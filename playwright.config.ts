@@ -129,7 +129,9 @@ export default defineConfig({
 		? [
 				{
 					name: "hosted",
-					testDir: "tests/e2e/hosted",
+					testDir: "tests/e2e",
+					// The hosted journeys, and the phone shell again with the account in it (#222).
+					testMatch: ["hosted/**/*.spec.ts", "mobile-shell.spec.ts"],
 					use: {
 						...devices["Desktop Chrome"],
 						baseURL: HOSTED.appUrl,

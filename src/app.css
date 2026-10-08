@@ -3581,7 +3581,8 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* Under a thumb each segment is a full 44px row of the menu, drawn at 32px. */
+/* Under a thumb each segment reaches the row's 44px (its 4px of padding and the
+   track's 2px), drawn at 32px. */
 @media (pointer: coarse) {
 	.sc-utility-overflow-menu .sc-appearance button {
 		position: relative;
@@ -3590,7 +3591,7 @@ html.dark:not([data-landing-theme]) {
 	.sc-utility-overflow-menu .sc-appearance button::after {
 		content: "";
 		position: absolute;
-		inset: -8px 0;
+		inset: -6px 0;
 	}
 }
 

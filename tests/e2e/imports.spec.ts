@@ -229,7 +229,7 @@ test.describe("Imports: a change, a pull request or a project file becomes the p
 			page,
 		}) => {
 			await page.addInitScript(
-				(mode) => window.localStorage.setItem("typelapse.studio-theme", mode),
+				(mode) => window.localStorage.setItem("typelapse.studio-appearance", mode),
 				theme,
 			);
 			await openStudio(page);

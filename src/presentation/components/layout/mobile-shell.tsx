@@ -228,7 +228,8 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 								aria-valuenow={stopNames.indexOf(stop)}
 								aria-valuetext={STOP_TEXT[stop]}
 								aria-controls={contentId}
-								onPointerDown={() => setWarm(true)}
+								// Capture, so the drawer's own onPointerDown (the drag) is not replaced.
+								onPointerDownCapture={() => setWarm(true)}
 								onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
 									const step = HANDLE_KEYS[event.key];
 									if (!step || event.altKey || event.ctrlKey || event.metaKey) return;
