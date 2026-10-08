@@ -26,6 +26,7 @@ import {
 } from "react";
 import { Drawer } from "vaul";
 import { CaptureLibrary } from "./capture-library";
+import { CodeLoupe } from "./code-loupe";
 import { ProjectChip } from "./project-chip";
 import { StudioAccountIsland } from "./studio-account-island";
 import { StudioHistoryControls } from "./studio-history-controls";
@@ -139,6 +140,9 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	const [warm, setWarm] = useState(false);
 	// Where the More menu holds the account while it is open (null while it is shut).
 	const [accountSection, setAccountSection] = useState<HTMLElement | null>(null);
+	// The code is read through a loupe on the frame (code-loupe.tsx); while it is
+	// open the corner row, the instrument and the sheet step aside and go inert.
+	const [loupeOpen, setLoupeOpen] = useState(false);
 
 	return (
 		<main className="studio-root sc-root sc-root-mobile">
@@ -147,21 +151,30 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			    the same box at every stop (D4). The sheet slides under it and never
 			    refits it, so a drag moves the sheet and the instrument and nothing
 			    else, and a release does not end in a second motion. Nothing an island
-			    panel opens changes it either (#169): a raised cluster lowers the sheet. */}
-			<div className="sc-stage-slot" style={{ paddingBottom: sheet.stageBottom }}>
-				{/* The frame is the video's own shape here too: a phone used to get
-				    the bare card, so a 16:9 export previewed as a wide strip. */}
-				<StudioVideoModeProvider active>
-					<div className="sc-stage" ref={stageRef}>
-						{preview}
-					</div>
-				</StudioVideoModeProvider>
-			</div>
+			    panel opens changes it either (#169): a raised cluster lowers the sheet.
+			    The loupe owns it: a tap on the frame magnifies this same picture.
+			    The frame is the video's own shape here too: a phone used to get the
+			    bare card, so a 16:9 export previewed as a wide strip. */}
+			<StudioVideoModeProvider active>
+				<CodeLoupe
+					viewport={phone}
+					stageBottom={sheet.stageBottom}
+					stageRef={stageRef}
+					enabled={!panelOpen}
+					onOpenChange={setLoupeOpen}
+				>
+					{preview}
+				</CodeLoupe>
+			</StudioVideoModeProvider>
 
 			{/* One row rather than two corners: at 390 the corners meet in the middle,
 			    so they are laid out as what they have become, a row whose left half
 			    gives up its width first. */}
-			<div className="sc-corner-row">
+			<div
+				className="sc-corner-row"
+				data-loupe-aside={loupeOpen ? "" : undefined}
+				inert={loupeOpen}
+			>
 				<ProjectChip />
 				<StudioHistoryControls />
 				<section className="sc-chip sc-mobile-resources" aria-label="Studio resources">
@@ -180,7 +193,12 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			<StudioAccountIsland menuSection={accountSection} />
 
 			{/* The instrument floats above the sheet, on the sheet's own top edge. */}
-			<div className="sc-dock-slot" ref={dockRef}>
+			<div
+				className="sc-dock-slot"
+				ref={dockRef}
+				data-loupe-aside={loupeOpen ? "" : undefined}
+				inert={loupeOpen}
+			>
 				<div className="sc-dock">
 					<ExportStatus />
 					<PreviewIsland onPanelOpenChange={onPanelOpenChange} />
@@ -208,7 +226,12 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 				}}
 			>
 				<Drawer.Portal>
-					<Drawer.Content className="sc-sheet" ref={setSheetElement}>
+					<Drawer.Content
+						className="sc-sheet"
+						ref={setSheetElement}
+						data-loupe-aside={loupeOpen ? "" : undefined}
+						inert={loupeOpen}
+					>
 						{/* The sheet is as tall as the screen and slides; what it holds is as
 						    tall as the full stop, so the editor below the scenes fills the stop
 						    to its foot instead of a fixed 320px box with paper under it. */}

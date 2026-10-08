@@ -3265,6 +3265,115 @@ html.dark:not([data-landing-theme]) {
 	--camera-frame-inset: 0px;
 }
 
+/* The loupe (code-loupe.tsx, design audit 2026-10-08 D5). A 1080p frame at
+   374px draws its code at 2 to 6px, so a tap grows the slot's clip from the
+   frame to the screen and scales the live preview inside it to an 11px code
+   floor. It is the DOM picture the video is rendered from, magnified by a
+   transform: never a fourth renderer (D12). Only the lens's transform and the
+   slot's clip-path move (D8); the chrome around it fades and goes inert. */
+.sc-root-mobile .sc-stage {
+	/* Over the backdrop, and the box the keyboard's target covers. */
+	position: relative;
+}
+
+.sc-loupe-lens {
+	width: 100%;
+	height: 100%;
+}
+
+/* Revealed by the growing clip, never faded: at the first frame the clip is the
+   frame's own box and the frame covers it. The island's plate, a step darker,
+   so the Done chip on it still reads as the plate. */
+.sc-loupe-backdrop {
+	position: absolute;
+	inset: 0;
+	display: none;
+	background: color-mix(in oklab, var(--dock-bg) 55%, black);
+}
+
+.sc-stage-slot[data-loupe] {
+	/* Over the corner row (30), the instrument (25) and the sheet (20), under the drop veil. */
+	z-index: 40;
+	/* One finger pans the code; the page must not scroll or zoom under it. */
+	touch-action: none;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.sc-stage-slot[data-loupe] .sc-loupe-backdrop {
+	display: block;
+}
+
+/* Open, the picture is to be read, not edited: a press is the loupe's. */
+.sc-stage-slot[data-loupe] .sc-loupe-lens {
+	pointer-events: none;
+}
+
+/* The keyboard's way in: over the frame, transparent to every pointer. */
+.sc-loupe-target {
+	position: absolute;
+	inset: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var(--r-control);
+	background: transparent;
+	pointer-events: none;
+}
+
+/* Open, the whole screen is what has focus: the frame's box draws no ring (D9). */
+.sc-stage-slot[data-loupe] .sc-loupe-target {
+	outline: none;
+}
+
+/* The way out a finger finds without learning the gestures: the island's plate,
+   44px (D10), clear of the notch (D14). */
+.sc-loupe-done {
+	position: absolute;
+	z-index: 41;
+	top: calc(env(safe-area-inset-top, 0px) + 10px);
+	right: max(10px, env(safe-area-inset-right, 0px));
+	height: 44px;
+	padding: 0 18px;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: var(--dock-bg);
+	color: var(--dock-ink);
+	box-shadow: 0 8px 24px rgb(0 0 0 / 0.4), inset 0 0 0 1px var(--dock-hairline);
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	opacity: 0;
+	transform: scale(0.97);
+	pointer-events: none;
+	transition: opacity 120ms var(--ease-out), transform 120ms var(--ease-out);
+}
+
+.sc-loupe-done[data-shown] {
+	opacity: 1;
+	transform: scale(1);
+	pointer-events: auto;
+	transition-duration: 180ms;
+}
+
+.sc-loupe-done:active {
+	transform: scale(0.97);
+}
+
+.sc-loupe-done:focus-visible {
+	outline: 2px solid var(--dock-ink);
+	outline-offset: 1px;
+}
+
+/* The chrome steps aside while the loupe opens, in 160ms as the clip grows over
+   it. Nothing fades it back: the shrinking clip uncovers it. A resting transition
+   on the instrument would let it lag the sheet it follows, and the sheet keeps the
+   drawer's own transform transition (vaul's stylesheet). */
+.sc-root-mobile .sc-corner-row[data-loupe-aside],
+.sc-root-mobile .sc-dock-slot[data-loupe-aside] .sc-dock,
+.sc-sheet[data-loupe-aside] {
+	opacity: 0;
+	transition: opacity 160ms var(--ease-out);
+}
+
 .sc-root .reicon {
 	display: block;
 	flex: none;
