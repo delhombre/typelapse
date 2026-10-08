@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
 	type RemotionV2RuntimeApiPort,
 	createRemotionV2Runtime,
-	renderConcurrencyFrom,
 } from "../../server/render/v2/remotion-v2-renderer";
 
 describe("Remotion V2 runtime", () => {
@@ -114,26 +113,5 @@ describe("Remotion V2 render concurrency", () => {
 
 	it("leaves Remotion's own choice alone when none is configured", async () => {
 		expect(await renderedWith()).not.toHaveProperty("concurrency");
-	});
-});
-
-describe("renderConcurrencyFrom", () => {
-	it("is undefined when TYPELAPSE_RENDER_CONCURRENCY is unset or blank", () => {
-		expect(renderConcurrencyFrom({})).toBeUndefined();
-		expect(renderConcurrencyFrom({ TYPELAPSE_RENDER_CONCURRENCY: " " })).toBeUndefined();
-	});
-
-	it("reads a whole number from 1 to 16", () => {
-		expect(renderConcurrencyFrom({ TYPELAPSE_RENDER_CONCURRENCY: "1" })).toBe(1);
-		expect(renderConcurrencyFrom({ TYPELAPSE_RENDER_CONCURRENCY: " 4 " })).toBe(4);
-		expect(renderConcurrencyFrom({ TYPELAPSE_RENDER_CONCURRENCY: "16" })).toBe(16);
-	});
-
-	it("refuses anything else, naming the variable, rather than rendering on a guess", () => {
-		for (const value of ["0", "17", "-1", "1.5", "two", "50%"]) {
-			expect(() => renderConcurrencyFrom({ TYPELAPSE_RENDER_CONCURRENCY: value }), value).toThrow(
-				/TYPELAPSE_RENDER_CONCURRENCY/,
-			);
-		}
 	});
 });

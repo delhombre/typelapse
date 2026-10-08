@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
@@ -27,7 +27,17 @@ beforeAll(() => {
 	writeFileSync(join(root, "favicon.svg"), "<svg/>");
 	writeFileSync(join(root, "fonts", "Mono.woff2"), "font");
 	writeFileSync(join(root, ".secret"), "dotfile");
+	writeFileSync(join(root, "api-docs.txt"), "docs");
+	writeFileSync(join(root, "version.txt"), "v1");
+	mkdirSync(join(root, ".well-known"), { recursive: true });
+	writeFileSync(join(root, ".well-known", "security.txt"), "Contact: mailto:security@example.com");
+	writeFileSync(join(root, ".well-known", ".hidden"), "hidden under well-known");
 	writeFileSync(join(sandbox, "outside.txt"), "outside the root");
+	mkdirSync(join(sandbox, "outside-dir"));
+	writeFileSync(join(sandbox, "outside-dir", "leak.txt"), "outside the root");
+	symlinkSync(join(sandbox, "outside.txt"), join(root, "leak.txt"));
+	symlinkSync(join(sandbox, "outside-dir"), join(root, "linked-dir"));
+	symlinkSync(join(root, "version.txt"), join(root, "alias.txt"));
 });
 
 afterAll(() => {
@@ -60,6 +70,13 @@ describe("static site: the client's two routes", () => {
 			expect(response.headers.get("content-type")).toContain("text/html");
 			expect(response.headers.get("cache-control")).toBe("no-cache");
 		}
+	});
+
+	it("revalidates index.html asked for by name, as every .html", async () => {
+		const response = await get("/index.html");
+
+		expect(response.status).toBe(200);
+		expect(response.headers.get("cache-control")).toBe("no-cache");
 	});
 
 	it("answers HEAD without a body", async () => {
@@ -141,6 +158,32 @@ describe("static site: unknown paths", () => {
 		}
 	});
 
+	it("does not follow a link out of the root, to a file or to a directory", async () => {
+		for (const path of ["/leak.txt", "/linked-dir/leak.txt"]) {
+			const response = await get(path);
+
+			expect(response.status, path).toBe(404);
+			expect(await response.text(), path).not.toContain("outside the root");
+		}
+	});
+
+	it("follows a link that stays inside the root", async () => {
+		const response = await get("/alias.txt");
+
+		expect(response.status).toBe(200);
+		expect(await response.text()).toBe("v1");
+	});
+
+	it("serves /.well-known/ files and nothing hidden beneath them", async () => {
+		const policy = await get("/.well-known/security.txt");
+
+		expect(policy.status).toBe(200);
+		expect(await policy.text()).toContain("Contact:");
+		expect((await get("/.well-known/.hidden")).status).toBe(404);
+		expect((await get("/.well-known/../.secret")).status).toBe(404);
+		expect((await get("/x/.well-known/security.txt")).status).toBe(404);
+	});
+
 	it("serves only GET and HEAD", async () => {
 		const response = await get("/app", { method: "POST" });
 
@@ -169,9 +212,6 @@ describe("static site: what the API owns stays the API's", () => {
 	});
 
 	it("does not shadow a file whose name only starts like a reserved prefix", async () => {
-		writeFileSync(join(root, "api-docs.txt"), "docs");
-		writeFileSync(join(root, "version.txt"), "v1");
-
 		expect((await get("/api-docs.txt")).status).toBe(200);
 		expect((await get("/version.txt")).status).toBe(200);
 	});

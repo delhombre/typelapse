@@ -1,5 +1,5 @@
-import { existsSync, statSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import type { MiddlewareHandler } from "hono";
 import { getMimeType } from "hono/utils/mime";
@@ -42,7 +42,11 @@ function isApiPath(path: string): boolean {
 	return API_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
-/** The file a request path names under `root`, or null if it escapes it or is hidden. */
+/**
+ * The file a request path names under `root`, or null if it escapes it or is
+ * hidden. Only `/.well-known/` may hold a dot-segment (security.txt and the
+ * like); `..` and every other hidden name stay refused.
+ */
 function fileUnder(root: string, path: string): string | null {
 	let decoded: string;
 	try {
@@ -53,20 +57,34 @@ function fileUnder(root: string, path: string): string | null {
 	if (decoded.includes("\0") || decoded.includes("\\")) {
 		return null;
 	}
-	const segments = decoded.split("/");
-	if (segments.some((segment) => segment === ".." || segment.startsWith("."))) {
+	const segments = decoded.split("/").filter(Boolean);
+	const hidden = segments.some(
+		(segment, index) =>
+			segment === ".." || (segment.startsWith(".") && !(index === 0 && segment === ".well-known")),
+	);
+	if (hidden) {
 		return null;
 	}
 	const file = resolve(root, `.${decoded}`);
 	return file.startsWith(root + sep) ? file : null;
 }
 
-function isFile(path: string): boolean {
+/** The real path of a regular file, or null for anything else (a directory, nothing, a dangling link). */
+async function regularFile(path: string): Promise<string | null> {
 	try {
-		return statSync(path).isFile();
+		const real = await realpath(path);
+		return (await stat(real)).isFile() ? real : null;
 	} catch {
-		return false;
+		return null;
 	}
+}
+
+/** Every page revalidates; Vite's hashed files never change; the rest keep their names across builds. */
+function cacheControlFor(path: string, file: string): string {
+	if (file.endsWith(".html")) {
+		return HTML_CACHE;
+	}
+	return path.startsWith("/assets/") ? HASHED_CACHE : PUBLIC_CACHE;
 }
 
 /**
@@ -79,7 +97,10 @@ function isFile(path: string): boolean {
  * not-found screen renders instead of a bare line.
  */
 export function createStaticSite(root: string): MiddlewareHandler {
-	const index = resolve(root, "index.html");
+	// A link inside the build must not lead out of it, so containment is checked
+	// on real paths. The shell is read once: a build does not change under a running API.
+	const realRoot = realpathSync(root);
+	const shell = readFileSync(resolve(root, "index.html"), "utf8");
 
 	return async (c, next) => {
 		const path = c.req.path;
@@ -87,20 +108,21 @@ export function createStaticSite(root: string): MiddlewareHandler {
 			return next();
 		}
 
-		const html = async (status: 200 | 404) => {
+		const html = (status: 200 | 404) => {
 			c.header("Cache-Control", HTML_CACHE);
-			return c.html((await readFile(index)).toString("utf8"), status);
+			return c.html(shell, status);
 		};
 
 		if (path === "/" || path === "/app" || path === "/app/") {
 			return html(200);
 		}
 
-		const file = fileUnder(root, path);
-		if (file && isFile(file)) {
+		const candidate = fileUnder(root, path);
+		const file = candidate ? await regularFile(candidate) : null;
+		if (file?.startsWith(realRoot + sep)) {
 			const headers = {
 				"Content-Type": getMimeType(file) ?? "application/octet-stream",
-				"Cache-Control": path.startsWith("/assets/") ? HASHED_CACHE : PUBLIC_CACHE,
+				"Cache-Control": cacheControlFor(path, file),
 			};
 			return c.body(await readFile(file), 200, headers);
 		}

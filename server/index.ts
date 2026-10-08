@@ -96,11 +96,11 @@ export async function createApp(
 		return c.json({ error: "Request failed", requestId: currentRequestId }, 500);
 	});
 
-	// Only what a browser honours on a JSON or a lone HTML response. No
-	// Content-Security-Policy (the static host's, #217), no HSTS (the host's
-	// domain policy), and no Cross-Origin-Resource/Opener-Policy: their
-	// same-origin defaults would cut the studio, on another origin, off from
-	// the API's media and any sign-in popup.
+	// Only what a browser honours on a JSON or an HTML response. No
+	// Content-Security-Policy (the ingress's, #217), no HSTS (the host's domain
+	// policy), and no Cross-Origin-Resource/Opener-Policy: their same-origin
+	// defaults would cut a studio served from another origin (the dev server, or
+	// a separate static host) off from the API's media and any sign-in popup.
 	app.use(
 		"*",
 		secureHeaders({

@@ -15,13 +15,14 @@ bundle), downloads the headless browser Remotion renders with. It keeps the
 development dependencies, which the release step needs (`drizzle-kit`). It
 needs the network and no secrets.
 
-Three things are baked into the client bundle, so they are build arguments, not
+Four things are baked into the client bundle, so they are build arguments, not
 runtime variables:
 
 | Build argument | Default | Hosted |
 | --- | --- | --- |
 | `VITE_TYPELAPSE_DEPLOYMENT_MODE` | `local` | `hosted` |
 | `VITE_TYPELAPSE_AUTH_ENABLED` | `false` | `true` |
+| `VITE_BETTER_AUTH_URL` | empty | empty: the client calls its own origin, which is right when the API serves the app |
 | `TYPELAPSE_APP_URL` | empty | the public origin, on HTTPS |
 
 `TYPELAPSE_APP_URL` is also written into the share-card tags of the HTML, so an
@@ -48,6 +49,10 @@ in progress and does not release the job's lease, so the job is picked up again
 once `TYPELAPSE_RENDER_LEASE_MS` (120 s by default) has run out. Give the process
 a grace period of a few seconds, not a render's length. The image starts the
 workers under `tini` so the signal arrives.
+
+On a single origin, `TYPELAPSE_APP_URL`, `CORS_ORIGIN` and `BETTER_AUTH_URL` are
+all the public HTTPS origin; `CORS_ORIGIN` is the only origin Better Auth trusts,
+so a mismatch makes sign-in fail.
 
 The API listens on `PORT` (3001). With `TYPELAPSE_STATIC_ROOT` set, which the
 image does (`/app/dist`), it also serves the built app, so one origin answers
@@ -78,8 +83,9 @@ keys). Run it with `TYPELAPSE_DEPLOYMENT_MODE=hosted`.
 ## Probe
 
 `GET /health` on the API answers 200 with the deployment mode and the
-capabilities that are on. Use it for both readiness and liveness. The workers
-have no HTTP endpoint: probe them by process, and expect the render worker to
+capabilities that are on. It is a liveness probe: the answer is static and
+touches neither the database nor the object store, so it does not prove they are
+reachable. The workers have no HTTP endpoint: probe them by process, and expect the render worker to
 exit on a configuration error it names.
 
 ## Running constraints
@@ -95,8 +101,9 @@ exit on a configuration error it names.
 - The default command runs under `tini`. If the host replaces `ENTRYPOINT`, `tsx`
   becomes PID 1 and still stops on SIGTERM (0.26 s, exit 143, measured), so
   either way works; setting only the arguments is simplest.
-- `TYPELAPSE_RENDER_CONCURRENCY` is 1 in the image. Raise it only with the memory
-  and CPU to match.
+- `TYPELAPSE_RENDER_CONCURRENCY` is 1 in the image. Only the render worker reads
+  it; the renders a local-mode API does itself keep Remotion's default. Raise it
+  only with the memory and CPU to match.
 
 ## Sizing
 

@@ -17,7 +17,6 @@ import { createRenderJobQueue } from "../db/render-job.repository";
 import {
 	createHostedRemotionV2Renderer,
 	type HostedRenderAssetMaterializerPort,
-	renderConcurrencyFrom,
 } from "../render/v2/remotion-v2-renderer";
 import {
 	hostedRenderObjectStorageFromEnv,
@@ -64,9 +63,20 @@ const DEFAULT_CONFIG = {
 	renderTimeoutMs: 15 * 60_000,
 } as const;
 
+/** Unset or blank (a copied .env.example) leaves Remotion's own choice. */
 function optionalConcurrency(environment: RuntimeEnvironment): { concurrency?: number } {
-	const concurrency = renderConcurrencyFrom(environment);
-	return concurrency === undefined ? {} : { concurrency };
+	if (!environment.TYPELAPSE_RENDER_CONCURRENCY?.trim()) {
+		return {};
+	}
+	return {
+		concurrency: boundedInteger(
+			{ TYPELAPSE_RENDER_CONCURRENCY: environment.TYPELAPSE_RENDER_CONCURRENCY.trim() },
+			"TYPELAPSE_RENDER_CONCURRENCY",
+			1,
+			1,
+			16,
+		),
+	};
 }
 
 function boundedInteger(
