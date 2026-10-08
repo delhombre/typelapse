@@ -6,7 +6,7 @@ One image, built from the root `Dockerfile`, runs as three workloads: the API, a
 
 ## Files in `staging/`
 
-- `configmap.yaml`: the non-secret settings (hosted mode, URLs, Polar sandbox, R2 account and bucket, worker drain mode).
+- `configmap.yaml`: the non-secret settings (hosted mode, URLs, Polar sandbox, R2 account and bucket, the mail sender, the client address header, worker drain mode).
 - `api.yaml`: the API Deployment and its Service. It serves the SPA, `/api/*` and `/v/*` on one origin. Probe: `/health`.
 - `ingress.yaml`: the host, TLS through `letsencrypt-prod`, an 8 MiB body limit and 60 s timeouts.
 - `render-worker.yaml`: the hosted render worker, a CronJob (every minute, `Forbid`, applied suspended). Memory 1Gi request, 2Gi limit; the low `typelapse-render-low` priority class; an emptyDir for per-job render files.
@@ -38,6 +38,7 @@ Secrets (names only, see `.env.staging.example` for where each value comes from)
 - `R2_SECRET_ACCESS_KEY`
 - `POLAR_ACCESS_TOKEN`
 - `POLAR_WEBHOOK_SECRET`
+- `SMTP_URL` (required: sign-in is a code sent by mail, so without it there is no auth; the workflow stops before the build when it is missing)
 - `TYPELAPSE_GITHUB_TOKEN` (optional)
 - `GHCR_PULL_TOKEN` (required while the repository is private: a classic personal access token with only `read:packages`)
 
@@ -47,6 +48,7 @@ Variables:
 - `R2_BUCKET`
 - `POLAR_CREATOR_MONTHLY_PRODUCT_ID`
 - `POLAR_CREATOR_ANNUAL_PRODUCT_ID` (optional)
+- `MAIL_FROM` (optional; `Typelapse <code@typelapse.com>` when unset)
 - `GHCR_PACKAGE_PUBLIC` (optional; set to `true` once the package is public, to stop requiring `GHCR_PULL_TOKEN`)
 
 The workflow writes the secrets into the Kubernetes Secret `typelapse-env` from a temporary file and never prints them. The kubeconfig is written to a temporary file, its token is masked, and the file is removed at the end of the run. Nothing secret is committed, not even encrypted.
@@ -98,6 +100,8 @@ The requests of API, render and deletion add up to 1312Mi, under the 1536Mi quot
 A worker pod exists only while there is work: every minute (render) or 15 minutes (deletion) the CronJob starts one, it drains the queue and exits, and an empty queue exits in seconds (`TYPELAPSE_WORKER_EXIT_WHEN_IDLE`). A new render therefore waits up to a minute for its pod to start.
 
 ## Notes
+
+- The sign-in limits count per client from `cf-connecting-ip` (`TRUSTED_CLIENT_IP_HEADER` in the ConfigMap): the address Cloudflare saw, which a caller cannot write. That holds only while the ingress answers nothing that did not come through Cloudflare. With a direct path to the ingress open, a caller writes the header too and spreads its sends over as many addresses as it likes; the per-address and per-instance ceilings still hold then.
 
 - The R2 bucket needs a CORS rule for `https://staging.typelapse.com` (GET, PUT, HEAD and Content-Type): the browser uploads and downloads media straight from R2.
 - On SIGTERM the render worker aborts the render in flight and cleans up, but does not release the lease. The job is picked up again when the lease expires (120 s by default).
