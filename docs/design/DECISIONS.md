@@ -89,24 +89,24 @@ hover behind the same query).
 
 ## D5 Materials: a fixed dark plate, a paper card, depth from shadow
 
-**Decision:** Three materials. The island and its sheet are a dark plate
-(`#151517`) that does not follow the theme; on a dark page it keeps its fill
-and gains an inset hairline. Floating surfaces over the phone's stage are the
-landing's card material: paper at 88%, a blur, a 1px ring, one soft shadow,
-and so are the header capsules; a menu or popover that holds rows of text takes
-the opaque studio surface instead, in both shells (next-wave D6): the phone's More
-menu, the account panel and the phone's sheet at every stop included; a header
-trigger sits on flat paper and takes the fill without the blur. The desktop
-card and timeline sit on flat paper, so they are opaque. Code frames take a
-layered shadow with a 1px ring inside it, not a border. Reduced transparency
-removes every blur and makes the material opaque.
+**Decision:** Three materials. The island and its sheet are a dark plate (`#151517`)
+that does not follow the theme; on a dark page it keeps its fill and gains an inset
+hairline. The landing's nav pill is that plate, never inverted; its CTA stays
+primary (D2). Floating surfaces over the phone's stage are the landing's card
+material: paper at 88%, a blur, a 1px ring, one soft shadow, and so are the header
+capsules; a menu or popover that holds rows of text takes the opaque studio surface
+instead, in both shells (next-wave D6): the phone's More menu, the account panel and
+the phone's sheet at every stop included; a header trigger sits on flat paper and
+takes the fill without the blur. The desktop card and timeline sit on flat paper, so
+they are opaque. Code frames take a layered shadow with a 1px ring inside it, not a
+border. Reduced transparency removes every blur and makes the material opaque.
 
 **Why:** the same plate on `/` and `/app` says it is the same instrument; an
 island that inverted with the theme would read as a panel of the page. A
 drop shadow does nothing on a dark page, so the edge comes from a line. A
 blur over flat paper shows nothing and costs a layer over the editor.
 
-**Enforced by:** `src/app.css` (`.si-island`, `.lp-island`, `.sc-chip`, the
+**Enforced by:** `src/app.css` (`.si-island`, `.lp-island`, `.lp-nav-pill`, `.sc-chip`, the
 reduced-transparency query), `src/presentation/studio-camera.css`
 (`--camera-surface`, `--camera-material`), `src/presentation/landing/static-frame.tsx`
 (`CARD_SHADOW`).

@@ -51,6 +51,12 @@
 	/* The primary's own glow, for the lift under a filled button. */
 	--color-primary-glow: rgb(241 190 1 / 0.45);
 
+	/* Ink on the landing's dark band, in both themes. The band is dark whatever
+	   the page is, so what sits over it (the theme toggle's glyph) cannot read
+	   `--color-paper`, which is dark itself on the dark theme: that was a 1.07:1
+	   glyph. `.lp-dark` maps `--color-ink` to this, so the two cannot drift. */
+	--color-band-ink: #f5f3ef;
+
 	/* Focus stays blue, and deliberately: a focus ring has to be seen against
 	   whatever it sits on, and the primary measures 1.67:1 against paper — under
 	   half of the 3:1 a ring needs. The one place the brand colour cannot go. */
@@ -305,6 +311,9 @@ html.dark:not([data-landing-theme]) {
 	--color-ash: #a8a39a;
 	--color-surface: #1e1c1a;
 	--color-hairline: rgb(245 243 239 / 0.12);
+	/* The brand's glow is a light on a lit page. On the dark one the same 45%
+	   yellow under a button read as a halo, so it halves. */
+	--color-primary-glow: rgb(241 190 1 / 0.22);
 }
 
 /* The hero headline, set in the product's own material. Decided in
@@ -378,7 +387,7 @@ html.dark:not([data-landing-theme]) {
 	gap: 0.6em;
 	font-family: var(--font-sans);
 	font-weight: 600;
-	font-size: 0.6875rem;
+	font-size: 0.75rem;
 	letter-spacing: 0.18em;
 	text-transform: uppercase;
 	color: var(--color-ash);
@@ -445,7 +454,8 @@ html.dark:not([data-landing-theme]) {
 	   Geist landed. */
 	max-width: calc(52 * 0.663em);
 	font-size: 17px;
-	line-height: 26px;
+	/* 26px at this size, written as the ratio so it follows the size. */
+	line-height: calc(26 / 17);
 	letter-spacing: -0.01em;
 	color: var(--color-ash);
 	text-wrap: pretty;
@@ -501,6 +511,10 @@ html.dark:not([data-landing-theme]) {
 .landing-root .lp-mode[data-active] {
 	color: var(--color-ink);
 	background: var(--color-surface);
+	/* The fill alone was 1.1:1 against its neighbours, so the state lived in the
+	   label's colour. A 2px ink rule on the top edge carries it as a shape; it
+	   follows the block's two turns because it is inside the box. */
+	box-shadow: inset 0 2px 0 var(--color-ink);
 }
 
 .landing-root .lp-mode:first-child {
@@ -634,7 +648,10 @@ html.dark:not([data-landing-theme]) {
 }
 
 .landing-root .lp-field textarea::placeholder {
-	color: color-mix(in oklch, var(--color-ash) 75%, transparent);
+	/* Ash itself: a 75% mix of it was 3.18:1 on the field, under the 4.5:1 a
+	   14px line needs. The caret and the empty field's state still say it is
+	   a placeholder; the colour does not have to. */
+	color: var(--color-ash);
 }
 
 /* A pasted diff is many lines, and the field holds them rather than swallowing
@@ -750,6 +767,60 @@ html.dark:not([data-landing-theme]) {
 	transform: scale(0.97);
 }
 
+/* A label that swaps holds the width of its widest (D8). Both words sit in one
+   grid cell and the one not shown is hidden, not removed, so the button, and the
+   room the field keeps beside it, never change under a keystroke. The hidden one
+   is aria-hidden in the markup, so the name a screen reader reads is the shown one. */
+.landing-root .lp-swap {
+	display: inline-grid;
+	justify-items: center;
+}
+
+.landing-root .lp-swap > * {
+	grid-area: 1 / 1;
+}
+
+.landing-root .lp-swap > [aria-hidden="true"] {
+	visibility: hidden;
+}
+
+/* The button holds the width of its widest label (above), and on a 360px phone
+   that left 130px of field for a 144px placeholder. A step down in the label and
+   in its padding gives it back: 118px of button, 154px of field, which holds the
+   diff's placeholder (153.6px) as well as the pull request's (144px). */
+@media (max-width: 380px) {
+	.landing-root .lp-field-cta {
+		padding: 0 10px;
+		font-size: 12px;
+	}
+}
+
+/* Below a tablet the diff has 294px of field and the button took 140 of it from
+   the row, so a pasted diff scrolled sideways through 13 characters. The button
+   goes to a row of its own under the text, and the text wraps instead of
+   scrolling: it is the same characters, and a phone has no width to spare for a
+   long line. */
+@media (max-width: 520px) {
+	.landing-root .lp-field[data-multiline] {
+		flex-wrap: wrap;
+		align-items: stretch;
+		row-gap: 8px;
+		/* Square on the right too: a 26px turn on a box this tall eats the first
+		   column of the diff. The block's own turn stays on the left. */
+		border-radius: 0 var(--mode-r) var(--mode-r) var(--mode-r);
+	}
+
+	.landing-root .lp-field[data-multiline]::before {
+		border-radius: 0 calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px) calc(var(--mode-r) + 1px);
+	}
+
+	.landing-root .lp-field[data-multiline] textarea {
+		flex: 1 1 100%;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+}
+
 /* The log. Every field it carries takes a column of its own and the numeric
    ones are right-aligned, so they stack whatever their width. A column that
    lines up across rows cannot be sized inside a row: the list owns the columns,
@@ -770,7 +841,8 @@ html.dark:not([data-landing-theme]) {
 	margin-top: 14px;
 	font-family: var(--font-mono);
 	font-size: 12px;
-	line-height: 24px;
+	/* 24px a row, and every row is a target: the ratio is 2 so it stays 24. */
+	line-height: 2;
 }
 
 .landing-root .lp-log li {
@@ -820,7 +892,7 @@ html.dark:not([data-landing-theme]) {
 	padding-top: 14px;
 	border-top: 1px solid var(--color-hairline);
 	font-size: 13px;
-	line-height: 20px;
+	line-height: calc(20 / 13);
 	color: var(--color-ash);
 }
 
@@ -833,10 +905,10 @@ html.dark:not([data-landing-theme]) {
 /* The one dark, full-bleed section. Remapping the two text vars flips every
    `.lp-*` line and every Tailwind `text-ink` / `text-ash` inside it to light. */
 .landing-root .lp-dark {
-	--color-ink: #f5f3ef;
+	--color-ink: var(--color-band-ink);
 	--color-ash: #a8a39a;
 	background: #171614;
-	color: #f5f3ef;
+	color: var(--color-band-ink);
 }
 
 /* On the dark theme the section can no longer be "the dark one": it has to lift
@@ -844,6 +916,34 @@ html.dark:not([data-landing-theme]) {
    temperature. */
 .landing-root[data-theme="dark"] .lp-dark {
 	background: #1c1a18;
+}
+
+/* The platform chips' padding and the step the label takes for the lit dot. The
+   dot sits at padding minus step and the lit right inset is the same, so lit or
+   not the content is centred. On a phone the five chips are 342px at most (312 at
+   360), and at 22px of padding LinkedIn wrapped to a row of its own, so the
+   padding closes up there and the step with it. */
+.landing-root .lp-chip-row {
+	--chip-pad: 22px;
+	--chip-step: 6px;
+	--chip-gap: 8px;
+	gap: var(--chip-gap);
+}
+
+@media (max-width: 420px) {
+	.landing-root .lp-chip-row {
+		--chip-pad: 12px;
+		--chip-step: 5.5px;
+		--chip-gap: 6px;
+	}
+}
+
+/* A 360px phone has 312px: the five chips at 12px of padding are 328. */
+@media (max-width: 374px) {
+	.landing-root .lp-chip-row {
+		--chip-pad: 10px;
+		--chip-step: 5px;
+	}
 }
 
 /* Subtle gradient drift during playback */
@@ -932,6 +1032,19 @@ html.dark:not([data-landing-theme]) {
 	--dock-ink: #f2f2f4;
 	--dock-dim: #9a9aa2;
 	--dock-hairline: rgb(255 255 255 / 0.1);
+	/* Depth for a dark plate: the island's lift, and its edge. The edge is an inset
+	   1px ring in the island's own hairline, in the stack with the shadow rather
+	   than a border, so a plate that sits on something as dark as itself (the dark
+	   theme, or the dark band) still has an outline, and one that sits on paper
+	   loses nothing. The nav pill and the hero's island read the same two. */
+	--island-lift: 0 8px 24px rgb(18 18 20 / 0.18);
+	--island-edge: inset 0 0 0 1px var(--dock-hairline);
+	/* The frame's own shadow on the paper, and what stands in for it on the dark
+	   theme, where a black shadow on near-black shows nothing: a ring. */
+	--object-lift: 0 30px 80px -24px rgb(0 0 0 / 0.25), 0 2px 8px rgb(0 0 0 / 0.06);
+	/* A raised light surface (a card, a picture) gets its edge from a ring inside
+	   its shadow stack, never a border, in the one hairline. */
+	--raised-ring: 0 0 0 1px var(--color-hairline);
 }
 
 /* The stage the preview is fitted into.
@@ -970,6 +1083,22 @@ html.dark:not([data-landing-theme]) {
 .landing-root[data-theme="dark"] {
 	--dock-bg: #24232a;
 	--dock-hairline: rgb(255 255 255 / 0.12);
+	--island-lift: 0 8px 24px rgb(0 0 0 / 0.4);
+	--object-lift: 0 30px 80px -24px rgb(0 0 0 / 0.6), 0 0 0 1px var(--color-hairline);
+}
+
+/* The nav pill is the island's plate (D5): the same fill, ink, lift and edge,
+   and it never inverts. It used to flip to paper over the dark band, which on the
+   dark theme made paper-coloured ink on a paper-coloured pill (1.05:1). */
+.landing-root .lp-nav-pill {
+	background: var(--dock-bg);
+	color: var(--dock-ink);
+	box-shadow: var(--island-lift), var(--island-edge);
+}
+
+/* The frame's halo, one box per aspect under the clipped frame. */
+.landing-root .lp-object-halo {
+	box-shadow: var(--object-lift);
 }
 
 .landing-root .lp-island {
@@ -980,7 +1109,7 @@ html.dark:not([data-landing-theme]) {
 	border-radius: 999px;
 	background: var(--dock-bg);
 	color: var(--dock-ink);
-	box-shadow: 0 8px 24px rgb(18 18 20 / 0.18);
+	box-shadow: var(--island-lift), var(--island-edge);
 	/* Clips the row while the island springs to its new width. */
 	overflow: hidden;
 	font-family: var(--font-sans);
@@ -1350,7 +1479,7 @@ html.dark:not([data-landing-theme]) {
 	margin-top: 12px;
 	color: var(--color-ash);
 	font-size: 13px;
-	line-height: 20px;
+	line-height: calc(20 / 13);
 	text-align: center;
 	/* At 375 the sentence left "frame." alone on its second line. */
 	text-wrap: balance;
@@ -1370,7 +1499,7 @@ html.dark:not([data-landing-theme]) {
 	border-radius: 999px;
 	background: var(--dock-bg);
 	color: var(--dock-ink);
-	box-shadow: 0 6px 18px rgb(18 18 20 / 0.16);
+	box-shadow: var(--island-lift), var(--island-edge);
 	font-family: var(--font-sans);
 	font-size: 11px;
 	font-weight: 500;
@@ -1415,20 +1544,37 @@ html.dark:not([data-landing-theme]) {
 /* PR → timeline. One crop of the actual workflow rather than a diagram made of
    nested cards: the preview and its timeline belong to the same object. */
 .landing-root .lp-import-shot {
+	/* The shot's radius and the timeline's padding, kept as two numbers because the
+	   scenes in its corner derive their own radius from them (D3). */
+	--shot-r: 24px;
+	--shot-pad: 11px;
+	/* The playhead's red and the traffic lights are the studio's own marks (the
+	   lights are CHROME_STYLE.macos.lights, which the code windows read). */
+	--shot-red: #ff5f57;
+	--shot-amber: #febc2e;
+	--shot-green: #28c840;
 	width: min(100%, 540px);
 	overflow: hidden;
-	border: 1px solid var(--color-hairline);
-	border-radius: 24px;
+	border-radius: var(--shot-r);
 	background: var(--color-surface);
-	box-shadow: 0 28px 64px -46px rgb(28 27 25 / 0.46), inset 0 1px 0 rgb(255 255 255 / 0.55);
+	/* The ring is in the stack, not a border (the landing's one border is the
+	   section rule): it is the edge on paper and, with the deeper shadow, the only
+	   edge on the dark theme. */
+	box-shadow: var(--raised-ring), 0 28px 64px -46px rgb(28 27 25 / 0.46);
 	user-select: none;
 }
 
 .landing-root[data-theme="dark"] .lp-import-shot {
-	box-shadow: 0 28px 68px -42px rgb(0 0 0 / 0.76), inset 0 1px 0 rgb(255 255 255 / 0.05);
+	box-shadow: var(--raised-ring), 0 28px 68px -42px rgb(0 0 0 / 0.76);
 }
 
 .landing-root .lp-import-preview {
+	/* A picture of the studio on its own backdrop: it keeps the light palette
+	   whatever the page's theme is, so the chip inside reads paper and ink and not
+	   their dark-theme remap. */
+	--color-paper: #faf9f6;
+	--color-ink: #1c1b19;
+	--color-ash: #6e6b64;
 	position: relative;
 	min-height: 318px;
 	overflow: hidden;
@@ -1456,12 +1602,12 @@ html.dark:not([data-landing-theme]) {
 	align-items: center;
 	gap: 8px;
 	padding: 0 6px 0 7px;
-	border: 1px solid rgb(255 255 255 / 0.42);
 	border-radius: 999px;
-	background: rgb(250 249 246 / 0.92);
-	box-shadow: 0 10px 28px -15px rgb(31 18 5 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.8);
-	color: #1c1b19;
-	backdrop-filter: blur(16px) saturate(1.15);
+	/* Opaque, and no blur: the chip holds text, and we do not put glass behind
+	   text. The ring is the edge. */
+	background: var(--color-paper);
+	box-shadow: 0 0 0 1px rgb(255 255 255 / 0.42), 0 10px 28px -15px rgb(31 18 5 / 0.55);
+	color: var(--color-ink);
 }
 
 .landing-root .lp-import-git-mark {
@@ -1471,7 +1617,7 @@ html.dark:not([data-landing-theme]) {
 	flex: none;
 	place-items: center;
 	border-radius: 999px;
-	background: rgb(28 27 25 / 0.07);
+	background: color-mix(in oklch, var(--color-ink) 7%, transparent);
 }
 
 .landing-root .lp-import-source-copy {
@@ -1489,8 +1635,8 @@ html.dark:not([data-landing-theme]) {
 .landing-root .lp-import-source-copy small {
 	margin-top: 3px;
 	font-family: var(--font-mono);
-	font-size: 8px;
-	color: #77736d;
+	font-size: 11px;
+	color: var(--color-ash);
 }
 
 .landing-root .lp-import-origin {
@@ -1500,15 +1646,15 @@ html.dark:not([data-landing-theme]) {
 	gap: 5px;
 	border-radius: 999px;
 	padding: 0 9px;
-	background: #1c1b19;
-	font-size: 9px;
-	font-weight: 590;
+	background: var(--color-ink);
+	font-size: 11px;
+	font-weight: 600;
 	white-space: nowrap;
-	color: #f7f5f1;
+	color: var(--color-paper);
 }
 
 .landing-root .lp-import-origin svg {
-	color: #f5c400;
+	color: var(--color-primary);
 }
 
 .landing-root .lp-import-frame-wrap {
@@ -1534,12 +1680,11 @@ html.dark:not([data-landing-theme]) {
 	grid-template-rows: auto auto;
 	column-gap: 8px;
 	align-items: center;
-	border: 1px solid rgb(255 255 255 / 0.09);
 	border-radius: 13px;
 	padding: 8px 11px 8px 8px;
-	background: rgb(20 19 19 / 0.9);
-	box-shadow: 0 12px 30px -15px rgb(0 0 0 / 0.65), inset 0 1px 0 rgb(255 255 255 / 0.06);
-	backdrop-filter: blur(14px);
+	/* The island's plate, opaque: a toast in the studio is the dock's material. */
+	background: var(--dock-bg);
+	box-shadow: var(--island-edge), 0 12px 30px -15px rgb(0 0 0 / 0.65);
 }
 
 .landing-root .lp-import-ready > span {
@@ -1549,25 +1694,25 @@ html.dark:not([data-landing-theme]) {
 	grid-row: 1 / 3;
 	place-items: center;
 	border-radius: 9px;
-	background: rgb(245 196 0 / 0.14);
-	color: #f5c400;
+	background: color-mix(in oklch, var(--color-primary) 14%, transparent);
+	color: var(--color-primary);
 }
 
 .landing-root .lp-import-ready strong {
-	font-size: 10px;
-	font-weight: 620;
-	color: #fff;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--dock-ink);
 }
 
 .landing-root .lp-import-ready small {
 	margin-top: 2px;
-	font-size: 7.5px;
-	color: rgb(255 255 255 / 0.56);
+	font-size: 11px;
+	color: var(--dock-dim);
 }
 
 .landing-root .lp-import-timeline {
 	position: relative;
-	padding: 0 11px;
+	padding: 0 var(--shot-pad);
 	border-top: 1px solid var(--color-hairline);
 	background: var(--color-surface);
 }
@@ -1578,7 +1723,7 @@ html.dark:not([data-landing-theme]) {
 	grid-template-columns: 1fr auto 1fr;
 	align-items: center;
 	font-family: var(--font-mono);
-	font-size: 8px;
+	font-size: 11px;
 	font-variant-numeric: tabular-nums;
 	color: var(--color-ash);
 }
@@ -1600,13 +1745,8 @@ html.dark:not([data-landing-theme]) {
 	height: 25px;
 	place-items: center;
 	border-radius: 999px;
-	background: #1c1b19;
-	color: #fff;
-}
-
-.landing-root[data-theme="dark"] .lp-import-play {
-	background: #f7f5f1;
-	color: #1c1b19;
+	background: var(--color-ink);
+	color: var(--color-paper);
 }
 
 .landing-root .lp-import-track {
@@ -1623,7 +1763,9 @@ html.dark:not([data-landing-theme]) {
 	height: 88px;
 	overflow: hidden;
 	border: 1px solid var(--color-hairline);
-	border-radius: 9px;
+	/* In the shot's bottom corners, so concentric: the shot's radius minus the
+	   timeline's padding. */
+	border-radius: calc(var(--shot-r) - var(--shot-pad));
 	background: color-mix(in oklch, var(--color-ink) 2.5%, var(--color-surface));
 }
 
@@ -1636,7 +1778,8 @@ html.dark:not([data-landing-theme]) {
 	height: 65px;
 	margin: 4px;
 	overflow: hidden;
-	border-radius: 5px;
+	/* The scene's radius minus its 1px border and the thumb's 4px margin. */
+	border-radius: calc(var(--shot-r) - var(--shot-pad) - 5px);
 	background: linear-gradient(145deg, #a18411, #d86b1c 56%, #2b1514);
 }
 
@@ -1668,30 +1811,36 @@ html.dark:not([data-landing-theme]) {
 	width: 3px;
 	height: 3px;
 	border-radius: 50%;
-	background: #ff5f57;
-	box-shadow: 5px 0 #febc2e, 10px 0 #28c840;
+	background: var(--shot-red);
+	box-shadow: 5px 0 var(--shot-amber), 10px 0 var(--shot-green);
 }
 
-.landing-root .lp-import-thumb-window code {
+/* The code in a thumbnail is a shape, not text: at 4.7px it could not be read,
+   and a line nobody can read is a line that only has to look like one. */
+.landing-root .lp-import-thumb-lines {
 	position: absolute;
-	top: 18px;
+	top: 17px;
+	right: 7px;
 	left: 7px;
-	max-width: calc(100% - 12px);
-	overflow: hidden;
-	font-family: var(--font-mono);
-	font-size: 4.7px;
-	line-height: 1;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	color: #d9a7ec;
+	display: grid;
+	gap: 3px;
+}
+
+.landing-root .lp-import-thumb-lines i {
+	display: block;
+	height: 2px;
+	width: var(--w);
+	border-radius: 1px;
+	background: color-mix(in oklch, #d9a7ec 70%, transparent);
 }
 
 .landing-root .lp-import-scene-number,
 .landing-root .lp-import-scene-duration {
 	position: absolute;
-	bottom: 4px;
+	bottom: 3px;
 	font-family: var(--font-mono);
-	font-size: 7px;
+	font-size: 11px;
+	line-height: 1;
 	font-variant-numeric: tabular-nums;
 	color: var(--color-ash);
 }
@@ -1711,8 +1860,8 @@ html.dark:not([data-landing-theme]) {
 	justify-content: center;
 	gap: 6px;
 	border-style: dashed;
-	font-size: 7.5px;
-	font-weight: 560;
+	font-size: 11px;
+	font-weight: 500;
 	color: var(--color-ash);
 }
 
@@ -1723,7 +1872,7 @@ html.dark:not([data-landing-theme]) {
 	bottom: -4px;
 	left: 36%;
 	width: 1px;
-	background: #ff5f57;
+	background: var(--shot-red);
 	pointer-events: none;
 }
 
@@ -1735,7 +1884,7 @@ html.dark:not([data-landing-theme]) {
 	width: 5px;
 	height: 5px;
 	border-radius: 50%;
-	background: #ff5f57;
+	background: var(--shot-red);
 }
 
 .landing-root .lp-import-ruler {
@@ -1778,8 +1927,15 @@ html.dark:not([data-landing-theme]) {
 	overflow: hidden;
 	padding: 30px 28px;
 	border-radius: 16px;
-	background: #1f2229;
-	box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 18px 44px -28px rgb(0 0 0 / 0.4);
+	/* The code's own surface is the theme's background, set inline from the Theme
+	   (one-dark's, which the highlight colours are tuned on): a literal here was a
+	   colder, darker slate than the code it holds. The ring is the edge on the dark
+	   theme, where a black shadow shows nothing. */
+	box-shadow: 0 0 0 1px rgb(0 0 0 / 0.08), 0 18px 44px -28px rgb(0 0 0 / 0.4);
+}
+
+.landing-root[data-theme="dark"] .lp-morph-frame {
+	box-shadow: 0 0 0 1px var(--color-hairline), 0 18px 44px -28px rgb(0 0 0 / 0.6);
 }
 
 /* A flex child shrinks by default, and a shrunk child does not overflow: the
@@ -1827,13 +1983,19 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+.landing-root .lp-demo-replay .lp-swap {
+	/* Left-aligned: the icon and the word stay together, and the spare width the
+	   shorter word leaves is at the button's right edge, where padding is. */
+	justify-items: start;
+}
+
 .landing-root .lp-demo-replay:active {
 	transform: scale(0.97);
 }
 
 @media (max-width: 520px) {
 	.landing-root .lp-import-shot {
-		border-radius: 20px;
+		--shot-r: 20px;
 	}
 
 	.landing-root .lp-import-preview {
@@ -1848,7 +2010,7 @@ html.dark:not([data-landing-theme]) {
 
 	.landing-root .lp-import-origin {
 		padding: 0 8px;
-		font-size: 8px;
+		font-size: 11px;
 	}
 
 	.landing-root .lp-import-frame-wrap {
@@ -1905,9 +2067,9 @@ html.dark:not([data-landing-theme]) {
 		height: 31px;
 	}
 
-	.landing-root .lp-import-thumb-window code {
-		top: 16px;
-		font-size: 3.8px;
+	.landing-root .lp-import-thumb-lines {
+		top: 14px;
+		gap: 2px;
 	}
 
 	.landing-root .lp-import-add-scene span {

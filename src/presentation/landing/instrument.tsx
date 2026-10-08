@@ -1,5 +1,5 @@
 import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gradient";
-import { FRAME_SECONDARY_ALPHA_HEX } from "@/application/layout/frame-metrics";
+import { CHROME_STYLE, FRAME_SECONDARY_ALPHA_HEX } from "@/application/layout/frame-metrics";
 import {
 	type RenderToken,
 	easeInOutCubic,
@@ -164,7 +164,6 @@ const NATURAL_W = WINDOW_WIDTH;
 const NATURAL_H = 184;
 /** A pleasant frozen moment for the mesh when paused before playback starts. */
 const MESH_IDLE_T = 3;
-const OBJECT_SHADOW = "0 30px 80px -24px rgb(0 0 0 / 0.25), 0 2px 8px rgb(0 0 0 / 0.06)";
 
 interface DemoView {
 	tokens: RenderToken[];
@@ -473,14 +472,13 @@ export function Instrument({
 							<motion.div
 								key={a.id}
 								aria-hidden="true"
-								className="pointer-events-none absolute"
+								className="lp-object-halo pointer-events-none absolute"
 								style={{
 									left: (box.w - fit.w * fitScale) / 2,
 									top: (box.h - fit.h * fitScale) / 2,
 									width: fit.w * fitScale,
 									height: fit.h * fitScale,
 									borderRadius: WINDOW_RADIUS + MESH_PAD,
-									boxShadow: OBJECT_SHADOW,
 								}}
 								initial={false}
 								animate={{ opacity: a.id === aspect ? 1 : 0 }}
@@ -565,9 +563,9 @@ function CodeWindow({
 				className="flex items-center gap-1.5 px-3 py-2.5"
 				style={{ borderBottom: `1px solid ${theme.foreground}0f` }}
 			>
-				<div className="size-2.5 rounded-full bg-[#ff5f57]" />
-				<div className="size-2.5 rounded-full bg-[#febc2e]" />
-				<div className="size-2.5 rounded-full bg-[#28c840]" />
+				{CHROME_STYLE.macos.lights.map((light) => (
+					<div key={light} className="size-2.5 rounded-full" style={{ background: light }} />
+				))}
 				<span
 					className="ml-2 font-mono text-[10px] tracking-tight"
 					style={{ color: `${theme.foreground}59` }}

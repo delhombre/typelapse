@@ -18,16 +18,6 @@ export function SocialSection() {
 
 	return (
 		<section className="lp-dark relative overflow-hidden">
-			{/* A soft neutral glow behind the device: enough to lift it off a clean
-			    near-black, no brand tint, so the only colour on the section is the
-			    product mesh inside the phone. */}
-			<div
-				aria-hidden
-				className="pointer-events-none absolute inset-0"
-				style={{
-					background: "radial-gradient(48% 46% at 78% 44%, oklch(1 0 0 / 0.05), transparent 70%)",
-				}}
-			/>
 			<div className={`${CONTAINER} ${SECTION_PY} relative`}>
 				<div className="grid grid-cols-1 items-center gap-14 lg:grid-cols-2 lg:gap-16">
 					<Reveal>
@@ -40,7 +30,7 @@ export function SocialSection() {
 						</p>
 						{/* The row and the phone drive the same selected platform. Nothing
 						    moves unless a chip, key press or swipe asks it to. */}
-						<div className="mt-8 flex flex-wrap gap-2">
+						<div className="lp-chip-row mt-8 flex flex-wrap">
 							{CYCLE_PLATFORMS.map((p, i) => (
 								<PlatformChip
 									key={p}
@@ -53,8 +43,9 @@ export function SocialSection() {
 					</Reveal>
 
 					<Reveal delay={0.1} className="flex items-center justify-center">
-						{/* One glow for the section, behind it. A second, tighter one hugged
-						    the device as well: two depth cues for one object (pass 2026-10-05). */}
+						{/* The device's own contact shadow is its one depth cue: the radial
+						    glow that stood behind it is gone, so the only colour on the
+						    section is the product mesh inside the phone. */}
 						<IphoneShowcase cycle={cycle} className="relative z-10" />
 					</Reveal>
 				</div>
@@ -67,13 +58,17 @@ export function SocialSection() {
     step affordable. The chip's width is fixed by its content, so every pixel
     the label moves right is a pixel taken off the right inset: shove it the
     full width of the dot and its air, and an active chip ends up 29px in on the
-    left and 5px in on the right — visibly lopsided, worst on a one-letter
+    left and 5px in on the right, visibly lopsided, worst on a one-letter
     label. Splitting the difference is what balances both states. The chip
     carries 22px of padding instead of 16, and the label moves 6: at rest it
     sits 22 in on both sides, and lit it runs from the dot at 16 to a right
-    inset of 16, so the *content* is centred either way. */
-const INDICATOR_ROOM = 6;
-const CHIP_PAD = 22;
+    inset of 16, so the *content* is centred either way.
+
+    Both are CSS variables on the row (`.lp-chip-row`), because a phone closes the
+    padding up so five chips fit one row, and the dot's offset (padding minus
+    step) has to follow. */
+const CHIP_PAD = "var(--chip-pad)";
+const INDICATOR_ROOM = "var(--chip-step)";
 
 /**
  * A platform chip that tracks the screen and moves it: the active platform
@@ -106,7 +101,7 @@ function PlatformChip({
 	   brand marks the one that is playing, not the row. */
 	const tone = active
 		? "border-[var(--color-primary)]/45 bg-[var(--color-primary)]/12 text-[var(--color-primary)]"
-		: "border-white/12 bg-transparent text-white/40 hover:border-white/20 hover:text-white/70";
+		: "border-band-ink/12 bg-transparent text-band-ink/65 hover:border-band-ink/20 hover:text-band-ink/80";
 	/* The dot is always here. Mounted only while active it had to appear from
 	   nothing on the frame the carousel turned, in the middle of a 500ms colour
 	   fade — the one hard cut inside an otherwise slow change. And it sat in the
@@ -118,7 +113,6 @@ function PlatformChip({
 		opacity: active ? 1 : 0,
 		transform: `translateY(-50%) scale(${active ? 1 : 0.5})`,
 		transition: "opacity 200ms var(--ease-out), transform 200ms var(--ease-out)",
-		boxShadow: "0 0 8px var(--color-primary-glow)",
 	};
 
 	return (
@@ -139,13 +133,13 @@ function PlatformChip({
 		>
 			<span
 				aria-hidden
-				className="absolute top-1/2 left-4 size-1.5 rounded-full bg-[var(--color-primary)]"
-				style={indicator}
+				className="absolute top-1/2 size-1.5 rounded-full bg-[var(--color-primary)]"
+				style={{ ...indicator, left: "calc(var(--chip-pad) - var(--chip-step))" }}
 			/>
 			<span
 				className="inline-block"
 				style={{
-					transform: `translateX(${active ? INDICATOR_ROOM : 0}px)`,
+					transform: `translateX(${active ? INDICATOR_ROOM : "0px"})`,
 					transition: "transform 200ms var(--ease-out)",
 				}}
 			>

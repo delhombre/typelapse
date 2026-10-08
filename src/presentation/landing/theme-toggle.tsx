@@ -12,7 +12,9 @@ interface ThemeToggleProps {
  * palette should not be hidden inside the one element that never changes.
  *
  * Being fixed, it passes over the page's dark sections, where an ink glyph is
- * an invisible one — so it inverts with what is under it. `mix-blend-mode:
+ * an invisible one, so it takes the band's own ink (`--color-band-ink`, fixed in
+ * both themes) while one is under it. It read `paper` before, which is dark on the
+ * dark theme: a 1.07:1 glyph on the band. `mix-blend-mode:
  * difference` would do this on its own and with no observer at all, which is
  * the appeal; but it inverts against *every* backdrop, and the one this passes
  * over most is the primary's own mesh, where difference turns a white glyph
@@ -40,7 +42,7 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
 			aria-label={`Switch to ${next} theme`}
 			className={`hit-ext absolute top-5 right-[max(1.25rem,env(safe-area-inset-right))] z-50 min-[1136px]:fixed flex size-9 items-center justify-center rounded-full transition-colors duration-300 ease-[var(--ease-out)] ${
 				onDark
-					? "text-paper/75 hover:bg-paper/10 hover:text-paper"
+					? "text-band-ink/75 hover:bg-band-ink/10 hover:text-band-ink"
 					: "text-ink/70 hover:bg-ink/6 hover:text-ink"
 			}`}
 		>

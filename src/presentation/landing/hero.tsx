@@ -215,8 +215,14 @@ export function Hero() {
 						    than unmounted when it stands down, so the Render button does not
 						    step sideways on the first keystroke. */}
 						{!multiline && <span className="lp-caret" aria-hidden="true" />}
+						{/* Both labels are laid out, the one not shown hidden, so the button
+						    holds the width of the wider and the field keeps its room while
+						    you type (D8). */}
 						<button type="button" className="lp-field-cta" onClick={submit}>
-							{value.trim() === "" ? "Open studio" : "Import & animate"}
+							<span className="lp-swap">
+								<span aria-hidden={value.trim() !== ""}>Open studio</span>
+								<span aria-hidden={value.trim() === ""}>Import &amp; animate</span>
+							</span>
 						</button>
 					</div>
 				</RevealItem>

@@ -43,16 +43,11 @@ interface ScreenConfig {
     One order, one owner: this array is it. The chip row is an indicator of this
     cycle, so it renders `CYCLE_PLATFORMS` rather than keeping a running order of
     its own — two hand-aligned lists are two lists that can disagree, and the
-    disagreement shows up as a chip lit for a feed that is not on screen. */
+    disagreement shows up as a chip lit for a feed that is not on screen.
+
+    The order is the one the section's sentence names them in (TikTok, Reels,
+    Shorts, X, LinkedIn), so the row reads as the line above it. */
 export const SCREEN_CONFIGS = [
-	{
-		platform: "reels",
-		themeName: "aurora",
-		presetId: "solar",
-		title: "api/users.ts",
-		code: "const active = users.filter(\n  (u) => u.active\n)",
-		meshTime: 9,
-	},
 	{
 		platform: "tiktok",
 		themeName: "dracula",
@@ -60,6 +55,14 @@ export const SCREEN_CONFIGS = [
 		title: "api/users.ts",
 		code: "const active = users.filter(\n  (u) => u.active\n)",
 		meshTime: 5,
+	},
+	{
+		platform: "reels",
+		themeName: "aurora",
+		presetId: "solar",
+		title: "api/users.ts",
+		code: "const active = users.filter(\n  (u) => u.active\n)",
+		meshTime: 9,
 	},
 	{
 		platform: "shorts",

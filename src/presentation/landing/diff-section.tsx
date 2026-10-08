@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { FeatureSection } from "./feature-section";
 import { StaticFrame } from "./static-frame";
 
@@ -7,10 +8,13 @@ const FINAL_CODE = `export async function GET(req: Request) {
   return Response.json(active)
 }`;
 
+/** `lines` are the widths, as a share of the thumbnail's window, of the lines of
+    code each scene shows: drawn as bars, since code at thumbnail size is not text
+    anyone can read. */
 const SCENES = [
-	{ label: "01", duration: "1.4s", tone: "solar", code: "return users" },
-	{ label: "02", duration: "2.2s", tone: "ember", code: "const active = users.filter(…)" },
-	{ label: "03", duration: "2.6s", tone: "aurora", code: "return Response.json(active)" },
+	{ label: "01", duration: "1.4s", tone: "solar", lines: ["38%"] },
+	{ label: "02", duration: "2.2s", tone: "ember", lines: ["72%", "46%"] },
+	{ label: "03", duration: "2.6s", tone: "aurora", lines: ["62%", "30%"] },
 ] as const;
 
 const RULER_TICKS = Array.from({ length: 25 }, (_, position) => ({
@@ -101,7 +105,11 @@ function ImportProductShot() {
 							<div className="lp-import-thumb" data-tone={scene.tone}>
 								<div className="lp-import-thumb-window">
 									<span className="lp-import-thumb-dots" />
-									<code>{scene.code}</code>
+									<span className="lp-import-thumb-lines">
+										{scene.lines.map((width) => (
+											<i key={width} style={{ "--w": width } as CSSProperties} />
+										))}
+									</span>
 								</div>
 							</div>
 							<span className="lp-import-scene-number">{scene.label}</span>

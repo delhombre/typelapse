@@ -28,8 +28,11 @@ export function CapabilityLedger() {
 			<dl className="mt-8 grid grid-cols-1 gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
 				{CAPABILITIES.map(([label, detail]) => (
 					<div key={label}>
-						<dt className="lp-eyebrow text-ash">{label}</dt>
-						<dd className="mt-3 text-[15px] text-ink leading-relaxed">{detail}</dd>
+						{/* The label is the strong one: 13px ink in the face's own case, so it
+						    does not repeat the section's eyebrow above it, and the detail
+						    is the quieter line under it. */}
+						<dt className="font-semibold text-[13px] text-ink leading-5">{label}</dt>
+						<dd className="mt-2 text-[15px] text-ash leading-relaxed">{detail}</dd>
 					</div>
 				))}
 			</dl>

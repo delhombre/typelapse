@@ -1,4 +1,5 @@
 import { MESH_PRESETS, meshGradientCss } from "@/application/backgrounds/mesh-gradient";
+import { CHROME_STYLE } from "@/application/layout/frame-metrics";
 import { Theme } from "@/domain/entities/theme";
 import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
 import { GrainOverlay } from "@/presentation/components/preview/grain-overlay";
@@ -177,7 +178,7 @@ export const StaticFrame = memo(function StaticFrame({
 			{badge && (
 				<span
 					aria-hidden="true"
-					className="absolute right-2 bottom-2 z-20 font-mono text-[9px] tabular-nums"
+					className="absolute right-2 bottom-2 z-20 font-mono text-[11px] tabular-nums"
 					style={{
 						padding: "2px 6px",
 						borderRadius: 999,
@@ -221,9 +222,10 @@ function FrameShell({
 				className={`flex items-center gap-1.5 px-3 py-2.5 ${fill ? "shrink-0" : ""}`}
 				style={{ borderBottom: `1px solid ${theme.foreground}0f` }}
 			>
-				<div className="size-2.5 rounded-full bg-[#ff5f57]" />
-				<div className="size-2.5 rounded-full bg-[#febc2e]" />
-				<div className="size-2.5 rounded-full bg-[#28c840]" />
+				{/* The lights the video's own chrome bar draws, read from its table. */}
+				{CHROME_STYLE.macos.lights.map((light) => (
+					<div key={light} className="size-2.5 rounded-full" style={{ background: light }} />
+				))}
 				<span
 					className="ml-2 truncate font-mono text-[10px] tracking-tight"
 					style={{ color: `${theme.foreground}59` }}

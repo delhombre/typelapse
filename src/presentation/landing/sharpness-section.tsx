@@ -100,8 +100,8 @@ export function SharpnessSection() {
 						bleed into a dark background.
 					</p>
 					<p className="lp-micro mt-2 leading-relaxed">
-						PSNR in RGB against the painter&rsquo;s lossless frame, on this line only; sizes are for
-						the whole {seconds.toFixed(1)}&nbsp;s clip.{" "}
+						PSNR in RGB against the lossless reference frame, on this line only; sizes are for the
+						whole {seconds.toFixed(1)}&nbsp;s clip.{" "}
 						<code className="whitespace-nowrap font-mono text-[0.95em]">pnpm sharpness:render</code>{" "}
 						rebuilds both crops from a committed project. Exported in {manifest.browser} on{" "}
 						{manifest.platform}; a browser without an AV1 High encoder falls back to 4:2:0, and the
