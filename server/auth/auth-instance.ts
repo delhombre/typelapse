@@ -2,6 +2,7 @@ import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { emailOTP } from "better-auth/plugins";
+import * as z from "zod";
 import { signInCodeMail } from "../../src/application/auth/sign-in-code-mail";
 import type { MailPort } from "../../src/domain/ports/mail.port";
 import { type CreatorDatabase, databaseFromEnv } from "../db/database";
@@ -14,6 +15,8 @@ type AuthEnvironment = Readonly<Record<string, string | undefined>>;
 export interface AuthInstanceOptions {
 	/** Test seam: Better Auth's storage. Production uses the Drizzle schema. */
 	readonly adapter?: BetterAuthOptions["database"];
+	/** Where an operator reads that the instance stopped sending codes. Defaults to the console. */
+	readonly logger?: { warn(message: string): void };
 }
 
 const CODE_LIFETIME_MINUTES = 10;
@@ -90,6 +93,7 @@ export const authInstance = (
 	}
 	// Per address (an hour, a day) and per instance: the ceilings that hold whoever asks.
 	const codeSends = createCodeSendCeilings();
+	const logger = options.logger ?? console;
 
 	return betterAuth({
 		database: options.adapter ?? drizzleAdapter(database, { provider: "pg", schema }),
@@ -128,11 +132,21 @@ export const authInstance = (
 				if (ctx.body?.type !== "sign-in") {
 					throw new APIError("BAD_REQUEST", { message: "Only sign-in codes are sent." });
 				}
-				if (typeof ctx.body.email !== "string") {
+				// Normalised and checked as the endpoint will: an address it refuses (400) is
+				// no send, so it spends no ceiling, and two hundred junk strings cannot use up
+				// the instance's hour.
+				const email = typeof ctx.body.email === "string" ? ctx.body.email.toLowerCase() : "";
+				if (!z.email().safeParse(email).success) {
 					return;
 				}
-				const verdict = codeSends.consume(ctx.body.email);
+				const verdict = codeSends.consume(email);
 				if (!verdict.allowed) {
+					if (verdict.ceiling === "instance") {
+						// No address: the log says the backstop held, not who asked.
+						logger.warn(
+							"Sign-in codes: this instance has sent 200 in the last hour and refuses more until the hour turns. A client spread over many addresses, or real traffic past the backstop.",
+						);
+					}
 					// Better Auth's own limiter names the wait in X-Retry-After; the island reads it.
 					throw new APIError(
 						"TOO_MANY_REQUESTS",

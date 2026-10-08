@@ -56,12 +56,12 @@ describe("one fixed-window limit", () => {
 });
 
 describe("the ceilings on sending a sign-in code", () => {
-	it("allows ten codes an hour to one address, whatever its case, then names the wait", () => {
+	it("allows ten codes an hour to one address, then names the wait and the ceiling", () => {
 		let now = 1_000_000;
 		const ceilings = createCodeSendCeilings({ now: () => now });
 
 		for (let index = 0; index < 10; index += 1) {
-			expect(ceilings.consume(index % 2 ? "Ada@Example.com " : "ada@example.com")).toEqual({
+			expect(ceilings.consume("ada@example.com")).toEqual({
 				allowed: true,
 			});
 			now += 1000;
@@ -70,6 +70,7 @@ describe("the ceilings on sending a sign-in code", () => {
 		expect(ceilings.consume("ada@example.com")).toEqual({
 			allowed: false,
 			retryAfterSeconds: 3600 - 10,
+			ceiling: "address",
 		});
 		expect(ceilings.consume("grace@example.com")).toEqual({ allowed: true });
 	});
@@ -89,6 +90,7 @@ describe("the ceilings on sending a sign-in code", () => {
 		expect(ceilings.consume("ada@example.com")).toEqual({
 			allowed: false,
 			retryAfterSeconds: (DAY - 2 * HOUR) / 1000,
+			ceiling: "address",
 		});
 		now = DAY;
 		expect(ceilings.consume("ada@example.com")).toEqual({ allowed: true });
@@ -106,6 +108,7 @@ describe("the ceilings on sending a sign-in code", () => {
 		expect(ceilings.consume("someone@example.com")).toEqual({
 			allowed: false,
 			retryAfterSeconds: 30 * 60,
+			ceiling: "instance",
 		});
 		now = HOUR;
 		expect(ceilings.consume("someone@example.com")).toEqual({ allowed: true });

@@ -2,6 +2,17 @@ export type CodeSendVerdict =
 	| { readonly allowed: true }
 	| { readonly allowed: false; readonly retryAfterSeconds: number };
 
+/** Which ceiling refused a send: one address's, or this instance's. */
+export type CodeSendCeiling = "address" | "instance";
+
+export type CodeSendCeilingsVerdict =
+	| { readonly allowed: true }
+	| {
+			readonly allowed: false;
+			readonly retryAfterSeconds: number;
+			readonly ceiling: CodeSendCeiling;
+	  };
+
 export interface CodeSendLimitOptions {
 	readonly max: number;
 	readonly windowMs: number;
@@ -100,22 +111,25 @@ export function createCodeSendCeilings({ now = Date.now }: CodeSendCeilingsOptio
 	const instanceHour = createCodeSendLimit({ max: 200, windowMs: HOUR, now });
 
 	return {
-		consume(rawAddress: string): CodeSendVerdict {
-			const address = rawAddress.trim().toLowerCase();
-			const checks: [CodeSendLimit, string][] = [
-				[addressHour, address],
-				[addressDay, address],
-				[instanceHour, "*"],
+		/** Count a send to an address already normalised and checked by the caller. */
+		consume(address: string): CodeSendCeilingsVerdict {
+			const checks: [CodeSendLimit, string, CodeSendCeiling][] = [
+				[addressHour, address, "address"],
+				[addressDay, address, "address"],
+				[instanceHour, "*", "instance"],
 			];
-			const refusals = checks
-				.map(([limit, key]) => limit.check(key))
-				.filter(
-					(verdict): verdict is Extract<CodeSendVerdict, { allowed: false }> => !verdict.allowed,
-				);
+			const refusals = checks.flatMap(([limit, key, ceiling]) => {
+				const verdict = limit.check(key);
+				return verdict.allowed ? [] : [{ ...verdict, ceiling }];
+			});
 			if (refusals.length > 0) {
+				const longest = refusals.reduce((a, b) =>
+					b.retryAfterSeconds > a.retryAfterSeconds ? b : a,
+				);
 				return {
 					allowed: false,
-					retryAfterSeconds: Math.max(...refusals.map((verdict) => verdict.retryAfterSeconds)),
+					retryAfterSeconds: longest.retryAfterSeconds,
+					ceiling: longest.ceiling,
 				};
 			}
 			for (const [limit, key] of checks) {

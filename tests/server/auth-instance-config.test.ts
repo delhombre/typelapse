@@ -13,13 +13,17 @@ const ENVIRONMENT = {
 };
 
 /** A real Better Auth over an in-memory store, with a mail server that keeps what it is handed. */
-function signInService(environment: Record<string, string> = {}): {
+function signInService(
+	environment: Record<string, string> = {},
+	logger: { warn(message: string): void } = { warn: () => undefined },
+): {
 	auth: AuthInstance;
 	mail: FakeMail;
 } {
 	const mail = fakeMail();
 	const auth = authInstance(DATABASE, { ...ENVIRONMENT, ...environment }, mail, {
 		adapter: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
+		logger,
 	});
 	if (!auth) {
 		throw new Error("auth should be configured");
@@ -32,7 +36,7 @@ function signInService(environment: Record<string, string> = {}): {
 let nextClient = 0;
 const client = () => {
 	nextClient += 1;
-	return `198.51.100.${nextClient}`;
+	return `198.51.${Math.floor(nextClient / 250)}.${(nextClient % 250) + 1}`;
 };
 
 function post(
@@ -374,7 +378,7 @@ describe("the limits on sending a code", () => {
 			await sendCode(auth, "ada@example.com", client());
 		}
 
-		const refused = await sendCode(auth, "ADA@example.com ", client());
+		const refused = await sendCode(auth, "ADA@example.com", client());
 
 		expect(refused.status).toBe(429);
 		const wait = Number(refused.headers.get("x-retry-after"));
@@ -402,6 +406,50 @@ describe("the limits on sending a code", () => {
 		const wait = Number(refused.headers.get("x-retry-after"));
 		expect(wait).toBeGreaterThanOrEqual(1);
 		expect(wait).toBeLessThanOrEqual(600);
+	});
+
+	it("an invalid address costs nothing: two hundred of them leave the instance's hour whole", async () => {
+		const { auth, mail } = signInService();
+
+		for (let index = 0; index < 200; index += 1) {
+			const junk = await sendCode(auth, `not-an-address-${index}`, client());
+			expect(junk.status).toBe(400);
+		}
+		const real = await sendCode(auth, "ada@example.com", client());
+
+		expect(real.status).toBe(200);
+		expect(mail.sent.map((message) => message.to)).toEqual(["ada@example.com"]);
+	});
+
+	it("counts an address as Better Auth does: any case is one address, a padded one is none", async () => {
+		const { auth, mail } = signInService();
+		const padded = await sendCode(auth, " ada@example.com ", client());
+		expect(padded.status).toBe(400);
+		for (let index = 0; index < 10; index += 1) {
+			await sendCode(auth, index % 2 ? "ADA@example.com" : "ada@Example.com", client());
+		}
+
+		const refused = await sendCode(auth, "ada@example.com", client());
+
+		expect(refused.status).toBe(429);
+		expect(mail.sent).toHaveLength(10);
+	});
+
+	it("warns in the pod log when the instance's hour is spent, naming no address", async () => {
+		const warnings: string[] = [];
+		const { auth } = signInService({}, { warn: (message) => warnings.push(message) });
+		for (let index = 0; index < 200; index += 1) {
+			await sendCode(auth, `person${index}@example.com`, client());
+		}
+		expect(warnings).toEqual([]);
+
+		const refused = await sendCode(auth, "secret.person@example.com", client());
+
+		expect(refused.status).toBe(429);
+		expect(warnings).toHaveLength(1);
+		expect(warnings[0]).toContain("200");
+		expect(warnings[0]).not.toContain("secret.person");
+		expect(warnings[0]).not.toContain("example.com");
 	});
 
 	it("sends one address twenty codes a day, however they are spread over the hours", async () => {
