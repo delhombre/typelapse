@@ -3337,10 +3337,8 @@ html.dark:not([data-landing-theme]) {
 	inset: -5px 0;
 }
 
-/* Disabled is a token, not an opacity (design audit 2026-10-08, D7): an opacity
-   is a different contrast on every material it sits on. */
 .sc-corner-row .sc-history button:disabled {
-	color: var(--camera-disabled);
+	opacity: 0.32;
 	pointer-events: none;
 }
 

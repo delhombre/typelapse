@@ -45,7 +45,6 @@ the one exception (DECISIONS D5).
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css` | same |
 | Error ink: a refused link or diff (5.0:1 on paper) | `--camera-danger: #c53a3a` `src/presentation/studio-camera.css` | `--camera-danger: #f28b82` `src/presentation/studio-camera.css` |
-| A control that cannot be used now: a token, never an opacity (design audit 2026-10-08 D7) | `--camera-disabled: color-mix(in oklch, var(--camera-muted) 50%, var(--camera-paper))` `src/presentation/studio-camera.css` | same, through the two tokens it mixes |
 | Browser chrome before paint | `content="#FAF9F6"` `index.html` | `content="#121110"` `index.html` |
 | Document behind the studio | `background: #fafaf9` `src/app.css` | `background: #121110` `src/app.css @ html.dark` |
 
