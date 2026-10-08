@@ -7,7 +7,6 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 /* The stages' pictures are tested on their own; here they only have to be there. */
-vi.mock("@/presentation/landing/diff-section", () => ({ ImportProductShot: () => <div /> }));
 vi.mock("@/presentation/landing/magic-move-section", () => ({ LiveMorph: () => <div /> }));
 vi.mock("@/presentation/landing/social-section", () => ({ FeedCheck: () => <div /> }));
 
@@ -51,13 +50,24 @@ describe("landing pipeline", () => {
 		).toEqual([false, true, false, true, false]);
 	});
 
-	it("declares the size of the one picture it draws itself", () => {
+	it("shows real captures, sized before they load, and the studio in the page's theme", () => {
 		render(<PipelineSection />);
 		const still = screen.getByRole("img", { name: /diff in review/i });
-
 		expect(still.getAttribute("width")).toBe("1120");
 		expect(still.getAttribute("height")).toBe("630");
 		expect(still.getAttribute("loading")).toBe("lazy");
+
+		// Stage 01 is a capture of the studio after a paste, one per theme, never a lookalike.
+		const studio = screen.getAllByRole("img", { name: /typelapse studio right after a diff/i });
+		expect(studio.map((img) => img.getAttribute("src"))).toEqual([
+			"/landing/studio-import-light.webp",
+			"/landing/studio-import-dark.webp",
+		]);
+		expect(studio.map((img) => img.className)).toEqual(["lp-shot-light", "lp-shot-dark"]);
+		for (const img of studio) {
+			expect([img.getAttribute("width"), img.getAttribute("height")]).toEqual(["1600", "878"]);
+			expect(img.getAttribute("loading")).toBe("lazy");
+		}
 	});
 
 	it("never imports a figure or the kernel up front", () => {

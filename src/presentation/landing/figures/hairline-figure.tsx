@@ -50,7 +50,13 @@ export function HairlineFigure({ load, label, hint, className = "" }: HairlineFi
 					if (gone || !host || !out) {
 						return;
 					}
-					teardown = mountFigure(def, host, out);
+					/* At rest the line under the figure says what to do with it; while
+					   a hand or the lap drives it, what it is on. */
+					teardown = mountFigure(def, host, (text) => {
+						const resting = text === "rest";
+						out.textContent = resting ? hint : text;
+						out.dataset.state = resting ? "rest" : "live";
+					});
 				})
 				.catch(() => undefined);
 		};
@@ -75,7 +81,7 @@ export function HairlineFigure({ load, label, hint, className = "" }: HairlineFi
 			gone = true;
 			teardown?.();
 		};
-	}, [load]);
+	}, [load, hint]);
 
 	return (
 		<figure ref={root} className={`lp-fig ${className}`}>
@@ -91,9 +97,14 @@ export function HairlineFigure({ load, label, hint, className = "" }: HairlineFi
 				tabIndex={0}
 			/>
 			<figcaption className="lp-fig-cap">
-				<span className="lp-fig-hint">{hint}</span>
-				<span ref={readOut} id={readId} className="lp-fig-read" aria-live="polite">
-					rest
+				<span
+					ref={readOut}
+					id={readId}
+					className="lp-fig-read"
+					data-state="rest"
+					aria-live="polite"
+				>
+					{hint}
 				</span>
 			</figcaption>
 		</figure>

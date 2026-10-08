@@ -150,7 +150,7 @@ test.describe(
 				const figure = page.locator(`#${stage} .lp-fig-stage`);
 				await figure.scrollIntoViewIfNeeded();
 				await expect(figure.locator("svg path").first()).toBeAttached();
-				await expect(page.locator(`#${stage} .lp-fig-read`)).toHaveText("rest");
+				await expect(page.locator(`#${stage} .lp-fig-read`)).toHaveAttribute("data-state", "rest");
 			}
 			expect(figures.length).toBeGreaterThan(0);
 
@@ -187,12 +187,12 @@ test.describe(
 					// The unseen pointer arrives after its pause and names the job it is on,
 					// then leaves, once: the figure rests and does not go round again.
 					await expect(read).toHaveText(/^job \d/, { timeout: 8_000 });
-					await expect(read).toHaveText("rest", { timeout: 15_000 });
+					await expect(read).toHaveText("Pick a job", { timeout: 15_000 });
 					await page.waitForTimeout(5_000);
-					await expect(read).toHaveText("rest");
+					await expect(read).toHaveText("Pick a job");
 				} else {
 					await page.waitForTimeout(4_000);
-					await expect(read).toHaveText("rest");
+					await expect(read).toHaveText("Pick a job");
 				}
 			}
 			await Promise.all([moving.close(), still.close()]);

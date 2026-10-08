@@ -1,11 +1,11 @@
 import { type ReactNode, useRef } from "react";
-import { ImportProductShot } from "./diff-section";
 import { ExportShapes } from "./export-section";
 import { HairlineFigure } from "./figures/hairline-figure";
 import type { HairlineFigureDef } from "./figures/types";
 import { LiveMorph } from "./magic-move-section";
 import { useScrollFades } from "./scroll-fade";
 import { FeedCheck } from "./social-section";
+import { ThemedShot } from "./themed-shot";
 import { CONTAINER } from "./tokens";
 
 /**
@@ -119,16 +119,23 @@ export function PipelineSection() {
 					}}
 					picture={
 						<figure className="m-0">
-							<ImportProductShot />
+							<ThemedShot
+								light="/landing/studio-import-light.webp"
+								dark="/landing/studio-import-dark.webp"
+								width={1600}
+								height={878}
+								alt="The Typelapse studio right after a diff of orders.ts is pasted: the frame shows the code before the change, and the timeline holds three scenes."
+							/>
 							<figcaption className="lp-pic-cap">
-								The studio after a paste: one pull request, three scenes on the timeline.
+								The studio right after a paste: a diff of two hunks, three scenes.
 							</figcaption>
 						</figure>
 					}
 				>
-					Paste a GitHub pull request, a commit, a unified diff or a plain snippet. Each hunk
-					becomes a scene on the timeline, and a pull request with several commits can become one
-					chapter per commit. <strong>Focus, captions and timing stay editable.</strong>
+					Paste a GitHub pull request, a commit, a unified diff or a plain snippet. The code before
+					the change opens the timeline and each hunk becomes the next scene; a pull request with
+					several commits can become one chapter per commit.{" "}
+					<strong>Focus, captions and timing stay editable.</strong>
 				</Stage>
 
 				<Stage

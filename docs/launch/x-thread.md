@@ -8,7 +8,7 @@ the repository URL once both are public (`checklist.md`).
 
 > Code videos blur because a 4:2:0 encode keeps one colour sample in four.
 > Typelapse exports WebM with AV1 4:4:4: on the same line of code it scores
-> 42.81 dB, against 32.18 dB for an H.264 MP4. Script and crops are in the
+> 43.63 dB, against 29.31 dB for an H.264 MP4. Script and crops are in the
 > repo. [225]
 
 Attach: `docs/sharpness/av1-444.png` and `docs/sharpness/h264-420.png`, side

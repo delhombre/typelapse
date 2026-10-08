@@ -44,7 +44,9 @@ describe("the landing's hairline figures", () => {
 		const out = document.createElement("span");
 		document.body.append(host, out);
 
-		const destroy = mountFigure(figure, host, out);
+		const destroy = mountFigure(figure, host, (text) => {
+			out.textContent = text;
+		});
 
 		expect(figure.name).toBe(name);
 		expect(figure.means.length).toBeLessThanOrEqual(140);

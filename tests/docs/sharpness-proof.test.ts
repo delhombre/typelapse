@@ -83,7 +83,8 @@ describe("the sharpness proof", () => {
 		const mp4 = file("mp4");
 
 		expect([webm.codecName, webm.profile, webm.pixFmt]).toEqual(["av1", "High", "yuv444p"]);
-		expect([mp4.codecName, mp4.pixFmt]).toEqual(["h264", "yuv420p"]);
+		// yuvj420p is the same 4:2:0 at full range, which some Chromium builds write.
+		expect([mp4.codecName, mp4.pixFmt.replace(/^yuvj/, "yuv")]).toEqual(["h264", "yuv420p"]);
 		expect(webm.frames).toBe(mp4.frames);
 		expect(webm.psnr).toBeGreaterThan(mp4.psnr);
 	});

@@ -27,7 +27,7 @@ export.
 
 The export runs on your machine with WebCodecs. No account, nothing uploaded,
 no watermark, up to 4K. The WebM keeps full colour on every glyph (AV1 4:4:4):
-on the same frame of code it scores 42.81 dB against 32.18 dB for an H.264
+on the same frame of code it scores 43.63 dB against 29.31 dB for an H.264
 4:2:0 MP4, and the measurement is committed next to the code.
 
 The same engine runs headless: a CLI, a free GitHub Action that renders every
@@ -57,7 +57,7 @@ Three things I can show rather than claim:
 1. The file is as sharp as the preview. The studio preview, the server renderer
    and the in-browser encoder draw from the same scene math, and the WebM uses
    AV1 with 4:4:4 chroma, so thin coloured glyphs keep their colour. I measured
-   it on one dense line of code: 42.81 dB for our WebM, 32.18 dB for an H.264
+   it on one dense line of code: 43.63 dB for our WebM, 29.31 dB for an H.264
    4:2:0 MP4 of the same frame. The project, the script and the crops are in
    the repository (`docs/sharpness`), so you can rerun it.
 2. It runs in your browser. No account, nothing uploaded. Your projects live in

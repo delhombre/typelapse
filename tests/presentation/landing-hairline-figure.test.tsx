@@ -92,15 +92,17 @@ describe("HairlineFigure", () => {
 		renderFigure(load);
 
 		expect(screen.getByRole("img", { name: "A pull request cut into scenes." })).toBeTruthy();
-		expect(screen.getByText("Move over it")).toBeTruthy();
-		expect(screen.getByText("rest")).toBeTruthy();
+		// At rest the one line under it says what to do with it, never a bare "rest".
+		const read = screen.getByText("Move over it");
+		expect(read.getAttribute("data-state")).toBe("rest");
+		expect(screen.queryByText("rest")).toBeNull();
 	});
 
 	it("is a tab stop whose read-out is announced politely as it changes", () => {
 		const { load } = fakeFigure();
 		renderFigure(load);
 		const stage = screen.getByRole("img");
-		const read = screen.getByText("rest");
+		const read = screen.getByText("Move over it");
 
 		expect(stage.tabIndex).toBe(0);
 		expect(read.getAttribute("aria-live")).toBe("polite");
@@ -147,7 +149,13 @@ describe("HairlineFigure", () => {
 			}
 		});
 
-		expect(screen.getByText("scene 03")).toBeTruthy();
+		expect(screen.getByText("scene 03").getAttribute("data-state")).toBe("live");
+		act(() => {
+			if (read) {
+				read.textContent = "rest";
+			}
+		});
+		expect(screen.getByText("Move over it").getAttribute("data-state")).toBe("rest");
 	});
 
 	it("ignores an observation that is not an intersection", () => {

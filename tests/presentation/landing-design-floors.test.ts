@@ -70,13 +70,11 @@ describe("landing colour", () => {
 		);
 	});
 
-	it("keeps glass off every surface that holds text in a mock", () => {
-		for (const selector of [
-			".landing-root .lp-import-source-island",
-			".landing-root .lp-import-ready",
-		]) {
-			expect(rule(selector), selector).not.toMatch(/backdrop-filter/);
-		}
+	/* The import mock that held text over glass is gone (2026-10-08): the stage
+	   shows a capture of the studio. Nothing on the landing is glass. */
+	it("keeps glass off every landing surface", () => {
+		const glass = landingRules().filter(([, body]) => /backdrop-filter/.test(body));
+		expect(glass.map(([selector]) => selector)).toEqual([]);
 	});
 
 	it("reads no literal for the primary or the code surface", () => {
