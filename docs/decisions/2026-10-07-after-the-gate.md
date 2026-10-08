@@ -19,7 +19,9 @@ flowchart TD
   D7["D7 An existence endpoint answers 200, not a list and not a 404"]
   D8["D8 emil-prep-for-prod runs as a findings pass; owner items stay owner items"]
   D9["D9 The focus push-in pivots on the left edge; the gutter stays in frame"]
+  D10{"D10 Captions sit on the island plate"}
   D1 --> D9
+  D8 --> D10
 ```
 
 ## D1 A long line is clipped at the window's edge with a fade; the card never shrinks below its floor
@@ -212,3 +214,30 @@ edge read as a crop; half the margin is the balance.)
 **Impact:** `focus-zoom.ts`, `focus-zoom-body.tsx`, the painter's
 `applyZoom` and a push-in fade, CONTEXT.md; zoomed exports of wide windows
 change (the gutter comes back). **Pivot:** "Centre the push-in."
+
+## D10 Captions sit on the island plate
+
+**Decision (Bruno, 2026-10-08, "plaque"):** a caption is paper ink on the
+island's plate at 64% opacity, a pill under the text, in the preview and in
+the Remotion video alike (`caption-plate.ts`, `step-caption.tsx`); the
+painter keeps reserving the band and draws no caption (next-wave D3). This
+is the island material at a lower opacity, not a fourth material: DECISIONS
+D5 stands. The plate's padding is cancelled by a negative margin so the
+wrap width and the band height do not change. PR #231.
+
+**Why:**
+
+- Measured on the fourth pass: white at 40% over the default mesh was
+  1.2:1. The plate gives 7.2:1 over the mesh's yellow and at least 4.5:1
+  over every preset's lightest region, white and black included; the
+  alternative, paper ink with a soft shadow, read well by eye but has no
+  measurable ratio. Bruno chose from a live prototype of both.
+
+**Rejected:**
+
+- Ink plus shadow: calmer, unmeasurable, and a caption is read, not felt.
+- A lighter plate: below 64% the ratio drops under 4.5:1 on the lightest
+  presets.
+
+**Impact:** every captioned preview and hosted video gains the pill;
+`docs/design/SYSTEM.md` caption row. **Pivot:** "Captions without a plate."
