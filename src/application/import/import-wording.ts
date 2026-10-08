@@ -24,3 +24,20 @@ export function importReplaceQuestion(kind: SourceKind): string {
 export function importConfirmLabel(kind: SourceKind): string {
 	return `Import the ${importSubject(kind)}`;
 }
+
+/**
+ * What to do after an import failed, under the reason. A link can be wrong, or
+ * private, or over GitHub's limit, and a pasted diff answers all three, so the
+ * link kinds say that; a paste the studio could not read is checked and tried again.
+ */
+export function importNextStep(kind: SourceKind): string {
+	const isLink =
+		kind === "pr" ||
+		kind === "commit" ||
+		kind === "release" ||
+		kind === "compare" ||
+		kind === "code-url";
+	return isLink
+		? "Check the link, or paste the diff instead."
+		: "Check what you pasted, then try again.";
+}
