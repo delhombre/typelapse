@@ -68,7 +68,8 @@ export function MagicMoveCanvas({
 	const gutterDigits = Math.max(2, labels[labels.length - 1]?.length ?? 2);
 
 	return (
-		<div style={{ padding, fontFamily, fontSize, lineHeight: `${lineHeight}px` }}>
+		// The phone's loupe reads the code's effective size off this box (data-code-canvas).
+		<div data-code-canvas style={{ padding, fontFamily, fontSize, lineHeight: `${lineHeight}px` }}>
 			{/* Clip to the interpolated body height so the frame grows and shrinks smoothly
 			    through a morph, instead of the line-number gutter snapping it to the tallest
 			    frame. Shared by the browser preview and the Remotion video, so both match. */}

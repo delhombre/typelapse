@@ -2,7 +2,16 @@ import { type Locator, type Page, devices } from "@playwright/test";
 import { STAGE_TOP_GAP } from "../../src/application/layout/phone-sheet";
 import { GREET_DIFF, quadrantPng } from "./support/fixtures";
 import { codeFor, newAccount } from "./support/hosted";
-import { addSource, expect, hitBox, importHash, openStudio, settled, test } from "./support/studio";
+import {
+	addSource,
+	expect,
+	hitBox,
+	importHash,
+	openStudio,
+	settled,
+	shareHash,
+	test,
+} from "./support/studio";
 
 /**
  * This file runs in both profiles: `pnpm e2e` (local, no account) and `pnpm e2e:hosted`
@@ -1272,5 +1281,356 @@ test.describe("Mobile shell: the corner row and the frame after the design audit
 		await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 		// Still four chips once signed in.
 		await expect(page.locator(".sc-corner-row > *")).toHaveCount(4);
+	});
+});
+
+/** A file the phone cannot read at rest: 40 lines of 170 columns. */
+const WIDE_FILE = Array.from({ length: 40 }, (_, row) => {
+	const head = `const row${String(row + 1).padStart(2, "0")} = "`;
+	return `${head}${"lorem ipsum dolor ".repeat(10).slice(0, 170 - head.length - 2)}";`;
+}).join("\n");
+
+/** The code's size as the eye gets it: its font size times every scale it is drawn at. */
+function effectiveCodePx(page: Page): Promise<number> {
+	return page
+		.locator("[data-code-canvas]")
+		.first()
+		.evaluate(
+			(code: HTMLElement) =>
+				Number.parseFloat(getComputedStyle(code).fontSize) *
+				(code.getBoundingClientRect().width / code.offsetWidth),
+		);
+}
+
+const codeWindow = (page: Page) => page.locator("[data-preview-frame] .code-frame-glow");
+const loupeSlot = (page: Page) => page.locator(".sc-stage-slot");
+
+/** Tap the middle of the frame and wait for the loupe to settle open. */
+async function openTheLoupe(page: Page) {
+	const frame = page.locator("[data-preview-frame]");
+	await settled(frame);
+	const box = await frame.boundingBox();
+	if (!box) throw new Error("no frame");
+	await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+	await expect(loupeSlot(page)).toHaveAttribute("data-loupe", "open");
+	await settled(codeWindow(page));
+}
+
+/** A one-finger drag, with the mouse: Playwright's touchscreen only taps. */
+async function drag(page: Page, from: { x: number; y: number }, by: { x: number; y: number }) {
+	await page.mouse.move(from.x, from.y);
+	await page.mouse.down();
+	await page.mouse.move(from.x + by.x, from.y + by.y, { steps: 12 });
+	// Held still, so the release carries no speed and the bounds are what it settles on.
+	await page.waitForTimeout(150);
+	await page.mouse.up();
+}
+
+/** The loupe is shut again, the frame back at rest and focus on the way in. */
+async function expectShut(page: Page) {
+	await expect(loupeSlot(page)).not.toHaveAttribute("data-loupe", /.*/);
+	await expect(page.getByRole("button", { name: "Magnify the code" })).toBeFocused();
+	const frame = page.locator("[data-preview-frame]");
+	await settled(frame);
+	const box = await frame.boundingBox();
+	expect(box?.x).toBeCloseTo(8, 0);
+	expect(box?.width).toBeCloseTo(374, 0);
+}
+
+// Design audit 2026-10-08, D5: a 1080p frame at 374px draws its code at 2 to 6px.
+// A tap magnifies the same DOM picture to an 11px floor (application/layout/code-loupe.ts).
+test.describe("Mobile shell: the code is read through a loupe", () => {
+	test("a tap brings the code to 11px and puts the chrome aside", async ({ page }) => {
+		await openStudio(page);
+		const rest = await effectiveCodePx(page);
+		expect(rest, "the frame's code is under the floor at rest").toBeLessThan(11);
+		await openTheLoupe(page);
+		const open = await effectiveCodePx(page);
+		expect(open).toBeGreaterThanOrEqual(11 - 0.01);
+		test.info().annotations.push({
+			type: "code px",
+			description: `${rest.toFixed(2)} -> ${open.toFixed(2)}`,
+		});
+
+		// The corner row, the instrument and the sheet are gone from the keyboard, the
+		// accessibility tree and the finger: a press where the row was lands on the loupe.
+		for (const chrome of [".sc-corner-row", ".sc-dock-slot", ".sc-sheet"]) {
+			await expect(page.locator(chrome)).toHaveAttribute("inert", "");
+		}
+		const undo = page.getByRole("button", { name: "Undo" });
+		await undo.evaluate((button: HTMLElement) => button.focus());
+		await expect(undo).not.toBeFocused();
+		const rowLandsOnLoupe = await page.evaluate(() => {
+			const row = document.querySelector(".sc-corner-row")?.getBoundingClientRect();
+			if (!row) return false;
+			const hit = document.elementFromPoint(row.left + 60, row.top + row.height / 2);
+			return hit?.closest(".sc-stage-slot") != null;
+		});
+		expect(rowLandsOnLoupe).toBe(true);
+		const done = page.getByRole("button", { name: "Done" });
+		await expect(done).toBeVisible();
+		expect((await done.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+	});
+
+	test("a 40-line, 170-column file opens on column 1 at 11px and pans inside its bounds", async ({
+		page,
+	}) => {
+		await openStudio(page, importHash(WIDE_FILE));
+		await expect(page.locator("[data-export-target] span", { hasText: "row40" })).toBeAttached();
+		const rest = await effectiveCodePx(page);
+		await openTheLoupe(page);
+		const open = await effectiveCodePx(page);
+		expect(open).toBeGreaterThanOrEqual(11 - 0.01);
+		test.info().annotations.push({
+			type: "code px",
+			description: `${rest.toFixed(2)} -> ${open.toFixed(2)}`,
+		});
+		// Column 1 is read first: the window's left edge sits 12px from the screen's.
+		let box = await codeWindow(page).boundingBox();
+		if (!box) throw new Error("no window");
+		expect(box.x).toBeCloseTo(12, 0);
+		expect(box.width).toBeGreaterThan(390);
+
+		// Pulled right past its edge, it springs back to the margin.
+		await drag(page, { x: 100, y: 400 }, { x: 260, y: 0 });
+		await settled(codeWindow(page));
+		box = await codeWindow(page).boundingBox();
+		expect(box?.x).toBeCloseTo(12, 0);
+
+		// Dragged left as far as it goes, it stops with its right edge 12px in.
+		for (let pass = 0; pass < 4; pass++) await drag(page, { x: 380, y: 400 }, { x: -370, y: 0 });
+		await settled(codeWindow(page));
+		box = await codeWindow(page).boundingBox();
+		if (!box) throw new Error("no window");
+		expect(box.x + box.width).toBeCloseTo(390 - 12, 0);
+
+		// Up as far as it goes: its foot stops 12px above the view's, 24px over the screen's foot.
+		for (let pass = 0; pass < 4; pass++) await drag(page, { x: 200, y: 780 }, { x: 0, y: -600 });
+		await settled(codeWindow(page));
+		box = await codeWindow(page).boundingBox();
+		if (!box) throw new Error("no window");
+		expect(box.y + box.height).toBeCloseTo(844 - 24 - 12, 0);
+		// A pan never closes it.
+		await expect(loupeSlot(page)).toHaveAttribute("data-loupe", "open");
+	});
+
+	test("a tap closes it, and focus comes back to the frame", async ({ page }) => {
+		await openStudio(page);
+		await openTheLoupe(page);
+		await page.touchscreen.tap(195, 700);
+		await expectShut(page);
+		await expect(page.locator(".sc-corner-row")).not.toHaveAttribute("inert", /.*/);
+	});
+
+	test("a pull down past the top closes it", async ({ page }) => {
+		await openStudio(page);
+		await openTheLoupe(page);
+		await drag(page, { x: 195, y: 300 }, { x: 0, y: 300 });
+		await expectShut(page);
+	});
+
+	test("Done closes it", async ({ page }) => {
+		await openStudio(page);
+		await openTheLoupe(page);
+		await page.getByRole("button", { name: "Done" }).tap();
+		await expectShut(page);
+	});
+
+	test("the keyboard opens it, pans it a step an arrow and closes it with Escape", async ({
+		page,
+	}) => {
+		await openStudio(page, importHash(WIDE_FILE));
+		await expect(page.locator("[data-export-target] span", { hasText: "row40" })).toBeAttached();
+		await settled(page.locator("[data-preview-frame]"));
+		await page.getByRole("button", { name: "Magnify the code" }).focus();
+		await page.keyboard.press("Enter");
+		await expect(loupeSlot(page)).toHaveAttribute("data-loupe", "open");
+		await settled(codeWindow(page));
+		expect(await effectiveCodePx(page)).toBeGreaterThanOrEqual(11 - 0.01);
+		const before = await codeWindow(page).boundingBox();
+		await page.keyboard.press("ArrowRight");
+		// One-to-one and instant (D8): 48px on the next frame, no spring to wait for.
+		const next = await codeWindow(page).evaluate(
+			(element) =>
+				new Promise<number>((resolve) =>
+					requestAnimationFrame(() =>
+						requestAnimationFrame(() => resolve(element.getBoundingClientRect().x)),
+					),
+				),
+		);
+		expect((before?.x ?? 0) - next).toBeCloseTo(48, 0);
+		await settled(codeWindow(page));
+		expect((await codeWindow(page).boundingBox())?.x).toBeCloseTo(next, 1);
+		await page.keyboard.press("Escape");
+		await expectShut(page);
+	});
+
+	test("under reduced motion the picture swaps at once", async ({ page }) => {
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await openStudio(page);
+		const frame = page.locator("[data-preview-frame]");
+		await settled(frame);
+		const box = await frame.boundingBox();
+		if (!box) throw new Error("no frame");
+		await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+		// Two frames after the tap the picture is where it ends: nothing travels.
+		const rect = (element: Element) => {
+			const r = element.getBoundingClientRect();
+			return [r.x, r.y, r.width, r.height].map((n) => n.toFixed(1)).join();
+		};
+		const first = await frame.evaluate(
+			(element) =>
+				new Promise<string>((resolve) =>
+					requestAnimationFrame(() =>
+						requestAnimationFrame(() => {
+							const r = element.getBoundingClientRect();
+							resolve([r.x, r.y, r.width, r.height].map((n) => n.toFixed(1)).join());
+						}),
+					),
+				),
+		);
+		await page.waitForTimeout(600);
+		await expect(loupeSlot(page)).toHaveAttribute("data-loupe", "open");
+		expect(await frame.evaluate(rect)).toBe(first);
+		// And it did change: the frame two frames in is already the magnified one.
+		expect(Number(first.split(",")[2])).toBeGreaterThan(box.width * 1.2);
+		expect(await effectiveCodePx(page)).toBeGreaterThanOrEqual(11 - 0.01);
+
+		// A pan is a pan under reduced motion too: the release lands at once, and the
+		// picture never fades out and back (only opening and closing fade).
+		await page.waitForTimeout(300);
+		await drag(page, { x: 300, y: 400 }, { x: -120, y: 0 });
+		const opacities = await loupeSlot(page).evaluate(
+			(slot) =>
+				new Promise<string[]>((resolve) => {
+					const seen: string[] = [];
+					const tick = () => {
+						seen.push(getComputedStyle(slot).opacity);
+						if (seen.length < 6) requestAnimationFrame(tick);
+						else resolve(seen);
+					};
+					tick();
+				}),
+		);
+		expect(new Set(opacities)).toEqual(new Set(["1"]));
+	});
+
+	test("once shut, nothing of its clip is left: a 9:16 frame shows to its foot", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		await openTheLoupe(page);
+		await page.getByRole("button", { name: "Done" }).tap();
+		await expectShut(page);
+		await expect
+			.poll(() => loupeSlot(page).evaluate((slot) => getComputedStyle(slot).clipPath))
+			.toBe("none");
+
+		await page.getByRole("button", { name: "Settings" }).tap();
+		await page.getByRole("button", { name: "Aspect ratio 9:16", exact: true }).tap();
+		await page.getByRole("button", { name: "Close settings" }).tap();
+		const frame = page.locator("[data-preview-frame]");
+		await settled(frame);
+		const box = await frame.boundingBox();
+		if (!box) throw new Error("no frame");
+		expect(box.height).toBeGreaterThan(box.width);
+		// The rest box the clip was left at was 16:9, 210px tall: the 9:16 frame's foot
+		// is far below it, and a press there has to reach the frame.
+		const footIsTheFrame = await page.evaluate(
+			({ x, y }) => document.elementFromPoint(x, y)?.closest("[data-preview-frame]") != null,
+			{ x: box.x + box.width / 2, y: box.y + box.height - 4 },
+		);
+		expect(footIsTheFrame).toBe(true);
+	});
+
+	test("its keys are its own: Space opens, arrows pan, Escape closes, and playback is untouched", async ({
+		page,
+	}) => {
+		await openStudio(
+			page,
+			shareHash({
+				title: "Two scenes",
+				code: "const a = 1;",
+				language: "typescript",
+				themeName: "nord",
+				background: "mesh:ocean",
+				steps: [
+					{ code: "const a = 1;", duration: 4000 },
+					{ code: "const a = 1;\nconst b = 2;", duration: 4000 },
+				],
+			}),
+		);
+		const firstScene = page.getByRole("button", { name: "Scene 1 of 2" });
+		await expect(firstScene).toHaveAttribute("aria-current", "step");
+		await settled(page.locator("[data-preview-frame]"));
+		const target = page.getByRole("button", { name: "Magnify the code" });
+
+		// Space on the frame opens the loupe; it does not start playback.
+		await target.focus();
+		await page.keyboard.press(" ");
+		await expect(loupeSlot(page)).toHaveAttribute("data-loupe", "open");
+		await expect(page.getByRole("button", { name: "Play", exact: true })).toBeAttached();
+		// An arrow pans the picture; it does not change the scene.
+		await page.keyboard.press("ArrowRight");
+		await page.keyboard.press("ArrowLeft");
+		await expect(firstScene).toHaveAttribute("aria-current", "step");
+		await page.keyboard.press("Escape");
+		await expectShut(page);
+		await expect(firstScene).toHaveAttribute("aria-current", "step");
+
+		// Playing, Escape closes the loupe and the video keeps playing.
+		await page.getByRole("button", { name: "Play", exact: true }).tap();
+		await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeAttached();
+		await target.focus();
+		await page.keyboard.press("Enter");
+		await expect(loupeSlot(page)).toHaveAttribute("data-loupe", "open");
+		await page.keyboard.press("Escape");
+		await expectShut(page);
+		await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeAttached();
+	});
+
+	test("its bounds follow the picture: a scene growing from 3 to 40 lines while open pans to its foot", async ({
+		page,
+	}) => {
+		const short = ["const a = 1;", "const b = 2;", "const c = 3;"].join("\n");
+		const tall = Array.from({ length: 40 }, (_, row) => `const value${row} = ${row};`).join("\n");
+		await openStudio(
+			page,
+			shareHash({
+				title: "Growing",
+				code: short,
+				language: "typescript",
+				themeName: "nord",
+				background: "mesh:ocean",
+				steps: [
+					{ code: short, duration: 600 },
+					{ code: tall, duration: 60_000 },
+				],
+			}),
+		);
+		await expect(page.getByRole("button", { name: "Scene 1 of 2" })).toHaveAttribute(
+			"aria-current",
+			"step",
+		);
+		await page.getByRole("button", { name: "Play", exact: true }).tap();
+		await openTheLoupe(page);
+		// The second scene holds once the morph has run.
+		await expect(page.locator("[data-export-target] span", { hasText: "value39" })).toBeAttached();
+		await page.waitForTimeout(1500);
+		await settled(codeWindow(page));
+
+		for (let pass = 0; pass < 4; pass++) await drag(page, { x: 200, y: 780 }, { x: 0, y: -600 });
+		await settled(codeWindow(page));
+		const box = await codeWindow(page).boundingBox();
+		if (!box) throw new Error("no window");
+		// The bounds are the 40-line window's, not the 3-line one the loupe opened on:
+		// taller than the view, its foot reaches the view's foot less the margin;
+		// shorter, it sits whole inside the view, centred.
+		const view = { top: 58, bottom: 844 - 24 };
+		if (box.height + 24 > view.bottom - view.top) {
+			expect(box.y + box.height).toBeCloseTo(view.bottom - 12, 0);
+		} else {
+			expect(box.y - view.top).toBeCloseTo(view.bottom - (box.y + box.height), 0);
+		}
 	});
 });

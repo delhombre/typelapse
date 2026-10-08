@@ -254,6 +254,10 @@ or it does not land.
 
 - **Scene shell** and **island**: the studio layout doctrine. The frame sits
   on the paper; the controls live in the island.
+- **Loupe**: on a phone, the frame magnified until its code reads at 11px.
+  A tap grows the live DOM preview over the screen by a transform; it is the
+  same picture, still playing, never a copy. Closed by a tap, a pull down,
+  Done or Escape (`application/layout/code-loupe.ts`).
 - **Account island**: the part of the island that carries sign-in, cloud save
   (behind an explicit upload consent) and billing in a hosted build. Absent in
   a local build.
