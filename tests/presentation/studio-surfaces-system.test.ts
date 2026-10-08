@@ -621,6 +621,10 @@ describe("the phone's More menu (was SYSTEM.md Drift 19, DECISIONS D5)", () => {
 		expect(lastValue(app, `${menu} > button`, "height")).toBe("44px");
 		// The account's rows on the phone are the menu's rows (design audit D3).
 		expect(lastValue(app, ".sc-more-account .mm-account-row", "height")).toBe("44px");
+		// "Checking account" reads disabled, through the token, never an opacity (D7).
+		expect(lastValue(app, ".sc-more-account .mm-account-row:disabled", "color")).toBe(
+			"var(--camera-disabled)",
+		);
 	});
 
 	it("sets its rows in the studio's scale", () => {

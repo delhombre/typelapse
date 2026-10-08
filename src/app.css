@@ -3366,7 +3366,7 @@ html.dark:not([data-landing-theme]) {
 /* The chip is the one that gives, but it gives down to the name's first word and
    no further, so a phone never shows "Untitl…" (#167, #182). A longer first word
    still ends in an ellipsis past that. Two floors, because the row has room for
-   one and not for the other: from 390 up "Untitled" gets 4.7em (79px, 15px more
+   one and not for the other: from 390 up "Untitled" gets 4.6em (78px, 14px more
    than its 64px) and below 390 it gets its own 4em plus 5px (69px), after the row
    has given up the brand's tile and the chips' gap (next block). */
 .sc-corner-row .sc-title {
