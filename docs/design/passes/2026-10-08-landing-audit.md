@@ -52,7 +52,7 @@ and its 202 screenshots; the same harness replayed on main is in
 - **Phone diff** (`emil-mobile-native`): at 520px and below, a multiline field wraps its
   text and sends the button to a row under it.
 - **No glass on text** (design-direction): the mock's chip and toast are opaque.
-- **Chips**: unselected `text-band-ink/65` (7.3:1 on the band); the order is the sentence's
+- **Chips**: unselected `text-band-ink/65` (7.2 to 7.4:1 on the band, measured); the order is the sentence's
   (the cycle's, so TikTok opens the phone); `--chip-pad` and `--chip-step` close up at
   420px and 374px so five chips fit one row at 360; the active dot's glow and the radial
   behind the phone are gone (`emil-unslop-design`).
