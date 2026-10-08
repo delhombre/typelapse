@@ -1,4 +1,6 @@
-# Runs before the Deployments are applied: migrate the Neon schema, then check
+# Runs alone: the workflow scales the three Deployments to zero first, because
+# the namespace quota has no slack for a Job next to a render pod. It runs
+# before the Deployments are applied: migrate the Neon schema, then check
 # that every hosted capability is configured. A non-zero exit fails the deploy,
 # so a half-configured staging never takes traffic. The workflow deletes the
 # previous Job first (a Job's pod template is immutable) and leaves this one in
@@ -48,7 +50,7 @@ spec:
                 - ALL
           resources:
             requests:
-              memory: "256Mi"
+              memory: "128Mi"
               cpu: "100m"
             limits:
               memory: "512Mi"

@@ -5,6 +5,10 @@ metadata:
   namespace: typelapse-staging
 spec:
   replicas: 1
+  # The namespace quota has no room for a surge pod (requests.memory 1Gi,
+  # limits.memory 2Gi), so the old pod goes before the new one starts.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: typelapse-api

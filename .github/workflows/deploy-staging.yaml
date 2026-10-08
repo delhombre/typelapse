@@ -172,6 +172,23 @@ jobs:
       - name: Apply ConfigMap
         run: kubectl apply -f "$RUNNER_TEMP/rendered/configmap.yaml"
 
+      # The namespace quota has no room for the release Job next to the running
+      # pods, and workers should not claim jobs while the schema changes. So
+      # the Deployments go to zero here; the apply below sets replicas back to
+      # 1. Patch, not `kubectl scale`: the deployer identity holds no grant on
+      # the scale subresource. On the first deploy there is nothing to scale.
+      - name: Stop workloads for the release
+        run: |
+          set -euo pipefail
+          for deployment in typelapse-api typelapse-render-worker typelapse-deletion-worker; do
+            if kubectl -n "$NAMESPACE" get "deployment/$deployment" > /dev/null 2>&1; then
+              kubectl -n "$NAMESPACE" patch "deployment/$deployment" --type merge -p '{"spec":{"replicas":0}}'
+            fi
+          done
+          kubectl -n "$NAMESPACE" wait --for=delete pod \
+            -l 'app in (typelapse-api,typelapse-render-worker,typelapse-deletion-worker)' \
+            --timeout=120s || true
+
       # A Job's pod template is immutable, so the previous one goes first.
       - name: Run release Job
         run: |

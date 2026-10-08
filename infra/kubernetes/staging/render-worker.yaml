@@ -7,8 +7,9 @@ spec:
   # One worker, one render at a time: the loop in hosted-render-runtime.ts is
   # sequential and claims a single job per iteration.
   replicas: 1
-  # Never two workers at once during a rollout: a surge pod would double the
-  # memory this namespace has to find for a Chromium render.
+  # Never two render pods at once during a rollout: the namespace quota
+  # (requests.memory 1Gi, limits.memory 2Gi, requests.cpu 750m, limits.cpu 2)
+  # has no room for a surge pod, let alone a second Chromium.
   strategy:
     type: Recreate
   selector:
@@ -64,21 +65,26 @@ spec:
           # RENDER_MEMORY_LIMIT and refuses to deploy without them. A node has
           # 4 GB, so the limit must leave room for the API and the node's own
           # pods. The CPU figures are guesses too: Chromium encodes on every
-          # core it is given.
+          # core it is given. Quota ceiling for this pod, next to the API (192Mi
+          # request, 384Mi limit) and the deletion worker (96Mi, 192Mi): memory
+          # request at most 736Mi, memory limit at most 1472Mi (the /dev/shm
+          # volume below counts against it), cpu limit at most 1250m.
           resources:
             requests:
               memory: "__RENDER_MEMORY_REQUEST__"
               cpu: "500m"
             limits:
               memory: "__RENDER_MEMORY_LIMIT__"
-              cpu: "1500m"
+              cpu: "1000m"
           # No probe: the worker serves no port. Kubernetes restarts it if the
           # process exits, and the entrypoint exits non-zero on a fatal error.
           volumeMounts:
             - name: render-tmp
               mountPath: /render-tmp
-            # Chromium keeps shared memory in /dev/shm; the container default
-            # of 64 MiB crashes tabs on a real render.
+            # Chromium keeps shared memory in /dev/shm and the container default
+            # is 64 MiB. Kept small because it counts against the memory limit
+            # above. If the image launches Chromium with --disable-dev-shm-usage,
+            # this volume can be dropped.
             - name: dshm
               mountPath: /dev/shm
       volumes:
@@ -90,4 +96,4 @@ spec:
             medium: Memory
             # Memory-backed, so it counts against the container's memory limit
             # once used.
-            sizeLimit: 512Mi
+            sizeLimit: 128Mi

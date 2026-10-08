@@ -11,7 +11,7 @@ One image, built from the root `Dockerfile`, runs as four workloads. Plain manif
 - `ingress.yaml`: the host, TLS through `letsencrypt-prod`, an 8 MiB body limit and 60 s timeouts.
 - `render-worker.yaml`: the hosted render worker. One replica, `Recreate`, an emptyDir for temp files and a memory-backed `/dev/shm`.
 - `deletion-worker.yaml`: the R2 object deletion worker.
-- `release-job.yaml`: runs `drizzle-kit migrate`, then the hosted readiness check. If either fails, the deploy stops before any Deployment changes.
+- `release-job.yaml`: runs `drizzle-kit migrate`, then the hosted readiness check. If either fails, the deploy stops before any Deployment changes. The workflow scales the three Deployments to zero first (the quota has no room for the Job next to them), so a failed release leaves staging stopped until a deploy succeeds.
 
 The hostname is written once, as `APP_HOST` in `.github/workflows/deploy-staging.yaml`. Production can reuse the same manifests with `typelapse.com`.
 
@@ -68,6 +68,10 @@ kubectl -n typelapse-staging rollout undo deployment/typelapse-deletion-worker
 ```
 
 This restores the previous image. It does not undo a migration, and it keeps the current ConfigMap and Secret. To redeploy an older commit with matching settings, run the workflow on that commit instead.
+
+## Quota
+
+The namespace quota is provisional: requests 1Gi memory and 750m cpu, limits 2Gi memory and 2 cpu, with a LimitRange that requires requests and limits on every container. Every Deployment is `Recreate`, so no rollout needs a surge pod. The API takes 192Mi/384Mi and the deletion worker 96Mi/192Mi, which leaves at most 736Mi (request) and 1472Mi (limit) for the render worker, including its 128Mi `/dev/shm` volume. Set `RENDER_MEMORY_REQUEST` and `RENDER_MEMORY_LIMIT` inside that.
 
 ## Notes
 
