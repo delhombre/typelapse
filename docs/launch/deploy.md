@@ -49,16 +49,9 @@ once `TYPELAPSE_RENDER_LEASE_MS` (120 s by default) has run out. Give the proces
 a grace period of a few seconds, not a render's length. The image starts the
 workers under `tini` so the signal arrives.
 
-Both workers can also run as scheduled jobs instead of long-running processes.
-Set `TYPELAPSE_WORKER_EXIT_WHEN_IDLE=true` on the job and the worker claims and
-finishes work until a claim comes back empty, then exits with code 0. It never
-sleeps in that mode, so a run with nothing to do ends at once. Unset or `false`
-keeps the polling loop. Any other value stops the worker at startup. SIGTERM
-behaves the same in both modes. A failed iteration still waits
-`TYPELAPSE_RENDER_FAILURE_MS` (or `TYPELAPSE_OBJECT_DELETION_FAILURE_MS`) and
-tries again rather than exiting, so give the job a deadline. Overlapping runs
-are safe, since each claim locks its job, but each render run needs its own
-2 GiB (see Sizing): forbid concurrent runs unless the node has the room.
+Both workers can also run as scheduled jobs, which is how staging runs them
+(Kubernetes CronJobs, decision D8 of `docs/decisions/2026-10-08-staging.md`;
+the manifests are in #235). See "Scheduled jobs" below.
 
 The API listens on `PORT` (3001). With `TYPELAPSE_STATIC_ROOT` set, which the
 image does (`/app/dist`), it also serves the built app, so one origin answers
@@ -68,15 +61,60 @@ cached for a year and immutable, HTML is `no-cache`, and an unknown path is a
 status). Unset the variable to run the API alone. The API sets no
 Content-Security-Policy; put it on the ingress (issue #217).
 
+## Scheduled jobs
+
+Set `TYPELAPSE_WORKER_EXIT_WHEN_IDLE=true` on the job and the worker claims and
+finishes work until a claim comes back empty, then closes its database pool and
+exits with code 0. It never sleeps in that mode, so a run with nothing to do
+ends at once: measured in the image, about 1 s from container start to exit,
+and 45 ms from a render's success to the process exiting. Unset or `false`
+keeps the polling loop. Any other value, an empty
+one included, stops the worker at startup. SIGTERM behaves the same in both
+modes.
+
+A failed iteration (the database or the object store refused, or a render hit
+`TYPELAPSE_RENDER_TIMEOUT_MS`) waits `TYPELAPSE_RENDER_FAILURE_MS` (or
+`TYPELAPSE_OBJECT_DELETION_FAILURE_MS`) and tries again. In drain mode, three
+failed iterations in a row end the run with code 1, so a broken dependency shows
+as a failed Job instead of a pod retrying until its deadline. The long-running
+loop has no such limit.
+
+Three settings on the CronJobs:
+
+- `concurrencyPolicy: Forbid`, required. Two runs at once are safe for the data,
+  since each claim locks its job, but not for memory: each render run needs its
+  own 2 GiB (see Sizing), and two do not fit the node.
+- `activeDeadlineSeconds: 3600` on the render job. When the deadline is reached,
+  Kubernetes sends SIGTERM: the worker aborts the render in progress, the job's
+  lease is not released, and the job is picked up again by a later run once the
+  lease has run out (`TYPELAPSE_RENDER_LEASE_MS`, 120 s). That attempt counts
+  against `TYPELAPSE_RENDER_MAX_ATTEMPTS`. The deadline must therefore exceed
+  `TYPELAPSE_RENDER_TIMEOUT_MS` (900 s) plus the time to drain the renders queued
+  behind it, or it cuts renders that would have finished.
+- `startingDeadlineSeconds`, for example 60 on the render job. A run that could
+  not start in time (the previous one still holds the queue under `Forbid`) is
+  dropped and the next schedule covers it. Without it, Kubernetes stops
+  scheduling a CronJob once it has missed more than 100 start times.
+
 ## Release step
 
-Run before each rollout, with the same environment as the API, and stop the
-rollout if either command exits non-zero:
+The workers must not run against a schema that is changing. Before each
+rollout:
 
-```bash
-docker run --rm --env-file prod.env typelapse pnpm db:migrate
-docker run --rm --env-file prod.env typelapse pnpm hosted:check
-```
+1. Suspend both worker CronJobs, so no new run starts:
+   `kubectl patch cronjob <name> -p '{"spec":{"suspend":true}}'`.
+2. Wait for the Jobs already running to end (`kubectl get jobs`). A render can
+   take up to `TYPELAPSE_RENDER_TIMEOUT_MS`.
+3. Migrate, then check, with the same environment as the API, and stop the
+   rollout if either command exits non-zero:
+
+   ```bash
+   docker run --rm --env-file prod.env typelapse pnpm db:migrate
+   docker run --rm --env-file prod.env typelapse pnpm hosted:check
+   ```
+
+4. Apply the new image and manifests.
+5. Resume both CronJobs (`"suspend":false`).
 
 The same two steps without pnpm, from `/app`:
 `node_modules/.bin/drizzle-kit migrate` and

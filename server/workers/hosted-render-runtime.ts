@@ -23,7 +23,7 @@ import {
 	hostedRenderObjectStorageFromEnv,
 	type HostedRenderObjectStorage,
 } from "../storage/hosted-render-object-storage";
-import { exitWhenIdleFrom } from "./exit-when-idle";
+import { DRAIN_FAILURE_LIMIT, exitWhenIdleFrom } from "./exit-when-idle";
 
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 type AbortableSleep = (delayMs: number, signal: AbortSignal) => Promise<void>;
@@ -261,46 +261,67 @@ export async function runHostedRenderLoop(input: {
 	const logger = input.logger ?? console;
 	const renderTimeoutMs = input.renderTimeoutMs ?? DEFAULT_CONFIG.renderTimeoutMs;
 	let idleDelayMs = input.idleMinDelayMs;
+	let failuresInARow = 0;
 	while (!input.signal.aborted) {
-		const attemptController = new AbortController();
-		const abortAttempt = () => attemptController.abort(input.signal.reason);
-		input.signal.addEventListener("abort", abortAttempt, { once: true });
-		const timeout = setTimeout(
-			() => attemptController.abort(new Error("Hosted render attempt timed out")),
-			renderTimeoutMs,
-		);
-		try {
-			const result = await input.processor.runOnce(input.workerId, {
-				signal: attemptController.signal,
-			});
-			if (result === "aborted") {
-				if (input.signal.aborted) {
-					return;
-				}
-				logger.error("Hosted render worker attempt timed out");
-				await sleep(input.failureDelayMs, input.signal);
-				continue;
-			}
-			if (result === "idle") {
-				if (input.exitWhenIdle) {
-					return;
-				}
-				await sleep(idleDelayMs, input.signal);
-				idleDelayMs = Math.min(input.idleMaxDelayMs, idleDelayMs * 2);
-				continue;
-			}
-			idleDelayMs = input.idleMinDelayMs;
-			if (result === "lease-lost") {
-				await sleep(input.idleMinDelayMs, input.signal);
-			}
-		} catch {
-			logger.error("Hosted render worker iteration failed");
-			idleDelayMs = input.idleMinDelayMs;
-			await sleep(input.failureDelayMs, input.signal);
-		} finally {
-			clearTimeout(timeout);
-			input.signal.removeEventListener("abort", abortAttempt);
+		const result = await runOneAttempt(input.processor, input.workerId, input.signal, renderTimeoutMs);
+		if (result === "aborted" && input.signal.aborted) {
+			return;
 		}
+		if (result === "aborted" || result === "threw") {
+			logger.error(
+				result === "threw"
+					? "Hosted render worker iteration failed"
+					: "Hosted render worker attempt timed out",
+			);
+			failuresInARow += 1;
+			if (input.exitWhenIdle && failuresInARow >= DRAIN_FAILURE_LIMIT) {
+				const message = `Hosted render worker stopped after ${DRAIN_FAILURE_LIMIT} failed iterations in a row`;
+				logger.error(message);
+				throw new Error(message);
+			}
+			if (result === "threw") {
+				idleDelayMs = input.idleMinDelayMs;
+			}
+			await sleep(input.failureDelayMs, input.signal);
+			continue;
+		}
+		failuresInARow = 0;
+		if (result === "idle") {
+			if (input.exitWhenIdle) {
+				return;
+			}
+			await sleep(idleDelayMs, input.signal);
+			idleDelayMs = Math.min(input.idleMaxDelayMs, idleDelayMs * 2);
+			continue;
+		}
+		idleDelayMs = input.idleMinDelayMs;
+		if (result === "lease-lost") {
+			await sleep(input.idleMinDelayMs, input.signal);
+		}
+	}
+}
+
+/** One claim-and-render, bounded by the render timeout and aborted by shutdown. */
+async function runOneAttempt(
+	processor: HostedRenderProcessor,
+	workerId: string,
+	signal: AbortSignal,
+	renderTimeoutMs: number,
+): Promise<Awaited<ReturnType<HostedRenderProcessor["runOnce"]>> | "threw"> {
+	const attemptController = new AbortController();
+	const abortAttempt = () => attemptController.abort(signal.reason);
+	signal.addEventListener("abort", abortAttempt, { once: true });
+	const timeout = setTimeout(
+		() => attemptController.abort(new Error("Hosted render attempt timed out")),
+		renderTimeoutMs,
+	);
+	try {
+		return await processor.runOnce(workerId, { signal: attemptController.signal });
+	} catch {
+		return "threw";
+	} finally {
+		clearTimeout(timeout);
+		signal.removeEventListener("abort", abortAttempt);
 	}
 }
 
@@ -422,19 +443,27 @@ export function createHostedRenderRuntimeFromEnv(input: {
 		input.workerId ?? `hosted-render-${process.pid}`,
 	);
 
+	const pool = database.$client;
+
 	return {
-		run: (signal) =>
-			runHostedRenderLoop({
-				processor,
-				workerId,
-				signal,
-				idleMinDelayMs: config.idleMinDelayMs,
-				idleMaxDelayMs: config.idleMaxDelayMs,
-				failureDelayMs: config.failureDelayMs,
-				renderTimeoutMs: config.renderTimeoutMs,
-				exitWhenIdle: config.exitWhenIdle,
-				...(input.sleep ? { sleep: input.sleep } : {}),
-				...(input.logger ? { logger: input.logger } : {}),
-			}),
+		async run(signal) {
+			try {
+				await runHostedRenderLoop({
+					processor,
+					workerId,
+					signal,
+					idleMinDelayMs: config.idleMinDelayMs,
+					idleMaxDelayMs: config.idleMaxDelayMs,
+					failureDelayMs: config.failureDelayMs,
+					renderTimeoutMs: config.renderTimeoutMs,
+					exitWhenIdle: config.exitWhenIdle,
+					...(input.sleep ? { sleep: input.sleep } : {}),
+					...(input.logger ? { logger: input.logger } : {}),
+				});
+			} finally {
+				// An open pool keeps the process alive for its idle timeout (10 s).
+				await pool.end();
+			}
+		},
 	};
 }
