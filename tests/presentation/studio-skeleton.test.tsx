@@ -16,7 +16,7 @@ const STUDIO: readonly (readonly [number, number, number[]])[] = [
 	[1280, 800, [352, 130, 576, 324]],
 	[1440, 900, [343.11, 130, 753.77, 424]],
 	[1366, 650, [430.56, 96, 504.88, 284]],
-	[390, 844, [40, 276.81, 310, 174.38]],
+	[390, 844, [8, 68, 374, 210.38]],
 ];
 
 function setWindow(width: number, height: number) {

@@ -1,5 +1,4 @@
 import {
-	DOCK_ROOM,
 	type PhoneSheetInput,
 	type PhoneSheetStop,
 	STAGE_TOP_GAP,
@@ -14,9 +13,9 @@ import {
  * stretch between the frame's bottom and the foot of the dock. The dock is
  * everything stacked on the instrument's line: the export status, the panel,
  * the plate. This is that stretch, from the same figures that place the sheet's
- * stops: the stage's slot ends where the instrument's room (`DOCK_ROOM`)
- * begins, the frame sits centred in the slot, and the dock's foot is where the
- * sheet's stop floats it (`dockLift`, so the safe areas are already in it).
+ * stops: the frame hangs from the stage's top under the corner row, and the
+ * dock's foot is where the sheet's stop floats it (`dockLift`, so the safe
+ * areas are already in it).
  */
 
 /** Between the frame's bottom edge and the top of whatever the dock stacks. */
@@ -47,9 +46,8 @@ export function phonePanelRoom(
 ): number {
 	const sheet = phoneSheetGeometry(input);
 	const stageTop = sheet.rowBottom + STAGE_TOP_GAP;
-	const stageBottom = input.viewportHeight - (sheet.stageLift(stop) + DOCK_ROOM);
-	const frameBottom =
-		frameHeight === null ? stageTop : (stageTop + stageBottom) / 2 + frameHeight / 2;
+	// The frame hangs from the stage's top (D4), whatever height it was drawn at.
+	const frameBottom = frameHeight === null ? stageTop : stageTop + frameHeight;
 	const dockBottom = input.viewportHeight - sheet.dockLift(stop);
 	const room = dockBottom - (frameBottom + PANEL_GAP) - rest;
 	return Math.max(PANEL_MIN_HEIGHT, Math.floor(room));

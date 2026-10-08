@@ -573,7 +573,9 @@ describe("the /app shell", () => {
 		expect(useAuthStore.getState().status.kind).toBe("local-offline");
 		const { container } = shell();
 
-		expect(screen.getByRole("button", { name: "Switch to dark mode" })).toBeTruthy();
+		expect(
+			screen.getByRole("button", { name: "Appearance: System. Switch to Light" }),
+		).toBeTruthy();
 		expect(container.querySelector(".sc-account-island")).toBeNull();
 		expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
 		expect(screen.queryByRole("button", { name: "On this device" })).toBeNull();
@@ -595,8 +597,10 @@ describe("the account island's material", () => {
 		const control = read("src/presentation/components/multimedia/studio-account-control.css");
 		const island = read("src/presentation/components/layout/studio-account-island.css");
 		const used = new Set([...control.matchAll(/var\((--mm-[a-z-]+)/g)].map((match) => match[1]));
-		// The phone shell has no `.studio-camera-root`, so the mapping cannot sit under it.
-		const mapping = island.match(/^\.sc-account-island \{([^}]*)\}/m)?.[1] ?? "";
+		// The phone shell has no `.studio-camera-root`, so the mapping cannot sit under it;
+		// and on the phone the account is a section of the More menu, outside the chip.
+		const mapping =
+			island.match(/^\.sc-account-island,\n\.mm-account-section \{([^}]*)\}/m)?.[1] ?? "";
 
 		expect(used.size).toBeGreaterThan(0);
 		for (const token of used) {

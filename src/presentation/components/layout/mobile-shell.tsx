@@ -1,5 +1,4 @@
 import {
-	DOCK_ROOM,
 	type PhoneSheetStep,
 	type PhoneSheetStop,
 	phoneSheetGeometry,
@@ -14,6 +13,7 @@ import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
 import { usePhoneDockRoom } from "@/presentation/hooks/use-phone-dock-room";
 import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
+import { useExportStore } from "@/presentation/stores/export.store";
 import { motion } from "motion/react";
 import {
 	type KeyboardEvent,
@@ -78,7 +78,15 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	// The stops are pixels from the viewport and its safe areas (application/
 	// layout/phone-sheet.ts): a phone on its side has no scenes stop, and the
 	// sheet is held by the name of its stop so a rotation keeps it there.
-	const viewport = usePhoneViewport();
+	const phone = usePhoneViewport();
+	// The frame is the export's shape at the stage's width (D4), so the stops
+	// follow the shape: a 9:16 frame leaves no scenes stop under it.
+	const exportWidth = useExportStore((state) => state.width);
+	const exportHeight = useExportStore((state) => state.height);
+	const viewport = useMemo(
+		() => ({ ...phone, aspect: exportWidth / exportHeight }),
+		[phone, exportWidth, exportHeight],
+	);
 	const sheet = useMemo(() => phoneSheetGeometry(viewport), [viewport]);
 	const [wanted, setWanted] = useState<PhoneSheetStop>("peek");
 	const stop = sheet.resolve(wanted);
@@ -126,19 +134,21 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	// A tablet in portrait gets this layout, and it can drag a file in from
 	// another app: it lands where it does on a desktop, in the selected scene.
 	const draggingFile = useStudioFileDrop();
-	// The frame keeps the room above the instrument. Over the full editor it
-	// keeps the scenes stop's room rather than refitting to a frame nobody sees.
-	const stageLift = sheet.stageLift(stop);
+	// Monaco is a megabyte: it waits for the sheet to rise, but a finger on the
+	// handle is enough to start it, so the code is there when the sheet lands.
+	const [warm, setWarm] = useState(false);
+	// Where the More menu holds the account while it is open (null while it is shut).
+	const [accountSection, setAccountSection] = useState<HTMLElement | null>(null);
 
 	return (
 		<main className="studio-root sc-root sc-root-mobile">
 			<h1 className="sr-only">Typelapse studio</h1>
-			{/* The slot's room is the sheet's and the instrument's, and nothing an
-			    island panel opens: a phone has no room to step the stage back into,
-			    and a slot asked for 460px more than the screen has left collapses to
-			    a box of nothing, which the card refits into at a negative offset
-			    (#169). A raised cluster lowers the sheet instead (above). */}
-			<div className="sc-stage-slot" style={{ paddingBottom: stageLift + DOCK_ROOM }}>
+			{/* The slot is the frame: the stage's width, hung under the corner row,
+			    the same box at every stop (D4). The sheet slides under it and never
+			    refits it, so a drag moves the sheet and the instrument and nothing
+			    else, and a release does not end in a second motion. Nothing an island
+			    panel opens changes it either (#169): a raised cluster lowers the sheet. */}
+			<div className="sc-stage-slot" style={{ paddingBottom: sheet.stageBottom }}>
 				{/* The frame is the video's own shape here too: a phone used to get
 				    the bare card, so a 16:9 export previewed as a wide strip. */}
 				<StudioVideoModeProvider active>
@@ -159,9 +169,15 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 					<CaptureLibrary />
 					<TemplateGallery />
 				</section>
-				<StudioUtilities compact />
-				<StudioAccountIsland />
+				{/* Four chips: the row's width was planned for four, and the account as a
+				    fifth covered the project menu's button (#222). It is the More menu's
+				    first section instead, drawn into the menu while it is open. */}
+				<StudioUtilities
+					compact
+					leading={<div ref={setAccountSection} className="sc-more-account" />}
+				/>
 			</div>
+			<StudioAccountIsland menuSection={accountSection} />
 
 			{/* The instrument floats above the sheet, on the sheet's own top edge. */}
 			<div className="sc-dock-slot" ref={dockRef}>
@@ -193,86 +209,95 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 			>
 				<Drawer.Portal>
 					<Drawer.Content className="sc-sheet" ref={setSheetElement}>
-						{/* The handle darkens under the finger that holds it: the press is the
+						{/* The sheet is as tall as the screen and slides; what it holds is as
+						    tall as the full stop, so the editor below the scenes fills the stop
+						    to its foot instead of a fixed 320px box with paper under it. */}
+						<div className="flex min-h-0 flex-col" style={{ height: sheet.stops.full }}>
+							{/* The handle darkens under the finger that holds it: the press is the
 						    only feedback a drag gets before the sheet moves. */}
-						<Drawer.Handle
-							role="slider"
-							tabIndex={0}
-							// The drawer hides its handle from assistive technology; this one is
-							// the way to the content below the peek, so it is named and adjustable.
-							aria-hidden={undefined}
-							aria-label="Sheet height"
-							aria-orientation="vertical"
-							aria-valuemin={0}
-							aria-valuemax={stopNames.length - 1}
-							aria-valuenow={stopNames.indexOf(stop)}
-							aria-valuetext={STOP_TEXT[stop]}
-							aria-controls={contentId}
-							onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
-								const step = HANDLE_KEYS[event.key];
-								if (!step || event.altKey || event.ctrlKey || event.metaKey) return;
-								event.preventDefault();
-								setWanted(sheet.step(stop, step));
-							}}
-							className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 transition-[background-color] duration-150 active:!bg-neutral-400 dark:!bg-neutral-700 dark:active:!bg-neutral-500 focus-visible:!opacity-100"
-						/>
-						<Drawer.Title className="sr-only">Code and scenes</Drawer.Title>
-						<Drawer.Description className="sr-only">
-							Edit code and arrange animation scenes.
-						</Drawer.Description>
+							<Drawer.Handle
+								role="slider"
+								tabIndex={0}
+								// The drawer hides its handle from assistive technology; this one is
+								// the way to the content below the peek, so it is named and adjustable.
+								aria-hidden={undefined}
+								aria-label="Sheet height"
+								aria-orientation="vertical"
+								aria-valuemin={0}
+								aria-valuemax={stopNames.length - 1}
+								aria-valuenow={stopNames.indexOf(stop)}
+								aria-valuetext={STOP_TEXT[stop]}
+								aria-controls={contentId}
+								onPointerDown={() => setWarm(true)}
+								onKeyDown={(event: KeyboardEvent<HTMLDivElement>) => {
+									const step = HANDLE_KEYS[event.key];
+									if (!step || event.altKey || event.ctrlKey || event.metaKey) return;
+									event.preventDefault();
+									setWanted(sheet.step(stop, step));
+								}}
+								className="mx-auto !mt-3 !mb-1 !h-1.5 !w-10 !rounded-full !bg-neutral-300 transition-[background-color] duration-150 active:!bg-neutral-400 dark:!bg-neutral-700 dark:active:!bg-neutral-500 focus-visible:!opacity-100"
+							/>
+							<Drawer.Title className="sr-only">Code and scenes</Drawer.Title>
+							<Drawer.Description className="sr-only">
+								Edit code and arrange animation scenes.
+							</Drawer.Description>
 
-						{/* Collapsed, the content is below the screen: it is out of the tab order
+							{/* Collapsed, the content is below the screen: it is out of the tab order
 						    and the accessibility tree until the handle raises the sheet, so focus
 						    never lands on something nobody can see. Rows scrolled up dissolve
 						    under the handle instead of being cut flat across it; the 12px fade
 						    sits in the content's top padding, so at rest nothing is faded. */}
-						<div
-							id={contentId}
-							inert={isPeek}
-							// The sheet is as tall as the screen and slides, so at the half stop its
-							// lower part is below the screen's edge: a key that focuses something
-							// there raises the sheet, so focus is never somewhere nobody can see.
-							onFocus={(event) => {
-								if (
-									stop !== "full" &&
-									event.target.getBoundingClientRect().bottom > window.innerHeight
-								) {
-									setWanted("full");
-								}
-							}}
-							className={`min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,transparent,black_12px)] ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
-						>
-							<motion.div
-								// Over the full editor the instrument sits at the bottom of the
-								// screen: the end of the sheet scrolls clear of it.
-								// Landscape puts the notch on a side: the sheet's content clears it.
-								className={`flex flex-col gap-6 pt-3 pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] ${
-									stop === "full"
-										? "pb-[calc(5rem+env(safe-area-inset-bottom))]"
-										: "pb-[max(1.5rem,env(safe-area-inset-bottom))]"
-								}`}
-								initial={{ opacity: 0 }}
-								animate={{ opacity: 1 }}
-								transition={{ duration: 0.2 }}
+							<div
+								id={contentId}
+								inert={isPeek}
+								// The sheet is as tall as the screen and slides, so at the half stop its
+								// lower part is below the screen's edge: a key that focuses something
+								// there raises the sheet, so focus is never somewhere nobody can see.
+								onFocus={(event) => {
+									if (
+										stop !== "full" &&
+										event.target.getBoundingClientRect().bottom > window.innerHeight
+									) {
+										setWanted("full");
+									}
+								}}
+								className={`min-h-0 flex-1 [mask-image:linear-gradient(to_bottom,transparent,black_12px)] ${isPeek ? "overflow-hidden" : "overflow-y-auto overscroll-contain"}`}
 							>
-								<section className="flex flex-col gap-3">
-									<span className="sc-eyebrow">Scenes</span>
-									{stepBuilder}
-								</section>
+								<motion.div
+									// Over the full editor the instrument sits at the bottom of the
+									// screen: the end of the sheet scrolls clear of it.
+									// Landscape puts the notch on a side: the sheet's content clears it.
+									className={`flex min-h-full flex-col gap-6 pt-3 pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] ${
+										stop === "full"
+											? "pb-[calc(5rem+env(safe-area-inset-bottom))]"
+											: "pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+									}`}
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									transition={{ duration: 0.2 }}
+								>
+									<section className="flex flex-col gap-3">
+										<span className="sc-eyebrow">Scenes</span>
+										{stepBuilder}
+									</section>
 
-								{/* The layer row is the desktop card's toggle: once a layer is picked
+									{/* The layer row is the desktop card's toggle: once a layer is picked
 								    on the stage its inspector covers the code, and the Code chip (or the
 								    selected chip pressed again) is the way back. */}
-								<section className="flex min-h-0 flex-col gap-3" data-editor-section>
-									<span className="sc-eyebrow">{editorKind}</span>
-									<StudioLayerStrip />
-									{/* At the peek the content is below the screen and inert: Monaco is
-								    only downloaded once the sheet has risen. */}
-									<div className="h-[320px]">
-										<EditorPresence shown={!isPeek}>{editor}</EditorPresence>
-									</div>
-								</section>
-							</motion.div>
+									<section className="flex min-h-0 flex-1 flex-col gap-3" data-editor-section>
+										<span className="sc-eyebrow">{editorKind}</span>
+										<StudioLayerStrip />
+										{/* At the peek the content is below the screen and inert: Monaco is
+									    only downloaded once the sheet rises, or a finger takes the handle.
+									    The editor takes the rest of the stop and never less than 240px. */}
+										<div className="relative min-h-[240px] flex-1">
+											<div className="absolute inset-0">
+												<EditorPresence shown={!isPeek || warm}>{editor}</EditorPresence>
+											</div>
+										</div>
+									</section>
+								</motion.div>
+							</div>
 						</div>
 					</Drawer.Content>
 				</Drawer.Portal>

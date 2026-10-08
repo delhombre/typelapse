@@ -24,7 +24,7 @@ function runAt(
 	window.history.replaceState(null, "", path);
 	localStorage.clear();
 	if (stored) localStorage.setItem("typelapse.landing-theme", stored);
-	if (studioStored) localStorage.setItem("typelapse.studio-theme", studioStored);
+	if (studioStored) localStorage.setItem("typelapse.studio-appearance", studioStored);
 	vi.stubGlobal("matchMedia", (query: string) => ({
 		matches: osDark && query === "(prefers-color-scheme: dark)",
 	}));
@@ -86,5 +86,24 @@ describe("the theme before the bundle runs", () => {
 	it("opens the studio in the theme picked there, over the OS", () => {
 		expect(runAt("/app", false, null, "dark").classList.contains("dark")).toBe(true);
 		expect(runAt("/app", true, null, "light").classList.contains("dark")).toBe(false);
+	});
+
+	// D6: the old toggle's side is read as System, as the theme store reads it.
+	it("opens the studio on the OS's side over a side the old toggle stored", () => {
+		for (const [osDark, legacy] of [
+			[true, "light"],
+			[false, "dark"],
+		] as const) {
+			const root = document.documentElement;
+			root.classList.remove("dark");
+			window.history.replaceState(null, "", "/app");
+			localStorage.clear();
+			localStorage.setItem("typelapse.studio-theme", legacy);
+			vi.stubGlobal("matchMedia", (query: string) => ({
+				matches: osDark && query === "(prefers-color-scheme: dark)",
+			}));
+			new Function(SCRIPT)();
+			expect(root.classList.contains("dark")).toBe(osDark);
+		}
 	});
 });

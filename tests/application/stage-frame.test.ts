@@ -1,4 +1,4 @@
-import { DOCK_ROOM, STAGE_TOP_GAP, phoneSheetGeometry } from "@/application/layout/phone-sheet";
+import { STAGE_TOP_GAP, phoneSheetGeometry } from "@/application/layout/phone-sheet";
 import {
 	DESKTOP_SCENE_MIN_WIDTH,
 	STAGE_FLOOR_HEIGHT,
@@ -94,24 +94,30 @@ describe("the desktop shell's frame", () => {
 });
 
 describe("the phone shell's frame", () => {
-	it("is 310x174.4 under the corner row at 390x844, where the skeleton sat 8px off", () => {
-		expectBox(open(390, 844), 40, 276.81, 310, 174.38);
+	// D4 of the 2026-10-08 design audit: the stage's width, hung under the corner
+	// row. It was 310x174 centred at 390x844, inside the desktop's 32px inset.
+	it("is 374x210.4 under the corner row at 390x844", () => {
+		expectBox(open(390, 844), 8, 68, 374, 210.38);
 	});
 
-	it("is 740x416 at 820x1180, where the skeleton drew 640x360", () => {
-		expectBox(open(820, 1180), 40, 323.88, 740, 416.25);
+	it("is 804x452 at 820x1180, a tablet in portrait, from the top too", () => {
+		expectBox(open(820, 1180), 8, 68, 804, 452.25);
 	});
 
-	it("is 280x157.5 at 360x640", () => {
-		expectBox(open(360, 640), 40, 183.25, 280, 157.5);
+	it("is 344x193.5 at 360x640", () => {
+		expectBox(open(360, 640), 8, 68, 344, 193.5);
 	});
 
-	it("is centred between the corner row and the instrument's room", () => {
-		const sheet = phoneSheetGeometry({ viewportHeight: 844, safeTop: 47, safeBottom: 34 });
+	it("is the phone sheet's own frame, so the outline and the studio agree", () => {
+		const sheet = phoneSheetGeometry({
+			viewportWidth: 390,
+			viewportHeight: 844,
+			safeTop: 47,
+			safeBottom: 34,
+		});
 		const box = open(390, 844, 47, 34);
-		const roomTop = sheet.rowBottom + STAGE_TOP_GAP + 32;
-		const roomBottom = 844 - (sheet.stageLift("peek") + DOCK_ROOM) - 32;
-		expect(box.top + box.height / 2).toBeCloseTo((roomTop + roomBottom) / 2, 3);
+		expectBox(box, sheet.frame.left, sheet.frame.top, sheet.frame.width, sheet.frame.height);
+		expect(box.top).toBe(sheet.rowBottom + STAGE_TOP_GAP);
 	});
 
 	it("moves down with the notch", () => {

@@ -54,6 +54,10 @@
 	--camera-sheet-shadow: 0 0 0 1px var(--camera-line), 0 -18px 48px rgb(18 17 16 / 0.18);
 	/* An error in a field's own words: 5.0:1 on the paper, 7.3:1 on the dark paper. */
 	--camera-danger: #c53a3a;
+	/* A control that cannot be used now: the muted ink half way to the paper, so it
+	   flips with the theme and reads the same on every material (D7 of the design
+	   audit, never an opacity). */
+	--camera-disabled: color-mix(in oklch, var(--camera-muted) 50%, var(--camera-paper));
 	/* The studio's type scale: five sizes, three weights, on both shells. Anything
 	   smaller than 9px is a texture (the clips' code), not text. */
 	--sc-text-2xs: 9px;
@@ -433,6 +437,32 @@
 	background: var(--camera-surface);
 	box-shadow: var(--camera-material-shadow);
 	color: var(--camera-ink);
+}
+
+/* The open project's name in full, wrapped rather than cut: the chip ends it in an
+   ellipsis, and the menu is the one place a finger can read the rest. */
+.sc-project-menu-current {
+	display: grid;
+	gap: 2px;
+	margin: 0;
+	padding: 14px 14px 12px;
+	border-bottom: 1px solid var(--camera-line);
+}
+
+.sc-project-menu-current span {
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-regular);
+}
+
+.sc-project-menu-current strong {
+	color: var(--camera-ink);
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	line-height: 1.35;
+	letter-spacing: -0.012em;
+	overflow-wrap: anywhere;
+	text-wrap: pretty;
 }
 
 .sc-project-menu-head {

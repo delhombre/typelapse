@@ -45,6 +45,13 @@ export interface StudioAccountIslandProps {
 	readonly compositionStore?: typeof useStudioCompositionStore;
 	/** `undefined` resolves the browser runtime; `null` disables cloud save. */
 	readonly cloudRuntime?: StudioCloudRuntime | null;
+	/**
+	 * On the phone: no chip in the corner row, the account is the More menu's
+	 * first section, drawn into this element while the menu is open (null while
+	 * it is closed). The island stays mounted, so cloud sync and the plan keep
+	 * running with the menu shut (design audit 2026-10-08, D3).
+	 */
+	readonly menuSection?: HTMLElement | null;
 }
 
 /**
@@ -67,6 +74,7 @@ function HostedAccountIsland({
 	cloudProjectsStore = useCloudProjectsStore,
 	compositionStore = useStudioCompositionStore,
 	cloudRuntime,
+	menuSection,
 }: StudioAccountIslandProps) {
 	const authStatus = authStore((state) => state.status);
 	const value = compositionStore((state) => state.value);
@@ -110,39 +118,43 @@ function HostedAccountIsland({
 		}
 	}, [authStatus.kind, refreshPlan]);
 
-	return (
-		<div className="sc-chip sc-account-island">
-			<StudioAccountControl
-				store={authStore}
-				cloudProjectState={cloudProjectState}
-				{...(runtime ? { onSaveToCloud: saveToCloud } : {})}
-				allowance={allowance}
-				apiKeys={{ store: apiKeyStore }}
-				cloudProjects={{
-					store: cloudProjectsStore,
-					openId: cloudProjectId,
-					onDeleted: (id) => {
-						forgetCloudProject(id);
-						// Its renders went with it: a finished one on screen has nothing to offer.
-						void useHostedRenderJobsStore.getState().recheck();
-						// The allowance says how many projects the account keeps.
-						void refreshPlan({ signedIn: true });
-					},
-				}}
-				billing={{
-					planLabel: plan.label,
-					paid: plan.isPaid,
-					available: billingAvailable,
-					catalog,
-					cadence,
-					busy: isUpgrading,
-					error: billingError,
-					notice,
-					onCadence: selectCadence,
-					onUpgrade: () => void upgrade(),
-					onManageBilling: () => void manageBilling(),
-				}}
-			/>
-		</div>
+	const control = (
+		<StudioAccountControl
+			{...(menuSection === undefined ? {} : { menuSection })}
+			store={authStore}
+			cloudProjectState={cloudProjectState}
+			{...(runtime ? { onSaveToCloud: saveToCloud } : {})}
+			allowance={allowance}
+			apiKeys={{ store: apiKeyStore }}
+			cloudProjects={{
+				store: cloudProjectsStore,
+				openId: cloudProjectId,
+				onDeleted: (id) => {
+					forgetCloudProject(id);
+					// Its renders went with it: a finished one on screen has nothing to offer.
+					void useHostedRenderJobsStore.getState().recheck();
+					// The allowance says how many projects the account keeps.
+					void refreshPlan({ signedIn: true });
+				},
+			}}
+			billing={{
+				planLabel: plan.label,
+				paid: plan.isPaid,
+				available: billingAvailable,
+				catalog,
+				cadence,
+				busy: isUpgrading,
+				error: billingError,
+				notice,
+				onCadence: selectCadence,
+				onUpgrade: () => void upgrade(),
+				onManageBilling: () => void manageBilling(),
+			}}
+		/>
+	);
+	return menuSection === undefined ? (
+		<div className="sc-chip sc-account-island">{control}</div>
+	) : (
+		control
 	);
 }

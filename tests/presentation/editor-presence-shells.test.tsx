@@ -65,6 +65,7 @@ describe("the shells say when the editor slot is shown", () => {
 	});
 
 	it("keeps the editor out of the phone sheet at its peek, and mounts it once the sheet rises", () => {
+		Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
 		render(
 			<MemoryRouter>
 				<StudioTooltipProvider>
@@ -81,6 +82,23 @@ describe("the shells say when the editor slot is shown", () => {
 		expect(screen.getByTestId("editor-mounted")).toBeTruthy();
 
 		fireEvent.keyDown(handle, { key: "Home" });
+		expect(screen.getByTestId("editor-mounted")).toBeTruthy();
+	});
+
+	it("starts the editor as soon as a finger takes the sheet's handle, before it moves", () => {
+		Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+		render(
+			<MemoryRouter>
+				<StudioTooltipProvider>
+					<MobileShell editor={<Probe />} stepBuilder={<div />} preview={<div />} />
+				</StudioTooltipProvider>
+			</MemoryRouter>,
+		);
+		const handle = screen.getByRole("slider", { name: "Sheet height" });
+		expect(screen.queryByTestId("editor-mounted")).toBeNull();
+
+		fireEvent.pointerDown(handle);
+		expect(handle.getAttribute("aria-valuetext")).toBe("Collapsed");
 		expect(screen.getByTestId("editor-mounted")).toBeTruthy();
 	});
 });

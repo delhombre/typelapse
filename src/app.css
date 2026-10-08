@@ -2519,6 +2519,16 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* Where the phone's row has room for them, the two doors keep their word: before a
+   project has scenes the row holds Settings, Social and Export and nothing else, and
+   a glyph alone made a stranger guess at the first two. Once the transport and the
+   dots arrive the row has no 80px to give, and the glyphs carry it alone. */
+@media (min-width: 360px) and (max-width: 639px) {
+	.sc-root-mobile .si-row[data-dots]:not(:has(.si-count)) > .si-button > .si-label {
+		display: inline;
+	}
+}
+
 .studio-root .si-hint {
 	padding: 0 6px;
 	color: var(--dock-dim);
@@ -3082,8 +3092,17 @@ html.dark:not([data-landing-theme]) {
 /* The phone's slot states its own bottom inline, since the sheet's peek is a
    number the drawer owns rather than a constant this file could name. */
 .sc-root-mobile .sc-stage-slot {
+	/* Hung under the corner row: the slot is the frame's own box (phone-sheet.ts). */
+	align-items: flex-start;
 	padding: calc(max(10px, env(safe-area-inset-top, 0px)) + 58px)
 		max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
+}
+
+/* The desktop's 32px around the frame (`--camera-frame-inset`, read by
+   live-preview.tsx) cost a phone 64px of a 374px stage: the frame takes the
+   stage's whole width here (design audit 2026-10-08, D4). */
+.sc-root-mobile {
+	--camera-frame-inset: 0px;
 }
 
 .sc-root .reicon {
@@ -3178,6 +3197,10 @@ html.dark:not([data-landing-theme]) {
 	/* 2px between the brand, the name and the menu: at 390 the row has 139px for the
 	   chip, and the 8px the desktop chip keeps would cost the name its first word. */
 	gap: 2px;
+	/* Nothing in the chip paints, or takes a press, past its edge: a fifth chip once
+	   squeezed it to 93px and the menu's button sat under the history chip (#222).
+	   Across only, so the targets still reach the row's full height. */
+	overflow-x: clip;
 }
 
 /* The chip is the one that gives, but it gives down to the name's first word and
@@ -3190,9 +3213,11 @@ html.dark:not([data-landing-theme]) {
 	padding-inline: 2px;
 }
 
+/* The floor is what the real row leaves: at 390 the four chips give this one 139px,
+   less the 7px lead, the 26px tile, the 24px menu button and two 2px gaps: 78px. */
 @media (min-width: 390px) {
 	.sc-corner-row .sc-title {
-		min-width: calc(4.7em + 4px);
+		min-width: calc(4.6em + 4px);
 	}
 }
 
@@ -3228,8 +3253,11 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
+/* Flush with the chip's edge (its 6px of padding), so the chip holds the button
+   whole at its floor. */
 .sc-corner-row .sc-project-trigger {
 	flex: none;
+	margin-right: -6px;
 }
 
 .sc-corner-row .sc-utilities {
@@ -3309,8 +3337,10 @@ html.dark:not([data-landing-theme]) {
 	inset: -5px 0;
 }
 
+/* Disabled is a token, not an opacity (design audit 2026-10-08, D7): an opacity
+   is a different contrast on every material it sits on. */
 .sc-corner-row .sc-history button:disabled {
-	opacity: 0.32;
+	color: var(--camera-disabled);
 	pointer-events: none;
 }
 
@@ -3341,9 +3371,9 @@ html.dark:not([data-landing-theme]) {
 	}
 
 	/* 24px wide and no wider to the eye, so the target grows into the 2px beside the
-	   name and the 8px gap to the history chip, and no further (DECISIONS D10). */
+	   name and to the chip's edge, which the chip clips at (DECISIONS D10). */
 	.sc-corner-row .sc-project-trigger::after {
-		inset: -11px -4px -11px -2px;
+		inset: -11px 0 -11px -2px;
 	}
 
 	/* The name is the chip's own height: the whole band beside the brand types. */
@@ -3423,6 +3453,145 @@ html.dark:not([data-landing-theme]) {
 .sc-utility-overflow-menu button:focus-visible {
 	outline: 2px solid var(--camera-focus);
 	outline-offset: -2px;
+}
+
+/* On the phone the menu holds the account's form as well as the rows, so it is
+   the project menu's width rather than a row's, and keeps it whichever it shows:
+   a menu that widened on "Sign in" would jump under the finger. */
+.sc-root-mobile .sc-utility-overflow-menu {
+	width: min(310px, calc(100vw - 20px));
+}
+
+.sc-utility-overflow-menu button:disabled {
+	color: var(--camera-disabled);
+}
+
+/* The account, first: the menu's own rows, then a hairline before the actions. */
+.sc-more-account:empty {
+	display: none;
+}
+
+.sc-more-account {
+	display: grid;
+	margin: -5px -5px 5px;
+	padding: 5px;
+	border-bottom: 1px solid var(--camera-line);
+}
+
+.sc-more-account .mm-account-section {
+	display: grid;
+}
+
+.sc-more-account .mm-account-row .mm-account-avatar {
+	width: 22px;
+	height: 22px;
+	flex: none;
+}
+
+.sc-more-account .mm-account-row > span {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.sc-more-account .mm-account-row > small {
+	margin-left: auto;
+	padding-left: 8px;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-regular);
+	white-space: nowrap;
+}
+
+/* Open, the panel is the menu: the actions under it wait for the way back. */
+.sc-utility-overflow-menu:has(.mm-account-section[data-open]) > :not(.sc-more-account) {
+	display: none;
+}
+
+.sc-utility-overflow-menu:has(.mm-account-section[data-open]) > .sc-more-account {
+	margin-bottom: -5px;
+	border-bottom: 0;
+}
+
+/* The panel in place, not floating: the menu is its surface and its edge. */
+.sc-more-account .mm-account-inline {
+	position: static;
+	width: auto;
+	padding: 6px 9px 9px;
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+	transform: none;
+}
+
+.sc-more-account .mm-account-inline > .mm-keys-back {
+	margin: 0 0 8px -4px;
+}
+
+/* Appearance: three states, System by default (design audit 2026-10-08, D6). A
+   segmented control, so all three are in view and the chosen one is marked. */
+.sc-appearance {
+	display: flex;
+	min-width: 0;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	padding: 4px 4px 4px 11px;
+	border: 0;
+}
+
+.sc-appearance > legend {
+	float: left;
+	padding: 0;
+	color: inherit;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+}
+
+.sc-appearance > div {
+	display: flex;
+	margin-left: auto;
+	padding: 2px;
+	border-radius: var(--r-control);
+	background: var(--camera-pill);
+}
+
+.sc-utility-overflow-menu .sc-appearance button {
+	height: 32px;
+	gap: 4px;
+	padding: 0 8px;
+	/* Concentric with the track: its 10px less the 2px it is inset. */
+	border-radius: calc(var(--r-control) - 2px);
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+
+.sc-utility-overflow-menu .sc-appearance button[aria-pressed="true"] {
+	background: var(--camera-surface);
+	box-shadow: 0 0 0 1px var(--camera-line), 0 1px 2px rgb(28 27 25 / 0.06);
+	color: var(--camera-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-utility-overflow-menu .sc-appearance button[aria-pressed="false"]:hover {
+		background: transparent;
+		color: var(--camera-ink);
+	}
+}
+
+/* Under a thumb each segment is a full 44px row of the menu, drawn at 32px. */
+@media (pointer: coarse) {
+	.sc-utility-overflow-menu .sc-appearance button {
+		position: relative;
+	}
+
+	.sc-utility-overflow-menu .sc-appearance button::after {
+		content: "";
+		position: absolute;
+		inset: -8px 0;
+	}
 }
 
 /* The count is what the row drops first: the step list is one drag away and

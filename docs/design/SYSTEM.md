@@ -119,7 +119,7 @@ what has not adopted it yet.
 | Island gap (desktop studio, 34px labelled controls on the landing plate) | `--island-gap: 2px` `src/presentation/studio-camera.css` |
 | Code card slot, scene gutter | `--sc-card-width: 356px` `--sc-gutter: 96px` `src/app.css` |
 | Desktop header, timeline | `--camera-header: 80px` `--camera-timeline-height: 218px` `src/presentation/studio-camera.css` |
-| Header project name: the desktop corner stops 16px short of the centred Preview/Edit switch and the name ends in an ellipsis; the phone name is never narrower than "Untitled" from 390 up (#167) | `max-width: calc(50% - 22px - 78px - 16px)` `src/presentation/studio-camera.css @ .studio-camera-root .sc-corner-left` `max-width: 28ch` `src/presentation/studio-camera.css @ .studio-camera-root .sc-title` `min-width: calc(4.7em + 4px)` `src/app.css @ .sc-corner-row .sc-title` |
+| Header project name: the desktop corner stops 16px short of the centred Preview/Edit switch and the name ends in an ellipsis; the phone name is never narrower than "Untitled" from 390 up (#167) | `max-width: calc(50% - 22px - 78px - 16px)` `src/presentation/studio-camera.css @ .studio-camera-root .sc-corner-left` `max-width: 28ch` `src/presentation/studio-camera.css @ .studio-camera-root .sc-title` `min-width: calc(4.6em + 4px)` `src/app.css @ .sc-corner-row .sc-title` |
 
 TSX uses Tailwind's 4px steps; CSS writes px and names a value only when
 something else derives from it (the island gap feeds the hit extents). A

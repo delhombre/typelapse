@@ -4,7 +4,10 @@
  * its panel read as the same instrument material as their neighbours. Both
  * shells define the camera tokens, so nothing here waits for the desktop root.
  */
-.sc-account-island {
+/* The chip on a desktop, and on a phone the More menu's first section (design
+   audit 2026-10-08, D3), which is portaled into the menu and so outside the chip. */
+.sc-account-island,
+.mm-account-section {
 	/* The opaque studio surface, so the panel reads like the menus that hold text. */
 	--mm-surface: var(--camera-surface);
 	--mm-ink: var(--camera-ink);
@@ -17,12 +20,16 @@
 	--mm-primary: var(--color-primary);
 	/* Red that reads at 11px on both papers: 5.2:1 on white. */
 	--mm-danger: #c53a3a;
+}
+
+.sc-account-island {
 	display: flex;
 	align-items: center;
 	padding-inline: 3px;
 }
 
-.dark .sc-account-island {
+.dark .sc-account-island,
+.dark .mm-account-section {
 	/* The light theme's red is 3:1 on this surface; this one is 6:1. */
 	--mm-danger: #f28b82;
 }
@@ -37,16 +44,16 @@
 }
 
 /* Round at every size, so the panel's 40px initials are the trigger's 24px ones. */
-.sc-account-island .mm-account-avatar {
+:is(.sc-account-island, .mm-account-section) .mm-account-avatar {
 	border-radius: var(--r-pill);
 }
 
-.sc-account-island .mm-account-popover {
+:is(.sc-account-island, .mm-account-section) .mm-account-popover {
 	color: var(--mm-ink);
 	text-align: left;
 }
 
-.sc-account-island .mm-eyebrow {
+:is(.sc-account-island, .mm-account-section) .mm-eyebrow {
 	margin: 0;
 	color: var(--mm-muted);
 	font-size: 9px;

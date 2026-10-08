@@ -5,7 +5,7 @@ import { springs } from "@/presentation/motion";
 import { useInterfaceFeedbackStore } from "@/presentation/stores/interface-feedback.store";
 import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
-import { useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import { type ThemePreference, useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { saveJsonFile } from "@/presentation/utils/save-json-file";
 import {
 	copyToClipboard,
@@ -14,17 +14,60 @@ import {
 } from "@/presentation/utils/share-link";
 import { studioProjectFileJson } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Check, Download, Moon, MoreH, Share, Sun, VolumeHigh, VolumeMute } from "reicon-react";
+import {
+	Check,
+	Download,
+	Monitor,
+	Moon,
+	MoreH,
+	Share,
+	Sun,
+	VolumeHigh,
+	VolumeMute,
+} from "reicon-react";
+
+/** The three appearances, in the order the control gives them. */
+const APPEARANCES: readonly { value: ThemePreference; label: string; Icon: typeof Sun }[] = [
+	{ value: "light", label: "Light", Icon: Sun },
+	{ value: "dark", label: "Dark", Icon: Moon },
+	{ value: "system", label: "System", Icon: Monitor },
+];
+
+const APPEARANCE_LABEL: Record<ThemePreference, string> = {
+	light: "Light",
+	dark: "Dark",
+	system: "System",
+};
+
+/** The desktop's one button steps System, Light, Dark (theme-mode.store.ts). */
+const NEXT_APPEARANCE: Record<ThemePreference, ThemePreference> = {
+	system: "light",
+	light: "dark",
+	dark: "system",
+};
+
+interface StudioUtilitiesProps {
+	/** The phone's form: one More button and a menu. */
+	compact?: boolean;
+	/**
+	 * The menu's first section, on the phone: the account lives here rather than
+	 * as a fifth chip in a row planned for four (design audit 2026-10-08, D3).
+	 */
+	leading?: ReactNode;
+}
 
 /**
  * Quiet, global utilities that affect the whole studio.
  * Sources and destinations have their own named islands; this cluster stays
  * compact because every control here is a familiar, reversible action.
  */
-export function StudioUtilities({ compact = false }: { compact?: boolean } = {}) {
-	const { mode, toggle } = useThemeModeStore();
+export function StudioUtilities({ compact = false, leading }: StudioUtilitiesProps = {}) {
+	const preference = useThemeModeStore((s) => s.preference);
+	const setPreference = useThemeModeStore((s) => s.setPreference);
+	const cycleAppearance = useThemeModeStore((s) => s.cycle);
+	const menuId = useId();
 	const snippetTitle = useSnippetStore((s) => s.snippet.title);
 	const importFromJson = useSnippetStore((s) => s.importFromJson);
 	const interfaceFeedback = useInterfaceFeedbackStore((s) => s.enabled);
@@ -91,10 +134,19 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 		feedback("toggle");
 	}, [interfaceFeedback, setInterfaceFeedback]);
 
-	const handleThemeToggle = useCallback(() => {
-		toggle();
+	const handleAppearanceCycle = useCallback(() => {
+		cycleAppearance();
 		feedback("toggle");
-	}, [toggle]);
+	}, [cycleAppearance]);
+
+	const handleAppearance = useCallback(
+		(next: ThemePreference) => {
+			if (next === preference) return;
+			setPreference(next);
+			feedback("selection");
+		},
+		[preference, setPreference],
+	);
 
 	const handleExport = useCallback(() => {
 		const json = studioProjectFileJson();
@@ -128,17 +180,18 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 							transition={springs.snappy}
 							className="hit-ext sc-glyph-button"
 							aria-label="More actions"
-							aria-haspopup="menu"
 							aria-expanded={menuOpen}
+							aria-controls={menuOpen ? menuId : undefined}
 						>
 							<MoreH size={13} aria-hidden="true" />
 						</motion.button>
 					</StudioTooltip>
 					<AnimatePresence>
 						{menuOpen && (
+							// A disclosure, not an ARIA menu: it holds the account's form and a
+							// segmented control, which a menu's roles cannot.
 							<motion.div
-								role="menu"
-								aria-label="More actions"
+								id={menuId}
 								className="sc-utility-overflow-menu"
 								initial={{ opacity: 0, y: -4, scale: 0.97, filter: "blur(3px)" }}
 								animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
@@ -152,11 +205,12 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 								transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
 								style={{ transformOrigin: "top right" }}
 							>
-								<button type="button" role="menuitem" onClick={handleExport}>
+								{leading}
+								<button type="button" onClick={handleExport}>
 									<Download size={14} aria-hidden="true" />
 									<span>Export project file</span>
 								</button>
-								<button type="button" role="menuitem" onClick={() => void handleShare()}>
+								<button type="button" onClick={() => void handleShare()}>
 									{shareCopied ? (
 										<Check size={14} aria-hidden="true" />
 									) : (
@@ -165,16 +219,26 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 									<span>{shareCopied ? "Link copied" : "Copy share link"}</span>
 								</button>
 								{/* A phone's top row also carries undo and redo, so the two
-								    set-once toggles wait in here rather than take the name's room. */}
-								<button type="button" role="menuitem" onClick={handleThemeToggle}>
-									{mode === "dark" ? (
-										<Sun size={14} aria-hidden="true" />
-									) : (
-										<Moon size={14} aria-hidden="true" />
-									)}
-									<span>{mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}</span>
-								</button>
-								<button type="button" role="menuitem" onClick={handleFeedbackToggle}>
+								    set-once settings wait in here rather than take the name's room.
+								    The appearance is three states, System by default: one tap on a
+								    two-state toggle used to pin a side for good (D6). */}
+								<fieldset className="sc-appearance">
+									<legend>Appearance</legend>
+									<div>
+										{APPEARANCES.map((option) => (
+											<button
+												key={option.value}
+												type="button"
+												aria-pressed={preference === option.value}
+												onClick={() => handleAppearance(option.value)}
+											>
+												<option.Icon size={13} aria-hidden="true" />
+												<span>{option.label}</span>
+											</button>
+										))}
+									</div>
+								</fieldset>
+								<button type="button" onClick={handleFeedbackToggle}>
 									{interfaceFeedback ? (
 										<VolumeHigh size={14} aria-hidden="true" />
 									) : (
@@ -210,15 +274,11 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 						)}
 					</UtilityButton>
 					<UtilityButton
-						onClick={handleThemeToggle}
-						label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-						tooltip={`Appearance · ${mode === "dark" ? "Dark" : "Light"}`}
+						onClick={handleAppearanceCycle}
+						label={`Appearance: ${APPEARANCE_LABEL[preference]}. Switch to ${APPEARANCE_LABEL[NEXT_APPEARANCE[preference]]}`}
+						tooltip={`Appearance · ${APPEARANCE_LABEL[preference]}`}
 					>
-						{mode === "dark" ? (
-							<Sun size={14} aria-hidden="true" />
-						) : (
-							<Moon size={14} aria-hidden="true" />
-						)}
+						<AppearanceGlyph preference={preference} />
 					</UtilityButton>
 					<UtilityButton
 						onClick={handleFeedbackToggle}
@@ -239,6 +299,11 @@ export function StudioUtilities({ compact = false }: { compact?: boolean } = {})
 }
 
 /* ──────────── Primitives ──────────── */
+
+function AppearanceGlyph({ preference }: { preference: ThemePreference }) {
+	const Icon = APPEARANCES.find((option) => option.value === preference)?.Icon ?? Monitor;
+	return <Icon size={14} aria-hidden="true" />;
+}
 
 function UtilityButton({
 	onClick,
