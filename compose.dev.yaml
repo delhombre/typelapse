@@ -1,0 +1,40 @@
+# What a hosted build needs on a laptop to sign in: PostgreSQL for accounts and
+# sessions, and maildev, which catches every mail the API sends so the sign-in
+# code can be read at http://localhost:1080 instead of in a real inbox.
+#
+#   docker compose -f compose.dev.yaml up
+#
+# Then, in .env: DATABASE_URL=postgres://postgres:typelapse@127.0.0.1:5432/typelapse,
+# SMTP_URL=smtp://127.0.0.1:1025 and MAIL_FROM=Typelapse <code@typelapse.test>.
+# Private media and hosted rendering also need an https S3 endpoint (R2, or MinIO
+# through tests/e2e/hosted/services.sh minio); signing in does not.
+#
+# A port already taken on this machine moves with TYPELAPSE_DEV_PG_PORT,
+# TYPELAPSE_DEV_SMTP_PORT and TYPELAPSE_DEV_MAIL_PORT.
+name: typelapse-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: typelapse
+      POSTGRES_DB: typelapse
+    ports:
+      - "127.0.0.1:${TYPELAPSE_DEV_PG_PORT:-5432}:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "typelapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  maildev:
+    image: maildev/maildev:2.2.1
+    ports:
+      # SMTP the API sends to, and the web inbox with its REST API (GET /email).
+      - "127.0.0.1:${TYPELAPSE_DEV_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${TYPELAPSE_DEV_MAIL_PORT:-1080}:1080"
+
+volumes:
+  postgres:
