@@ -64,7 +64,7 @@ best). The proposal is a loupe: a tap on the frame magnifies the same image
 to an 11px code floor, panning past about 40 columns. It is a new
 interaction, so it goes through `emil-prototype` and Bruno's eye before any
 build.
-Built as the Loupe direction (#PR).
+Built as the Loupe direction (#247).
 
 ## D6 Theme is Light, Dark or System; System by default
 
