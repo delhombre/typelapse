@@ -106,6 +106,8 @@ export interface RemotionV2RuntimeApiPort {
 		readonly jpegQuality: number;
 		readonly overwrite: true;
 		readonly muted: boolean;
+		/** Absent: Remotion halves the host's cores, which a container's cgroup limit does not reflect. */
+		readonly concurrency?: number;
 		readonly cancelSignal: RemotionCancelSignal;
 	}): Promise<unknown>;
 	renderStill(input: {
@@ -173,8 +175,33 @@ function compositionRecord(composition: unknown): Readonly<Record<string, unknow
 	return composition as Readonly<Record<string, unknown>>;
 }
 
+const MAX_RENDER_CONCURRENCY = 16;
+
+/**
+ * `TYPELAPSE_RENDER_CONCURRENCY`: how many frames Chromium renders at once.
+ * Unset leaves Remotion's choice (half the host's cores); a container should
+ * set it, since it sees the node's cores, not its own CPU and memory limit.
+ * Anything but a whole number from 1 to 16 stops startup.
+ */
+export function renderConcurrencyFrom(
+	environment: Readonly<Record<string, string | undefined>> = process.env,
+): number | undefined {
+	const raw = environment.TYPELAPSE_RENDER_CONCURRENCY?.trim();
+	if (!raw) {
+		return undefined;
+	}
+	const value = /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+	if (!Number.isInteger(value) || value < 1 || value > MAX_RENDER_CONCURRENCY) {
+		throw new Error(
+			`TYPELAPSE_RENDER_CONCURRENCY must be a whole number from 1 to ${MAX_RENDER_CONCURRENCY}`,
+		);
+	}
+	return value;
+}
+
 export function createRemotionV2Runtime(
 	api: RemotionV2RuntimeApiPort = REMOTION_API,
+	options: { readonly concurrency?: number } = {},
 ): RemotionV2RuntimePort {
 	return {
 		async bundle(input) {
@@ -234,6 +261,7 @@ export function createRemotionV2Runtime(
 					jpegQuality: JPEG_QUALITY,
 					overwrite: true,
 					muted: !input.includeAudio,
+					...(options.concurrency ? { concurrency: options.concurrency } : {}),
 					cancelSignal,
 				});
 				input.signal.throwIfAborted();
@@ -385,10 +413,15 @@ export function createHostedRemotionV2Renderer(input: {
 	readonly runtime?: RemotionV2RuntimePort;
 	readonly temporaryRoot?: string;
 	readonly entryPoint?: string;
+	/** Defaults to TYPELAPSE_RENDER_CONCURRENCY. */
+	readonly concurrency?: number;
 }): HostedMultimediaRendererPort {
 	const temporaryRoot = path.resolve(input.temporaryRoot ?? os.tmpdir());
 	const entryPoint = input.entryPoint ?? path.resolve(process.cwd(), "server/remotion/v2/root.tsx");
-	const runtime = input.runtime ?? createRemotionV2Runtime();
+	const concurrency = input.concurrency ?? renderConcurrencyFrom();
+	const runtime =
+		input.runtime ??
+		createRemotionV2Runtime(undefined, concurrency ? { concurrency } : {});
 	const managedWorkspaces = new Map<string, string>();
 
 	return {

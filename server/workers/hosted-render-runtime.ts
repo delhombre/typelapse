@@ -17,6 +17,7 @@ import { createRenderJobQueue } from "../db/render-job.repository";
 import {
 	createHostedRemotionV2Renderer,
 	type HostedRenderAssetMaterializerPort,
+	renderConcurrencyFrom,
 } from "../render/v2/remotion-v2-renderer";
 import {
 	hostedRenderObjectStorageFromEnv,
@@ -38,6 +39,8 @@ export interface HostedRenderRuntimeConfig {
 	readonly failureDelayMs: number;
 	readonly renderTimeoutMs: number;
 	readonly temporaryRoot?: string;
+	/** Frames Chromium renders at once; absent leaves Remotion's choice. */
+	readonly concurrency?: number;
 }
 
 export interface HostedRenderRuntimeLogger {
@@ -60,6 +63,11 @@ const DEFAULT_CONFIG = {
 	failureDelayMs: 5_000,
 	renderTimeoutMs: 15 * 60_000,
 } as const;
+
+function optionalConcurrency(environment: RuntimeEnvironment): { concurrency?: number } {
+	const concurrency = renderConcurrencyFrom(environment);
+	return concurrency === undefined ? {} : { concurrency };
+}
 
 function boundedInteger(
 	environment: RuntimeEnvironment,
@@ -161,6 +169,7 @@ export function hostedRenderRuntimeConfigFromEnv(
 		...(environment.TYPELAPSE_RENDER_TEMP_ROOT?.trim()
 			? { temporaryRoot: environment.TYPELAPSE_RENDER_TEMP_ROOT.trim() }
 			: {}),
+		...optionalConcurrency(environment),
 	};
 	if (config.heartbeatIntervalMs >= config.leaseDurationMs) {
 		throw new Error("Hosted render heartbeat must be shorter than its lease");
@@ -388,6 +397,7 @@ export function createHostedRenderRuntimeFromEnv(input: {
 		(input.rendererFactory ?? createHostedRemotionV2Renderer)({
 			assets: storage,
 			...(config.temporaryRoot ? { temporaryRoot: config.temporaryRoot } : {}),
+			...(config.concurrency ? { concurrency: config.concurrency } : {}),
 		}),
 		config.compilerVersion,
 	);

@@ -53,6 +53,7 @@ import { createProjectsRoute } from "./routes/projects";
 import { createRenderPageRoute } from "./routes/render-page";
 import { renderBySourceServiceFor } from "./render/render-by-source-service";
 import { hostedRenderJobServiceFromEnv } from "./render/render-job-service";
+import { createStaticSite, staticRootFrom } from "./static/static-site";
 import { r2ObjectStorageFromEnv } from "./storage/r2-object-storage";
 
 const MAX_AUTH_REQUEST_BYTES = 64 * 1024;
@@ -76,6 +77,8 @@ export interface CreateAppOptions {
 	readonly renderDownloads?: HostedRenderDownloadService | null;
 	readonly renderPages?: HostedRenderPageService | null;
 	readonly renderSources?: RenderBySourceService | null;
+	/** Directory of the Vite build to serve from this origin; null serves none. Defaults to TYPELAPSE_STATIC_ROOT. */
+	readonly staticRoot?: string | null;
 	readonly logger?: { error(message: string): void };
 }
 
@@ -315,6 +318,12 @@ export async function createApp(
 			...(database ? { usage: createAccountUsageRepository(database) } : {}),
 		}),
 	);
+
+	// Last, so it only sees what no API route answered.
+	const staticRoot = options.staticRoot === undefined ? staticRootFrom() : options.staticRoot;
+	if (staticRoot) {
+		app.use("*", createStaticSite(staticRoot));
+	}
 
 	return app;
 }
