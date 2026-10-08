@@ -1,7 +1,7 @@
 # Runs after the workflow has suspended both worker CronJobs and waited for
-# their pods to finish, and before the manifests are applied: migrate the schema,
-# then check that every hosted capability is configured. A non-zero exit fails the deploy,
-# so a half-configured staging never takes traffic. The workflow deletes the
+# their pods to finish, and before the API and the CronJobs are applied: migrate
+# the schema, then check that every hosted capability is configured. A non-zero
+# exit fails the deploy, so a half-configured staging never gets a new rollout. The workflow deletes the
 # previous Job first (a Job's pod template is immutable) and leaves this one in
 # place afterwards so its logs can be read.
 apiVersion: batch/v1
@@ -28,8 +28,8 @@ spec:
         - name: release
           image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
           # The `db:migrate` and `hosted:check` package scripts, called directly.
-          # The image links drizzle-kit into node_modules/.bin after pruning the
-          # dev dependencies.
+          # The image keeps the dev dependencies, so drizzle-kit and tsx are in
+          # node_modules/.bin.
           # args only: the image's ENTRYPOINT is tini.
           args:
             - /bin/sh
@@ -53,5 +53,5 @@ spec:
               memory: "128Mi"
               cpu: "100m"
             limits:
-              memory: "512Mi"
+              memory: "256Mi"
               cpu: "500m"

@@ -7,6 +7,9 @@ metadata:
   name: typelapse-deletion-worker
   namespace: typelapse-staging
 spec:
+  # Applied suspended: only the workflow's "Resume the workers" step sets this
+  # to false.
+  suspend: true
   schedule: "*/15 * * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 120

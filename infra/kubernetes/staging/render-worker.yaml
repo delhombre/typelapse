@@ -9,6 +9,9 @@ metadata:
   name: typelapse-render-worker
   namespace: typelapse-staging
 spec:
+  # Applied suspended: only the workflow's "Resume the workers" step, after the
+  # release Job, the API rollout and the smoke run, sets this to false.
+  suspend: true
   schedule: "* * * * *"
   concurrencyPolicy: Forbid
   # A missed tick (cluster busy, controller down) is dropped after two minutes
@@ -74,15 +77,16 @@ spec:
                     - ALL
               # Measured on a 20 s, 1080p, 30 fps render at concurrency 1: cgroup
               # peak 1.72 to 1.81 GB, so the limit is 2Gi (docs/launch/deploy.md).
-              # The request comes from the GitHub Environment variable
-              # RENDER_MEMORY_REQUEST; the workflow refuses to deploy without it.
+              # The request is fixed at 1Gi (decision D8), which
+              # keeps API + render + deletion pods inside the namespace's
+              # 1536Mi requests quota.
               # The CPU figures are guesses: Chromium encodes on every core it gets.
               # The root file system stays writable: tsx and Chromium write to
               # /tmp and webpack to /app/node_modules/.cache, and only the render
               # scratch space is worth bounding (the volume below).
               resources:
                 requests:
-                  memory: "__RENDER_MEMORY_REQUEST__"
+                  memory: "1Gi"
                   cpu: "500m"
                 limits:
                   memory: "2Gi"

@@ -32,5 +32,7 @@ data:
   R2_BUCKET: "__R2_BUCKET__"
   # Part of hosted job idempotency. The commit SHA means every deploy is a new
   # compiler version, which is right for staging: an old render is never taken
-  # for output of the code now running.
+  # for output of the code now running. The cost: a job queued across a deploy
+  # can fail with compiler-version-mismatch, and renders finished before it are
+  # rendered again.
   TYPELAPSE_COMPILER_VERSION: "__IMAGE_TAG__"

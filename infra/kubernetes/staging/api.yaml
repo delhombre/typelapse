@@ -5,8 +5,9 @@ metadata:
   namespace: typelapse-staging
 spec:
   replicas: 1
-  # The namespace quota has no room for a surge pod (requests.memory 1Gi,
-  # limits.memory 2Gi to 3Gi), so the old pod goes before the new one starts.
+  # limits.cpu is the constraint: the namespace allows 2, and the API (500m),
+  # the render pod (1000m) and a deletion pod (250m) already add up to 1750m, so
+  # there is no room for a surge pod's 500m. The old pod goes first.
   strategy:
     type: Recreate
   selector:
