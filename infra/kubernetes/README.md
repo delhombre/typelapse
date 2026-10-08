@@ -1,6 +1,6 @@
 # Kubernetes
 
-Staging for Typelapse runs on the `craft-prod` cluster (Infomaniak), in the namespace `typelapse-staging`, at https://staging.typelapse.com. The data lives outside the cluster: Neon PostgreSQL, Cloudflare R2 and the Polar sandbox. The namespace, its quota and the deployer identity are created in the infra-infomaniak repo, not here.
+Staging for Typelapse runs on the `craft-prod` cluster (Infomaniak), in the namespace `typelapse-staging`, at https://staging.typelapse.com. The database is the cluster's shared PostgreSQL; media is in Cloudflare R2 and billing in the Polar sandbox. The namespace, its quota and the deployer identity are created in the infra-infomaniak repo, not here.
 
 One image, built from the root `Dockerfile`, runs as four workloads. Plain manifests, no Helm, no Kustomize. Placeholders like `__IMAGE_TAG__` are filled in by the workflow.
 
@@ -9,9 +9,9 @@ One image, built from the root `Dockerfile`, runs as four workloads. Plain manif
 - `configmap.yaml`: the non-secret settings (hosted mode, URLs, Polar sandbox, R2 account and bucket).
 - `api.yaml`: the API Deployment and its Service. It serves the SPA, `/api/*` and `/v/*` on one origin. Probe: `/health`.
 - `ingress.yaml`: the host, TLS through `letsencrypt-prod`, an 8 MiB body limit and 60 s timeouts.
-- `render-worker.yaml`: the hosted render worker. One replica, `Recreate`, a 2Gi memory limit, the low `typelapse-render-low` priority class and an emptyDir for per-job render files.
-- `deletion-worker.yaml`: the R2 object deletion worker.
-- `release-job.yaml`: runs `drizzle-kit migrate`, then the hosted readiness check. If either fails, the deploy stops before any Deployment changes. The workflow scales the three Deployments to zero first (the quota has no room for the Job next to them), so a failed release leaves staging stopped until a deploy succeeds.
+- `render-worker.yaml`: the hosted render worker, a CronJob (every minute, `Forbid`). A 2Gi memory limit, the low `typelapse-render-low` priority class and an emptyDir for per-job render files.
+- `deletion-worker.yaml`: the R2 object deletion worker, a CronJob (every 15 minutes, `Forbid`), without a priority class because the pod is small and short-lived.
+- `release-job.yaml`: runs `drizzle-kit migrate`, then the hosted readiness check. If either fails, the deploy stops before anything is applied. The workflow suspends both worker CronJobs first and waits (at most 20 minutes) for their running pods to finish, so a failed release leaves the workers suspended until a deploy succeeds. The API keeps running during the release.
 
 The hostname is written once, as `APP_HOST` in `.github/workflows/deploy-staging.yaml`. Production can reuse the same manifests with `typelapse.com`.
 
@@ -26,8 +26,7 @@ The hostname is written once, as `APP_HOST` in `.github/workflows/deploy-staging
 Secrets (names only, see `.env.staging.example` for where each value comes from):
 
 - `KUBECONFIG_INFOMANIAK`
-- `DATABASE_URL` (Neon pooled string)
-- `DATABASE_DIRECT_URL` (optional, Neon direct string; the release Job runs `drizzle-kit migrate` through it instead of the pooled URL, and `hosted:check` keeps the pooled one)
+- `DATABASE_URL` (the in-cluster PostgreSQL, no pooler)
 - `BETTER_AUTH_SECRET`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
@@ -49,7 +48,7 @@ The workflow writes the secrets into the Kubernetes Secret `typelapse-env` from 
 
 ## Deploy
 
-Actions, "Deploy staging", Run workflow, on the branch you want to see running. It builds and pushes `ghcr.io/delhombre/typelapse:<sha>`, writes the Secret and ConfigMap, runs the release Job, applies the Deployments and waits for each rollout.
+Actions, "Deploy staging", Run workflow, on the branch you want to see running. It builds and pushes `ghcr.io/delhombre/typelapse:<sha>`, writes the Secret and ConfigMap, suspends the worker CronJobs, runs the release Job, applies the manifests, waits for the API rollout and resumes the CronJobs.
 
 ## Read the release Job logs
 
@@ -66,15 +65,19 @@ The Job is kept until the next deploy deletes it.
 
 ```
 kubectl -n typelapse-staging rollout undo deployment/typelapse-api
-kubectl -n typelapse-staging rollout undo deployment/typelapse-render-worker
-kubectl -n typelapse-staging rollout undo deployment/typelapse-deletion-worker
 ```
 
-This restores the previous image. It does not undo a migration, and it keeps the current ConfigMap and Secret. To redeploy an older commit with matching settings, run the workflow on that commit instead.
+The CronJobs have no rollout history: to roll the workers back, run the workflow on the older commit.
+
+This restores the API's previous image. It does not undo a migration, and it keeps the current ConfigMap and Secret. To redeploy an older commit with matching settings, run the workflow on that commit instead.
 
 ## Quota
 
-The namespace quota is provisional: requests 1Gi memory and 750m cpu, limits 2Gi memory (being raised to 3Gi in infra) and 2 cpu, with a LimitRange that requires requests and limits on every container. Every Deployment is `Recreate`, so no rollout needs a surge pod. The API takes 192Mi/384Mi and the deletion worker 96Mi/192Mi; the render worker's limit is 2Gi (measured peak 1.72 to 1.81 GB for a 1080p render), which fits only under the 3Gi limits quota. Its request is `RENDER_MEMORY_REQUEST`, at most 736Mi.
+The namespace quota is provisional and owned by the infra repo, with a LimitRange that requires requests and limits on every container. The API is `Recreate`, so no rollout needs a surge pod. Worker pods are short-lived and never overlap with themselves (`Forbid`). Memory: API 192Mi/384Mi, deletion pod 96Mi/192Mi, render pod `RENDER_MEMORY_REQUEST` (1Gi) / 2Gi (measured peak 1.72 to 1.81 GB for a 1080p render), release Job 128Mi/512Mi. The requests quota has to cover the API plus the render pod plus a deletion pod (about 1.3Gi) and the limits quota the same sum of limits (about 2.6Gi).
+
+## Workers on demand
+
+A worker pod exists only while there is work: every minute (render) or 15 minutes (deletion) the CronJob starts one, it drains the queue and exits, and an empty queue exits in seconds (`TYPELAPSE_WORKER_EXIT_WHEN_IDLE`). A new render therefore waits up to a minute for its pod to start.
 
 ## Notes
 

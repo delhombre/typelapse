@@ -1,7 +1,6 @@
-# Runs alone: the workflow scales the three Deployments to zero first, because
-# the namespace quota has no slack for a Job next to a render pod. It runs
-# before the Deployments are applied: migrate the Neon schema, then check
-# that every hosted capability is configured. A non-zero exit fails the deploy,
+# Runs after the workflow has suspended both worker CronJobs and waited for
+# their pods to finish, and before the manifests are applied: migrate the schema,
+# then check that every hosted capability is configured. A non-zero exit fails the deploy,
 # so a half-configured staging never takes traffic. The workflow deletes the
 # previous Job first (a Job's pod template is immutable) and leaves this one in
 # place afterwards so its logs can be read.
@@ -37,10 +36,7 @@ spec:
             - -c
             - |
               set -e
-              # Neon's pooler is not meant for migrations: use the direct URL
-              # when the Secret has one (drizzle.config.ts reads DATABASE_URL).
-              # hosted:check keeps the pooled URL, like the running pods.
-              DATABASE_URL="${DATABASE_DIRECT_URL:-$DATABASE_URL}" node_modules/.bin/drizzle-kit migrate
+              node_modules/.bin/drizzle-kit migrate
               node_modules/.bin/tsx server/config/hosted-check.entrypoint.ts
           envFrom:
             - configMapRef:

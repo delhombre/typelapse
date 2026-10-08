@@ -152,7 +152,6 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           POLAR_ACCESS_TOKEN: ${{ secrets.POLAR_ACCESS_TOKEN }}
           POLAR_WEBHOOK_SECRET: ${{ secrets.POLAR_WEBHOOK_SECRET }}
-          DATABASE_DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL }}
           TYPELAPSE_GITHUB_TOKEN: ${{ secrets.TYPELAPSE_GITHUB_TOKEN }}
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
           GHCR_PULL_USER: ${{ github.repository_owner }}
@@ -168,10 +167,6 @@ jobs:
             fi
             printf '%s=%s\n' "$name" "${!name}" >> "$envfile"
           done
-          # Optional: the release Job migrates through it instead of the pooled URL.
-          if [ -n "${DATABASE_DIRECT_URL:-}" ]; then
-            printf '%s=%s\n' DATABASE_DIRECT_URL "$DATABASE_DIRECT_URL" >> "$envfile"
-          fi
           if [ -n "${TYPELAPSE_GITHUB_TOKEN:-}" ]; then
             printf '%s=%s\n' TYPELAPSE_GITHUB_TOKEN "$TYPELAPSE_GITHUB_TOKEN" >> "$envfile"
           fi
@@ -191,24 +186,37 @@ jobs:
       - name: Apply ConfigMap
         run: kubectl apply -f "$RUNNER_TEMP/rendered/configmap.yaml"
 
-      # The namespace quota has no room for the release Job next to the running
-      # pods, and workers should not claim jobs while the schema changes. So
-      # the Deployments go to zero here; the apply below sets replicas back to
-      # 1. Patch, not `kubectl scale`: the deployer identity holds no grant on
-      # the scale subresource. On the first deploy there is nothing to scale.
-      - name: Stop workloads for the release
+      # Both workers are CronJobs that drain the queue and exit. Suspend them so
+      # no new pod starts during the release, then wait for the ones already
+      # running to finish. They stay suspended if the release fails, and are
+      # resumed by a later step of a successful deploy. Absent on the first
+      # deploy, so each patch is skipped then.
+      - name: Suspend the workers for the release
         run: |
           set -euo pipefail
-          for deployment in typelapse-api typelapse-render-worker typelapse-deletion-worker; do
-            if kubectl -n "$NAMESPACE" get "deployment/$deployment" > /dev/null 2>&1; then
-              kubectl -n "$NAMESPACE" patch "deployment/$deployment" --type merge -p '{"spec":{"replicas":0}}'
+          for cronjob in typelapse-render-worker typelapse-deletion-worker; do
+            if kubectl -n "$NAMESPACE" get "cronjob/$cronjob" > /dev/null 2>&1; then
+              kubectl -n "$NAMESPACE" patch "cronjob/$cronjob" --type merge -p '{"spec":{"suspend":true}}'
             fi
           done
-          kubectl -n "$NAMESPACE" wait --for=delete pod \
-            -l 'app in (typelapse-api,typelapse-render-worker,typelapse-deletion-worker)' \
-            --timeout=120s || true
+          # A render may legitimately run for a while (TYPELAPSE_RENDER_TIMEOUT_MS
+          # is 15 minutes by default), so the wait is bounded at 20.
+          deadline=$((SECONDS + 1200))
+          active=""
+          while [ "$SECONDS" -lt "$deadline" ]; do
+            active="$(kubectl -n "$NAMESPACE" get jobs \
+              -l 'app in (typelapse-render-worker,typelapse-deletion-worker)' \
+              -o jsonpath='{.items[?(@.status.active)].metadata.name}')"
+            if [ -z "$active" ]; then
+              echo "No worker Job is running"
+              exit 0
+            fi
+            echo "Waiting for: $active"
+            sleep 10
+          done
+          echo "::error::A worker Job was still running after 20 minutes ($active). The workers are suspended; re-run the deploy once it has finished."
+          exit 1
 
-      # A Job's pod template is immutable, so the previous one goes first.
       - name: Run release Job
         run: |
           set -euo pipefail
@@ -230,7 +238,7 @@ jobs:
           kubectl -n "$NAMESPACE" logs job/typelapse-release --all-containers --tail=200 || true
           exit 1
 
-      - name: Apply Deployments, Service and Ingress
+      - name: Apply API, CronJobs and Ingress
         run: |
           set -euo pipefail
           for file in api render-worker deletion-worker ingress; do
@@ -239,19 +247,20 @@ jobs:
 
       # Timeout sized for the managed cluster's small (2 vCPU / 4 GB) nodes: an
       # image pull plus a cold start is slow there.
-      - name: Wait for rollouts
+      - name: Wait for the API rollout
+        run: kubectl -n "$NAMESPACE" rollout status deployment/typelapse-api --timeout=420s
+
+      - name: Resume the workers
         run: |
           set -euo pipefail
-          for deployment in typelapse-api typelapse-render-worker typelapse-deletion-worker; do
-            kubectl -n "$NAMESPACE" rollout status "deployment/$deployment" --timeout=420s
+          for cronjob in typelapse-render-worker typelapse-deletion-worker; do
+            kubectl -n "$NAMESPACE" patch "cronjob/$cronjob" --type merge -p '{"spec":{"suspend":false}}'
           done
 
-      - name: Show pod state after a failed rollout
+      - name: Show state after a failed deploy
         if: failure()
         run: |
-          kubectl -n "$NAMESPACE" get pods -o wide || true
-          for app in typelapse-api typelapse-render-worker typelapse-deletion-worker; do
-            echo "::group::$app"
-            kubectl -n "$NAMESPACE" logs "deployment/$app" --tail=100 || true
-            echo "::endgroup::"
-          done
+          kubectl -n "$NAMESPACE" get pods,cronjob,jobs -o wide || true
+          echo "::group::typelapse-api"
+          kubectl -n "$NAMESPACE" logs deployment/typelapse-api --tail=100 || true
+          echo "::endgroup::"

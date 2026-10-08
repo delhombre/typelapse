@@ -58,7 +58,7 @@ spec:
               memory: "384Mi"
               cpu: "500m"
           # /health answers with no database round trip, so it is cheap and does
-          # not flap with Neon cold starts.
+          # not flap with a database restart.
           livenessProbe:
             httpGet:
               path: /health

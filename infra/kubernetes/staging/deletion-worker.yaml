@@ -1,57 +1,67 @@
-apiVersion: apps/v1
-kind: Deployment
+# On-demand R2 object deletion. Every 15 minutes the CronJob starts a pod that
+# drains the deletion queue (TYPELAPSE_WORKER_EXIT_WHEN_IDLE) and exits.
+# The workflow suspends and resumes this CronJob around the release Job.
+apiVersion: batch/v1
+kind: CronJob
 metadata:
   name: typelapse-deletion-worker
   namespace: typelapse-staging
 spec:
-  replicas: 1
-  strategy:
-    type: Recreate
-  selector:
-    matchLabels:
-      app: typelapse-deletion-worker
-  template:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
     metadata:
       labels:
         app: typelapse-deletion-worker
-      annotations:
-        typelapse.dev/deploy-run: "__DEPLOY_RUN__"
     spec:
-      imagePullSecrets:
-        - name: ghcr-secret
-      # SIGTERM aborts the loop (object-deletion.entrypoint.ts); the default
-      # 30 s grace period is plenty.
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1001
-        runAsGroup: 1001
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-        - name: deletion-worker
-          image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
-          # args only: the image's ENTRYPOINT is tini, which forwards SIGTERM.
-          args: ["node_modules/.bin/tsx", "server/workers/object-deletion.entrypoint.ts"]
-          envFrom:
-            - configMapRef:
-                name: typelapse-config
-            - secretRef:
-                name: typelapse-env
-          env:
-            - name: TYPELAPSE_OBJECT_DELETION_WORKER_ID
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels:
+            app: typelapse-deletion-worker
+          annotations:
+            typelapse.dev/deploy-run: "__DEPLOY_RUN__"
+        spec:
+          restartPolicy: Never
+          imagePullSecrets:
+            - name: ghcr-secret
+          # SIGTERM aborts the loop (object-deletion.entrypoint.ts); the default
+          # 30 s grace period is plenty. No priority class: the pod is small
+          # (192Mi) and short-lived, so it is not worth evicting first.
           securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-          # A small Node loop that deletes R2 objects: half the API's size.
-          resources:
-            requests:
-              memory: "96Mi"
-              cpu: "50m"
-            limits:
-              memory: "192Mi"
-              cpu: "250m"
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: deletion-worker
+              image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
+              # args only: the image's ENTRYPOINT is tini, which forwards SIGTERM.
+              args: ["node_modules/.bin/tsx", "server/workers/object-deletion.entrypoint.ts"]
+              envFrom:
+                - configMapRef:
+                    name: typelapse-config
+                - secretRef:
+                    name: typelapse-env
+              env:
+                - name: TYPELAPSE_OBJECT_DELETION_WORKER_ID
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+              resources:
+                requests:
+                  memory: "96Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "192Mi"
+                  cpu: "250m"

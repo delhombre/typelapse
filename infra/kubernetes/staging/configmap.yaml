@@ -17,6 +17,8 @@ data:
   NODE_ENV: "production"
   # Same as the image's PORT and the Service targetPort. The image also sets
   # TYPELAPSE_STATIC_ROOT and TYPELAPSE_RENDER_CONCURRENCY=1.
+  # The workers are CronJobs: they drain the queue and exit instead of polling.
+  TYPELAPSE_WORKER_EXIT_WHEN_IDLE: "true" # name confirmed by feat/70-worker-drain
   PORT: "3001"
   TYPELAPSE_DEPLOYMENT_MODE: "hosted"
   # One origin: the API serves the SPA, /api/* and /v/*.
