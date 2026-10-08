@@ -60,7 +60,7 @@ Actions, "Deploy staging", Run workflow, on the branch you want to see running. 
 3. suspends both worker CronJobs and waits, for at most 20 minutes, until no worker Job is unfinished;
 4. runs the release Job and stops if it fails, cannot pull its image or takes more than 11 minutes;
 5. applies the API, the CronJobs (still suspended) and the Ingress, and waits for the API rollout;
-6. runs each worker once from its CronJob as a smoke test (an empty queue exits 0 in seconds) and deletes those Jobs;
+6. runs each worker once from its CronJob to prove it starts and exits cleanly (an empty queue exits 0 in seconds; the bound is 1000 s, above the render timeout, and a Job still running at the bound is left alone because it may be a real render), and deletes the Jobs that finished;
 7. resumes the CronJobs. This is the only step that does.
 
 The Secret and the ConfigMap are applied before the release Job, so a failed release leaves them updated. Any failure after step 3 leaves the workers suspended, and the API on whatever it was running, until a later deploy succeeds. The API keeps running during the release.
