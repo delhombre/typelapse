@@ -138,9 +138,7 @@ test.describe("Hosted account: a refused code leaves the form where it was", () 
 		const before = await submit.boundingBox();
 		const panelBefore = await panel.boundingBox();
 		await code.fill(wrong);
-		await expect(panel.getByRole("alert")).toHaveText(
-			"That code does not match. Try again.",
-		);
+		await expect(panel.getByRole("alert")).toHaveText("That code does not match. Try again.");
 
 		const after = await submit.boundingBox();
 		expect(after?.y).toBe(before?.y);
