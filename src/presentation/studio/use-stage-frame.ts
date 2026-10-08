@@ -13,6 +13,8 @@ function readWindow(probe: HTMLElement): StageFrameInput {
 		viewportHeight: window.innerHeight,
 		safeTop: Number.parseFloat(style.paddingTop) || 0,
 		safeBottom: Number.parseFloat(style.paddingBottom) || 0,
+		safeLeft: Number.parseFloat(style.paddingLeft) || 0,
+		safeRight: Number.parseFloat(style.paddingRight) || 0,
 	};
 }
 
@@ -40,7 +42,8 @@ export function useStageFrame(): FrameBox {
 		probe.setAttribute("aria-hidden", "true");
 		probe.style.cssText =
 			"position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;" +
-			"padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)";
+			"padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) " +
+			"env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)";
 		document.body.append(probe);
 		const update = () =>
 			setViewport((previous) => {
@@ -48,7 +51,9 @@ export function useStageFrame(): FrameBox {
 				return next.viewportWidth === previous.viewportWidth &&
 					next.viewportHeight === previous.viewportHeight &&
 					next.safeTop === previous.safeTop &&
-					next.safeBottom === previous.safeBottom
+					next.safeBottom === previous.safeBottom &&
+					next.safeLeft === previous.safeLeft &&
+					next.safeRight === previous.safeRight
 					? previous
 					: next;
 			});

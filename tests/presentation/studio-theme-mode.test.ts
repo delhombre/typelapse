@@ -40,15 +40,20 @@ function themeColors(): string[] {
 
 const isDark = () => document.documentElement.classList.contains("dark");
 
-async function freshStore() {
+async function freshModule() {
 	vi.resetModules();
-	return (await import("@/presentation/stores/theme-mode.store")).useThemeModeStore;
+	return import("@/presentation/stores/theme-mode.store");
+}
+
+async function freshStore() {
+	return (await freshModule()).useThemeModeStore;
 }
 
 describe("the studio's appearance", () => {
 	beforeEach(() => {
 		localStorage.clear();
 		document.documentElement.classList.remove("dark");
+		delete document.documentElement.dataset.landingTheme;
 		document.head.innerHTML = `
 			<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6" />
 			<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" />`;
@@ -67,7 +72,9 @@ describe("the studio's appearance", () => {
 
 	it("follows the system live while it is set to System", async () => {
 		const os = fakeOs(false);
-		const store = await freshStore();
+		const theme = await freshModule();
+		const store = theme.useThemeModeStore;
+		theme.followStudioTheme();
 		store.getState().setPreference("system");
 		expect(isDark()).toBe(false);
 
@@ -78,6 +85,26 @@ describe("the studio's appearance", () => {
 		os.switchTo("light");
 		expect(store.getState().mode).toBe("light");
 		expect(isDark()).toBe(false);
+	});
+
+	// Review of #245, P1: the listener outlived the studio, so on the landing (which paints
+	// itself) an OS switch to dark flipped `html.dark` and wrote the studio's status bar.
+	it("stops following the system once the studio has gone, and never paints over the landing", async () => {
+		const os = fakeOs(false);
+		const theme = await freshModule();
+		const leave = theme.followStudioTheme();
+		leave();
+		os.switchTo("dark");
+		expect(isDark()).toBe(false);
+		expect(themeColors()).toEqual(["#FAF9F6", "#121110"]);
+
+		// Still mounted, but the landing owns the document: its theme attribute is set.
+		os.switchTo("light");
+		theme.followStudioTheme();
+		document.documentElement.dataset.landingTheme = "light";
+		os.switchTo("dark");
+		expect(isDark()).toBe(false);
+		expect(themeColors()).toEqual(["#FAF9F6", "#121110"]);
 	});
 
 	it("holds a forced side when the system changes", async () => {

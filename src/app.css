@@ -3634,7 +3634,7 @@ html.dark:not([data-landing-theme]) {
 
 .sc-utility-overflow-menu > button:disabled,
 .sc-more-account .mm-account-row:disabled {
-	color: var(--camera-disabled);
+	color: var(--camera-disabled, var(--camera-muted));
 }
 
 /* The account, first: the menu's own rows, then a hairline before the actions. */

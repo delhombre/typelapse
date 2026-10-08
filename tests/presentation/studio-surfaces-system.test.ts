@@ -623,7 +623,7 @@ describe("the phone's More menu (was SYSTEM.md Drift 19, DECISIONS D5)", () => {
 		expect(lastValue(app, ".sc-more-account .mm-account-row", "height")).toBe("44px");
 		// "Checking account" reads disabled, through the token, never an opacity (D7).
 		expect(lastValue(app, ".sc-more-account .mm-account-row:disabled", "color")).toBe(
-			"var(--camera-disabled)",
+			"var(--camera-disabled, var(--camera-muted))",
 		);
 	});
 

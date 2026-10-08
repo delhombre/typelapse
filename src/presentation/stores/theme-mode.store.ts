@@ -73,8 +73,11 @@ function withoutTransitions(change: () => void): void {
 	// Read a style so the new side is painted before transitions come back.
 	void getComputedStyle(document.documentElement).color;
 	const thaw = () => freeze.remove();
-	if (typeof requestAnimationFrame === "function") requestAnimationFrame(thaw);
-	else setTimeout(thaw, 0);
+	if (typeof requestAnimationFrame === "function") {
+		requestAnimationFrame(thaw);
+	} else {
+		setTimeout(thaw, 0);
+	}
 }
 
 function store(preference: ThemePreference): void {
@@ -90,7 +93,7 @@ function store(preference: ThemePreference): void {
 }
 
 /** The desktop's one button steps through the three, in this order. */
-const NEXT: Record<ThemePreference, ThemePreference> = {
+export const NEXT_PREFERENCE: Record<ThemePreference, ThemePreference> = {
 	system: "light",
 	light: "dark",
 	dark: "system",
@@ -119,7 +122,7 @@ export const useThemeModeStore = create<ThemeModeState>((set, get) => ({
 		set({ preference, mode });
 	},
 
-	cycle: () => get().setPreference(NEXT[get().preference]),
+	cycle: () => get().setPreference(NEXT_PREFERENCE[get().preference]),
 }));
 
 /** Paints the studio as the store says, for the route that mounts it. */
@@ -128,14 +131,29 @@ export function paintStudioTheme(): void {
 	applyStudioTheme(mode, preference);
 }
 
-// System follows the OS while the studio is open: a phone that turns dark at
-// sunset turns the studio with it.
-if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
-	window.matchMedia(DARK_QUERY).addEventListener("change", (event) => {
+/**
+ * Paints the studio and, under System, follows the OS while the studio is
+ * mounted: a phone that turns dark at sunset turns the studio with it. Returns
+ * the way out, for the route's cleanup: once the studio has gone the landing
+ * paints the document, and an OS switch must not flip `.dark` or write the
+ * studio's status bar under it (review of #245). A change that arrives while
+ * the landing's theme attribute is on the document is the landing's, too.
+ */
+export function followStudioTheme(): () => void {
+	paintStudioTheme();
+	if (typeof window.matchMedia !== "function") {
+		return () => undefined;
+	}
+	const query = window.matchMedia(DARK_QUERY);
+	const follow = (event: { matches: boolean }) => {
 		const { preference } = useThemeModeStore.getState();
-		if (preference !== "system") return;
+		if (preference !== "system" || document.documentElement.dataset.landingTheme) {
+			return;
+		}
 		const mode: ThemeMode = event.matches ? "dark" : "light";
 		applyStudioTheme(mode, preference);
 		useThemeModeStore.setState({ mode });
-	});
+	};
+	query.addEventListener("change", follow);
+	return () => query.removeEventListener("change", follow);
 }

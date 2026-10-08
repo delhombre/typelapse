@@ -5,7 +5,11 @@ import { springs } from "@/presentation/motion";
 import { useInterfaceFeedbackStore } from "@/presentation/stores/interface-feedback.store";
 import { notify } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
-import { type ThemePreference, useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import {
+	NEXT_PREFERENCE,
+	type ThemePreference,
+	useThemeModeStore,
+} from "@/presentation/stores/theme-mode.store";
 import { saveJsonFile } from "@/presentation/utils/save-json-file";
 import {
 	copyToClipboard,
@@ -39,13 +43,6 @@ const APPEARANCE_LABEL: Record<ThemePreference, string> = {
 	light: "Light",
 	dark: "Dark",
 	system: "System",
-};
-
-/** The desktop's one button steps System, Light, Dark (theme-mode.store.ts). */
-const NEXT_APPEARANCE: Record<ThemePreference, ThemePreference> = {
-	system: "light",
-	light: "dark",
-	dark: "system",
 };
 
 interface StudioUtilitiesProps {
@@ -274,7 +271,7 @@ export function StudioUtilities({ compact = false, leading }: StudioUtilitiesPro
 					</UtilityButton>
 					<UtilityButton
 						onClick={handleAppearanceCycle}
-						label={`Appearance: ${APPEARANCE_LABEL[preference]}. Switch to ${APPEARANCE_LABEL[NEXT_APPEARANCE[preference]]}`}
+						label={`Appearance: ${APPEARANCE_LABEL[preference]}. Switch to ${APPEARANCE_LABEL[NEXT_PREFERENCE[preference]]}`}
 						tooltip={`Appearance · ${APPEARANCE_LABEL[preference]}`}
 					>
 						<AppearanceGlyph preference={preference} />

@@ -154,11 +154,15 @@ describe("the account in the phone's More menu", () => {
 		expect(await within(menu).findByRole("button", { name: "Sign in" })).toBeTruthy();
 	});
 
-	it("signs out from its row", async () => {
+	it("signs out from its row, and focus lands on the Sign in row that replaces it", async () => {
 		const { menu, authStore } = phone(SESSION);
-		fireEvent.click(await within(menu).findByRole("button", { name: "Sign out" }));
+		const signOut = await within(menu).findByRole("button", { name: "Sign out" });
+		signOut.focus();
+		fireEvent.click(signOut);
 		await waitFor(() => expect(authStore.getState().status.kind).toBe("anonymous"));
-		expect(await within(menu).findByRole("button", { name: "Sign in" })).toBeTruthy();
+		const signIn = await within(menu).findByRole("button", { name: "Sign in" });
+		// The row that held focus is gone: focus must not fall to the body (review of #245).
+		await waitFor(() => expect(document.activeElement).toBe(signIn));
 	});
 
 	it("opens the signed-in account's panel from the account's row", async () => {

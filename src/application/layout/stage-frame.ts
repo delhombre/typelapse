@@ -27,6 +27,9 @@ export interface StageFrameInput {
 	/** The safe areas at the top and bottom of the window, in CSS px (zero where there are none). */
 	safeTop: number;
 	safeBottom: number;
+	/** A landscape notch's sides, which the phone's stage keeps clear of. */
+	safeLeft?: number;
+	safeRight?: number;
 }
 
 /** A box in window px, from the window's top-left corner. */

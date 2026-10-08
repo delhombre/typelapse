@@ -179,8 +179,9 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 
 			const controls = panel.locator(".si-sheet-body button");
 			const count = await controls.count();
-			// Format 3, Size 3, FPS 3, Where 2, PNG, Render.
-			expect(count).toBeGreaterThanOrEqual(13);
+			// Format 3, Size 3, FPS 3, Where 2, PNG, Render. A hosted build signed out offers
+			// one Where, this device.
+			expect(count).toBeGreaterThanOrEqual(HOSTED_PROFILE ? 12 : 13);
 			for (let index = 0; index < count; index++) {
 				const control = controls.nth(index);
 				const name = (await control.textContent())?.trim() ?? `control ${index}`;

@@ -165,7 +165,9 @@ export function phoneSheetGeometry({
 			return order[to] ?? "peek";
 		},
 		dockLiftAt: (visible) => {
-			if (visible <= ride) return Math.max(floor, visible + DOCK_GAP);
+			if (visible <= ride) {
+				return Math.max(floor, visible + DOCK_GAP);
+			}
 			const along = full > ride ? Math.min(1, (visible - ride) / (full - ride)) : 1;
 			return ride + DOCK_GAP + (floor - (ride + DOCK_GAP)) * along;
 		},
@@ -173,7 +175,9 @@ export function phoneSheetGeometry({
 		// the sheet, clear of the home indicator.
 		dockLift: (stop) => {
 			const at = resolve(stop);
-			if (at === "full") return floor;
+			if (at === "full") {
+				return floor;
+			}
 			return (at === "scenes" ? (scenes ?? peek) : peek) + DOCK_GAP;
 		},
 	};

@@ -14,7 +14,7 @@ import { NoticeHost } from "@/presentation/components/ui/notice-host";
 import { StudioTooltipProvider } from "@/presentation/components/ui/studio-tooltip";
 import { useDocumentTitle } from "@/presentation/hooks/use-document-title";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
-import { paintStudioTheme, useThemeModeStore } from "@/presentation/stores/theme-mode.store";
+import { followStudioTheme, useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { useEffect } from "react";
 
 setHighlighter(shikiAdapter);
@@ -31,7 +31,8 @@ export function StudioRoute() {
 	useDocumentTitle(studioDocumentTitle(useSnippetStore((state) => state.snippet.title)));
 	// In an effect, not at module load: arriving from the landing, its cleanup
 	// hands `theme-color` back to index.html's values after this module has run.
-	useEffect(() => paintStudioTheme(), []);
+	// System follows the OS only while the studio is here.
+	useEffect(() => followStudioTheme(), []);
 
 	return (
 		<StudioTooltipProvider>

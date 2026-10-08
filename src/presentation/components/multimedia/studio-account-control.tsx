@@ -113,12 +113,15 @@ export function StudioAccountControl({
 		refocusTrigger.current = true;
 		setOpen(false);
 	};
+	// Signing out from the menu's row swaps the rows under the focus too: the Sign
+	// in row that comes back takes it, once the status says signed out.
+	const statusKind = status.kind;
 	useEffect(() => {
-		if (!open && refocusTrigger.current) {
+		if (!open && refocusTrigger.current && statusKind !== "checking") {
 			refocusTrigger.current = false;
 			triggerRef.current?.focus();
 		}
-	}, [open]);
+	}, [open, statusKind]);
 	// In the menu the panel takes the rows' place, so focus goes into it: to the
 	// way back, the first thing in it.
 	const backRef = useRef<HTMLButtonElement>(null);
@@ -285,7 +288,10 @@ export function StudioAccountControl({
 								type="button"
 								className="mm-account-row"
 								disabled={operation === "signing-out"}
-								onClick={() => void signOut()}
+								onClick={() => {
+									refocusTrigger.current = true;
+									void signOut();
+								}}
 							>
 								<Logout size={14} aria-hidden="true" />
 								<span>{operation === "signing-out" ? "Signing out…" : "Sign out"}</span>

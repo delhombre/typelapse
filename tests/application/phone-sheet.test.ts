@@ -1,4 +1,4 @@
-import { phoneSheetGeometry } from "@/application/layout/phone-sheet";
+import { DOCK_ROOM, phoneSheetGeometry } from "@/application/layout/phone-sheet";
 import { describe, expect, it } from "vitest";
 
 describe("the phone sheet's stops", () => {
@@ -49,7 +49,7 @@ describe("the phone sheet's stops", () => {
 		expect(sheet.stops.full).toBe(390 - 50 - 8);
 	});
 
-	it("keeps the scenes stop on a small portrait phone, below the frame's minimum room", () => {
+	it("keeps the scenes stop on a small portrait phone, under its frame and the instrument", () => {
 		const sheet = phoneSheetGeometry({
 			viewportWidth: 375,
 			viewportHeight: 667,
@@ -59,7 +59,9 @@ describe("the phone sheet's stops", () => {
 		expect(sheet.stops.scenes).not.toBeNull();
 		const scenes = sheet.stops.scenes ?? 0;
 		// The frame at the stage's width, the instrument's room: what is left is the sheet's.
-		expect(667 - scenes).toBeGreaterThanOrEqual(sheet.frame.top + sheet.frame.height + 72 + 12);
+		expect(667 - scenes).toBeGreaterThanOrEqual(
+			sheet.frame.top + sheet.frame.height + DOCK_ROOM + 12,
+		);
 	});
 
 	it("floats the instrument on the sheet's edge, and at the bottom over the full sheet", () => {
@@ -153,7 +155,7 @@ describe("on a phone the geometry starts from the frame (design audit D4)", () =
 		expect(tall.order).toEqual(["peek", "full"]);
 		expect(tall.frame.height).toBeGreaterThan(300);
 		// Fit to the height above the peek's instrument, centred across the stage.
-		expect(tall.frame.top + tall.frame.height).toBeCloseTo(844 - (56 + 12) - 72, 3);
+		expect(tall.frame.top + tall.frame.height).toBeCloseTo(844 - (56 + 12) - DOCK_ROOM, 3);
 		expect(tall.frame.left + tall.frame.width / 2).toBeCloseTo(195, 3);
 	});
 
@@ -166,7 +168,7 @@ describe("on a phone the geometry starts from the frame (design audit D4)", () =
 			aspect: 1,
 		});
 		expect(square.frame.height).toBe(374);
-		expect(square.stops.scenes).toBe(844 - (68 + 374) - 72 - 12);
+		expect(square.stops.scenes).toBe(844 - (68 + 374) - DOCK_ROOM - 12);
 	});
 
 	it("fits a phone on its side to the height above the instrument", () => {
@@ -176,8 +178,23 @@ describe("on a phone the geometry starts from the frame (design audit D4)", () =
 			safeTop: 0,
 			safeBottom: 21,
 		});
-		expect(landscape.frame.top + landscape.frame.height).toBeCloseTo(390 - (56 + 21 + 12) - 72, 3);
+		expect(landscape.frame.top + landscape.frame.height).toBeCloseTo(
+			390 - (56 + 21 + 12) - DOCK_ROOM,
+			3,
+		);
 		expect(landscape.frame.width / landscape.frame.height).toBeCloseTo(16 / 9, 3);
+	});
+
+	it("hangs a tablet's frame from the row too, at its full width, with a scenes stop under it", () => {
+		const tablet = phoneSheetGeometry({
+			viewportWidth: 768,
+			viewportHeight: 1024,
+			safeTop: 0,
+			safeBottom: 0,
+		});
+		// Measured in the browser at 768x1024: 752x423 at y 68, the sheet's top at 575.
+		expect(tablet.frame).toEqual({ left: 8, top: 68, width: 752, height: 423 });
+		expect(tablet.stops.scenes).toBe(1024 - 575);
 	});
 });
 

@@ -123,4 +123,17 @@ describe("the phone shell's frame", () => {
 	it("moves down with the notch", () => {
 		expect(open(390, 844, 47, 34).top).not.toBeCloseTo(open(390, 844).top, 0);
 	});
+
+	it("keeps clear of a landscape notch's sides, as the stage does", () => {
+		const box = stageFrameBox({
+			viewportWidth: 844,
+			viewportHeight: 390,
+			safeTop: 0,
+			safeBottom: 21,
+			safeLeft: 47,
+			safeRight: 47,
+		});
+		expect(box.left).toBeGreaterThanOrEqual(47);
+		expect(box.left + box.width).toBeLessThanOrEqual(844 - 47);
+	});
 });
