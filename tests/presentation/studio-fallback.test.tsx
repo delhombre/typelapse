@@ -31,7 +31,7 @@ describe("/app while the studio's chunk is loading", () => {
 		);
 		expect(screen.queryByRole("progressbar")).toBeNull();
 		// The shapes are decoration: the one announcement is the outline's own label.
-		for (const part of document.querySelectorAll(".sk-header, .sk-stage, .sk-dock, .sk-timeline")) {
+		for (const part of document.querySelectorAll(".sk-header, .sk-frame, .sk-dock, .sk-timeline")) {
 			expect(part.getAttribute("aria-hidden")).toBe("true");
 		}
 	});

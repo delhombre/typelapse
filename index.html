@@ -40,6 +40,34 @@
 				}
 			} catch (error) {}
 		</script>
+		<!-- The two sentences below that run before the app does (the noscript and the
+		     failed boot) each carry a link, and neither has the app's stylesheet to
+		     lean on, so the link's treatment is written here: underlined, in the
+		     accent's own hue and chroma at the lightness text needs (5.5:1 on the
+		     light paper, 7:1 on the dark one; the accent itself reads 3.6:1 on paper
+		     and is for rings). The theme is the one the script above sets, and a
+		     visitor without JavaScript has none of them and is on the light paper. -->
+		<style>
+			.boot-link {
+				--boot-link: #3b5bd4;
+				color: var(--boot-link);
+				text-decoration: underline;
+				text-decoration-thickness: 1px;
+				text-underline-offset: 0.2em;
+			}
+			[data-landing-theme="dark"] .boot-link,
+			.dark .boot-link {
+				--boot-link: #729bff;
+			}
+			.boot-link:hover {
+				text-decoration-thickness: 2px;
+			}
+			.boot-link:focus-visible {
+				outline: 2px solid var(--boot-link);
+				outline-offset: 2px;
+				border-radius: 2px;
+			}
+		</style>
 		<meta
 			name="description"
 			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."
@@ -157,12 +185,12 @@
 			<main style="max-width: 36rem; margin: 0 auto; padding: 4rem 1.5rem; font: 16px/1.5 system-ui, sans-serif; color: CanvasText">
 				<h1 style="margin: 0 0 1rem; font-size: 1.75rem; line-height: 1.2">Typelapse: sharp code videos from a pull request</h1>
 				<p>Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes.</p>
-				<p>Typelapse draws and encodes the video in your browser, so it needs JavaScript. Turn it on, then <a href="/app">open the studio</a>.</p>
+				<p>Typelapse draws and encodes the video in your browser, so it needs JavaScript. Turn it on, then <a class="boot-link" href="">reload this page</a>.</p>
 			</main>
 		</noscript>
 		<div id="root">
 			<p id="boot-failed" hidden style="max-width: 36rem; margin: 0 auto; padding: 4rem 1.5rem; font: 16px/1.5 system-ui, sans-serif; color: CanvasText">
-				Still loading. <a href="">Reload</a> if this stays.
+				Still loading. <a class="boot-link" href="">Reload</a> if this stays.
 			</p>
 		</div>
 		<script type="module" src="/src/main.tsx"></script>

@@ -1,6 +1,7 @@
+import { formatBytes, savedSentence } from "@/application/export/export-label";
 import { LiveRegion } from "@/presentation/components/ui/live-region";
 import { springs } from "@/presentation/motion";
-import { type ExportOutcome, useExportStore } from "@/presentation/stores/export.store";
+import { useExportStore } from "@/presentation/stores/export.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { AlertCircle, Check, X } from "reicon-react";
 import { useCloudStatusView } from "./cloud-render";
@@ -204,19 +205,6 @@ export function ExportStatus() {
 			</AnimatePresence>
 		</>
 	);
-}
-
-function savedSentence(outcome: Extract<ExportOutcome, { kind: "done" }>): string {
-	const where = outcome.target === "device" ? "on this device" : "on the server";
-	const note = outcome.note ? ` ${outcome.note}.` : "";
-	return `Saved ${outcome.filename}, ${formatBytes(outcome.bytes)}, in ${(outcome.elapsedMs / 1000).toFixed(1)}s ${where}.${note}`;
-}
-
-function formatBytes(bytes: number): string {
-	if (bytes < 1024 * 1024) {
-		return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-	}
-	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /**

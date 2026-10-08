@@ -2,8 +2,9 @@
 
    Sizes are the studio's own, measured off the real shell at 1440x900 and
    390x844 (docs/design/SYSTEM.md: Space): the header's 40px pills 22px and 20px
-   in from the corner, the 16:9 frame, the island 246px up, the timeline 218px
-   tall 16px in from the edges, and on a phone the sheet's 56px peek. The shapes
+   in from the corner, the island 246px up, the timeline 218px tall 16px in
+   from the edges, and on a phone the sheet's 56px peek. The frame is not
+   measured but computed, at every window: see studio-skeleton.tsx. The shapes
    are plain fills in the studio's own ramp at 6%, so the outline is quieter
    than anything that replaces it, and it is the same in light and dark.
 
@@ -78,17 +79,10 @@
 	width: 44px;
 }
 
-.sk-stage {
-	position: absolute;
-	inset: 60px 0 160px;
-	display: grid;
-	place-items: center;
-	padding-inline: 40px;
-}
-
+/* The frame's box is inline (studio-skeleton.tsx): it is the shells' own layout
+   math at this window (application/layout/stage-frame.ts), on either shell. */
 .sk-frame {
-	width: min(100%, 640px);
-	aspect-ratio: 16 / 9;
+	position: absolute;
 	border-radius: var(--r-surface);
 }
 
@@ -152,17 +146,6 @@
 
 	.sk-utilities {
 		width: 139px;
-	}
-
-	.sk-stage {
-		inset: 80px 0 242px;
-		padding: 18px 44px 72px;
-	}
-
-	.sk-frame {
-		height: min(100%, 424px);
-		width: auto;
-		max-width: 100%;
 	}
 
 	.sk-dock {

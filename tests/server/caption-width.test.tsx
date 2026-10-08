@@ -85,7 +85,7 @@ function columnChildren(container: HTMLElement): HTMLElement[] {
 describe("CenteredFrame caption width", () => {
 	it("pins the caption band to the window's width", () => {
 		const { container } = renderCard((lines) => (
-			<StepCaption text={LONG_CAPTION} opacity={1} color="#fff" scale={2.2} lines={lines} />
+			<StepCaption text={LONG_CAPTION} opacity={1} scale={2.2} lines={lines} />
 		));
 		const [windowEl, captionEl] = columnChildren(container);
 
@@ -99,7 +99,7 @@ describe("CenteredFrame caption width", () => {
 		let given = 0;
 		const { container } = renderCard((lines) => {
 			given = lines;
-			return <StepCaption text={LONG_CAPTION} opacity={1} color="#fff" scale={2.2} lines={lines} />;
+			return <StepCaption text={LONG_CAPTION} opacity={1} scale={2.2} lines={lines} />;
 		});
 		const [, captionEl] = columnChildren(container);
 		const line = captionEl?.firstElementChild?.firstElementChild as HTMLElement;

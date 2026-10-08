@@ -1,4 +1,5 @@
 import "@/presentation/studio/studio-skeleton.css";
+import { useStageFrame } from "@/presentation/studio/use-stage-frame";
 
 /**
  * The studio's outline, drawn while its chunk is on the way.
@@ -9,11 +10,17 @@ import "@/presentation/studio/studio-skeleton.css";
  * timeline (the sheet's peek on a phone), at the places and sizes the studio
  * puts them, so what replaces it settles into the same boxes.
  *
+ * The frame is the one that has to land exactly: it is the picture, and the
+ * eye follows it. Its box is the layout math the shells use
+ * (`application/layout/stage-frame.ts`), not a size of its own, so it is where
+ * the studio's frame will be at every window.
+ *
  * Its stylesheet is imported here, not in the studio's: the studio's own CSS
  * arrives with the chunk this stands in for. No spinner, because a spinner says
  * "wait" and an outline says "this is what is coming".
  */
 export function StudioSkeleton() {
+	const frame = useStageFrame();
 	return (
 		<output className="studio-root sk-root" aria-label="Loading the studio">
 			<div className="sk-header" aria-hidden="true">
@@ -29,9 +36,16 @@ export function StudioSkeleton() {
 					<span className="sk-pill sk-utilities" />
 				</div>
 			</div>
-			<div className="sk-stage" aria-hidden="true">
-				<span className="sk-frame" />
-			</div>
+			<span
+				className="sk-frame"
+				aria-hidden="true"
+				style={{
+					left: frame.left,
+					top: frame.top,
+					width: frame.width,
+					height: frame.height,
+				}}
+			/>
 			<span className="sk-pill sk-dock" aria-hidden="true" />
 			<span className="sk-timeline" aria-hidden="true" />
 		</output>
