@@ -21,9 +21,9 @@ import { useCloudRenderCta, useCloudTarget } from "./cloud-render";
 import {
 	type ClusterId,
 	DEVICE_CANNOT_ENCODE,
-	FPS_OPTIONS,
-	NOTHING_TO_RENDER,
+	RENDER_NOTES_ID,
 	RenderCtaLabel,
+	fpsOptionsFor,
 	useCanRender,
 } from "./cluster-panels";
 import {
@@ -530,7 +530,7 @@ function ExportMode() {
 			<IslandSegmented
 				group="rail-fps"
 				eyebrow="FPS"
-				options={FPS_OPTIONS}
+				options={fpsOptionsFor(format)}
 				value={fps}
 				onSelect={setFps}
 			/>
@@ -579,9 +579,10 @@ function ExportMode() {
 				// focus to the page the moment they press it.
 				disabled={!canRender}
 				aria-disabled={isExporting || cloudCta.busy || undefined}
-				// The same reason the cluster panel gives: a disabled button with no
-				// word on it reads as broken.
-				title={canRender ? undefined : NOTHING_TO_RENDER}
+				aria-busy={isExporting || cloudCta.busy || undefined}
+				// The reason is a note on the page, floated above the island: a disabled
+				// button with no word beside it reads as broken.
+				aria-describedby={canRender ? undefined : RENDER_NOTES_ID}
 				// The name is the word on the button, plus the format and size it
 				// leaves out while idle; busy, it is what the button says.
 				aria-label={

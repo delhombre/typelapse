@@ -1,4 +1,4 @@
-import { formatBytes, savedSentence } from "@/application/export/export-label";
+import { savedSentence, savedTail } from "@/application/export/export-label";
 import { LiveRegion } from "@/presentation/components/ui/live-region";
 import { springs } from "@/presentation/motion";
 import { useExportStore } from "@/presentation/stores/export.store";
@@ -115,10 +115,8 @@ export function ExportStatus() {
 						<span className="si-status-text si-status-message">
 							{outcome.kind === "done" ? (
 								<>
-									Saved <strong>{outcome.filename}</strong> · {formatBytes(outcome.bytes)} ·{" "}
-									{(outcome.elapsedMs / 1000).toFixed(1)}s{" "}
-									{outcome.target === "device" ? "on this device" : "on the server"}
-									{outcome.note ? ` · ${outcome.note}` : ""}
+									Saved <strong>{outcome.filename}</strong>
+									{savedTail(outcome)}
 								</>
 							) : (
 								outcome.message

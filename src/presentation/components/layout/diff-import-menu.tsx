@@ -19,6 +19,7 @@ import {
 	useState,
 } from "react";
 import { BranchDown, ChevronLeft } from "reicon-react";
+import { SourceError } from "./source-error";
 import { sourcePopoverMotion } from "./source-popover-motion";
 
 const IMPORT_MODES: { key: ImportPlayMode; label: string }[] = [
@@ -267,11 +268,7 @@ export function DiffImportMenu({
 										</motion.button>
 									</StudioTooltip>
 								</div>
-								{error && (
-									<p id={errorId} role="alert" className="sc-source-error">
-										{error}
-									</p>
-								)}
+								{error && <SourceError id={errorId} message={error} />}
 							</>
 						)}
 					</motion.div>

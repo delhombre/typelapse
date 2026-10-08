@@ -1,6 +1,7 @@
 import type { Monaco, OnMount } from "@monaco-editor/react";
 import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 
+import { previewEditorTheme, studioEditorTheme } from "@/application/editor/monaco-theme";
 import {
 	monacoLanguage,
 	snippetDiagnostics,
@@ -27,7 +28,7 @@ const Editor = lazy(() => import("@/presentation/components/editor/monaco-runtim
 
 const EDITOR_LOADING = (
 	<div className="flex h-full items-center justify-center">
-		<span className="font-mono text-[11px] text-neutral-400">Loading editor…</span>
+		<span className="font-mono text-[11px] text-[var(--camera-muted)]">Loading editor…</span>
 	</div>
 );
 
@@ -78,9 +79,10 @@ export function CodeEditor() {
 		monacoRef.current = monaco;
 		editorRef.current = editor;
 
-		// VS Code parity: word wrap is off by default (horizontal scroll), and ⌥Z
-		// toggles it: same keybinding VS Code uses. Also surfaces in the command
-		// palette (F1 → "Toggle word wrap") for discoverability.
+		// Word wrap is on: the card is a few hundred pixels wide, and a line that
+		// scrolls sideways hides the code the video is about to show. ⌥Z toggles it,
+		// as in VS Code, and it surfaces in the command palette (F1 → "Toggle word
+		// wrap") for discoverability.
 		editor.addAction({
 			id: "toggle-word-wrap",
 			label: "Toggle word wrap",
@@ -114,57 +116,26 @@ export function CodeEditor() {
 			});
 		}
 
-		// App-level themes (follow light/dark mode)
-		monaco.editor.defineTheme("typelapse-dark", {
-			base: "vs-dark",
-			inherit: true,
-			rules: [],
-			colors: {
-				"editor.background": "#0a0a0a",
-				"editor.foreground": "#e5e5e5",
-				"editor.lineHighlightBackground": "#17171700",
-				"editor.selectionBackground": "#26264080",
-				"editorCursor.foreground": "#a3a3a3",
-				"editorLineNumber.foreground": "#404040",
-				"editorLineNumber.activeForeground": "#737373",
-				"editorWidget.background": "#171717",
-				"editorWidget.border": "#262626",
-				"editor.lineHighlightBorder": "#00000000",
-			},
-		});
-
-		monaco.editor.defineTheme("typelapse-light", {
-			base: "vs",
-			inherit: true,
-			rules: [],
-			colors: {
-				"editor.background": "#fafafa",
-				"editor.foreground": "#171717",
-				"editor.lineHighlightBackground": "#f5f5f500",
-				"editor.selectionBackground": "#d4d4d480",
-				"editorCursor.foreground": "#525252",
-				"editorLineNumber.foreground": "#d4d4d4",
-				"editorLineNumber.activeForeground": "#a3a3a3",
-				"editorWidget.background": "#fafafa",
-				"editorWidget.border": "#e5e5e5",
-				"editor.lineHighlightBorder": "#00000000",
-			},
-		});
+		// App-level themes (follow light/dark mode), derived from the warm tokens
+		// (application/editor/monaco-theme.ts).
+		for (const mode of ["dark", "light"] as const) {
+			const theme = studioEditorTheme(mode);
+			monaco.editor.defineTheme(`typelapse-${mode}`, {
+				base: theme.base,
+				inherit: true,
+				rules: [],
+				colors: { ...theme.colors },
+			});
+		}
 
 		// Preview-mirroring themes
 		for (const [name, cfg] of Object.entries(PREVIEW_THEME_MAP)) {
+			const theme = previewEditorTheme(cfg);
 			monaco.editor.defineTheme(`typelapse-preview-${name}`, {
-				base: cfg.base,
+				base: theme.base,
 				inherit: true,
 				rules: [],
-				colors: {
-					"editor.background": cfg.bg,
-					"editor.foreground": cfg.fg,
-					"editor.lineHighlightBackground": `${cfg.bg}00`,
-					"editor.lineHighlightBorder": "#00000000",
-					"editorLineNumber.foreground": cfg.base === "vs-dark" ? "#404040" : "#c0c0c0",
-					"editorLineNumber.activeForeground": cfg.base === "vs-dark" ? "#737373" : "#a3a3a3",
-				},
+				colors: { ...theme.colors },
 			});
 		}
 	}, []);
@@ -283,7 +254,7 @@ export function CodeEditor() {
 								verticalScrollbarSize: 6,
 								horizontalScrollbarSize: 6,
 							},
-							wordWrap: "off",
+							wordWrap: "on",
 							tabSize: 2,
 							autoIndent: "full",
 							formatOnPaste: true,

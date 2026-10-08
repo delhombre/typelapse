@@ -76,6 +76,42 @@ export function captionsNote(hasCaptions: boolean): string | null {
 	return hasCaptions ? "captions are not baked on this device yet" : null;
 }
 
+/**
+ * The same limit as a sentence to read before Render, not after it: a file that
+ * lacks the captions was already rendered by the time the old note said so.
+ * `null` when there is nothing to warn about; the server offer, when there is
+ * one, is the way out.
+ */
+export function captionsCaveat(input: {
+	hasCaptions: boolean;
+	onDevice: boolean;
+	serverOffered: boolean;
+}): string | null {
+	if (!input.onDevice || !input.hasCaptions) {
+		return null;
+	}
+	return input.serverOffered
+		? "Captions are not baked on this device yet. Render on the server to keep them."
+		: "Captions are not baked on this device yet.";
+}
+
+/**
+ * What a GIF does to the frame rate, said while the rate is still chosen. The
+ * format cannot hold 60 fps (and its size budget stops well short of the
+ * format's own ceiling), so a chip that says 60 has to say what it becomes.
+ * `safeFps` is the rate the encoder will really use.
+ */
+export function gifFpsCaveat(input: {
+	format: RenderFormat;
+	fps: number;
+	safeFps: number;
+}): string | null {
+	if (input.format !== "gif" || input.safeFps >= input.fps) {
+		return null;
+	}
+	return `A GIF plays at up to ${input.safeFps} fps, so ${input.fps} renders at ${input.safeFps}.`;
+}
+
 /** A file size the way the status row writes it: whole KB under a megabyte, then MB to one place. */
 export function formatBytes(bytes: number): string {
 	if (bytes < 1024 * 1024) {
@@ -90,14 +126,25 @@ export function formatBytes(bytes: number): string {
  * a stop only where there is none: it used to add a second one, and a GIF's
  * note read "GIF: 960×540..".
  */
-export function savedSentence(done: {
+export function savedSentence(done: SavedExport): string {
+	return `Saved ${done.filename}${savedTail(done)}`;
+}
+
+/**
+ * Everything after the filename in {@link savedSentence}: the status row sets
+ * the name in bold between "Saved" and this, so what it shows and what a screen
+ * reader is told are one sentence built once.
+ */
+export function savedTail(done: SavedExport): string {
+	const where = done.target === "device" ? "on this device" : "on the server";
+	const note = done.note ? ` ${done.note.replace(/\.+$/, "")}.` : "";
+	return `, ${formatBytes(done.bytes)}, in ${(done.elapsedMs / 1000).toFixed(1)}s ${where}.${note}`;
+}
+
+interface SavedExport {
 	filename: string;
 	bytes: number;
 	elapsedMs: number;
 	target: string;
 	note?: string;
-}): string {
-	const where = done.target === "device" ? "on this device" : "on the server";
-	const note = done.note ? ` ${done.note.replace(/\.+$/, "")}.` : "";
-	return `Saved ${done.filename}, ${formatBytes(done.bytes)}, in ${(done.elapsedMs / 1000).toFixed(1)}s ${where}.${note}`;
 }

@@ -85,3 +85,28 @@ export function socialCorrection(args: {
 	}
 	return null;
 }
+
+/** A feed the current shape cannot preview, and the shapes that can. */
+export interface LockedFeed {
+	readonly platform: SocialPlatform;
+	/** The shapes that unlock it, as the row says them: "1:1 or 4:5". */
+	readonly needs: string;
+}
+
+/**
+ * The feeds to show greyed beside the ones the shape allows, with what unlocks
+ * them. Only the cross-over is shown: on a vertical shape LinkedIn is there and
+ * off, so "where did LinkedIn go" has an answer on the row; every other shape
+ * either has its own feeds or none, and a row of five greyed chips would be noise.
+ * Derived from the same safe-zone table as the shapes, so it cannot drift.
+ */
+export function lockedFeeds(platforms: readonly SocialPlatform[]): LockedFeed[] {
+	if (platforms.length === 0 || platforms.includes("linkedin")) {
+		return [];
+	}
+	const needs = FEED_ASPECTS.filter((aspect) => {
+		const dims = dimensionsFor(aspect, "1080p");
+		return platformsForAspect(dims.width, dims.height).includes("linkedin");
+	});
+	return needs.length > 0 ? [{ platform: "linkedin", needs: needs.join(" or ") }] : [];
+}
