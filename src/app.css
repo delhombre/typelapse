@@ -1860,6 +1860,12 @@ html.dark:not([data-landing-theme]) {
 	outline-offset: -1px;
 }
 
+/* On the dark theme the object's lift carries a ring for the frame; a picture
+   already has its inner edge, and the two side by side read as a 2px border. */
+.landing-root[data-theme="dark"] .lp-pic {
+	box-shadow: 0 30px 80px -24px rgb(0 0 0 / 0.6);
+}
+
 .landing-root .lp-pic img {
 	display: block;
 	width: 100%;
