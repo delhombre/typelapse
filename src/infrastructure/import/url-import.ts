@@ -6,6 +6,7 @@
  */
 
 import { resolveCodeUrl } from "@/application/import/code-url";
+import { codeUrlFailure } from "@/application/import/code-url-failure";
 import { languageFromFilename } from "@/application/language/language-from-filename";
 
 export interface ImportedCode {
@@ -97,7 +98,7 @@ export async function importCodeFromUrl(input: string): Promise<ImportedCode> {
 			resolved.kind === "gist-api" ? { Accept: "application/vnd.github+json" } : undefined;
 		const response = await fetch(resolved.fetchUrl, { signal: controller.signal, headers });
 		if (!response.ok) {
-			throw new Error(`Could not fetch (HTTP ${response.status})`);
+			throw new Error(codeUrlFailure(response.status, resolved.kind));
 		}
 
 		const payload = await readCapped(response, MAX_IMPORT_BYTES);

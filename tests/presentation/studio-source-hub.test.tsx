@@ -186,7 +186,7 @@ describe("StudioSourceHub popovers", () => {
 
 	// The segment used to say which option was on only by its colour.
 	it("says which way a pull request will play, to a screen reader as well as to the eye", () => {
-		const view = openView("Import a git diff");
+		const view = openView("Import a change");
 		fireEvent.change(view.getByRole("textbox", { name: "Git diff or GitHub pull request link" }), {
 			target: { value: "https://github.com/acme/widgets/pull/42" },
 		});
@@ -211,7 +211,7 @@ describe("StudioSourceHub popovers", () => {
 	// merely disabled is muted. The two used to look the same, at 60% opacity.
 	it("marks the primary busy while a link is being fetched", async () => {
 		vi.spyOn(globalThis, "fetch").mockImplementation(() => new Promise(() => undefined));
-		const view = openView("Import from URL");
+		const view = openView("Paste a link");
 		const submit = view.container.querySelector<HTMLButtonElement>('button[type="submit"]');
 		expect(submit?.getAttribute("aria-busy")).toBeNull();
 
@@ -241,7 +241,7 @@ describe("StudioSourceHub keyboard exits", () => {
 
 	it("hands focus back to Add source when Escape closes the menu", () => {
 		const { view, trigger } = openHub();
-		view.getByRole("menuitem", { name: "Import from URL" }).focus();
+		view.getByRole("menuitem", { name: "Paste a link" }).focus();
 
 		fireEvent.keyDown(document.activeElement ?? document, { key: "Escape" });
 
@@ -250,7 +250,7 @@ describe("StudioSourceHub keyboard exits", () => {
 
 	it("hands focus back to Add source when Escape closes the link field", () => {
 		const { view, trigger } = openHub();
-		fireEvent.click(view.getByRole("menuitem", { name: "Import from URL" }));
+		fireEvent.click(view.getByRole("menuitem", { name: "Paste a link" }));
 		view.getByRole("textbox", { name: "Gist or GitHub link" }).focus();
 
 		fireEvent.keyDown(document.activeElement ?? document, { key: "Escape" });
@@ -317,7 +317,7 @@ describe("StudioSourceHub refusals", () => {
 			</MemoryRouter>,
 		);
 		fireEvent.click(view.getByRole("button", { name: "Add source" }));
-		fireEvent.click(view.getByRole("menuitem", { name: "Import from URL" }));
+		fireEvent.click(view.getByRole("menuitem", { name: "Paste a link" }));
 		const field = view.getByRole("textbox", { name: "Gist or GitHub link" });
 		fireEvent.change(field, { target: { value: "not a link" } });
 		fireEvent.submit(field);

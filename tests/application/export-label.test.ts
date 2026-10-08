@@ -1,8 +1,10 @@
 import {
+	captionsCaveat,
 	captionsNote,
 	exportCodecNote,
 	exportCtaDetail,
 	exportCtaLabel,
+	gifFpsCaveat,
 } from "@/application/export/export-label";
 import { describe, expect, it } from "vitest";
 
@@ -78,5 +80,37 @@ describe("the captions note: the on-device export draws none, video or still (#1
 
 	it("says nothing when no step carries a caption", () => {
 		expect(captionsNote(false)).toBeNull();
+	});
+});
+
+describe("the captions caveat, read before Render", () => {
+	it("warns on this device when a scene carries a caption", () => {
+		expect(captionsCaveat({ hasCaptions: true, onDevice: true, serverOffered: false })).toBe(
+			"Captions are not baked on this device yet.",
+		);
+	});
+
+	it("names the server as the way out when one is offered", () => {
+		expect(captionsCaveat({ hasCaptions: true, onDevice: true, serverOffered: true })).toBe(
+			"Captions are not baked on this device yet. Render on the server to keep them.",
+		);
+	});
+
+	it("says nothing off the device, or without a caption", () => {
+		expect(captionsCaveat({ hasCaptions: true, onDevice: false, serverOffered: true })).toBeNull();
+		expect(captionsCaveat({ hasCaptions: false, onDevice: true, serverOffered: true })).toBeNull();
+	});
+});
+
+describe("the GIF frame-rate caveat", () => {
+	it("says what a rate above the cap becomes", () => {
+		expect(gifFpsCaveat({ format: "gif", fps: 60, safeFps: 20 })).toBe(
+			"A GIF plays at up to 20 fps, so 60 renders at 20.",
+		);
+	});
+
+	it("says nothing for other formats, or for a rate the GIF can hold", () => {
+		expect(gifFpsCaveat({ format: "mp4", fps: 60, safeFps: 60 })).toBeNull();
+		expect(gifFpsCaveat({ format: "gif", fps: 20, safeFps: 20 })).toBeNull();
 	});
 });

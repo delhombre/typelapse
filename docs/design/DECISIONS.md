@@ -37,8 +37,8 @@ step of white on hover). The nav island's CTA, hidden until the hero has
 scrolled out, is the filled one past it.
 
 **Why:** hierarchy by subtraction; the old toolbar gave its only filled disc
-to Play, the least important action. Ink on the yellow reads 12:1, white
-1.75:1.
+to Play, the least important action. Ink on the yellow reads 9.92:1, white
+1.73:1.
 
 **Enforced by:** `src/app.css` (`--color-primary`, `--color-cta`, `.si-cta`,
 `.lp-island-cta[data-quiet]`), `tests/presentation/landing-hero.test.tsx`,
@@ -296,3 +296,43 @@ be scrolled at all.
 `docs/design/passes/2026-10-05-studio-drift.md`).
 
 **Pivot:** "Let the studio scroll to reveal an overhang."
+
+## D16 Disabled is a colour and a reason, never an opacity
+
+**Decision:** A disabled control takes `--camera-disabled` (the island and its
+status restate it as `--dock-disabled`, for the dark plate), and a disabled
+primary action says why in words beside it: Render with no scene is a flat wash
+in the disabled ink with a note ("A video needs at least one scene.") and a
+Capture shortcut, on the phone's sheet and above the desktop rail alike. A busy
+control is not a disabled one: Render while it renders keeps its fill and says
+"Rendering…", with the cursor and `aria-busy` saying wait. Both values were
+measured at 4.5:1 or better on every surface that carries them (SYSTEM.md,
+Colour).
+
+**Why:** opacity as state made text fail contrast on some surfaces and pass on
+others (Render at .55 over the plate read 2.1:1; Undo at .32, 1.5:1), and a
+reason kept in `title` never shows on a phone, where the primary action was
+simply dead.
+
+**Enforced by:** `src/presentation/studio-camera.css`, `src/app.css`,
+`src/application/export/render-block.ts` (tested in
+`tests/application/render-block.test.ts`),
+`tests/presentation/export-panel-playable.test.tsx`.
+
+**Pivot:** "Dim it to 40%; everyone knows what that means."
+
+## D17 Under a coarse pointer the island's sheet is 44px, drawn
+
+**Decision:** In the sheet and the status row a control is 44px by drawing, not
+by extension: rows are 7 to 12px apart, so a pseudo-element reaching past a
+44px box would share its reach with the row beside it. A swatch keeps its
+miniature and grows the box around it. The phone's root row keeps its 44px
+cells and the social row joins them (no gap, so the targets tile).
+
+**Why:** the audit measured the sheet's hit areas at 32 to 56px by 26 to 41px,
+a mouse's target on a thumb's screen.
+
+**Enforced by:** `src/app.css` (the coarse block above the export status),
+`src/presentation/studio-camera.css`, `tests/docs/design-system.test.ts`.
+
+**Pivot:** "Keep the 30px chips and extend the hit area."

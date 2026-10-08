@@ -583,7 +583,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 			await expect(page.locator(".sc-source-menu")).toBeVisible();
 			expect(await paint(".sc-source-menu")).toEqual({ alpha: 1, blur: "none" });
 
-			await page.getByRole("menuitem", { name: "Import from URL" }).tap();
+			await page.getByRole("menuitem", { name: "Paste a link" }).tap();
 			await expect(page.locator(".sc-source-form-popover")).toBeVisible();
 			expect(await paint(".sc-source-form-popover")).toEqual({ alpha: 1, blur: "none" });
 		});

@@ -61,9 +61,9 @@ afterEach(() => {
 });
 
 describe("the PNG export note", () => {
-	it("says captions are not baked on this device when a step has a caption", async () => {
+	it("leaves the captions caveat to the panel, which says it before Render", async () => {
 		load("why the loop ends");
-		expect(await pngNote()).toMatch(/^\d+×\d+\. Captions are not baked on this device yet\.$/);
+		expect(await pngNote()).toMatch(/^\d+×\d+\.$/);
 	});
 
 	it("is the size alone when the project has no caption", async () => {

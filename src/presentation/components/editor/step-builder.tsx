@@ -1,9 +1,11 @@
+import { captureBlockReason } from "@/application/export/render-block";
 import {
 	firstLinePastEnd,
 	formatLineRanges,
 	parseLineRanges,
 } from "@/application/focus/line-ranges";
 import { frameLineCount } from "@/application/magic-move/engine";
+import { sceneListWindow } from "@/application/studio-timeline/scene-list-window";
 import { MAX_ANNOTATION_LENGTH, type Step } from "@/domain/entities/step";
 import { LiveRegion } from "@/presentation/components/ui/live-region";
 import {
@@ -14,21 +16,32 @@ import { SceneDurationInput } from "@/presentation/components/ui/scene-duration-
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
 import { useSceneDeletion } from "@/presentation/hooks/use-scene-deletion";
-import { STAGGER_DELAY, mountVariants, springs } from "@/presentation/motion";
+import { springs } from "@/presentation/motion";
 import { hasEmptyDraft, useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	useStudioCompositionSelectionStore,
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
-import { truncateMiddle } from "@/presentation/utils/truncate-middle";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Add } from "reicon-react";
 import { StudioLayerStrip } from "./studio-layer-strip";
 
+/**
+ * A row's entrance: none for a scene the list already held, a short rise for one
+ * that was just added, and under reduced motion a fade alone. No blur: a filter
+ * on every row of a long list is a layer per row.
+ */
+function rowEntrance(known: boolean, reduce: boolean) {
+	if (known) {
+		return false;
+	}
+	return reduce ? { opacity: 0 } : { opacity: 0, y: 6 };
+}
+
+/** The first line of a scene's code. The row's own ellipsis is the only truncation. */
 function getStepPreview(code: string): string {
-	const firstLine = code.split("\n")[0] ?? "";
-	return truncateMiddle(firstLine.trim(), 30);
+	return (code.split("\n")[0] ?? "").trim().slice(0, 240);
 }
 
 export function StepBuilder() {
@@ -43,12 +56,32 @@ export function StepBuilder() {
 	const setCurrentStepIndex = useSnippetStore((s) => s.setCurrentStepIndex);
 	const steps = snippet.steps;
 	const { pendingDeletion, deleteScene, undoDeletion } = useSceneDeletion();
+	const reduce = useReducedMotion() === true;
 
 	const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 	const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
+	const [expanded, setExpanded] = useState(false);
 	const dragCounterRef = useRef(0);
+	const headRef = useRef<HTMLDivElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
+	const reasonId = useId();
 	const selectedStepId = steps[currentStepIndex]?.id;
+	const reason = captureBlockReason(emptyDraft);
+
+	// Only a scene added after the list mounted enters with motion. The ids the
+	// list already held (on first paint, or behind the "show all" button) are
+	// there already: twenty rows fading in because a button was pressed is
+	// motion nobody asked for.
+	const knownIds = useRef<Set<string>>(new Set(steps.map((step) => step.id)));
+	useEffect(() => {
+		knownIds.current = new Set(steps.map((step) => step.id));
+	}, [steps]);
+
+	// A long list shows a window of itself, so the code below it stays in reach on
+	// a phone (the sheet stacks this above the editor). Open, it is every row.
+	const windowed = sceneListWindow({ count: steps.length, selected: currentStepIndex });
+	const collapsible = windowed.hidden > 0;
+	const shown = collapsible && !expanded ? windowed : { start: 0, end: steps.length, hidden: 0 };
 
 	// Selection can arrive from the film timeline, well outside this scroller.
 	// Reveal that card once; do not bind the two scroll positions continuously,
@@ -62,6 +95,16 @@ export function StepBuilder() {
 			inline: "nearest",
 		});
 	}, [selectedStepId]);
+
+	// After a delete the list is shorter and the scroller keeps its offset, which
+	// can leave the head (the count and Capture) above the fold. Bring it back.
+	const previousCount = useRef(steps.length);
+	useEffect(() => {
+		if (steps.length < previousCount.current) {
+			headRef.current?.scrollIntoView?.({ block: "nearest" });
+		}
+		previousCount.current = steps.length;
+	}, [steps.length]);
 
 	function handleDragStart(e: React.DragEvent, index: number) {
 		setDraggedIndex(index);
@@ -118,46 +161,30 @@ export function StepBuilder() {
 		setDraggedIndex(null);
 	}
 
-	function getItemClasses(index: number): string {
-		const isSelected = index === currentStepIndex;
-		const isDragged = index === draggedIndex;
-		const isDropTarget = index === dropTargetIndex && index !== draggedIndex;
-
-		const base =
-			"group flex w-full flex-col gap-1.5 rounded-xl border p-2.5 text-left transition-[transform,border-color,background-color,box-shadow] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] will-change-transform";
-
-		let stateClasses: string;
-		if (isSelected) {
-			stateClasses =
-				"border-neutral-300 bg-neutral-100/80 dark:border-neutral-600/60 dark:bg-neutral-800/50";
-		} else {
-			stateClasses =
-				"border-neutral-200/70 hover:-translate-y-px hover:border-neutral-300 hover:bg-neutral-50 hover:shadow-[0_6px_16px_-8px_rgb(0_0_0/0.15)] dark:border-neutral-800 dark:hover:border-neutral-700 dark:hover:bg-neutral-800/30 dark:hover:shadow-[0_6px_16px_-8px_rgb(0_0_0/0.5)]";
-		}
-
-		let dragClasses = "";
-		if (isDragged) {
-			dragClasses = "opacity-30";
-		}
-		if (isDropTarget) {
-			dragClasses = "ring-2 ring-neutral-900/15 dark:ring-white/15";
-		}
-
-		return `${base} ${stateClasses} ${dragClasses}`;
-	}
+	const rows = steps.slice(shown.start, shown.end);
 
 	return (
-		<div className="flex flex-col gap-3">
-			<div className="flex items-center justify-between">
-				<span className="text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+		<div className="sc-scenes">
+			<div className="sc-scenes-head" ref={headRef}>
+				<span className="sc-scenes-count">
 					{steps.length} {steps.length === 1 ? "scene" : "scenes"}
 				</span>
-				<div className="flex items-center gap-2">
+				<div className="sc-scenes-actions">
 					<RecordButton />
 					<BlankSceneButton onAdd={addBlankScene} />
-					<CaptureButton onCapture={captureStep} disabled={emptyDraft} />
+					<CaptureButton
+						onCapture={captureStep}
+						disabled={emptyDraft}
+						describedBy={reason ? reasonId : undefined}
+					/>
 				</div>
 			</div>
+
+			{reason ? (
+				<p id={reasonId} className="sc-scenes-reason">
+					{reason}
+				</p>
+			) : null}
 
 			<LiveRegion message={sceneDeletedMessage(pendingDeletion?.sceneNumber)} />
 			<AnimatePresence initial={false}>
@@ -174,147 +201,142 @@ export function StepBuilder() {
 				)}
 			</AnimatePresence>
 
-			{steps.length === 0 && (
-				<p className="rounded-xl border border-dashed border-neutral-200 px-3 py-4 text-center text-xs text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-					Edit the code above, then Capture to add your first scene.
-				</p>
+			{steps.length === 0 && !emptyDraft && (
+				<p className="sc-scenes-empty">Capture the code to add your first scene.</p>
 			)}
 
-			{/* -m-1 p-1: a 4px "bleed" so the hover-lift and drop ring aren't clipped by
-			    the scroll container's overflow, at zero layout cost (cards stay aligned).
-			    No cap and no scroll of its own: the list used to carry a 192px max-height
-			    inside the card's own 228px scroller, which is two scroll regions stacked
-			    one inside the other — the wheel drove the inner one to its end and then
-			    stopped, 40px short of the last step, with the outer scrollbar still
-			    showing room. The card owns the scroll now, on both layouts. */}
-			<div ref={listRef} className="-m-1 flex flex-col gap-1 p-1">
-				{steps.map((step, index) => (
-					<motion.div
-						key={step.id}
-						variants={mountVariants}
-						initial="hidden"
-						animate="visible"
-						transition={{ ...springs.gentle, delay: index * STAGGER_DELAY }}
-						draggable
-						onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent, index)}
-						onDragEnd={handleDragEnd}
-						onDragEnter={(e) => handleDragEnter(e as unknown as React.DragEvent, index)}
-						onDragLeave={handleDragLeave}
-						onDragOver={(e) => handleDragOver(e as unknown as React.DragEvent)}
-						onDrop={(e) => handleDrop(e as unknown as React.DragEvent, index)}
-						className={getItemClasses(index)}
-						data-step-selected={index === currentStepIndex ? "" : undefined}
-						// The hand closes on the card it has picked up. A grab cursor that
-						// never becomes a grabbing one says the row can be dragged and then
-						// says nothing at all about the drag in progress.
-						style={{ cursor: draggedIndex === index ? "grabbing" : "grab" }}
-					>
-						{/* Row 1: handle · number + preview · duration · remove */}
-						<div className="flex w-full items-center gap-2">
-							{/* Drag handle */}
-							<StudioTooltip content="Drag to reorder">
-								<span className="shrink-0 text-neutral-300 dark:text-neutral-600">
-									<svg
-										width="8"
-										height="12"
-										viewBox="0 0 10 14"
-										fill="currentColor"
-										aria-hidden="true"
-									>
-										<circle cx="2.5" cy="2" r="1.2" />
-										<circle cx="7.5" cy="2" r="1.2" />
-										<circle cx="2.5" cy="7" r="1.2" />
-										<circle cx="7.5" cy="7" r="1.2" />
-										<circle cx="2.5" cy="12" r="1.2" />
-										<circle cx="7.5" cy="12" r="1.2" />
-									</svg>
-								</span>
-							</StudioTooltip>
-
-							{/* Step number + preview */}
-							<button
-								type="button"
-								onClick={() => setCurrentStepIndex(index)}
-								className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden pointer-coarse:min-h-11"
-							>
-								<span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-[11px] font-medium tabular-nums text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-									{index + 1}
-								</span>
-								{step.hasCode ? (
-									<span className="truncate font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
-										{getStepPreview(step.code)}
+			{/* No cap and no scroll of its own: the list used to carry a 192px max-height
+			    inside the card's own 228px scroller, which is two scroll regions stacked one
+			    inside the other (the wheel drove the inner one to its end and then stopped,
+			    40px short of the last step, with the outer scrollbar still showing room).
+			    The card owns the scroll now, on both layouts. */}
+			<div ref={listRef} className="sc-scene-list">
+				{rows.map((step, offset) => {
+					const index = shown.start + offset;
+					const isSelected = index === currentStepIndex;
+					const isDragged = index === draggedIndex;
+					const isDropTarget = index === dropTargetIndex && !isDragged;
+					return (
+						<motion.div
+							key={step.id}
+							initial={rowEntrance(knownIds.current.has(step.id), reduce)}
+							animate={{ opacity: 1, y: 0 }}
+							transition={reduce ? { duration: 0 } : springs.snappy}
+							draggable
+							onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent, index)}
+							onDragEnd={handleDragEnd}
+							onDragEnter={(e) => handleDragEnter(e as unknown as React.DragEvent, index)}
+							onDragLeave={handleDragLeave}
+							onDragOver={(e) => handleDragOver(e as unknown as React.DragEvent)}
+							onDrop={(e) => handleDrop(e as unknown as React.DragEvent, index)}
+							className="sc-scene-row"
+							data-step-selected={isSelected ? "" : undefined}
+							data-selected={isSelected ? "" : undefined}
+							data-dragging={isDragged ? "" : undefined}
+							data-drop={isDropTarget ? "" : undefined}
+						>
+							{/* Row 1: handle, number and preview, duration, remove */}
+							<div className="sc-scene-row-head">
+								<StudioTooltip content="Drag to reorder">
+									<span className="sc-scene-handle">
+										<svg
+											width="8"
+											height="12"
+											viewBox="0 0 10 14"
+											fill="currentColor"
+											aria-hidden="true"
+										>
+											<circle cx="2.5" cy="2" r="1.2" />
+											<circle cx="7.5" cy="2" r="1.2" />
+											<circle cx="2.5" cy="7" r="1.2" />
+											<circle cx="7.5" cy="7" r="1.2" />
+											<circle cx="2.5" cy="12" r="1.2" />
+											<circle cx="7.5" cy="12" r="1.2" />
+										</svg>
 									</span>
-								) : (
-									<span className="truncate text-[11px] text-neutral-500 dark:text-neutral-400">
-										No code
-									</span>
-								)}
-							</button>
-
-							{/* Duration input */}
-							<div className="flex shrink-0 items-center gap-1">
-								<StudioTooltip content="Duration in seconds">
-									<SceneDurationInput
-										durationMs={step.duration}
-										onCommit={(durationMs) => updateStepDuration(step.id, durationMs)}
-										aria-label={`Scene ${index + 1} duration in seconds`}
-										onClick={(e) => e.stopPropagation()}
-										// 16px under a finger: iOS zooms the page into any smaller field.
-										className="w-12 rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-center font-mono text-[11px] tabular-nums pointer-coarse:h-11 pointer-coarse:w-14 pointer-coarse:text-base text-neutral-600 transition-[border-color,background-color] duration-150 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:focus:border-neutral-700"
-									/>
 								</StudioTooltip>
-								<span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
-									s
-								</span>
-							</div>
 
-							{/* Remove button. Its target is bounded to the room the card actually
-							    has rather than grown to the shared 44px square: that square reached
-							    3px past the row and covered the top edge of the caption field below
-							    it, so a press aimed at the caption deleted the step instead. The
-							    visible mark stays 24px — the floor this density is allowed — and the
-							    pseudo-element claims only the gaps that border it. Under a finger
-							    the duration field makes the row 44px tall, so the extent grows to
-							    the row's height and still stops at its edge. */}
-							<StudioTooltip content={`Delete scene ${index + 1}`}>
 								<button
 									type="button"
-									onClick={(e) => {
-										e.stopPropagation();
-										deleteScene(step, index);
-										feedback("commit");
-									}}
-									className="relative flex size-6 shrink-0 items-center justify-center text-neutral-300 opacity-0 transition-opacity before:absolute before:-inset-x-[10px] before:-inset-y-[3px] pointer-coarse:before:-inset-y-[10px] hover:text-neutral-900 group-hover:opacity-100 focus-visible:opacity-100 max-lg:opacity-100 dark:text-neutral-700 dark:hover:text-neutral-100"
-									aria-label={`Delete scene ${index + 1}`}
+									onClick={() => setCurrentStepIndex(index)}
+									className="sc-scene-pick"
 								>
-									<svg
-										width="12"
-										height="12"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										strokeWidth="2"
-										role="img"
-									>
-										<title>Remove</title>
-										<line x1="18" y1="6" x2="6" y2="18" />
-										<line x1="6" y1="6" x2="18" y2="18" />
-									</svg>
+									<span className="sc-scene-number">{index + 1}</span>
+									<span className="sc-scene-preview" data-code={step.hasCode ? "" : undefined}>
+										{step.hasCode ? getStepPreview(step.code) : "No code"}
+									</span>
 								</button>
-							</StudioTooltip>
-						</div>
 
-						{/* Row 2: spotlight lines + caption. A blank scene has no code to
-						    spotlight, so its caption takes the whole row. */}
-						<div className="grid grid-cols-2 gap-1.5">
-							{step.hasCode ? <FocusInput step={step} index={index} /> : null}
-							<div className={step.hasCode ? "min-w-0" : "col-span-2 min-w-0"}>
-								<CaptionInput step={step} index={index} />
+								<div className="sc-scene-seconds">
+									<StudioTooltip content="Duration in seconds">
+										<SceneDurationInput
+											durationMs={step.duration}
+											onCommit={(durationMs) => updateStepDuration(step.id, durationMs)}
+											aria-label={`Scene ${index + 1} duration in seconds`}
+											onClick={(e) => e.stopPropagation()}
+											className="sc-scene-field sc-scene-duration-field"
+										/>
+									</StudioTooltip>
+									<span aria-hidden="true">s</span>
+								</div>
+
+								{/* Its target is bounded to the room the row has rather than grown to
+								    the shared 44px square: that square reached 3px past the row and
+								    covered the top edge of the caption field below it, so a press aimed
+								    at the caption deleted the step instead. The mark stays 24px, the
+								    floor this density is allowed, and the pseudo-element claims only the
+								    gaps that border it; under a finger it grows to the row's height and
+								    still stops at its edge. */}
+								<StudioTooltip content={`Delete scene ${index + 1}`}>
+									<button
+										type="button"
+										onClick={(e) => {
+											e.stopPropagation();
+											deleteScene(step, index);
+											feedback("commit");
+										}}
+										className="sc-scene-delete"
+										aria-label={`Delete scene ${index + 1}`}
+									>
+										<svg
+											width="12"
+											height="12"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											aria-hidden="true"
+										>
+											<line x1="18" y1="6" x2="6" y2="18" />
+											<line x1="6" y1="6" x2="18" y2="18" />
+										</svg>
+									</button>
+								</StudioTooltip>
 							</div>
-						</div>
-					</motion.div>
-				))}
+
+							{/* Row 2: spotlight lines and caption. A blank scene has no code to
+							    spotlight, so its caption takes the whole row. */}
+							<div className="sc-scene-fields" data-solo={step.hasCode ? undefined : ""}>
+								{step.hasCode ? (
+									<FocusInput step={step} index={index} id={`row-${step.id}-focus`} hiddenLabel />
+								) : null}
+								<CaptionInput step={step} index={index} id={`row-${step.id}-caption`} hiddenLabel />
+							</div>
+						</motion.div>
+					);
+				})}
 			</div>
+
+			{collapsible ? (
+				<button
+					type="button"
+					className="sc-scenes-toggle"
+					aria-expanded={expanded}
+					onClick={() => setExpanded(!expanded)}
+				>
+					{expanded ? "Show fewer scenes" : `Show all ${steps.length} scenes`}
+				</button>
+			) : null}
 		</div>
 	);
 }
@@ -338,6 +360,7 @@ export function SceneInspector() {
 	const selectedAudioCueId = useStudioCompositionSelectionStore(
 		(state) => state.selectedAudioCueId,
 	);
+	const reasonId = useId();
 	const step = steps[currentStepIndex];
 	const selectedScene = composition.value.project.scenes.find(
 		(scene) => scene.id === composition.selectedSceneId,
@@ -347,47 +370,65 @@ export function SceneInspector() {
 	);
 	const isLayerSelected =
 		selectedAudioCueId !== null || (selectedBlock !== undefined && selectedBlock.kind !== "code");
+	const reason = captureBlockReason(emptyDraft);
+
+	// With no scene the reason is the whole hint; with one, it says why Capture is off
+	// under the line that says what the scene's fields are.
+	const hint = isLayerSelected
+		? "Layer controls for this scene."
+		: step?.hasCode
+			? "Focus and caption for the selected scene."
+			: step
+				? "Caption for this scene without code."
+				: (reason ?? "Capture a scene to animate this code.");
+	const extraReason = !isLayerSelected && step ? reason : null;
+	const describedBy = reason && !isLayerSelected ? reasonId : undefined;
 
 	return (
-		<div className="flex flex-col gap-3">
+		<div className="sc-scenes">
 			<div className="grid gap-1.5">
 				{/* The three add controls outgrow a narrow island: they wrap under the
 				    label rather than breaking "Scene 1 of 3" over two lines. */}
-				<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-					<p className="whitespace-nowrap text-xs font-semibold tracking-[-0.01em] text-neutral-800 dark:text-neutral-100">
+				<div className="sc-scenes-head" data-wrap="">
+					<p className="sc-scenes-title">
 						{step ? `Scene ${currentStepIndex + 1} of ${steps.length}` : "No scene yet"}
 					</p>
 					{/* While a layer is open the section's job is navigation, and the
 					    layer's fields need the room more than a second way to add a scene. */}
 					{isLayerSelected ? null : (
-						<div className="flex shrink-0 items-center gap-2">
+						<div className="sc-scenes-actions">
 							<RecordButton />
 							<BlankSceneButton onAdd={addBlankScene} />
-							<CaptureButton onCapture={captureStep} disabled={emptyDraft} />
+							<CaptureButton
+								onCapture={captureStep}
+								disabled={emptyDraft}
+								describedBy={describedBy}
+							/>
 						</div>
 					)}
 				</div>
-				<p className="text-[11px] leading-4 text-neutral-500 dark:text-neutral-400">
-					{isLayerSelected
-						? "Layer controls for this scene."
-						: step?.hasCode
-							? "Focus and caption for the selected scene."
-							: step
-								? "Caption for this scene without code."
-								: "Capture a scene to animate this code."}
+				<p id={step ? undefined : reasonId} className="sc-scenes-reason">
+					{hint}
 				</p>
+				{extraReason ? (
+					<p id={reasonId} className="sc-scenes-reason">
+						{extraReason}
+					</p>
+				) : null}
 			</div>
 
 			<StudioLayerStrip />
 
 			{step && !isLayerSelected && (
 				// No entrance: this swaps on every scene selection, keyboard ones included.
-				<div key={step.id} className="grid grid-cols-2 gap-2">
+				<div
+					key={step.id}
+					className="sc-scene-fields sc-scene-fields-labelled"
+					data-solo={step.hasCode ? undefined : ""}
+				>
 					{step.hasCode ? (
-						<label htmlFor={`scene-${step.id}-focus`} className="grid min-w-0 gap-1.5">
-							<span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-								Focus lines
-							</span>
+						<label htmlFor={`scene-${step.id}-focus`} className="sc-scene-labelled">
+							<span>Focus lines</span>
 							<FocusInput
 								id={`scene-${step.id}-focus`}
 								step={step}
@@ -396,13 +437,8 @@ export function SceneInspector() {
 							/>
 						</label>
 					) : null}
-					<label
-						htmlFor={`scene-${step.id}-caption`}
-						className={`grid min-w-0 gap-1.5 ${step.hasCode ? "" : "col-span-2"}`}
-					>
-						<span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-							Caption
-						</span>
+					<label htmlFor={`scene-${step.id}-caption`} className="sc-scene-labelled">
+						<span>Caption</span>
 						<CaptionInput
 							id={`scene-${step.id}-caption`}
 							step={step}
@@ -424,45 +460,48 @@ export function SceneInspector() {
 function BlankSceneButton({ onAdd }: { onAdd: () => void }) {
 	return (
 		<StudioTooltip content="Add a scene without code">
-			<motion.button
+			<button
 				type="button"
 				onClick={() => {
 					onAdd();
 					feedback("commit");
 				}}
-				whileTap={{ scale: 0.97 }}
-				transition={springs.snappy}
-				className="flex h-8 items-center pointer-coarse:h-11 rounded-xl px-2.5 text-xs font-medium text-neutral-500 transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+				className="sc-scene-action"
 			>
 				Blank
-			</motion.button>
+			</button>
 		</StudioTooltip>
 	);
 }
 
-function CaptureButton({ onCapture, disabled }: { onCapture: () => void; disabled: boolean }) {
+function CaptureButton({
+	onCapture,
+	disabled,
+	describedBy,
+}: { onCapture: () => void; disabled: boolean; describedBy?: string | undefined }) {
 	return (
-		<motion.button
+		<button
 			type="button"
 			disabled={disabled}
+			aria-describedby={describedBy}
 			onClick={() => {
 				onCapture();
 				feedback("commit");
 			}}
-			whileTap={{ scale: 0.97 }}
-			transition={springs.snappy}
-			className="flex h-8 items-center pointer-coarse:h-11 gap-1.5 rounded-xl border border-dashed border-neutral-300 px-3 text-xs font-medium text-neutral-500 transition-[border-color,background-color,color] duration-150 disabled:pointer-events-none disabled:opacity-40 hover:border-neutral-400 hover:bg-neutral-50 hover:text-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:hover:border-neutral-500 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+			className="sc-scene-action"
+			data-kind="capture"
 		>
 			<Add size={12} strokeWidth={1.8} aria-hidden="true" />
 			Capture
-		</motion.button>
+		</button>
 	);
 }
 
 /**
- * Record toggle: sits left of Capture. Armed, it turns solid red with a pulsing
- * dot; each pause in typing captures a step (debounced in the store). Manual
- * Capture keeps working alongside it.
+ * Record toggle: sits left of Capture. Armed, it takes the studio's error ink and
+ * a pulsing dot (`--camera-danger`: the one red a state is allowed); each pause in
+ * typing captures a step (debounced in the store). Manual Capture keeps working
+ * alongside it.
  */
 function RecordButton() {
 	const isRecording = useSnippetStore((s) => s.isRecording);
@@ -471,24 +510,18 @@ function RecordButton() {
 	const reduceMotion = useReducedMotion();
 	const pulsing = isRecording && !reduceMotion;
 
-	const className = isRecording
-		? "flex h-8 items-center pointer-coarse:h-11 gap-1.5 rounded-xl border border-red-400/60 bg-red-500/10 px-3 text-xs font-medium text-red-500 transition-[background-color,border-color,color] duration-150"
-		: "flex h-8 items-center pointer-coarse:h-11 gap-1.5 rounded-xl border border-transparent px-2.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 transition-[background-color,color] duration-150 hover:bg-neutral-100 hover:text-neutral-900 dark:hover:bg-neutral-800 dark:hover:text-neutral-200";
-
 	return (
 		<StudioTooltip content="Auto-capture after each pause">
-			<motion.button
+			<button
 				type="button"
 				onClick={() => (isRecording ? stopRecording() : startRecording())}
-				whileTap={{ scale: 0.97 }}
-				transition={springs.snappy}
 				aria-pressed={isRecording}
-				className={className}
+				className="sc-scene-action"
+				data-kind="record"
 			>
 				<motion.span
 					aria-hidden="true"
-					className="inline-block size-2 shrink-0 rounded-full"
-					style={{ background: isRecording ? "#ef4444" : "currentColor" }}
+					className="sc-scene-record-dot"
 					animate={pulsing ? { opacity: [1, 0.3, 1] } : { opacity: 1 }}
 					transition={
 						pulsing
@@ -497,26 +530,28 @@ function RecordButton() {
 					}
 				/>
 				{isRecording ? "Recording…" : "Record"}
-			</motion.button>
+			</button>
 		</StudioTooltip>
 	);
 }
 
 /**
  * Compact focus input on a step card: spotlight lines like "2-4, 7". Commits on
- * blur/Enter via `parseLineRanges`; an unparseable value tints the border red and
- * is not committed (quiet, no toast). Applied at render time, so edits are instant.
- */
-/**
- * The scene list's rows have no label above the field, so their placeholder
- * names it; the inspector labels it, and its placeholder shows the format.
+ * blur/Enter via `parseLineRanges`; an unparseable value rings the field in the
+ * error colour and is not committed (quiet, no toast). Applied at render time, so
+ * edits are instant.
+ *
+ * The scene list's rows have no label above the field, so a visually hidden
+ * `<label>` names it and the placeholder shows the format; the inspector shows
+ * its label.
  */
 function FocusInput({
 	step,
 	index,
 	id,
 	placeholder = "focus 2-4,7",
-}: { step: Step; index: number; id?: string; placeholder?: string }) {
+	hiddenLabel = false,
+}: { step: Step; index: number; id: string; placeholder?: string; hiddenLabel?: boolean }) {
 	const updateStepFocus = useSnippetStore((s) => s.updateStepFocus);
 	const [text, setText] = useState(() => formatLineRanges(step.highlightRanges));
 	const [refusal, setRefusal] = useState<string | null>(null);
@@ -548,48 +583,42 @@ function FocusInput({
 		updateStepFocus(step.id, parsed);
 	}
 
-	const borderClasses = invalid
-		? "border-red-400/70 focus:border-red-400 dark:border-red-500/50 dark:focus:border-red-500"
-		: "border-neutral-200/70 focus:border-neutral-300 dark:border-neutral-800 dark:focus:border-neutral-700";
-
-	// The inspector labels its field and has room under it, so a rejected range
-	// is named there in words; a scene-list row keeps the red edge alone.
-	const errorId = id ? `${id}-error` : undefined;
-	const field = (
-		<StudioTooltip content="Spotlight lines · e.g. 2–4, 7">
-			<input
-				id={id}
-				aria-invalid={invalid}
-				aria-describedby={invalid ? errorId : undefined}
-				type="text"
-				value={text}
-				aria-label={`Scene ${index + 1} focus lines`}
-				spellCheck={false}
-				autoComplete="off"
-				onChange={(e) => {
-					setText(e.target.value);
-					setRefusal(null);
-				}}
-				onBlur={commit}
-				onKeyDown={(e) => {
-					if (e.key === "Enter") {
-						e.currentTarget.blur();
-					}
-				}}
-				onClick={(e) => e.stopPropagation()}
-				placeholder={placeholder}
-				className={`w-full truncate rounded-lg border bg-white px-1.5 py-1 font-mono text-[11px] pointer-coarse:h-11 pointer-coarse:text-base text-neutral-600 transition placeholder:text-neutral-500 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 ${borderClasses}`}
-			/>
-		</StudioTooltip>
-	);
-	if (!errorId) {
-		return field;
-	}
+	// Both surfaces name a rejected range in words under the field: the rows used
+	// to keep a red edge alone, which says nothing to anyone who cannot tell red.
+	const errorId = `${id}-error`;
 	return (
 		<>
-			{field}
+			{hiddenLabel ? (
+				<label htmlFor={id} className="sr-only">{`Scene ${index + 1} focus lines`}</label>
+			) : null}
+			<StudioTooltip content="Spotlight lines, like 2-4, 7">
+				<input
+					id={id}
+					aria-invalid={invalid}
+					aria-describedby={invalid ? errorId : undefined}
+					type="text"
+					value={text}
+					{...(hiddenLabel ? {} : { "aria-label": `Scene ${index + 1} focus lines` })}
+					spellCheck={false}
+					autoComplete="off"
+					onChange={(e) => {
+						setText(e.target.value);
+						setRefusal(null);
+					}}
+					onBlur={commit}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") {
+							e.currentTarget.blur();
+						}
+					}}
+					onClick={(e) => e.stopPropagation()}
+					placeholder={placeholder}
+					className="sc-scene-field"
+					data-mono=""
+				/>
+			</StudioTooltip>
 			{invalid ? (
-				<span id={errorId} className="text-[11px] leading-4 text-red-600 dark:text-red-400">
+				<span id={errorId} role="alert" className="sc-scene-error">
 					{refusal}
 				</span>
 			) : null}
@@ -608,34 +637,40 @@ function CaptionInput({
 	index,
 	id,
 	placeholder = "caption…",
-}: { step: Step; index: number; id?: string; placeholder?: string }) {
+	hiddenLabel = false,
+}: { step: Step; index: number; id: string; placeholder?: string; hiddenLabel?: boolean }) {
 	const updateStepAnnotation = useSnippetStore((s) => s.updateStepAnnotation);
 	const [text, setText] = useState(() => step.annotation ?? "");
 
 	return (
-		<StudioTooltip content="Caption beneath this scene">
-			<input
-				id={id}
-				type="text"
-				value={text}
-				aria-label={`Scene ${index + 1} caption`}
-				autoComplete="off"
-				onChange={(e) => setText(e.target.value)}
-				onBlur={() => {
-					// Mirror the store's trim so the field matches what actually renders.
-					setText(text.trim());
-					updateStepAnnotation(step.id, text);
-				}}
-				onKeyDown={(e) => {
-					if (e.key === "Enter") {
-						e.currentTarget.blur();
-					}
-				}}
-				onClick={(e) => e.stopPropagation()}
-				maxLength={MAX_ANNOTATION_LENGTH}
-				placeholder={placeholder}
-				className="w-full truncate rounded-lg border border-neutral-200/70 bg-white px-1.5 py-1 text-[11px] pointer-coarse:h-11 pointer-coarse:text-base text-neutral-600 transition placeholder:text-neutral-500 focus:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 dark:placeholder:text-neutral-500 dark:focus:border-neutral-700"
-			/>
-		</StudioTooltip>
+		<div className="min-w-0">
+			{hiddenLabel ? (
+				<label htmlFor={id} className="sr-only">{`Scene ${index + 1} caption`}</label>
+			) : null}
+			<StudioTooltip content="Caption beneath this scene">
+				<input
+					id={id}
+					type="text"
+					value={text}
+					{...(hiddenLabel ? {} : { "aria-label": `Scene ${index + 1} caption` })}
+					autoComplete="off"
+					onChange={(e) => setText(e.target.value)}
+					onBlur={() => {
+						// Mirror the store's trim so the field matches what actually renders.
+						setText(text.trim());
+						updateStepAnnotation(step.id, text);
+					}}
+					onKeyDown={(e) => {
+						if (e.key === "Enter") {
+							e.currentTarget.blur();
+						}
+					}}
+					onClick={(e) => e.stopPropagation()}
+					maxLength={MAX_ANNOTATION_LENGTH}
+					placeholder={placeholder}
+					className="sc-scene-field"
+				/>
+			</StudioTooltip>
+		</div>
 	);
 }

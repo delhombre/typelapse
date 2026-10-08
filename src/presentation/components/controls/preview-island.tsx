@@ -1,5 +1,10 @@
 import { exportCtaDetail, exportCtaLabel } from "@/application/export/export-label";
-import { FEED_ASPECTS, feedEntryFor, socialCorrection } from "@/application/social/feed-aspects";
+import {
+	FEED_ASPECTS,
+	feedEntryFor,
+	lockedFeeds,
+	socialCorrection,
+} from "@/application/social/feed-aspects";
 import {
 	PLATFORM_LABELS,
 	type SocialPlatform,
@@ -48,7 +53,7 @@ import {
 	WavePulse,
 	X,
 } from "reicon-react";
-import { CLUSTERS, type ClusterId, ClusterPanel } from "./cluster-panels";
+import { CLUSTERS, type ClusterId, ClusterPanel, RenderNotes } from "./cluster-panels";
 import { ISLAND_SPRING } from "./island-motion";
 import { StudioAspectMode, StudioClusterMode } from "./studio-cluster-mode";
 
@@ -455,6 +460,8 @@ export function PreviewIsland({
 		>
 			{sheetLayer}
 
+			{variant === "timeline" && cluster === "export" ? <RenderNotes variant="pill" /> : null}
+
 			<motion.div
 				className="si-island"
 				role="toolbar"
@@ -473,6 +480,7 @@ export function PreviewIsland({
 							key={platforms.length === 0 ? "social-shape" : "social-feed"}
 							ref={mountSocialRow}
 							className="si-row"
+							data-row="social"
 							{...rowMotion(reduce)}
 						>
 							<button
@@ -938,6 +946,21 @@ function FeedPicker({
 					</button>
 				);
 			})}
+			{lockedFeeds(platforms).map((locked) => (
+				// Off, with the reason in its own words: "where did LinkedIn go" has an
+				// answer on the row. There is no room for it at phone width (the row is
+				// the whole screen already), so it is hidden there (app.css).
+				<button
+					key={locked.platform}
+					type="button"
+					disabled
+					data-island-feed-locked=""
+					className="si-button si-seg-option si-seg-locked"
+				>
+					<span className="si-seg-label">{PLATFORM_LABELS[locked.platform]}</span>
+					<span className="si-seg-reason">{locked.needs}</span>
+				</button>
+			))}
 		</div>
 	);
 }

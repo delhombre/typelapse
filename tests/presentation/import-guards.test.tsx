@@ -303,11 +303,11 @@ describe("StudioSourceHub import guard", () => {
 		renderNav();
 
 		openSourceMenu();
-		fireEvent.click(screen.getByRole("menuitem", { name: "Import from URL" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "Paste a link" }));
 		expect(screen.getByRole("dialog", { name: "Import from URL" })).toBeTruthy();
 
 		fireEvent.click(screen.getByRole("button", { name: "Add source" }));
-		fireEvent.click(screen.getByRole("menuitem", { name: "Import a git diff" }));
+		fireEvent.click(screen.getByRole("menuitem", { name: "Import a change" }));
 		expect(screen.getByRole("dialog", { name: "Import a git diff" })).toBeTruthy();
 		await waitFor(() => {
 			expect(screen.queryByRole("dialog", { name: "Import from URL" })).toBeNull();

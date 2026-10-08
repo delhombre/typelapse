@@ -1,6 +1,7 @@
 import type { CaptureRecord } from "@/application/captures/capture-record";
 import { deviceExportRefusal } from "@/application/export/device-export-refusal";
-import { captionsNote, exportCodecNote, formatName } from "@/application/export/export-label";
+import { exportCodecNote, formatName } from "@/application/export/export-label";
+import { NOTHING_TO_RENDER } from "@/application/export/render-block";
 import { resolveExport } from "@/application/export/resolve-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
@@ -274,7 +275,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		// One question for Play and every route: an emptied editor with no scene is
 		// code on no screen, whatever media sits on the live scene.
 		if (!isPlayableProject(snippet.steps.length, hasMedia, snippetState.draft !== null)) {
-			set({ outcome: { kind: "failed", message: "A video needs at least one scene." } });
+			set({ outcome: { kind: "failed", message: NOTHING_TO_RENDER } });
 			feedback("error");
 			return;
 		}
@@ -315,7 +316,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 
 		// D3: one scene is a video. Authored media took the multimedia route above.
 		if (!isPlayableProject(snippet.steps.length, false)) {
-			set({ outcome: { kind: "failed", message: "A video needs at least one scene." } });
+			set({ outcome: { kind: "failed", message: NOTHING_TO_RENDER } });
 			feedback("error");
 			return;
 		}
@@ -544,7 +545,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 					bytes: blob.size,
 					target: "device",
 					elapsedMs: performance.now() - startedAt,
-					note: stillNote(resolved.config, snippet),
+					note: stillNote(resolved.config),
 				},
 			});
 			feedback("success");
@@ -862,7 +863,6 @@ async function renderOnDevice(input: DeviceRenderInput): Promise<void> {
 				target: "device",
 				elapsedMs: performance.now() - startedAt,
 				note: deviceNote(
-					snippet,
 					config,
 					input.sound,
 					renderer.lastMeasurements?.transparencyNote ?? null,
@@ -939,8 +939,10 @@ async function rememberCapture(
  *
  * A file that is quietly not what was requested is worse than one that says so,
  * and this path has several: GIF's two format concessions, whatever became of a
- * transparent background in this container, and the two things the canvas
- * renderer cannot bake yet. The server still can, and the panel says which.
+ * transparent background in this container, and the audio the canvas renderer
+ * cannot bake yet. The server still can, and the panel says which. The captions
+ * it cannot bake either are said before Render (`captionsCaveat`), when the
+ * choice of target is still open.
  *
  * The transparency line comes from the worker rather than being worked out
  * here, because only the worker knows whether this browser's encoder agreed to
@@ -949,7 +951,6 @@ async function rememberCapture(
  * property of the machine that rendered it.
  */
 function deviceNote(
-	snippet: Snippet,
 	config: RenderConfig,
 	sound: boolean,
 	transparency: string | null,
@@ -980,25 +981,15 @@ function deviceNote(
 				: "no audio track on this device yet",
 		);
 	}
-	const captions = captionsNote(hasCaptions(snippet));
-	if (captions) {
-		notes.push(captions);
-	}
 
 	// Each fragment is written to read inside a sentence, so the join is what
 	// makes each one start like a sentence again.
 	return notes.length > 0 ? `${notes.map(sentenceCase).join(". ")}.` : undefined;
 }
 
-function hasCaptions(snippet: Snippet): boolean {
-	return snippet.steps.some((step) => step.annotation);
-}
-
-/** The PNG's size, then what the painter leaves out of it: the video's own caption line. */
-function stillNote(config: RenderConfig, snippet: Snippet): string {
-	const size = `${config.width}×${config.height}.`;
-	const captions = captionsNote(hasCaptions(snippet));
-	return captions ? `${size} ${sentenceCase(captions)}.` : size;
+/** The PNG's size. What the painter leaves out is said before Render (`captionsCaveat`). */
+function stillNote(config: RenderConfig): string {
+	return `${config.width}×${config.height}.`;
 }
 
 function sentenceCase(fragment: string): string {

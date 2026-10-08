@@ -287,8 +287,10 @@ describe("the design system documents", () => {
 		for (const doc of DOCS) {
 			expect(existsSync(resolve(ROOT, doc)), doc).toBe(true);
 			const text = read(doc);
-			// DECISIONS grew to fifteen entries with the screen passes, each needing its why.
-			const limit = doc.endsWith("DECISIONS.md") ? 300 : 250;
+			// DECISIONS grew to seventeen entries with the screen passes and the panels
+			// audit, each needing its why; SYSTEM gained the disabled, editor, toast and
+			// sheet-under-a-finger rows of the same audit.
+			const limit = doc.endsWith("DECISIONS.md") ? 345 : 260;
 			expect(text.split("\n").length, doc).toBeLessThan(limit);
 			expect(text, doc).not.toMatch(/[\u2013\u2014]/);
 		}

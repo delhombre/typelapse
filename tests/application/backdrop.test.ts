@@ -5,19 +5,13 @@ import {
 	parseBackdrop,
 	radialGradientRadii,
 } from "@/application/backgrounds/backdrop";
+import { BACKGROUND_PRESETS } from "@/presentation/components/preview/background-picker";
 import { describe, expect, it } from "vitest";
 
-/** The picker's own preset values, verbatim, so a drift in either shows up here. */
-const PRESET_VALUES = [
-	"radial-gradient(ellipse at 30% 20%, #1e3a5f 0%, #0d1117 50%, #0a0e14 100%)",
-	"radial-gradient(ellipse at 70% 30%, #2d1b69 0%, #1a1b2e 50%, #12131f 100%)",
-	"radial-gradient(ellipse at 50% 30%, #e8f0fe 0%, #f0f4f8 50%, #e2e8f0 100%)",
-	"linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-	"linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-	"linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-	"linear-gradient(135deg, #38ef7d 0%, #11998e 100%)",
-	"linear-gradient(135deg, #f7971e 0%, #ffd200 100%)",
-];
+/** The picker's own preset values, read from it, so a drift in either shows up here. */
+const PRESET_VALUES = BACKGROUND_PRESETS.map((preset) => preset.value).filter(
+	(value) => value !== "transparent",
+);
 
 const PIXEL = "data:image/png;base64,iVBORw0KGgo=";
 

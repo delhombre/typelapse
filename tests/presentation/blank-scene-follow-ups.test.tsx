@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { addTextLayer } from "@/application/project/multimedia-authoring";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { TEMPLATE_CATALOG } from "@/application/templates/catalog";
@@ -120,12 +121,23 @@ describe("the layer strip on a blank scene", () => {
 
 describe("the add controls under a finger", () => {
 	it("are 44px tall in the scene list and the inspector", () => {
+		expect(coarseRule(".sc-scene-action")).toMatch(/height:\s*44px/);
 		for (const view of [<StepBuilder key="list" />, <SceneInspector key="inspector" />]) {
 			const { unmount } = render(view);
 			for (const name of ["Record", "Blank", "Capture"]) {
-				expect(screen.getByRole("button", { name }).className).toContain("pointer-coarse:h-11");
+				expect(screen.getByRole("button", { name }).className).toContain("sc-scene-action");
 			}
 			unmount();
 		}
 	});
 });
+
+/** The declarations the stylesheet's `(pointer: coarse)` blocks give a selector. */
+function coarseRule(selector: string): string {
+	const css = readFileSync("src/presentation/studio-camera.css", "utf8");
+	const blocks = css.split("@media (pointer: coarse) {").slice(1);
+	return blocks
+		.filter((block) => block.includes(selector))
+		.map((block) => block.slice(0, block.indexOf("\n}\n")))
+		.join("\n");
+}

@@ -1,6 +1,6 @@
-import { exportCtaLabel } from "@/application/export/export-label";
+import { captionsCaveat, exportCtaLabel, gifFpsCaveat } from "@/application/export/export-label";
+import { renderBlock } from "@/application/export/render-block";
 import { FONT_PRESETS } from "@/application/fonts/code-fonts";
-import { isPlayableProject } from "@/application/studio-timeline/playback";
 import {
 	ASPECT_LABELS,
 	type AspectLabel,
@@ -10,9 +10,10 @@ import {
 	dimensionsFor,
 	presetFor,
 } from "@/domain/entities/render-config";
+import { gifSafeFps } from "@/infrastructure/export/gif-timing";
 import { BackgroundPicker } from "@/presentation/components/preview/background-picker";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
-import { trigger } from "@/presentation/haptics";
+import { feedback, trigger } from "@/presentation/haptics";
 import { serverRenderOffered, useExportStore } from "@/presentation/stores/export.store";
 import { hasEmptyDraft, useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
@@ -464,7 +465,7 @@ function ExportCluster() {
 				<IslandSegmented
 					group="fps"
 					eyebrow="FPS"
-					options={FPS_OPTIONS}
+					options={fpsOptionsFor(format)}
 					value={fps}
 					onSelect={setFps}
 				/>
@@ -513,6 +514,12 @@ function ExportCluster() {
 					<CameraGlyph />
 					<span className="si-seg-label">PNG</span>
 				</button>
+			</ClusterGroup>
+
+			{/* The primary action and everything to know before pressing it stay in reach: on
+			    the phone the sheet scrolls under a frame-sized cap, and a Render that scrolled
+			    away with the rows above it was a button nobody found. */}
+			<div className="si-cluster-group si-cluster-row si-cluster-footer">
 				<button
 					type="button"
 					onClick={() => {
@@ -524,7 +531,8 @@ function ExportCluster() {
 					// focus to the page the moment they press it.
 					disabled={!canRender}
 					aria-disabled={isExporting || cloudCta.busy || undefined}
-					title={canRender ? undefined : NOTHING_TO_RENDER}
+					aria-busy={isExporting || cloudCta.busy || undefined}
+					aria-describedby={canRender ? undefined : RENDER_NOTES_ID}
 					className="si-cta si-cluster-cta"
 				>
 					<RenderCtaLabel
@@ -537,7 +545,8 @@ function ExportCluster() {
 				{deviceSupported === false ? (
 					<p className="si-cluster-note">{DEVICE_CANNOT_ENCODE}</p>
 				) : null}
-			</ClusterGroup>
+				<RenderNotes variant="sheet" />
+			</div>
 		</>
 	);
 }
@@ -569,17 +578,105 @@ export const FPS_OPTIONS = [24, 30, 60].map((rate) => ({
 	title: `${rate} frames per second`,
 }));
 
-export const NOTHING_TO_RENDER = "A video needs at least one scene.";
+/** A GIF cannot hold these rates: each chip says what it becomes before it is pressed. */
+export function fpsOptionsFor(format: RenderFormat) {
+	if (format !== "gif") {
+		return FPS_OPTIONS;
+	}
+	return FPS_OPTIONS.map((option) => {
+		const safe = gifSafeFps(option.value);
+		return safe < option.value
+			? { ...option, title: `${option.value} fps renders at ${safe} in a GIF` }
+			: option;
+	});
+}
 
 /** Why "This device" is greyed: WebCodecs said no to the chosen format and size. */
 export const DEVICE_CANNOT_ENCODE = "This browser cannot encode this format at this size.";
 
 /** D3: Render is on from one scene, and for authored media such as audio alone. */
-export function useCanRender(): boolean {
+export function useRenderBlock() {
 	const sceneCount = useSnippetStore((s) => s.snippet.steps.length);
 	const project = useStudioCompositionStore((s) => s.value.project);
 	const emptyDraft = useSnippetStore(hasEmptyDraft);
-	return isPlayableProject(sceneCount, hasAuthoredMultimedia(project), emptyDraft);
+	return renderBlock({ sceneCount, hasMedia: hasAuthoredMultimedia(project), emptyDraft });
+}
+
+export function useCanRender(): boolean {
+	return useRenderBlock() === null;
+}
+
+/** The id the Render button points `aria-describedby` at while it is off. */
+export const RENDER_NOTES_ID = "si-render-notes";
+
+/**
+ * What to know about Render before pressing it, in words on the page: why it is
+ * off (with a Capture shortcut when that unblocks it), what a GIF does to the
+ * frame rate, and what the on-device file leaves out. A tooltip never shows on a
+ * phone and a disabled button is not reached by a screen reader, so a reason
+ * kept in `title` is no reason at all (D7).
+ *
+ * The sheet draws it under the button; the desktop rail has no room for a line
+ * in its one row, so it floats it above the island as the status pill does.
+ */
+export function RenderNotes({ variant }: { variant: "sheet" | "pill" }) {
+	const block = useRenderBlock();
+	const format = useExportStore((s) => s.format);
+	const fps = useExportStore((s) => s.fps);
+	const target = useExportStore((s) => s.target);
+	const isExporting = useExportStore((s) => s.isExporting);
+	const hasCaptions = useSnippetStore((s) => s.snippet.steps.some((step) => step.annotation));
+	const captureStep = useSnippetStore((s) => s.captureStep);
+
+	const notes = [
+		gifFpsCaveat({ format, fps, safeFps: gifSafeFps(fps) }),
+		captionsCaveat({
+			hasCaptions,
+			onDevice: target === "device",
+			serverOffered: serverRenderOffered(),
+		}),
+	].filter((note): note is string => note !== null);
+
+	if ((variant === "pill" && isExporting) || (!block && notes.length === 0)) {
+		return null;
+	}
+
+	const lines = (
+		<>
+			{block ? (
+				<span className="si-note-row">
+					<span>{block.reason}</span>
+					{block.canCapture ? (
+						<button
+							type="button"
+							className="si-note-action"
+							onClick={() => {
+								captureStep();
+								feedback("commit");
+							}}
+						>
+							Capture a scene
+						</button>
+					) : null}
+				</span>
+			) : null}
+			{notes.map((note) => (
+				<span key={note} className="si-note-row">
+					{note}
+				</span>
+			))}
+		</>
+	);
+
+	return variant === "pill" ? (
+		<div id={RENDER_NOTES_ID} role="note" className="si-status si-render-notes">
+			<div className="si-render-notes-lines">{lines}</div>
+		</div>
+	) : (
+		<p id={RENDER_NOTES_ID} className="si-cluster-note si-cluster-notes">
+			{lines}
+		</p>
+	);
 }
 
 /** What the island's one filled shape says when nothing is open. */
