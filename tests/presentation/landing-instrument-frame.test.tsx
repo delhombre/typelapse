@@ -1,6 +1,4 @@
-import { IslandCta, frameBox, frameClip } from "@/presentation/landing/instrument";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { frameBox, frameClip } from "@/presentation/landing/instrument";
 import { describe, expect, it } from "vitest";
 
 /* D8: the aspect change animated the frame's width and height, which laid the
@@ -28,32 +26,5 @@ describe("instrument frame", () => {
 		expect(frameClip({ w: 100, h: 100 }, { w: 104, h: 90 }, 18)).toBe(
 			"inset(5px 0px 5px 0px round 18px)",
 		);
-	});
-});
-
-describe("instrument island CTA", () => {
-	/* One filled "Open studio" per viewport: in the hero the field's button is
-	   the primary, so the island's own CTA steps down to a text action there. */
-	it("is filled unless it is told to be quiet", () => {
-		render(
-			<MemoryRouter>
-				<IslandCta />
-			</MemoryRouter>,
-		);
-		expect(screen.getByRole("link", { name: "Open studio" }).hasAttribute("data-quiet")).toBe(
-			false,
-		);
-	});
-
-	it("keeps its name, target and destination when quiet", () => {
-		render(
-			<MemoryRouter>
-				<IslandCta quiet />
-			</MemoryRouter>,
-		);
-		const link = screen.getByRole("link", { name: "Open studio" });
-		expect(link.hasAttribute("data-quiet")).toBe(true);
-		expect(link.getAttribute("href")).toBe("/app");
-		expect(link.className).toContain("hit-ext");
 	});
 });

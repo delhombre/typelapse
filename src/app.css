@@ -461,11 +461,13 @@ html.dark:not([data-landing-theme]) {
    bound by its width rather than by what the copy leaves of the viewport, so
    the fixed chrome it budgets for is only the island under it. */
 @media (min-width: 960px) {
+	/* 40px short of the screen, so the strip of steps under it shows its top
+	   edge on a laptop's first screen: the page says it goes on. */
 	.landing-root .lp-hero {
 		--hero-chrome: 220px;
 		display: flex;
 		align-items: center;
-		min-height: 100svh;
+		min-height: calc(100svh - 40px);
 	}
 
 	/* The copy takes the wider column: the headline is two lines, one sentence
@@ -780,16 +782,11 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* Ink, not the primary, and this is the one place that is true. A filled button
-   has to be seen as a shape, not only read as a label: the primary measures
-   1.75:1 against the white it sits on here, under the 3:1 a non-text element
-   needs, so the button all but dissolved into its own field. Ink on that white
-   is 15:1.
-
-   The primary loses nothing by it — it is still on the dock, where the surface
-   is near-black and ink is the colour that would vanish, and it is the whole
-   backdrop below. The rule underneath both: the filled action takes whichever
-   of the two contrasts with what it is sitting on.
+/* The primary, as every filled action is (D2), in both themes: it is the first
+   screen's one "Open studio" (the island beside it has none, the nav holds its
+   own back). It used to be ink here, because the yellow measures 1.75:1 against
+   the white field; the label, ink on yellow at 9.9:1, is what names the button,
+   and the primary's own lift gives the shape an edge on the white.
 
    The field hugs its text, so the button is no longer pushed right by it. */
 .landing-root .lp-field-cta {
@@ -802,8 +799,9 @@ html.dark:not([data-landing-theme]) {
 	height: 40px;
 	padding: 0 18px;
 	border-radius: 999px;
-	background: var(--color-ink);
-	color: var(--color-paper);
+	background: var(--color-cta);
+	color: var(--color-on-primary);
+	box-shadow: 0 6px 16px -6px var(--color-primary-glow);
 	font-family: var(--font-sans);
 	font-size: 13px;
 	font-weight: 600;
@@ -815,7 +813,7 @@ html.dark:not([data-landing-theme]) {
    hover colour until something else is touched. */
 @media (hover: hover) and (pointer: fine) {
 	.landing-root .lp-field-cta:hover {
-		background: color-mix(in oklch, var(--color-ink) 86%, var(--color-paper));
+		background: var(--color-primary-hover);
 	}
 }
 
@@ -1276,23 +1274,6 @@ html.dark:not([data-landing-theme]) {
 	inset-inline-end: -6px;
 }
 
-/* The CTA closes the root row, and it carries a 3px margin on top of the gap:
-   8px between it and the control before it, split evenly so there is no seam
-   for a press to fall through. Its own box is 94px wide, so sideways it is far
-   past the 44px floor already and only needs the island's edge padding; the
-   shared `.hit-ext` sizes from the centre out and cannot say that, so this
-   states the four edges outright. */
-.landing-root .lp-island-row > .lp-island-cta::after {
-	inset: -5px -6px -5px -4px;
-	width: auto;
-	height: auto;
-	transform: none;
-}
-
-.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
-	inset-inline-end: -4px;
-}
-
 .landing-root .lp-island-button[data-active] {
 	color: var(--dock-ink);
 }
@@ -1314,8 +1295,7 @@ html.dark:not([data-landing-theme]) {
    gets 1px of offset and 2px of stroke: 3 of the 5, and it clears the island's
    hidden overflow with room instead of touching it. It follows the control's
    own 10px radius, so it is a rounded rect around a rounded rect. */
-.landing-root .lp-island-button:focus-visible,
-.landing-root .lp-island-cta:focus-visible {
+.landing-root .lp-island-button:focus-visible {
 	outline: 2px solid var(--dock-ink);
 	outline-offset: 1px;
 }
@@ -1412,50 +1392,6 @@ html.dark:not([data-landing-theme]) {
 	pointer-events: none;
 }
 
-/* The only filled shape in the zone. */
-.landing-root .lp-island-cta {
-	display: inline-flex;
-	align-items: center;
-	height: 30px;
-	margin-left: 3px;
-	padding: 0 14px;
-	border-radius: 999px;
-	background: var(--color-cta);
-	color: var(--color-on-primary);
-	font-size: 11px;
-	font-weight: 650;
-	letter-spacing: 0.01em;
-	white-space: nowrap;
-	/* The colour itself rather than a filter over it: `brightness()` on a
-	   saturated yellow lifts the green as much as the red and the hue drifts. */
-	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 140ms
-		var(--ease-out);
-}
-
-/* Quiet: a text action in the island's own ink, same box and same target. Used
-   where the screen's primary already says "Open studio" (the hero's field), so
-   a viewport holds one filled one. It hovers like the island's other controls,
-   one step of white fill, never a change of ink (D4). */
-.landing-root .lp-island-cta[data-quiet] {
-	background: transparent;
-	color: var(--dock-ink);
-}
-
-@media (hover: hover) and (pointer: fine) {
-	.landing-root .lp-island-cta:hover {
-		background: var(--color-primary-hover);
-	}
-
-	.landing-root .lp-island-cta[data-quiet]:hover {
-		background: var(--dock-hover);
-	}
-}
-
-/* 0.97, the landing's one press value (it was 0.98 here, SYSTEM.md, Motion: Press). */
-.landing-root .lp-island-cta:active {
-	transform: scale(0.97);
-}
-
 /* A finger, not a cursor. The 35px pitch above is a mouse's target; a thumb
    needs 44 in both axes, so on a coarse pointer every control grows to 36 and
    the gap to 8, and the half-gap extents above reach exactly 44 wide while the
@@ -1476,12 +1412,10 @@ html.dark:not([data-landing-theme]) {
 		--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px);
 	}
 
-	/* The root row holds five items, not eight, so the gap the panels give up is
-	   still there for it: its ratio and CTA are about 178px whatever the controls
-	   do, which leaves room for the full 8px down to a 317px frame (a 365px
-	   phone), and its three controls keep targets of about 44px there. */
-	.landing-root .lp-island-row:has(> .lp-island-cta) {
-		--island-gap: clamp(4px, calc(15.625cqi - 41.5px), 8px);
+	/* The root row holds four controls, not eight, so the gap the panels give
+	   up is still there for it: it keeps the full 8px on every phone. */
+	.landing-root .lp-island-row[data-root] {
+		--island-gap: 8px;
 	}
 
 	.landing-root .lp-island-button,
@@ -1490,22 +1424,8 @@ html.dark:not([data-landing-theme]) {
 		height: var(--island-control);
 	}
 
-	.landing-root .lp-island-cta {
-		height: var(--island-control);
-	}
-
 	.landing-root .lp-island-button::after {
 		inset-block: -6px;
-	}
-
-	/* The CTA's 3px margin sits on top of the gap, so it takes that much more
-	   of the seam than the control before it does. */
-	.landing-root .lp-island-row > .lp-island-cta::after {
-		inset: -6px -6px -6px calc(var(--island-gap) / -2 - 3px);
-	}
-
-	.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
-		inset-inline-end: calc(var(--island-gap) / -2);
 	}
 
 	/* Below a 310px frame (a 358px phone) the controls are under the 32px a
@@ -1519,10 +1439,6 @@ html.dark:not([data-landing-theme]) {
 
 		.landing-root .lp-island-button-tight {
 			padding-inline: 0;
-		}
-
-		.landing-root .lp-island-cta {
-			padding-inline: 10px;
 		}
 	}
 }
@@ -2294,13 +2210,13 @@ html.dark:not([data-landing-theme]) {
 }
 
 /* The anchors the nav pill jumps to land clear of it. */
-.landing-root :is(#how-it-works, #proof) {
+.landing-root #how-it-works {
 	scroll-margin-top: 16px;
 }
 
-/* Pricing opens on its own padding, right under the dark band: a margin
-   would land the jump with a sliver of the band still showing. */
-.landing-root #pricing {
+/* The proof is the dark band and pricing opens right under it: each lands on
+   its own top edge, so a jump never shows a sliver of what comes before. */
+.landing-root :is(#proof, #pricing) {
 	scroll-margin-top: 0;
 }
 
@@ -2344,27 +2260,11 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* Over the hero the CTA is held back (the hero's field is the one way in) but
-   keeps its place, so the pill does not change width when it arrives: it only
-   fades. On a phone, where the links are gone, the pill is the logo alone over
-   the hero, padded evenly, and the CTA joins it once the hero has gone. */
-.landing-root .lp-nav-cta-link {
-	transition: opacity 200ms var(--ease-out), visibility 0s linear 0s;
-}
-
-.landing-root .lp-nav-pill[data-over-hero] .lp-nav-cta-link {
-	visibility: hidden;
-	opacity: 0;
-	transition: opacity 150ms var(--ease-out), visibility 0s linear 150ms;
-}
-
+/* Over the hero the pill has no CTA (the hero's field is the one way in), and
+   on a phone, where the links are gone, it is the logo alone: padded evenly. */
 @media (max-width: 639px) {
-	.landing-root .lp-nav-pill[data-over-hero] {
+	.landing-root .lp-nav-pill[data-cta-off] {
 		padding-right: 15px;
-	}
-
-	.landing-root .lp-nav-pill[data-over-hero] .lp-nav-cta-link {
-		display: none;
 	}
 }
 

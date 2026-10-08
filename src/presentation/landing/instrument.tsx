@@ -32,11 +32,11 @@ import {
 	type ReactNode,
 	useCallback,
 	useEffect,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
 } from "react";
-import { Link } from "react-router-dom";
 import { BackGlyph, PauseGlyph, PlayGlyph } from "./island-icons";
 import { useLandingIntro } from "./primitives";
 
@@ -205,13 +205,9 @@ function resolveView(plan: MagicMovePlan, pos: ReturnType<typeof locate>): DemoV
  */
 export function Instrument({
 	maxScale = 1,
-	quietCta = false,
 	onPresetChange: reportPreset,
 }: {
 	maxScale?: number;
-	/** The island's "Open studio" as a text action, for a composition whose own
-	    primary already says it (the hero's field). */
-	quietCta?: boolean;
 	/** Reports the live backdrop outward, for a composition that wants to take
 	    its own colour from whatever the visitor picked. */
 	onPresetChange?: (id: string) => void;
@@ -260,12 +256,29 @@ export function Instrument({
 		},
 		[observeStage],
 	);
+	/* The stage's content box, read once before the first paint. The observer
+	   answers a frame later, and that first frame drew the 636px frame on a
+	   340px phone: the page grew past the screen and the fixed nav pill, centred
+	   on it, jumped when it shrank back (a layout shift on every load). */
+	const [firstFit, setFirstFit] = useState<{ w: number; h: number }>();
+	useLayoutEffect(() => {
+		const node = wrapperRef.current;
+		if (!node) {
+			return;
+		}
+		const style = getComputedStyle(node);
+		const px = (value: string) => Number.parseFloat(value) || 0;
+		setFirstFit({
+			w: node.clientWidth - px(style.paddingLeft) - px(style.paddingRight),
+			h: node.clientHeight - px(style.paddingTop) - px(style.paddingBottom),
+		});
+	}, []);
 	const current = ASPECTS.find((a) => a.id === aspect) ?? ASPECTS[0];
 	const target = fitToStage(current.ratio);
 	// Both axes: the stage's rendered height comes from CSS (it shrinks on a short
 	// viewport), so the frame has to answer to it as well as to the width.
-	const availW = resize?.contentRect?.width;
-	const availH = resize?.contentRect?.height;
+	const availW = resize?.contentRect?.width ?? firstFit?.w;
+	const availH = resize?.contentRect?.height ?? firstFit?.h;
 	// `maxScale` is how far past its natural size the frame may grow when a
 	// composition gives it more room than it needs. 1 everywhere the hero puts
 	// copy around it; a hero that hands the instrument the whole viewport raises
@@ -530,7 +543,6 @@ export function Instrument({
 				onThemeChange={setThemeName}
 				aspect={aspect}
 				onAspectChange={setAspect}
-				quietCta={quietCta}
 				caption="This is the real engine: the export matches it frame for frame."
 			/>
 		</section>
@@ -602,7 +614,6 @@ function Toolbar({
 	onThemeChange,
 	aspect,
 	onAspectChange,
-	quietCta,
 	caption,
 }: {
 	reduce: boolean;
@@ -614,7 +625,6 @@ function Toolbar({
 	onThemeChange: (name: string) => void;
 	aspect: AspectId;
 	onAspectChange: (id: AspectId) => void;
-	quietCta: boolean;
 	caption: string;
 }) {
 	const [open, setOpen] = useState<null | "backdrop" | "theme">(null);
@@ -822,6 +832,7 @@ function Toolbar({
 							key="root"
 							ref={mountRootRow}
 							className="lp-island-row"
+							data-root=""
 							{...islandMotion(reduce)}
 							exit={islandExit(reduce)}
 						>
@@ -886,8 +897,6 @@ function Toolbar({
 								</span>
 								<span className="lp-island-num">{aspect}</span>
 							</button>
-
-							<IslandCta quiet={quietCta} />
 						</motion.div>
 					) : (
 						<motion.div
@@ -1017,16 +1026,3 @@ const islandMotion = (reduce: boolean) =>
 					ease: [0.23, 1, 0.32, 1] as [number, number, number, number],
 				},
 			};
-
-/**
- * The island's way into the studio. Filled, it is the zone's one solid shape
- * (D2). Quiet, it is a text action with the same box and the same target, for a
- * screen whose primary already says "Open studio": one filled one per viewport.
- */
-export function IslandCta({ quiet = false }: { quiet?: boolean }) {
-	return (
-		<Link to="/app" className="lp-island-cta hit-ext" data-quiet={quiet ? "" : undefined}>
-			Open studio
-		</Link>
-	);
-}

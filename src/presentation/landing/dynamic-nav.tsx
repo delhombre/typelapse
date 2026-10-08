@@ -27,6 +27,11 @@ import { Link } from "react-router-dom";
  * the first screen's one way into the studio (D2), so the CTA joins the pill
  * once the hero has gone. Past the hero it also behaves as a header should:
  * hidden on the way down, back on the way up. Reduced motion keeps it put.
+ *
+ * The pill never changes width where it can be seen: a centred pill that grows
+ * moves its logo, a layout shift on every visit. When the hero comes or goes
+ * with the pill on screen, it tucks away, takes or drops its CTA out of sight,
+ * and drops back in (round 3 of the #248 review: CLS 0, no hole, no jump).
  */
 
 /** How far up the hidden island tucks (past the top edge). */
@@ -35,6 +40,13 @@ const HIDDEN_Y = -104;
 /** Clean slides, no overshoot: drop back in, tuck quickly away. */
 const REVEAL_TRANSITION: Transition = { type: "spring", bounce: 0, duration: 0.42 };
 const HIDE_TRANSITION: Transition = { type: "spring", bounce: 0, duration: 0.3 };
+
+/** How long the tuck takes to clear the top edge before the CTA is swapped, in ms. */
+export const NAV_TUCK_MS = 320;
+/** Under reduced motion the tuck is instant: two frames out of sight are enough. */
+const NAV_TUCK_REDUCED_MS = 34;
+/** The frames the swapped pill stays out of sight before it drops back in. */
+const NAV_SETTLE_MS = 34;
 
 const SECTIONS = [
 	{ href: "#how-it-works", label: "How it works" },
@@ -50,6 +62,12 @@ export function DynamicNav() {
 	   opens on it, so the first frame already has the quiet capsule: starting
 	   filled painted a yellow flash the observer then faded out. */
 	const [overHero, setOverHero] = useState(true);
+	/* Whether the pill holds its CTA. It follows `overHero`, but only while the
+	   pill is out of sight. It starts without, as the page opens on the hero
+	   (which is not in the document yet when this first renders). */
+	const [withCta, setWithCta] = useState(false);
+	const [tucking, setTucking] = useState(false);
+	const wantCta = !overHero;
 	/* Measured rather than assumed to be one viewport: the hero's content can
 	   push it taller, and a resize can change it under us. */
 	const heroBottom = useRef(0);
@@ -81,6 +99,30 @@ export function DynamicNav() {
 		};
 	}, []);
 
+	/* The hero came or went: tuck, swap out of sight, then drop back in. A pill
+	   already hidden by the scroll stays hidden through it. */
+	useEffect(() => {
+		if (withCta === wantCta) {
+			return;
+		}
+		setTucking(true);
+		const swap = window.setTimeout(
+			() => setWithCta(wantCta),
+			reduce ? NAV_TUCK_REDUCED_MS : NAV_TUCK_MS,
+		);
+		return () => window.clearTimeout(swap);
+	}, [withCta, wantCta, reduce]);
+
+	useEffect(() => {
+		if (!tucking || withCta !== wantCta) {
+			return;
+		}
+		const back = window.setTimeout(() => setTucking(false), NAV_SETTLE_MS);
+		return () => window.clearTimeout(back);
+	}, [tucking, withCta, wantCta]);
+
+	const out = hidden || tucking;
+
 	useMotionValueEvent(scrollY, "change", (y) => {
 		if (y < heroBottom.current) {
 			setHidden(false);
@@ -95,12 +137,12 @@ export function DynamicNav() {
 		<header className="pointer-events-none fixed inset-x-0 top-[max(12px,env(safe-area-inset-top))] z-50 flex justify-center">
 			<motion.div
 				className="lp-nav-pill pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px]"
-				data-over-hero={overHero ? "" : undefined}
-				aria-hidden={hidden}
-				inert={hidden}
+				data-cta-off={withCta ? undefined : ""}
+				aria-hidden={out}
+				inert={out}
 				initial={false}
-				animate={{ y: hidden ? HIDDEN_Y : 0, opacity: hidden ? 0 : 1 }}
-				transition={reduce ? { duration: 0 } : hidden ? HIDE_TRANSITION : REVEAL_TRANSITION}
+				animate={{ y: out ? HIDDEN_Y : 0, opacity: out ? 0 : 1 }}
+				transition={reduce ? { duration: 0 } : out ? HIDE_TRANSITION : REVEAL_TRANSITION}
 			>
 				<Link to="/" aria-label="Typelapse home" className="hit-ext flex items-center gap-2">
 					<Logomark size={17} />
@@ -116,17 +158,13 @@ export function DynamicNav() {
 				{/* The capsule nests concentric in the pill: pill h44 r22, capsule h32
 				    r16, so an even 6px inset (pr-[6px] + the 6px top/bottom gap). It is
 				    the primary on the plate, as every filled action is (D2), and it is
-				    held back while the hero is in view: the hero's field holds the first
-				    screen's one way in, so "Open studio" is said once. Held back, not
-				    removed: it keeps its place and fades, so the pill never changes
-				    width under the reader (a phone, with no links, drops it instead). */}
+				    not there while the hero is in view: the hero's field holds the first
+				    screen's one way in, so "Open studio" is said once. */}
 				<Link
 					to="/app"
 					aria-label="Open studio"
 					className="lp-nav-cta-link flex h-full items-center outline-offset-4"
-					aria-hidden={overHero || undefined}
-					inert={overHero}
-					tabIndex={overHero ? -1 : undefined}
+					hidden={!withCta}
 				>
 					<span className="lp-nav-cta inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-[var(--color-on-primary)] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] transition-[background-color,box-shadow] duration-150 ease-[var(--ease-out)] hover:bg-[var(--color-primary-hover)]">
 						Open studio

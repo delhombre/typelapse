@@ -29,20 +29,18 @@ the header; on a short window the frame gives way first.
 exactly one shape is filled: the CTA, `--color-primary` with
 `--color-on-primary` text. Every other control is transparent until hovered.
 When a sheet opens with its own render button, the island's CTA hands its fill
-over (`.si-cta[data-open]`). One exception, recorded by the landing pass: the
-first viewport holds one filled "Open studio", so inside the hero the field's
-button is the zone's primary and the instrument's CTA is quiet there
-(`data-quiet`: transparent, the island's ink, the same box and target, one
-step of white on hover). The nav island's CTA, hidden until the hero has
-scrolled out, is the filled one past it.
+over (`.si-cta[data-open]`). On the landing "Open studio" is said once in
+the first screen: the hero field's button, filled with the primary in both
+themes; the Instrument's island carries no CTA, and the nav pill keeps its
+own in place but faded and inert until the hero has scrolled out.
 
 **Why:** hierarchy by subtraction; the old toolbar gave its only filled disc
 to Play, the least important action. Ink on the yellow reads 9.92:1, white
 1.73:1.
 
 **Enforced by:** `src/app.css` (`--color-primary`, `--color-cta`, `.si-cta`,
-`.lp-island-cta[data-quiet]`), `tests/presentation/landing-hero.test.tsx`,
-`tests/presentation/landing-instrument-frame.test.tsx` (pass
+`.lp-field-cta`, `.lp-nav-cta-link`), `tests/presentation/landing-hero.test.tsx`,
+`tests/presentation/landing-nav-plate.test.tsx` (pass
 `docs/design/passes/2026-10-05-landing.md`).
 
 **Pivot:** "Secondary actions may be filled too."

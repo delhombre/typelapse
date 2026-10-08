@@ -43,7 +43,7 @@ const W = 124;
 const D = TOP + 6 * LH + 5;
 const TH = 2.2;
 const DEPTH = 5.4;
-const HOP = 12;
+const HOP = 6;
 const REST = 0.06;
 /** The token that travels furthest, three lines down: the one with the bright edge. */
 const FAR = 2;

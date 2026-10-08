@@ -259,10 +259,10 @@ export function Hero() {
 				</RevealGroup>
 
 				<Reveal immediate delay={0.26} className="lp-hero-instrument">
-					{/* The field's button is this screen's primary, and the island sits
-				    inside the same screen, so its own "Open studio" stays a text
-				    action, as the nav's does while the hero is in view. */}
-					<Instrument quietCta />
+					{/* The field's button is this screen's primary and its one "Open
+				    studio" (D2): the island beside it carries the engine's controls
+				    only, as the nav holds its CTA back while the hero is in view. */}
+					<Instrument />
 				</Reveal>
 			</div>
 		</section>

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { Hero } from "@/presentation/landing/hero";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -5,9 +7,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/presentation/landing/instrument", () => ({
-	Instrument: ({ quietCta }: { quietCta?: boolean }) => (
-		<div aria-label="Product preview" data-quiet-cta={quietCta ? "" : undefined} />
-	),
+	Instrument: () => <div aria-label="Product preview" />,
 }));
 
 vi.mock("@/presentation/haptics", () => ({ trigger: vi.fn() }));
@@ -187,10 +187,15 @@ describe("landing hero, the meta line", () => {
 });
 
 describe("landing hero, one filled call to action", () => {
-	it("keeps the field's button as the primary and quiets the instrument's own", () => {
-		// The island sits inside the hero, so whenever it is on screen the field's
-		// "Open studio" is too: two filled buttons with the same words.
+	it("says Open studio once: the field's button, which wears the primary", () => {
+		// The island sits inside the hero, so it has no "Open studio" of its own
+		// (round 3 of the #248 review): the field's button is the one way in.
 		renderHero();
-		expect(screen.getByLabelText("Product preview").hasAttribute("data-quiet-cta")).toBe(true);
+		expect(screen.getAllByText("Open studio")).toHaveLength(1);
+
+		const css = readFileSync(resolve(__dirname, "../../src/app.css"), "utf8");
+		const rule = (css.match(/\.landing-root \.lp-field-cta \{[^}]*\}/g) ?? []).join("\n");
+		expect(rule).toContain("background: var(--color-cta)");
+		expect(rule).toContain("color: var(--color-on-primary)");
 	});
 });

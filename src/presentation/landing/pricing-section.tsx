@@ -11,7 +11,7 @@ const SIDES = [
 		title: "On your machine",
 		line: "Free, under AGPL-3.0.",
 		points: [
-			"Every import, every look, every motion",
+			"Every import, every look, every\u00a0motion",
 			"MP4, WebM, GIF and PNG, up to\u00a04K",
 			"No account, nothing uploaded",
 		],
