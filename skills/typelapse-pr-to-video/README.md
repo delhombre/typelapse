@@ -34,8 +34,8 @@ pull request into the editor.
 
 <table>
 	<tr>
-		<th>AV1 4:4:4, 42.81 dB</th>
-		<th>H.264 4:2:0, 32.18 dB</th>
+		<th>AV1 4:4:4, 43.63 dB</th>
+		<th>H.264 4:2:0, 29.31 dB</th>
 	</tr>
 	<tr>
 		<td><img src="../../docs/sharpness/av1-444.png" width="576" height="96" alt="A line of code from the AV1 4:4:4 WebM export: every glyph edge keeps its colour" /></td>

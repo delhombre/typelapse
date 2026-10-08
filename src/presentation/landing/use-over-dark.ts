@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
 /**
- * Whether a dark section is currently under the strip at the top of the viewport
- * where the page's fixed furniture floats.
+ * Whether a dark section is currently under the rows `bandTop` to `bandBottom`
+ * of the viewport, where the page's fixed furniture floats.
  *
  * The theme toggle is a bare glyph drawn for paper, and the landing alternates
  * paper with full-bleed dark sections, so it disappears into one as it passes. It
@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
  * scroll frame is how a page starts thrashing layout. The root is shrunk to the
  * band itself, so an intersection *is* the answer.
  */
-export function useOverDark(bandHeight: number): boolean {
+export function useOverDark(bandTop: number, bandBottom: number): boolean {
 	const [overDark, setOverDark] = useState(false);
 
 	useEffect(() => {
@@ -43,7 +43,7 @@ export function useOverDark(bandHeight: number): boolean {
 					}
 					setOverDark(inBand.size > 0);
 				},
-				{ rootMargin: `0px 0px ${bandHeight - window.innerHeight}px 0px` },
+				{ rootMargin: `${-bandTop}px 0px ${bandBottom - window.innerHeight}px 0px` },
 			);
 			for (const section of sections) {
 				observer.observe(section);
@@ -56,7 +56,7 @@ export function useOverDark(bandHeight: number): boolean {
 			observer?.disconnect();
 			window.removeEventListener("resize", connect);
 		};
-	}, [bandHeight]);
+	}, [bandTop, bandBottom]);
 
 	return overDark;
 }

@@ -289,6 +289,9 @@ html.dark:not([data-landing-theme]) {
 	   accent so white text could clear AA on it; there is one primary now, and
 	   it carries its own text colour with it. */
 	--color-cta: var(--color-primary);
+	/* The opaque line where hairlines cross or the backdrop changes under one:
+	   the hero's field and pastilles, and the pipeline's rail and its stops. */
+	--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
 	font-family: var(--font-sans);
 	font-optical-sizing: auto;
 	/* Only Regular and SemiBold of the mono are loaded: never fabricate one. */
@@ -442,35 +445,83 @@ html.dark:not([data-landing-theme]) {
 	   which silently crushes the small one. Computed style reports the radius
 	   asked for, not the one used — only the pixels show it. */
 	--cap-r: calc(var(--field-h) / 2);
-	--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
+	/* Under the fixed nav pill (12px down, 44px tall) and the theme switch, whose
+	   target ends 60px down, with the notch cleared on a phone in portrait. */
+	padding-top: max(96px, calc(env(safe-area-inset-top, 0px) + 84px));
+	padding-bottom: clamp(48px, 7vw, 88px);
 }
 
+.landing-root .lp-hero-grid {
+	display: grid;
+	gap: 40px;
+	align-items: center;
+}
+
+/* The engine beside the copy once the column can hold both: the stage is then
+   bound by its width rather than by what the copy leaves of the viewport, so
+   the fixed chrome it budgets for is only the island under it. */
+@media (min-width: 960px) {
+	/* 40px short of the screen, so the strip of steps under it shows its top
+	   edge on a laptop's first screen: the page says it goes on. */
+	.landing-root .lp-hero {
+		--hero-chrome: 220px;
+		display: flex;
+		align-items: center;
+		min-height: calc(100svh - 40px);
+	}
+
+	/* The copy takes the wider column: the headline is two lines, one sentence
+	   each, and "A pull request in." has to fit one of them whole. */
+	.landing-root .lp-hero-grid {
+		grid-template-columns: 6fr 5fr;
+		gap: 56px;
+	}
+
+	/* The display size answers to the column, not the viewport: 44px at 960,
+	   56px from 1440, where "A pull request in." is about 530px of a 555px
+	   column. */
+	.landing-root .lp-hero-title {
+		font-size: clamp(2.75rem, 0.3rem + 3.6vw, 3.5rem);
+	}
+}
+
+/* Two sentences, two lines, at every width: "A pull request in." over "A
+   video out.". On a phone the display answers to the screen so the longer
+   sentence fits its line whole (about 7.5em of it, beside the gutters and the
+   text inset): 38px at 360, 42px at 390, 44px from about 405. */
+.landing-root .lp-hero-title > span {
+	display: block;
+	white-space: nowrap;
+}
+
+@media (max-width: 639px) {
+	.landing-root .lp-hero-title {
+		font-size: min(2.75rem, calc((100vw - 64px) / 7.7));
+	}
+}
+
+/* The Instrument brings its own gutter for a page that gives it the full
+   width; in the hero's grid the container already has one. */
+.landing-root .lp-hero-instrument .lp-gutter {
+	padding-inline: 0;
+}
+
+.landing-root .lp-hero-title,
 .landing-root .lp-hero-lead,
 .landing-root .lp-log,
 .landing-root .lp-hero-meta {
 	padding-left: var(--text-x);
 }
 
-/* The only prose in the hero, and this direction has no headline, so it
-   carries the voice. The name takes the ink and the weight; the rest stays
-   ash, so there is one thing to land on and one to read after. */
+/* The headline is the whole product in two sentences; the lead names its
+   steps in the order the page then shows them. */
 .landing-root .lp-hero-lead {
-	/* 52ch of Geist, whose zero is 0.663em. Written in em because ch follows the
+	/* 36ch of Geist, whose zero is 0.663em. Written in em because ch follows the
 	   face on screen: while Geist loads, the fallback's narrower zero made the
-	   measure 86px shorter, the lead took a line more, and the hero jumped when
-	   Geist landed. */
-	max-width: calc(52 * 0.663em);
-	font-size: 17px;
-	/* 26px at this size, written as the ratio so it follows the size. */
-	line-height: calc(26 / 17);
-	letter-spacing: -0.01em;
-	color: var(--color-ash);
-	text-wrap: pretty;
-}
-
-.landing-root .lp-hero-lead strong {
-	font-weight: 600;
-	color: var(--color-ink);
+	   measure shorter, the lead took a line more, and the hero jumped when Geist
+	   landed. */
+	max-width: calc(36 * 0.663em);
+	margin-top: 20px;
 }
 
 /* The block. Its border is all four sides and the bottom one is the join: a
@@ -731,16 +782,11 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* Ink, not the primary, and this is the one place that is true. A filled button
-   has to be seen as a shape, not only read as a label: the primary measures
-   1.75:1 against the white it sits on here, under the 3:1 a non-text element
-   needs, so the button all but dissolved into its own field. Ink on that white
-   is 15:1.
-
-   The primary loses nothing by it — it is still on the dock, where the surface
-   is near-black and ink is the colour that would vanish, and it is the whole
-   backdrop below. The rule underneath both: the filled action takes whichever
-   of the two contrasts with what it is sitting on.
+/* The primary, as every filled action is (D2), in both themes: it is the first
+   screen's one "Open studio" (the island beside it has none, the nav holds its
+   own back). It used to be ink here, because the yellow measures 1.75:1 against
+   the white field; the label, ink on yellow at 9.9:1, is what names the button,
+   and the primary's own lift gives the shape an edge on the white.
 
    The field hugs its text, so the button is no longer pushed right by it. */
 .landing-root .lp-field-cta {
@@ -753,8 +799,9 @@ html.dark:not([data-landing-theme]) {
 	height: 40px;
 	padding: 0 18px;
 	border-radius: 999px;
-	background: var(--color-ink);
-	color: var(--color-paper);
+	background: var(--color-cta);
+	color: var(--color-on-primary);
+	box-shadow: 0 6px 16px -6px var(--color-primary-glow);
 	font-family: var(--font-sans);
 	font-size: 13px;
 	font-weight: 600;
@@ -766,7 +813,7 @@ html.dark:not([data-landing-theme]) {
    hover colour until something else is touched. */
 @media (hover: hover) and (pointer: fine) {
 	.landing-root .lp-field-cta:hover {
-		background: color-mix(in oklch, var(--color-ink) 86%, var(--color-paper));
+		background: var(--color-primary-hover);
 	}
 }
 
@@ -914,6 +961,11 @@ html.dark:not([data-landing-theme]) {
 .landing-root .lp-dark {
 	--color-ink: var(--color-band-ink);
 	--color-ash: #a8a39a;
+	/* The paper's hairline is ink at 10%, which on the band is nothing: the band's
+	   own ink at 12%, as the dark theme's hairline is. */
+	--color-hairline: color-mix(in oklch, var(--color-band-ink) 12%, transparent);
+	/* A picture on the band is a picture on dark, whatever the page's theme. */
+	--image-edge: oklch(1 0 0 / 0.1);
 	background: #171614;
 	color: var(--color-band-ink);
 }
@@ -1039,6 +1091,9 @@ html.dark:not([data-landing-theme]) {
 	--dock-ink: #f2f2f4;
 	--dock-dim: #9a9aa2;
 	--dock-hairline: rgb(255 255 255 / 0.1);
+	/* The wash under a hovered control on the plate: the island's buttons, its
+	   quiet CTA, the nav's links and its quiet capsule. */
+	--dock-hover: rgb(255 255 255 / 0.07);
 	/* Depth for a dark plate: the island's lift, and its edge. The edge is an inset
 	   1px ring in the island's own hairline, in the stack with the shadow rather
 	   than a border, so a plate that sits on something as dark as itself (the dark
@@ -1219,23 +1274,6 @@ html.dark:not([data-landing-theme]) {
 	inset-inline-end: -6px;
 }
 
-/* The CTA closes the root row, and it carries a 3px margin on top of the gap:
-   8px between it and the control before it, split evenly so there is no seam
-   for a press to fall through. Its own box is 94px wide, so sideways it is far
-   past the 44px floor already and only needs the island's edge padding; the
-   shared `.hit-ext` sizes from the centre out and cannot say that, so this
-   states the four edges outright. */
-.landing-root .lp-island-row > .lp-island-cta::after {
-	inset: -5px -6px -5px -4px;
-	width: auto;
-	height: auto;
-	transform: none;
-}
-
-.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
-	inset-inline-end: -4px;
-}
-
 .landing-root .lp-island-button[data-active] {
 	color: var(--dock-ink);
 }
@@ -1243,7 +1281,7 @@ html.dark:not([data-landing-theme]) {
 @media (hover: hover) and (pointer: fine) {
 	.landing-root .lp-island-button:hover {
 		color: var(--dock-ink);
-		background: rgb(255 255 255 / 0.07);
+		background: var(--dock-hover);
 	}
 }
 
@@ -1257,8 +1295,7 @@ html.dark:not([data-landing-theme]) {
    gets 1px of offset and 2px of stroke: 3 of the 5, and it clears the island's
    hidden overflow with room instead of touching it. It follows the control's
    own 10px radius, so it is a rounded rect around a rounded rect. */
-.landing-root .lp-island-button:focus-visible,
-.landing-root .lp-island-cta:focus-visible {
+.landing-root .lp-island-button:focus-visible {
 	outline: 2px solid var(--dock-ink);
 	outline-offset: 1px;
 }
@@ -1355,50 +1392,6 @@ html.dark:not([data-landing-theme]) {
 	pointer-events: none;
 }
 
-/* The only filled shape in the zone. */
-.landing-root .lp-island-cta {
-	display: inline-flex;
-	align-items: center;
-	height: 30px;
-	margin-left: 3px;
-	padding: 0 14px;
-	border-radius: 999px;
-	background: var(--color-cta);
-	color: var(--color-on-primary);
-	font-size: 11px;
-	font-weight: 650;
-	letter-spacing: 0.01em;
-	white-space: nowrap;
-	/* The colour itself rather than a filter over it: `brightness()` on a
-	   saturated yellow lifts the green as much as the red and the hue drifts. */
-	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 140ms
-		var(--ease-out);
-}
-
-/* Quiet: a text action in the island's own ink, same box and same target. Used
-   where the screen's primary already says "Open studio" (the hero's field), so
-   a viewport holds one filled one. It hovers like the island's other controls,
-   one step of white fill, never a change of ink (D4). */
-.landing-root .lp-island-cta[data-quiet] {
-	background: transparent;
-	color: var(--dock-ink);
-}
-
-@media (hover: hover) and (pointer: fine) {
-	.landing-root .lp-island-cta:hover {
-		background: var(--color-primary-hover);
-	}
-
-	.landing-root .lp-island-cta[data-quiet]:hover {
-		background: rgb(255 255 255 / 0.07);
-	}
-}
-
-/* 0.97, the landing's one press value (it was 0.98 here, SYSTEM.md, Motion: Press). */
-.landing-root .lp-island-cta:active {
-	transform: scale(0.97);
-}
-
 /* A finger, not a cursor. The 35px pitch above is a mouse's target; a thumb
    needs 44 in both axes, so on a coarse pointer every control grows to 36 and
    the gap to 8, and the half-gap extents above reach exactly 44 wide while the
@@ -1419,12 +1412,10 @@ html.dark:not([data-landing-theme]) {
 		--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px);
 	}
 
-	/* The root row holds five items, not eight, so the gap the panels give up is
-	   still there for it: its ratio and CTA are about 178px whatever the controls
-	   do, which leaves room for the full 8px down to a 317px frame (a 365px
-	   phone), and its three controls keep targets of about 44px there. */
-	.landing-root .lp-island-row:has(> .lp-island-cta) {
-		--island-gap: clamp(4px, calc(15.625cqi - 41.5px), 8px);
+	/* The root row holds four controls, not eight, so the gap the panels give
+	   up is still there for it: it keeps the full 8px on every phone. */
+	.landing-root .lp-island-row[data-root] {
+		--island-gap: 8px;
 	}
 
 	.landing-root .lp-island-button,
@@ -1433,22 +1424,8 @@ html.dark:not([data-landing-theme]) {
 		height: var(--island-control);
 	}
 
-	.landing-root .lp-island-cta {
-		height: var(--island-control);
-	}
-
 	.landing-root .lp-island-button::after {
 		inset-block: -6px;
-	}
-
-	/* The CTA's 3px margin sits on top of the gap, so it takes that much more
-	   of the seam than the control before it does. */
-	.landing-root .lp-island-row > .lp-island-cta::after {
-		inset: -6px -6px -6px calc(var(--island-gap) / -2 - 3px);
-	}
-
-	.landing-root .lp-island-button:has(+ .lp-island-cta)::after {
-		inset-inline-end: calc(var(--island-gap) / -2);
 	}
 
 	/* Below a 310px frame (a 358px phone) the controls are under the 32px a
@@ -1462,10 +1439,6 @@ html.dark:not([data-landing-theme]) {
 
 		.landing-root .lp-island-button-tight {
 			padding-inline: 0;
-		}
-
-		.landing-root .lp-island-cta {
-			padding-inline: 10px;
 		}
 	}
 }
@@ -1525,394 +1498,774 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* The export fan's phone row, edge to edge: it takes back the whole gutter its
-   section sits in (the same max() as `.lp-gutter`, so a notch is cleared on
-   each side) and pads its first and last card with it. The cards start on the
-   text's column and run off the screen, which is what says the row scrolls.
-   `overflow-x: auto` clips on y too, and the cards' shadows reach 60px under
-   them: the room for them is padding, given back to the layout as a negative
-   margin so the page does not grow. */
-.landing-root .lp-fan-row {
-	margin-right: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px)));
-	margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)));
-	padding-right: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px));
-	padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
-	margin-block: -1rem -4rem;
-	padding-block: 1rem 4rem;
+/* ─────────────────────────────────────────────────────────────────────────
+   The pipeline (decision 2026-10-08-landing-pipeline): the strip of the five
+   steps, then the five stages on one rail, each a hairline figure beside the
+   product itself.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* The hairline figures' palette, read by the kernel as `--hairline-*`. Derived
+   from the page's own ink and paper, so they are the warm ramp of whichever
+   theme is on: the bright stroke is the ink, a plate is filled with the paper it
+   stands on (an opaque plate is what hides the line behind it), and the
+   silhouette, the middle and the dim strokes are ink mixed into paper. The
+   silhouette clears 3:1 against the paper in both themes (48% light, 46% dark),
+   since it is the outline a reader has to see; the dark theme takes a little
+   more ink on the dim steps, which disappear sooner on near-black. Never the
+   primary: one bright stroke is the figures' only highlight. */
+.landing-root {
+	--hairline-plate: var(--color-paper);
+	--hairline-hi: var(--color-ink);
+	--hairline-edge: color-mix(in oklch, var(--color-ink) 48%, var(--color-paper));
+	--hairline-mid: color-mix(in oklch, var(--color-ink) 20%, var(--color-paper));
+	--hairline-lo: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
+	--hairline-stroke: 1;
 }
 
-/* The export fan's phone row runs edge to edge, so a ring drawn outside it
-   falls off both sides of the screen and only its top and bottom show. Drawn
-   inside, it frames the row the keyboard is about to scroll. */
-.landing-root .lp-fan-row:focus-visible {
-	outline-offset: -2px;
+/* A picture's own edge: a 1px line inside it, black at 10% on the paper and
+   white at 10% on the dark theme, so a frame that runs to its edge in the same
+   tone as the page still ends where it ends. */
+.landing-root {
+	--image-edge: oklch(0 0 0 / 0.1);
 }
 
-/* PR → timeline. One crop of the actual workflow rather than a diagram made of
-   nested cards: the preview and its timeline belong to the same object. */
-.landing-root .lp-import-shot {
-	/* The shot's radius and the timeline's padding, kept as two numbers because the
-	   scenes in its corner derive their own radius from them (D3). */
-	--shot-r: 24px;
-	--shot-pad: 11px;
-	/* The playhead's red and the traffic lights are the studio's own marks (the
-	   lights are CHROME_STYLE.macos.lights, which the code windows read). */
-	--shot-red: #ff5f57;
-	--shot-amber: #febc2e;
-	--shot-green: #28c840;
-	width: min(100%, 540px);
-	overflow: hidden;
-	border-radius: var(--shot-r);
-	background: var(--color-surface);
-	/* The ring is in the stack, not a border (the landing's one border is the
-	   section rule): it is the edge on paper and, with the deeper shadow, the only
-	   edge on the dark theme. */
-	box-shadow: var(--raised-ring), 0 28px 64px -46px rgb(28 27 25 / 0.46);
-	user-select: none;
+.landing-root[data-theme="dark"] {
+	--image-edge: oklch(1 0 0 / 0.1);
+	--hairline-edge: color-mix(in oklch, var(--color-ink) 46%, var(--color-paper));
+	--hairline-mid: color-mix(in oklch, var(--color-ink) 26%, var(--color-paper));
+	--hairline-lo: color-mix(in oklch, var(--color-ink) 15%, var(--color-paper));
 }
 
-.landing-root[data-theme="dark"] .lp-import-shot {
-	box-shadow: var(--raised-ring), 0 28px 68px -42px rgb(0 0 0 / 0.76);
+/* The strip: five steps in a row, each a link to its stage. */
+.landing-root .lp-steps {
+	border-block: 1px solid var(--color-hairline);
 }
 
-.landing-root .lp-import-preview {
-	/* A picture of the studio on its own backdrop: it keeps the light palette
-	   whatever the page's theme is, so the chip inside reads paper and ink and not
-	   their dark-theme remap. */
-	--color-paper: #faf9f6;
-	--color-ink: #1c1b19;
-	--color-ash: #6e6b64;
-	position: relative;
-	min-height: 318px;
-	overflow: hidden;
-	padding: 18px;
-	background: radial-gradient(circle at 22% 18%, rgb(255 221 82 / 0.96) 0, transparent 34%),
-		radial-gradient(circle at 76% 73%, rgb(244 75 50 / 0.92) 0, transparent 40%),
-		linear-gradient(138deg, #57460d 0%, #d48613 46%, #3a1715 100%);
-}
-
-.landing-root .lp-import-preview::after {
-	content: "";
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	background: linear-gradient(180deg, rgb(12 11 14 / 0.03), rgb(12 11 14 / 0.24));
-}
-
-.landing-root .lp-import-source-island {
-	position: relative;
-	z-index: 3;
-	display: flex;
-	width: fit-content;
-	max-width: 100%;
-	height: 40px;
-	align-items: center;
-	gap: 8px;
-	padding: 0 6px 0 7px;
-	border-radius: 999px;
-	/* Opaque, and no blur: the chip holds text, and we do not put glass behind
-	   text. The ring is the edge. */
-	background: var(--color-paper);
-	box-shadow: 0 0 0 1px rgb(255 255 255 / 0.42), 0 10px 28px -15px rgb(31 18 5 / 0.55);
-	color: var(--color-ink);
-}
-
-.landing-root .lp-import-git-mark {
+.landing-root .lp-steps ol {
 	display: grid;
-	width: 28px;
-	height: 28px;
-	flex: none;
-	place-items: center;
-	border-radius: 999px;
-	background: color-mix(in oklch, var(--color-ink) 7%, transparent);
+	grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
-.landing-root .lp-import-source-copy {
-	display: grid;
-	min-width: 68px;
-	line-height: 1.05;
+.landing-root .lp-steps li + li {
+	border-left: 1px solid var(--color-hairline);
 }
 
-.landing-root .lp-import-source-copy strong {
-	font-size: 11px;
-	font-weight: 650;
-	letter-spacing: -0.015em;
-}
-
-.landing-root .lp-import-source-copy small {
-	margin-top: 3px;
-	font-family: var(--font-mono);
-	font-size: 11px;
-	color: var(--color-ash);
-}
-
-.landing-root .lp-import-origin {
-	display: inline-flex;
-	height: 28px;
-	align-items: center;
-	gap: 5px;
-	border-radius: 999px;
-	padding: 0 9px;
-	background: var(--color-ink);
-	font-size: 11px;
-	font-weight: 600;
-	white-space: nowrap;
-	color: var(--color-paper);
-}
-
-.landing-root .lp-import-origin svg {
-	color: var(--color-primary);
-}
-
-.landing-root .lp-import-frame-wrap {
-	position: relative;
-	z-index: 1;
-	display: flex;
-	justify-content: center;
-	margin-top: 18px;
-}
-
-.landing-root .lp-import-render {
-	width: 78%;
-	height: 176px;
-}
-
-.landing-root .lp-import-ready {
-	position: absolute;
-	z-index: 3;
-	right: 16px;
-	bottom: 14px;
-	display: grid;
-	grid-template-columns: 28px auto;
-	grid-template-rows: auto auto;
-	column-gap: 8px;
-	align-items: center;
-	border-radius: 13px;
-	padding: 8px 11px 8px 8px;
-	/* The island's plate, opaque: a toast in the studio is the dock's material. */
-	background: var(--dock-bg);
-	box-shadow: var(--island-edge), 0 12px 30px -15px rgb(0 0 0 / 0.65);
-}
-
-.landing-root .lp-import-ready > span {
-	display: grid;
-	width: 28px;
-	height: 28px;
-	grid-row: 1 / 3;
-	place-items: center;
-	border-radius: 9px;
-	background: color-mix(in oklch, var(--color-primary) 14%, transparent);
-	color: var(--color-primary);
-}
-
-.landing-root .lp-import-ready strong {
-	font-size: 12px;
-	font-weight: 600;
-	color: var(--dock-ink);
-}
-
-.landing-root .lp-import-ready small {
-	margin-top: 2px;
-	font-size: 11px;
-	color: var(--dock-dim);
-}
-
-.landing-root .lp-import-timeline {
-	position: relative;
-	padding: 0 var(--shot-pad);
-	border-top: 1px solid var(--color-hairline);
-	background: var(--color-surface);
-}
-
-.landing-root .lp-import-transport {
-	display: grid;
-	height: 40px;
-	grid-template-columns: 1fr auto 1fr;
-	align-items: center;
-	font-family: var(--font-mono);
-	font-size: 11px;
-	font-variant-numeric: tabular-nums;
-	color: var(--color-ash);
-}
-
-.landing-root .lp-import-transport > div {
-	display: flex;
-	align-items: center;
-	gap: 11px;
-	color: var(--color-ink);
-}
-
-.landing-root .lp-import-transport > span:last-child {
-	justify-self: end;
-}
-
-.landing-root .lp-import-play {
-	display: grid;
-	width: 25px;
-	height: 25px;
-	place-items: center;
-	border-radius: 999px;
-	background: var(--color-ink);
-	color: var(--color-paper);
-}
-
-.landing-root .lp-import-track {
-	position: relative;
-	display: grid;
-	grid-template-columns: 0.95fr 1.18fr 1.35fr 62px;
-	gap: 5px;
-}
-
-.landing-root .lp-import-scene,
-.landing-root .lp-import-add-scene {
-	position: relative;
-	min-width: 0;
-	height: 88px;
-	overflow: hidden;
-	border: 1px solid var(--color-hairline);
-	/* In the shot's bottom corners, so concentric: the shot's radius minus the
-	   timeline's padding. */
-	border-radius: calc(var(--shot-r) - var(--shot-pad));
-	background: color-mix(in oklch, var(--color-ink) 2.5%, var(--color-surface));
-}
-
-.landing-root .lp-import-scene[data-selected] {
-	border-color: var(--color-primary);
-	box-shadow: inset 0 0 0 1px var(--color-primary);
-}
-
-.landing-root .lp-import-thumb {
-	height: 65px;
-	margin: 4px;
-	overflow: hidden;
-	/* The scene's radius minus its 1px border and the thumb's 4px margin. */
-	border-radius: calc(var(--shot-r) - var(--shot-pad) - 5px);
-	background: linear-gradient(145deg, #a18411, #d86b1c 56%, #2b1514);
-}
-
-.landing-root .lp-import-thumb[data-tone="ember"] {
-	background: linear-gradient(145deg, #771d3e, #ee5526 52%, #35121b);
-}
-
-.landing-root .lp-import-thumb[data-tone="aurora"] {
-	background: linear-gradient(145deg, #3d228a, #9f2a7c 54%, #20123c);
-}
-
-.landing-root .lp-import-thumb-window {
-	position: relative;
-	top: 50%;
-	left: 50%;
-	width: 78%;
-	height: 38px;
-	transform: translate(-50%, -50%);
-	overflow: hidden;
-	border-radius: 4px;
-	background: #111318;
-	box-shadow: 0 5px 12px rgb(0 0 0 / 0.28);
-}
-
-.landing-root .lp-import-thumb-dots {
-	position: absolute;
-	top: 5px;
-	left: 6px;
-	width: 3px;
-	height: 3px;
-	border-radius: 50%;
-	background: var(--shot-red);
-	box-shadow: 5px 0 var(--shot-amber), 10px 0 var(--shot-green);
-}
-
-/* The code in a thumbnail is a shape, not text: at 4.7px it could not be read,
-   and a line nobody can read is a line that only has to look like one. */
-.landing-root .lp-import-thumb-lines {
-	position: absolute;
-	top: 17px;
-	right: 7px;
-	left: 7px;
-	display: grid;
-	gap: 3px;
-}
-
-.landing-root .lp-import-thumb-lines i {
+.landing-root .lp-steps a {
 	display: block;
-	height: 2px;
-	width: var(--w);
-	border-radius: 1px;
-	background: color-mix(in oklch, #d9a7ec 70%, transparent);
-}
-
-.landing-root .lp-import-scene-number,
-.landing-root .lp-import-scene-duration {
-	position: absolute;
-	bottom: 3px;
-	font-family: var(--font-mono);
-	font-size: 11px;
-	line-height: 1;
-	font-variant-numeric: tabular-nums;
+	padding: 18px 12px 18px 14px;
+	font-size: 13px;
+	line-height: calc(20 / 13);
 	color: var(--color-ash);
+	text-decoration: none;
+	transition: color 150ms var(--ease-out);
 }
 
-.landing-root .lp-import-scene-number {
-	left: 6px;
+.landing-root .lp-steps li:first-child a {
+	padding-left: 0;
 }
 
-.landing-root .lp-import-scene-duration {
-	right: 6px;
+.landing-root .lp-steps b {
+	display: block;
+	margin-bottom: 2px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--color-ink);
 }
 
-.landing-root .lp-import-add-scene {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-	border-style: dashed;
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-steps a:hover {
+		color: var(--color-ink);
+	}
+}
+
+/* On a phone the five do not fit across, so the row scrolls on its own, edge to
+   edge: it takes back the whole gutter its section sits in (the same max() as
+   `.lp-gutter`, so a notch is cleared on each side) and pads its ends with it.
+   Every step is a link, so the keyboard scrolls it too. */
+@media (max-width: 720px) {
+	.landing-root .lp-steps ol {
+		grid-template-columns: repeat(5, 136px);
+		overflow-x: auto;
+		/* A swipe that runs past the last step stays in the row: on Android it
+		   would otherwise go on to the browser's own back gesture. */
+		overscroll-behavior-x: contain;
+		scroll-snap-type: x mandatory;
+		scrollbar-width: none;
+		margin-right: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px)));
+		margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)));
+		padding-right: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px));
+		padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
+		scroll-padding-inline: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
+	}
+
+	.landing-root .lp-steps li {
+		scroll-snap-align: start;
+	}
+
+	/* The edge that still hides a step fades over 32px; the edge at its end
+	   stays hard (Craft's scroll fades, design audit D10). */
+	.landing-root .lp-steps ol {
+		--fade-start: 0px;
+		--fade-end: 0px;
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			#000 var(--fade-start),
+			#000 calc(100% - var(--fade-end)),
+			transparent
+		);
+	}
+
+	.landing-root .lp-steps ol[data-fade-start] {
+		--fade-start: 32px;
+	}
+
+	.landing-root .lp-steps ol[data-fade-end] {
+		--fade-end: 32px;
+	}
+}
+
+/* The rail: one opaque line down the left, a numbered stop on it per stage. */
+.landing-root .lp-line-rail {
+	--stop: 31px;
+	--stage-indent: 52px;
+	position: relative;
+	padding-top: clamp(72px, 9vw, 112px);
+}
+
+@media (max-width: 639px) {
+	.landing-root .lp-line-rail {
+		--stop: 27px;
+		--stage-indent: 40px;
+	}
+}
+
+.landing-root .lp-rail {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: calc(var(--stop) / 2);
+	width: 1px;
+	background: var(--edge);
+}
+
+.landing-root .lp-stage-item {
+	position: relative;
+	display: grid;
+	gap: 28px;
+	padding-left: var(--stage-indent);
+	padding-bottom: clamp(80px, 10vw, 128px);
+	/* The fixed nav pill: a jump to a stage lands its heading clear of it. */
+	scroll-margin-top: 72px;
+}
+
+.landing-root .lp-stop {
+	position: absolute;
+	/* Centred on the eyebrow's line (12px type on an 18px line), so the stop and
+	   the stage's name read as one row. */
+	top: calc(9px - var(--stop) / 2);
+	left: 0;
+	display: grid;
+	place-items: center;
+	width: var(--stop);
+	height: var(--stop);
+	border-radius: 999px;
+	background: var(--color-paper);
+	box-shadow: 0 0 0 1px var(--edge);
+	font-family: var(--font-mono);
 	font-size: 11px;
 	font-weight: 500;
+	line-height: 1;
+	color: var(--color-ink);
+	font-variant-numeric: tabular-nums;
+}
+
+.landing-root .lp-stage-head {
+	display: grid;
+	gap: 12px;
+	max-width: 640px;
+}
+
+.landing-root .lp-stage-line strong {
+	font-weight: 500;
+	color: var(--color-ink);
+}
+
+.landing-root .lp-pair {
+	display: grid;
+	gap: 24px;
+	align-items: center;
+}
+
+/* Grid children default to `min-width: auto`, and a picture that measures its
+   own room (the morph fits its font to its column) must be allowed to shrink. */
+.landing-root .lp-pair > * {
+	min-width: 0;
+}
+
+@media (min-width: 960px) {
+	/* The figure's caption and the picture's stand on one baseline, so the two
+	   halves of a stage read as one row of a plate rather than two objects that
+	   happen to be centred on each other. */
+	.landing-root .lp-pair {
+		grid-template-columns: 1fr 1fr;
+		gap: 40px;
+		align-items: last baseline;
+	}
+}
+
+/* Stacked, a figure is held to the width it reads at, centred: full width on a
+   tablet it grew past the picture under it. */
+@media (max-width: 959px) {
+	.landing-root .lp-fig {
+		width: 100%;
+		max-width: 420px;
+		margin-inline: auto;
+	}
+}
+
+/* On a phone the indent under the rail would cost the pictures a sixth of the
+   screen (the phone's five chips wrapped, the import shot lost its corner), so
+   the pair takes the column back and stands on the paper over the rail, which
+   runs on between the stages it links. */
+@media (max-width: 639px) {
+	.landing-root .lp-pair {
+		position: relative;
+		margin-left: calc(-1 * var(--stage-indent));
+		padding-block: 8px;
+		background: var(--color-paper);
+	}
+}
+
+/* A figure: a 5:4 stage reserved before the kernel arrives, so the drawing
+   landing moves nothing, and a caption with the gesture and the read-out. */
+.landing-root .lp-fig {
+	margin-block: 0;
+	padding: 4px 4px 0;
+}
+
+/* The three flat figures (a sheet, a window, a phone's glass) spread their ink
+   wide and thin; held to about 360px of ink they weigh what the two standing
+   ones (the laptop, the server) weigh at full width. */
+.landing-root .lp-fig.lp-fig-flat {
+	width: 100%;
+	max-width: 424px;
+	margin-inline: auto;
+}
+
+.landing-root .lp-fig-stage {
+	position: relative;
+	width: 100%;
+	/* One box for every figure, 400 x 250 of its drawing's units: the drawing
+	   stands on its foot line near the bottom (`placeInk`), so the line under it
+	   is a fixed step below the ink. */
+	aspect-ratio: 400 / 250;
+	/* The scaled host is wider than the box, though the ink never is: cut it at
+	   the sides, and leave the room above to what rises out of the rest pose. */
+	overflow-x: clip;
+	/* Vertical scroll stays the page's; a sideways drag is the figure's. */
+	touch-action: pan-y;
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: crosshair;
+}
+
+/* The kernel's 400 x 320 host, laid at the box's top left and moved onto the
+   foot line by the transform `placeInk` writes; what rises out of the rest
+   pose rises into the room above. */
+.landing-root .lp-fig-stage > [data-hairline] {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	aspect-ratio: 5 / 4;
+	transform-origin: 0 0;
+	touch-action: pan-y;
+}
+
+/* The bright stroke moving to what the pointer chose is a colour change, so it
+   takes the page's colour timing rather than the kernel's 260ms curve. The
+   geometry keeps the kernel's own two clocks (rule 08). */
+.landing-root .lp-fig-stage svg :is(path, polygon, line, ellipse, circle) {
+	transition: stroke 150ms var(--ease-out), fill 150ms var(--ease-out);
+}
+
+/* One line under the figure, centred on it: at rest what to do with it, in ash;
+   while a hand or the lap drives it, what it is on, in ink. One line always, so
+   the switch moves nothing. */
+.landing-root .lp-fig-cap {
+	margin-top: 8px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	line-height: 1.4;
+	text-align: center;
+}
+
+.landing-root .lp-fig-read {
+	display: block;
+	color: var(--color-ash);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	transition: color 150ms var(--ease-out);
+}
+
+.landing-root .lp-fig-read[data-state="live"] {
+	color: var(--color-ink);
+}
+
+.landing-root .lp-pic-cap {
+	margin-top: 12px;
+	font-size: 13px;
+	line-height: calc(20 / 13);
+	color: var(--color-ash);
+	text-wrap: pretty;
+}
+
+/* A product picture on the paper: its corner, and its depth from the object's
+   own lift (a ring on the dark theme), never a border. */
+.landing-root .lp-pic {
+	overflow: hidden;
+	border-radius: 12px;
+	box-shadow: var(--object-lift);
+	outline: 1px solid var(--image-edge);
+	outline-offset: -1px;
+}
+
+/* On the dark theme the object's lift carries a ring for the frame; a picture
+   already has its inner edge, and the two side by side read as a 2px border. */
+.landing-root[data-theme="dark"] .lp-pic {
+	box-shadow: 0 30px 80px -24px rgb(0 0 0 / 0.6);
+}
+
+.landing-root .lp-pic img {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+/* A capture in the page's theme: the other one is not displayed, so, lazy, it
+   is never fetched. */
+.landing-root :is(.lp-pic, .lp-pic-bare) .lp-shot-dark,
+.landing-root[data-theme="dark"] :is(.lp-pic, .lp-pic-bare) .lp-shot-light {
+	display: none;
+}
+
+.landing-root[data-theme="dark"] :is(.lp-pic, .lp-pic-bare) .lp-shot-dark {
+	display: block;
+}
+
+/* The theme's two pictures (and a phone's crop) sit in `<picture>`s that
+   take no box of their own. */
+.landing-root :is(.lp-pic, .lp-pic-bare) picture {
+	display: contents;
+}
+
+/* A picture of pieces on a transparent ground: they carry their own corners
+   and edges. Its code reads at about 17px at 1440 and 12px on a 390 phone. */
+.landing-root .lp-pic-bare {
+	max-width: 520px;
+	margin-inline: auto;
+}
+
+.landing-root .lp-pic-bare img {
+	width: 100%;
+	height: auto;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* Stage 03: the phone at a size that leaves its chips beside it on a laptop. */
+.landing-root .lp-feed-check {
+	display: grid;
+	justify-items: center;
+	gap: 20px;
+}
+
+.landing-root .lp-feed-phone {
+	width: min(280px, 72vw);
+}
+
+/* Stage 04 and 05: a card and its caption at a size the code reads at (held to
+   480px, where its code is about 16px), with the image's own edge. */
+.landing-root :is(.lp-export-card, .lp-hosted-card) {
+	display: block;
+	width: 100%;
+	max-width: 480px;
+	height: auto;
+	margin-inline: auto;
+	border-radius: 12px;
+	outline: 1px solid var(--image-edge);
+	outline-offset: -1px;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+/* Then the five shapes side by side at one height, the height at which their
+   widths (1.78 + 1 + 0.8 + 0.75 + 0.5625 of it) and four 8px gaps fill the
+   column. Each image declares both sides, so its box holds before it loads. */
+.landing-root .lp-aspects {
+	container-type: inline-size;
+	display: flex;
+	align-items: flex-end;
+	gap: 8px;
+	margin-top: 20px;
+}
+
+.landing-root .lp-aspects img {
+	display: block;
+	width: auto;
+	height: calc((100cqi - 36px) / 4.8903);
+	border-radius: 6px;
+	outline: 1px solid var(--image-edge);
+	outline-offset: -1px;
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.landing-root .lp-aspects span {
+	display: block;
+	margin-top: 6px;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	line-height: 1.4;
+	color: var(--color-ash);
+	font-variant-numeric: tabular-nums;
+}
+
+/* The proof: one line under one split, enlarged by a whole multiple (two, then
+   three from 1024px) with no smoothing, so the pixels stay the file's own. */
+.landing-root .lp-proof {
+	--proof-scale: 2;
+	margin-top: 48px;
+	max-width: calc(var(--crop-w) * 3);
+}
+
+@media (min-width: 1024px) {
+	.landing-root .lp-proof {
+		--proof-scale: 3;
+	}
+}
+
+.landing-root .lp-proof-sides {
+	display: flex;
+	justify-content: space-between;
+	width: min(100%, calc(var(--crop-w) * var(--proof-scale)));
+	margin-bottom: 10px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.4;
+	color: var(--color-ink);
+}
+
+.landing-root .lp-proof-frame {
+	position: relative;
+	width: min(100%, calc(var(--crop-w) * var(--proof-scale)));
+	height: calc(var(--crop-h) * var(--proof-scale));
+	/* The vertical swipe stays the page's; a sideways one moves the split. */
+	touch-action: pan-y;
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: ew-resize;
+}
+
+/* The pictures are clipped to the frame; the handle is not, so its grip can
+   sit on the bottom edge, under the glyphs rather than over them. */
+.landing-root .lp-proof-window {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	border-radius: 12px;
+	outline: 1px solid var(--image-edge);
+	outline-offset: -1px;
+}
+
+.landing-root .lp-proof-picture {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: calc(var(--crop-w) * var(--proof-scale));
+	max-width: none;
+	height: calc(var(--crop-h) * var(--proof-scale));
+}
+
+.landing-root .lp-proof-after {
+	position: absolute;
+	inset: 0;
+}
+
+/* The split: a 2px line in the band's ink, and a 44px handle on it whose
+   drawn 28px grip straddles the picture's bottom edge, below the glyph band,
+   so a thumb finds it and it never covers the letters it compares. */
+.landing-root .lp-proof-handle {
+	position: absolute;
+	top: 0;
+	bottom: -14px;
+	width: 2.75rem;
+	margin-left: -22px;
+	display: grid;
+	place-items: end center;
+	cursor: ew-resize;
+}
+
+.landing-root .lp-proof-handle::before {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 14px;
+	left: 21px;
+	width: 2px;
+	background: var(--color-ink);
+}
+
+.landing-root .lp-proof-handle > span {
+	position: relative;
+	width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	background: var(--color-ink);
+	box-shadow: 0 2px 8px oklch(0 0 0 / 0.4);
+}
+
+.landing-root .lp-proof-handle > span::before,
+.landing-root .lp-proof-handle > span::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	width: 6px;
+	height: 6px;
+	border-left: 1.5px solid var(--dock-bg);
+	border-bottom: 1.5px solid var(--dock-bg);
+}
+
+.landing-root .lp-proof-handle > span::before {
+	left: 7px;
+	transform: translateY(-50%) rotate(45deg);
+}
+
+.landing-root .lp-proof-handle > span::after {
+	right: 7px;
+	transform: translateY(-50%) rotate(-135deg);
+}
+
+.landing-root .lp-proof-handle:focus-visible {
+	outline: none;
+}
+
+.landing-root .lp-proof-handle:focus-visible > span {
+	outline: 2px solid var(--color-accent);
+	outline-offset: 2px;
+}
+
+.landing-root .lp-proof-controls {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px 24px;
+	width: min(100%, calc(var(--crop-w) * var(--proof-scale)));
+	margin-top: 28px;
+}
+
+.landing-root .lp-proof-hint {
+	flex: 1 1 240px;
+	font-size: 13px;
+	line-height: calc(20 / 13);
+	color: var(--color-ash);
+	text-wrap: pretty;
+}
+
+/* Two states of one thing, on the band: the selected one is the band's ink on
+   a lifted pill, the other ash. 44px tall to a finger. */
+.landing-root .lp-proof-modes {
+	display: inline-flex;
+	padding: 3px;
+	border-radius: 999px;
+	box-shadow: inset 0 0 0 1px var(--color-hairline);
+}
+
+.landing-root .lp-proof-modes button {
+	position: relative;
+	height: 30px;
+	padding: 0 14px;
+	border-radius: 999px;
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--color-ash);
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+
+.landing-root .lp-proof-modes button::after {
+	content: "";
+	position: absolute;
+	inset: -7px 0;
+}
+
+.landing-root .lp-proof-modes button[aria-pressed="true"] {
+	color: var(--color-ink);
+	background: color-mix(in oklch, var(--color-ink) 12%, transparent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-proof-modes button:hover {
+		color: var(--color-ink);
+	}
+}
+
+.landing-root .lp-proof-note {
+	display: grid;
+	gap: 6px;
+	max-width: 72ch;
+	margin-top: 28px;
+	padding-top: 14px;
+	border-top: 1px solid var(--color-hairline);
+	font-size: 12px;
+	line-height: 1.6;
 	color: var(--color-ash);
 }
 
-.landing-root .lp-import-track-playhead {
-	position: absolute;
-	z-index: 5;
-	top: -2px;
-	bottom: -4px;
-	left: 36%;
-	width: 1px;
-	background: var(--shot-red);
-	pointer-events: none;
+/* The specification, under the proof on the dark band. */
+.landing-root .lp-spec-sheet {
+	margin-top: clamp(56px, 8vw, 88px);
+	max-width: 864px;
 }
 
-.landing-root .lp-import-track-playhead::before {
+.landing-root .lp-spec-sheet dl {
+	margin-top: 16px;
+	border-top: 1px solid var(--color-ink);
+}
+
+.landing-root .lp-spec-sheet dl > div {
+	display: grid;
+	grid-template-columns: 112px minmax(0, 1fr);
+	gap: 4px 24px;
+	align-items: baseline;
+	padding-block: 12px;
+	border-bottom: 1px solid var(--color-hairline);
+}
+
+.landing-root .lp-spec-sheet dt {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	font-weight: 500;
+	line-height: 1.6;
+	color: var(--color-ink);
+}
+
+.landing-root .lp-spec-sheet dd {
+	font-size: 15px;
+	line-height: 1.6;
+	color: var(--color-ash);
+}
+
+@media (max-width: 479px) {
+	.landing-root .lp-spec-sheet dl > div {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+/* Pricing: two sides of one card, split by the hairline. */
+.landing-root .lp-h3 {
+	font-family: var(--font-display);
+	font-weight: 600;
+	font-size: clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+	line-height: 1.2;
+	letter-spacing: -0.012em;
+	color: var(--color-ink);
+	text-wrap: balance;
+}
+
+.landing-root .lp-cost-grid {
+	display: grid;
+	gap: 1px;
+	margin-top: 40px;
+	overflow: hidden;
+	border-radius: 16px;
+	background: var(--color-hairline);
+	box-shadow: var(--raised-ring);
+}
+
+@media (min-width: 760px) {
+	.landing-root .lp-cost-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.landing-root .lp-cost-grid > div {
+	display: grid;
+	align-content: start;
+	gap: 12px;
+	padding: 28px;
+	background: var(--color-surface);
+}
+
+.landing-root .lp-cost-grid ul {
+	margin-top: 4px;
+	padding-left: 18px;
+	list-style: disc;
+	font-size: 16px;
+	line-height: 1.7;
+	color: var(--color-ash);
+}
+
+/* The anchors the nav pill jumps to land clear of it. */
+.landing-root #how-it-works {
+	scroll-margin-top: 16px;
+}
+
+/* The proof is the dark band and pricing opens right under it: each lands on
+   its own top edge, so a jump never shows a sliver of what comes before. */
+.landing-root :is(#proof, #pricing) {
+	scroll-margin-top: 0;
+}
+
+/* The nav pill's section links, which a phone has no room for. */
+.landing-root .lp-nav-links {
+	display: flex;
+	margin-inline: -2px;
+}
+
+.landing-root .lp-nav-links a {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	height: 32px;
+	padding: 0 10px;
+	border-radius: 999px;
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--dock-dim);
+	text-decoration: none;
+	transition: color 150ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+
+/* 32px drawn, the pill's full 44px to a finger. */
+.landing-root .lp-nav-links a::after {
 	content: "";
 	position: absolute;
-	top: -3px;
-	left: -2px;
-	width: 5px;
-	height: 5px;
-	border-radius: 50%;
-	background: var(--shot-red);
+	inset: -6px 0;
 }
 
-.landing-root .lp-import-ruler {
-	display: flex;
-	height: 17px;
-	align-items: flex-start;
-	justify-content: space-between;
-	margin: 7px -11px 0;
-	padding: 0 12px;
-	border-top: 1px solid var(--color-hairline);
+@media (hover: hover) and (pointer: fine) {
+	.landing-root .lp-nav-links a:hover {
+		color: var(--dock-ink);
+		background: var(--dock-hover);
+	}
 }
 
-.landing-root .lp-import-ruler span {
-	width: 1px;
-	height: 4px;
-	background: var(--color-hairline);
+@media (max-width: 639px) {
+	.landing-root .lp-nav-links {
+		display: none;
+	}
 }
 
-.landing-root .lp-import-ruler span[data-major] {
-	height: 8px;
-	background: color-mix(in oklch, var(--color-ash) 45%, transparent);
+/* Over the hero the pill has no CTA (the hero's field is the one way in), and
+   on a phone, where the links are gone, it is the logo alone: padded evenly. */
+@media (max-width: 639px) {
+	.landing-root .lp-nav-pill[data-cta-off] {
+		padding-right: 15px;
+	}
 }
 
 /* The magic-move section's frame. No window chrome and no title bar: the
@@ -1998,90 +2351,6 @@ html.dark:not([data-landing-theme]) {
 
 .landing-root .lp-demo-replay:active {
 	transform: scale(0.97);
-}
-
-@media (max-width: 520px) {
-	.landing-root .lp-import-shot {
-		--shot-r: 20px;
-	}
-
-	.landing-root .lp-import-preview {
-		min-height: 274px;
-		padding: 12px;
-	}
-
-	.landing-root .lp-import-source-island {
-		height: 38px;
-		gap: 6px;
-	}
-
-	.landing-root .lp-import-origin {
-		padding: 0 8px;
-		font-size: 11px;
-	}
-
-	.landing-root .lp-import-frame-wrap {
-		margin-top: 13px;
-	}
-
-	.landing-root .lp-import-render {
-		width: 88%;
-		height: 148px;
-	}
-
-	/* At 375 the window is 286px and the longest line is 45 characters: the
-	   line numbers (28px) go and the code steps down from 9.5px to 8.25px, so
-	   "users.filter((u) => u.active)" ends inside the window. The code is the
-	   subject; the numbers are not. */
-	.landing-root .lp-import-render {
-		--frame-font: 8.25px;
-	}
-
-	.landing-root .lp-import-render .studio-code .line::before {
-		content: none;
-	}
-
-	.landing-root .lp-import-ready {
-		right: 10px;
-		bottom: 10px;
-		padding: 7px 9px 7px 7px;
-	}
-
-	.landing-root .lp-import-ready small {
-		display: none;
-	}
-
-	.landing-root .lp-import-ready > span {
-		grid-row: auto;
-	}
-
-	.landing-root .lp-import-track {
-		grid-template-columns: 0.9fr 1.1fr 1.2fr 50px;
-		gap: 4px;
-	}
-
-	.landing-root .lp-import-scene,
-	.landing-root .lp-import-add-scene {
-		height: 74px;
-	}
-
-	.landing-root .lp-import-thumb {
-		height: 53px;
-		margin: 3px;
-	}
-
-	.landing-root .lp-import-thumb-window {
-		height: 31px;
-	}
-
-	.landing-root .lp-import-thumb-lines {
-		top: 14px;
-		gap: 2px;
-	}
-
-	.landing-root .lp-import-add-scene span {
-		display: none;
-	}
 }
 
 /* Extended hit area for compact studio controls: the visual stays small, the

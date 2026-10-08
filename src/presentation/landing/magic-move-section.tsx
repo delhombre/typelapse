@@ -3,7 +3,6 @@ import { Theme } from "@/domain/entities/theme";
 import { LoopingFrames } from "@/presentation/components/preview/looping-frames";
 import { useReducedMotion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { FeatureSection } from "./feature-section";
 
 /* The signature feature, performed rather than described.
    This section used to be two static frames with an arrow between them, which
@@ -117,20 +116,8 @@ export function refitMorphFont({
 	return fit;
 }
 
-/** Feature a: the signature magic-move, shown running. */
-export function MagicMoveSection() {
-	return (
-		<FeatureSection
-			eyebrow="Step 02 · Morph"
-			title="Then it moves."
-			line="The same steps, morphed token by token on a monospace grid. One engine draws the browser preview and the exported video, so what you see here is what you ship."
-			align="left"
-			visual={<LiveMorph />}
-		/>
-	);
-}
-
-function LiveMorph() {
+/** Stage 02's picture: the signature magic-move, played by the real engine. */
+export function LiveMorph() {
 	/* Under reduced motion the frame rests on its last state and does not play,
 	   so a Play button there only changed its own label. */
 	const reduce = useReducedMotion();

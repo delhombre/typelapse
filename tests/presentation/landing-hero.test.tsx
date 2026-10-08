@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { Hero } from "@/presentation/landing/hero";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -5,9 +7,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/presentation/landing/instrument", () => ({
-	Instrument: ({ quietCta }: { quietCta?: boolean }) => (
-		<div aria-label="Product preview" data-quiet-cta={quietCta ? "" : undefined} />
-	),
+	Instrument: () => <div aria-label="Product preview" />,
 }));
 
 vi.mock("@/presentation/haptics", () => ({ trigger: vi.fn() }));
@@ -38,18 +38,23 @@ function renderHeroWithStudio() {
 }
 
 describe("landing hero", () => {
-	/* Viability D1: sharp, in the browser, from a pull request first; mixed
-	   media is the second sentence, not the first. */
-	it("says what the product sells in its heading, and mixed media second", () => {
-		renderHero();
+	/* Decision 2026-10-08-landing-pipeline: the headline is the pipeline, a pull
+	   request in and a video out, and the lead under it keeps Viability D1's
+	   other two facts, sharp as the preview and in the browser. */
+	it("says what the product does in its heading, and what it sells in the lead", () => {
+		const { container } = renderHero();
 
 		const heading = screen.getByRole("heading", { level: 1 });
-		const text = heading.textContent ?? "";
-		expect(text).toMatch(/as sharp as their preview/i);
-		expect(text).toMatch(/in your browser from a pull request/i);
-		expect(text).toMatch(/text, images, video and audio/i);
-		expect(text.search(/sharp/i)).toBeLessThan(text.search(/text, images/i));
-		expect(text).not.toContain("\u2014");
+		expect(heading.textContent?.replace(/\u00a0/g, " ")).toBe("A pull request in. A video out.");
+		// "pull request" never breaks across two lines.
+		expect(heading.textContent).toContain("pull\u00a0request");
+		const lead = container.querySelector(".lp-hero-lead")?.textContent ?? "";
+		expect(lead).toMatch(/as sharp as the preview/i);
+		expect(lead).toMatch(/in your browser/i);
+		// Viability D1: mixed media is the pitch's second sentence, never the first.
+		expect(lead).toMatch(/\. Text, images, video and audio share the same scenes\.$/);
+		expect(lead.search(/sharp/i)).toBeLessThan(lead.search(/Text, images/));
+		expect(`${heading.textContent} ${lead}`).not.toContain("\u2014");
 	});
 
 	it("presents source kinds as one mutually exclusive choice", () => {
@@ -182,10 +187,15 @@ describe("landing hero, the meta line", () => {
 });
 
 describe("landing hero, one filled call to action", () => {
-	it("keeps the field's button as the primary and quiets the instrument's own", () => {
-		// The island sits inside the hero, so whenever it is on screen the field's
-		// "Open studio" is too: two filled buttons with the same words.
+	it("says Open studio once: the field's button, which wears the primary", () => {
+		// The island sits inside the hero, so it has no "Open studio" of its own
+		// (round 3 of the #248 review): the field's button is the one way in.
 		renderHero();
-		expect(screen.getByLabelText("Product preview").hasAttribute("data-quiet-cta")).toBe(true);
+		expect(screen.getAllByText("Open studio")).toHaveLength(1);
+
+		const css = readFileSync(resolve(__dirname, "../../src/app.css"), "utf8");
+		const rule = (css.match(/\.landing-root \.lp-field-cta \{[^}]*\}/g) ?? []).join("\n");
+		expect(rule).toContain("background: var(--color-cta)");
+		expect(rule).toContain("color: var(--color-on-primary)");
 	});
 });

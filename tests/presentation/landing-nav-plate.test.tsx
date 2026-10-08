@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { DynamicNav } from "@/presentation/landing/dynamic-nav";
+import { DynamicNav, NAV_TUCK_MS } from "@/presentation/landing/dynamic-nav";
 import { CYCLE_PLATFORMS } from "@/presentation/landing/iphone-showcase";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 function renderNav() {
 	return render(
@@ -29,8 +29,9 @@ describe("landing nav pill", () => {
 	});
 
 	it("keeps the primary for its call to action on every backdrop", () => {
-		renderNav();
-		const cta = screen.getByRole("link", { name: "Open studio", hidden: true }).firstElementChild;
+		const { container } = renderNav();
+		// Held in the markup (hidden over the hero), so its fill is read off the element.
+		const cta = container.querySelector('a[href="/app"]')?.firstElementChild;
 
 		expect(cta?.className).toContain("bg-[var(--color-cta)]");
 		expect(cta?.className).not.toMatch(/bg-ink|text-paper/);
@@ -42,6 +43,79 @@ describe("landing nav pill", () => {
 		expect(container.querySelector("header")?.className).toContain(
 			"top-[max(12px,env(safe-area-inset-top))]",
 		);
+	});
+});
+
+describe("landing nav over the hero", () => {
+	/* Review of #248: "Open studio" is said once in the first screen, by the
+	   hero's field, so the pill holds its CTA back there. Round 3: the pill
+	   never changes width where it can be seen (CLS 0, no hole, no jump). When
+	   the hero comes or goes with the pill on screen, it tucks away, takes or
+	   drops its CTA out of sight, and comes back. */
+	it("takes and drops its CTA only while it is tucked out of sight", () => {
+		vi.useFakeTimers();
+		const observers: IntersectionObserverCallback[] = [];
+		const original = globalThis.IntersectionObserver;
+		globalThis.IntersectionObserver = class {
+			constructor(callback: IntersectionObserverCallback) {
+				observers.push(callback);
+			}
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		} as unknown as typeof IntersectionObserver;
+		globalThis.ResizeObserver ??= class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		} as unknown as typeof ResizeObserver;
+		const hero = document.createElement("section");
+		hero.className = "lp-hero";
+		document.body.append(hero);
+		try {
+			const { container } = renderNav();
+			const pill = () => container.querySelector(".lp-nav-pill");
+			const link = () => container.querySelector('a[href="/app"]');
+			const tucked = () => pill()?.getAttribute("aria-hidden") === "true";
+			const say = (isIntersecting: boolean) =>
+				act(() =>
+					observers[0]?.(
+						[{ isIntersecting } as IntersectionObserverEntry],
+						{} as IntersectionObserver,
+					),
+				);
+			const wait = (ms: number) => act(() => vi.advanceTimersByTime(ms));
+
+			// Over the hero: the links, no CTA, the pill in view.
+			expect(link()?.hasAttribute("hidden")).toBe(true);
+			expect(tucked()).toBe(false);
+			expect(screen.getByRole("navigation", { name: "Sections", hidden: true })).toBeTruthy();
+
+			// The hero goes: the pill tucks first, still without its CTA...
+			say(false);
+			expect(tucked()).toBe(true);
+			expect(link()?.hasAttribute("hidden")).toBe(true);
+			// ...takes it out of sight, then comes back with it.
+			wait(NAV_TUCK_MS);
+			expect(link()?.hasAttribute("hidden")).toBe(false);
+			expect(tucked()).toBe(true);
+			wait(100);
+			expect(tucked()).toBe(false);
+			expect(screen.queryByRole("link", { name: "Open studio" })).not.toBeNull();
+
+			// Back up into the hero: the same, the other way.
+			say(true);
+			expect(tucked()).toBe(true);
+			expect(link()?.hasAttribute("hidden")).toBe(false);
+			wait(NAV_TUCK_MS);
+			wait(100);
+			expect(link()?.hasAttribute("hidden")).toBe(true);
+			expect(tucked()).toBe(false);
+		} finally {
+			hero.remove();
+			globalThis.IntersectionObserver = original;
+			vi.useRealTimers();
+		}
 	});
 });
 

@@ -1,4 +1,4 @@
-import { MagicMoveSection } from "@/presentation/landing/magic-move-section";
+import { LiveMorph } from "@/presentation/landing/magic-move-section";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -24,9 +24,9 @@ afterEach(() => {
 	motion.reduce = false;
 });
 
-describe("landing morph section", () => {
+describe("landing morph stage: the live morph", () => {
 	it("offers to play the morph", () => {
-		render(<MagicMoveSection />);
+		render(<LiveMorph />);
 		expect(screen.getByRole("button", { name: "Play motion" })).toBeTruthy();
 	});
 
@@ -34,7 +34,7 @@ describe("landing morph section", () => {
 		// The frame rests on its last state under reduced motion and ignores
 		// `playing`, so the button only flipped its own label to "Replay".
 		motion.reduce = true;
-		render(<MagicMoveSection />);
+		render(<LiveMorph />);
 		expect(screen.queryByRole("button", { name: /play motion|replay/i })).toBeNull();
 	});
 });

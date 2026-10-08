@@ -130,7 +130,7 @@
 						},
 						"continuityKey": "primary-code",
 						"kind": "code",
-						"code": "function webmLadder(width: number, height: number, fps: number) {\n  return [\n    { codec: av1(1, width, height, fps), chroma: \"4:4:4\" }, // 42.81 dB\n    { codec: av1(0, width, height, fps), chroma: \"4:2:0\" },\n    { codec: \"vp09.00.41.08\", chroma: \"4:2:0\" },\n    { codec: \"vp8\", chroma: \"4:2:0\" },\n  ];\n}",
+						"code": "function webmLadder(width: number, height: number, fps: number) {\n  return [\n    { codec: av1(1, width, height, fps), chroma: \"4:4:4\" }, // 43.63 dB\n    { codec: av1(0, width, height, fps), chroma: \"4:2:0\" },\n    { codec: \"vp09.00.41.08\", chroma: \"4:2:0\" },\n    { codec: \"vp8\", chroma: \"4:2:0\" },\n  ];\n}",
 						"language": "typescript",
 						"themeName": "midnight",
 						"fontFamily": "JetBrains Mono, monospace",

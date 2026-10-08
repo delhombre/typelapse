@@ -70,13 +70,11 @@ describe("landing colour", () => {
 		);
 	});
 
-	it("keeps glass off every surface that holds text in a mock", () => {
-		for (const selector of [
-			".landing-root .lp-import-source-island",
-			".landing-root .lp-import-ready",
-		]) {
-			expect(rule(selector), selector).not.toMatch(/backdrop-filter/);
-		}
+	/* The import mock that held text over glass is gone (2026-10-08): the stage
+	   shows a capture of the studio. Nothing on the landing is glass. */
+	it("keeps glass off every landing surface", () => {
+		const glass = landingRules().filter(([, body]) => /backdrop-filter/.test(body));
+		expect(glass.map(([selector]) => selector)).toEqual([]);
 	});
 
 	it("reads no literal for the primary or the code surface", () => {
@@ -84,23 +82,50 @@ describe("landing colour", () => {
 		expect(rule(".landing-root .lp-morph-frame")).not.toMatch(/background:\s*#/);
 	});
 
-	it("keeps the unselected social chips over 4.5:1 on the band, in both themes", () => {
-		const alpha = 0.65;
-		const ink = [0xf5, 0xf3, 0xef];
+	/* The chips left the band for the paper with the pipeline (2026-10-08). The
+	   unselected ones are ash itself, never a mix of it, and ash clears 4.5:1 on
+	   both papers; the selected one is ink, never the primary, which is 1.67:1. */
+	it("keeps the social chips at ash and ink on the paper, over 4.5:1 in both themes", () => {
+		const source = readFileSync(
+			resolve(__dirname, "../../src/presentation/landing/social-section.tsx"),
+			"utf8",
+		);
+		expect(source).toMatch(/"border-hairline bg-transparent text-ash /);
+		expect(source).toMatch(/"border-ink\/25 bg-surface text-ink"/);
+		expect(source).not.toMatch(/text-\[var\(--color-primary\)\]/);
+
 		const lin = (c: number) => {
 			const s = c / 255;
 			return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 		};
 		const lum = ([r = 0, g = 0, b = 0]: number[]) =>
 			0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-		for (const band of [
-			[0x17, 0x16, 0x14],
-			[0x1c, 0x1a, 0x18],
-		]) {
-			const fg = ink.map((c, i) => Math.round(c * alpha + (band[i] ?? 0) * (1 - alpha)));
-			const [hi, lo] = [lum(fg), lum(band)].sort((a, b) => b - a) as [number, number];
+		for (const [ash, paper] of [
+			[
+				[0x6e, 0x6b, 0x64],
+				[0xfa, 0xf9, 0xf6],
+			],
+			[
+				[0xa8, 0xa3, 0x9a],
+				[0x12, 0x11, 0x10],
+			],
+		] as const) {
+			const [hi, lo] = [lum([...ash]), lum([...paper])].sort((a, b) => b - a) as [number, number];
 
 			expect((hi + 0.05) / (lo + 0.05)).toBeGreaterThanOrEqual(4.5);
+		}
+	});
+
+	it("draws the figures in the page's own ink and paper, never the primary", () => {
+		for (const token of ["hi", "edge", "mid", "lo", "plate"]) {
+			const declared = [...CSS.matchAll(new RegExp(`--hairline-${token}:\\s*([^;]+);`, "g"))].map(
+				(m) => m[1] ?? "",
+			);
+			expect(declared.length, `--hairline-${token}`).toBeGreaterThan(0);
+			for (const value of declared) {
+				expect(value).toMatch(/var\(--color-(ink|paper)\)/);
+				expect(value).not.toMatch(/primary|#/);
+			}
 		}
 	});
 });

@@ -42,7 +42,7 @@ pnpm demo:render --mp4    # also writes docs/demo.mp4, for X (not committed)
 ## 3. The sharpness pair
 
 Committed as `docs/sharpness/av1-444.png`, `docs/sharpness/h264-420.png` and
-`docs/sharpness/sharpness.json` (42.81 dB against 32.18 dB, frame 45 of
+`docs/sharpness/sharpness.json` (43.63 dB against 29.31 dB, frame 45 of
 `docs/sharpness/sharpness.project.json`). The script drives the studio's own
 on-device export in a headless Chromium, so the numbers are the browser's.
 

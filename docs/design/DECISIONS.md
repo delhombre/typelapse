@@ -29,20 +29,18 @@ the header; on a short window the frame gives way first.
 exactly one shape is filled: the CTA, `--color-primary` with
 `--color-on-primary` text. Every other control is transparent until hovered.
 When a sheet opens with its own render button, the island's CTA hands its fill
-over (`.si-cta[data-open]`). One exception, recorded by the landing pass: the
-first viewport holds one filled "Open studio", so inside the hero the field's
-button is the zone's primary and the instrument's CTA is quiet there
-(`data-quiet`: transparent, the island's ink, the same box and target, one
-step of white on hover). The nav island's CTA, hidden until the hero has
-scrolled out, is the filled one past it.
+over (`.si-cta[data-open]`). On the landing "Open studio" is said once in
+the first screen: the hero field's button, filled with the primary in both
+themes; the Instrument's island carries no CTA, and the nav pill keeps its
+own in place but faded and inert until the hero has scrolled out.
 
 **Why:** hierarchy by subtraction; the old toolbar gave its only filled disc
 to Play, the least important action. Ink on the yellow reads 9.92:1, white
 1.73:1.
 
 **Enforced by:** `src/app.css` (`--color-primary`, `--color-cta`, `.si-cta`,
-`.lp-island-cta[data-quiet]`), `tests/presentation/landing-hero.test.tsx`,
-`tests/presentation/landing-instrument-frame.test.tsx` (pass
+`.lp-field-cta`, `.lp-nav-cta-link`), `tests/presentation/landing-hero.test.tsx`,
+`tests/presentation/landing-nav-plate.test.tsx` (pass
 `docs/design/passes/2026-10-05-landing.md`).
 
 **Pivot:** "Secondary actions may be filled too."
@@ -162,7 +160,7 @@ never closes on the row's last control. A drag or a keyboard move is
 one-to-one and instant; only a finished reorder settles. A cycling label
 reserves its widest width. Nothing enters from `scale(0)`. Under reduced
 motion only colour, opacity and shadow transitions survive, and the global
-allow-list is the whole rule: no stylesheet turns a transition off locally.
+allow-list is the whole rule: no stylesheet turns a transition off locally. No looping ambient motion: a landing figure plays its lap once, the first time it is 60% in view, then only answers a hand; never under reduced motion, never on re-entry (PO, 2026-10-08).
 
 **Why:** a Lapse take caught the aspect frame forcing layout every frame and
 a spring writing sub-pixel values for 2666ms; a label one character wider
@@ -254,7 +252,7 @@ from literals copied between renderers. At 374px a 1080p frame draws its code at
 **Decision:** A status, an error, an empty state or a refusal is one plain
 sentence: what happened, what to do. No exclamation mark, no "seamlessly",
 no superlative the repository cannot measure; a landing claim is the
-measured form ("42.81 dB"). No em-dash or en-dash in copy, meta tags, docs,
+measured form ("43.63 dB"). No em-dash or en-dash in copy, meta tags, docs,
 comments or commits: a comma, a colon, a period or parentheses (CSS
 box-drawing rules and the windowing ellipsis are not dashes).
 

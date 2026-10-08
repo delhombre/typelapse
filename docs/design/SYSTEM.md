@@ -29,9 +29,10 @@ the one exception (DECISIONS D5).
 | Raised surface | `--color-surface: #ffffff` `src/app.css` | `--color-surface: #1e1c1a` `src/app.css` |
 | The one hairline | `--color-hairline: rgb(28 27 25 / 0.1)` `src/app.css` | `--color-hairline: rgb(245 243 239 / 0.12)` `src/app.css` |
 | Landing full-bleed band, and the ink on it in both themes (what floats over it, the theme toggle's glyph, reads it too) | `background: #171614` `src/app.css` `--color-band-ink: #f5f3ef` `src/app.css` | `background: #1c1a18` `src/app.css` |
+| Hairline figures (landing), read by the kernel: plate and bright stroke are the paper and the ink, edge, mid and dim are ink mixed into paper (mid and dim at 20 and 10%, 26 and 15% dark), never the primary | `--hairline-hi: var(--color-ink)` `--hairline-edge: color-mix(in oklch, var(--color-ink) 48%, var(--color-paper))` `src/app.css` | `--hairline-edge: color-mix(in oklch, var(--color-ink) 46%, var(--color-paper))` `src/app.css` |
 | Island fill (landing) | `--dock-bg: #151517` `src/app.css @ .landing-root` | `--dock-bg: #24232a` `src/app.css` |
 | Island ink, dim ink | `--dock-ink: #f2f2f4` `--dock-dim: #9a9aa2` `src/app.css @ .landing-root` | same |
-| Island hairline (landing) | `--dock-hairline: rgb(255 255 255 / 0.1)` `src/app.css` | `--dock-hairline: rgb(255 255 255 / 0.12)` `src/app.css` |
+| Island hairline (landing), and the wash under a hovered control on the plate | `--dock-hairline: rgb(255 255 255 / 0.1)` `src/app.css` `--dock-hover: rgb(255 255 255 / 0.07)` `src/app.css` | `--dock-hairline: rgb(255 255 255 / 0.12)` `src/app.css` |
 | Island hairline (studio) | `--dock-hairline: rgb(255 255 255 / 0.09)` `src/app.css` | same |
 | Studio ramp ends, warm stone | `--color-neutral-50: #fafaf9` `src/app.css` | `--color-neutral-950: #121110` `src/app.css` |
 | Studio scene hairline | `--sc-hairline: rgb(28 27 25 / 0.1)` `src/app.css @ .studio-root` | `--sc-hairline: rgb(245 243 239 / 0.12)` `src/app.css @ .dark .studio-root` |
@@ -84,7 +85,7 @@ Which background?
 | Display, sans 600 | `clamp(2.75rem, 1.4rem + 5.6vw, 4.75rem)` `line-height: 1.02` `letter-spacing: -0.028em` `src/app.css` |
 | Section heading, sans 600 | `clamp(2rem, 1.25rem + 2.8vw, 3.05rem)` `line-height: 1.05` `letter-spacing: -0.021em` `src/app.css @ .lp-h2` |
 | Lead | `clamp(1.1875rem, 1.05rem + 0.7vw, 1.4375rem)` `line-height: 1.5` `src/app.css @ .lp-lead` |
-| Feature line | `clamp(1.0625rem, 1rem + 0.3vw, 1.1875rem)` `line-height: 1.6` `src/app.css` |
+| Feature line | `clamp(1.0625rem, 1rem + 0.3vw, 1.1875rem)` `line-height: 1.6` `src/app.css @ .landing-root .lp-line` |
 | Prompt kicker, mono | `font-size: 0.8125rem` `src/app.css` |
 | Eyebrow, uppercase 600 | `font-size: 0.75rem` `letter-spacing: 0.18em` `src/app.css @ .lp-eyebrow` |
 | Micro stamp | `font-size: 0.75rem` `src/app.css @ .lp-micro` |
@@ -112,7 +113,7 @@ what has not adopted it yet.
 | Hero text vertical, also the block radius | `--text-x: 14px` `src/app.css` |
 | Hero fixed chrome, stage ceiling | `--hero-chrome: 460px` `--stage-max: 400px` `src/app.css` |
 | Helper lane under the stage | `--helper-lane: 34px` `src/app.css` |
-| Phone fan row bleeds to the screen edge, clear of a notch | `margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)))` `src/app.css` |
+| The step strip scrolls edge to edge on a phone, clear of a notch | `margin-left: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px)))` `src/app.css` |
 | Sheet side gutter, header and content alike; on a desktop its width is its content's, which each sheet names | `--sheet-inline: 28px` `--sheet-inline: 18px` `src/presentation/studio-camera.css` `width: min(var(--sheet-width, 100%), calc(100% - 2 * var(--sheet-margin)))` `src/presentation/studio-camera.css` |
 | Island gap: landing and studio phone 5px; the desktop studio's 34px labelled controls on the landing plate 2px | `--island-gap: 5px` `src/app.css @ .lp-island-row` `--island-gap: 5px` `src/app.css @ .si-row` `--island-gap: 2px` `src/presentation/studio-camera.css` |
 | Code card slot, scene gutter; the stacking above every shell, the drop veil then the toasts | `--sc-card-width: 356px` `--sc-gutter: 96px` `--z-veil: 60` `--z-notice: 70` `src/app.css` |
@@ -169,6 +170,7 @@ Which radius?
 | Code frame on the landing; its halo, where on dark a ring stands in for the shadow nothing shows against; a raised light picture takes its ring in its stack, never a border | `0 12px 32px -10px oklch(0 0 0 / 0.16)` `src/app.css` `--object-lift: 0 30px 80px -24px rgb(0 0 0 / 0.25), 0 2px 8px rgb(0 0 0 / 0.06)` `--raised-ring: 0 0 0 1px var(--color-hairline)` `src/app.css @ .landing-root` `--object-lift: 0 30px 80px -24px rgb(0 0 0 / 0.6), 0 0 0 1px var(--color-hairline)` `src/app.css @ .landing-root[data-theme="dark"]` |
 | Chrome bar closing hairline | `borderAlpha: "0f"` `src/application/layout/frame-metrics.ts` |
 | Opaque line where hairlines cross | `--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper))` `src/app.css` |
+| A picture's inner edge on the landing, inset 1px, never beside a ring | `--image-edge: oklch(0 0 0 / 0.1)` `src/app.css @ .landing-root` `--image-edge: oklch(1 0 0 / 0.1)` `src/app.css @ .landing-root[data-theme="dark"]` |
 | The landing's only border | `HAIRLINE = "border-hairline"` `src/presentation/landing/tokens.ts` |
 | Reduced transparency: the material goes opaque | `--camera-material: var(--camera-paper)` `src/presentation/studio-camera.css @ @media (prefers-reduced-transparency: reduce) / :is(.studio-camera-root, .sc-root-mobile)` |
 
@@ -224,7 +226,6 @@ landing has no intro at all. Nothing enters from `scale(0)`: reveal at 0.985.
 | Hit extension for any control | `width: max(100%, 44px)` `src/app.css` |
 | Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css @ .lp-island` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css` `--island-cell: 44px` `src/app.css` |
 | Sheet chips under a finger; the island's sheet and status row draw every chip, swatch, field and Render 44px with the row's reach switched off, so two hit areas never overlap (DECISIONS D10) | `height: 44px` `src/presentation/studio-camera.css @ .sc-layer-pill` `min-width: 44px` `height: 44px` `src/app.css @ @media (pointer: coarse) / .studio-root :is(.si-sheet, .si-status) :is(.si-button, .si-cta)` |
-| A picture built from code is not text to select | `shrink-0 snap-center select-none` `src/presentation/landing/frame-fan.tsx` |
 | Popover controls, the sheet's close, the replace question's buttons, the import status's Dismiss (28px drawn, 6px reach, 40 to a pointer), the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu > button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` `height: 28px` `inset: -6px 0` `src/presentation/studio-camera.css @ .sc-import-dismiss` |
 | Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css @ .lp-field` `font-size: 16px` `src/presentation/studio-camera.css @ .sc-layer-field textarea` |
 | Hover exists only here | `@media (hover: hover) and (pointer: fine)` `src/app.css` |

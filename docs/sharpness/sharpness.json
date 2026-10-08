@@ -3,13 +3,14 @@
 	"fps": 60,
 	"frame": 45,
 	"crop": {
-		"x": 718,
-		"y": 582,
+		"x": 276,
+		"y": 486,
 		"width": 288,
 		"height": 48
 	},
+	"diffGain": 10,
 	"measuredIn": "RGB, against the painter's lossless frame, on the cropped glyph line",
-	"browser": "Chromium 151",
+	"browser": "Chromium 153",
 	"platform": "macOS",
 	"files": [
 		{
@@ -20,23 +21,25 @@
 			"pixFmt": "yuv444p",
 			"width": 1920,
 			"height": 1080,
-			"bytes": 557391,
+			"bytes": 953849,
 			"frames": 96,
-			"psnr": 42.81,
-			"crop": "av1-444.png"
+			"psnr": 43.63,
+			"crop": "av1-444.png",
+			"diff": "av1-444-diff.png"
 		},
 		{
 			"label": "H.264 4:2:0",
 			"format": "mp4",
 			"codecName": "h264",
 			"profile": "High",
-			"pixFmt": "yuv420p",
+			"pixFmt": "yuvj420p",
 			"width": 1920,
 			"height": 1080,
-			"bytes": 1458339,
+			"bytes": 2195579,
 			"frames": 96,
-			"psnr": 32.18,
-			"crop": "h264-420.png"
+			"psnr": 29.31,
+			"crop": "h264-420.png",
+			"diff": "h264-420-diff.png"
 		}
 	]
 }

@@ -53,16 +53,24 @@ const FPS = 60;
  * Which frame is compared, and which part of it.
  *
  * The middle of the hold, so neither file is judged on its first keyframe alone.
- * The crop is `((f) ⇒ tokenize` on line 3 of the payload, in the frame's own
- * pixels: an orange parameter, a red arrow and a violet call on the dark card,
- * thin saturated strokes on a dark ground, which is the worst case for 4:2:0
- * and the place a viewer sees it first. It sits inside the opaque card, where
- * nothing moves between frame 0 and this one, which is what lets the painter's
- * first frame stand as the lossless reference (the mesh around the card does
- * move, so a crop that reached it would be scored against the wrong instant).
+ * The crop is `export async fu` on line 1 of the payload, in the frame's own
+ * pixels: a run of thin red keyword strokes on the dark card, the worst case
+ * for 4:2:0 and the one a visitor reads at a glance (the earlier crop mixed
+ * orange, red and violet, and at the page's enlargement the two files looked
+ * alike). It sits inside the opaque card, where nothing moves between frame 0
+ * and this one, which is what lets the painter's first frame stand as the
+ * lossless reference (the mesh around the card does move, so a crop that
+ * reached it would be scored against the wrong instant).
  */
 const FRAME = 45;
-const CROP = { x: 718, y: 582, width: 288, height: 48 };
+const CROP = { x: 276, y: 486, width: 288, height: 48 };
+
+/**
+ * The difference maps: each file's crop against the reference, as grey, with
+ * the error multiplied so a viewer sees where the colour went. The same gain
+ * for both files, so the darker map is the closer file, never a tuned picture.
+ */
+const DIFF_GAIN = 10;
 
 const RUNGS = [
 	{ format: "webm", file: "av1-444.png", codec: "av1", pixFmt: "yuv444p", label: "AV1 4:4:4" },
@@ -209,7 +217,9 @@ function measure(results, reference, work, browserVersion) {
 		// The file has to be what the label says, or the comparison is a lie told
 		// with real numbers: a machine without AV1 High would have handed back
 		// AV1 Main, 4:2:0, under the same button.
-		if (probe.codec_name !== rung.codec || probe.pix_fmt !== rung.pixFmt) {
+		// yuvj420p is the same 4:2:0 subsampling at full range, which some
+		// Chromium builds hand back for H.264: the chroma is what is compared.
+		if (probe.codec_name !== rung.codec || probe.pix_fmt.replace(/^yuvj/, "yuv") !== rung.pixFmt) {
 			throw new Error(
 				`${rung.format} came back ${probe.codec_name} ${probe.pix_fmt}, not ${rung.codec} ${rung.pixFmt}.`,
 			);
@@ -228,6 +238,18 @@ function measure(results, reference, work, browserVersion) {
 		]);
 		const crop = resolve(OUT_DIR, rung.file);
 		ffmpeg(["-i", frame, "-vf", cropFilter(), "-frames:v", "1", "-pix_fmt", "rgb24", crop]);
+		const diff = resolve(OUT_DIR, rung.file.replace(/\.png$/, "-diff.png"));
+		ffmpeg([
+			"-i",
+			reference,
+			"-i",
+			frame,
+			"-filter_complex",
+			`[0:v]${cropFilter()},format=rgb24[a];[1:v]${cropFilter()},format=rgb24[b];[a][b]blend=all_mode=difference,format=gray,lut=c0='min(val*${DIFF_GAIN},255)'`,
+			"-frames:v",
+			"1",
+			diff,
+		]);
 		return {
 			label: rung.label,
 			format: rung.format,
@@ -240,6 +262,7 @@ function measure(results, reference, work, browserVersion) {
 			frames: frameCount(video),
 			psnr: psnr(reference, frame),
 			crop: rung.file,
+			diff: rung.file.replace(/\.png$/, "-diff.png"),
 		};
 	});
 	return {
@@ -247,6 +270,7 @@ function measure(results, reference, work, browserVersion) {
 		fps: FPS,
 		frame: FRAME,
 		crop: CROP,
+		diffGain: DIFF_GAIN,
 		measuredIn: "RGB, against the painter's lossless frame, on the cropped glyph line",
 		// Which encoder made the files: AV1 High is a property of the browser, and
 		// the landing says where these were made rather than implying every

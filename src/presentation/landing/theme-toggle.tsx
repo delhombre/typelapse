@@ -23,17 +23,23 @@ interface ThemeToggleProps {
  * It only floats where the page leaves it a gutter. The content column is
  * 1024px wide, so below 1024 + 2 x 56px its corner is body text, and a fixed
  * glyph rode over a heading or a code line at every scroll offset on a phone.
- * A scrim or a filled disc would still cover that text, and the nav island is
- * absent for the whole hero, so there it belongs to the top of the page and
+ * A scrim or a filled disc would still cover that text, and the nav island has
+ * no room for it on a phone, so there it belongs to the top of the page and
  * scrolls away with it: a theme is picked once a visit, and the OS preference
  * has already picked it for most visitors.
  */
-/** The strip it floats in: 20 of top offset and 36 of button. */
-const TOGGLE_BAND = 56;
+/**
+ * The glyph's own rows: the button is 36px from 20px down, and its 16px glyph
+ * sits in the middle of it, 30 to 46. Asked of the whole 56px strip, a band
+ * ending a few pixels into the strip turned the glyph light over paper (after
+ * a jump to #pricing, the proof's band ends just under the top edge).
+ */
+const GLYPH_TOP = 30;
+const GLYPH_BOTTOM = 46;
 
 export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
 	const next = theme === "light" ? "dark" : "light";
-	const onDark = useOverDark(TOGGLE_BAND);
+	const onDark = useOverDark(GLYPH_TOP, GLYPH_BOTTOM);
 
 	return (
 		<button
