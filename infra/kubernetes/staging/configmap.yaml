@@ -15,6 +15,8 @@ metadata:
   namespace: typelapse-staging
 data:
   NODE_ENV: "production"
+  # Same as the image's PORT and the Service targetPort. The image also sets
+  # TYPELAPSE_STATIC_ROOT and TYPELAPSE_RENDER_CONCURRENCY=1.
   PORT: "3001"
   TYPELAPSE_DEPLOYMENT_MODE: "hosted"
   # One origin: the API serves the SPA, /api/* and /v/*.
@@ -30,6 +32,3 @@ data:
   # compiler version, which is right for staging: an old render is never taken
   # for output of the code now running.
   TYPELAPSE_COMPILER_VERSION: "__IMAGE_TAG__"
-  # TODO(#70): the env vars that turn on static serving of the SPA and set the
-  # render concurrency come with the image builder's PR. Add them here once the
-  # names are known.

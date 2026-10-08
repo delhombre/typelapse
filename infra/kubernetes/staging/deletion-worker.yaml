@@ -30,7 +30,8 @@ spec:
       containers:
         - name: deletion-worker
           image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
-          command: ["node_modules/.bin/tsx", "server/workers/object-deletion.entrypoint.ts"]
+          # args only: the image's ENTRYPOINT is tini, which forwards SIGTERM.
+          args: ["node_modules/.bin/tsx", "server/workers/object-deletion.entrypoint.ts"]
           envFrom:
             - configMapRef:
                 name: typelapse-config

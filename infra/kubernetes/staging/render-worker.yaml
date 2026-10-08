@@ -8,7 +8,7 @@ spec:
   # sequential and claims a single job per iteration.
   replicas: 1
   # Never two render pods at once during a rollout: the namespace quota
-  # (requests.memory 1Gi, limits.memory 2Gi, requests.cpu 750m, limits.cpu 2)
+  # (requests.memory 1Gi, limits.memory 3Gi once infra raises it, requests.cpu 750m, limits.cpu 2)
   # has no room for a surge pod, let alone a second Chromium.
   strategy:
     type: Recreate
@@ -22,6 +22,9 @@ spec:
       annotations:
         typelapse.dev/deploy-run: "__DEPLOY_RUN__"
     spec:
+      # Created by the infra repo (infra-infomaniak), not here: a low priority,
+      # so the render worker is the first pod evicted under node pressure.
+      priorityClassName: typelapse-render-low
       imagePullSecrets:
         - name: ghcr-secret
       # SIGTERM aborts the render in flight (hosted-render.entrypoint.ts): the
@@ -40,7 +43,8 @@ spec:
       containers:
         - name: render-worker
           image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
-          command: ["node_modules/.bin/tsx", "server/workers/hosted-render.entrypoint.ts"]
+          # args only: the image's ENTRYPOINT is tini, which forwards SIGTERM.
+          args: ["node_modules/.bin/tsx", "server/workers/hosted-render.entrypoint.ts"]
           envFrom:
             - configMapRef:
                 name: typelapse-config
@@ -52,48 +56,36 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: TYPELAPSE_RENDER_TEMP_ROOT
-              value: /render-tmp
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop:
                 - ALL
-          # WAITING FOR A MEASUREMENT. The two memory values are the peak RSS of
-          # a real 1080p render plus headroom. The workflow reads them from the
-          # GitHub Environment variables RENDER_MEMORY_REQUEST and
-          # RENDER_MEMORY_LIMIT and refuses to deploy without them. A node has
-          # 4 GB, so the limit must leave room for the API and the node's own
-          # pods. The CPU figures are guesses too: Chromium encodes on every
-          # core it is given. Quota ceiling for this pod, next to the API (192Mi
-          # request, 384Mi limit) and the deletion worker (96Mi, 192Mi): memory
-          # request at most 736Mi, memory limit at most 1472Mi (the /dev/shm
-          # volume below counts against it), cpu limit at most 1250m.
+          # Measured on a 20 s, 1080p, 30 fps render at concurrency 1: cgroup
+          # peak 1.72 to 1.81 GB, so the limit is 2Gi (docs/launch/deploy.md).
+          # The request is still a placeholder: the workflow reads it from the
+          # GitHub Environment variable RENDER_MEMORY_REQUEST and refuses to
+          # deploy without it. The namespace requests quota caps it at 736Mi.
+          # The CPU figures are guesses: Chromium encodes on every core it gets.
+          # The root file system stays writable: tsx and Chromium write to /tmp
+          # and webpack to /app/node_modules/.cache, and only the render
+          # scratch space is worth bounding (the volume below).
           resources:
             requests:
               memory: "__RENDER_MEMORY_REQUEST__"
               cpu: "500m"
             limits:
-              memory: "__RENDER_MEMORY_LIMIT__"
+              memory: "2Gi"
               cpu: "1000m"
           # No probe: the worker serves no port. Kubernetes restarts it if the
           # process exits, and the entrypoint exits non-zero on a fatal error.
           volumeMounts:
+            # TYPELAPSE_RENDER_TEMP_ROOT, set by the image: one directory per
+            # job. No /dev/shm volume: Remotion starts Chromium with
+            # --disable-dev-shm-usage and --no-sandbox.
             - name: render-tmp
-              mountPath: /render-tmp
-            # Chromium keeps shared memory in /dev/shm and the container default
-            # is 64 MiB. Kept small because it counts against the memory limit
-            # above. If the image launches Chromium with --disable-dev-shm-usage,
-            # this volume can be dropped.
-            - name: dshm
-              mountPath: /dev/shm
+              mountPath: /var/lib/typelapse/render
       volumes:
         - name: render-tmp
           emptyDir:
             sizeLimit: 4Gi
-        - name: dshm
-          emptyDir:
-            medium: Memory
-            # Memory-backed, so it counts against the container's memory limit
-            # once used.
-            sizeLimit: 128Mi

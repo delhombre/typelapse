@@ -64,8 +64,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # VITE_* values are read by `vite build`, so they are baked into the SPA
-      # here. The Dockerfile declares them as build ARGs.
+      # The VITE_* values and TYPELAPSE_APP_URL (the share-card tags) are baked
+      # into the client bundle, so they are build args: one build per
+      # environment, tagged with the commit SHA.
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -79,6 +80,7 @@ jobs:
           build-args: |
             VITE_TYPELAPSE_DEPLOYMENT_MODE=hosted
             VITE_TYPELAPSE_AUTH_ENABLED=true
+            TYPELAPSE_APP_URL=https://${{ env.APP_HOST }}
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
@@ -104,18 +106,17 @@ jobs:
           POLAR_CREATOR_MONTHLY_PRODUCT_ID: ${{ vars.POLAR_CREATOR_MONTHLY_PRODUCT_ID }}
           POLAR_CREATOR_ANNUAL_PRODUCT_ID: ${{ vars.POLAR_CREATOR_ANNUAL_PRODUCT_ID }}
           RENDER_MEMORY_REQUEST: ${{ vars.RENDER_MEMORY_REQUEST }}
-          RENDER_MEMORY_LIMIT: ${{ vars.RENDER_MEMORY_LIMIT }}
           DEPLOY_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          for name in R2_ACCOUNT_ID R2_BUCKET POLAR_CREATOR_MONTHLY_PRODUCT_ID RENDER_MEMORY_REQUEST RENDER_MEMORY_LIMIT; do
+          for name in R2_ACCOUNT_ID R2_BUCKET POLAR_CREATOR_MONTHLY_PRODUCT_ID RENDER_MEMORY_REQUEST; do
             if [ -z "${!name:-}" ]; then
               echo "::error::The Environment variable $name is not set (render memory waits for a measurement)"
               exit 1
             fi
           done
           # POLAR_CREATOR_ANNUAL_PRODUCT_ID is optional and may be empty.
-          for name in APP_HOST IMAGE_TAG DEPLOY_RUN R2_ACCOUNT_ID R2_BUCKET POLAR_CREATOR_MONTHLY_PRODUCT_ID POLAR_CREATOR_ANNUAL_PRODUCT_ID RENDER_MEMORY_REQUEST RENDER_MEMORY_LIMIT; do
+          for name in APP_HOST IMAGE_TAG DEPLOY_RUN R2_ACCOUNT_ID R2_BUCKET POLAR_CREATOR_MONTHLY_PRODUCT_ID POLAR_CREATOR_ANNUAL_PRODUCT_ID RENDER_MEMORY_REQUEST; do
             if ! printf '%s' "${!name:-}" | grep -Eq '^[A-Za-z0-9._-]*$'; then
               echo "::error::$name contains characters outside [A-Za-z0-9._-]"
               exit 1
@@ -133,7 +134,6 @@ jobs:
               -e "s|__POLAR_CREATOR_MONTHLY_PRODUCT_ID__|${POLAR_CREATOR_MONTHLY_PRODUCT_ID}|g" \
               -e "s|__POLAR_CREATOR_ANNUAL_PRODUCT_ID__|${POLAR_CREATOR_ANNUAL_PRODUCT_ID}|g" \
               -e "s|__RENDER_MEMORY_REQUEST__|${RENDER_MEMORY_REQUEST}|g" \
-              -e "s|__RENDER_MEMORY_LIMIT__|${RENDER_MEMORY_LIMIT}|g" \
               "$file" > "$out/$(basename "$file")"
           done
           if grep -nE '__[A-Z0-9_]+__' "$out"/*.yaml; then

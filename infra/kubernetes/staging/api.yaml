@@ -6,7 +6,7 @@ metadata:
 spec:
   replicas: 1
   # The namespace quota has no room for a surge pod (requests.memory 1Gi,
-  # limits.memory 2Gi), so the old pod goes before the new one starts.
+  # limits.memory 2Gi to 3Gi), so the old pod goes before the new one starts.
   strategy:
     type: Recreate
   selector:
@@ -34,11 +34,8 @@ spec:
       containers:
         - name: api
           image: ghcr.io/delhombre/typelapse:__IMAGE_TAG__
-          # tsx runs the server straight from source: there is no compiled
-          # server entry, `pnpm build` only typechecks it. The binary is called
-          # directly (relative to the image's WORKDIR) so no pnpm or corepack
-          # runs at start, and SIGTERM reaches tsx without a wrapper in between.
-          command: ["node_modules/.bin/tsx", "server/index.ts"]
+          # No command or args: the image's ENTRYPOINT is tini and its default CMD
+          # is `tsx server/index.ts`, which also serves the built SPA.
           ports:
             - containerPort: 3001
           envFrom:
