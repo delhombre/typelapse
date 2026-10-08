@@ -177,7 +177,7 @@ describe("StudioAccountControl", () => {
 		fireEvent.change(code, { target: { value: "000000" } });
 
 		const alert = await within(panel).findByRole("alert");
-		expect(alert.textContent).toBe("That code does not match. Check the email and try again.");
+		expect(alert.textContent).toBe("That code does not match. Try again.");
 		expect(alert.parentElement?.previousElementSibling?.textContent).toBe("Sign in");
 		await waitFor(() => expect((code as HTMLInputElement).value).toBe(""));
 		expect(document.activeElement).toBe(code);

@@ -1,6 +1,6 @@
 # Every journey, every night and on demand: the smoke subset runs on each pull
 # request (ci.yml), this runs the rest, including the ones that reach GitHub,
-# and the hosted journeys against PostgreSQL, MinIO and the real render worker.
+# and the hosted journeys against PostgreSQL, MinIO, maildev and the real render worker.
 name: E2E nightly
 
 on:
@@ -78,6 +78,12 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 12
+      # Catches the sign-in codes the API mails; the journeys read them from its REST API.
+      maildev:
+        image: maildev/maildev:2.2.1
+        ports:
+          - 10281:1025
+          - 10881:1080
 
     env:
       # vite build with Monaco peaks near 4.5 GB; Node's default heap dies first.

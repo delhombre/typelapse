@@ -202,7 +202,7 @@ describe("the client auth store", () => {
 			status: { kind: "anonymous" },
 			operation: "idle",
 			canSync: false,
-			error: "That code does not match. Check the email and try again.",
+			error: "That code does not match. Try again.",
 			pendingCode: { email: "ada@example.com" },
 		});
 	});

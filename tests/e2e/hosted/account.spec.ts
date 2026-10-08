@@ -1,6 +1,12 @@
 import { allowanceSentence } from "../../../src/application/billing/plan-allowance";
 import { Plan } from "../../../src/domain/value-objects/plan";
-import { cloudProjectCount, newAccount, openAccountPanel, signUpInIsland } from "../support/hosted";
+import {
+	cloudProjectCount,
+	codeFor,
+	newAccount,
+	openAccountPanel,
+	signUpInIsland,
+} from "../support/hosted";
 import { expect, openStudio, settled, storedScenes, test } from "../support/studio";
 
 /** The sentence the island shows a free account, built from the same Plan the server uses. */
@@ -97,19 +103,18 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 	});
 });
 
-test.describe("Hosted account: a refused sign-in leaves the form where it was", () => {
-	// Found by the phone's second pass (#153): the alert landed between the password and the
-	// button and pushed the button 43px down under the finger that had pressed it, and the
-	// button, disabled while the request was out, handed its focus to the page.
-	test("the panel is opaque, and the button stays put and keeps focus when the refusal arrives", async ({
+test.describe("Hosted account: a refused code leaves the form where it was", () => {
+	// Found by the phone's second pass (#153): the alert landed between the fields and the
+	// button and pushed the button 43px down under the finger that had pressed it. A refused
+	// code is cleared and the field takes focus again, ready for the code to be typed again.
+	test("the panel is opaque, the button stays put and the code field is ready when the refusal arrives", async ({
 		page,
 	}) => {
 		const account = newAccount("refused");
 		await openStudio(page);
+		await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
 		await page.getByRole("button", { name: "Sign in", exact: true }).click();
 		const panel = page.getByRole("dialog", { name: "Typelapse account" });
-		await panel.getByLabel("Email").fill(account.email);
-		await panel.getByLabel("Password").fill(account.password);
 
 		// The panel holds a form, so it is the opaque studio surface (DECISIONS D5), like a menu.
 		expect(
@@ -119,18 +124,32 @@ test.describe("Hosted account: a refused sign-in leaves the form where it was", 
 			}),
 		).toEqual({ background: "rgb(255, 255, 255)", blur: "none" });
 
+		await panel.getByRole("textbox", { name: "Email" }).fill(account.email);
+		const since = new Date();
+		await panel.getByRole("button", { name: "Email me a code" }).click();
+		const code = panel.getByRole("textbox", { name: "Code" });
+		await expect(code).toBeFocused();
+		const right = await codeFor(account.email, since);
+		const wrong = right === "000000" ? "111111" : "000000";
+
 		const submit = panel.getByRole("button", { name: "Sign in", exact: true });
 		// The panel scales in over 160ms; measure it standing still.
 		await settled(panel);
 		const before = await submit.boundingBox();
 		const panelBefore = await panel.boundingBox();
-		await submit.focus();
-		await submit.click();
-		await expect(panel.getByRole("alert")).toHaveText("Email or password is incorrect.");
+		await code.fill(wrong);
+		await expect(panel.getByRole("alert")).toHaveText(
+			"That code does not match. Try again.",
+		);
 
 		const after = await submit.boundingBox();
 		expect(after?.y).toBe(before?.y);
 		expect((await panel.boundingBox())?.height).toBe(panelBefore?.height);
-		await expect(submit).toBeFocused();
+		await expect(code).toHaveValue("");
+		await expect(code).toBeFocused();
+
+		// The same code, typed right, still signs in: a wrong try spends one of three.
+		await code.fill(right);
+		await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();
 	});
 });

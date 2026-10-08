@@ -56,7 +56,7 @@ function rateLimitedMessage(retryAfterSeconds: number | null): string {
 const SAFE_AUTH_MESSAGES: Record<ClientAuthFailureCode, string> = {
 	"invalid-email": "Enter an email address like ada@example.com.",
 	// Said the same for every address: a wrong code never tells whether an account exists.
-	"invalid-code": "That code does not match. Check the email and try again.",
+	"invalid-code": "That code does not match. Try again.",
 	"code-expired": "This code no longer works. Send a new one.",
 	"rate-limited": rateLimitedMessage(null),
 	"not-configured": "Accounts are not configured for this hosted deployment.",

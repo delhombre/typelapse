@@ -161,7 +161,7 @@ describe("the Better Auth browser adapter", () => {
 		expect(failure).toBeInstanceOf(ClientAuthFailure);
 		expect(failure).toMatchObject({
 			code: "invalid-code",
-			message: "That code does not match. Check the email and try again.",
+			message: "That code does not match. Try again.",
 		});
 		expect(String(failure)).not.toContain("super-secret");
 	});
