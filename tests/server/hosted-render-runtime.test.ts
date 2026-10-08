@@ -36,8 +36,36 @@ describe("hosted render runtime config", () => {
 		});
 	});
 
+	it("reads the render concurrency from 1 to 16, and leaves it unset when the variable is unset or blank", () => {
+		const base = { TYPELAPSE_COMPILER_VERSION: "compiler-v2" };
+
+		expect(
+			hostedRenderRuntimeConfigFromEnv({ ...base, TYPELAPSE_RENDER_CONCURRENCY: "2" }),
+		).toMatchObject({ concurrency: 2 });
+		expect(
+			hostedRenderRuntimeConfigFromEnv({ ...base, TYPELAPSE_RENDER_CONCURRENCY: " 16 " }),
+		).toMatchObject({ concurrency: 16 });
+		expect(hostedRenderRuntimeConfigFromEnv(base)).not.toHaveProperty("concurrency");
+		expect(
+			hostedRenderRuntimeConfigFromEnv({ ...base, TYPELAPSE_RENDER_CONCURRENCY: " " }),
+		).not.toHaveProperty("concurrency");
+	});
+
+	it.each(["0", "17", "-1", "1.5", "two"])("refuses a render concurrency of %s, naming the variable", (value) => {
+		expect(() =>
+			hostedRenderRuntimeConfigFromEnv({
+				TYPELAPSE_COMPILER_VERSION: "compiler-v2",
+				TYPELAPSE_RENDER_CONCURRENCY: value,
+			}),
+		).toThrow("TYPELAPSE_RENDER_CONCURRENCY");
+	});
+
 	it.each([
 		[{}, "TYPELAPSE_COMPILER_VERSION is required"],
+		[
+			{ TYPELAPSE_COMPILER_VERSION: "compiler-v2", TYPELAPSE_RENDER_CONCURRENCY: "0" },
+			"TYPELAPSE_RENDER_CONCURRENCY",
+		],
 		[
 			{ TYPELAPSE_COMPILER_VERSION: "compiler-v2", TYPELAPSE_RENDER_HEARTBEAT_MS: "120000" },
 			"heartbeat must be shorter",

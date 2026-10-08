@@ -106,6 +106,8 @@ export interface RemotionV2RuntimeApiPort {
 		readonly jpegQuality: number;
 		readonly overwrite: true;
 		readonly muted: boolean;
+		/** Absent: Remotion halves the host's cores, which a container's cgroup limit does not reflect. */
+		readonly concurrency?: number;
 		readonly cancelSignal: RemotionCancelSignal;
 	}): Promise<unknown>;
 	renderStill(input: {
@@ -175,6 +177,7 @@ function compositionRecord(composition: unknown): Readonly<Record<string, unknow
 
 export function createRemotionV2Runtime(
 	api: RemotionV2RuntimeApiPort = REMOTION_API,
+	options: { readonly concurrency?: number } = {},
 ): RemotionV2RuntimePort {
 	return {
 		async bundle(input) {
@@ -234,6 +237,7 @@ export function createRemotionV2Runtime(
 					jpegQuality: JPEG_QUALITY,
 					overwrite: true,
 					muted: !input.includeAudio,
+					...(options.concurrency ? { concurrency: options.concurrency } : {}),
 					cancelSignal,
 				});
 				input.signal.throwIfAborted();
@@ -385,10 +389,14 @@ export function createHostedRemotionV2Renderer(input: {
 	readonly runtime?: RemotionV2RuntimePort;
 	readonly temporaryRoot?: string;
 	readonly entryPoint?: string;
+	/** Frames Chromium renders at once; absent leaves Remotion's choice. Read from the environment by the worker's config, not here. */
+	readonly concurrency?: number;
 }): HostedMultimediaRendererPort {
 	const temporaryRoot = path.resolve(input.temporaryRoot ?? os.tmpdir());
 	const entryPoint = input.entryPoint ?? path.resolve(process.cwd(), "server/remotion/v2/root.tsx");
-	const runtime = input.runtime ?? createRemotionV2Runtime();
+	const runtime =
+		input.runtime ??
+		createRemotionV2Runtime(undefined, input.concurrency ? { concurrency: input.concurrency } : {});
 	const managedWorkspaces = new Map<string, string>();
 
 	return {

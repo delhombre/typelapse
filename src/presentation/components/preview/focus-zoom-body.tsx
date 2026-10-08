@@ -1,6 +1,10 @@
-import { clipFadeStops } from "@/application/layout/canvas-fit";
-import { type ZoomTransform, pushInFade, zoomOriginX } from "@/application/magic-move/focus-zoom";
 import type { ReactNode } from "react";
+import { clipFadeStops } from "../../../application/layout/canvas-fit";
+import {
+	type ZoomTransform,
+	pushInFade,
+	zoomOriginX,
+} from "../../../application/magic-move/focus-zoom";
 
 /**
  * The code body under the chrome bar, pushed in by the focus zoom: the one

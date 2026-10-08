@@ -1,0 +1,41 @@
+# Secrets and local state never enter the image.
+.env
+.env.*
+**/.env*
+!.env.example
+!**/.env.example
+.npmrc
+**/.npmrc
+*.pem
+*.key
+.git
+.github
+.claude
+.agent
+.agents
+.codex
+.craft
+.e2e
+.lapse
+.tmp
+.vite
+.playwright-mcp
+.gstack
+
+# Rebuilt inside the image.
+node_modules
+dist
+*.tsbuildinfo
+*.log
+
+# Test and QA output.
+test-results
+playwright-report
+
+# Not read at build or run time. docs/ stays: the landing page imports its sharpness images.
+goals
+skills
+**/.DS_Store
+Dockerfile
+.dockerignore
+.mcp.json
