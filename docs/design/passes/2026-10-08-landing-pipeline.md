@@ -31,7 +31,10 @@ the sharpness proof, the capability ledger, the close.
   its stage is within 600px of the viewport, reserves the 5:4 box in CSS, labels the
   stage as an image, writes the read-out into the caption and destroys on unmount. The
   palette is `--hairline-*`: ink and paper, and ink mixed into paper for the edge, middle
-  and dim strokes, a little more ink on the dark theme.
+  and dim strokes, a little more ink on the dark theme. One system across the five: one
+  camera (45°, 0.5), a scale family that keeps every rest pose 295 to 306 of 400 wide,
+  one stagger (32ms), a lap each through three different answers, the stroke change on
+  the page's 150ms ease-out; all five pass the skill's look check.
 - **Nav** (D5 kept): the island plate from the first screen, with How it works, Proof and
   Pricing from 640px; its CTA is a text action while the hero (and its filled button) is
   in view, the primary past it (D2).
@@ -54,6 +57,6 @@ measurements. No horizontal scroll at 360, 390 or 1440; every text run 5.05:1 or
 
 ## Open
 
-- The figures answer a pointer or a finger only; a keyboard reader gets the label. No
-  tour is wired (the figures rest until touched), as in the prototype.
+- The figures answer a pointer or a finger only; a keyboard reader gets the label and
+  the lap (each figure walks three answers while on screen, never under reduced motion).
 - Needs a device: the figures' sideways drag against the page's vertical scroll on iOS.
