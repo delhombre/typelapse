@@ -162,7 +162,7 @@ never closes on the row's last control. A drag or a keyboard move is
 one-to-one and instant; only a finished reorder settles. A cycling label
 reserves its widest width. Nothing enters from `scale(0)`. Under reduced
 motion only colour, opacity and shadow transitions survive, and the global
-allow-list is the whole rule: no stylesheet turns a transition off locally.
+allow-list is the whole rule: no stylesheet turns a transition off locally. No looping ambient motion: a landing figure plays its lap once, the first time it is 60% in view, then only answers a hand; never under reduced motion, never on re-entry (PO, 2026-10-08).
 
 **Why:** a Lapse take caught the aspect frame forcing layout every frame and
 a spring writing sub-pixel values for 2666ms; a label one character wider

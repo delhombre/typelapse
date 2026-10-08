@@ -96,6 +96,17 @@ describe("HairlineFigure", () => {
 		expect(screen.getByText("rest")).toBeTruthy();
 	});
 
+	it("is a tab stop whose read-out is announced politely as it changes", () => {
+		const { load } = fakeFigure();
+		renderFigure(load);
+		const stage = screen.getByRole("img");
+		const read = screen.getByText("rest");
+
+		expect(stage.tabIndex).toBe(0);
+		expect(read.getAttribute("aria-live")).toBe("polite");
+		expect(stage.getAttribute("aria-describedby")).toBe(read.id);
+	});
+
 	it("fetches nothing until the stage nears the viewport", () => {
 		const { load } = fakeFigure();
 		renderFigure(load);

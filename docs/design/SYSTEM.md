@@ -170,7 +170,7 @@ Which radius?
 | Code frame on the landing; its halo, where on dark a ring stands in for the shadow nothing shows against; a raised light picture takes its ring in its stack, never a border | `0 12px 32px -10px oklch(0 0 0 / 0.16)` `src/app.css` `--object-lift: 0 30px 80px -24px rgb(0 0 0 / 0.25), 0 2px 8px rgb(0 0 0 / 0.06)` `--raised-ring: 0 0 0 1px var(--color-hairline)` `src/app.css @ .landing-root` `--object-lift: 0 30px 80px -24px rgb(0 0 0 / 0.6), 0 0 0 1px var(--color-hairline)` `src/app.css @ .landing-root[data-theme="dark"]` |
 | Chrome bar closing hairline | `borderAlpha: "0f"` `src/application/layout/frame-metrics.ts` |
 | Opaque line where hairlines cross | `--edge: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper))` `src/app.css` |
-| A picture's inner edge on the landing, inset 1px, never beside a ring | `--image-edge: rgb(0 0 0 / 0.1)` `src/app.css @ .landing-root` `--image-edge: rgb(255 255 255 / 0.1)` `src/app.css @ .landing-root[data-theme="dark"]` |
+| A picture's inner edge on the landing, inset 1px, never beside a ring | `--image-edge: oklch(0 0 0 / 0.1)` `src/app.css @ .landing-root` `--image-edge: oklch(1 0 0 / 0.1)` `src/app.css @ .landing-root[data-theme="dark"]` |
 | The landing's only border | `HAIRLINE = "border-hairline"` `src/presentation/landing/tokens.ts` |
 | Reduced transparency: the material goes opaque | `--camera-material: var(--camera-paper)` `src/presentation/studio-camera.css @ @media (prefers-reduced-transparency: reduce) / :is(.studio-camera-root, .sc-root-mobile)` |
 

@@ -1,3 +1,4 @@
+import { playLapOnce } from "./figure-lap";
 import HL from "./kernel";
 import type { HairlineFigureDef } from "./types";
 
@@ -35,14 +36,18 @@ export function mountFigure(def: HairlineFigureDef, host: HTMLElement, out: Elem
 	if (!said) {
 		out.textContent = "rest";
 	}
-	/* The figure's own lap: an unseen pointer that visits its stops, then leaves
-	   it at rest, so a reader with no hand on it still sees what it answers. The
-	   kernel runs it only while the stage is on screen, hands over the moment a
-	   real pointer or the keyboard arrives, and never under reduced motion. */
-	const lap = def.tour?.length ? HL.tour(host, def.tour) : null;
+	/* The figure's own lap, once: an unseen pointer visits its stops the first
+	   time the figure is mostly in view, then leaves it at rest, so a reader
+	   with no hand on it still sees what it answers (DECISIONS D8). */
+	const cancelLap = playLapOnce({
+		host,
+		stops: def.tour ?? [],
+		tour: HL.tour,
+		reducedMotion: () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+	});
 
 	return () => {
-		lap?.stop();
+		cancelLap();
 		handle.destroy();
 		svg.remove();
 		host.removeAttribute("data-hairline");

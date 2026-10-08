@@ -165,7 +165,7 @@ test.describe(
 			await expect(page.locator("#paste .lp-fig-read")).toHaveText(/^scene \d\d$/);
 		});
 
-		test("a figure nobody touches walks its own lap, and stays at rest under reduced motion", async ({
+		test("a figure nobody touches walks its lap once, and never under reduced motion", async ({
 			browser,
 		}) => {
 			const moving = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -184,8 +184,12 @@ test.describe(
 				await expect(queue.locator("svg path").first()).toBeAttached();
 				const read = page.locator("#hosted .lp-fig-read");
 				if (laps) {
-					// The unseen pointer arrives after its pause and names the job it is on.
+					// The unseen pointer arrives after its pause and names the job it is on,
+					// then leaves, once: the figure rests and does not go round again.
 					await expect(read).toHaveText(/^job \d/, { timeout: 8_000 });
+					await expect(read).toHaveText("rest", { timeout: 15_000 });
+					await page.waitForTimeout(5_000);
+					await expect(read).toHaveText("rest");
 				} else {
 					await page.waitForTimeout(4_000);
 					await expect(read).toHaveText("rest");

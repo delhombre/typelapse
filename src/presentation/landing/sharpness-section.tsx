@@ -80,7 +80,7 @@ export function SharpnessSection() {
 										{megabytes(file.bytes)}
 									</span>
 								</div>
-								<div className="h-[96px] overflow-hidden rounded-[12px] bg-[#0d1117] outline outline-1 outline-hairline -outline-offset-1 lg:h-[144px]">
+								<div className="h-[96px] overflow-hidden rounded-[12px] bg-[#0d1117] outline outline-1 outline-[var(--image-edge)] -outline-offset-1 lg:h-[144px]">
 									<img
 										src={CROPS[file.crop]}
 										width={crop.width}

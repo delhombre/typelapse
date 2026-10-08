@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { HairlineFigureDef } from "./types";
 
 /** How far ahead of the viewport a figure starts loading: about a screen's worth of scroll. */
@@ -32,6 +32,7 @@ export function HairlineFigure({ load, label, hint, className = "" }: HairlineFi
 	const root = useRef<HTMLElement>(null);
 	const stage = useRef<HTMLDivElement>(null);
 	const readOut = useRef<HTMLSpanElement>(null);
+	const readId = useId();
 
 	useEffect(() => {
 		const figure = root.current;
@@ -78,10 +79,20 @@ export function HairlineFigure({ load, label, hint, className = "" }: HairlineFi
 
 	return (
 		<figure ref={root} className={`lp-fig ${className}`}>
-			<div ref={stage} className="lp-fig-stage" role="img" aria-label={label} />
+			{/* A tab stop, so a keyboard reader reaches the drawing, sees the ring on
+			    it and hears what it says; the read-out is a polite live region. */}
+			<div
+				ref={stage}
+				className="lp-fig-stage"
+				role="img"
+				aria-label={label}
+				aria-describedby={readId}
+				// biome-ignore lint/a11y/noNoninteractiveTabindex: the figure answers a pointer; a keyboard reader reaches it to hear its read-out
+				tabIndex={0}
+			/>
 			<figcaption className="lp-fig-cap">
 				<span className="lp-fig-hint">{hint}</span>
-				<span ref={readOut} className="lp-fig-read">
+				<span ref={readOut} id={readId} className="lp-fig-read" aria-live="polite">
 					rest
 				</span>
 			</figcaption>

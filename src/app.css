@@ -949,6 +949,8 @@ html.dark:not([data-landing-theme]) {
 	/* The paper's hairline is ink at 10%, which on the band is nothing: the band's
 	   own ink at 12%, as the dark theme's hairline is. */
 	--color-hairline: color-mix(in oklch, var(--color-band-ink) 12%, transparent);
+	/* A picture on the band is a picture on dark, whatever the page's theme. */
+	--image-edge: oklch(1 0 0 / 0.1);
 	background: #171614;
 	color: var(--color-band-ink);
 }
@@ -1587,11 +1589,11 @@ html.dark:not([data-landing-theme]) {
    white at 10% on the dark theme, so a frame that runs to its edge in the same
    tone as the page still ends where it ends. */
 .landing-root {
-	--image-edge: rgb(0 0 0 / 0.1);
+	--image-edge: oklch(0 0 0 / 0.1);
 }
 
 .landing-root[data-theme="dark"] {
-	--image-edge: rgb(255 255 255 / 0.1);
+	--image-edge: oklch(1 0 0 / 0.1);
 	--hairline-edge: color-mix(in oklch, var(--color-ink) 44%, var(--color-paper));
 	--hairline-mid: color-mix(in oklch, var(--color-ink) 26%, var(--color-paper));
 	--hairline-lo: color-mix(in oklch, var(--color-ink) 15%, var(--color-paper));
@@ -1648,6 +1650,9 @@ html.dark:not([data-landing-theme]) {
 	.landing-root .lp-steps ol {
 		grid-template-columns: repeat(5, 136px);
 		overflow-x: auto;
+		/* A swipe that runs past the last step stays in the row: on Android it
+		   would otherwise go on to the browser's own back gesture. */
+		overscroll-behavior-x: contain;
 		scroll-snap-type: x mandatory;
 		scrollbar-width: none;
 		margin-right: calc(-1 * max(var(--lp-gutter, 1.5rem), env(safe-area-inset-right, 0px)));

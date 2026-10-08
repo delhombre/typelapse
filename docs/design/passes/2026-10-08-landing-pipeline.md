@@ -58,5 +58,5 @@ measurements. No horizontal scroll at 360, 390 or 1440; every text run 5.05:1 or
 ## Open
 
 - The figures answer a pointer or a finger only; a keyboard reader gets the label and
-  the lap (each figure walks three answers while on screen, never under reduced motion).
+  the lap (each figure walks three answers once, the first time it is 60% in view, D8).
 - Needs a device: the figures' sideways drag against the page's vertical scroll on iOS.

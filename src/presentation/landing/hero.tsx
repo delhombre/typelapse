@@ -160,7 +160,8 @@ export function Hero() {
 					<RevealItem>
 						<p className="lp-lead lp-hero-lead">
 							Typelapse cuts a change into scenes, glides the tokens between them, checks the frame
-							against the feed, and writes a file as sharp as the preview, in your browser.
+							against the feed, and writes a file as sharp as the preview, in your browser. Text,
+							images, video and audio share the same scenes.
 						</p>
 					</RevealItem>
 					<RevealItem>

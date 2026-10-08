@@ -49,6 +49,9 @@ describe("landing hero", () => {
 		const lead = container.querySelector(".lp-hero-lead")?.textContent ?? "";
 		expect(lead).toMatch(/as sharp as the preview/i);
 		expect(lead).toMatch(/in your browser/i);
+		// Viability D1: mixed media is the pitch's second sentence, never the first.
+		expect(lead).toMatch(/\. Text, images, video and audio share the same scenes\.$/);
+		expect(lead.search(/sharp/i)).toBeLessThan(lead.search(/Text, images/));
 		expect(`${heading.textContent} ${lead}`).not.toContain("\u2014");
 	});
 
