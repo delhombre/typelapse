@@ -119,6 +119,19 @@ describe("createApp hosted capabilities", () => {
 		expect(await behindApi.json()).toEqual(await plain.json());
 	});
 
+	it("reports mail, and without it no auth: a code that cannot leave signs nobody in", async () => {
+		const mail = { send: async () => undefined };
+		const withMail = await createApp({ deploymentMode: "hosted", database: null, mail });
+		const withoutMail = await createApp({ deploymentMode: "hosted", database: null, mail: null });
+
+		expect(await (await withMail.request("http://localhost/health")).json()).toMatchObject({
+			capabilities: { mail: true, auth: false },
+		});
+		expect(await (await withoutMail.request("http://localhost/health")).json()).toMatchObject({
+			capabilities: { mail: false, auth: false },
+		});
+	});
+
 	it("mounts the account-free multimedia renderer only in local deployment mode", async () => {
 		const localRoute = new Hono().post("/render/v2", (c) => c.body("local-v2", 200));
 		const local = await createApp({

@@ -21,6 +21,7 @@ import {
 	type HostedRenderPageService,
 } from "../src/application/render/hosted-render-page";
 import type { AuthPort } from "../src/domain/ports/auth.port";
+import type { MailPort } from "../src/domain/ports/mail.port";
 import type { SubscriptionPort } from "../src/domain/ports/subscription.port";
 import { Plan } from "../src/domain/value-objects/plan";
 import { betterAuthAdapter } from "../src/infrastructure/auth/better-auth.adapter";
@@ -39,6 +40,7 @@ import {
 } from "./db/asset.repository";
 import { createBillingProjectionStore } from "./db/billing-projection.store";
 import { databaseFromEnv, type CreatorDatabase } from "./db/database";
+import { smtpMailFromEnv } from "./mail/smtp-mail";
 import { createProjectDocumentRepository } from "./db/project-document.repository";
 import {
 	createRenderOutputRepository,
@@ -65,6 +67,8 @@ export interface CreateAppOptions {
 	/** Test seam for the V2 account-free local Remotion renderer. */
 	readonly localMultimediaRenderRoute?: Hono;
 	readonly database?: CreatorDatabase | null;
+	/** Outgoing mail; defaults to SMTP_URL and MAIL_FROM. Sign-in codes leave through it. */
+	readonly mail?: MailPort | null;
 	readonly auth?: AuthInstance | null;
 	readonly authPort?: AuthPort | null;
 	readonly apiKeyRepository?: ApiKeyRepositoryPort | null;
@@ -130,7 +134,8 @@ export async function createApp(
 	);
 
 	const database = options.database === undefined ? databaseFromEnv() : options.database;
-	const auth = options.auth === undefined ? authInstance(database) : options.auth;
+	const mail = options.mail === undefined ? smtpMailFromEnv(process.env) : options.mail;
+	const auth = options.auth === undefined ? authInstance(database, process.env, mail) : options.auth;
 	const authPort =
 		options.authPort === undefined ? (auth ? betterAuthAdapter(auth) : null) : options.authPort;
 	const apiKeyRepository =
@@ -222,6 +227,7 @@ export async function createApp(
 			billing: Boolean(authPort && billing),
 			hostedRendering,
 			apiKeys: Boolean(apiKeys),
+			mail: Boolean(mail),
 			localMultimediaRendering: deploymentMode === "local",
 		},
 	};
