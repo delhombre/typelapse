@@ -31,7 +31,8 @@ ARG VITE_TYPELAPSE_DEPLOYMENT_MODE=local
 ARG VITE_TYPELAPSE_AUTH_ENABLED=false
 ARG VITE_BETTER_AUTH_URL=
 ARG TYPELAPSE_APP_URL=
-RUN pnpm build
+# tsc and vite build exceed Node's default heap, as in CI (ci.yml).
+RUN NODE_OPTIONS=--max-old-space-size=6144 pnpm build
 
 # --- runtime ---------------------------------------------------------------
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
