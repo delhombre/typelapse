@@ -33,20 +33,6 @@ ARG VITE_BETTER_AUTH_URL=
 ARG TYPELAPSE_APP_URL=
 RUN pnpm build
 
-# The release step runs `drizzle-kit migrate`, a dev dependency. Copy it, with
-# the exact versions of its own dependencies, out of the virtual store before
-# the dev dependencies go; pnpm links each of them next to it, esbuild's native
-# binary among them, which is copied beside esbuild by hand. Its drizzle-orm
-# and pg peers are the application's own.
-RUN mkdir -p /opt/drizzle-kit \
-	&& cp -rL node_modules/.pnpm/drizzle-kit@*/node_modules /opt/drizzle-kit/node_modules \
-	&& cp -rL node_modules/.pnpm/esbuild@0.25.*/node_modules/@esbuild /opt/drizzle-kit/node_modules/@esbuild \
-	&& CI=true pnpm prune --prod \
-	&& ln -s /app/node_modules/drizzle-orm /opt/drizzle-kit/node_modules/drizzle-orm \
-	&& ln -s /app/node_modules/pg /opt/drizzle-kit/node_modules/pg \
-	&& ln -s /opt/drizzle-kit/node_modules/drizzle-kit node_modules/drizzle-kit \
-	&& ln -s ../drizzle-kit/bin.cjs node_modules/.bin/drizzle-kit
-
 # --- runtime ---------------------------------------------------------------
 FROM node:${NODE_VERSION}-bookworm-slim AS runtime
 
@@ -93,16 +79,11 @@ WORKDIR /app
 # compiles server/remotion and src/ at run time, so the tree travels with the
 # build. .dockerignore keeps .env and every other secret out.
 COPY --from=build --chown=typelapse:typelapse /app /app
-COPY --from=build --chown=typelapse:typelapse /opt/drizzle-kit /opt/drizzle-kit
 
 # One frame at a time: a container sees its node's cores, not its own limit, so
 # Remotion's default (half the cores it sees) would oversubscribe it.
-#
-# pnpm checks the dependencies before every script and would try to reinstall
-# the development ones this image deliberately lacks.
 ENV NODE_ENV=production \
 	PATH=/app/node_modules/.bin:$PATH \
-	pnpm_config_verify_deps_before_run=false \
 	PORT=3001 \
 	TYPELAPSE_STATIC_ROOT=/app/dist \
 	TYPELAPSE_RENDER_TEMP_ROOT=/var/lib/typelapse/render \

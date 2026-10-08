@@ -11,8 +11,9 @@ docker build --platform linux/amd64 -t typelapse .
 ```
 
 The build installs from the lockfile, runs `pnpm build` (types, then the Vite
-bundle), downloads the headless browser Remotion renders with and drops the
-development dependencies. It needs the network and no secrets.
+bundle), downloads the headless browser Remotion renders with. It keeps the
+development dependencies, which the release step needs (`drizzle-kit`). It
+needs the network and no secrets.
 
 Three things are baked into the client bundle, so they are build arguments, not
 runtime variables:
@@ -42,8 +43,11 @@ Same image, same working directory (`/app`), a different command:
 | Object deletion worker | `tsx server/workers/object-deletion.entrypoint.ts` |
 
 `pnpm worker:render` and `pnpm worker:object-deletion` run the same two worker
-files. The workers open no port. Each handles SIGTERM and finishes or releases
-its current job; the image starts them under `tini` so the signal arrives.
+files. The workers open no port. On SIGTERM the render worker aborts the render
+in progress and does not release the job's lease, so the job is picked up again
+once `TYPELAPSE_RENDER_LEASE_MS` (120 s by default) has run out. Give the process
+a grace period of a few seconds, not a render's length. The image starts the
+workers under `tini` so the signal arrives.
 
 The API listens on `PORT` (3001). With `TYPELAPSE_STATIC_ROOT` set, which the
 image does (`/app/dist`), it also serves the built app, so one origin answers
@@ -108,4 +112,4 @@ root file system.
 
 `memory.peak` counts file cache; the working-memory column does not. Plan 2 GiB
 per render worker at concurrency 1. The amd64 time is inflated by emulation:
-time it on a real node. The image is 1.12 GB uncompressed.
+time it on a real node. The image is 1.20 GB uncompressed.
