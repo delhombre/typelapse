@@ -1272,11 +1272,22 @@ test.describe("Mobile shell: the corner row and the frame after the design audit
 		await expect(signIn).toBeEnabled();
 		await signIn.tap();
 		const panel = page.getByRole("region", { name: "Sign in to Typelapse" });
-		await panel.getByRole("textbox", { name: "Email" }).fill(account.email);
+		const email = panel.getByRole("textbox", { name: "Email" });
+		// A finger types where it taps: opening the form does not raise the keyboard, and the
+		// field is 16px so the page does not zoom into it (the forms checklist).
+		await expect(email).not.toBeFocused();
+		await expect(email).toHaveAttribute("placeholder", "you@company.com");
+		expect(await email.evaluate((field) => getComputedStyle(field).fontSize)).toBe("16px");
+		await email.fill(account.email);
 		const since = new Date();
 		await panel.getByRole("button", { name: "Email me a code" }).tap();
+		const codeField = panel.getByRole("textbox", { name: "Code" });
+		await expect(codeField).toHaveAttribute("placeholder", "123456");
+		await expect(codeField).not.toBeFocused();
+		await expect(panel.getByRole("heading", { name: "Check your email." })).toBeFocused();
+		expect(await codeField.evaluate((field) => getComputedStyle(field).fontSize)).toBe("16px");
 		const code = await codeFor(account.email, since);
-		await panel.getByRole("textbox", { name: "Code" }).fill(code);
+		await codeField.fill(code);
 		await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();
 		await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 		// Still four chips once signed in.

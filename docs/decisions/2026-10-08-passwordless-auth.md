@@ -11,7 +11,8 @@ flowchart TD
   D1["D1 Sign-in is a six-digit code sent by mail; no password"]
   D2["D2 Mail leaves through SMTP behind a MailPort"]
   D3{"D3 Mail is a required hosted capability"}
-  D1 --> D2 --> D3
+  D4["D4 The sign-in form follows the forms checklist"]
+  D1 --> D2 --> D3 --> D4
 ```
 
 ## D1 Sign-in is a six-digit code sent by mail; no password
@@ -58,6 +59,37 @@ without mail nobody can sign in.
 
 - A hosted build that cannot send the code is a hosted build nobody can
   enter; the release check must say so before a deploy, not after.
+
+## D4 The sign-in form follows the forms checklist
+
+Bruno, 2026-10-08: the inputs had no placeholder, and had `emil-forms-and-inputs`
+been applied? Mostly; about nine rows changed (the PR's table lists them) and are fixed.
+
+**Decision:** both fields carry an example (`you@company.com`, `123456`) in the
+label's muted ink, the labels stay; the address asks for the email keyboard and
+no capitalisation; the code is kept from password managers. A cursor lands in
+the address when the form opens, a finger never gets its keyboard raised: on a
+phone the code step moves focus to its heading instead, so a screen reader
+lands on what changed. A field is checked when it is left, except on a press
+on the form's own button (a message above the button would move it between
+press and release and lose the click) and when focus leaves for nowhere in the
+panel. A refused field shows a mark beside its message (border, mark and words,
+not colour alone), announced as a status when it appears, and every button of
+the form takes the 0.97 press. Busy buttons stay `aria-disabled`, not
+`disabled`. "Use another email" returns focus to the address on a finger too:
+the person is about to type, so raising the keyboard there is right.
+
+**Why:**
+
+- `disabled` drops the focus the button holds to the page; the press guard
+  already prevents the second request, which is the checklist's purpose.
+
+**Rejected:**
+
+- A segmented six-slot code field: it fights paste and one-time-code autofill.
+- Clearing the server's refusal on the next keystroke: it needs a store
+  action, and the refusal sits in its own slot under the button without
+  moving anything.
 
 ## Consequences
 

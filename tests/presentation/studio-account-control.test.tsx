@@ -327,6 +327,185 @@ describe("StudioAccountControl", () => {
 		expect(within(panel).queryByRole("textbox", { name: "Code" })).toBeNull();
 	});
 
+	// Emil's forms checklist (docs/decisions/2026-10-08-passwordless-auth.md D4).
+	describe("the sign-in form meets the forms checklist", () => {
+		/** A finger as the primary pointer: the media query the form asks is `(pointer: coarse)`. */
+		function withFinger() {
+			vi.stubGlobal("matchMedia", (query: string) => ({
+				matches: query === "(pointer: coarse)",
+				media: query,
+				addEventListener: () => undefined,
+				removeEventListener: () => undefined,
+			}));
+		}
+
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
+		it("gives the address an example, the right keyboard and no autocorrect", async () => {
+			const { panel } = await openSignIn();
+			const email = within(panel).getByRole("textbox", { name: "Email" });
+
+			// The label stays; the placeholder is an example of the shape, never the name.
+			expect(email.getAttribute("placeholder")).toBe("you@company.com");
+			expect(email.getAttribute("type")).toBe("email");
+			expect(email.getAttribute("inputmode")).toBe("email");
+			expect(email.getAttribute("autocomplete")).toBe("email");
+			expect(email.getAttribute("autocapitalize")).toBe("off");
+			expect(email.getAttribute("spellcheck")).toBe("false");
+			// A password manager helps with an address; it is not told to look away.
+			expect(email.hasAttribute("data-1p-ignore")).toBe(false);
+		});
+
+		it("gives the code an example and keeps password managers off it", async () => {
+			const { panel } = await openSignIn();
+			askForCode(panel);
+			const code = await within(panel).findByRole("textbox", { name: "Code" });
+
+			expect(code.getAttribute("placeholder")).toBe("123456");
+			expect(code.getAttribute("inputmode")).toBe("numeric");
+			expect(code.getAttribute("autocomplete")).toBe("one-time-code");
+			expect(code.getAttribute("pattern")).toBe("[0-9]*");
+			expect(code.getAttribute("spellcheck")).toBe("false");
+			expect(code.hasAttribute("data-1p-ignore")).toBe(true);
+			expect(code.getAttribute("data-lpignore")).toBe("true");
+		});
+
+		it("puts the cursor in the address when the form opens under a mouse", async () => {
+			const { panel } = await openSignIn();
+
+			expect(document.activeElement).toBe(within(panel).getByRole("textbox", { name: "Email" }));
+		});
+
+		it("does not raise a phone's keyboard when the form opens", async () => {
+			withFinger();
+			const { panel } = await openSignIn();
+
+			expect(document.activeElement).not.toBe(
+				within(panel).getByRole("textbox", { name: "Email" }),
+			);
+		});
+
+		it("leaves the code field to the finger, and puts focus on the heading that replaced the button", async () => {
+			withFinger();
+			const { panel } = await openSignIn();
+			askForCode(panel);
+
+			const code = await within(panel).findByRole("textbox", { name: "Code" });
+			expect(document.activeElement).not.toBe(code);
+			// The button that led here is gone: a screen reader lands on what changed.
+			expect(document.activeElement).toBe(
+				within(panel).getByRole("heading", { name: "Check your email." }),
+			);
+		});
+
+		it("takes a finger back to the address, where it is about to type", async () => {
+			withFinger();
+			const { panel } = await openSignIn();
+			askForCode(panel);
+			await within(panel).findByRole("textbox", { name: "Code" });
+
+			fireEvent.click(within(panel).getByRole("button", { name: "Use another email" }));
+
+			expect(document.activeElement).toBe(within(panel).getByRole("textbox", { name: "Email" }));
+		});
+
+		it("flags an address that is wrong when the field is left, not while it is typed", async () => {
+			const { panel } = await openSignIn();
+			const email = within(panel).getByRole("textbox", { name: "Email" });
+			const close = within(panel).getByRole("button", { name: "Close account panel" });
+
+			fireEvent.change(email, { target: { value: "ada@" } });
+			expect(email.getAttribute("aria-invalid")).toBeNull();
+
+			fireEvent.blur(email, { relatedTarget: close });
+
+			expect(email.getAttribute("aria-invalid")).toBe("true");
+			const message = within(panel).getByText("Enter an email address like ada@example.com.");
+			// Border, mark and words, announced as it appears: never colour alone.
+			expect(within(panel).getByRole("status")).toBe(message);
+			expect(message.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+			// Once flagged it is checked as it changes, so a fixed address clears at once.
+			fireEvent.change(email, { target: { value: "ada@example.com" } });
+			expect(email.getAttribute("aria-invalid")).toBeNull();
+		});
+
+		it("does not flag an empty address that is only passed through, nor a window that lost focus", async () => {
+			const { panel } = await openSignIn();
+			const email = within(panel).getByRole("textbox", { name: "Email" });
+			const close = within(panel).getByRole("button", { name: "Close account panel" });
+
+			fireEvent.blur(email, { relatedTarget: close });
+			expect(email.getAttribute("aria-invalid")).toBeNull();
+
+			// Another tab, or a press outside that is closing the panel: nothing inside took focus.
+			fireEvent.change(email, { target: { value: "ada@" } });
+			fireEvent.blur(email, { relatedTarget: null });
+			expect(email.getAttribute("aria-invalid")).toBeNull();
+		});
+
+		// The message takes a line above the button; a button that moves between the press and
+		// the release is not clicked. The press is Sign in's, so the check waits for the submit.
+		it("waits for the submit when the blur is a press on the button, so the button does not move", async () => {
+			const sendSignInCode = vi.fn(async (_email: string) => undefined);
+			const { panel } = await openSignIn({ sendSignInCode });
+			const email = within(panel).getByRole("textbox", { name: "Email" });
+			const submit = within(panel).getByRole("button", { name: "Email me a code" });
+			fireEvent.change(email, { target: { value: "ada@" } });
+
+			fireEvent.pointerDown(submit);
+			fireEvent.blur(email, { relatedTarget: submit });
+			expect(email.getAttribute("aria-invalid")).toBeNull();
+
+			// The press is over: the guard lets go, and leaving the field for something else in the
+			// panel is checked again.
+			fireEvent.pointerUp(document);
+			fireEvent.blur(email, {
+				relatedTarget: within(panel).getByRole("button", { name: "Close account panel" }),
+			});
+			expect(email.getAttribute("aria-invalid")).toBe("true");
+			fireEvent.click(submit);
+			expect(sendSignInCode).not.toHaveBeenCalled();
+		});
+
+		it("says beside the code field that it is short once it is left with digits in it", async () => {
+			const { panel } = await openSignIn();
+			askForCode(panel);
+			const code = await within(panel).findByRole("textbox", { name: "Code" });
+			const other = within(panel).getByRole("button", { name: "Use another email" });
+
+			fireEvent.blur(code, { relatedTarget: other });
+			expect(code.getAttribute("aria-invalid")).toBeNull();
+
+			fireEvent.change(code, { target: { value: "0429" } });
+			expect(code.getAttribute("aria-invalid")).toBeNull();
+			fireEvent.blur(code, { relatedTarget: other });
+
+			expect(code.getAttribute("aria-invalid")).toBe("true");
+			const message = within(panel).getByText("Enter the six digits from the email.");
+			expect(within(panel).getByRole("status")).toBe(message);
+			expect(message.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+			fireEvent.change(code, { target: { value: "04291" } });
+			fireEvent.change(code, { target: { value: "042917" } });
+			expect(within(panel).queryByText("Enter the six digits from the email.")).toBeNull();
+		});
+
+		it("says Signing in… on the button while the code is checked, and ignores a second press", async () => {
+			const signInWithCode = vi.fn(() => new Promise<void>(() => undefined));
+			const { panel } = await openSignIn({ signInWithCode });
+			askForCode(panel);
+			const code = await within(panel).findByRole("textbox", { name: "Code" });
+
+			fireEvent.change(code, { target: { value: "042917" } });
+
+			const submit = await within(panel).findByRole("button", { name: "Signing in…" });
+			expect(submit.getAttribute("aria-disabled")).toBe("true");
+			fireEvent.click(submit);
+			expect(signInWithCode).toHaveBeenCalledTimes(1);
+		});
+	});
+
 	it("does not claim cloud sync before the authenticated user opts this project in", () => {
 		const store = createAuthStore({ kind: "local-offline" });
 		store.setState({

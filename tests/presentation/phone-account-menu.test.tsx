@@ -85,7 +85,18 @@ function phone(session: ClientSession | null, menuOpen = true) {
 afterEach(() => {
 	cleanup();
 	document.body.innerHTML = "";
+	vi.unstubAllGlobals();
 });
+
+/** The phone's primary pointer is a finger: its form does not raise the keyboard on open. */
+function withFinger() {
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		matches: query === "(pointer: coarse)",
+		media: query,
+		addEventListener: () => undefined,
+		removeEventListener: () => undefined,
+	}));
+}
 
 describe("the account in the phone's More menu", () => {
 	it("is no chip: it draws into the menu, and nothing while the menu is shut", async () => {
@@ -100,6 +111,7 @@ describe("the account in the phone's More menu", () => {
 	});
 
 	it("signs in from the menu: the address, then the code, then the account's rows", async () => {
+		withFinger();
 		const { menu, calls } = phone(null);
 		fireEvent.click(await within(menu).findByRole("button", { name: "Sign in" }));
 
@@ -118,6 +130,13 @@ describe("the account in the phone's More menu", () => {
 		await waitFor(() => expect(document.activeElement).toBe(account));
 		expect(within(menu).getByRole("button", { name: "Sign out" })).toBeTruthy();
 		await waitFor(() => expect(account.textContent).toContain("Free"));
+	});
+
+	it("leaves the cursor in the address, not on the way back, when a mouse opens the form", async () => {
+		const { menu } = phone(null);
+		fireEvent.click(await within(menu).findByRole("button", { name: "Sign in" }));
+
+		expect(document.activeElement).toBe(within(menu).getByRole("textbox", { name: "Email" }));
 	});
 
 	it("goes back to the rows, on the way back or on Escape, with focus on the row", async () => {
