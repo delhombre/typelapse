@@ -42,6 +42,12 @@ const TAP_SLOP = 6;
 const VELOCITY_WINDOW_MS = 100;
 /** Reduced motion swaps the picture at once and fades it in, over this long. */
 const REDUCED_FADE = { duration: 0.16, ease: [0.23, 1, 0.32, 1] } as const;
+/**
+ * The way back, a fifth quicker than the way in: the island's spring scaled in
+ * time by 0.8 (stiffness over 0.64, damping over 0.8), still critically damped
+ * (50 is twice the square root of 625), so it never crosses the frame's box.
+ */
+const CLOSE_SPRING = { type: "spring", stiffness: 625, damping: 50, mass: 1 } as const;
 
 /** Shut: nothing applied. Open: the picture fills the screen. Closing: on its way back. */
 type Phase = "shut" | "open" | "closing";
@@ -94,6 +100,26 @@ function readPicture(stage: HTMLElement, lens: HTMLElement): RestPicture | null 
 		// No code on the stage (an image scene): the loupe still magnifies a quarter.
 		codePx: codePx > 0 ? codePx : Number.POSITIVE_INFINITY,
 		origin: { x: lensBox.left, y: lensBox.top },
+	};
+}
+
+/**
+ * The code window as it would lie at rest, read while the loupe is open: the
+ * picture keeps playing, so a scene that grows moves the pan's bounds. The box
+ * drawn now is taken back through the lens's transform, which pivots on the
+ * screen's origin: screen = (e, f) + a * rest.
+ */
+function readOpenWindow(stage: HTMLElement, lens: HTMLElement): LoupeRect | null {
+	const frame = stage.querySelector("[data-preview-frame], [data-export-target]");
+	if (!frame) return null;
+	const box = rectOf(frame.querySelector(".code-frame-glow") ?? frame);
+	const drawn = new DOMMatrix(getComputedStyle(lens).transform);
+	if (drawn.a <= 0) return null;
+	return {
+		x: (box.x - drawn.e) / drawn.a,
+		y: (box.y - drawn.f) / drawn.a,
+		width: box.width / drawn.a,
+		height: box.height / drawn.a,
 	};
 }
 
@@ -201,10 +227,14 @@ export function CodeLoupe({
 		radius: shown.radius,
 	});
 
-	/** Every value to its target: on the island's spring, or at once under reduced motion. */
+	/**
+	 * Opening or closing: every value to its target on its spring. Under reduced
+	 * motion the picture swaps at once and fades in, and only here: a pan's release
+	 * never fades.
+	 */
 	const settle = (
 		targets: [MotionValue<number>, number][],
-		velocity: Map<MotionValue<number>, number> = new Map(),
+		spring: typeof ISLAND_SPRING | typeof CLOSE_SPRING,
 	): Promise<unknown> => {
 		for (const controls of flight.current) controls.stop();
 		if (reduce) {
@@ -214,12 +244,18 @@ export function CodeLoupe({
 			return Promise.resolve();
 		}
 		flight.current = targets.map(([value, target]) =>
-			animate(value, target, {
-				...ISLAND_SPRING,
-				velocity: velocity.get(value) ?? value.getVelocity(),
-			}),
+			animate(value, target, { ...spring, velocity: value.getVelocity() }),
 		);
 		return Promise.all(flight.current);
+	};
+
+	/** Re-reads the window under the open picture, so the bounds are the scene on screen now. */
+	const refreshWindow = () => {
+		const stage = stageRef.current;
+		const lens = lensRef.current;
+		if (!picture.current || !stage || !lens) return;
+		const window = readOpenWindow(stage, lens);
+		if (window) picture.current = { ...picture.current, window };
 	};
 
 	const open = (tap?: LoupePoint) => {
@@ -250,16 +286,19 @@ export function CodeLoupe({
 			from: phaseRef.current === "shut" ? LOUPE_REST : view(),
 		});
 		go("open");
-		void settle([
-			[scale, target.scale],
-			[x, target.x],
-			[y, target.y],
-			[top, 0],
-			[right, 0],
-			[bottom, 0],
-			[left, 0],
-			[radius, 0],
-		]);
+		void settle(
+			[
+				[scale, target.scale],
+				[x, target.x],
+				[y, target.y],
+				[top, 0],
+				[right, 0],
+				[bottom, 0],
+				[left, 0],
+				[radius, 0],
+			],
+			ISLAND_SPRING,
+		);
 	};
 
 	const close = () => {
@@ -268,16 +307,19 @@ export function CodeLoupe({
 		go("closing");
 		targetRef.current?.focus({ preventScroll: true });
 		const clip = restClip(shown);
-		void settle([
-			[scale, 1],
-			[x, 0],
-			[y, 0],
-			[top, clip.top],
-			[right, clip.right],
-			[bottom, clip.bottom],
-			[left, clip.left],
-			[radius, clip.radius],
-		]).then(() => {
+		void settle(
+			[
+				[scale, 1],
+				[x, 0],
+				[y, 0],
+				[top, clip.top],
+				[right, clip.right],
+				[bottom, clip.bottom],
+				[left, clip.left],
+				[radius, clip.radius],
+			],
+			CLOSE_SPRING,
+		).then(() => {
 			if (phaseRef.current === "closing") go("shut");
 		});
 	};
@@ -319,7 +361,10 @@ export function CodeLoupe({
 			// Open or on its way back: the loupe owns every press on the screen. Open, the
 			// finger takes the picture where it is; the scale still lands on the floor.
 			event.currentTarget.setPointerCapture(event.pointerId);
-			if (current === "open") stopAll([x, y]);
+			if (current === "open") {
+				stopAll([x, y]);
+				refreshWindow();
+			}
 		}
 		const point = { x: event.clientX, y: event.clientY };
 		press.current = {
@@ -381,26 +426,43 @@ export function CodeLoupe({
 			const seconds = Math.max(16, last.t - first.t) / 1000;
 			velocity = { x: (last.x - first.x) / seconds, y: (last.y - first.y) / seconds };
 		}
-		const rest = releaseLoupe({ x: x.get(), y: y.get() }, velocity, limits);
-		void settle(
-			[
-				[x, rest.x],
-				[y, rest.y],
-			],
-			new Map([
-				[x, velocity.x],
-				[y, velocity.y],
-			]),
-		);
+		const release = releaseLoupe({ x: x.get(), y: y.get() }, velocity, limits);
+		if (reduce) {
+			x.jump(release.to.x);
+			y.jump(release.to.y);
+			return;
+		}
+		// Each axis on its own spring, from the speed that lands it on the bound.
+		flight.current = [
+			animate(x, release.to.x, { ...ISLAND_SPRING, velocity: release.velocity.x }),
+			animate(y, release.to.y, { ...ISLAND_SPRING, velocity: release.velocity.y }),
+		];
 	};
 
+	// The frame's keys are the loupe's. The studio's shortcuts listen on the window
+	// (Space plays, the arrows change scene, Escape pauses): a key handled here goes
+	// no further, and while the loupe is up they stand down (use-keyboard-shortcuts).
 	const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
 		if (event.altKey || event.ctrlKey || event.metaKey) return;
+		// Enter and Space click the button, which opens or closes the loupe.
+		if (event.key === "Enter" || event.key === " ") {
+			event.stopPropagation();
+			return;
+		}
+		if (phaseRef.current !== "open") return;
+		if (event.key === "Escape") {
+			event.preventDefault();
+			event.stopPropagation();
+			close();
+			return;
+		}
 		// A keyboard move is one-to-one and instant (DECISIONS D8).
-		if (phaseRef.current === "open" && isLoupeArrow(event.key)) {
+		if (isLoupeArrow(event.key)) {
+			event.preventDefault();
+			event.stopPropagation();
+			refreshWindow();
 			const limits = bounds(openScale());
 			if (!limits) return;
-			event.preventDefault();
 			stopAll([x, y]);
 			const next = nudgeLoupe(view(), event.key, limits);
 			x.jump(next.x);
@@ -416,7 +478,9 @@ export function CodeLoupe({
 				data-loupe={shown ? phase : undefined}
 				style={{
 					paddingBottom: stageBottom,
-					clipPath: shown ? clipPath : undefined,
+					// Shut, the clip goes: left at the frame's box, it would cut a frame
+					// that a new shape or a rotation draws bigger.
+					clipPath: shown ? clipPath : "none",
 					opacity: fade,
 				}}
 				onPointerDown={onPointerDown}

@@ -2,7 +2,16 @@ import { type Locator, type Page, devices } from "@playwright/test";
 import { STAGE_TOP_GAP } from "../../src/application/layout/phone-sheet";
 import { GREET_DIFF, quadrantPng } from "./support/fixtures";
 import { codeFor, newAccount } from "./support/hosted";
-import { addSource, expect, hitBox, importHash, openStudio, settled, test } from "./support/studio";
+import {
+	addSource,
+	expect,
+	hitBox,
+	importHash,
+	openStudio,
+	settled,
+	shareHash,
+	test,
+} from "./support/studio";
 
 /**
  * This file runs in both profiles: `pnpm e2e` (local, no account) and `pnpm e2e:hosted`
@@ -1486,5 +1495,142 @@ test.describe("Mobile shell: the code is read through a loupe", () => {
 		// And it did change: the frame two frames in is already the magnified one.
 		expect(Number(first.split(",")[2])).toBeGreaterThan(box.width * 1.2);
 		expect(await effectiveCodePx(page)).toBeGreaterThanOrEqual(11 - 0.01);
+
+		// A pan is a pan under reduced motion too: the release lands at once, and the
+		// picture never fades out and back (only opening and closing fade).
+		await page.waitForTimeout(300);
+		await drag(page, { x: 300, y: 400 }, { x: -120, y: 0 });
+		const opacities = await loupeSlot(page).evaluate(
+			(slot) =>
+				new Promise<string[]>((resolve) => {
+					const seen: string[] = [];
+					const tick = () => {
+						seen.push(getComputedStyle(slot).opacity);
+						if (seen.length < 6) requestAnimationFrame(tick);
+						else resolve(seen);
+					};
+					tick();
+				}),
+		);
+		expect(new Set(opacities)).toEqual(new Set(["1"]));
+	});
+
+	test("once shut, nothing of its clip is left: a 9:16 frame shows to its foot", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		await openTheLoupe(page);
+		await page.getByRole("button", { name: "Done" }).tap();
+		await expectShut(page);
+		await expect
+			.poll(() => loupeSlot(page).evaluate((slot) => getComputedStyle(slot).clipPath))
+			.toBe("none");
+
+		await page.getByRole("button", { name: "Settings" }).tap();
+		await page.getByRole("button", { name: "Aspect ratio 9:16", exact: true }).tap();
+		await page.getByRole("button", { name: "Close settings" }).tap();
+		const frame = page.locator("[data-preview-frame]");
+		await settled(frame);
+		const box = await frame.boundingBox();
+		if (!box) throw new Error("no frame");
+		expect(box.height).toBeGreaterThan(box.width);
+		// The rest box the clip was left at was 16:9, 210px tall: the 9:16 frame's foot
+		// is far below it, and a press there has to reach the frame.
+		const footIsTheFrame = await page.evaluate(
+			({ x, y }) => document.elementFromPoint(x, y)?.closest("[data-preview-frame]") != null,
+			{ x: box.x + box.width / 2, y: box.y + box.height - 4 },
+		);
+		expect(footIsTheFrame).toBe(true);
+	});
+
+	test("its keys are its own: Space opens, arrows pan, Escape closes, and playback is untouched", async ({
+		page,
+	}) => {
+		await openStudio(
+			page,
+			shareHash({
+				title: "Two scenes",
+				code: "const a = 1;",
+				language: "typescript",
+				themeName: "nord",
+				background: "mesh:ocean",
+				steps: [
+					{ code: "const a = 1;", duration: 4000 },
+					{ code: "const a = 1;\nconst b = 2;", duration: 4000 },
+				],
+			}),
+		);
+		const firstScene = page.getByRole("button", { name: "Scene 1 of 2" });
+		await expect(firstScene).toHaveAttribute("aria-current", "step");
+		await settled(page.locator("[data-preview-frame]"));
+		const target = page.getByRole("button", { name: "Magnify the code" });
+
+		// Space on the frame opens the loupe; it does not start playback.
+		await target.focus();
+		await page.keyboard.press(" ");
+		await expect(loupeSlot(page)).toHaveAttribute("data-loupe", "open");
+		await expect(page.getByRole("button", { name: "Play", exact: true })).toBeAttached();
+		// An arrow pans the picture; it does not change the scene.
+		await page.keyboard.press("ArrowRight");
+		await page.keyboard.press("ArrowLeft");
+		await expect(firstScene).toHaveAttribute("aria-current", "step");
+		await page.keyboard.press("Escape");
+		await expectShut(page);
+		await expect(firstScene).toHaveAttribute("aria-current", "step");
+
+		// Playing, Escape closes the loupe and the video keeps playing.
+		await page.getByRole("button", { name: "Play", exact: true }).tap();
+		await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeAttached();
+		await target.focus();
+		await page.keyboard.press("Enter");
+		await expect(loupeSlot(page)).toHaveAttribute("data-loupe", "open");
+		await page.keyboard.press("Escape");
+		await expectShut(page);
+		await expect(page.getByRole("button", { name: "Pause", exact: true })).toBeAttached();
+	});
+
+	test("its bounds follow the picture: a scene growing from 3 to 40 lines while open pans to its foot", async ({
+		page,
+	}) => {
+		const short = ["const a = 1;", "const b = 2;", "const c = 3;"].join("\n");
+		const tall = Array.from({ length: 40 }, (_, row) => `const value${row} = ${row};`).join("\n");
+		await openStudio(
+			page,
+			shareHash({
+				title: "Growing",
+				code: short,
+				language: "typescript",
+				themeName: "nord",
+				background: "mesh:ocean",
+				steps: [
+					{ code: short, duration: 600 },
+					{ code: tall, duration: 60_000 },
+				],
+			}),
+		);
+		await expect(page.getByRole("button", { name: "Scene 1 of 2" })).toHaveAttribute(
+			"aria-current",
+			"step",
+		);
+		await page.getByRole("button", { name: "Play", exact: true }).tap();
+		await openTheLoupe(page);
+		// The second scene holds once the morph has run.
+		await expect(page.locator("[data-export-target] span", { hasText: "value39" })).toBeAttached();
+		await page.waitForTimeout(1500);
+		await settled(codeWindow(page));
+
+		for (let pass = 0; pass < 4; pass++) await drag(page, { x: 200, y: 780 }, { x: 0, y: -600 });
+		await settled(codeWindow(page));
+		const box = await codeWindow(page).boundingBox();
+		if (!box) throw new Error("no window");
+		// The bounds are the 40-line window's, not the 3-line one the loupe opened on:
+		// taller than the view, its foot reaches the view's foot less the margin;
+		// shorter, it sits whole inside the view, centred.
+		const view = { top: 58, bottom: 844 - 24 };
+		if (box.height + 24 > view.bottom - view.top) {
+			expect(box.y + box.height).toBeCloseTo(view.bottom - 12, 0);
+		} else {
+			expect(box.y - view.top).toBeCloseTo(view.bottom - (box.y + box.height), 0);
+		}
 	});
 });

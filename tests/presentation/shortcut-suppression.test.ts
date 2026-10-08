@@ -3,6 +3,7 @@ import {
 	useKeyboardShortcuts,
 } from "@/presentation/hooks/use-keyboard-shortcuts";
 import { studioHistory } from "@/presentation/stores/project-history.store";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -34,6 +35,15 @@ describe("areShortcutsSuppressed", () => {
 		dialog.setAttribute("open", "");
 		document.body.append(dialog);
 
+		expect(areShortcutsSuppressed()).toBe(true);
+	});
+
+	it("suppresses them while the phone's loupe is up, which owns its keys as a modal does", () => {
+		const slot = document.createElement("div");
+		slot.className = "sc-stage-slot";
+		document.body.append(slot);
+		expect(areShortcutsSuppressed()).toBe(false);
+		slot.dataset.loupe = "open";
 		expect(areShortcutsSuppressed()).toBe(true);
 	});
 
@@ -115,5 +125,26 @@ describe("the project history chords", () => {
 		unmount();
 
 		expect(history.undo).not.toHaveBeenCalled();
+	});
+});
+
+describe("the bare keys while the phone's loupe is up", () => {
+	it("neither play, pause nor change the scene: the loupe's own handlers have them", () => {
+		const store = useSnippetStore.getState();
+		const play = vi.spyOn(store, "play").mockImplementation(() => {});
+		const pause = vi.spyOn(store, "pause").mockImplementation(() => {});
+		const step = vi.spyOn(store, "setCurrentStepIndex").mockImplementation(() => {});
+		const slot = document.createElement("div");
+		slot.className = "sc-stage-slot";
+		slot.dataset.loupe = "open";
+		document.body.append(slot);
+		const { unmount } = renderHook(() => useKeyboardShortcuts());
+		for (const key of [" ", "ArrowRight", "ArrowLeft", "Escape"]) {
+			window.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
+		}
+		unmount();
+		expect(play).not.toHaveBeenCalled();
+		expect(pause).not.toHaveBeenCalled();
+		expect(step).not.toHaveBeenCalled();
 	});
 });

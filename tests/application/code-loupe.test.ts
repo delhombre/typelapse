@@ -4,6 +4,7 @@ import {
 	LOUPE_FLOOR_PX,
 	LOUPE_KEY_STEP,
 	LOUPE_MARGIN,
+	isLoupeArrow,
 	loupeBounds,
 	loupeScale,
 	loupeViewport,
@@ -163,14 +164,26 @@ describe("letting go of a pan", () => {
 	const bounds = { minX: -500, maxX: 0, minY: -300, maxY: 0 };
 
 	it("carries a third of a second of the finger's speed, inside the bounds", () => {
-		expect(releaseLoupe({ x: -100, y: -100 }, { x: -300, y: 0 }, bounds)).toEqual({
-			x: -100 - 300 * 0.32,
-			y: -100,
-		});
-		expect(releaseLoupe({ x: -100, y: -100 }, { x: -9000, y: 9000 }, bounds)).toEqual({
-			x: -500,
-			y: 0,
-		});
+		const free = releaseLoupe({ x: -100, y: -100 }, { x: -300, y: 0 }, bounds);
+		expect(free.to).toEqual({ x: -100 - 300 * 0.32, y: -100 });
+		// Nothing in the way: the spring starts at the finger's own speed.
+		expect(free.velocity).toEqual({ x: -300, y: 0 });
+		const flung = releaseLoupe({ x: -100, y: -100 }, { x: -9000, y: 9000 }, bounds);
+		expect(flung.to).toEqual({ x: -500, y: 0 });
+	});
+
+	it("slows a fling that meets an edge, so the spring lands on the margin without crossing it", () => {
+		// A critically damped spring (400/40, omega 20) overshoots only when it starts
+		// faster than 20 times its distance; the speed that covers the distance in the
+		// projection's third of a second is well under that.
+		const flung = releaseLoupe({ x: -100, y: -100 }, { x: -9000, y: 9000 }, bounds);
+		expect(flung.velocity.x).toBeCloseTo((-500 - -100) / 0.32, 6);
+		expect(flung.velocity.y).toBeCloseTo((0 - -100) / 0.32, 6);
+		expect(Math.abs(flung.velocity.x)).toBeLessThan(20 * 400);
+		// Let go past an edge (rubber-banded), moving further out: it comes back, inward.
+		const stretched = releaseLoupe({ x: 40, y: -100 }, { x: 600, y: 0 }, bounds);
+		expect(stretched.to.x).toBe(0);
+		expect(stretched.velocity.x).toBeLessThan(0);
 	});
 
 	it("closes when the window was pulled more than 72px past its top", () => {
@@ -182,6 +195,12 @@ describe("letting go of a pan", () => {
 
 describe("the arrow keys", () => {
 	const bounds = { minX: -500, maxX: 0, minY: -300, maxY: 0 };
+
+	it("are the four arrows and nothing an object inherits", () => {
+		expect(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].every(isLoupeArrow)).toBe(true);
+		expect(isLoupeArrow("toString")).toBe(false);
+		expect(isLoupeArrow("Escape")).toBe(false);
+	});
 
 	it("move the code 48px the way the arrow points, and stop at the bounds", () => {
 		const view = { scale: 2, x: -100, y: -100 };

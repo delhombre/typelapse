@@ -19,8 +19,17 @@ function isModalOpen(): boolean {
 }
 
 /**
- * True when the studio's bare-key shortcuts must stand down: while a modal is
- * open, and while the focused surface is taking text.
+ * True while the phone's loupe is up (components/layout/code-loupe.tsx). It owns
+ * the keys as a modal does: an arrow pans the code rather than changing the
+ * scene under it, and Escape closes it rather than pausing the video it shows.
+ */
+function isLoupeOpen(): boolean {
+	return document.querySelector(".sc-stage-slot[data-loupe]") !== null;
+}
+
+/**
+ * True when the studio's bare-key shortcuts must stand down: while a modal or
+ * the phone's loupe is open, and while the focused surface is taking text.
  *
  * This is the state-shaped question, for callers that have no keystroke in hand.
  * The handler below asks the event-shaped one instead, because an event knows
@@ -28,7 +37,9 @@ function isModalOpen(): boolean {
  * Both route through the same capability checks, so they cannot drift apart.
  */
 export function areShortcutsSuppressed(): boolean {
-	return isModalOpen() || isEditableEventTarget({ target: document.activeElement });
+	return (
+		isModalOpen() || isLoupeOpen() || isEditableEventTarget({ target: document.activeElement })
+	);
 }
 
 /** Cmd+Z undoes; Shift+Cmd+Z and Ctrl+Y redo (Ctrl on other systems). */
@@ -51,7 +62,7 @@ export function useKeyboardShortcuts(): void {
 			// A modal owns every key while it is open, including the chord below
 			// that otherwise fires mid-typing: capturing a step from inside the
 			// gallery would commit work the user cannot see.
-			if (isModalOpen()) {
+			if (isModalOpen() || isLoupeOpen()) {
 				return;
 			}
 

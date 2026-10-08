@@ -164,15 +164,29 @@ export function rubberBand(value: number, min: number, max: number, dimension: n
 	return value;
 }
 
-/** Where a released pan settles: a third of a second of its speed further, inside the bounds. */
+/**
+ * Where a released pan settles, and the speed its spring starts at: a third of a
+ * second of the finger's speed further, inside the bounds. The start speed is the
+ * one that covers that distance in the same third of a second, so a fling that
+ * meets an edge is slowed to land on the margin: a critically damped spring only
+ * crosses its target when it starts faster than its angular frequency times the
+ * distance (20 for the island's 400/40), and this one starts at about 3.
+ */
 export function releaseLoupe(
 	offset: LoupePoint,
 	velocity: LoupePoint,
 	bounds: LoupeBounds,
-): LoupePoint {
-	return {
+): { to: LoupePoint; velocity: LoupePoint } {
+	const to = {
 		x: clamp(offset.x + velocity.x * MOMENTUM_SECONDS, bounds.minX, bounds.maxX),
 		y: clamp(offset.y + velocity.y * MOMENTUM_SECONDS, bounds.minY, bounds.maxY),
+	};
+	return {
+		to,
+		velocity: {
+			x: (to.x - offset.x) / MOMENTUM_SECONDS,
+			y: (to.y - offset.y) / MOMENTUM_SECONDS,
+		},
 	};
 }
 
@@ -192,7 +206,7 @@ const ARROWS: Record<LoupeArrow, LoupePoint> = {
 };
 
 export function isLoupeArrow(key: string): key is LoupeArrow {
-	return key in ARROWS;
+	return Object.hasOwn(ARROWS, key);
 }
 
 /** One arrow key's pan, inside the bounds. */
