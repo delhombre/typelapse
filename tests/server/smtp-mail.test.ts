@@ -12,10 +12,25 @@ describe("SMTP configuration", () => {
 		).toEqual({
 			url: "smtps://resend:re_key@smtp.resend.com:465",
 			from: "Typelapse <code@typelapse.com>",
+			requireTLS: false,
 		});
 		expect(
 			smtpMailConfigFrom({ SMTP_URL: "smtp://127.0.0.1:1025", MAIL_FROM: "code@typelapse.test" }),
-		).toEqual({ url: "smtp://127.0.0.1:1025", from: "code@typelapse.test" });
+		).toEqual({ url: "smtp://127.0.0.1:1025", from: "code@typelapse.test", requireTLS: false });
+	});
+
+	it("never sends a code in the clear to a server beyond this machine: smtp:// there must upgrade to TLS", () => {
+		expect(
+			smtpMailConfigFrom({
+				SMTP_URL: "smtp://resend:re_key@smtp.resend.com:587",
+				MAIL_FROM: "code@typelapse.com",
+			})?.requireTLS,
+		).toBe(true);
+		for (const local of ["smtp://localhost:1025", "smtp://127.0.0.1:1025", "smtp://[::1]:1025"]) {
+			expect(smtpMailConfigFrom({ SMTP_URL: local, MAIL_FROM: "code@typelapse.test" })?.requireTLS).toBe(
+				false,
+			);
+		}
 	});
 
 	it("is no mail at all when either half is missing, which hosted:check then names", () => {
@@ -50,7 +65,7 @@ describe("the SMTP mail adapter", () => {
 	it("hands the transport the sender, the address, and both the text and the HTML", async () => {
 		const sent: unknown[] = [];
 		const mail = smtpMail(
-			{ url: "smtp://127.0.0.1:1025", from: "Typelapse <code@typelapse.test>" },
+			{ url: "smtp://127.0.0.1:1025", from: "Typelapse <code@typelapse.test>", requireTLS: false },
 			{
 				sendMail: async (message) => {
 					sent.push(message);
@@ -76,18 +91,25 @@ describe("the SMTP mail adapter", () => {
 		]);
 	});
 
-	it("lets a transport failure through, so the sign-in says the service is unavailable", async () => {
+	it("fails in neutral words, so a log never carries the server's credentials or reply", async () => {
 		const mail = smtpMail(
-			{ url: "smtp://127.0.0.1:1025", from: "code@typelapse.test" },
+			{ url: "smtp://127.0.0.1:1025", from: "code@typelapse.test", requireTLS: false },
 			{
 				sendMail: async () => {
-					throw new Error("ECONNREFUSED");
+					throw Object.assign(new Error("Invalid login: 535 user resend:re_secret rejected"), {
+						code: "EAUTH",
+					});
 				},
 			},
 		);
 
-		await expect(
-			mail.send({ to: "ada@example.com", subject: "s", text: "t", html: "h" }),
-		).rejects.toThrow("ECONNREFUSED");
+		const failure = await mail
+			.send({ to: "ada@example.com", subject: "s", text: "t", html: "h" })
+			.catch((error: unknown) => error);
+
+		expect(failure).toBeInstanceOf(Error);
+		expect((failure as Error).message).toBe("The mail server did not take the message (EAUTH)");
+		expect(String(failure)).not.toContain("re_secret");
+		expect((failure as Error).cause).toBeUndefined();
 	});
 });

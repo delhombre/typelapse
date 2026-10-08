@@ -13,9 +13,12 @@ const ENVIRONMENT = {
 };
 
 /** A real Better Auth over an in-memory store, with a mail server that keeps what it is handed. */
-function signInService(): { auth: AuthInstance; mail: FakeMail } {
+function signInService(environment: Record<string, string> = {}): {
+	auth: AuthInstance;
+	mail: FakeMail;
+} {
 	const mail = fakeMail();
-	const auth = authInstance(DATABASE, ENVIRONMENT, mail, {
+	const auth = authInstance(DATABASE, { ...ENVIRONMENT, ...environment }, mail, {
 		adapter: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
 	});
 	if (!auth) {
@@ -32,11 +35,22 @@ const client = () => {
 	return `198.51.100.${nextClient}`;
 };
 
-function post(auth: AuthInstance, path: string, body: unknown, from: string): Promise<Response> {
+function post(
+	auth: AuthInstance,
+	path: string,
+	body: unknown,
+	from: string,
+	headers: Record<string, string> = {},
+): Promise<Response> {
 	return auth.handler(
 		new Request(`https://api.typelapse.example/api/auth${path}`, {
 			method: "POST",
-			headers: { "content-type": "application/json", origin: ORIGIN, "x-forwarded-for": from },
+			headers: {
+				"content-type": "application/json",
+				origin: ORIGIN,
+				"x-forwarded-for": from,
+				...headers,
+			},
 			body: JSON.stringify(body),
 		}),
 	);
@@ -125,6 +139,9 @@ describe("passwordless sign-in", () => {
 			"/email-otp/reset-password",
 			"/email-otp/request-email-change",
 			"/email-otp/change-email",
+			// Codes of other types are never sent, so nothing is left to check or verify.
+			"/email-otp/check-verification-otp",
+			"/email-otp/verify-email",
 		]) {
 			const response = await post(auth, path, { email: "ada@example.com" }, client());
 			expect(response.status, path).toBe(404);
@@ -248,23 +265,83 @@ describe("passwordless sign-in", () => {
 		expect(await knownWrong.json()).toEqual(await unknownWrong.json());
 	});
 
-	it("mails only sign-in codes, whatever type a caller asks for", async () => {
+	it("refuses to send any code but a sign-in code, and keeps none", async () => {
+		// Better Auth keeps the code of another type for a known address and drops it for an
+		// unknown one, mail or not: four wrong tries at it would then tell the two apart.
 		const { auth, mail } = signInService();
 		await sendCode(auth, "ada@example.com");
 		await signInWithCode(auth, "ada@example.com", mail.codeFor("ada@example.com"));
 		mail.sent.length = 0;
 
-		for (const type of ["email-verification", "forget-password"]) {
+		for (const type of ["email-verification", "forget-password", "change-email"]) {
 			const response = await post(
 				auth,
 				"/email-otp/send-verification-otp",
 				{ email: "ada@example.com", type },
 				client(),
 			);
-			expect(response.status).toBe(200);
+			expect(response.status, type).toBe(400);
 		}
 
 		expect(mail.sent).toEqual([]);
+	});
+
+	it("answers a known and an unknown address alike on every code route left", async () => {
+		const { auth, mail } = signInService();
+		await sendCode(auth, "known@example.com");
+		await signInWithCode(auth, "known@example.com", mail.codeFor("known@example.com"));
+
+		const answers = async (email: string) => {
+			const from = client();
+			const seen: unknown[] = [];
+			const record = async (response: Promise<Response>) => {
+				const answer = await response;
+				const body = await answer.json().catch(() => null);
+				seen.push([answer.status, body]);
+			};
+			for (const type of ["email-verification", "forget-password"]) {
+				await record(post(auth, "/email-otp/send-verification-otp", { email, type }, from));
+			}
+			for (const path of ["/email-otp/check-verification-otp", "/email-otp/verify-email"]) {
+				for (const type of ["email-verification", "sign-in"]) {
+					await record(post(auth, path, { email, type, otp: "123456" }, from));
+				}
+			}
+			// No code sent: four tries at one are the same refusal for both.
+			for (let attempt = 0; attempt < 4; attempt += 1) {
+				await record(signInWithCode(auth, email, "123456", from));
+			}
+			await record(sendCode(auth, email, from));
+			const code = mail.codeFor(email);
+			for (let attempt = 0; attempt < 4; attempt += 1) {
+				await record(signInWithCode(auth, email, wrong(code), from));
+			}
+			return seen;
+		};
+
+		expect(await answers("known@example.com")).toEqual(await answers("unknown@example.com"));
+	});
+
+	it("takes neither a name nor an image from the caller: the account is named after its address", async () => {
+		const { auth, mail } = signInService();
+		await sendCode(auth, "ada@example.com");
+
+		const signedIn = await post(
+			auth,
+			"/sign-in/email-otp",
+			{
+				email: "ada@example.com",
+				otp: mail.codeFor("ada@example.com"),
+				name: "<img src=x onerror=alert(1)>",
+				image: "https://tracker.example/pixel.gif",
+			},
+			client(),
+		);
+
+		expect(signedIn.status).toBe(200);
+		const { user } = (await signedIn.json()) as { user: { name: string; image: unknown } };
+		expect(user.name).toBe("ada");
+		expect(user.image ?? null).toBeNull();
 	});
 
 	it("mails no code to a string that is not an address", async () => {
@@ -325,6 +402,53 @@ describe("the limits on sending a code", () => {
 		const wait = Number(refused.headers.get("x-retry-after"));
 		expect(wait).toBeGreaterThanOrEqual(1);
 		expect(wait).toBeLessThanOrEqual(600);
+	});
+
+	it("sends one address twenty codes a day, however they are spread over the hours", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-10-08T00:00:00.000Z"));
+		const { auth, mail } = signInService();
+		for (let hour = 0; hour < 2; hour += 1) {
+			vi.setSystemTime(new Date(`2026-10-08T0${hour}:00:00.000Z`));
+			for (let index = 0; index < 10; index += 1) {
+				expect((await sendCode(auth, "ada@example.com")).status).toBe(200);
+			}
+		}
+		vi.setSystemTime(new Date("2026-10-08T02:00:00.000Z"));
+
+		const refused = await sendCode(auth, "ada@example.com");
+
+		expect(refused.status).toBe(429);
+		expect(Number(refused.headers.get("x-retry-after"))).toBe(22 * 60 * 60);
+		expect(mail.sent).toHaveLength(20);
+	});
+
+	it("reads the client from the header the deployment trusts, when it names one", async () => {
+		// Behind Cloudflare, X-Forwarded-For is whatever the caller wrote; cf-connecting-ip
+		// is the address Cloudflare saw. Ten addresses in X-Forwarded-For are one client.
+		const { auth } = signInService({ TRUSTED_CLIENT_IP_HEADER: "cf-connecting-ip" });
+		const seen = client();
+
+		const statuses: number[] = [];
+		for (let index = 0; index < 11; index += 1) {
+			const response = await post(
+				auth,
+				"/email-otp/send-verification-otp",
+				{ email: `person${index}@example.com`, type: "sign-in" },
+				client(),
+				{ "cf-connecting-ip": seen },
+			);
+			statuses.push(response.status);
+		}
+
+		expect(statuses.slice(0, 10)).toEqual(Array(10).fill(200));
+		expect(statuses[10]).toBe(429);
+	});
+
+	it("refuses a trusted client header that is not a header name", () => {
+		expect(() =>
+			authInstance(DATABASE, { ...ENVIRONMENT, TRUSTED_CLIENT_IP_HEADER: "cf connecting ip" }, fakeMail()),
+		).toThrow("TRUSTED_CLIENT_IP_HEADER");
 	});
 
 	it("limits tries at codes per client too, and names the wait", async () => {

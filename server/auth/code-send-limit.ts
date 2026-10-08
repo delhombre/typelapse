@@ -6,12 +6,13 @@ export interface CodeSendLimitOptions {
 	readonly max: number;
 	readonly windowMs: number;
 	readonly now?: () => number;
-	/** Past this many addresses, those whose window has passed are forgotten. */
-	readonly pruneAbove?: number;
 }
 
 export interface CodeSendLimit {
-	consume(address: string): CodeSendVerdict;
+	/** What a send would get now, counting nothing. */
+	check(key: string): CodeSendVerdict;
+	/** Count a send. Call only after every ceiling has said yes. */
+	record(key: string): void;
 	size(): number;
 }
 
@@ -21,50 +22,108 @@ interface Window {
 }
 
 /**
- * How many sign-in codes one address may receive in a window.
- *
- * Better Auth's limiter counts per client address and path, which a script on
- * many addresses walks around; this counts per recipient, so one mailbox cannot
- * be flooded with codes whoever asks. In memory, so the ceiling is per instance,
- * like Better Auth's own.
+ * A fixed window per key, in memory: the ceiling is per instance, like Better
+ * Auth's own limiter. The map is kept in the order windows started, so the ones
+ * that have passed are always at its front and every write drops them: memory
+ * holds only the keys seen within one window.
  */
 export function createCodeSendLimit({
 	max,
 	windowMs,
 	now = Date.now,
-	pruneAbove = 10_000,
 }: CodeSendLimitOptions): CodeSendLimit {
 	const windows = new Map<string, Window>();
 
-	const prune = (at: number) => {
-		for (const [address, window] of windows) {
-			if (at - window.startedAt >= windowMs) {
-				windows.delete(address);
+	const forgetPassed = (at: number) => {
+		for (const [key, window] of windows) {
+			if (at - window.startedAt < windowMs) {
+				return;
 			}
+			windows.delete(key);
 		}
 	};
 
+	const current = (key: string, at: number) => {
+		const window = windows.get(key);
+		return window && at - window.startedAt < windowMs ? window : null;
+	};
+
 	return {
-		consume(rawAddress) {
-			const address = rawAddress.trim().toLowerCase();
+		check(key) {
 			const at = now();
-			if (windows.size >= pruneAbove) {
-				prune(at);
-			}
-			const current = windows.get(address);
-			if (!current || at - current.startedAt >= windowMs) {
-				windows.set(address, { startedAt: at, count: 1 });
+			const window = current(key, at);
+			if (!window || window.count < max) {
 				return { allowed: true };
 			}
-			if (current.count >= max) {
-				return {
-					allowed: false,
-					retryAfterSeconds: Math.max(1, Math.ceil((current.startedAt + windowMs - at) / 1000)),
-				};
+			return {
+				allowed: false,
+				retryAfterSeconds: Math.max(1, Math.ceil((window.startedAt + windowMs - at) / 1000)),
+			};
+		},
+		record(key) {
+			const at = now();
+			forgetPassed(at);
+			const window = current(key, at);
+			if (window) {
+				windows.set(key, { startedAt: window.startedAt, count: window.count + 1 });
+				return;
 			}
-			windows.set(address, { startedAt: current.startedAt, count: current.count + 1 });
-			return { allowed: true };
+			// A new window goes to the back, so the map stays in start order.
+			windows.delete(key);
+			windows.set(key, { startedAt: at, count: 1 });
 		},
 		size: () => windows.size,
+	};
+}
+
+export interface CodeSendCeilingsOptions {
+	readonly now?: () => number;
+}
+
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
+
+/**
+ * Every ceiling on sending a sign-in code that does not depend on who asks:
+ *
+ * - ten codes an hour to one address, and twenty a day, so one mailbox cannot be
+ *   flooded whoever asks, from however many clients;
+ * - two hundred codes an hour from this instance, whatever the addresses, a
+ *   backstop for the sending domain's reputation when the per-client limit is
+ *   walked around with many client addresses.
+ *
+ * A send counts against every ceiling or none: one that is refused spends nothing.
+ */
+export function createCodeSendCeilings({ now = Date.now }: CodeSendCeilingsOptions = {}) {
+	const addressHour = createCodeSendLimit({ max: 10, windowMs: HOUR, now });
+	const addressDay = createCodeSendLimit({ max: 20, windowMs: DAY, now });
+	const instanceHour = createCodeSendLimit({ max: 200, windowMs: HOUR, now });
+
+	return {
+		consume(rawAddress: string): CodeSendVerdict {
+			const address = rawAddress.trim().toLowerCase();
+			const checks: [CodeSendLimit, string][] = [
+				[addressHour, address],
+				[addressDay, address],
+				[instanceHour, "*"],
+			];
+			const refusals = checks
+				.map(([limit, key]) => limit.check(key))
+				.filter(
+					(verdict): verdict is Extract<CodeSendVerdict, { allowed: false }> => !verdict.allowed,
+				);
+			if (refusals.length > 0) {
+				return {
+					allowed: false,
+					retryAfterSeconds: Math.max(...refusals.map((verdict) => verdict.retryAfterSeconds)),
+				};
+			}
+			for (const [limit, key] of checks) {
+				limit.record(key);
+			}
+			return { allowed: true };
+		},
+		/** How many addresses the per-address ceilings hold right now. */
+		addressesHeld: () => Math.max(addressHour.size(), addressDay.size()),
 	};
 }

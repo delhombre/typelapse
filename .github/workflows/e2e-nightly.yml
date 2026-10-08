@@ -84,6 +84,11 @@ jobs:
         ports:
           - 10281:1025
           - 10881:1080
+        options: >-
+          --health-cmd "wget -q -O - http://localhost:1080/healthz || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
 
     env:
       # vite build with Monaco peaks near 4.5 GB; Node's default heap dies first.

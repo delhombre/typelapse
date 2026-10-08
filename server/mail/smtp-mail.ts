@@ -8,7 +8,15 @@ export interface SmtpMailConfig {
 	readonly url: string;
 	/** The sender, `code@typelapse.com` or `Typelapse <code@typelapse.com>`. */
 	readonly from: string;
+	/**
+	 * `smtp://` to anything but this machine must upgrade to TLS (STARTTLS) or fail:
+	 * a sign-in code is a credential and does not cross a network in the clear.
+	 * `smtps://` is TLS from the first byte; maildev on loopback has no TLS at all.
+	 */
+	readonly requireTLS: boolean;
 }
+
+const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 /** The one call this adapter makes of nodemailer, kept injectable for its tests. */
 export interface MailTransport {
@@ -29,19 +37,20 @@ export function smtpMailConfigFrom(env: MailEnvironment): SmtpMailConfig | null 
 	if (!url || !from) {
 		return null;
 	}
-	let protocol: string;
+	let parsed: URL;
 	try {
-		protocol = new URL(url).protocol;
+		parsed = new URL(url);
 	} catch {
 		throw new Error("SMTP_URL must be an smtp:// or smtps:// URL");
 	}
+	const { protocol, hostname } = parsed;
 	if (protocol !== "smtp:" && protocol !== "smtps:") {
 		throw new Error("SMTP_URL must be an smtp:// or smtps:// URL");
 	}
 	if (!ADDRESS.test(from) && !NAMED_ADDRESS.test(from)) {
 		throw new Error("MAIL_FROM must be an address, like Typelapse <code@typelapse.com>");
 	}
-	return { url, from };
+	return { url, from, requireTLS: protocol === "smtp:" && !LOOPBACK.has(hostname) };
 }
 
 /**
@@ -50,17 +59,27 @@ export function smtpMailConfigFrom(env: MailEnvironment): SmtpMailConfig | null 
  */
 export function smtpMail(
 	config: SmtpMailConfig,
-	transport: MailTransport = createTransport(config.url),
+	transport: MailTransport = createTransport({ url: config.url, requireTLS: config.requireTLS }),
 ): MailPort {
 	return {
 		async send(message) {
-			await transport.sendMail({
-				from: config.from,
-				to: message.to,
-				subject: message.subject,
-				text: message.text,
-				html: message.html,
-			});
+			try {
+				await transport.sendMail({
+					from: config.from,
+					to: message.to,
+					subject: message.subject,
+					text: message.text,
+					html: message.html,
+				});
+			} catch (error) {
+				// The server's own words can echo the login or the address; the log gets the
+				// error code alone, enough to tell a refused login from a refused connection.
+				const code =
+					error && typeof error === "object" && "code" in error && typeof error.code === "string"
+						? ` (${error.code})`
+						: "";
+				throw new Error(`The mail server did not take the message${code}`);
+			}
 		},
 	};
 }

@@ -27,7 +27,12 @@ export type ClientAuthOperation =
 export interface PendingSignInCode {
 	readonly email: string;
 	readonly sentAt: Date;
+	/** Refused tries at this code; the server spends it at the third. */
+	readonly wrongTries: number;
 }
+
+/** The tries the server allows one code (server/auth/auth-instance.ts). */
+const CODE_TRIES = 3;
 
 export interface AuthStoreState {
 	status: ClientAuthStatus;
@@ -146,7 +151,7 @@ export function createAuthStore(
 				await authentication.sendCode(email, { signal });
 				settleLatest(request, set, {
 					...sessionState(null),
-					pendingCode: { email, sentAt: options.now() },
+					pendingCode: { email, sentAt: options.now(), wrongTries: 0 },
 				});
 			} catch (error) {
 				settleLatest(request, set, failureState(error));
@@ -170,7 +175,18 @@ export function createAuthStore(
 				});
 			} catch (error) {
 				// A refused code keeps the code step: the person types it again or asks for another.
-				settleLatest(request, set, failureState(error));
+				// The server does not say how many tries are left, so the store counts: at the
+				// third wrong one the code is spent, and saying "try again" would be a lie.
+				if (!(error instanceof ClientAuthFailure) || error.code !== "invalid-code") {
+					settleLatest(request, set, failureState(error));
+					return;
+				}
+				const wrongTries = pending.wrongTries + 1;
+				const failure = wrongTries >= CODE_TRIES ? new ClientAuthFailure("code-expired") : error;
+				settleLatest(request, set, {
+					...failureState(failure),
+					pendingCode: { ...pending, wrongTries },
+				});
 			}
 		},
 		forgetCode: () => {

@@ -827,7 +827,8 @@ function CodeStep({
 			<button type="submit" className="mm-account-primary" aria-disabled={busy ? true : undefined}>
 				{signingIn ? "Signing in…" : "Sign in"}
 			</button>
-			<AlertSlot error={error} />
+			{/* Another code or another address sit right under Sign in; the refusal's room is
+			    under them, so its arrival moves nothing the person is looking at. */}
 			<div className="mm-account-code-actions">
 				<button
 					type="button"
@@ -844,6 +845,7 @@ function CodeStep({
 					Use another email
 				</button>
 			</div>
+			<AlertSlot error={error} />
 		</form>
 	);
 }

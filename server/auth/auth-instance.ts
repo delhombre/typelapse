@@ -7,7 +7,7 @@ import type { MailPort } from "../../src/domain/ports/mail.port";
 import { type CreatorDatabase, databaseFromEnv } from "../db/database";
 import * as schema from "../db/schema";
 import { smtpMailFromEnv } from "../mail/smtp-mail";
-import { createCodeSendLimit } from "./code-send-limit";
+import { createCodeSendCeilings } from "./code-send-limit";
 
 type AuthEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -20,14 +20,22 @@ const CODE_LIFETIME_MINUTES = 10;
 const CODE_ATTEMPTS = 3;
 const SEND_CODE_PATH = "/email-otp/send-verification-otp";
 const SIGN_IN_WITH_CODE_PATH = "/sign-in/email-otp";
-/** The plugin's password reset and email change by code: neither exists without passwords. */
+/**
+ * The plugin's routes for codes of other types: password reset and email change do
+ * not exist without passwords, and since only sign-in codes are ever sent there is
+ * no other code to check or to verify an address with.
+ */
 const UNUSED_CODE_PATHS = [
 	"/email-otp/request-password-reset",
 	"/forget-password/email-otp",
 	"/email-otp/reset-password",
 	"/email-otp/request-email-change",
 	"/email-otp/change-email",
+	"/email-otp/check-verification-otp",
+	"/email-otp/verify-email",
 ];
+/** A header name as HTTP spells one: a token, no spaces. */
+const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
 
 function requiredHttpUrl(value: string, label: string): string {
 	let url: URL;
@@ -76,8 +84,12 @@ export const authInstance = (
 	}
 	const baseURL = requiredHttpUrl(rawBaseUrl, "BETTER_AUTH_URL");
 	const trustedOrigin = requiredHttpUrl(rawTrustedOrigin, "CORS_ORIGIN");
-	// Ten codes an hour to one mailbox, whoever asks for them.
-	const codesPerAddress = createCodeSendLimit({ max: 10, windowMs: 60 * 60 * 1000 });
+	const clientIpHeader = environment.TRUSTED_CLIENT_IP_HEADER?.trim().toLowerCase();
+	if (clientIpHeader && !HEADER_NAME.test(clientIpHeader)) {
+		throw new Error("TRUSTED_CLIENT_IP_HEADER must be a header name, like cf-connecting-ip");
+	}
+	// Per address (an hour, a day) and per instance: the ceilings that hold whoever asks.
+	const codeSends = createCodeSendCeilings();
 
 	return betterAuth({
 		database: options.adapter ?? drizzleAdapter(database, { provider: "pg", schema }),
@@ -91,15 +103,14 @@ export const authInstance = (
 				otpLength: 6,
 				expiresIn: CODE_LIFETIME_MINUTES * 60,
 				allowedAttempts: CODE_ATTEMPTS,
-				// The database keeps a hash: a leaked row opens no account.
+				// A hash keeps the code out of plain sight in the table, no more: six digits
+				// hashed without a salt are found by trying the million of them. What protects
+				// a code is that it lives ten minutes and takes three tries.
 				storeOTP: "hashed",
 				// Every sign-in send mails, known address or not, so neither the answer nor
-				// its timing says whether an account exists. Other types never mail: the
-				// endpoint takes its type from the caller.
-				async sendVerificationOTP({ email, otp, type }) {
-					if (type !== "sign-in") {
-						return;
-					}
+				// its timing says whether an account exists. The hook below refuses every
+				// other type before a code is made.
+				async sendVerificationOTP({ email, otp }) {
 					await mail.send(
 						signInCodeMail({ to: email, code: otp, expiresInMinutes: CODE_LIFETIME_MINUTES }),
 					);
@@ -108,10 +119,19 @@ export const authInstance = (
 		],
 		hooks: {
 			before: createAuthMiddleware(async (ctx) => {
-				if (ctx.path !== SEND_CODE_PATH || typeof ctx.body?.email !== "string") {
+				if (ctx.path !== SEND_CODE_PATH) {
 					return;
 				}
-				const verdict = codesPerAddress.consume(ctx.body.email);
+				// The endpoint takes its type from the caller. Better Auth keeps a code of
+				// another type for a known address and drops it for an unknown one, so a few
+				// wrong tries at it would tell the two apart: there is no other type here.
+				if (ctx.body?.type !== "sign-in") {
+					throw new APIError("BAD_REQUEST", { message: "Only sign-in codes are sent." });
+				}
+				if (typeof ctx.body.email !== "string") {
+					return;
+				}
+				const verdict = codeSends.consume(ctx.body.email);
 				if (!verdict.allowed) {
 					// Better Auth's own limiter names the wait in X-Retry-After; the island reads it.
 					throw new APIError(
@@ -125,22 +145,28 @@ export const authInstance = (
 		databaseHooks: {
 			user: {
 				create: {
-					// There is no name step: an account is named after its address until it says otherwise.
+					// There is no name step: an account is named after its address until it says
+					// otherwise. A name or an image the caller sent with its first code is ignored.
 					async before(user) {
-						const name = user.name?.trim() || user.email.split("@")[0] || user.email;
-						return { data: { ...user, name } };
+						const name = user.email.split("@")[0] || user.email;
+						return { data: { ...user, name, image: null } };
 					},
 				},
 			},
 		},
+		// The client address the per-client limits key on. Unset, Better Auth reads a
+		// single-value X-Forwarded-For. Behind Cloudflare, TRUSTED_CLIENT_IP_HEADER is
+		// cf-connecting-ip: the address Cloudflare saw, which a caller cannot write, but
+		// only while the ingress answers nothing that did not come through Cloudflare.
+		...(clientIpHeader ? { advanced: { ipAddress: { ipAddressHeaders: [clientIpHeader] } } } : {}),
 		// Better Auth only rate limits when NODE_ENV is "production", and nothing in our
 		// start path sets it: `tsx server/index.ts` would serve sign-in with no ceiling at
 		// all. Configured auth is hosted auth, so the limit is always on. The client IP
-		// comes from `x-forwarded-for`, which the platform proxy must set; the store is in
+		// comes from the header above, which the platform proxy must set; the store is in
 		// memory, so the ceiling is per instance. Sending a code mails someone, so it is
 		// held tighter than Better Auth's three a minute: ten per client per ten minutes,
-		// beside the ten an hour per address above. Trying a code is bounded by its three
-		// tries; this ceiling only keeps one client from trying codes of many addresses.
+		// beside the ceilings per address and per instance above. Trying a code is bounded
+		// by its three tries; this ceiling only keeps one client from trying many addresses.
 		rateLimit: {
 			enabled: true,
 			customRules: {

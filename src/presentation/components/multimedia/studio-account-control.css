@@ -541,6 +541,14 @@
 	min-height: calc(1.4 * var(--sc-text-sm) + 18px);
 }
 
+/* On a phone the panel is narrow enough that most refusals take two lines: the room
+   holds two, so a refusal that wraps moves nothing either. */
+@media (max-width: 639px) {
+	.mm-account-alert {
+		min-height: calc(2 * 1.4 * var(--sc-text-sm) + 18px);
+	}
+}
+
 .mm-account-alert > .mm-account-error {
 	animation: mm-alert-in 150ms var(--ease-out);
 }

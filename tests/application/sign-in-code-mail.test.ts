@@ -36,6 +36,22 @@ describe("the sign-in code mail", () => {
 		expect(mail.html).not.toMatch(/<img|<link|<a\s|https?:|url\(/i);
 	});
 
+	it("opens on a text wordmark and sets the code in a light bordered box", () => {
+		const wordmark = mail.html.indexOf(">Typelapse</");
+		const code = mail.html.indexOf("042917");
+		expect(wordmark).toBeGreaterThan(-1);
+		expect(wordmark).toBeLessThan(code);
+		const box = mail.html.slice(mail.html.lastIndexOf("<td", code), code);
+		expect(box).toMatch(/border:\s*1px solid/);
+		expect(box).toMatch(/border-radius/);
+	});
+
+	it("reads in a dark client: it says it supports both schemes and gives the dark one its colours", () => {
+		expect(mail.html).toContain('<meta name="color-scheme" content="light dark">');
+		expect(mail.html).toContain('<meta name="supported-color-schemes" content="light dark">');
+		expect(mail.html).toMatch(/@media \(prefers-color-scheme: dark\)/);
+	});
+
 	it("escapes what it writes into the HTML", () => {
 		const odd = signInCodeMail({ to: "x@example.com", code: "<b>1", expiresInMinutes: 10 });
 		expect(odd.html).toContain("&lt;b&gt;1");

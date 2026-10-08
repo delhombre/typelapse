@@ -207,6 +207,32 @@ describe("the client auth store", () => {
 		});
 	});
 
+	it("says at the third wrong try that the code no longer works, as the server has spent it", async () => {
+		const store = createAuthStore({
+			kind: "hosted",
+			port: authPort({
+				signInWithCode: async () => {
+					throw new ClientAuthFailure("invalid-code");
+				},
+			}),
+		});
+		await store.getState().refreshSession();
+		await store.getState().sendCode("ada@example.com");
+
+		await store.getState().signInWithCode("000000");
+		await store.getState().signInWithCode("111111");
+		expect(store.getState().error).toBe("That code does not match. Try again.");
+		await store.getState().signInWithCode("222222");
+
+		expect(store.getState().error).toBe("This code no longer works. Send a new one.");
+		expect(store.getState().pendingCode).toMatchObject({ email: "ada@example.com" });
+
+		// A new code has three tries of its own.
+		await store.getState().sendCode("ada@example.com");
+		await store.getState().signInWithCode("333333");
+		expect(store.getState().error).toBe("That code does not match. Try again.");
+	});
+
 	it("goes back to the address, forgetting the code step and any refusal", async () => {
 		const store = createAuthStore({
 			kind: "hosted",

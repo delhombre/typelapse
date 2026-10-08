@@ -178,7 +178,12 @@ describe("StudioAccountControl", () => {
 
 		const alert = await within(panel).findByRole("alert");
 		expect(alert.textContent).toBe("That code does not match. Try again.");
-		expect(alert.parentElement?.previousElementSibling?.textContent).toBe("Sign in");
+		// Its room is the last thing in the form: Sign in and the links above it stay put.
+		expect(alert.parentElement?.classList.contains("mm-account-alert")).toBe(true);
+		expect(alert.parentElement?.nextElementSibling).toBeNull();
+		expect(
+			alert.parentElement?.previousElementSibling?.classList.contains("mm-account-code-actions"),
+		).toBe(true);
 		await waitFor(() => expect((code as HTMLInputElement).value).toBe(""));
 		expect(document.activeElement).toBe(code);
 		expect(within(panel).getByRole("textbox", { name: "Code" })).toBe(code);

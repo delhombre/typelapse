@@ -194,7 +194,9 @@ or it does not land.
 - **Sign-in code**: the six digits mailed to an address that asks to sign in, the
   one way into an account (no password). One flow for a new address and a known
   one, answered alike so no answer says which exists. Valid ten minutes, three
-  tries; ten codes an hour per address and ten per client in ten minutes.
+  tries. Sending is limited per address (ten an hour, twenty a day), per client
+  (ten in ten minutes, the client read from `TRUSTED_CLIENT_IP_HEADER` when set) and
+  per instance (two hundred an hour).
 - **Plan**: `free` or `creator` (paid). Resolved server-side from the Polar
   subscription projection; never from a header or a body field.
 - **Ceiling**: a hosted limit carried by the Plan (cloud projects, media
