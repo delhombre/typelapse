@@ -6,7 +6,7 @@ import { StudioAccountIsland } from "@/presentation/components/layout/studio-acc
 import { createAuthStore } from "@/presentation/stores/auth.store";
 import { createPlanStore } from "@/presentation/stores/plan.store";
 import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
  * On the phone the account is the More menu's first section (design audit
@@ -132,6 +132,17 @@ describe("the account in the phone's More menu", () => {
 		fireEvent.keyDown(within(menu).getByRole("textbox", { name: "Email" }), { key: "Escape" });
 		expect(await within(menu).findByRole("button", { name: "Sign in" })).toBeTruthy();
 		expect(within(menu).queryByRole("textbox", { name: "Email" })).toBeNull();
+	});
+
+	it("leaves Escape on its rows to the menu, which closes on it", async () => {
+		const { menu } = phone(null);
+		const heard = vi.fn();
+		document.addEventListener("keydown", heard);
+		fireEvent.keyDown(await within(menu).findByRole("button", { name: "Sign in" }), {
+			key: "Escape",
+		});
+		document.removeEventListener("keydown", heard);
+		expect(heard).toHaveBeenCalledTimes(1);
 	});
 
 	it("opens on the rows again after the menu was shut on the panel", async () => {

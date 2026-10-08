@@ -265,7 +265,7 @@ export function ProjectChip() {
 						{/* The name in full: on a phone the chip shows its first word, and a
 						    tooltip is no way to read the rest under a finger (design audit D3). */}
 						<p className="sc-project-menu-current">
-							<span>Open now</span>
+							<span>This project</span>
 							<strong>{title.trim() === "" ? "Untitled" : title}</strong>
 						</p>
 						<header className="sc-project-menu-head">

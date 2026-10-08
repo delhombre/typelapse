@@ -45,6 +45,7 @@ the one exception (DECISIONS D5).
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css` | same |
 | Error ink: a refused link or diff (5.0:1 on paper) | `--camera-danger: #c53a3a` `src/presentation/studio-camera.css` | `--camera-danger: #f28b82` `src/presentation/studio-camera.css` |
+| A control that cannot be used now: a token, never an opacity (design audit 2026-10-08 D7) | `--camera-disabled: color-mix(in oklch, var(--camera-muted) 50%, var(--camera-paper))` `src/presentation/studio-camera.css` | same, through the two tokens it mixes |
 | Browser chrome before paint | `content="#FAF9F6"` `index.html` | `content="#121110"` `index.html` |
 | Document behind the studio | `background: #fafaf9` `src/app.css` | `background: #121110` `src/app.css @ html.dark` |
 
@@ -53,11 +54,9 @@ phone root, by one rule (`:is(.studio-camera-root, .sc-root-mobile, .sc-tokens)`
 the last for the strip an import link raises, rendered beside the shell, and the
 phone's sheet, portaled to the body, which draws only its own hairline and radius).
 
-Theme switch: the landing sets `data-theme` on `.landing-root` and
-`data-landing-theme` on `<html>`; the studio toggles `.dark` on `<html>`. The
-inline script in `index.html` paints the right one before the bundle runs.
-Colour is semantic only (syntax, diff state, the one primary); the chassis
-stays neutral.
+Theme switch: the landing sets `data-theme` on `.landing-root` and `data-landing-theme` on `<html>`; the studio toggles `.dark` on `<html>`, and the inline script in `index.html` paints the right one before the bundle runs.
+The studio's appearance is Light, Dark or System, System by default and following the OS live (design audit 2026-10-08 D6); only a forced side rewrites the `theme-color` metas, and a side the old two-state toggle stored is read as System once.
+Colour is semantic only (syntax, diff state, the one primary); the chassis stays neutral.
 
 ```text
 Which background?
@@ -227,7 +226,7 @@ landing has no intro at all. Nothing enters from `scale(0)`: reveal at 0.985.
 | Island under a finger: a 48px plate; the landing's controls grow to 36px, the studio phone's root row tiles 44px cells | `height: 48px` `src/app.css @ .lp-island` `--island-control: clamp(24px, calc((100cqi - 44px) / 8), 36px)` `src/app.css` `--island-cell: 44px` `src/app.css` |
 | Sheet chips under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-layer-pill` |
 | A picture built from code is not text to select | `shrink-0 snap-center select-none` `src/presentation/landing/frame-fan.tsx` |
-| Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` |
+| Popover controls, the sheet's close, the replace question's buttons, the More menu's rows and the account panel's fields and buttons under a finger | `height: 44px` `src/presentation/studio-camera.css @ .sc-confirm-actions button` `inset: -5px` `src/presentation/studio-camera.css @ .sc-source-view-head > button::after` `inset: -5px` `src/presentation/studio-camera.css @ .studio-sheet-header > button::after` `height: 44px` `src/app.css @ .sc-utility-overflow-menu > button` `inset: -6px` `src/presentation/components/multimedia/studio-account-control.css` |
 | Fields under a finger (iOS zoom) | `font-size: 16px` `src/app.css @ .lp-field` `font-size: 16px` `src/presentation/studio-camera.css @ .sc-layer-field textarea` |
 | Hover exists only here | `@media (hover: hover) and (pointer: fine)` `src/app.css` |
 | Hover-only helpers vanish on touch | `@media (hover: none)` `src/app.css` |

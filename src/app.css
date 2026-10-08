@@ -3427,7 +3427,10 @@ html.dark:not([data-landing-theme]) {
 	color: var(--camera-ink);
 }
 
-.sc-utility-overflow-menu button {
+/* The rows: the menu's own and the account's. Named, not every button in the menu:
+   the account's panel draws in here too, with buttons of its own. */
+.sc-utility-overflow-menu > button,
+.sc-more-account .mm-account-row {
 	display: flex;
 	height: 44px;
 	align-items: center;
@@ -3445,12 +3448,21 @@ html.dark:not([data-landing-theme]) {
 }
 
 @media (hover: hover) and (pointer: fine) {
-	.sc-utility-overflow-menu button:hover {
+	.sc-utility-overflow-menu > button:hover,
+	.sc-more-account .mm-account-row:hover:not(:disabled) {
 		background: var(--camera-pill);
 	}
 }
 
-.sc-utility-overflow-menu button:focus-visible {
+/* A finger gets its feedback on the press, not on the release (no hover on touch). */
+.sc-utility-overflow-menu > button:active,
+.sc-more-account .mm-account-row:active:not(:disabled) {
+	background: var(--camera-pill);
+}
+
+.sc-utility-overflow-menu > button:focus-visible,
+.sc-more-account .mm-account-row:focus-visible,
+.sc-utility-overflow-menu .sc-appearance button:focus-visible {
 	outline: 2px solid var(--camera-focus);
 	outline-offset: -2px;
 }
@@ -3462,7 +3474,8 @@ html.dark:not([data-landing-theme]) {
 	width: min(310px, calc(100vw - 20px));
 }
 
-.sc-utility-overflow-menu button:disabled {
+.sc-utility-overflow-menu > button:disabled,
+.sc-more-account .mm-account-row:disabled {
 	color: var(--camera-disabled);
 }
 
@@ -3558,9 +3571,14 @@ html.dark:not([data-landing-theme]) {
 }
 
 .sc-utility-overflow-menu .sc-appearance button {
+	display: inline-flex;
 	height: 32px;
-	gap: 4px;
-	padding: 0 8px;
+	align-items: center;
+	padding: 0 10px;
+	border: 0;
+	background: transparent;
+	font-family: inherit;
+	font-weight: var(--sc-weight-medium);
 	/* Concentric with the track: its 10px less the 2px it is inset. */
 	border-radius: calc(var(--r-control) - 2px);
 	color: var(--camera-muted);

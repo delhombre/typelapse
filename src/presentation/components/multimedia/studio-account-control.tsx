@@ -189,7 +189,8 @@ export function StudioAccountControl({
 	}, [open, inMenu]);
 
 	const closeOnEscape = (event: KeyboardEvent<HTMLDivElement>) => {
-		if (event.key === "Escape") {
+		// In the menu, Escape on the rows is the menu's: it closes the menu.
+		if (event.key === "Escape" && (open || !inMenu)) {
 			event.stopPropagation();
 			closeToTrigger();
 		}

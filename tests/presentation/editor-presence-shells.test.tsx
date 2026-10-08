@@ -97,6 +97,8 @@ describe("the shells say when the editor slot is shown", () => {
 		const handle = screen.getByRole("slider", { name: "Sheet height" });
 		expect(screen.queryByTestId("editor-mounted")).toBeNull();
 
+		// The drawer captures the pointer on the press, which jsdom does not implement.
+		handle.setPointerCapture = () => undefined;
 		fireEvent.pointerDown(handle);
 		expect(handle.getAttribute("aria-valuetext")).toBe("Collapsed");
 		expect(screen.getByTestId("editor-mounted")).toBeTruthy();

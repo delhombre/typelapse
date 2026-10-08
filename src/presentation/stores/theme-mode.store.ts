@@ -50,11 +50,31 @@ function resolve(preference: ThemePreference): ThemeMode {
  * index.html's values back.
  */
 export function applyStudioTheme(mode: ThemeMode, preference: ThemePreference): void {
-	document.documentElement.classList.toggle("dark", mode === "dark");
+	const root = document.documentElement;
+	if (root.classList.contains("dark") !== (mode === "dark")) {
+		withoutTransitions(() => root.classList.toggle("dark", mode === "dark"));
+	}
 	for (const tag of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
 		tag.dataset.systemContent ??= tag.content;
 		tag.content = preference === "system" ? tag.dataset.systemContent : CHROME_COLOR[mode];
 	}
+}
+
+/**
+ * A side changes in one frame: every control's own colour transition would
+ * otherwise run at once, at its own speed, and the switch would ripple across
+ * the studio (a System switch at sunset included).
+ */
+function withoutTransitions(change: () => void): void {
+	const freeze = document.createElement("style");
+	freeze.textContent = "*,*::before,*::after{transition:none!important}";
+	document.head.append(freeze);
+	change();
+	// Read a style so the new side is painted before transitions come back.
+	void getComputedStyle(document.documentElement).color;
+	const thaw = () => freeze.remove();
+	if (typeof requestAnimationFrame === "function") requestAnimationFrame(thaw);
+	else setTimeout(thaw, 0);
 }
 
 function store(preference: ThemePreference): void {

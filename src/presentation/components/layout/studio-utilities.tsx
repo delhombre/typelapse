@@ -232,7 +232,6 @@ export function StudioUtilities({ compact = false, leading }: StudioUtilitiesPro
 												aria-pressed={preference === option.value}
 												onClick={() => handleAppearance(option.value)}
 											>
-												<option.Icon size={13} aria-hidden="true" />
 												<span>{option.label}</span>
 											</button>
 										))}
