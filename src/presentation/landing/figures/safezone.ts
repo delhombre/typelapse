@@ -214,8 +214,8 @@ const safezone: HairlineFigureDef = {
 	means:
 		"A phone with a feed's chrome marked on its glass: drawn under the rail or the caption, the code card would be covered.",
 	rules: [1, 3, 4, 8],
-	range: [0.45, 0.7, 0.95],
-	tour: [[250, 200], [150, 245], [195, 140], null],
+	range: [0.6, 0.85, 1],
+	tour: [[80, 200], [215, 200], [340, 130], null],
 	mount,
 };
 

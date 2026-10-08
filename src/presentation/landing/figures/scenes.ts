@@ -94,7 +94,7 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 	const bag = disposer();
 	let stag = value;
 
-	const C = Cam(45, 0.5, 1.5);
+	const C = Cam(45, 0.5, 1.42);
 	fit(
 		C,
 		[
@@ -228,7 +228,7 @@ const scenes: HairlineFigureDef = {
 		"A pull request cut at its hunks: the slice under the pointer stands up as a scene, its neighbours rising less.",
 	rules: [1, 2, 5, 9],
 	range: [0, 40, 90],
-	tour: [[150, 150], [210, 190], [250, 230], null],
+	tour: [[271, 141], [201, 176], [131, 211], null],
 	mount,
 };
 

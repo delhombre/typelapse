@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { ImportProductShot } from "./diff-section";
 import { ExportShapes } from "./export-section";
 import { HairlineFigure } from "./figures/hairline-figure";
 import type { HairlineFigureDef } from "./figures/types";
 import { LiveMorph } from "./magic-move-section";
+import { useScrollFades } from "./scroll-fade";
 import { FeedCheck } from "./social-section";
 import { CONTAINER } from "./tokens";
 
@@ -38,10 +39,13 @@ const STEPS: Step[] = [
 
 /** The five steps in one row: a table of contents that is also the story's outline. */
 export function StepStrip() {
+	/* On a phone the row scrolls on its own; its edges fade where it still hides a step. */
+	const row = useRef<HTMLOListElement>(null);
+	useScrollFades(row);
 	return (
 		<nav className="lp-steps" aria-label="The five steps">
 			<div className={CONTAINER}>
-				<ol>
+				<ol ref={row}>
 					{STEPS.map((step) => (
 						<li key={step.id}>
 							<a href={`#${step.id}`}>
@@ -135,14 +139,14 @@ export function PipelineSection() {
 					figure={{
 						load: loadGlide,
 						label:
-							"A code window lying flat; the pointer's position sets how far its tokens have glided from the first frame to the second.",
+							"A code window lying flat; the pointer’s position sets how far its tokens have glided from the first frame to the second.",
 						hint: "Move left and right",
 					}}
 					picture={
 						<figure className="m-0">
 							<LiveMorph />
 							<figcaption className="lp-pic-cap">
-								The studio's engine, running on this page.
+								The studio’s engine, running on this page.
 							</figcaption>
 						</figure>
 					}
@@ -156,16 +160,16 @@ export function PipelineSection() {
 				<Stage
 					step="check"
 					eyebrow="Check"
-					title="Under the feed's chrome."
+					title="Under the feed’s chrome."
 					figure={{
 						load: loadSafezone,
 						label:
-							"A phone with a feed's chrome marked on its glass; drawing the code card under the rail or the caption lights that zone.",
+							"A phone with a feed’s chrome marked on its glass; drawing the code card under the rail or the caption lights that zone.",
 						hint: "Drag the card across the glass",
 					}}
 					picture={<FeedCheck />}
 				>
-					Preview the cut inside TikTok, Reels, Shorts, X or LinkedIn, with each feed's real safe
+					Preview the cut inside TikTok, Reels, Shorts, X or LinkedIn, with each feed’s real safe
 					zones. If a caption or the action rail would cover your code, you see it before you post.{" "}
 					<strong>The chrome stays in the preview</strong>; it never reaches the file.
 				</Stage>

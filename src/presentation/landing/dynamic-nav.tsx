@@ -46,8 +46,10 @@ export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
 	const [hidden, setHidden] = useState(false);
-	/* Whether the hero, and so its filled button, is still on screen. */
-	const [overHero, setOverHero] = useState(false);
+	/* Whether the hero, and so its filled button, is still on screen. The page
+	   opens on it, so the first frame already has the quiet capsule: starting
+	   filled painted a yellow flash the observer then faded out. */
+	const [overHero, setOverHero] = useState(true);
 	/* Measured rather than assumed to be one viewport: the hero's content can
 	   push it taller, and a resize can change it under us. */
 	const heroBottom = useRef(0);
@@ -55,6 +57,8 @@ export function DynamicNav() {
 	useEffect(() => {
 		const hero = document.querySelector(".lp-hero");
 		if (!hero) {
+			// No hero on this page: no other filled button to defer to.
+			setOverHero(false);
 			return;
 		}
 		const measure = () => {

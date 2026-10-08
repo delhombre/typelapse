@@ -472,6 +472,13 @@ html.dark:not([data-landing-theme]) {
 		grid-template-columns: 5fr 6fr;
 		gap: 56px;
 	}
+
+	/* The display size answers to the column now, not the viewport: at 1024 the
+	   viewport's size broke "in. A" onto a line of its own. Three lines from 960
+	   up, and the display's own ceiling by 1440. */
+	.landing-root .lp-hero-title {
+		font-size: clamp(3rem, 0.5rem + 4.6vw, 4.75rem);
+	}
 }
 
 /* The Instrument brings its own gutter for a page that gives it the full
@@ -1576,7 +1583,15 @@ html.dark:not([data-landing-theme]) {
 	--hairline-stroke: 1;
 }
 
+/* A picture's own edge: a 1px line inside it, black at 10% on the paper and
+   white at 10% on the dark theme, so a frame that runs to its edge in the same
+   tone as the page still ends where it ends. */
+.landing-root {
+	--image-edge: rgb(0 0 0 / 0.1);
+}
+
 .landing-root[data-theme="dark"] {
+	--image-edge: rgb(255 255 255 / 0.1);
 	--hairline-edge: color-mix(in oklch, var(--color-ink) 44%, var(--color-paper));
 	--hairline-mid: color-mix(in oklch, var(--color-ink) 26%, var(--color-paper));
 	--hairline-lo: color-mix(in oklch, var(--color-ink) 15%, var(--color-paper));
@@ -1645,6 +1660,28 @@ html.dark:not([data-landing-theme]) {
 	.landing-root .lp-steps li {
 		scroll-snap-align: start;
 	}
+
+	/* The edge that still hides a step fades over 32px; the edge at its end
+	   stays hard (Craft's scroll fades, design audit D10). */
+	.landing-root .lp-steps ol {
+		--fade-start: 0px;
+		--fade-end: 0px;
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			#000 var(--fade-start),
+			#000 calc(100% - var(--fade-end)),
+			transparent
+		);
+	}
+
+	.landing-root .lp-steps ol[data-fade-start] {
+		--fade-start: 32px;
+	}
+
+	.landing-root .lp-steps ol[data-fade-end] {
+		--fade-end: 32px;
+	}
 }
 
 /* The rail: one opaque line down the left, a numbered stop on it per stage. */
@@ -1683,7 +1720,9 @@ html.dark:not([data-landing-theme]) {
 
 .landing-root .lp-stop {
 	position: absolute;
-	top: 2px;
+	/* Centred on the eyebrow's line (12px type on an 18px line), so the stop and
+	   the stage's name read as one row. */
+	top: calc(9px - var(--stop) / 2);
 	left: 0;
 	display: grid;
 	place-items: center;
@@ -1724,9 +1763,13 @@ html.dark:not([data-landing-theme]) {
 }
 
 @media (min-width: 960px) {
+	/* The figure's caption and the picture's stand on one baseline, so the two
+	   halves of a stage read as one row of a plate rather than two objects that
+	   happen to be centred on each other. */
 	.landing-root .lp-pair {
 		grid-template-columns: 1fr 1fr;
 		gap: 40px;
+		align-items: last baseline;
 	}
 
 	.landing-root .lp-pair[data-flip] > :first-child {
@@ -1763,6 +1806,13 @@ html.dark:not([data-landing-theme]) {
 	user-select: none;
 	-webkit-user-select: none;
 	cursor: crosshair;
+}
+
+/* The bright stroke moving to what the pointer chose is a colour change, so it
+   takes the page's colour timing rather than the kernel's 260ms curve. The
+   geometry keeps the kernel's own two clocks (rule 08). */
+.landing-root .lp-fig-stage svg :is(path, ellipse, circle) {
+	transition: stroke 150ms var(--ease-out), fill 150ms var(--ease-out);
 }
 
 .landing-root .lp-fig-cap {
@@ -1806,6 +1856,8 @@ html.dark:not([data-landing-theme]) {
 	overflow: hidden;
 	border-radius: 12px;
 	box-shadow: var(--object-lift);
+	outline: 1px solid var(--image-edge);
+	outline-offset: -1px;
 }
 
 .landing-root .lp-pic img {
@@ -1839,7 +1891,8 @@ html.dark:not([data-landing-theme]) {
 	width: auto;
 	height: clamp(56px, 7.2vw, 100px);
 	border-radius: 6px;
-	box-shadow: var(--raised-ring);
+	outline: 1px solid var(--image-edge);
+	outline-offset: -1px;
 	user-select: none;
 	-webkit-user-select: none;
 }

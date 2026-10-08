@@ -132,6 +132,12 @@ export interface HairlineKernel {
 	pointer: (stage: HTMLElement, handlers: PointerHandlers) => () => void;
 	disposer: () => Disposer;
 	inject: (root: Document | ShadowRoot) => void;
+	/** An unseen pointer that walks the stops and gives way to a real one; sleeps off screen and under reduced motion. */
+	tour: (
+		stage: HTMLElement,
+		stops: (ScreenPoint | null)[],
+		onStop?: (index: number) => void,
+	) => { stop: () => void };
 }
 
 declare const HL: HairlineKernel;

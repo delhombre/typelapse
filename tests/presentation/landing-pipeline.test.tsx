@@ -70,10 +70,14 @@ describe("landing pipeline", () => {
 		expect(source.match(/import\("\.\/figures\/\w+"\)/g)).toHaveLength(5);
 	});
 
-	it("writes its copy without em-dashes", () => {
+	it("writes its copy without em-dashes, and with curly apostrophes", () => {
 		const { container } = render(<PipelineSection />);
 
 		expect(container.textContent).not.toContain("—");
+		expect(container.textContent).not.toMatch(/["']/);
+		for (const el of container.querySelectorAll("[aria-label], [alt]")) {
+			expect(el.getAttribute("aria-label") ?? el.getAttribute("alt")).not.toMatch(/["']/);
+		}
 	});
 });
 

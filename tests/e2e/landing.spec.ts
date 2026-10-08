@@ -129,10 +129,18 @@ test.describe(
 		}) => {
 			const figures: string[] = [];
 			page.on("request", (request) => {
-				if (/\/(kernel|scenes|glide|safezone|local|queue|mount-figure)[-.]/.test(request.url())) {
+				if (
+					/\/assets\/(kernel|scenes|glide|safezone|local|queue|mount-figure)-[\w-]+\.js/.test(
+						request.url(),
+					)
+				) {
 					figures.push(request.url());
 				}
 			});
+			// A phone, where the hero alone is taller than the screen and the
+			// figures' lookahead together; held still, so no lap moves a read-out.
+			await page.setViewportSize({ width: 390, height: 844 });
+			await page.emulateMedia({ reducedMotion: "reduce" });
 			await page.goto("/");
 			await page.waitForLoadState("networkidle");
 			// The hero never waits on them.
@@ -155,6 +163,35 @@ test.describe(
 			}
 			await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.55, { steps: 4 });
 			await expect(page.locator("#paste .lp-fig-read")).toHaveText(/^scene \d\d$/);
+		});
+
+		test("a figure nobody touches walks its own lap, and stays at rest under reduced motion", async ({
+			browser,
+		}) => {
+			const moving = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+			const still = await browser.newContext({
+				viewport: { width: 1440, height: 900 },
+				reducedMotion: "reduce",
+			});
+			for (const [context, laps] of [
+				[moving, true],
+				[still, false],
+			] as const) {
+				const page = await context.newPage();
+				await page.goto("/");
+				const queue = page.locator("#hosted .lp-fig-stage");
+				await queue.scrollIntoViewIfNeeded();
+				await expect(queue.locator("svg path").first()).toBeAttached();
+				const read = page.locator("#hosted .lp-fig-read");
+				if (laps) {
+					// The unseen pointer arrives after its pause and names the job it is on.
+					await expect(read).toHaveText(/^job \d/, { timeout: 8_000 });
+				} else {
+					await page.waitForTimeout(4_000);
+					await expect(read).toHaveText("rest");
+				}
+			}
+			await Promise.all([moving.close(), still.close()]);
 		});
 
 		test("the head carries the share card's alt text and a home-screen icon", async ({

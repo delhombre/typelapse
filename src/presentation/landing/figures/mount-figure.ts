@@ -12,7 +12,8 @@ import type { HairlineFigureDef } from "./types";
  *
  * The figure is tuned at intensity 0.4, four fifths of the way from its range's
  * low end to its default: the quieter side of what it was drawn for, on a page
- * where it sits beside a picture rather than alone on a bench.
+ * where it sits beside a picture rather than alone on a bench. The three
+ * figures with a stagger share one range, so they spread at one rhythm (32ms).
  */
 export function mountFigure(def: HairlineFigureDef, host: HTMLElement, out: Element): () => void {
 	HL.inject(document);
@@ -34,8 +35,14 @@ export function mountFigure(def: HairlineFigureDef, host: HTMLElement, out: Elem
 	if (!said) {
 		out.textContent = "rest";
 	}
+	/* The figure's own lap: an unseen pointer that visits its stops, then leaves
+	   it at rest, so a reader with no hand on it still sees what it answers. The
+	   kernel runs it only while the stage is on screen, hands over the moment a
+	   real pointer or the keyboard arrives, and never under reduced motion. */
+	const lap = def.tour?.length ? HL.tour(host, def.tour) : null;
 
 	return () => {
+		lap?.stop();
 		handle.destroy();
 		svg.remove();
 		host.removeAttribute("data-hairline");

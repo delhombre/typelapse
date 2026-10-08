@@ -34,7 +34,7 @@ export function ExportShapes() {
 				))}
 			</ul>
 			<figcaption className="lp-pic-cap">
-				One scene, four of the five shapes, from the studio's preview. The caption under the card is
+				One scene, four of the five shapes, from the studio’s preview. The caption under the card is
 				baked into the file by a hosted render.
 			</figcaption>
 		</figure>

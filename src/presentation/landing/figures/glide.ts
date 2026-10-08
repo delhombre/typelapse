@@ -119,7 +119,7 @@ type Pose = [number, number, number, number];
 function mount({ stage, svg, read }: FigureContext, value: number) {
 	const bag = disposer();
 	let trail = value;
-	const C = Cam(45, 0.5, 2.05);
+	const C = Cam(45, 0.5, 2.16);
 	fit(
 		C,
 		[

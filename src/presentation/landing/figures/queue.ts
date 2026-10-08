@@ -66,7 +66,7 @@ interface Job {
 function mount({ stage, svg, read }: FigureContext, value: number) {
 	const bag = disposer();
 	let stag = value;
-	const C = Cam(45, 0.5, 1.62);
+	const C = Cam(45, 0.5, 1.72);
 	const RX1 = JX + N * PITCH - 4;
 	fit(
 		C,
@@ -205,7 +205,7 @@ const queue: HairlineFigureDef = {
 		"A render server and its queue: the job under the pointer rises off the rail, and the dots on its lid say its size.",
 	rules: [1, 2, 5, 10],
 	range: [0, 40, 90],
-	tour: [[190, 200], [250, 230], [300, 260], null],
+	tour: [[133, 178], [204, 214], [275, 249], null],
 	mount,
 };
 

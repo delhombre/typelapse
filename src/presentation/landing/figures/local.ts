@@ -51,10 +51,10 @@ const FX0 = LW + 34;
 const FY0 = 46;
 const FW = 44;
 const FD = 30;
-const FT = 1.6;
+const FT = 2.2;
 const PITCH = 4.4;
 const CZ = 66;
-const REST = 3;
+const REST = 2;
 const SX = LW + 30;
 const SY = -30;
 
@@ -67,7 +67,7 @@ interface Frame {
 function mount({ stage, svg, read }: FigureContext, value: number) {
 	const bag = disposer();
 	let stag = value;
-	const C = Cam(45, 0.5, 1.48);
+	const C = Cam(45, 0.5, 1.56);
 	const lidTop = (u: number): [number, number, number] => [
 		u,
 		LH * Math.cos(rad(OPEN)),
@@ -205,8 +205,8 @@ const local: HairlineFigureDef = {
 	means:
 		"A laptop exports a video: frames drop onto a stack on the desk, and the slot above where a server would take it stays empty.",
 	rules: [3, 5, 6, 8],
-	range: [0, 50, 110],
-	tour: [[110, 220], [330, 200], [220, 210], null],
+	range: [0, 40, 90],
+	tour: [[58, 215], [160, 225], [250, 240], null],
 	mount,
 };
 

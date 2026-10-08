@@ -23,8 +23,8 @@ interface ThemeToggleProps {
  * It only floats where the page leaves it a gutter. The content column is
  * 1024px wide, so below 1024 + 2 x 56px its corner is body text, and a fixed
  * glyph rode over a heading or a code line at every scroll offset on a phone.
- * A scrim or a filled disc would still cover that text, and the nav island is
- * absent for the whole hero, so there it belongs to the top of the page and
+ * A scrim or a filled disc would still cover that text, and the nav island has
+ * no room for it on a phone, so there it belongs to the top of the page and
  * scrolls away with it: a theme is picked once a visit, and the OS preference
  * has already picked it for most visitors.
  */

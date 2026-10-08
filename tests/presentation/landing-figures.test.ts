@@ -62,6 +62,33 @@ describe("the landing's hairline figures", () => {
 		expect(host.hasAttribute("data-hairline")).toBe(false);
 	});
 
+	/* One visual system across the five: one camera, a scale family that keeps
+	   every rest pose 295 to 306 viewBox units wide (measured by the skill's look
+	   check), one stagger rhythm, and a lap that ends by leaving. */
+	it("draws the five as one system: one camera, one rhythm, a lap each", async () => {
+		const scales: number[] = [];
+		for (const name of FIGURES) {
+			const source = readFileSync(
+				resolve(__dirname, `../../src/presentation/landing/figures/${name}.ts`),
+				"utf8",
+			);
+			const cameras = [...source.matchAll(/Cam\((\d+), ([\d.]+), ([\d.]+)\)/g)];
+			expect(cameras, name).toHaveLength(1);
+			expect(cameras[0]?.slice(1, 3), name).toEqual(["45", "0.5"]);
+			scales.push(Number(cameras[0]?.[3]));
+
+			const figure = await load(name);
+			const stops = figure.tour ?? [];
+			expect(stops.length, name).toBeGreaterThanOrEqual(4);
+			expect(stops.at(-1), name).toBeNull();
+		}
+		expect(Math.min(...scales)).toBeGreaterThanOrEqual(1.42);
+		expect(Math.max(...scales)).toBeLessThanOrEqual(2.16);
+
+		const staggered = await Promise.all(["scenes", "local", "queue"].map((n) => load(n as never)));
+		expect(new Set(staggered.map((f) => f.range.join()))).toEqual(new Set(["0,40,90"]));
+	});
+
 	it("keeps the kernel verbatim under its MIT notice, with one export added", () => {
 		const kernel = readFileSync(
 			resolve(__dirname, "../../src/presentation/landing/figures/kernel.js"),
