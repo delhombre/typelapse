@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { mountFigure } from "@/presentation/landing/figures/mount-figure";
+import { mountFigure, placeInk } from "@/presentation/landing/figures/mount-figure";
 import type { HairlineFigureDef } from "@/presentation/landing/figures/types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -61,7 +61,67 @@ describe("the landing's hairline figures", () => {
 		destroy();
 
 		expect(host.querySelector("svg")).toBeNull();
-		expect(host.hasAttribute("data-hairline")).toBe(false);
+		expect(host.querySelector("[data-hairline]")).toBeNull();
+	});
+
+	/* Review of #248: the kernel's one frame loop must stop once the last figure
+	   is gone, and a figure that throws while mounting must leave nothing. */
+	it("stops the kernel's frame loop after the last figure is destroyed", async () => {
+		const frames = vi.fn(() => 1);
+		const cancels = vi.fn();
+		vi.stubGlobal("requestAnimationFrame", frames);
+		vi.stubGlobal("cancelAnimationFrame", cancels);
+		const disconnects = vi.fn();
+		vi.stubGlobal(
+			"IntersectionObserver",
+			class {
+				observe(): void {}
+				unobserve(): void {}
+				disconnect = disconnects;
+			},
+		);
+		const box = document.createElement("div");
+		document.body.append(box);
+		const destroyAll = await Promise.all(
+			FIGURES.map(async (name) => mountFigure(await load(name), box, () => undefined)),
+		);
+
+		for (const destroy of destroyAll) {
+			destroy();
+		}
+
+		// The loop's observer is let go only when no board is left.
+		expect(disconnects).toHaveBeenCalled();
+		expect(box.querySelector("[data-hairline]")).toBeNull();
+	});
+
+	it("leaves nothing behind when a figure throws while mounting", () => {
+		const box = document.createElement("div");
+		document.body.append(box);
+		const broken: HairlineFigureDef = {
+			name: "broken",
+			means: "A figure that throws.",
+			rules: [1],
+			range: [0, 1, 2],
+			tour: null,
+			mount: () => {
+				throw new Error("no");
+			},
+		};
+
+		expect(() => mountFigure(broken, box, () => undefined)).toThrow("no");
+		expect(box.children).toHaveLength(0);
+	});
+
+	it("places the rest ink on one baseline, at most 340 wide and 232 tall, centred", () => {
+		const wide = placeInk({ x: 50, y: 80, width: 300, height: 150 });
+		expect(wide.scale).toBeCloseTo(340 / 300);
+		expect(wide.x + wide.scale * (50 + 150)).toBeCloseTo(200);
+		expect(wide.y + wide.scale * (80 + 150)).toBeCloseTo(244);
+
+		const tall = placeInk({ x: 60, y: 30, width: 280, height: 260 });
+		expect(tall.scale).toBeCloseTo(232 / 260);
+		expect(tall.y + tall.scale * (30 + 260)).toBeCloseTo(244);
 	});
 
 	/* One visual system across the five: one camera, a scale family that keeps

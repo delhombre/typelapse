@@ -28,12 +28,18 @@ interface ThemeToggleProps {
  * scrolls away with it: a theme is picked once a visit, and the OS preference
  * has already picked it for most visitors.
  */
-/** The strip it floats in: 20 of top offset and 36 of button. */
-const TOGGLE_BAND = 56;
+/**
+ * The glyph's own rows: the button is 36px from 20px down, and its 16px glyph
+ * sits in the middle of it, 30 to 46. Asked of the whole 56px strip, a band
+ * ending a few pixels into the strip turned the glyph light over paper (after
+ * a jump to #pricing, the proof's band ends just under the top edge).
+ */
+const GLYPH_TOP = 30;
+const GLYPH_BOTTOM = 46;
 
 export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
 	const next = theme === "light" ? "dark" : "light";
-	const onDark = useOverDark(TOGGLE_BAND);
+	const onDark = useOverDark(GLYPH_TOP, GLYPH_BOTTOM);
 
 	return (
 		<button

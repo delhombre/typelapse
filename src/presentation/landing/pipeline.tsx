@@ -71,10 +71,23 @@ interface StageProps {
 	picture: ReactNode;
 	/** Picture first on a wide screen, so the figures alternate sides down the rail. */
 	flip?: boolean;
+	/** Figure and picture stand at the top of the row, for a picture much taller than the figure. */
+	top?: boolean;
 }
 
-function Stage({ step, eyebrow, title, children, figure, picture, flip = false }: StageProps) {
+function Stage({
+	step,
+	eyebrow,
+	title,
+	children,
+	figure,
+	picture,
+	flip = false,
+	top = false,
+}: StageProps) {
 	const found = STEPS.find((s) => s.id === step);
+	const drawing = <HairlineFigure load={figure.load} label={figure.label} hint={figure.hint} />;
+	const shot = <div className="lp-pair-picture">{picture}</div>;
 	return (
 		<article id={step} className="lp-stage-item" aria-labelledby={`${step}-title`}>
 			<span className="lp-stop" aria-hidden="true">
@@ -87,9 +100,15 @@ function Stage({ step, eyebrow, title, children, figure, picture, flip = false }
 				</h2>
 				<p className="lp-line lp-stage-line">{children}</p>
 			</header>
-			<div className="lp-pair" data-flip={flip ? "" : undefined}>
-				<HairlineFigure load={figure.load} label={figure.label} hint={figure.hint} />
-				<div className="lp-pair-picture">{picture}</div>
+			{/* Picture first in the markup when it is first on screen, so the
+			    reading order and the visual order are one order. */}
+			<div
+				className="lp-pair"
+				data-flip={flip ? "" : undefined}
+				data-align={top ? "top" : undefined}
+			>
+				{flip ? shot : drawing}
+				{flip ? drawing : shot}
 			</div>
 		</article>
 	);
@@ -147,7 +166,7 @@ export function PipelineSection() {
 						load: loadGlide,
 						label:
 							"A code window lying flat; the pointer’s position sets how far its tokens have glided from the first frame to the second.",
-						hint: "Move left and right",
+						hint: "Move across the window",
 					}}
 					picture={
 						<figure className="m-0">
@@ -166,13 +185,14 @@ export function PipelineSection() {
 
 				<Stage
 					step="check"
+					top
 					eyebrow="Check"
 					title="Under the feed’s chrome."
 					figure={{
 						load: loadSafezone,
 						label:
 							"A phone with a feed’s chrome marked on its glass; drawing the code card under the rail or the caption lights that zone.",
-						hint: "Drag the card across the glass",
+						hint: "Move over the glass",
 					}}
 					picture={<FeedCheck />}
 				>
@@ -207,23 +227,23 @@ export function PipelineSection() {
 						load: loadQueue,
 						label:
 							"A render server and its queue; the job under the pointer rises, and the dots on its lid give its size.",
-						hint: "Pick a job",
+						hint: "Move over the jobs",
 					}}
 					picture={
 						<figure className="m-0">
 							<div className="lp-pic">
 								<img
-									src="/landing/diff-review.webp"
-									width={1120}
-									height={630}
+									src="/landing/hosted-caption.webp"
+									width={1200}
+									height={675}
 									loading="lazy"
 									decoding="async"
-									alt="A Typelapse export of a diff in review: the N+1 query in orders.ts, its removed lines in red, on a warm mesh."
+									alt="A frame of orders.ts on a warm mesh, with its caption under the card: Then match each order in memory."
 								/>
 							</div>
 							<figcaption className="lp-pic-cap">
-								A frame of a diff in review. A hosted render of it carries its captions and its
-								sound.
+								A scene with its caption, from the studio’s preview: a hosted render bakes it into
+								the file, with the sound.
 							</figcaption>
 						</figure>
 					}

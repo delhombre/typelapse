@@ -1,38 +1,42 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { HairlineFigureDef } from "./types";
 
-/** How far ahead of the viewport a figure starts loading: about a screen's worth of scroll. */
-const NEAR = "600px 0px";
+/**
+ * How far below the viewport a figure starts loading. Small on purpose: at
+ * 1440 x 900 the first stage starts about 250px under the fold, so the figures
+ * load as the reader scrolls toward them, never with the hero.
+ */
+const NEAR = "200px 0px";
 
 interface HairlineFigureProps {
 	/** The figure's module, imported only once its stage is near: `() => import("./scenes")`. */
 	load: () => Promise<{ default: HairlineFigureDef }>;
 	/** What the drawing shows, for a reader who cannot see it. */
 	label: string;
-	/** The gesture, in a few words, under the stage. */
+	/** The gesture, in a few words: the line under the figure while it rests. */
 	hint: string;
 	className?: string;
 }
 
 /**
- * One isometric figure drawn on the hairline kernel, with its caption.
+ * One isometric figure drawn on the hairline kernel, with the line under it.
  *
  * Nothing is fetched or drawn until the figure nears the viewport: the kernel
  * and the figure are their own chunk, so the hero never waits on them and a
  * visitor who stops at the hero never pays for them. Once drawn, the figure
  * stays; the kernel's own loop sleeps while it is off screen and lands at rest
- * under reduced motion. The stage's 5:4 box is reserved by the stylesheet, so
- * the drawing arriving moves nothing.
+ * under reduced motion. The box is reserved by the stylesheet, so the drawing
+ * arriving moves nothing.
  *
- * The stage is the image a screen reader meets, labelled from the first paint;
- * the read-out beside the gesture says what the pointer is on, `rest` when
- * nothing is.
+ * The box is the image a screen reader meets, labelled from the first paint;
+ * the line under it is visual only (a live region there would read out every
+ * frame of a lap). At rest it says what to do with the figure; while a hand or
+ * the lap drives it, what the figure is on.
  */
 export function HairlineFigure({ load, label, hint, className = "" }: HairlineFigureProps) {
 	const root = useRef<HTMLElement>(null);
-	const stage = useRef<HTMLDivElement>(null);
+	const box = useRef<HTMLDivElement>(null);
 	const readOut = useRef<HTMLSpanElement>(null);
-	const readId = useId();
 
 	useEffect(() => {
 		const figure = root.current;
@@ -45,20 +49,21 @@ export function HairlineFigure({ load, label, hint, className = "" }: HairlineFi
 		const draw = () => {
 			Promise.all([load(), import("./mount-figure")])
 				.then(([{ default: def }, { mountFigure }]) => {
-					const host = stage.current;
+					const host = box.current;
 					const out = readOut.current;
 					if (gone || !host || !out) {
 						return;
 					}
-					/* At rest the line under the figure says what to do with it; while
-					   a hand or the lap drives it, what it is on. */
 					teardown = mountFigure(def, host, (text) => {
 						const resting = text === "rest";
 						out.textContent = resting ? hint : text;
 						out.dataset.state = resting ? "rest" : "live";
 					});
 				})
-				.catch(() => undefined);
+				.catch((error: unknown) => {
+					// The figure stays its label and its hint; the page goes on.
+					console.error("A landing figure failed to draw.", error);
+				});
 		};
 
 		if (typeof IntersectionObserver === "undefined") {
@@ -85,25 +90,9 @@ export function HairlineFigure({ load, label, hint, className = "" }: HairlineFi
 
 	return (
 		<figure ref={root} className={`lp-fig ${className}`}>
-			{/* A tab stop, so a keyboard reader reaches the drawing, sees the ring on
-			    it and hears what it says; the read-out is a polite live region. */}
-			<div
-				ref={stage}
-				className="lp-fig-stage"
-				role="img"
-				aria-label={label}
-				aria-describedby={readId}
-				// biome-ignore lint/a11y/noNoninteractiveTabindex: the figure answers a pointer; a keyboard reader reaches it to hear its read-out
-				tabIndex={0}
-			/>
-			<figcaption className="lp-fig-cap">
-				<span
-					ref={readOut}
-					id={readId}
-					className="lp-fig-read"
-					data-state="rest"
-					aria-live="polite"
-				>
+			<div ref={box} className="lp-fig-stage" role="img" aria-label={label} />
+			<figcaption className="lp-fig-cap" aria-hidden="true">
+				<span ref={readOut} className="lp-fig-read" data-state="rest">
 					{hint}
 				</span>
 			</figcaption>

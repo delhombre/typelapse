@@ -468,16 +468,27 @@ html.dark:not([data-landing-theme]) {
 		min-height: 100svh;
 	}
 
+	/* The copy takes the wider column: the headline is two lines, one sentence
+	   each, and "A pull request in." has to fit one of them whole. */
 	.landing-root .lp-hero-grid {
-		grid-template-columns: 5fr 6fr;
+		grid-template-columns: 6fr 5fr;
 		gap: 56px;
 	}
 
-	/* The display size answers to the column now, not the viewport: at 1024 the
-	   viewport's size broke "in. A" onto a line of its own. Three lines from 960
-	   up, and the display's own ceiling by 1440. */
+	/* The display size answers to the column, not the viewport: 44px at 960,
+	   56px from 1440, where "A pull request in." is about 530px of a 555px
+	   column. */
 	.landing-root .lp-hero-title {
-		font-size: clamp(3rem, 0.5rem + 4.6vw, 4.75rem);
+		font-size: clamp(2.75rem, 0.3rem + 3.6vw, 3.5rem);
+	}
+}
+
+/* Two sentences, two lines, from the width where each fits on its own; on a
+   phone they run on, "pull request" held together. */
+@media (min-width: 640px) {
+	.landing-root .lp-hero-title > span {
+		display: block;
+		white-space: nowrap;
 	}
 }
 
@@ -1076,6 +1087,9 @@ html.dark:not([data-landing-theme]) {
 	--dock-ink: #f2f2f4;
 	--dock-dim: #9a9aa2;
 	--dock-hairline: rgb(255 255 255 / 0.1);
+	/* The wash under a hovered control on the plate: the island's buttons, its
+	   quiet CTA, the nav's links and its quiet capsule. */
+	--dock-hover: rgb(255 255 255 / 0.07);
 	/* Depth for a dark plate: the island's lift, and its edge. The edge is an inset
 	   1px ring in the island's own hairline, in the stack with the shadow rather
 	   than a border, so a plate that sits on something as dark as itself (the dark
@@ -1280,7 +1294,7 @@ html.dark:not([data-landing-theme]) {
 @media (hover: hover) and (pointer: fine) {
 	.landing-root .lp-island-button:hover {
 		color: var(--dock-ink);
-		background: rgb(255 255 255 / 0.07);
+		background: var(--dock-hover);
 	}
 }
 
@@ -1427,7 +1441,7 @@ html.dark:not([data-landing-theme]) {
 	}
 
 	.landing-root .lp-island-cta[data-quiet]:hover {
-		background: rgb(255 255 255 / 0.07);
+		background: var(--dock-hover);
 	}
 }
 
@@ -1572,14 +1586,15 @@ html.dark:not([data-landing-theme]) {
    from the page's own ink and paper, so they are the warm ramp of whichever
    theme is on: the bright stroke is the ink, a plate is filled with the paper it
    stands on (an opaque plate is what hides the line behind it), and the
-   silhouette, the middle and the dim strokes are ink mixed into paper. The dark
-   theme takes a little more ink at each step, since a dim line on near-black
-   disappears sooner than on paper. Never the primary: one bright stroke is the
-   figures' only highlight. */
+   silhouette, the middle and the dim strokes are ink mixed into paper. The
+   silhouette clears 3:1 against the paper in both themes (48% light, 46% dark),
+   since it is the outline a reader has to see; the dark theme takes a little
+   more ink on the dim steps, which disappear sooner on near-black. Never the
+   primary: one bright stroke is the figures' only highlight. */
 .landing-root {
 	--hairline-plate: var(--color-paper);
 	--hairline-hi: var(--color-ink);
-	--hairline-edge: color-mix(in oklch, var(--color-ink) 38%, var(--color-paper));
+	--hairline-edge: color-mix(in oklch, var(--color-ink) 48%, var(--color-paper));
 	--hairline-mid: color-mix(in oklch, var(--color-ink) 20%, var(--color-paper));
 	--hairline-lo: color-mix(in oklch, var(--color-ink) 10%, var(--color-paper));
 	--hairline-stroke: 1;
@@ -1594,7 +1609,7 @@ html.dark:not([data-landing-theme]) {
 
 .landing-root[data-theme="dark"] {
 	--image-edge: oklch(1 0 0 / 0.1);
-	--hairline-edge: color-mix(in oklch, var(--color-ink) 44%, var(--color-paper));
+	--hairline-edge: color-mix(in oklch, var(--color-ink) 46%, var(--color-paper));
 	--hairline-mid: color-mix(in oklch, var(--color-ink) 26%, var(--color-paper));
 	--hairline-lo: color-mix(in oklch, var(--color-ink) 15%, var(--color-paper));
 }
@@ -1777,8 +1792,20 @@ html.dark:not([data-landing-theme]) {
 		align-items: last baseline;
 	}
 
-	.landing-root .lp-pair[data-flip] > :first-child {
-		order: 2;
+	/* A picture far taller than the figure (the phone): both stand at the top,
+	   or the figure floats in a void beside it. */
+	.landing-root .lp-pair[data-align="top"] {
+		align-items: start;
+	}
+}
+
+/* Stacked, a figure is held to the width it reads at, centred: full width on a
+   tablet it grew past the picture under it. */
+@media (max-width: 959px) {
+	.landing-root .lp-fig {
+		width: 100%;
+		max-width: 420px;
+		margin-inline: auto;
 	}
 }
 
@@ -1798,14 +1825,20 @@ html.dark:not([data-landing-theme]) {
 /* A figure: a 5:4 stage reserved before the kernel arrives, so the drawing
    landing moves nothing, and a caption with the gesture and the read-out. */
 .landing-root .lp-fig {
-	margin: 0;
+	margin-block: 0;
 	padding: 4px 4px 0;
 }
 
 .landing-root .lp-fig-stage {
 	position: relative;
 	width: 100%;
-	aspect-ratio: 5 / 4;
+	/* One box for every figure, 400 x 250 of its drawing's units: the drawing
+	   stands on its foot line near the bottom (`placeInk`), so the line under it
+	   is a fixed step below the ink. */
+	aspect-ratio: 400 / 250;
+	/* The scaled host is wider than the box, though the ink never is: cut it at
+	   the sides, and leave the room above to what rises out of the rest pose. */
+	overflow-x: clip;
 	/* Vertical scroll stays the page's; a sideways drag is the figure's. */
 	touch-action: pan-y;
 	user-select: none;
@@ -1813,10 +1846,23 @@ html.dark:not([data-landing-theme]) {
 	cursor: crosshair;
 }
 
+/* The kernel's 400 x 320 host, laid at the box's top left and moved onto the
+   foot line by the transform `placeInk` writes; what rises out of the rest
+   pose rises into the room above. */
+.landing-root .lp-fig-stage > [data-hairline] {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	aspect-ratio: 5 / 4;
+	transform-origin: 0 0;
+	touch-action: pan-y;
+}
+
 /* The bright stroke moving to what the pointer chose is a colour change, so it
    takes the page's colour timing rather than the kernel's 260ms curve. The
    geometry keeps the kernel's own two clocks (rule 08). */
-.landing-root .lp-fig-stage svg :is(path, ellipse, circle) {
+.landing-root .lp-fig-stage svg :is(path, polygon, line, ellipse, circle) {
 	transition: stroke 150ms var(--ease-out), fill 150ms var(--ease-out);
 }
 
@@ -1895,24 +1941,37 @@ html.dark:not([data-landing-theme]) {
 	width: min(280px, 72vw);
 }
 
-/* Stage 04: the shapes stand on one baseline, each image sized by its height
-   alone so its declared width and height keep the box before it loads. */
+/* Stage 04: the landscape shape leads at the column's width; the four upright
+   ones share the row under it at one height, the height at which their widths
+   (1 + 0.8 + 0.75 + 0.5625 of it) and three 10px gaps fill the column. Each
+   image declares both sides, so its box holds before it loads. */
 .landing-root .lp-aspects {
+	container-type: inline-size;
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
-	gap: 12px 10px;
+	gap: 14px 10px;
+}
+
+.landing-root .lp-aspects li:first-child {
+	flex: 0 0 100%;
 }
 
 .landing-root .lp-aspects img {
 	display: block;
 	width: auto;
-	height: clamp(56px, 7.2vw, 100px);
-	border-radius: 6px;
+	height: calc((100cqi - 34px) / 3.1125);
+	border-radius: 8px;
 	outline: 1px solid var(--image-edge);
 	outline-offset: -1px;
 	user-select: none;
 	-webkit-user-select: none;
+}
+
+.landing-root .lp-aspects li:first-child img {
+	width: 100%;
+	height: auto;
+	border-radius: 12px;
 }
 
 .landing-root .lp-aspects span {
@@ -2228,7 +2287,7 @@ html.dark:not([data-landing-theme]) {
 @media (hover: hover) and (pointer: fine) {
 	.landing-root .lp-nav-links a:hover {
 		color: var(--dock-ink);
-		background: rgb(255 255 255 / 0.07);
+		background: var(--dock-hover);
 	}
 }
 
@@ -2238,17 +2297,12 @@ html.dark:not([data-landing-theme]) {
 	}
 }
 
-/* While the hero's filled button is on screen, the nav's is a text action on
-   the plate: one filled action per zone (D2). */
-.landing-root .lp-nav-cta[data-quiet] {
-	background: transparent;
-	color: var(--dock-ink);
-	box-shadow: inset 0 0 0 1px var(--dock-hairline);
-}
-
-@media (hover: hover) and (pointer: fine) {
-	.landing-root .lp-nav-cta[data-quiet]:hover {
-		background: rgb(255 255 255 / 0.07);
+/* Over the hero a phone's pill would hold only the logo (the links do not fit
+   and the CTA waits for the hero to go), and the hero already says the name:
+   nothing is there until the hero has gone. */
+@media (max-width: 639px) {
+	.landing-root .lp-nav-pill[data-over-hero] {
+		display: none;
 	}
 }
 

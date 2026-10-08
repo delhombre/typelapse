@@ -99,9 +99,11 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 	const g = mk("g", {}, svg);
 
 	// the phone: a slab, the glass's edge, the island at the top, the side buttons
-	const [br, bi] = rings(0, 0, PW, PH, 13, 2);
+	// Rounded with 14 steps a corner (rule 09): at r 13 the default four show their facets.
+	const br = rrect(0, 0, PW, PH, 13, 14);
+	const bi = rrect(2, 2, PW - 2, PH - 2, 11, 14);
 	put(solid(g), prism(P, front, br, bi, 0, PT));
-	mk("path", { d: poly(ringAt(P, rrect(SX0, SY0, SX1, SY1, 9, 6), GL)), class: "nf" }, g);
+	mk("path", { d: poly(ringAt(P, rrect(SX0, SY0, SX1, SY1, 9, 14), GL)), class: "nf" }, g);
 	mk(
 		"path",
 		{ d: poly(ringAt(P, rrect(PW / 2 - 9, 2.6, PW / 2 + 9, 5.6, 1.5, 4), GL)), class: "nf lo" },

@@ -155,13 +155,15 @@ export function Hero() {
 			<div className={`${CONTAINER} lp-hero-grid`}>
 				<RevealGroup immediate className="lp-hero-copy">
 					<RevealItem>
-						<h1 className="lp-display lp-hero-title">A pull request in. A video out.</h1>
+						<h1 className="lp-display lp-hero-title">
+							<span>A pull{" "}request in.</span> <span>A video out.</span>
+						</h1>
 					</RevealItem>
 					<RevealItem>
 						<p className="lp-lead lp-hero-lead">
-							Typelapse cuts a change into scenes, glides the tokens between them, checks the frame
-							against the feed, and writes a file as sharp as the preview, in your browser. Text,
-							images, video and audio share the same scenes.
+							Typelapse cuts a change into scenes, glides the tokens between them and writes a file
+							as sharp as the preview, in your browser. Text, images, video and audio share the same
+							scenes.
 						</p>
 					</RevealItem>
 					<RevealItem>

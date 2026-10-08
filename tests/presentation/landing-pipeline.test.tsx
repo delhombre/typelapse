@@ -52,9 +52,9 @@ describe("landing pipeline", () => {
 
 	it("shows real captures, sized before they load, and the studio in the page's theme", () => {
 		render(<PipelineSection />);
-		const still = screen.getByRole("img", { name: /diff in review/i });
-		expect(still.getAttribute("width")).toBe("1120");
-		expect(still.getAttribute("height")).toBe("630");
+		const still = screen.getByRole("img", { name: /with its caption under the card/i });
+		expect(still.getAttribute("width")).toBe("1200");
+		expect(still.getAttribute("height")).toBe("675");
 		expect(still.getAttribute("loading")).toBe("lazy");
 
 		// Stage 01 is a capture of the studio after a paste, one per theme, never a lookalike.

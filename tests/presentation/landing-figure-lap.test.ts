@@ -85,6 +85,29 @@ describe("playLapOnce", () => {
 		expect(stop).toHaveBeenCalledTimes(1);
 	});
 
+	/* Review of #248, P1.2: the kernel's own listeners take the pointer over and
+	   forget the unseen one, after which `stop` cannot walk it off and the figure
+	   stays where the lap left it. The lap has to hear the hand first. */
+	it("hears a hand before the kernel does, so the lap's stop still returns the figure to rest", () => {
+		const { host, stop, io } = setup();
+		io()?.emit(1);
+		const order: string[] = [];
+		host.addEventListener("pointermove", () => order.push("kernel"));
+		stop.mockImplementation(() => order.push("lap stopped"));
+
+		host.dispatchEvent(new Event("pointermove"));
+
+		expect(order).toEqual(["lap stopped", "kernel"]);
+	});
+
+	it("never starts once a hand has arrived before the figure was in view", () => {
+		const { host, tour, io } = setup();
+		host.dispatchEvent(new Event("focusin"));
+		io()?.emit(1);
+
+		expect(tour).not.toHaveBeenCalled();
+	});
+
 	it("never plays under reduced motion", () => {
 		const { tour, io } = setup(true);
 		io()?.emit(1);

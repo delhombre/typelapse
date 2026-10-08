@@ -1,7 +1,9 @@
 /**
  * Local: an open laptop exporting a video, the frames it encodes landing as
- * thin plates on a stack beside it on the desk. Above the stack a dashed slot
- * hangs where a server would take the file: it stays empty, whatever happens.
+ * thin plates on a stack beside it on the desk; nothing leaves the desk, and
+ * the read-out says so ("0 B sent"). The dashed server slot the prototype hung
+ * above the stack went: it pulled the drawing off centre and said less than
+ * the read-out does.
  * The pointer's x is how far the export has run: the bar on the screen fills on
  * a spring, and the frames drop out of the screen onto the stack, staggered.
  * At rest the export is halfway. The tuned number is the stagger, in ms.
@@ -53,10 +55,7 @@ const FW = 44;
 const FD = 30;
 const FT = 2.2;
 const PITCH = 4.4;
-const CZ = 66;
 const REST = 2;
-const SX = LW + 30;
-const SY = -30;
 
 interface Frame {
 	el: Solid;
@@ -73,36 +72,10 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 		LH * Math.cos(rad(OPEN)),
 		BT + LH * Math.sin(rad(OPEN)),
 	];
-	fit(
-		C,
-		[
-			[0, 0, 0],
-			[LW, LD, 0],
-			[FX0 + FW, FY0 + FD, 0],
-			[SX + FW, SY, CZ],
-			[SX, SY + FD, CZ],
-			lidTop(0),
-			lidTop(LW),
-		],
-		200,
-		168,
-	);
+	fit(C, [[0, 0, 0], [LW, LD, 0], [FX0 + FW, FY0 + FD, 0], lidTop(0), lidTop(LW)], 200, 168);
 	const P = proj(C);
 	const front = facing(C);
 	const g = mk("g", {}, svg);
-
-	// the slot where an upload would land: a dashed pad, and dashed drops to the stack, never reached
-	mk(
-		"path",
-		{
-			d:
-				seg(P(SX + FW, SY + FD, CZ), P(SX + FW, SY + FD, 0)) +
-				seg(P(SX, SY + FD, CZ), P(SX, SY + FD, 0)),
-			class: "nf dash",
-		},
-		g,
-	);
-	mk("path", { d: poly(ringAt(P, rrect(SX, SY, SX + FW, SY + FD, 5, 5), CZ)), class: "dash" }, g);
 
 	// the lid, leaning back on its hinge: its back, its face, the screen and the export bar
 	const L = (u: number, v: number, off = 0): ScreenPoint => {
@@ -176,7 +149,7 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 			frames.forEach((f, k) => tset(f.t, k < c ? 1 : 0, now, Math.abs(k - from) * stag));
 			n = c;
 		}
-		read.textContent = reading ? `${c} of ${N} · 0 B sent` : "rest";
+		read.textContent = reading ? `frame ${String(c).padStart(2, "0")} · 0 B sent` : "rest";
 		B.wake();
 	}
 	setCount(REST, false);
@@ -203,10 +176,10 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 const local: HairlineFigureDef = {
 	name: "local",
 	means:
-		"A laptop exports a video: frames drop onto a stack on the desk, and the slot above where a server would take it stays empty.",
+		"A laptop exports a video: the pointer runs the export, and its frames drop onto a stack on the desk, never further.",
 	rules: [3, 5, 6, 8],
 	range: [0, 40, 90],
-	tour: [[58, 215], [160, 225], [250, 240], null],
+	tour: [[90, 215], [160, 225], [290, 240], null],
 	mount,
 };
 

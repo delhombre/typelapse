@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DynamicNav } from "@/presentation/landing/dynamic-nav";
 import { CYCLE_PLATFORMS } from "@/presentation/landing/iphone-showcase";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 
@@ -42,6 +42,52 @@ describe("landing nav pill", () => {
 		expect(container.querySelector("header")?.className).toContain(
 			"top-[max(12px,env(safe-area-inset-top))]",
 		);
+	});
+});
+
+describe("landing nav over the hero", () => {
+	/* Review of #248: "Open studio" is said once in the first screen, by the
+	   hero's field. The pill carries its links there, and its CTA once the hero
+	   has gone. */
+	it("holds its CTA back while the hero is in view, and shows it once it has gone", () => {
+		const observers: IntersectionObserverCallback[] = [];
+		const original = globalThis.IntersectionObserver;
+		globalThis.IntersectionObserver = class {
+			constructor(callback: IntersectionObserverCallback) {
+				observers.push(callback);
+			}
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		} as unknown as typeof IntersectionObserver;
+		globalThis.ResizeObserver ??= class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		} as unknown as typeof ResizeObserver;
+		const hero = document.createElement("section");
+		hero.className = "lp-hero";
+		document.body.append(hero);
+		try {
+			const { container } = renderNav();
+			const cta = () => screen.queryByRole("link", { name: "Open studio" });
+			const say = (isIntersecting: boolean) =>
+				act(() =>
+					observers[0]?.(
+						[{ isIntersecting } as IntersectionObserverEntry],
+						{} as IntersectionObserver,
+					),
+				);
+
+			expect(cta()).toBeNull();
+			expect(container.querySelector(".lp-nav-pill")?.hasAttribute("data-over-hero")).toBe(true);
+			expect(screen.getByRole("navigation", { name: "Sections", hidden: true })).toBeTruthy();
+			say(false);
+			expect(cta()).not.toBeNull();
+		} finally {
+			hero.remove();
+			globalThis.IntersectionObserver = original;
+		}
 	});
 });
 

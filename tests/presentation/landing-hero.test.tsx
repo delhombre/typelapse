@@ -45,7 +45,9 @@ describe("landing hero", () => {
 		const { container } = renderHero();
 
 		const heading = screen.getByRole("heading", { level: 1 });
-		expect(heading.textContent).toBe("A pull request in. A video out.");
+		expect(heading.textContent?.replace(/\u00a0/g, " ")).toBe("A pull request in. A video out.");
+		// "pull request" never breaks across two lines.
+		expect(heading.textContent).toContain("pull\u00a0request");
 		const lead = container.querySelector(".lp-hero-lead")?.textContent ?? "";
 		expect(lead).toMatch(/as sharp as the preview/i);
 		expect(lead).toMatch(/in your browser/i);

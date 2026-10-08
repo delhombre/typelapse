@@ -81,9 +81,9 @@ function PlatformChip({
 	const base =
 		"relative inline-flex h-9 items-center rounded-full border font-medium text-[13px] tabular-nums active:scale-[0.97]";
 	/* On the paper the primary cannot be text (1.67:1), so the selected chip is a
-	   raised one in ink and the primary is its dot: the brand marks the one that
-	   is playing, not the row. The others are ash, which clears 4.5:1 on the
-	   paper in both themes. */
+	   raised one in ink with an ink dot; the stage keeps one accent, the
+	   studio's own inside the phone. The others are ash, which clears 4.5:1 on
+	   the paper in both themes. */
 	const tone = active
 		? "border-ink/25 bg-surface text-ink"
 		: "border-hairline bg-transparent text-ash hover:border-ink/20 hover:text-ink";
@@ -118,7 +118,7 @@ function PlatformChip({
 		>
 			<span
 				aria-hidden
-				className="absolute top-1/2 size-1.5 rounded-full bg-[var(--color-primary)]"
+				className="absolute top-1/2 size-1.5 rounded-full bg-ink"
 				style={{ ...indicator, left: "calc(var(--chip-pad) - var(--chip-step))" }}
 			/>
 			<span

@@ -175,7 +175,8 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 				el.setAttribute("class", lit ? "dot" : "dot off");
 			}
 		});
-		read.textContent = a < 0 ? "rest" : `job ${a + 1} · ${NAMES[SIZES[a] ?? 0]}`;
+		read.textContent =
+			a < 0 ? "rest" : `job ${String(a + 1).padStart(2, "0")} · ${NAMES[SIZES[a] ?? 0]}`;
 		B.wake();
 	}
 	setActive(-1);

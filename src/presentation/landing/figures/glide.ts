@@ -34,7 +34,6 @@ const {
 	put,
 	register,
 	solid,
-	EASE_LIFT,
 } = HL;
 
 const CH = 4.6;
@@ -46,7 +45,12 @@ const TH = 2.2;
 const DEPTH = 5.4;
 const HOP = 7;
 const REST = 0.42;
+/** The token that travels furthest, three lines down: the one with the bright edge. */
 const FAR = 2;
+
+/** A symmetric glide, so at morph 50% the bright token is halfway: dropped tokens go
+    over the first 30%, shared ones glide over 15% to 85%, new ones grow last. */
+const smooth = (t: number) => t * t * (3 - 2 * t);
 
 /** A token's place on the grid: [row, col, length]. */
 type Cell = [number, number, number];
@@ -161,7 +165,7 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 	function pose(t: Token, p: number): Pose | null {
 		const q = clamp((p - trail * t.row) / (1 - trail * 5), 0, 1);
 		if (t.a && t.b) {
-			const e = EASE_LIFT(clamp(q / 0.62, 0, 1));
+			const e = smooth(clamp((q - 0.15) / 0.7, 0, 1));
 			return [
 				lerp(t.a.x, t.b.x, e),
 				lerp(t.a.y, t.b.y, e),
@@ -170,13 +174,13 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 			];
 		}
 		if (t.a) {
-			const k = 1 - clamp(q / 0.35, 0, 1);
+			const k = 1 - clamp(q / 0.3, 0, 1);
 			return k > 0.02 ? [t.a.x, t.a.y, 0, t.a.w * k] : null;
 		}
 		if (!t.b) {
 			return null;
 		}
-		const k = clamp((q - 0.55) / 0.4, 0, 1);
+		const k = clamp((q - 0.7) / 0.3, 0, 1);
 		return k > 0.02 ? [t.b.x, t.b.y, 0, t.b.w * k] : null;
 	}
 

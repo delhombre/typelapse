@@ -38,7 +38,9 @@ const {
 	solid,
 } = HL;
 
-const N = 5;
+/** Three slices, as the picture beside it holds three scenes: the code before the
+    change, then one per hunk. */
+const N = 3;
 const W = 112;
 const D = 30;
 const G = 35;
@@ -46,8 +48,8 @@ const TK = 1.4;
 const UP = 84;
 const STEP = 34;
 const LIFT = 5;
-const REST = [80, 26, 7, 0, 0];
-/** Each hunk's code, as [indent, length] per line, in character cells of 4.6. */
+const REST = [80, 26, 0];
+/** Each scene's code, as [indent, length] per line, in character cells of 4.6. */
 const CODE: [number, number][][] = [
 	[
 		[0, 15],
@@ -63,16 +65,6 @@ const CODE: [number, number][][] = [
 		[1, 13],
 		[1, 6],
 		[0, 18],
-	],
-	[
-		[0, 8],
-		[1, 14],
-		[1, 10],
-	],
-	[
-		[0, 17],
-		[2, 9],
-		[0, 5],
 	],
 ];
 const PX0 = -8;
@@ -228,7 +220,7 @@ const scenes: HairlineFigureDef = {
 		"A pull request cut at its hunks: the slice under the pointer stands up as a scene, its neighbours rising less.",
 	rules: [1, 2, 5, 9],
 	range: [0, 40, 90],
-	tour: [[271, 141], [201, 176], [131, 211], null],
+	tour: [[245, 135], [190, 170], [150, 195], null],
 	mount,
 };
 

@@ -98,15 +98,16 @@ describe("HairlineFigure", () => {
 		expect(screen.queryByText("rest")).toBeNull();
 	});
 
-	it("is a tab stop whose read-out is announced politely as it changes", () => {
+	/* Review of #248, P1.1: a live read-out spoke every frame of a lap (75 writes
+	   for the morph). The image and its label are what a screen reader meets. */
+	it("is no tab stop, and its line under it is never read out", () => {
 		const { load } = fakeFigure();
-		renderFigure(load);
+		const { container } = renderFigure(load);
 		const stage = screen.getByRole("img");
-		const read = screen.getByText("Move over it");
 
-		expect(stage.tabIndex).toBe(0);
-		expect(read.getAttribute("aria-live")).toBe("polite");
-		expect(stage.getAttribute("aria-describedby")).toBe(read.id);
+		expect(stage.hasAttribute("tabindex")).toBe(false);
+		expect(container.querySelector("[aria-live]")).toBeNull();
+		expect(container.querySelector("figcaption")?.getAttribute("aria-hidden")).toBe("true");
 	});
 
 	it("fetches nothing until the stage nears the viewport", () => {
@@ -127,11 +128,13 @@ describe("HairlineFigure", () => {
 		expect(load).toHaveBeenCalledTimes(1);
 		expect(nearness()?.disconnected).toBe(true);
 		const stage = screen.getByRole("img");
-		expect(stage.querySelector("svg")?.getAttribute("viewBox")).toBe("0 0 400 320");
-		expect(stage.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
-		expect(stage.getAttribute("data-hairline")).toBe("fake");
-		// Mounted on its own stage at intensity 0.4: four fifths of the way to the default.
-		expect(mount.mock.calls[0]?.[0].stage).toBe(stage);
+		const host = stage.querySelector("[data-hairline]");
+		expect(host?.getAttribute("data-hairline")).toBe("fake");
+		expect(host?.querySelector("svg")?.getAttribute("viewBox")).toBe("0 0 400 320");
+		expect(host?.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
+		// Mounted on a host of its own inside the box, at intensity 0.4: four fifths
+		// of the way to the default.
+		expect(mount.mock.calls[0]?.[0].stage).toBe(host);
 		expect(mount.mock.calls[0]?.[1]).toBe(26);
 		expect(container.querySelectorAll("svg")).toHaveLength(1);
 	});

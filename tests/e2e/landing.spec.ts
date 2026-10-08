@@ -24,7 +24,7 @@ function isFloating(element: Element): boolean {
 	return false;
 }
 
-const HERO = "A pull request in. A video out.";
+const HERO = /^A pull\s+request in\. A video out\.$/;
 
 test.describe(
 	"Landing: a visitor reads it on any screen and reaches the studio",
@@ -187,12 +187,12 @@ test.describe(
 					// The unseen pointer arrives after its pause and names the job it is on,
 					// then leaves, once: the figure rests and does not go round again.
 					await expect(read).toHaveText(/^job \d/, { timeout: 8_000 });
-					await expect(read).toHaveText("Pick a job", { timeout: 15_000 });
+					await expect(read).toHaveText("Move over the jobs", { timeout: 15_000 });
 					await page.waitForTimeout(5_000);
-					await expect(read).toHaveText("Pick a job");
+					await expect(read).toHaveText("Move over the jobs");
 				} else {
 					await page.waitForTimeout(4_000);
-					await expect(read).toHaveText("Pick a job");
+					await expect(read).toHaveText("Move over the jobs");
 				}
 			}
 			await Promise.all([moving.close(), still.close()]);

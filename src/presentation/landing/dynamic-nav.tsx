@@ -22,11 +22,11 @@ import { Link } from "react-router-dom";
  *
  * It is there from the first screen, because it now offers what the hero does
  * not: the way to the stages, the proof and the pricing (three links, which a
- * phone has no room for and drops under 640px). While the hero is in view its
- * CTA is a text action on the plate, since the hero's field already holds the
- * screen's one filled button (D2); past the hero it takes the primary. Past the
- * hero it also behaves as a header should: hidden on the way down, back on the
- * way up. Reduced motion keeps it put.
+ * phone has no room for and drops under 640px). While the hero is in view it
+ * carries only those links, and on a phone nothing at all: the hero's field is
+ * the first screen's one way into the studio (D2), so the CTA joins the pill
+ * once the hero has gone. Past the hero it also behaves as a header should:
+ * hidden on the way down, back on the way up. Reduced motion keeps it put.
  */
 
 /** How far up the hidden island tucks (past the top edge). */
@@ -95,6 +95,7 @@ export function DynamicNav() {
 		<header className="pointer-events-none fixed inset-x-0 top-[max(12px,env(safe-area-inset-top))] z-50 flex justify-center">
 			<motion.div
 				className="lp-nav-pill pointer-events-auto inline-flex h-11 items-center gap-3 rounded-full pr-[6px] pl-[15px]"
+				data-over-hero={overHero ? "" : undefined}
 				aria-hidden={hidden}
 				inert={hidden}
 				initial={false}
@@ -114,17 +115,16 @@ export function DynamicNav() {
 				</nav>
 				{/* The capsule nests concentric in the pill: pill h44 r22, capsule h32
 				    r16, so an even 6px inset (pr-[6px] + the 6px top/bottom gap). It is
-				    the primary on the plate, as every filled action is (D2), except
-				    while the hero's own filled button is on screen. */}
+				    the primary on the plate, as every filled action is (D2), and it is
+				    not there at all while the hero is: the hero's field holds the first
+				    screen's one way in, so "Open studio" is said once. */}
 				<Link
 					to="/app"
 					aria-label="Open studio"
 					className="flex h-full items-center outline-offset-4"
+					hidden={overHero}
 				>
-					<span
-						className="lp-nav-cta inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-[var(--color-on-primary)] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] transition-[background-color,color,box-shadow] duration-150 ease-[var(--ease-out)] hover:bg-[var(--color-primary-hover)]"
-						data-quiet={overHero ? "" : undefined}
-					>
+					<span className="lp-nav-cta inline-flex h-8 items-center whitespace-nowrap rounded-full bg-[var(--color-cta)] px-3.5 font-medium text-[12.5px] text-[var(--color-on-primary)] shadow-[0_6px_16px_-6px_var(--color-primary-glow)] transition-[background-color,box-shadow] duration-150 ease-[var(--ease-out)] hover:bg-[var(--color-primary-hover)]">
 						Open studio
 					</span>
 				</Link>

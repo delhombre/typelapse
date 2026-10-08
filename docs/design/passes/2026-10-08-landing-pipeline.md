@@ -35,9 +35,20 @@ the sharpness proof, the capability ledger, the close.
   camera (45°, 0.5), a scale family that keeps every rest pose 295 to 306 of 400 wide,
   one stagger (32ms), a lap each through three different answers, the stroke change on
   the page's 150ms ease-out; all five pass the skill's look check.
-- **Nav** (D5 kept): the island plate from the first screen, with How it works, Proof and
-  Pricing from 640px; its CTA is a text action while the hero (and its filled button) is
-  in view, the primary past it (D2).
+- **Nav** (D5 kept): the island plate with How it works, Proof and Pricing from 640px.
+  While the hero is in view it carries only those links (nothing on a phone), so "Open
+  studio" is said once in the first screen, by the hero's field; past the hero the CTA
+  joins it as the primary (D2).
+- **Figures, one ink box**: each figure is placed by its rest drawing, at most 340 x 232
+  of a 400 x 250 box, centred across and stood on one foot line, so the five rest at one
+  size with the line under them a fixed step below the ink; under 960px a figure is held
+  to 420px. That line says the gesture at rest and the read-out while driven, and is not
+  read out (the image's label is). The lap plays once, the first time a figure is 60% in
+  view, and a hand ends it at rest.
+- **Proof**: one before/after slider over a re-rendered line of thin red keywords, with a
+  difference view; the numbers are its footnote.
+- **Stage pictures are captures of the product**: stage 01 the studio after a paste, stage
+  04 one scene in all five shapes, stage 05 a scene with its caption.
 - **Proof on the band**: the sharpness section is the page's one dark band, with the
   specification under it (Import, Look, Motion, Check, On device, Hosted, Licence; the
   licence row because the repository is AGPL-3.0, decision 2026-10-04 D1). The band

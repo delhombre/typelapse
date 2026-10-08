@@ -5,7 +5,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 describe("landing export stage: the shapes", () => {
-	it("shows four of the export's shapes as pictures that hold their box before they load", () => {
+	it("shows all five of the export's shapes as pictures that hold their box before they load", () => {
 		render(<ExportShapes />);
 		const images = screen.getAllByRole("img");
 
@@ -13,17 +13,19 @@ describe("landing export stage: the shapes", () => {
 			"The same scene in 16:9.",
 			"The same scene in 1:1.",
 			"The same scene in 4:5.",
+			"The same scene in 3:4.",
 			"The same scene in 9:16.",
 		]);
-		for (const image of images) {
+		const RATIOS = [16 / 9, 1, 4 / 5, 3 / 4, 9 / 16];
+		images.forEach((image, index) => {
 			const width = Number(image.getAttribute("width"));
 			const height = Number(image.getAttribute("height"));
-			expect(width).toBeGreaterThan(0);
-			expect(height).toBe(320);
+			// Declared at the shape's own ratio, so the box it holds is the right one.
+			expect(width / height).toBeCloseTo(RATIOS[index] ?? 0, 1);
 			expect(image.getAttribute("loading")).toBe("lazy");
 			const file = resolve(__dirname, "../../public", `.${image.getAttribute("src")}`);
 			expect(existsSync(file), file).toBe(true);
-		}
+		});
 	});
 
 	it("names the list it is, and writes its copy without em-dashes", () => {

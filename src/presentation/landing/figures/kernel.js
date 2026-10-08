@@ -1,7 +1,8 @@
 /*
  * hairline kernel, from @lucasmarkes/hairline (https://github.com/lucasmarkes/hairline),
- * copied verbatim from its hairline-create skill (kernel.js). The one line added is the
- * `export default HL;` at the end, so the kernel loads as an ES module.
+ * copied verbatim from its hairline-create skill (kernel.js). Two additions, neither
+ * in the kernel's code: this header, and the `export default HL;` at the end, so the
+ * kernel loads as an ES module.
  *
  * MIT License
  *

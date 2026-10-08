@@ -30,16 +30,24 @@ export function playLapOnce({
 }): () => void {
 	let lap: { stop: () => void } | null = null;
 	let done = false;
+	/* Listening from the start and in the capture phase: a hand that arrives
+	   before the lap ends it before it begins, and one that arrives during it is
+	   seen before the kernel's own listeners take the pointer over, so the lap's
+	   `stop` still finds its unseen pointer and walks it off, leaving the figure
+	   at rest under the real one. */
+	const HAND = ["pointerdown", "pointermove", "focusin"] as const;
 	const end = () => {
 		done = true;
 		lap?.stop();
 		lap = null;
 		observer?.disconnect();
 		for (const type of HAND) {
-			host.removeEventListener(type, end);
+			host.removeEventListener(type, end, true);
 		}
 	};
-	const HAND = ["pointerdown", "pointermove", "focusin"] as const;
+	for (const type of HAND) {
+		host.addEventListener(type, end, true);
+	}
 
 	const start = () => {
 		if (done || lap || reducedMotion()) {
@@ -51,9 +59,6 @@ export function playLapOnce({
 				end();
 			}
 		});
-		for (const type of HAND) {
-			host.addEventListener(type, end);
-		}
 	};
 
 	const observer =
