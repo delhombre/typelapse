@@ -59,10 +59,11 @@ describe("the screens that run before the bundle", () => {
 	});
 
 	it("gives the link a 44px target without moving a line", () => {
-		const link = block(".boot-link");
-		// 13px above and below a 19px glyph box is 45px; the same margin takes it back out.
-		expect(link).toMatch(/padding:\s*13px 6px/);
-		expect(link).toMatch(/margin:\s*-13px -6px/);
+		// 13px above and below a 19px glyph box is 45px, as a pseudo-element: padding on
+		// the inline box would make the focus ring span it and reach the lines around.
+		expect(block(".boot-link")).not.toMatch(/padding/);
+		expect(block(".boot-link::after")).toMatch(/inset:\s*-13px -6px/);
+		expect(block(".boot-link:focus-visible")).toMatch(/outline-offset:\s*2px/);
 	});
 
 	it("names the stored theme before anything is painted", () => {

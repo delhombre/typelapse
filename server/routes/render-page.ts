@@ -7,7 +7,13 @@ import {
 
 export interface RenderPageRouteDeps {
 	readonly pages: HostedRenderPageService;
-	/** The public origin pages and their tags point at; the request's own origin when absent. */
+	/**
+	 * The public origin pages and their tags point at. When absent the request's own
+	 * origin stands in for it, and so does the studio link of a dead-end page: behind
+	 * a proxy that is the API's address, not the app's. A hosted deployment always has
+	 * one (`hosted-readiness.ts` refuses to start without TYPELAPSE_APP_URL or
+	 * BETTER_AUTH_URL); the fallback is for local mode and tests.
+	 */
 	readonly appUrl?: string;
 }
 

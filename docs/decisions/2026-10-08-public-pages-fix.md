@@ -113,9 +113,14 @@ because the themed 404 has a title of its own).
 ## D6 The billing return is one read, one notice
 
 **Decision:** `/app?billing=success|cancelled` is read once on mount
-(`takeBillingReturn`, which drops only that parameter and keeps the hash), posted to the
-notice host as "Creator is on." or "Checkout cancelled, nothing was charged.", and after
-a payment the plan store is asked again. The host is not restyled.
+(`takeBillingReturn`, which drops only that parameter and keeps the hash) and posted to
+the notice host, which is not restyled. The studio never announces a plan the server
+has not confirmed (PO, after review): on `success`, hosted and signed in, the plan is
+asked again every 2 s for up to 20 s and "Creator is on." is said when it is not Free;
+past the window the notice is "Payment received. Your plan updates in a moment." and the
+account island catches up on its own. A local build and a signed-out visitor hear
+nothing; `cancelled` says "Checkout cancelled, nothing was charged." in hosted mode only
+(`announceBillingReturn`).
 
 **Why:** `billing-service.ts` sends people back to `/app?billing=success|cancelled` and
 the studio had no view for either, which `#71` needs.

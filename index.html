@@ -142,9 +142,10 @@
 			}
 			.boot-link {
 				--boot-link: #3b5bd4;
-				/* 44px to a finger without moving a line: the padding is the target. */
-				padding: 13px 6px;
-				margin: -13px -6px;
+				/* 44px to a finger without moving a line, and without a ring that spans
+				   it: the target is a pseudo-element, the box a ring is drawn round is the
+				   text. */
+				position: relative;
 				color: var(--boot-link);
 				text-decoration: underline;
 				text-decoration-thickness: 1px;
@@ -160,13 +161,18 @@
 					--boot-link: #729bff;
 				}
 			}
+			.boot-link::after {
+				content: "";
+				position: absolute;
+				inset: -13px -6px;
+			}
 			.boot-link:hover {
 				text-decoration-thickness: 2px;
 			}
 			.boot-link:focus-visible {
 				outline: 2px solid var(--boot-link);
-				outline-offset: -2px;
-				border-radius: 6px;
+				outline-offset: 2px;
+				border-radius: 2px;
 			}
 		</style>
 		<meta
