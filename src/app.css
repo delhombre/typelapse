@@ -3892,6 +3892,12 @@ html.dark:not([data-landing-theme]) {
 		--island-gap: 0px;
 	}
 
+	/* 360 holds 328px of island: seven 44px cells and the feed names' own padding
+	   came to 339. The names give up 4px a side, never a cell's 44px. */
+	.sc-root-mobile .si-row[data-row="social"] .si-button {
+		padding-inline: 4px;
+	}
+
 	.sc-root-mobile .si-row[data-dots] {
 		--island-cell: 44px;
 		--island-gap: 0px;
