@@ -28,7 +28,7 @@ const ARRIVAL = { openingScene: true } as const;
  * The hero navigates the moment you press Render rather than fetching first,
  * because a landing page has nowhere honest to put a spinner: you asked to go
  * to the studio, so you go, and the work is shown happening where the result
- * will appear. That makes `/app#import=…` a real link too — it opens a pull
+ * will appear. That makes `/app#import=…` a real link too: it opens a pull
  * request in Typelapse from anywhere, including from a studio already open:
  * the hash changing on /app starts the same flow.
  *

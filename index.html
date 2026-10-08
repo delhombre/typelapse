@@ -85,21 +85,18 @@
 				--boot-paper: #faf9f6;
 				--boot-ink: #1c1b19;
 				--boot-ash: #6e6b64;
-				color-scheme: light;
 			}
 			@media (prefers-color-scheme: dark) {
 				:root:not([data-boot-theme]) {
 					--boot-paper: #121110;
 					--boot-ink: #f5f3ef;
 					--boot-ash: #a8a39a;
-					color-scheme: dark;
 				}
 			}
 			:root[data-boot-theme="dark"] {
 				--boot-paper: #121110;
 				--boot-ink: #f5f3ef;
 				--boot-ash: #a8a39a;
-				color-scheme: dark;
 			}
 			html {
 				background: var(--boot-paper);

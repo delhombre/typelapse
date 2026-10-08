@@ -62,8 +62,8 @@ dark). Measured there:
 
 `.craft/evidence/2026-10-08-public-fix/after/` against `before/` (the audit's own
 captures), at 390, 360 and 1440, light and dark. Replayed by
-`capture.mts` (the audit's script, repointed): the question ends at y 235 against a
-frame starting at 253 at 360, the `/v` portrait action sits at y 727 to 771 of 780 and
+`capture.mts` (the audit's script, repointed): the question ends at y 235 at 360 and the
+frame starts at about y 253 (read from the screenshot), the `/v` portrait action sits at y 727 to 771 of 780 and
 730 to 774 of 844, and the desktop question starts at y 76. Tests: `billing-return`,
 `import-status`, `boot-screens`, `route-state-head`, `studio-skeleton-row`,
 `render-page-route`, `render-page-tokens`, `source-import-replacement`, the docs tests

@@ -68,6 +68,12 @@ not the video's. On a phone a portrait stage is capped at 60svh and its title at
 lines, so the action stays above the fold; the full title stays in the tab's title and
 the player's label. From 640px the about column sits beside the picture.
 
+**Why:** at 390 the action of a 9:16 page sat at about y 797 of 844 behind a three-line
+title, and a 354px frame on a 1440 window left half the page empty.
+
+**Rejected:** a container query on the viewport's aspect ratio (it is the video's shape
+that matters, not the window's).
+
 **Impact:** `server/routes/render-page.ts`, `tests/server/render-page-route.test.ts`.
 
 **Pivot:** "Keep the text under the video at every size."
@@ -82,6 +88,9 @@ metrics. The fallback now has app.css's two faces (400 and 600).
 **Why:** cross-cutting cause 1 of the audit: a copied value drifts the first time the
 source changes.
 
+**Rejected:** importing the tokens from app.css at build time (the API's document would
+then depend on the bundler's output).
+
 **Pivot:** "Import the tokens from app.css at build time."
 
 ## D5 `/v` answers a themed 404 in every mode
@@ -92,6 +101,15 @@ pages, through `createRenderPageNotFoundRoute`, mounted by `createApp` because t
 static site steps aside for `/v`. The dead-end pages say "This video is not available",
 with the reason under it in ash.
 
+**Why:** `/v` and `/v/` fell to Hono's bare line in local mode, and `/v/a/b` in hosted
+mode too, under a page that is otherwise themed.
+
+**Rejected:** serving the app's shell for them (`tests/server/static-site.test.ts` keeps
+the app out of `/v`; its assertion now says "not the shell" instead of "no `<title>`",
+because the themed 404 has a title of its own).
+
+**Pivot:** "Let `/v` fall through to the SPA's 404."
+
 ## D6 The billing return is one read, one notice
 
 **Decision:** `/app?billing=success|cancelled` is read once on mount
@@ -99,7 +117,15 @@ with the reason under it in ash.
 notice host as "Creator is on." or "Checkout cancelled, nothing was charged.", and after
 a payment the plan store is asked again. The host is not restyled.
 
+**Why:** `billing-service.ts` sends people back to `/app?billing=success|cancelled` and
+the studio had no view for either, which `#71` needs.
+
+**Rejected:** a view of its own (a notice is enough for "Creator is on."); reading the
+parameter in the account island (it is mounted per shell, the return is once per page).
+
 **Impact:** `billing-return.ts`, `billing-return-boot.tsx`, `studio-route.tsx`.
+
+**Pivot:** "The return opens the account panel on the plan."
 
 ## D7 The pre-bundle screens are the 404 family's material
 
@@ -110,5 +136,13 @@ through `data-boot-theme`, else the OS through the media query), the safe areas,
 link that is a 44px target without moving the line. The 404 and the route error face
 carry the Logomark, drop the landing's share tags for as long as they are on screen and
 stack their actions under 380px. The skeleton's phone row takes the real row's numbers.
+
+**Why:** they were `system-ui` on white in the dark, flattened by preflight, with a 19px
+link; the 404 family was the one place the product already looked like itself.
+
+**Rejected:** `color-scheme` on `:root` for the boot screens (it would outlive them and
+beat the app's own on a studio forced light under a dark OS).
+
+**Pivot:** "Boot screens stay system-ui."
 
 No domain change.

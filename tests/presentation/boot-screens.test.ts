@@ -54,6 +54,10 @@ describe("the screens that run before the bundle", () => {
 		expect(block(".boot-screen")).toMatch(/100dvh/);
 	});
 
+	it("sets no color-scheme: the marker outlives the boot screens and would beat the app's own", () => {
+		expect(STYLE).not.toMatch(/(?<!prefers-)color-scheme:/);
+	});
+
 	it("gives the link a 44px target without moving a line", () => {
 		const link = block(".boot-link");
 		// 13px above and below a 19px glyph box is 45px; the same margin takes it back out.
