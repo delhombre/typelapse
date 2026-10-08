@@ -30,3 +30,6 @@ data:
   # compiler version, which is right for staging: an old render is never taken
   # for output of the code now running.
   TYPELAPSE_COMPILER_VERSION: "__IMAGE_TAG__"
+  # TODO(#70): the env vars that turn on static serving of the SPA and set the
+  # render concurrency come with the image builder's PR. Add them here once the
+  # names are known.

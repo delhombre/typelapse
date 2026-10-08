@@ -36,7 +36,10 @@ spec:
           args:
             - |
               set -e
-              node_modules/.bin/drizzle-kit migrate
+              # Neon's pooler is not meant for migrations: use the direct URL
+              # when the Secret has one (drizzle.config.ts reads DATABASE_URL).
+              # hosted:check keeps the pooled URL, like the running pods.
+              DATABASE_URL="${DATABASE_DIRECT_URL:-$DATABASE_URL}" node_modules/.bin/drizzle-kit migrate
               node_modules/.bin/tsx server/config/hosted-check.entrypoint.ts
           envFrom:
             - configMapRef:

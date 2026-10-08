@@ -17,7 +17,7 @@ The hostname is written once, as `APP_HOST` in `.github/workflows/deploy-staging
 
 ## Prerequisites in the cluster
 
-- The `ghcr-secret` image pull secret in the namespace. The workflow creates it if the `GHCR_PULL_TOKEN` secret is set; it is not needed once the package is public.
+- The `ghcr-secret` image pull secret in the namespace. The workflow creates it from `GHCR_PULL_TOKEN` and fails before the build if that secret is missing, because the image is private while the repository is. Once the package is public, set `GHCR_PACKAGE_PUBLIC` to `true` and the token is no longer needed.
 - DNS for `staging.typelapse.com` pointing at the ingress (Cloudflare, proxied).
 
 ## GitHub Environment `staging`
@@ -25,14 +25,15 @@ The hostname is written once, as `APP_HOST` in `.github/workflows/deploy-staging
 Secrets (names only, see `.env.staging.example` for where each value comes from):
 
 - `KUBECONFIG_INFOMANIAK`
-- `DATABASE_URL`
+- `DATABASE_URL` (Neon pooled string)
+- `DATABASE_DIRECT_URL` (optional, Neon direct string; the release Job runs `drizzle-kit migrate` through it instead of the pooled URL, and `hosted:check` keeps the pooled one)
 - `BETTER_AUTH_SECRET`
 - `R2_ACCESS_KEY_ID`
 - `R2_SECRET_ACCESS_KEY`
 - `POLAR_ACCESS_TOKEN`
 - `POLAR_WEBHOOK_SECRET`
 - `TYPELAPSE_GITHUB_TOKEN` (optional)
-- `GHCR_PULL_TOKEN` (optional)
+- `GHCR_PULL_TOKEN` (required while the repository is private: a classic personal access token with only `read:packages`)
 
 Variables:
 
@@ -40,6 +41,7 @@ Variables:
 - `R2_BUCKET`
 - `POLAR_CREATOR_MONTHLY_PRODUCT_ID`
 - `POLAR_CREATOR_ANNUAL_PRODUCT_ID` (optional)
+- `GHCR_PACKAGE_PUBLIC` (optional; set to `true` once the package is public, to stop requiring `GHCR_PULL_TOKEN`)
 - `RENDER_MEMORY_REQUEST` and `RENDER_MEMORY_LIMIT` (wait for a measurement of a real render; the workflow refuses to deploy without them)
 
 The workflow writes the secrets into the Kubernetes Secret `typelapse-env` from a temporary file and never prints them. Nothing secret is committed, not even encrypted.

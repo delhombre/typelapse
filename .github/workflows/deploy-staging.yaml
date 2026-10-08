@@ -37,6 +37,20 @@ jobs:
       IMAGE: ghcr.io/${{ github.repository_owner }}/typelapse
       IMAGE_TAG: ${{ github.sha }}
     steps:
+      # While the repository is private its GHCR image is private too, and the
+      # cluster can only pull it with GHCR_PULL_TOKEN. Fail before the build
+      # rather than after a rollout that cannot start. Once the package is
+      # public, set the Environment variable GHCR_PACKAGE_PUBLIC to true.
+      - name: Check the image pull credential
+        env:
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GHCR_PACKAGE_PUBLIC: ${{ vars.GHCR_PACKAGE_PUBLIC }}
+        run: |
+          if [ "${GHCR_PACKAGE_PUBLIC:-}" != "true" ] && [ -z "${GHCR_PULL_TOKEN:-}" ]; then
+            echo "::error::The Environment secret GHCR_PULL_TOKEN is not set. The image is private while the repository is, and the cluster needs a classic PAT with only read:packages to pull it. Set it, or set the Environment variable GHCR_PACKAGE_PUBLIC to true once the package is public."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -138,6 +152,7 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           POLAR_ACCESS_TOKEN: ${{ secrets.POLAR_ACCESS_TOKEN }}
           POLAR_WEBHOOK_SECRET: ${{ secrets.POLAR_WEBHOOK_SECRET }}
+          DATABASE_DIRECT_URL: ${{ secrets.DATABASE_DIRECT_URL }}
           TYPELAPSE_GITHUB_TOKEN: ${{ secrets.TYPELAPSE_GITHUB_TOKEN }}
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
           GHCR_PULL_USER: ${{ github.repository_owner }}
@@ -153,6 +168,10 @@ jobs:
             fi
             printf '%s=%s\n' "$name" "${!name}" >> "$envfile"
           done
+          # Optional: the release Job migrates through it instead of the pooled URL.
+          if [ -n "${DATABASE_DIRECT_URL:-}" ]; then
+            printf '%s=%s\n' DATABASE_DIRECT_URL "$DATABASE_DIRECT_URL" >> "$envfile"
+          fi
           if [ -n "${TYPELAPSE_GITHUB_TOKEN:-}" ]; then
             printf '%s=%s\n' TYPELAPSE_GITHUB_TOKEN "$TYPELAPSE_GITHUB_TOKEN" >> "$envfile"
           fi
@@ -161,7 +180,7 @@ jobs:
           kubectl -n "$NAMESPACE" create secret generic typelapse-env \
             --from-env-file="$envfile" --dry-run=client -o yaml \
             | kubectl apply --server-side -f -
-          # Optional: only while the repository or the package is private.
+          # Absent only when the package is public (GHCR_PACKAGE_PUBLIC=true).
           if [ -n "${GHCR_PULL_TOKEN:-}" ]; then
             kubectl -n "$NAMESPACE" create secret docker-registry ghcr-secret \
               --docker-server=ghcr.io --docker-username="$GHCR_PULL_USER" \
