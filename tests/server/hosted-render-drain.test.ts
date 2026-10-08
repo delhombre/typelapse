@@ -2,7 +2,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AssetRepositoryPort } from "../../src/application/assets/asset-repository.port";
 import { migrateV1ToV2 } from "../../src/application/project/migrate-v1-project";
-import type { HostedMultimediaRendererPort } from "../../src/application/render/process-hosted-render-job";
+import type {
+	HostedMultimediaRendererPort,
+	HostedRenderProcessor,
+} from "../../src/application/render/process-hosted-render-job";
 import type {
 	RenderJobLease,
 	RenderJobQueuePort,
@@ -12,6 +15,7 @@ import { launchHostedRenderWorker } from "../../server/workers/hosted-render.ent
 import {
 	createHostedRenderRuntimeFromEnv,
 	hostedRenderRuntimeConfigFromEnv,
+	runHostedRenderLoop,
 } from "../../server/workers/hosted-render-runtime";
 import {
 	closableDatabase,
@@ -197,6 +201,41 @@ describe("draining the render queue, for scheduled jobs", () => {
 		expect(worker.pool.closed).toBe(1);
 	});
 
+	it("exits 1 after three renders in a row run past the render timeout", async () => {
+		const sleeps: number[] = [];
+		const errors: string[] = [];
+		let attempts = 0;
+		const processor: HostedRenderProcessor = {
+			runOnce: async (_workerId, options) => {
+				attempts += 1;
+				return await new Promise<"aborted">((resolve) => {
+					options?.signal?.addEventListener("abort", () => resolve("aborted"), { once: true });
+				});
+			},
+		};
+
+		await expect(
+			runHostedRenderLoop({
+				processor,
+				workerId: "render-worker-a",
+				signal: new AbortController().signal,
+				idleMinDelayMs: 25,
+				idleMaxDelayMs: 100,
+				failureDelayMs: 200,
+				renderTimeoutMs: 10,
+				exitWhenIdle: true,
+				logger: { info: () => undefined, error: (message) => errors.push(message) },
+				sleep: async (delayMs) => {
+					sleeps.push(delayMs);
+				},
+			}),
+		).rejects.toThrow("Hosted render worker stopped after 3 failed iterations in a row");
+
+		expect(attempts).toBe(3);
+		expect(sleeps).toEqual([200, 200]);
+		expect(errors.filter((message) => message === "Hosted render worker attempt timed out")).toHaveLength(3);
+	});
+
 	it("keeps retrying failures without that limit when the variable is unset", async () => {
 		const worker = renderWorker({
 			claims: ["throws", "throws", "throws", "throws"],
@@ -219,6 +258,7 @@ describe("draining the render queue, for scheduled jobs", () => {
 
 		const running = worker.launch();
 		await vi.waitFor(() => expect(worker.renders).toEqual(["job-1"]));
+		expect(worker.pool.closed).toBe(0);
 		worker.signals.emit("SIGTERM");
 
 		await expect(running).resolves.toBe(0);

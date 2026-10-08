@@ -180,6 +180,7 @@ describe("draining the object deletion outbox, for scheduled jobs", () => {
 
 		const running = worker.launch();
 		await vi.waitFor(() => expect(worker.deleted).toHaveLength(1));
+		expect(worker.pool.closed).toBe(0);
 		worker.signals.emit("SIGTERM");
 
 		await expect(running).resolves.toBe(0);

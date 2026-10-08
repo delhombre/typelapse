@@ -82,53 +82,42 @@ const sourceFor = (from: string, specifier: string): string | null => {
 	return null;
 };
 
-const aliasedImportsReachedFrom = (entries: readonly string[]): string[] => {
-	const seen = new Set<string>();
-	const found: string[] = [];
+/** Every source file the entries reach through value imports, with the specifiers each one uses. */
+const reachableFrom = (entries: readonly string[]): ReadonlyMap<string, readonly string[]> => {
+	const reached = new Map<string, readonly string[]>();
 	const queue = entries.map((entry) => resolve(ROOT, entry));
 	while (queue.length > 0) {
 		const file = queue.pop();
-		if (!file || seen.has(file)) {
+		if (!file || reached.has(file)) {
 			continue;
 		}
-		seen.add(file);
-		for (const specifier of valueSpecifiers(file)) {
-			if (specifier.startsWith("@/")) {
-				found.push(`${file.slice(ROOT.length + 1)} imports "${specifier}"`);
-			}
+		const specifiers = valueSpecifiers(file);
+		reached.set(file, specifiers);
+		for (const specifier of specifiers) {
 			const target = sourceFor(file, specifier);
 			if (target) {
 				queue.push(target);
 			}
 		}
 	}
-	return found.sort();
+	return reached;
 };
 
 describe("what Remotion bundles", () => {
 	it("reaches the composition's source, so the scan is not vacuous", () => {
-		const reached = new Set<string>();
-		const queue = ENTRIES.map((entry) => resolve(ROOT, entry));
-		while (queue.length > 0) {
-			const file = queue.pop();
-			if (!file || reached.has(file)) {
-				continue;
-			}
-			reached.add(file);
-			for (const specifier of valueSpecifiers(file)) {
-				const target = sourceFor(file, specifier);
-				if (target) {
-					queue.push(target);
-				}
-			}
-		}
-		const names = [...reached].map((file) => file.slice(ROOT.length + 1));
+		const names = [...reachableFrom(ENTRIES).keys()].map((file) => file.slice(ROOT.length + 1));
 
 		expect(names).toContain("src/presentation/components/preview/focus-zoom-body.tsx");
 		expect(names).toContain("src/presentation/components/preview/magic-move-canvas.tsx");
 	});
 
 	it("imports nothing through the @/ alias, which Remotion's webpack cannot resolve", () => {
-		expect(aliasedImportsReachedFrom(ENTRIES)).toEqual([]);
+		const aliased = [...reachableFrom(ENTRIES)].flatMap(([file, specifiers]) =>
+			specifiers
+				.filter((specifier) => specifier.startsWith("@/"))
+				.map((specifier) => `${file.slice(ROOT.length + 1)} imports "${specifier}"`),
+		);
+
+		expect(aliased.sort()).toEqual([]);
 	});
 });

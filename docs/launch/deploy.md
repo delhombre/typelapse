@@ -15,13 +15,14 @@ bundle), downloads the headless browser Remotion renders with. It keeps the
 development dependencies, which the release step needs (`drizzle-kit`). It
 needs the network and no secrets.
 
-Three things are baked into the client bundle, so they are build arguments, not
+Four things are baked into the client bundle, so they are build arguments, not
 runtime variables:
 
 | Build argument | Default | Hosted |
 | --- | --- | --- |
 | `VITE_TYPELAPSE_DEPLOYMENT_MODE` | `local` | `hosted` |
 | `VITE_TYPELAPSE_AUTH_ENABLED` | `false` | `true` |
+| `VITE_BETTER_AUTH_URL` | empty | empty: the client calls its own origin, which is right when the API serves the app |
 | `TYPELAPSE_APP_URL` | empty | the public origin, on HTTPS |
 
 `TYPELAPSE_APP_URL` is also written into the share-card tags of the HTML, so an
@@ -52,6 +53,10 @@ workers under `tini` so the signal arrives.
 Both workers can also run as scheduled jobs, which is how staging runs them
 (Kubernetes CronJobs, decision D8 of `docs/decisions/2026-10-08-staging.md`;
 the manifests are in #235). See "Scheduled jobs" below.
+
+On a single origin, `TYPELAPSE_APP_URL`, `CORS_ORIGIN` and `BETTER_AUTH_URL` are
+all the public HTTPS origin; `CORS_ORIGIN` is the only origin Better Auth trusts,
+so a mismatch makes sign-in fail.
 
 The API listens on `PORT` (3001). With `TYPELAPSE_STATIC_ROOT` set, which the
 image does (`/app/dist`), it also serves the built app, so one origin answers
@@ -103,8 +108,11 @@ rollout:
 
 1. Suspend both worker CronJobs, so no new run starts:
    `kubectl patch cronjob <name> -p '{"spec":{"suspend":true}}'`.
-2. Wait for the Jobs already running to end (`kubectl get jobs`). A render can
-   take up to `TYPELAPSE_RENDER_TIMEOUT_MS`.
+2. Wait for the Jobs already running to end (`kubectl get jobs`). Suspending a
+   CronJob does not stop a Job already draining: it can run up to its
+   `activeDeadlineSeconds`. Deleting that Job instead is safe: its worker gets
+   SIGTERM, and the render it held is claimed again once its lease has run out
+   (120 s).
 3. Migrate, then check, with the same environment as the API, and stop the
    rollout if either command exits non-zero:
 
@@ -127,8 +135,9 @@ keys). Run it with `TYPELAPSE_DEPLOYMENT_MODE=hosted`.
 ## Probe
 
 `GET /health` on the API answers 200 with the deployment mode and the
-capabilities that are on. Use it for both readiness and liveness. The workers
-have no HTTP endpoint: probe them by process, and expect the render worker to
+capabilities that are on. It is a liveness probe: the answer is static and
+touches neither the database nor the object store, so it does not prove they are
+reachable. The workers have no HTTP endpoint: probe them by process, and expect the render worker to
 exit on a configuration error it names.
 
 ## Running constraints
@@ -144,8 +153,9 @@ exit on a configuration error it names.
 - The default command runs under `tini`. If the host replaces `ENTRYPOINT`, `tsx`
   becomes PID 1 and still stops on SIGTERM (0.26 s, exit 143, measured), so
   either way works; setting only the arguments is simplest.
-- `TYPELAPSE_RENDER_CONCURRENCY` is 1 in the image. Raise it only with the memory
-  and CPU to match.
+- `TYPELAPSE_RENDER_CONCURRENCY` is 1 in the image. Only the render worker reads
+  it; the renders a local-mode API does itself keep Remotion's default. Raise it
+  only with the memory and CPU to match.
 
 ## Sizing
 
