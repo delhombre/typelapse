@@ -714,6 +714,53 @@ describe("the account panel (DECISIONS D5, next-wave D6)", () => {
 		expect(lastValue(island, ".sc-account-island", "--mm-muted")).toBe("var(--camera-muted)");
 	});
 
+	// 4.5:1 is WCAG AA for text. The placeholder is drawn in the muted camera token over the field's
+	// tint, which is the surface with the ink (light) or white (dark) laid over it at the alpha the
+	// field's background declares.
+	it("keeps the placeholder at AA on the field's tint in both themes", () => {
+		const channel = (value: number) => {
+			const c = value / 255;
+			return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+		};
+		const luminance = (rgb: number[]) => {
+			const [r = 0, g = 0, b = 0] = rgb.map(channel);
+			return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+		};
+		const ratio = (a: number[], b: number[]) => {
+			const [hi = 0, lo = 0] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+			return (hi + 0.05) / (lo + 0.05);
+		};
+		const hex = (value: string) =>
+			[1, 3, 5].map((at) => Number.parseInt(value.slice(at, at + 2), 16));
+		const tint = (surface: number[], over: string) => {
+			const [r = 0, g = 0, b = 0, a = 0] = (over.match(/[\d.]+/g) ?? []).map(Number);
+			const ink = [r, g, b];
+			return surface.map((value, index) => value * (1 - a) + (ink[index] ?? 0) * a);
+		};
+		const token = (block: RegExp, name: string) => {
+			const found = new RegExp(`${name}:\\s*(#[0-9a-f]{6})`).exec(camera.match(block)?.[0] ?? "");
+			if (!found?.[1]) throw new Error(`${name} not found`);
+			return hex(found[1]);
+		};
+		const lightTokens = /(?:^|\n):is\(\.studio-camera-root[^{]*\{[^}]*\}/;
+		const darkTokens = /\.dark :is\(\.studio-camera-root[^{]*\{[^}]*\}/;
+		const field = (selector: string) => {
+			const value = lastValue(panel, selector, "background");
+			if (!value) throw new Error(`${selector} has no background`);
+			return value;
+		};
+		const light = ratio(
+			token(lightTokens, "--camera-muted"),
+			tint(token(lightTokens, "--camera-surface"), field(".mm-account-form input")),
+		);
+		const dark = ratio(
+			token(darkTokens, "--camera-muted"),
+			tint(token(darkTokens, "--camera-surface"), field(".dark .mm-account-form input")),
+		);
+		expect(light).toBeGreaterThanOrEqual(4.5);
+		expect(dark).toBeGreaterThanOrEqual(4.5);
+	});
+
 	it("presses every button of the form, and lets go of the press under reduced motion", () => {
 		for (const selector of [
 			'.mm-account-primary:active:not(:disabled, [aria-disabled="true"])',

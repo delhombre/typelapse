@@ -400,6 +400,17 @@ describe("StudioAccountControl", () => {
 			);
 		});
 
+		it("takes a finger back to the address, where it is about to type", async () => {
+			withFinger();
+			const { panel } = await openSignIn();
+			askForCode(panel);
+			await within(panel).findByRole("textbox", { name: "Code" });
+
+			fireEvent.click(within(panel).getByRole("button", { name: "Use another email" }));
+
+			expect(document.activeElement).toBe(within(panel).getByRole("textbox", { name: "Email" }));
+		});
+
 		it("flags an address that is wrong when the field is left, not while it is typed", async () => {
 			const { panel } = await openSignIn();
 			const email = within(panel).getByRole("textbox", { name: "Email" });
@@ -411,7 +422,10 @@ describe("StudioAccountControl", () => {
 			fireEvent.blur(email, { relatedTarget: close });
 
 			expect(email.getAttribute("aria-invalid")).toBe("true");
-			expect(within(panel).getByText("Enter an email address like ada@example.com.")).toBeTruthy();
+			const message = within(panel).getByText("Enter an email address like ada@example.com.");
+			// Border, mark and words, announced as it appears: never colour alone.
+			expect(within(panel).getByRole("status")).toBe(message);
+			expect(message.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
 			// Once flagged it is checked as it changes, so a fixed address clears at once.
 			fireEvent.change(email, { target: { value: "ada@example.com" } });
 			expect(email.getAttribute("aria-invalid")).toBeNull();
@@ -444,9 +458,14 @@ describe("StudioAccountControl", () => {
 			fireEvent.blur(email, { relatedTarget: submit });
 			expect(email.getAttribute("aria-invalid")).toBeNull();
 
+			// The press is over: the guard lets go, and leaving the field for something else in the
+			// panel is checked again.
 			fireEvent.pointerUp(document);
-			fireEvent.click(submit);
+			fireEvent.blur(email, {
+				relatedTarget: within(panel).getByRole("button", { name: "Close account panel" }),
+			});
 			expect(email.getAttribute("aria-invalid")).toBe("true");
+			fireEvent.click(submit);
 			expect(sendSignInCode).not.toHaveBeenCalled();
 		});
 
@@ -464,7 +483,9 @@ describe("StudioAccountControl", () => {
 			fireEvent.blur(code, { relatedTarget: other });
 
 			expect(code.getAttribute("aria-invalid")).toBe("true");
-			expect(within(panel).getByText("Enter the six digits from the email.")).toBeTruthy();
+			const message = within(panel).getByText("Enter the six digits from the email.");
+			expect(within(panel).getByRole("status")).toBe(message);
+			expect(message.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");
 			fireEvent.change(code, { target: { value: "04291" } });
 			fireEvent.change(code, { target: { value: "042917" } });
 			expect(within(panel).queryByText("Enter the six digits from the email.")).toBeNull();

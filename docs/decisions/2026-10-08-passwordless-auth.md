@@ -63,7 +63,7 @@ without mail nobody can sign in.
 ## D4 The sign-in form follows the forms checklist
 
 Bruno, 2026-10-08: the inputs had no placeholder, and had `emil-forms-and-inputs`
-been applied? Mostly; five items were missing and are fixed.
+been applied? Mostly; about nine rows changed (the PR's table lists them) and are fixed.
 
 **Decision:** both fields carry an example (`you@company.com`, `123456`) in the
 label's muted ink, the labels stay; the address asks for the email keyboard and
@@ -73,7 +73,11 @@ phone the code step moves focus to its heading instead, so a screen reader
 lands on what changed. A field is checked when it is left, except on a press
 on the form's own button (a message above the button would move it between
 press and release and lose the click) and when focus leaves for nowhere in the
-panel. Busy buttons stay `aria-disabled`, not `disabled`.
+panel. A refused field shows a mark beside its message (border, mark and words,
+not colour alone), announced as a status when it appears, and every button of
+the form takes the 0.97 press. Busy buttons stay `aria-disabled`, not
+`disabled`. "Use another email" returns focus to the address on a finger too:
+the person is about to type, so raising the keyboard there is right.
 
 **Why:**
 

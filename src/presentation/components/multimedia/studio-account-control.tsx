@@ -846,10 +846,10 @@ function EmailStep({
 					/>
 				</label>
 				{invalid ? (
-					<span id={messageId} className="mm-account-field-error">
+					<output id={messageId} className="mm-account-field-error">
 						<ErrorMark />
 						Enter an email address like ada@example.com.
-					</span>
+					</output>
 				) : null}
 			</div>
 			{/* Busy is `aria-disabled`, not `disabled`: a disabled button drops the focus it
@@ -1025,10 +1025,10 @@ function CodeStep({
 					/>
 				</label>
 				{short ? (
-					<span id={shortId} className="mm-account-field-error">
+					<output id={shortId} className="mm-account-field-error">
 						<ErrorMark />
 						Enter the six digits from the email.
-					</span>
+					</output>
 				) : null}
 			</div>
 			<button type="submit" className="mm-account-primary" aria-disabled={busy ? true : undefined}>
