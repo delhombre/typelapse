@@ -538,6 +538,8 @@
    the link under it. */
 .mm-account-alert {
 	display: grid;
+	/* The chip is as tall as its words; the room around it is what is held. */
+	align-items: start;
 	min-height: calc(1.4 * var(--sc-text-sm) + 18px);
 }
 
