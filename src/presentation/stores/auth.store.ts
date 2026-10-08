@@ -3,11 +3,7 @@ import {
 	createClientAccountAuthentication,
 } from "@/application/auth/client-account-authentication";
 import type { ClientAuthRuntime } from "@/application/auth/client-auth-runtime";
-import type {
-	ClientSession,
-	EmailCredentials,
-	SignUpWithEmail,
-} from "@/application/auth/client-auth.port";
+import type { ClientSession } from "@/application/auth/client-auth.port";
 import { ClientAuthFailure } from "@/application/auth/client-auth.port";
 import { clientAuthRuntimeFromEnvironment } from "@/infrastructure/auth/client-auth-runtime";
 import { create } from "zustand";
@@ -23,22 +19,39 @@ export type ClientAuthStatus =
 export type ClientAuthOperation =
 	| "idle"
 	| "refreshing"
-	| "signing-up"
+	| "sending-code"
 	| "signing-in"
 	| "signing-out";
+
+/** Where the last code went and when, so the code step knows whom to sign in and when to offer another. */
+export interface PendingSignInCode {
+	readonly email: string;
+	readonly sentAt: Date;
+	/** Refused tries at this code; the server spends it at the third. */
+	readonly wrongTries: number;
+}
+
+/** The tries the server allows one code (server/auth/auth-instance.ts). */
+const CODE_TRIES = 3;
 
 export interface AuthStoreState {
 	status: ClientAuthStatus;
 	operation: ClientAuthOperation;
 	canSync: boolean;
 	error: string | null;
+	pendingCode: PendingSignInCode | null;
 	refreshSession(): Promise<void>;
-	signUp(input: SignUpWithEmail): Promise<void>;
-	signIn(input: EmailCredentials): Promise<void>;
+	/** Mail a code to the address; a new address and a known one take the same path. */
+	sendCode(email: string): Promise<void>;
+	/** Sign in with the code mailed to the pending address. */
+	signInWithCode(code: string): Promise<void>;
+	/** Back to the address step: the code sent is not tried. */
+	forgetCode(): void;
 	signOut(): Promise<void>;
 }
 
-type SettledAuthState = Pick<AuthStoreState, "status" | "operation" | "canSync" | "error">;
+type SettledAuthState = Pick<AuthStoreState, "status" | "operation" | "canSync" | "error"> &
+	Partial<Pick<AuthStoreState, "pendingCode">>;
 
 function sessionState(session: ClientSession | null): SettledAuthState {
 	return {
@@ -103,11 +116,12 @@ export function createAuthStore(
 		}
 	};
 
-	return create<AuthStoreState>((set) => ({
+	return create<AuthStoreState>((set, get) => ({
 		status: initialStatus(runtime),
 		operation: "idle",
 		canSync: false,
 		error: null,
+		pendingCode: null,
 		refreshSession: async () => {
 			if (!authentication) {
 				return;
@@ -121,38 +135,78 @@ export function createAuthStore(
 				settleLatest(request, set, failureState(error));
 			}
 		},
-		signUp: async (input) => {
+		sendCode: async (email) => {
 			if (!authentication) {
 				return;
 			}
 			const { request, signal } = beginRequest();
-			set({ status: { kind: "checking" }, operation: "signing-up", canSync: false, error: null });
+			// Nothing about the account changes while a code is on its way: only the form is busy.
+			set({
+				status: { kind: "anonymous" },
+				operation: "sending-code",
+				canSync: false,
+				error: null,
+			});
 			try {
-				const session = await authentication.signUp(input, { signal });
-				settleLatest(request, set, sessionState(session));
+				await authentication.sendCode(email, { signal });
+				settleLatest(request, set, {
+					...sessionState(null),
+					pendingCode: { email, sentAt: options.now(), wrongTries: 0 },
+				});
 			} catch (error) {
 				settleLatest(request, set, failureState(error));
 			}
 		},
-		signIn: async (input) => {
-			if (!authentication) {
+		signInWithCode: async (code) => {
+			const pending = get().pendingCode;
+			if (!authentication || !pending) {
 				return;
 			}
 			const { request, signal } = beginRequest();
 			set({ status: { kind: "checking" }, operation: "signing-in", canSync: false, error: null });
 			try {
-				const session = await authentication.signIn(input, { signal });
-				settleLatest(request, set, sessionState(session));
+				const session = await authentication.signInWithCode(
+					{ email: pending.email, code },
+					{ signal },
+				);
+				settleLatest(request, set, {
+					...sessionState(session),
+					...(session ? { pendingCode: null } : {}),
+				});
 			} catch (error) {
-				settleLatest(request, set, failureState(error));
+				// A refused code keeps the code step: the person types it again or asks for another.
+				// The server does not say how many tries are left, so the store counts: at the
+				// third wrong one the code is spent, and saying "try again" would be a lie.
+				if (!(error instanceof ClientAuthFailure) || error.code !== "invalid-code") {
+					settleLatest(request, set, failureState(error));
+					return;
+				}
+				const wrongTries = pending.wrongTries + 1;
+				const failure = wrongTries >= CODE_TRIES ? new ClientAuthFailure("code-expired") : error;
+				settleLatest(request, set, {
+					...failureState(failure),
+					pendingCode: { ...pending, wrongTries },
+				});
 			}
+		},
+		forgetCode: () => {
+			inFlight?.abort();
+			latestRequest += 1;
+			inFlight = null;
+			set({ pendingCode: null, error: null, operation: "idle" });
 		},
 		signOut: async () => {
 			if (!authentication) {
 				return;
 			}
 			const { request, signal } = beginRequest();
-			set({ status: { kind: "anonymous" }, operation: "signing-out", canSync: false, error: null });
+			set({
+				status: { kind: "anonymous" },
+				operation: "signing-out",
+				canSync: false,
+				error: null,
+				pendingCode: null,
+			});
 			try {
 				await authentication.signOut({ signal });
 				settleLatest(request, set, sessionState(null));

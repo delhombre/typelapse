@@ -4,7 +4,8 @@ export type HostedCapability =
 	| "privateAssets"
 	| "billing"
 	| "hostedRendering"
-	| "apiKeys";
+	| "apiKeys"
+	| "mail";
 
 export interface RuntimeHealth {
 	readonly status: "ok";
@@ -24,6 +25,7 @@ const REQUIRED_CAPABILITIES: readonly HostedCapability[] = [
 	"billing",
 	"hostedRendering",
 	"apiKeys",
+	"mail",
 ];
 
 /** Pure deployment gate used by CI and the operator-facing CLI. */
@@ -50,6 +52,17 @@ export function optionalHostedSettings(env: Readonly<Record<string, string | und
 		: [
 				"TYPELAPSE_GITHUB_TOKEN is not set: render by URL reads GitHub without a credential, at 60 requests an hour for this server's address. Set a read-only fine-grained token limited to public repositories to raise it.",
 			];
+}
+
+const MAIL_VARIABLES = ["SMTP_URL", "MAIL_FROM"] as const;
+
+/**
+ * What the mail capability reads from the environment, by name and never by
+ * value. Without mail no code leaves, so nobody signs in, and auth and everything
+ * behind it reads as missing too: this line names the cause.
+ */
+export function mailSettings(env: Readonly<Record<string, string | undefined>>): string[] {
+	return MAIL_VARIABLES.filter((name) => !env[name]?.trim());
 }
 
 const BILLING_VARIABLES = [

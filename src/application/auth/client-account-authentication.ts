@@ -2,8 +2,7 @@ import type {
 	ClientAuthPort,
 	ClientAuthRequestOptions,
 	ClientSession,
-	EmailCredentials,
-	SignUpWithEmail,
+	SignInCode,
 } from "./client-auth.port";
 
 export interface ClientAccountAuthenticationOptions {
@@ -11,9 +10,9 @@ export interface ClientAccountAuthenticationOptions {
 }
 
 export interface ClientAccountAuthentication {
-	signUp(input: SignUpWithEmail, options?: ClientAuthRequestOptions): Promise<ClientSession | null>;
-	signIn(
-		input: EmailCredentials,
+	sendCode(email: string, options?: ClientAuthRequestOptions): Promise<void>;
+	signInWithCode(
+		input: SignInCode,
 		options?: ClientAuthRequestOptions,
 	): Promise<ClientSession | null>;
 	signOut(options?: ClientAuthRequestOptions): Promise<void>;
@@ -23,7 +22,7 @@ export interface ClientAccountAuthentication {
 /**
  * Account use cases for the browser.
  *
- * A successful credential request is not itself proof of a usable session:
+ * A code that was accepted is not itself proof of a usable session:
  * only the provider's subsequent session read may enable synchronized work.
  */
 export function createClientAccountAuthentication(
@@ -41,12 +40,9 @@ export function createClientAccountAuthentication(
 	};
 
 	return {
-		async signUp(input, requestOptions) {
-			await port.signUpEmail(input, requestOptions);
-			return activeSession(requestOptions);
-		},
-		async signIn(input, requestOptions) {
-			await port.signInEmail(input, requestOptions);
+		sendCode: (email, requestOptions) => port.sendSignInCode(email, requestOptions),
+		async signInWithCode(input, requestOptions) {
+			await port.signInWithCode(input, requestOptions);
 			return activeSession(requestOptions);
 		},
 		signOut: (requestOptions) => port.signOut(requestOptions),

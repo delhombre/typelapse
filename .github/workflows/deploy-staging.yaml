@@ -52,6 +52,17 @@ jobs:
             exit 1
           fi
 
+      # Signing in is a code sent by mail: without SMTP the API mounts no auth and
+      # the release Job's hosted:check fails. Say so before a 20-minute build.
+      - name: Check the mail server
+        env:
+          SMTP_URL: ${{ secrets.SMTP_URL }}
+        run: |
+          if [ -z "${SMTP_URL:-}" ]; then
+            echo "::error::The Environment secret SMTP_URL is not set. Sign-in codes leave by mail: set it to the provider's relay, smtps://user:password@host:465 (Resend: smtps://resend:<API key>@smtp.resend.com:465)."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -120,9 +131,17 @@ jobs:
           R2_BUCKET: ${{ vars.R2_BUCKET }}
           POLAR_CREATOR_MONTHLY_PRODUCT_ID: ${{ vars.POLAR_CREATOR_MONTHLY_PRODUCT_ID }}
           POLAR_CREATOR_ANNUAL_PRODUCT_ID: ${{ vars.POLAR_CREATOR_ANNUAL_PRODUCT_ID }}
+          MAIL_FROM: ${{ vars.MAIL_FROM }}
           DEPLOY_RUN: ${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
+          # The sender holds spaces and angle brackets, so it has its own pattern; it
+          # still allows nothing that could end the sed expression or the YAML string.
+          MAIL_FROM="${MAIL_FROM:-Typelapse <code@typelapse.com>}"
+          if ! printf '%s' "$MAIL_FROM" | grep -Eq '^[A-Za-z0-9._+@ <>-]+$'; then
+            echo "::error::MAIL_FROM contains characters outside [A-Za-z0-9._+@ <>-]"
+            exit 1
+          fi
           for name in R2_ACCOUNT_ID R2_BUCKET POLAR_CREATOR_MONTHLY_PRODUCT_ID; do
             if [ -z "${!name:-}" ]; then
               echo "::error::The Environment variable $name is not set"
@@ -147,6 +166,7 @@ jobs:
               -e "s|__R2_BUCKET__|${R2_BUCKET}|g" \
               -e "s|__POLAR_CREATOR_MONTHLY_PRODUCT_ID__|${POLAR_CREATOR_MONTHLY_PRODUCT_ID}|g" \
               -e "s|__POLAR_CREATOR_ANNUAL_PRODUCT_ID__|${POLAR_CREATOR_ANNUAL_PRODUCT_ID}|g" \
+              -e "s|__MAIL_FROM__|${MAIL_FROM}|g" \
               "$file" > "$out/$(basename "$file")"
           done
           if grep -nE '__[A-Z0-9_]+__' "$out"/*.yaml; then
@@ -165,6 +185,7 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           POLAR_ACCESS_TOKEN: ${{ secrets.POLAR_ACCESS_TOKEN }}
           POLAR_WEBHOOK_SECRET: ${{ secrets.POLAR_WEBHOOK_SECRET }}
+          SMTP_URL: ${{ secrets.SMTP_URL }}
           TYPELAPSE_GITHUB_TOKEN: ${{ secrets.TYPELAPSE_GITHUB_TOKEN }}
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
           GHCR_PULL_USER: ${{ github.repository_owner }}
@@ -173,7 +194,7 @@ jobs:
           umask 077
           envfile="$(mktemp -p "$RUNNER_TEMP")"
           trap 'rm -f "$envfile"' EXIT
-          for name in DATABASE_URL BETTER_AUTH_SECRET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY POLAR_ACCESS_TOKEN POLAR_WEBHOOK_SECRET; do
+          for name in DATABASE_URL BETTER_AUTH_SECRET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY POLAR_ACCESS_TOKEN POLAR_WEBHOOK_SECRET SMTP_URL; do
             if [ -z "${!name:-}" ]; then
               echo "::error::The Environment secret $name is not set"
               exit 1

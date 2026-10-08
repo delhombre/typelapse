@@ -17,14 +17,34 @@ describe("hosted configuration readiness", () => {
 				billing: false,
 				hostedRendering: false,
 				apiKeys: false,
+				mail: false,
 				localMultimediaRendering: false,
 			},
 		});
 
 		expect(result).toEqual({
 			ready: false,
-			missing: ["privateAssets", "billing", "hostedRendering", "apiKeys"],
+			missing: ["privateAssets", "billing", "hostedRendering", "apiKeys", "mail"],
 		});
+	});
+
+	it("is not ready without mail, even with every other capability mounted", () => {
+		const result = assessHostedReadiness({
+			status: "ok",
+			deploymentMode: "hosted",
+			capabilities: {
+				auth: true,
+				projectSync: true,
+				privateAssets: true,
+				billing: true,
+				hostedRendering: true,
+				apiKeys: true,
+				mail: false,
+				localMultimediaRendering: false,
+			},
+		});
+
+		expect(result).toEqual({ ready: false, missing: ["mail"] });
 	});
 
 	it("accepts only a hosted runtime with all commercial capabilities mounted", () => {
@@ -39,6 +59,7 @@ describe("hosted configuration readiness", () => {
 					billing: true,
 					hostedRendering: true,
 					apiKeys: true,
+					mail: true,
 					localMultimediaRendering: false,
 				},
 			}),
@@ -56,6 +77,7 @@ describe("hosted configuration readiness", () => {
 				billing: true,
 				hostedRendering: true,
 				apiKeys: true,
+				mail: true,
 				localMultimediaRendering: true,
 			},
 		});

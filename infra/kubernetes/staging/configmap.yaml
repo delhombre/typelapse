@@ -7,7 +7,8 @@
 #   __IMAGE_TAG__  the commit SHA being deployed
 #   __APP_HOST__   the public hostname (staging.typelapse.com here, typelapse.com for production)
 #   __R2_ACCOUNT_ID__, __R2_BUCKET__, __POLAR_CREATOR_MONTHLY_PRODUCT_ID__,
-#   __POLAR_CREATOR_ANNUAL_PRODUCT_ID__  GitHub Environment variables (not secrets)
+#   __POLAR_CREATOR_ANNUAL_PRODUCT_ID__, __MAIL_FROM__  GitHub Environment variables (not secrets);
+#   MAIL_FROM defaults to "Typelapse <code@typelapse.com>" when the variable is unset
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -30,6 +31,12 @@ data:
   POLAR_CREATOR_ANNUAL_PRODUCT_ID: "__POLAR_CREATOR_ANNUAL_PRODUCT_ID__"
   R2_ACCOUNT_ID: "__R2_ACCOUNT_ID__"
   R2_BUCKET: "__R2_BUCKET__"
+  # The sender of sign-in codes. SMTP_URL, the relay with its credentials, is in the Secret.
+  MAIL_FROM: "__MAIL_FROM__"
+  # The address the sign-in limits count per client: the one Cloudflare saw, which
+  # a caller cannot write. Trustworthy only while the ingress answers nothing that
+  # did not come through Cloudflare (Cloudflare proxies every request today).
+  TRUSTED_CLIENT_IP_HEADER: "cf-connecting-ip"
   # Part of hosted job idempotency. The commit SHA means every deploy is a new
   # compiler version, which is right for staging: an old render is never taken
   # for output of the code now running. The cost: a job queued across a deploy

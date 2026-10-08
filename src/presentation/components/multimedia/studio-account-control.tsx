@@ -2,6 +2,7 @@ import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/por
 import {
 	type ClientAuthOperation,
 	type ClientAuthStatus,
+	type PendingSignInCode,
 	useAuthStore,
 } from "@/presentation/stores/auth.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
@@ -9,6 +10,7 @@ import {
 	type FormEvent,
 	type KeyboardEvent,
 	type RefObject,
+	useCallback,
 	useEffect,
 	useId,
 	useRef,
@@ -20,7 +22,6 @@ import { StudioCloudProjects, type StudioCloudProjectsControl } from "./studio-c
 import "./studio-account-control.css";
 
 type AuthStore = typeof useAuthStore;
-type FormMode = "sign-in" | "sign-up";
 type PanelView = "account" | "keys" | "projects";
 
 export type StudioCloudProjectState = "device" | "connecting" | "synced" | "unsaved" | "error";
@@ -76,7 +77,17 @@ export function StudioAccountControl({
 	apiKeys,
 	cloudProjects,
 }: StudioAccountControlProps) {
-	const { status, operation, error, refreshSession, signIn, signUp, signOut } = store();
+	const {
+		status,
+		operation,
+		error,
+		pendingCode,
+		refreshSession,
+		sendCode,
+		signInWithCode,
+		forgetCode,
+		signOut,
+	} = store();
 	const reduceMotion = useReducedMotion() === true;
 	const rootRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -90,7 +101,6 @@ export function StudioAccountControl({
 		setOpen(false);
 		triggerRef.current?.focus();
 	};
-	const [formMode, setFormMode] = useState<FormMode>("sign-in");
 	const [view, setView] = useState<PanelView>("account");
 	const keysEntryRef = useRef<HTMLButtonElement>(null);
 	const projectsEntryRef = useRef<HTMLButtonElement>(null);
@@ -224,7 +234,7 @@ export function StudioAccountControl({
 							status={status}
 							operation={operation}
 							error={error}
-							formMode={formMode}
+							pendingCode={pendingCode}
 							cloudProjectState={cloudProjectState}
 							billing={billing}
 							allowance={allowance}
@@ -234,10 +244,10 @@ export function StudioAccountControl({
 							keysEntryRef={keysEntryRef}
 							projectsEntryRef={projectsEntryRef}
 							onView={(next) => (next === "account" ? showAccount() : setView(next))}
-							onFormMode={setFormMode}
 							onSaveToCloud={onSaveToCloud}
-							onSignIn={(email, password) => signIn({ email, password })}
-							onSignUp={(name, email, password) => signUp({ name, email, password })}
+							onSendCode={sendCode}
+							onSignInWithCode={signInWithCode}
+							onForgetCode={forgetCode}
 							onSignOut={signOut}
 						/>
 					</motion.dialog>
@@ -251,7 +261,7 @@ interface AccountPanelProps {
 	readonly status: ClientAuthStatus;
 	readonly operation: ClientAuthOperation;
 	readonly error: string | null;
-	readonly formMode: FormMode;
+	readonly pendingCode: PendingSignInCode | null;
 	readonly cloudProjectState: StudioCloudProjectState;
 	readonly billing?: StudioBillingControl;
 	readonly allowance?: string | null;
@@ -261,10 +271,10 @@ interface AccountPanelProps {
 	readonly keysEntryRef: RefObject<HTMLButtonElement | null>;
 	readonly projectsEntryRef: RefObject<HTMLButtonElement | null>;
 	readonly onView: (view: PanelView) => void;
-	readonly onFormMode: (mode: FormMode) => void;
 	readonly onSaveToCloud?: () => void;
-	readonly onSignIn: (email: string, password: string) => Promise<void>;
-	readonly onSignUp: (name: string, email: string, password: string) => Promise<void>;
+	readonly onSendCode: (email: string) => Promise<void>;
+	readonly onSignInWithCode: (code: string) => Promise<void>;
+	readonly onForgetCode: () => void;
 	readonly onSignOut: () => Promise<void>;
 }
 
@@ -272,7 +282,7 @@ function AccountPanel({
 	status,
 	operation,
 	error,
-	formMode,
+	pendingCode,
 	cloudProjectState,
 	billing,
 	allowance,
@@ -282,10 +292,10 @@ function AccountPanel({
 	keysEntryRef,
 	projectsEntryRef,
 	onView,
-	onFormMode,
 	onSaveToCloud,
-	onSignIn,
-	onSignUp,
+	onSendCode,
+	onSignInWithCode,
+	onForgetCode,
 	onSignOut,
 }: AccountPanelProps) {
 	if (status.kind === "local-offline") {
@@ -415,12 +425,12 @@ function AccountPanel({
 
 	return (
 		<AuthForm
-			mode={formMode}
-			busy={operation === "signing-in" || operation === "signing-up"}
+			operation={operation}
 			error={error}
-			onMode={onFormMode}
-			onSignIn={onSignIn}
-			onSignUp={onSignUp}
+			pendingCode={pendingCode}
+			onSendCode={onSendCode}
+			onSignInWithCode={onSignInWithCode}
+			onForgetCode={onForgetCode}
 		/>
 	);
 }
@@ -537,137 +547,305 @@ function AccountBilling({ billing }: { readonly billing: StudioBillingControl })
 	);
 }
 
-type AuthField = "name" | "email" | "password";
-type AuthErrors = Partial<Record<AuthField, string>>;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CODE_LENGTH = 6;
+/** How long the code step waits before it offers another code. */
+const RESEND_AFTER_SECONDS = 60;
 
-const MIN_PASSWORD = 8;
-
-/** What is wrong with each field, said as the fix. The server still has the last word. */
-function authErrors(mode: FormMode, values: Record<AuthField, string>): AuthErrors {
-	const errors: AuthErrors = {};
-	if (mode === "sign-up" && values.name.trim() === "") errors.name = "Add your name.";
-	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
-		errors.email = "Enter an email address like ada@example.com.";
+/**
+ * Sign-in is one flow for a new address and a known one: the address, then the
+ * six-digit code mailed to it. Which step shows is the store's pending code, so
+ * closing the panel, or reading the mail on another device, keeps the step.
+ */
+function AuthForm({
+	operation,
+	error,
+	pendingCode,
+	onSendCode,
+	onSignInWithCode,
+	onForgetCode,
+}: {
+	readonly operation: ClientAuthOperation;
+	readonly error: string | null;
+	readonly pendingCode: PendingSignInCode | null;
+	readonly onSendCode: (email: string) => Promise<void>;
+	readonly onSignInWithCode: (code: string) => Promise<void>;
+	readonly onForgetCode: () => void;
+}) {
+	const [email, setEmail] = useState(pendingCode?.email ?? "");
+	// Back from the code step, focus returns to the address; on first open it stays put.
+	const cameBack = useRef(false);
+	if (pendingCode) {
+		return (
+			<CodeStep
+				pending={pendingCode}
+				signingIn={operation === "signing-in"}
+				sending={operation === "sending-code"}
+				error={error}
+				onSignIn={onSignInWithCode}
+				onResend={() => onSendCode(pendingCode.email)}
+				onUseAnotherEmail={() => {
+					cameBack.current = true;
+					onForgetCode();
+				}}
+			/>
+		);
 	}
-	if (values.password.length < MIN_PASSWORD) {
-		errors.password = `Use at least ${MIN_PASSWORD} characters.`;
-	}
-	return errors;
+	return (
+		<EmailStep
+			email={email}
+			busy={operation === "sending-code"}
+			error={error}
+			focusOnMount={cameBack.current}
+			onEmail={setEmail}
+			onSend={onSendCode}
+		/>
+	);
 }
 
-function AuthForm({
-	mode,
+function EmailStep({
+	email,
 	busy,
 	error,
-	onMode,
-	onSignIn,
-	onSignUp,
+	focusOnMount,
+	onEmail,
+	onSend,
 }: {
-	readonly mode: FormMode;
+	readonly email: string;
 	readonly busy: boolean;
 	readonly error: string | null;
-	readonly onMode: (mode: FormMode) => void;
-	readonly onSignIn: (email: string, password: string) => Promise<void>;
-	readonly onSignUp: (name: string, email: string, password: string) => Promise<void>;
+	readonly focusOnMount: boolean;
+	readonly onEmail: (email: string) => void;
+	readonly onSend: (email: string) => Promise<void>;
 }) {
-	const formId = useId();
-	const [values, setValues] = useState<Record<AuthField, string>>({
-		name: "",
-		email: "",
-		password: "",
-	});
+	const messageId = useId();
+	const inputRef = useRef<HTMLInputElement>(null);
 	// Empty until the first submit: a first attempt is never flagged mid-word.
-	// After it, each field is checked as it changes, so a fixed one clears at once.
-	const [errors, setErrors] = useState<AuthErrors | null>(null);
-	const formRef = useRef<HTMLFormElement>(null);
+	// After it, the field is checked as it changes, so a fixed address clears at once.
+	const [checked, setChecked] = useState(false);
+	const invalid = checked && !EMAIL.test(email.trim());
 
-	const change = (field: AuthField, value: string) => {
-		const next = { ...values, [field]: value };
-		setValues(next);
-		if (errors) setErrors(authErrors(mode, next));
-	};
+	useEffect(() => {
+		if (focusOnMount) inputRef.current?.focus();
+	}, [focusOnMount]);
 
 	const submit = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		if (busy) return;
-		const found = authErrors(mode, values);
-		const first = (["name", "email", "password"] as const).find((field) => found[field]);
-		if (first) {
-			setErrors(found);
-			formRef.current?.querySelector<HTMLInputElement>(`[name="${first}"]`)?.focus();
+		setChecked(true);
+		if (!EMAIL.test(email.trim())) {
+			inputRef.current?.focus();
 			return;
 		}
-		const email = values.email.trim();
-		if (mode === "sign-up") {
-			void onSignUp(values.name.trim(), email, values.password);
-			return;
-		}
-		void onSignIn(email, values.password);
+		void onSend(email.trim());
 	};
 
-	const switchMode = () => {
-		setErrors(null);
-		onMode(mode === "sign-in" ? "sign-up" : "sign-in");
-	};
-
-	const field = (name: AuthField, label: string, input: Record<string, string>) => {
-		const message = mode === "sign-in" && name === "name" ? undefined : errors?.[name];
-		const messageId = `${formId}-${name}`;
-		// The message sits outside the label, so it describes the field instead of
-		// becoming part of its name.
-		return (
+	return (
+		// The checks are ours, beside the field and in the studio's voice; the
+		// browser's bubbles disappeared.
+		<form className="mm-account-form" onSubmit={submit} aria-busy={busy} noValidate>
+			<p className="mm-eyebrow">Typelapse Cloud</p>
+			<h2>Continue your work.</h2>
+			<p>Sync projects and private media, then render in the background.</p>
 			<div className="mm-account-field">
+				{/* The message sits outside the label, so it describes the field instead of
+				    becoming part of its name. */}
 				<label>
-					{label}
+					Email
 					<input
-						name={name}
-						value={values[name]}
-						onChange={(event) => change(name, event.target.value)}
-						aria-invalid={message ? true : undefined}
-						aria-describedby={message ? messageId : undefined}
-						{...input}
+						ref={inputRef}
+						name="email"
+						type="email"
+						autoComplete="email"
+						spellCheck="false"
+						value={email}
+						onChange={(event) => onEmail(event.target.value)}
+						aria-invalid={invalid ? true : undefined}
+						aria-describedby={invalid ? messageId : undefined}
 					/>
 				</label>
-				{message ? (
+				{invalid ? (
 					<span id={messageId} className="mm-account-field-error">
-						{message}
+						Enter an email address like ada@example.com.
 					</span>
 				) : null}
 			</div>
-		);
-	};
-
-	const submitLabel = mode === "sign-in" ? "Sign in" : "Create account";
-	return (
-		// The checks are ours, beside each field and in the studio's voice; the
-		// browser's bubbles pointed at one field at a time and disappeared.
-		<form ref={formRef} className="mm-account-form" onSubmit={submit} aria-busy={busy} noValidate>
-			<p className="mm-eyebrow">Typelapse Cloud</p>
-			<h2>{mode === "sign-in" ? "Continue your work." : "Create your workspace."}</h2>
-			<p>Sync projects and private media, then render in the background.</p>
-			{mode === "sign-up" ? field("name", "Name", { autoComplete: "name" }) : null}
-			{field("email", "Email", { type: "email", autoComplete: "email", spellCheck: "false" })}
-			{field("password", "Password", {
-				type: "password",
-				autoComplete: mode === "sign-in" ? "current-password" : "new-password",
-			})}
 			{/* Busy is `aria-disabled`, not `disabled`: a disabled button drops the focus it
 			    holds to the page, and the press is ignored in `submit` all the same. */}
 			<button type="submit" className="mm-account-primary" aria-disabled={busy ? true : undefined}>
-				{busy ? (mode === "sign-in" ? "Signing in…" : "Creating account…") : submitLabel}
+				{busy ? "Sending code…" : "Email me a code"}
 			</button>
 			{/* The refusal's room is here before the refusal is, under the button that was
 			    pressed, so nothing the person is looking at moves when it arrives. */}
-			<div className="mm-account-alert">
-				{error ? (
-					<p role="alert" className="mm-account-error">
-						{error}
-					</p>
+			<AlertSlot error={error} />
+		</form>
+	);
+}
+
+function AlertSlot({ error }: { readonly error: string | null }) {
+	return (
+		<div className="mm-account-alert">
+			{error ? (
+				<p role="alert" className="mm-account-error">
+					{error}
+				</p>
+			) : null}
+		</div>
+	);
+}
+
+/** Whole seconds until another code may be asked for, counted from when the last one was sent. */
+function useResendWait(sentAt: Date): number {
+	const until = sentAt.getTime() + RESEND_AFTER_SECONDS * 1000;
+	const remaining = useCallback(
+		() => Math.min(RESEND_AFTER_SECONDS, Math.max(0, Math.ceil((until - Date.now()) / 1000))),
+		[until],
+	);
+	const [wait, setWait] = useState(remaining);
+	useEffect(() => {
+		setWait(remaining());
+		const timer = window.setInterval(() => {
+			const next = remaining();
+			setWait(next);
+			if (next === 0) window.clearInterval(timer);
+		}, 1000);
+		return () => window.clearInterval(timer);
+	}, [remaining]);
+	return wait;
+}
+
+function CodeStep({
+	pending,
+	signingIn,
+	sending,
+	error,
+	onSignIn,
+	onResend,
+	onUseAnotherEmail,
+}: {
+	readonly pending: PendingSignInCode;
+	readonly signingIn: boolean;
+	readonly sending: boolean;
+	readonly error: string | null;
+	readonly onSignIn: (code: string) => Promise<void>;
+	readonly onResend: () => Promise<void>;
+	readonly onUseAnotherEmail: () => void;
+}) {
+	const hintId = useId();
+	const shortId = useId();
+	const inputRef = useRef<HTMLInputElement>(null);
+	const [code, setCode] = useState("");
+	// Pressed with fewer than six digits: said beside the field, cleared as digits arrive.
+	const [short, setShort] = useState(false);
+	const wait = useResendWait(pending.sentAt);
+	const busy = signingIn || sending;
+
+	// The button that led here is gone: focus goes to the field the person types into
+	// next, which reads out where the code went. A new code is a fresh field.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: refocus on each code sent
+	useEffect(() => {
+		setCode("");
+		inputRef.current?.focus();
+	}, [pending.sentAt]);
+
+	// A refused code is cleared and the field is ready again, the refusal under the button.
+	const wasSigningIn = useRef(false);
+	useEffect(() => {
+		if (wasSigningIn.current && !signingIn && error) {
+			setCode("");
+			inputRef.current?.focus();
+		}
+		wasSigningIn.current = signingIn;
+	}, [signingIn, error]);
+
+	const signIn = (value: string) => {
+		if (busy) return;
+		if (value.length !== CODE_LENGTH) {
+			setShort(true);
+			inputRef.current?.focus();
+			return;
+		}
+		void onSignIn(value);
+	};
+
+	const change = (raw: string) => {
+		// A pasted "042 917" or "Code: 042917" still reads as the six digits.
+		const digits = raw.replace(/\D/g, "").slice(0, CODE_LENGTH);
+		setCode(digits);
+		if (short && digits.length === CODE_LENGTH) setShort(false);
+		// Six digits is the whole code: it goes as soon as it is there.
+		if (digits.length === CODE_LENGTH && digits !== code) signIn(digits);
+	};
+
+	const resendLabel = (() => {
+		if (sending) return "Sending a new code…";
+		if (wait > 0) {
+			return `Send a new code in ${Math.floor(wait / 60)}:${String(wait % 60).padStart(2, "0")}`;
+		}
+		return "Send a new code";
+	})();
+
+	return (
+		<form
+			className="mm-account-form"
+			onSubmit={(event) => {
+				event.preventDefault();
+				signIn(code);
+			}}
+			aria-busy={busy}
+			noValidate
+		>
+			<p className="mm-eyebrow">Typelapse Cloud</p>
+			<h2>Check your email.</h2>
+			<p id={hintId}>
+				Enter the six-digit code sent to <strong>{pending.email}</strong>. It expires in 10 minutes.
+			</p>
+			<div className="mm-account-field">
+				<label>
+					Code
+					<input
+						ref={inputRef}
+						name="code"
+						className="mm-account-code"
+						type="text"
+						inputMode="numeric"
+						autoComplete="one-time-code"
+						pattern="[0-9]*"
+						spellCheck="false"
+						value={code}
+						onChange={(event) => change(event.target.value)}
+						aria-describedby={short ? `${hintId} ${shortId}` : hintId}
+						aria-invalid={short || error ? true : undefined}
+					/>
+				</label>
+				{short ? (
+					<span id={shortId} className="mm-account-field-error">
+						Enter the six digits from the email.
+					</span>
 				) : null}
 			</div>
-			<button type="button" className="mm-account-switch" onClick={switchMode}>
-				{mode === "sign-in" ? "New here? Create an account" : "Already have an account? Sign in"}
+			<button type="submit" className="mm-account-primary" aria-disabled={busy ? true : undefined}>
+				{signingIn ? "Signing in…" : "Sign in"}
 			</button>
+			{/* Another code or another address sit right under Sign in; the refusal's room is
+			    under them, so its arrival moves nothing the person is looking at. */}
+			<div className="mm-account-code-actions">
+				<button
+					type="button"
+					className="mm-account-switch mm-account-resend"
+					aria-disabled={wait > 0 || busy ? true : undefined}
+					onClick={() => {
+						if (wait > 0 || busy) return;
+						void onResend();
+					}}
+				>
+					{resendLabel}
+				</button>
+				<button type="button" className="mm-account-switch" onClick={onUseAnotherEmail}>
+					Use another email
+				</button>
+			</div>
+			<AlertSlot error={error} />
 		</form>
 	);
 }

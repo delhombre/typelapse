@@ -14,8 +14,8 @@ const NEWER_SESSION: ClientSession = {
 
 function authPort(overrides: Partial<ClientAuthPort> = {}): ClientAuthPort {
 	return {
-		signUpEmail: async () => undefined,
-		signInEmail: async () => undefined,
+		sendSignInCode: async () => undefined,
+		signInWithCode: async () => undefined,
 		signOut: async () => undefined,
 		getSession: async () => null,
 		...overrides,
@@ -61,9 +61,10 @@ describe("the client auth store", () => {
 			error: null,
 		});
 
-		await store.getState().signIn({ email: "ada@example.com", password: "password" });
+		await store.getState().sendCode("ada@example.com");
 
 		expect(store.getState().status.kind).toBe("hosted-unconfigured");
+		expect(store.getState().pendingCode).toBeNull();
 	});
 
 	it("enables sync only after refreshing an active hosted session", async () => {
@@ -97,60 +98,157 @@ describe("the client auth store", () => {
 		});
 	});
 
-	it("signs in and enables sync only from the resulting session", async () => {
-		let credentials: { email: string; password: string } | null = null;
+	it("sends a code, and remembers where and when it went so the code can be typed", async () => {
+		const sentTo: string[] = [];
+		const sending = deferred<void>();
 		const store = createAuthStore(
 			{
 				kind: "hosted",
 				port: authPort({
-					signInEmail: async (input) => {
-						credentials = input;
+					sendSignInCode: async (email) => {
+						sentTo.push(email);
+						await sending.promise;
 					},
-					getSession: async () => ACTIVE_SESSION,
 				}),
 			},
 			{ now: () => new Date("2026-09-01T11:00:00.000Z") },
 		);
+		await store.getState().refreshSession();
 
-		await store.getState().signIn({ email: "ada@example.com", password: "password" });
-
-		expect(credentials).toEqual({ email: "ada@example.com", password: "password" });
+		const sent = store.getState().sendCode("ada@example.com");
 		expect(store.getState()).toMatchObject({
-			status: { kind: "authenticated", session: ACTIVE_SESSION },
-			operation: "idle",
-			canSync: true,
-			error: null,
+			status: { kind: "anonymous" },
+			operation: "sending-code",
+			pendingCode: null,
 		});
-	});
+		sending.resolve();
+		await sent;
 
-	it("signs up and remains unsynchronized when no session was created", async () => {
-		let registration: { email: string; name: string; password: string } | null = null;
-		const store = createAuthStore({
-			kind: "hosted",
-			port: authPort({
-				signUpEmail: async (input) => {
-					registration = input;
-				},
-			}),
-		});
-
-		await store.getState().signUp({
-			email: "ada@example.com",
-			name: "Ada",
-			password: "password",
-		});
-
-		expect(registration).toEqual({
-			email: "ada@example.com",
-			name: "Ada",
-			password: "password",
-		});
+		expect(sentTo).toEqual(["ada@example.com"]);
 		expect(store.getState()).toMatchObject({
 			status: { kind: "anonymous" },
 			operation: "idle",
 			canSync: false,
 			error: null,
+			pendingCode: {
+				email: "ada@example.com",
+				sentAt: new Date("2026-09-01T11:00:00.000Z"),
+			},
 		});
+	});
+
+	it("signs in with the code sent and enables sync only from the resulting session", async () => {
+		let tried: { email: string; code: string } | null = null;
+		const store = createAuthStore(
+			{
+				kind: "hosted",
+				port: authPort({
+					signInWithCode: async (input) => {
+						tried = input;
+					},
+					getSession: async () => (tried ? ACTIVE_SESSION : null),
+				}),
+			},
+			{ now: () => new Date("2026-09-01T11:00:00.000Z") },
+		);
+		await store.getState().refreshSession();
+		await store.getState().sendCode("ada@example.com");
+
+		await store.getState().signInWithCode("042917");
+
+		expect(tried).toEqual({ email: "ada@example.com", code: "042917" });
+		expect(store.getState()).toMatchObject({
+			status: { kind: "authenticated", session: ACTIVE_SESSION },
+			operation: "idle",
+			canSync: true,
+			error: null,
+			pendingCode: null,
+		});
+	});
+
+	it("tries no code before one was sent", async () => {
+		let tried = false;
+		const store = createAuthStore({
+			kind: "hosted",
+			port: authPort({
+				signInWithCode: async () => {
+					tried = true;
+				},
+			}),
+		});
+		await store.getState().refreshSession();
+
+		await store.getState().signInWithCode("042917");
+
+		expect(tried).toBe(false);
+		expect(store.getState().status.kind).toBe("anonymous");
+	});
+
+	it("keeps the code step when a code is refused, and says why", async () => {
+		const store = createAuthStore({
+			kind: "hosted",
+			port: authPort({
+				signInWithCode: async () => {
+					throw new ClientAuthFailure("invalid-code");
+				},
+			}),
+		});
+		await store.getState().refreshSession();
+		await store.getState().sendCode("ada@example.com");
+
+		await store.getState().signInWithCode("000000");
+
+		expect(store.getState()).toMatchObject({
+			status: { kind: "anonymous" },
+			operation: "idle",
+			canSync: false,
+			error: "That code does not match. Try again.",
+			pendingCode: { email: "ada@example.com" },
+		});
+	});
+
+	it("says at the third wrong try that the code no longer works, as the server has spent it", async () => {
+		const store = createAuthStore({
+			kind: "hosted",
+			port: authPort({
+				signInWithCode: async () => {
+					throw new ClientAuthFailure("invalid-code");
+				},
+			}),
+		});
+		await store.getState().refreshSession();
+		await store.getState().sendCode("ada@example.com");
+
+		await store.getState().signInWithCode("000000");
+		await store.getState().signInWithCode("111111");
+		expect(store.getState().error).toBe("That code does not match. Try again.");
+		await store.getState().signInWithCode("222222");
+
+		expect(store.getState().error).toBe("This code no longer works. Send a new one.");
+		expect(store.getState().pendingCode).toMatchObject({ email: "ada@example.com" });
+
+		// A new code has three tries of its own.
+		await store.getState().sendCode("ada@example.com");
+		await store.getState().signInWithCode("333333");
+		expect(store.getState().error).toBe("That code does not match. Try again.");
+	});
+
+	it("goes back to the address, forgetting the code step and any refusal", async () => {
+		const store = createAuthStore({
+			kind: "hosted",
+			port: authPort({
+				signInWithCode: async () => {
+					throw new ClientAuthFailure("code-expired");
+				},
+			}),
+		});
+		await store.getState().refreshSession();
+		await store.getState().sendCode("ada@example.com");
+		await store.getState().signInWithCode("042917");
+
+		store.getState().forgetCode();
+
+		expect(store.getState()).toMatchObject({ pendingCode: null, error: null });
 	});
 
 	it("removes sync authority immediately when signing out", async () => {
@@ -199,23 +297,24 @@ describe("the client auth store", () => {
 		});
 	});
 
-	it("keeps sign-in failures safe and unsynchronized", async () => {
+	it("keeps a refused address safe, unsynchronized and on the address step", async () => {
 		const store = createAuthStore({
 			kind: "hosted",
 			port: authPort({
-				signInEmail: async () => {
-					throw new ClientAuthFailure("invalid-credentials");
+				sendSignInCode: async () => {
+					throw new ClientAuthFailure("invalid-email");
 				},
 			}),
 		});
 
-		await store.getState().signIn({ email: "ada@example.com", password: "wrong" });
+		await store.getState().sendCode("ada@");
 
 		expect(store.getState()).toMatchObject({
 			status: { kind: "anonymous" },
 			operation: "idle",
 			canSync: false,
-			error: "Email or password is incorrect.",
+			error: "Enter an email address like ada@example.com.",
+			pendingCode: null,
 		});
 	});
 
@@ -223,13 +322,13 @@ describe("the client auth store", () => {
 		const store = createAuthStore({
 			kind: "hosted",
 			port: authPort({
-				signUpEmail: async () => {
+				sendSignInCode: async () => {
 					throw new ClientAuthFailure("rate-limited", { retryAfterSeconds: 8 });
 				},
 			}),
 		});
 
-		await store.getState().signUp({ name: "Ada", email: "ada@example.com", password: "password" });
+		await store.getState().sendCode("ada@example.com");
 
 		expect(store.getState()).toMatchObject({
 			status: { kind: "anonymous" },
@@ -243,13 +342,13 @@ describe("the client auth store", () => {
 		const store = createAuthStore({
 			kind: "hosted",
 			port: authPort({
-				signInEmail: async () => {
+				sendSignInCode: async () => {
 					throw new ClientAuthFailure("unavailable");
 				},
 			}),
 		});
 
-		await store.getState().signIn({ email: "ada@example.com", password: "password" });
+		await store.getState().sendCode("ada@example.com");
 
 		expect(store.getState()).toMatchObject({
 			status: { kind: "hosted-unavailable" },
@@ -292,17 +391,17 @@ describe("the client auth store", () => {
 		});
 	});
 
-	it("lets the latest sign-in win when credential requests finish out of order", async () => {
+	it("lets the latest code win when tries finish out of order", async () => {
 		const older = deferred<void>();
 		const newer = deferred<void>();
-		let session = ACTIVE_SESSION;
+		let session: ClientSession | null = null;
 		let olderSignal: AbortSignal | undefined;
 		const store = createAuthStore(
 			{
 				kind: "hosted",
 				port: authPort({
-					signInEmail: async ({ email }, options) => {
-						if (email === "ada@example.com") {
+					signInWithCode: async ({ code }, options) => {
+						if (code === "111111") {
 							olderSignal = options?.signal;
 							await older.promise;
 							session = ACTIVE_SESSION;
@@ -316,11 +415,11 @@ describe("the client auth store", () => {
 			},
 			{ now: () => new Date("2026-09-01T11:00:00.000Z") },
 		);
+		await store.getState().refreshSession();
+		await store.getState().sendCode("ada@example.com");
 
-		const olderSignIn = store.getState().signIn({ email: "ada@example.com", password: "password" });
-		const newerSignIn = store
-			.getState()
-			.signIn({ email: "grace@example.com", password: "password" });
+		const olderSignIn = store.getState().signInWithCode("111111");
+		const newerSignIn = store.getState().signInWithCode("222222");
 		expect(olderSignal?.aborted).toBe(true);
 		newer.resolve();
 		await newerSignIn;
@@ -335,20 +434,22 @@ describe("the client auth store", () => {
 
 	it("does not let a pending sign-in restore sync after sign-out", async () => {
 		const signIn = deferred<void>();
+		let signedIn = false;
 		const store = createAuthStore(
 			{
 				kind: "hosted",
 				port: authPort({
-					signInEmail: () => signIn.promise,
-					getSession: async () => ACTIVE_SESSION,
+					signInWithCode: () => signIn.promise,
+					getSession: async () => (signedIn ? ACTIVE_SESSION : null),
 				}),
 			},
 			{ now: () => new Date("2026-09-01T11:00:00.000Z") },
 		);
+		await store.getState().refreshSession();
+		await store.getState().sendCode("ada@example.com");
+		signedIn = true;
 
-		const pendingSignIn = store
-			.getState()
-			.signIn({ email: "ada@example.com", password: "password" });
+		const pendingSignIn = store.getState().signInWithCode("042917");
 		await store.getState().signOut();
 		signIn.resolve();
 		await pendingSignIn;

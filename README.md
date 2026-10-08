@@ -256,7 +256,8 @@ CLI and answers with the file and the studio link; see
 - Headless render: the `typelapse` CLI, the GitHub Action and the agent skill.
 - Hosted owner-scoped project CRUD with optimistic revisions.
 - Private R2 media upload/finalization with MIME, size and SHA-256 verification.
-- Better Auth email/password sessions in the hosted account island.
+- Passwordless sign-in in the hosted account island: a six-digit code sent by mail
+  (Better Auth email OTP over SMTP), one flow for a new address and a known one.
 - API keys made in the account island: a script renders on the hosted render
   routes with a key, no browser.
 - Polar monthly/annual checkout, customer portal and signed webhook projection.
@@ -271,7 +272,18 @@ until every required adapter is configured.
 
 1. Copy `.env.example` to `.env` and select `TYPELAPSE_DEPLOYMENT_MODE=hosted`.
 2. Configure PostgreSQL (local, Neon or another managed provider), Better Auth,
-   a private R2 bucket and Polar sandbox or production credentials.
+   SMTP (`SMTP_URL`, `MAIL_FROM`: the sign-in code leaves by mail), a private R2
+   bucket and Polar sandbox or production credentials. On a laptop, PostgreSQL and
+   a mail catcher come from one file:
+
+   ```bash
+   docker compose -f compose.dev.yaml up
+   # DATABASE_URL=postgres://postgres:typelapse@127.0.0.1:5432/typelapse
+   # SMTP_URL=smtp://127.0.0.1:1025, codes readable at http://localhost:1080
+   ```
+
+   A port already taken moves with `TYPELAPSE_DEV_PG_PORT`, `TYPELAPSE_DEV_SMTP_PORT`
+   and `TYPELAPSE_DEV_MAIL_PORT`.
 3. Apply the versioned schema:
 
    ```bash
@@ -293,8 +305,9 @@ until every required adapter is configured.
    pnpm worker:object-deletion
    ```
 
-`GET /health` is the runtime source of truth for `auth`, `projectSync`,
-`privateAssets`, `billing`, `hostedRendering` and `apiKeys`. Anonymous
+`GET /health` is the runtime source of truth for `auth`, `mail`, `projectSync`,
+`privateAssets`, `billing`, `hostedRendering` and `apiKeys`. Without mail there is
+no auth: nobody could receive the code. Anonymous
 synchronous Remotion compute is never mounted in hosted mode.
 
 ### API keys

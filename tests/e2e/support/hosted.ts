@@ -7,9 +7,11 @@ import pg from "pg";
 /**
  * What the hosted journeys share: where the services are, the environment the
  * API and the worker start with, and the few facts a journey cannot reach
- * through the product. A subscription is the one such fact: the plan is
- * written only by a signed webhook, so the journeys write the same row the
- * webhook writes, straight into the service database.
+ * through the product. A subscription is one such fact: the plan is written
+ * only by a signed webhook, so the journeys write the same row the webhook
+ * writes, straight into the service database. A sign-in code is the other: it
+ * arrives by mail, so the journeys read it from maildev, as a person reads
+ * their inbox.
  */
 
 /** Every address and path, overridable so CI and a laptop can differ. */
@@ -19,6 +21,8 @@ export const HOSTED = (() => {
 	const apiPort = Number(process.env.E2E_HOSTED_API_PORT ?? 3181);
 	const pgPort = Number(process.env.E2E_PG_PORT ?? 54381);
 	const minioPort = Number(process.env.E2E_MINIO_PORT ?? 9181);
+	const smtpPort = Number(process.env.E2E_SMTP_PORT ?? 10281);
+	const maildevPort = Number(process.env.E2E_MAILDEV_PORT ?? 10881);
 	return {
 		state,
 		appPort,
@@ -28,6 +32,9 @@ export const HOSTED = (() => {
 		databaseUrl:
 			process.env.E2E_DATABASE_URL ?? `postgres://postgres:typelapse@127.0.0.1:${pgPort}/typelapse`,
 		storageUrl: process.env.E2E_R2_ENDPOINT ?? `https://localhost:${minioPort}`,
+		/** maildev: the API sends sign-in codes to its SMTP, the journeys read them from its REST API. */
+		smtpUrl: `smtp://127.0.0.1:${smtpPort}`,
+		maildevUrl: `http://127.0.0.1:${maildevPort}`,
 		/** The self-signed certificate services.sh makes for MinIO. */
 		caFile: process.env.E2E_HOSTED_CA ?? join(state, "certs", "public.crt"),
 		bucket: "typelapse",
@@ -51,6 +58,8 @@ export function hostedServerEnv(): Record<string, string> {
 		BETTER_AUTH_URL: HOSTED.appUrl,
 		TYPELAPSE_APP_URL: HOSTED.appUrl,
 		CORS_ORIGIN: HOSTED.appUrl,
+		SMTP_URL: HOSTED.smtpUrl,
+		MAIL_FROM: "Typelapse <code@typelapse.test>",
 		R2_ENDPOINT: HOSTED.storageUrl,
 		R2_ACCESS_KEY_ID: HOSTED.accessKeyId,
 		R2_SECRET_ACCESS_KEY: HOSTED.secretAccessKey,
@@ -78,19 +87,60 @@ async function one<T>(sql: string, values: unknown[]): Promise<T> {
 }
 
 export interface TestAccount {
+	/** What the account is called: with no name step, the part of the address before the @. */
 	readonly name: string;
 	readonly email: string;
-	readonly password: string;
+	/**
+	 * The address this visitor's requests come from, in X-Forwarded-For. Each journey is
+	 * its own visitor, so the per-client ceilings on sending and trying codes count each
+	 * journey apart, as they would count two people, instead of the whole suite as one.
+	 */
+	readonly clientIp: string;
 }
 
 /** A fresh account per journey, so no journey sees another's projects or plan. */
 export function newAccount(label: string): TestAccount {
 	const tag = `${Date.now().toString(36)}${randomBytes(3).toString("hex")}`;
+	const local = `e2e-${label}-${tag}`;
+	const [a = 0, b = 0] = randomBytes(2);
 	return {
-		name: `E2E ${label}`,
-		email: `e2e-${label}-${tag}@typelapse.test`,
-		password: randomBytes(12).toString("base64url"),
+		name: local,
+		email: `${local}@typelapse.test`,
+		// 198.18.0.0/15 is set aside for benchmarks: never a real visitor.
+		clientIp: `198.18.${a}.${b}`,
 	};
+}
+
+interface MaildevMail {
+	readonly to: readonly { readonly address: string }[];
+	readonly text: string;
+	readonly date: string;
+}
+
+/**
+ * The code in the newest mail to this address sent at or after `since`, read from
+ * maildev's REST API the way the person reads their inbox. Waits for it to arrive.
+ */
+export async function codeFor(email: string, since: Date): Promise<string> {
+	const deadline = Date.now() + 15_000;
+	while (Date.now() < deadline) {
+		const response = await fetch(`${HOSTED.maildevUrl}/email`);
+		const mails = (await response.json()) as MaildevMail[];
+		const code = mails
+			.filter(
+				(mail) =>
+					mail.to.some((to) => to.address === email) &&
+					Date.parse(mail.date) >= since.getTime() - 1000,
+			)
+			.sort((a, b) => Date.parse(a.date) - Date.parse(b.date))
+			.at(-1)
+			?.text.match(/\b\d{6}\b/)?.[0];
+		if (code) {
+			return code;
+		}
+		await new Promise((resolve) => setTimeout(resolve, 200));
+	}
+	throw new Error(`no sign-in code reached ${email} in maildev`);
 }
 
 export async function accountId(email: string): Promise<string> {
@@ -227,63 +277,32 @@ export async function setRenderDuration(jobId: string, durationMs: number): Prom
 	]);
 }
 
+const SEND_CODE = "/api/auth/email-otp/send-verification-otp";
+const SIGN_IN_WITH_CODE = "/api/auth/sign-in/email-otp";
+
 /**
- * Better Auth allows three sign-ups or sign-ins per ten seconds per client, and
- * behind the preview proxy every journey is the same client (the API logs that
- * it cannot see an address). One retry remains, after the 429's named window:
- * the suite's pace alone trips the limiter, a visitor never would. The product
- * now handles the 429 itself (the island keeps the form and says when to try
- * again, which rate-limit.spec.ts proves), so a second refusal is a real failure
- * and no longer something this helper papers over.
+ * Sign in through the Studio's account island, the way a visitor does: the address,
+ * Email me a code, then the code read from the mail typed into the code field, which
+ * signs in at six digits. A new address and a known one take the same path.
  */
-const AUTH_ATTEMPTS = 2;
-
-function retryAfterMs(headers: Record<string, string>): number {
-	return (Number(headers["x-retry-after"]) || 10) * 1000 + 250;
-}
-
-async function authPost(
-	client: APIRequestContext,
-	path: string,
-	data: Record<string, string>,
-): Promise<void> {
-	for (let attempt = 1; ; attempt++) {
-		const response = await client.post(path, { data });
-		if (response.status() === 429 && attempt < AUTH_ATTEMPTS) {
-			await new Promise((resolve) => setTimeout(resolve, retryAfterMs(response.headers())));
-			continue;
-		}
-		expect(response.status(), await response.text()).toBe(200);
-		return;
-	}
-}
-
-/** Sign up through the Studio's account island, the way a visitor does. */
-export async function signUpInIsland(page: Page, account: TestAccount): Promise<void> {
+export async function signInInIsland(page: Page, account: TestAccount): Promise<void> {
+	await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
 	// The trigger is disabled while the session check runs, then reads "Sign in".
 	await page.getByRole("button", { name: "Sign in", exact: true }).click();
 	const panel = page.getByRole("dialog", { name: "Typelapse account" });
-	await panel.getByRole("button", { name: "New here? Create an account" }).click();
-	await panel.getByLabel("Name").fill(account.name);
-	await panel.getByLabel("Email").fill(account.email);
-	await panel.getByLabel("Password").fill(account.password);
-	for (let attempt = 1; ; attempt++) {
-		const answer = page.waitForResponse(
-			(response) => new URL(response.url()).pathname === "/api/auth/sign-up/email",
-		);
-		await panel.getByRole("button", { name: "Create account" }).click();
-		const response = await answer;
-		if (response.status() !== 429 || attempt === AUTH_ATTEMPTS) break;
-		// A refused sign-up keeps the island's form and says so (rate-limit.spec.ts holds
-		// the sentence), so this does what a visitor does: waits out the window the 429
-		// names and presses the same button again.
-		await expect(panel.getByRole("alert")).toBeVisible();
-		await expect(panel.getByLabel("Email")).toHaveValue(account.email);
-		await page.waitForTimeout(retryAfterMs(response.headers()));
-	}
+	await panel.getByRole("textbox", { name: "Email" }).fill(account.email);
+	const since = new Date();
+	const sent = page.waitForResponse((response) => new URL(response.url()).pathname === SEND_CODE);
+	await panel.getByRole("button", { name: "Email me a code" }).click();
+	expect((await sent).status()).toBe(200);
+	const code = await codeFor(account.email, since);
+	await panel.getByRole("textbox", { name: "Code" }).fill(code);
 	// Signed in, the panel closes on its own and the trigger names the account.
 	await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();
 }
+
+/** The first sign-in of a new address is its sign-up: one flow. */
+export const signUpInIsland = signInInIsland;
 
 /** Open the account island (signed in) and return its panel. */
 export async function openAccountPanel(page: Page, account: TestAccount) {
@@ -293,28 +312,33 @@ export async function openAccountPanel(page: Page, account: TestAccount) {
 	return panel;
 }
 
-async function apiClient(): Promise<APIRequestContext> {
+async function apiClient(account: TestAccount): Promise<APIRequestContext> {
 	return request.newContext({
 		baseURL: HOSTED.appUrl,
 		// Better Auth refuses a cookie-bearing request from an untrusted origin.
-		extraHTTPHeaders: { origin: HOSTED.appUrl },
+		extraHTTPHeaders: { origin: HOSTED.appUrl, "x-forwarded-for": account.clientIp },
 		ignoreHTTPSErrors: true,
 	});
 }
 
 /**
- * A signed-in API client for an account created without a browser: the
- * tenancy journey only needs a second session, not a second visit.
+ * A signed-in API client, without a browser: ask for a code, read it in maildev,
+ * sign in with it. The tenancy journey only needs a second session, not a second visit.
  */
-export async function signUpByApi(account: TestAccount): Promise<APIRequestContext> {
-	const client = await apiClient();
-	await authPost(client, "/api/auth/sign-up/email", {
-		name: account.name,
-		email: account.email,
-		password: account.password,
+export async function signInByApi(account: TestAccount): Promise<APIRequestContext> {
+	const client = await apiClient(account);
+	const since = new Date();
+	const sent = await client.post(SEND_CODE, { data: { email: account.email, type: "sign-in" } });
+	expect(sent.status(), await sent.text()).toBe(200);
+	const signedIn = await client.post(SIGN_IN_WITH_CODE, {
+		data: { email: account.email, otp: await codeFor(account.email, since) },
 	});
+	expect(signedIn.status(), await signedIn.text()).toBe(200);
 	return client;
 }
+
+/** The first sign-in of a new address is its sign-up: one flow. */
+export const signUpByApi = signInByApi;
 
 /**
  * A key made the way the island makes one: by the signed-in account, shown once.
@@ -324,16 +348,6 @@ export async function createApiKeyByApi(client: APIRequestContext, name: string)
 	const response = await client.post("/api/keys", { data: { name } });
 	expect(response.status(), await response.text()).toBe(201);
 	return ((await response.json()) as { key: string }).key;
-}
-
-/** A signed-in API client for an account that already exists. */
-export async function signInByApi(account: TestAccount): Promise<APIRequestContext> {
-	const client = await apiClient();
-	await authPost(client, "/api/auth/sign-in/email", {
-		email: account.email,
-		password: account.password,
-	});
-	return client;
 }
 
 /** A visitor with no session at all. */

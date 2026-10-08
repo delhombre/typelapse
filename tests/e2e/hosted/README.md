@@ -1,14 +1,14 @@
 # Hosted journeys
 
 The hosted profile, end to end: a hosted `vite build` behind `vite preview`,
-the API in hosted mode, the real render worker (Remotion), PostgreSQL 16 and
-MinIO behind TLS. They run nightly and on demand (`e2e-nightly.yml`, job
+the API in hosted mode, the real render worker (Remotion), PostgreSQL 16,
+MinIO behind TLS and maildev, which catches the sign-in codes the API mails. They run nightly and on demand (`e2e-nightly.yml`, job
 "Hosted journeys"), never on a pull request.
 
 ## Run them
 
 ```sh
-tests/e2e/hosted/services.sh up    # PostgreSQL on 54381, MinIO over TLS on 9181
+tests/e2e/hosted/services.sh up    # PostgreSQL on 54381, MinIO over TLS on 9181, maildev on 10281/10881
 pnpm e2e:hosted                    # builds, starts API + worker + preview, runs
 tests/e2e/hosted/services.sh down
 ```
@@ -23,8 +23,13 @@ self-signed certificate and the API, the worker and `prepare.ts` trust it
 through `NODE_EXTRA_CA_CERTS`. Nothing in the product is loosened for tests.
 
 Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
-(3181), `E2E_PG_PORT` (54381), `E2E_MINIO_PORT` (9181), `E2E_HOSTED_STATE`
-(certificate and render scratch), `E2E_PG_CONTAINER`, `E2E_MINIO_CONTAINER`.
+(3181), `E2E_PG_PORT` (54381), `E2E_MINIO_PORT` (9181), `E2E_SMTP_PORT` (10281),
+`E2E_MAILDEV_PORT` (10881), `E2E_HOSTED_STATE` (certificate and render scratch),
+`E2E_PG_CONTAINER`, `E2E_MINIO_CONTAINER`, `E2E_MAIL_CONTAINER`.
+
+Signing in is a six-digit code by mail. The API sends it to maildev's SMTP, and
+the helpers read it back from maildev's REST API (`GET /email`, the newest mail to
+the address), then type it into the island or post it, as a person would.
 
 ## What each journey protects
 
@@ -43,8 +48,8 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
   `E2E_POLAR=fake` forces the double. The sandbox journey skips when the token cannot
   read or create the products.
 
-- `account.spec.ts`: sign-up through the Studio's account island; signing up
-  uploads nothing until "Save this project to cloud" is pressed (consent);
+- `account.spec.ts`: sign-up through the Studio's account island (the address, then
+  the code read in maildev); signing up uploads nothing until "Save this project to cloud" is pressed (consent);
   the save writes one project row; the free allowance sentence is the
   server's own; the session and the cloud copy survive a reload.
 - `free-cloud.spec.ts`: a free account sees its allowance under Cloud; Render
@@ -96,11 +101,13 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
   is a warning and a line in the comment; no key and no address writes nothing,
   and an address without a key says so in the job summary.
 
-- `rate-limit.spec.ts`: a sign-up the limiter refuses (a script spends the window
-  first, up to the first 429) keeps the island's form with what was typed, says in
-  one sentence how long to wait, using the seconds the server named in
-  `X-Retry-After`, and never reads "Cloud unavailable"; pressing again after that
-  window signs the visitor up.
+- `rate-limit.spec.ts`: the two ceilings on sending a code. Scripts on ten other
+  client addresses spend one address's ten codes an hour; the island's next ask for
+  that address is refused, keeps the form with what was typed and says in one
+  sentence how long to wait, using the seconds the server named in `X-Retry-After`,
+  never "Cloud unavailable", and the same visitor still gets a code for another
+  address. A script on the visitor's own address spends its ten codes in ten minutes,
+  and the island's next ask, for any address, is refused the same way.
 
 - `automation-projects.spec.ts` (one Creator, a script and a session): with a
   hundred regular projects in the table, a key renders a 101st source by URL and
@@ -122,12 +129,11 @@ Everything is overridable: `E2E_HOSTED_PORT` (5281), `E2E_HOSTED_API_PORT`
   project that is not there.
 
 `support/hosted.ts` holds the SQL (Creator, downgrade, ageing a job, the keys, the
-projects, the minutes a render counts) and the sign-up helpers. Better Auth allows
-three sign-ups per ten seconds per client, the ten seconds counted from the last
-accepted one, and behind the preview every journey is one client, so the helpers
-wait out a 429 instead of failing. The island keeps its form when that happens, so
-its helper does what a visitor does: waits the window the 429 names and presses the
-same button again. The API helpers have no island and wait the same way.
+projects, the minutes a render counts), the code reader and the sign-in helpers. Each
+test account is its own visitor: its requests carry an `X-Forwarded-For` address of
+its own (198.18.0.0/15, a benchmark range), which the preview's proxy passes on, so
+the per-client ceilings count each journey apart instead of the whole suite as one
+client.
 
 ## Reload with no edit (#127)
 
