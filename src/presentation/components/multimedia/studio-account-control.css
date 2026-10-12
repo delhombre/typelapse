@@ -184,7 +184,7 @@
 	margin: 4px 0 0;
 }
 
-.mm-account-copy > p:not(.mm-eyebrow),
+.mm-account-copy > p:not(.mm-eyebrow, .test-mode-line),
 .mm-account-form > p:not(.mm-eyebrow, .mm-account-error) {
 	margin: 0 0 16px;
 	color: var(--mm-muted);
