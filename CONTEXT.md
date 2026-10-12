@@ -52,6 +52,11 @@ terms so issues, specs, tests and code use the same ones.
   written, and the clamp to the step's lines is applied where it is drawn.
 - **Live code**: what the code editor holds, never empty. Capture turns it
   into a step; with no step at all it is the one scene the studio shows.
+- **Fork** (the empty scene list's): what the scene list shows while the project
+  has no scene and the editor has code. One primary, "Capture this code", and two
+  quiet rows, "Start from an example" (opens the Showcase) and "Import a pull
+  request" (opens the source hub's diff view). It is not rendered once a scene
+  exists, on the phone sheet and on the desktop panel alike.
 - **Magic move**: the pure, dependency-free token-morphing engine
   (`src/application/magic-move`) shared by every renderer.
 
@@ -199,6 +204,11 @@ or it does not land.
   per instance (two hundred an hour).
 - **Plan**: `free` or `creator` (paid). Resolved server-side from the Polar
   subscription projection; never from a header or a body field.
+- **Billing environment**: `sandbox` or `production`, read by the server from
+  `POLAR_ENVIRONMENT` and published as `environment` on `/api/billing/catalog`.
+  The client never infers it from the build. Only `sandbox` draws the **test mode
+  line** ("Test mode: no real charges") beside the plan card; production, an
+  older server and an unset variable draw nothing.
 - **Ceiling**: a hosted limit carried by the Plan (cloud projects, media
   bytes, hosted render minutes per UTC month, concurrent render jobs). A
   refusal names the ceiling, its value, the usage and the plan that lifts it.
