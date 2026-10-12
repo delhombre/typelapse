@@ -25,6 +25,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Add, ChevronDown } from "reicon-react";
+import { EmptySceneFork } from "./empty-scene-fork";
 import { StudioLayerStrip } from "./studio-layer-strip";
 
 /**
@@ -69,6 +70,16 @@ export function StepBuilder() {
 	const listId = useId();
 	const selectedStepId = steps[currentStepIndex]?.id;
 	const reason = captureBlockReason(emptyDraft);
+	const showFork = steps.length === 0 && !emptyDraft;
+
+	// The fork's Capture unmounts under the focus it holds: the new scene's row takes it.
+	const focusFirstScene = useRef(false);
+	useEffect(() => {
+		if (focusFirstScene.current && steps.length > 0) {
+			focusFirstScene.current = false;
+			listRef.current?.querySelector<HTMLElement>(".sc-scene-pick")?.focus({ preventScroll: true });
+		}
+	}, [steps.length]);
 
 	// Only a scene added after the list mounted enters with motion. The ids the
 	// list already held (on first paint, or behind the "show all" button) are
@@ -203,8 +214,14 @@ export function StepBuilder() {
 				)}
 			</AnimatePresence>
 
-			{steps.length === 0 && !emptyDraft && (
-				<p className="sc-scenes-empty">Capture the code to add your first scene.</p>
+			{showFork && (
+				<EmptySceneFork
+					onCapture={() => {
+						focusFirstScene.current = true;
+						captureStep();
+						feedback("commit");
+					}}
+				/>
 			)}
 
 			{/* No cap and no scroll of its own: the list used to carry a 192px max-height
@@ -387,6 +404,18 @@ export function SceneInspector() {
 	const isLayerSelected =
 		selectedAudioCueId !== null || (selectedBlock !== undefined && selectedBlock.kind !== "code");
 	const reason = captureBlockReason(emptyDraft);
+	const showFork = steps.length === 0 && !emptyDraft;
+
+	// The fork's Capture unmounts under the focus it holds: the scene's own title
+	// takes it (not a field: a finger's keyboard stays down), and says "Scene 1 of 1".
+	const titleRef = useRef<HTMLParagraphElement>(null);
+	const focusFirstScene = useRef(false);
+	useEffect(() => {
+		if (focusFirstScene.current && steps.length > 0) {
+			focusFirstScene.current = false;
+			titleRef.current?.focus({ preventScroll: true });
+		}
+	}, [steps.length]);
 
 	// With no scene the reason is the whole hint; with one, it says why Capture is off
 	// under the line that says what the scene's fields are.
@@ -406,7 +435,7 @@ export function SceneInspector() {
 				{/* The three add controls outgrow a narrow island: they wrap under the
 				    label rather than breaking "Scene 1 of 3" over two lines. */}
 				<div className="sc-scenes-head" data-wrap="">
-					<p className="sc-scenes-title">
+					<p ref={titleRef} tabIndex={-1} className="sc-scenes-title">
 						{step ? `Scene ${currentStepIndex + 1} of ${steps.length}` : "No scene yet"}
 					</p>
 					{/* While a layer is open the section's job is navigation, and the
@@ -423,9 +452,19 @@ export function SceneInspector() {
 						</div>
 					)}
 				</div>
-				<p id={step ? undefined : reasonId} className="sc-scenes-reason">
-					{hint}
-				</p>
+				{showFork ? (
+					<EmptySceneFork
+						onCapture={() => {
+							focusFirstScene.current = true;
+							captureStep();
+							feedback("commit");
+						}}
+					/>
+				) : (
+					<p id={step ? undefined : reasonId} className="sc-scenes-reason">
+						{hint}
+					</p>
+				)}
 				{extraReason ? (
 					<p id={reasonId} className="sc-scenes-reason">
 						{extraReason}

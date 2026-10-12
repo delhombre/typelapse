@@ -313,6 +313,17 @@ describe("Polar gateway configuration", () => {
 		expect(polarEnvironmentFromEnv({ POLAR_ENVIRONMENT: "sandbx" })).toBeNull();
 	});
 
+	it("tells the catalog which Polar it is: sandbox only when POLAR_ENVIRONMENT says so", () => {
+		const keys = { POLAR_ACCESS_TOKEN: "polar_oat_env", POLAR_WEBHOOK_SECRET: SECRET };
+
+		expect(polarGatewayFromEnv({ ...keys, POLAR_ENVIRONMENT: "sandbox" })?.environment).toBe("sandbox");
+		expect(polarGatewayFromEnv({ ...keys, POLAR_ENVIRONMENT: "production" })?.environment).toBe(
+			"production",
+		);
+		// Unset is production: a deployment that forgot the variable is never labelled test.
+		expect(polarGatewayFromEnv(keys)?.environment).toBe("production");
+	});
+
 	it("stays unavailable when the token or the webhook secret is missing, or the environment is wrong", () => {
 		expect(polarGatewayFromEnv({})).toBeNull();
 		expect(polarGatewayFromEnv({ POLAR_ACCESS_TOKEN: "polar_oat_only" })).toBeNull();

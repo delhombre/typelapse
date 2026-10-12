@@ -91,6 +91,28 @@ describe("StudioAccountControl", () => {
 		fireEvent.click(within(panel).getByRole("button", { name: "Email me a code" }));
 	}
 
+	it("says what the device does and what an account adds, above the email field", async () => {
+		const { panel } = await openSignIn();
+
+		const lineOf = (lead: string) => {
+			const line = within(panel).getByText(lead).closest("p");
+			if (!line) throw new Error(`No line leads with ${lead}`);
+			return line;
+		};
+		const device = lineOf("On this device:");
+		const account = lineOf("With an account:");
+		// The two lines are claims about the product (viability D2 and D4), pinned word for word.
+		expect(device.textContent).toBe("On this device: every format, nothing uploaded, no account.");
+		expect(account.textContent).toBe(
+			"With an account: private cloud copies, and hosted renders with captions and audio on Creator.",
+		);
+		const field = within(panel).getByRole("textbox", { name: "Email" });
+		for (const line of [device, account]) {
+			expect(line.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+			expect(line.textContent).not.toMatch(/[–—]/);
+		}
+	});
+
 	it("signs in with the address, then the code typed back, and no password anywhere", async () => {
 		let authenticated = false;
 		const sendSignInCode = vi.fn(async (_email: string) => undefined);
@@ -691,6 +713,74 @@ describe("StudioAccountControl", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
 
 			expect(screen.queryByRole("status")).toBeNull();
+		});
+	});
+
+	describe("test mode", () => {
+		const signedIn = () => {
+			const store = createAuthStore({ kind: "local-offline" });
+			store.setState({
+				status: { kind: "authenticated", session: SESSION },
+				operation: "idle",
+				canSync: true,
+				error: null,
+			});
+			return store;
+		};
+		const prices = {
+			monthly: { currency: "USD", unitAmount: 1200 },
+			annual: { currency: "USD", unitAmount: 9900 },
+		};
+		const billing = (input: { catalog: BillingCatalog | null; paid?: boolean }) => ({
+			planLabel: input.paid ? "Creator" : "Free",
+			paid: input.paid ?? false,
+			available: true,
+			catalog: input.catalog,
+			cadence: "monthly" as const,
+			busy: false,
+			error: null,
+			onCadence: vi.fn(),
+			onUpgrade: vi.fn(),
+			onManageBilling: vi.fn(),
+		});
+		const open = (control: ReturnType<typeof billing>) => {
+			render(<StudioAccountControl store={signedIn()} billing={control} />);
+			fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
+		};
+
+		it("says nothing is charged when the server points at the sandbox, on a free plan card", () => {
+			open(billing({ catalog: { environment: "sandbox", creator: prices } }));
+
+			expect(screen.getByText("Test mode: no real charges")).toBeTruthy();
+		});
+
+		it("says it on a Creator card too, since the portal is the sandbox's as well", () => {
+			open(billing({ catalog: { environment: "sandbox", creator: prices }, paid: true }));
+
+			expect(screen.getByText("Test mode: no real charges")).toBeTruthy();
+		});
+
+		it("is a line, not a control: nothing in it can be pressed or dismissed", () => {
+			open(billing({ catalog: { environment: "sandbox", creator: prices } }));
+
+			const line = screen.getByText("Test mode: no real charges");
+			expect(within(line).queryByRole("button")).toBeNull();
+			expect(line.closest("button")).toBeNull();
+			expect(screen.queryByRole("button", { name: /dismiss|close test mode/i })).toBeNull();
+			// Not a live region either: it is always there, and the plan's own status stays alone.
+			expect(screen.queryByRole("status")).toBeNull();
+		});
+
+		it("never draws on a production catalog, an older server, or no catalog", () => {
+			for (const catalog of [
+				{ environment: "production", creator: prices } satisfies BillingCatalog,
+				{ creator: prices } satisfies BillingCatalog,
+				null,
+			]) {
+				cleanup();
+				open(billing({ catalog }));
+				expect(screen.queryByText(/test mode/i)).toBeNull();
+			}
 		});
 	});
 });

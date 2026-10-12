@@ -15,7 +15,10 @@ import { create } from "zustand";
  * so neither control has to know how the other is built.
  */
 interface DiffImportHandoff {
-	/** Text handed over by another control, waiting for the dialog to pick it up. */
+	/**
+	 * Text handed over by another control, waiting for the dialog to pick it up.
+	 * An empty string hands over no text: the dialog just opens, as it is.
+	 */
 	pending: string | null;
 	handOff: (text: string) => void;
 	take: () => void;

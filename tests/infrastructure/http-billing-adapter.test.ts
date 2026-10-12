@@ -31,6 +31,24 @@ describe("hosted billing client", () => {
 		});
 	});
 
+	it("reads the environment the server publishes, and nothing else counts", async () => {
+		const prices = { monthly: { currency: "USD", unitAmount: 1200 } };
+		const catalogFor = (body: Record<string, unknown>) =>
+			new HttpBillingAdapter(vi.fn(async () => jsonResponse({ creator: prices, ...body })));
+
+		await expect(catalogFor({ environment: "sandbox" }).getCatalog()).resolves.toMatchObject({
+			environment: "sandbox",
+		});
+		await expect(catalogFor({ environment: "production" }).getCatalog()).resolves.toMatchObject({
+			environment: "production",
+		});
+		// An older server, or a value nobody defined: no environment, so no test-mode line.
+		const missing = await catalogFor({}).getCatalog();
+		const odd = await catalogFor({ environment: "staging" }).getCatalog();
+		expect(missing.environment).toBeUndefined();
+		expect(odd.environment).toBeUndefined();
+	});
+
 	it("reads the server-authoritative Creator plan with session cookies", async () => {
 		const fetcher = vi.fn(async () =>
 			jsonResponse({

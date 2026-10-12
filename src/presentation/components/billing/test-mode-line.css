@@ -1,0 +1,26 @@
+/* The sandbox line: ink on the surface it sits on (the account panel's --mm-ink,
+   or the camera's where a sheet carries it), 12px like the studio's prose floor,
+   with a hollow ring so the state is not carried by the words alone. A hairline
+   dash outlines it: it is a fact about the build, not a control, so it takes no
+   fill (DECISIONS D2) and no hover. */
+.test-mode-line {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0 0 6px;
+	padding: 6px 10px;
+	border: 1px dashed var(--mm-hairline, var(--camera-line));
+	border-radius: var(--r-field);
+	color: var(--mm-ink, var(--camera-ink));
+	font-size: var(--sc-text-md, 12px);
+	font-weight: 600;
+	line-height: 1.3;
+}
+
+.test-mode-line-mark {
+	width: 8px;
+	height: 8px;
+	flex: none;
+	border: 1.5px solid currentColor;
+	border-radius: var(--r-pill);
+}

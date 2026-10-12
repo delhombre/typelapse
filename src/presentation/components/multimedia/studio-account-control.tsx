@@ -30,6 +30,7 @@ import {
 	Profile,
 	X,
 } from "reicon-react";
+import { TestModeLine } from "../billing/test-mode-line";
 import { StudioApiKeys, type StudioApiKeysControl } from "./studio-api-keys";
 import { StudioCloudProjects, type StudioCloudProjectsControl } from "./studio-cloud-projects";
 import "./studio-account-control.css";
@@ -578,8 +579,18 @@ function AccountNotice({ notice }: { readonly notice: BillingNotice }) {
 	);
 }
 
+/** The plan card, with the sandbox line above it when the server says it is one. */
 function AccountBilling({ billing }: { readonly billing: StudioBillingControl }) {
 	if (!billing.available) return null;
+	return (
+		<>
+			<TestModeLine environment={billing.catalog?.environment} />
+			<PlanCard billing={billing} />
+		</>
+	);
+}
+
+function PlanCard({ billing }: { readonly billing: StudioBillingControl }) {
 	if (billing.paid) {
 		return (
 			<div className="mm-account-plan-card" data-plan="paid">
@@ -822,7 +833,21 @@ function EmailStep({
 		>
 			<p className="mm-eyebrow">Typelapse Cloud</p>
 			<h2>Continue your work.</h2>
-			<p>Sync projects and private media, then render in the background.</p>
+			{/* The two paths side by side, so a visitor who can already export for free sees
+			    what signing in adds. Both claims are the plan rules (viability D2, D4): the
+			    device renders every format with nothing uploaded, a free account keeps a few
+			    private cloud copies, and hosted renders (the only path that bakes captions and
+			    audio) are Creator's. No resolution is promised on the device line: a hosted
+			    build still runs a Free plan's caps through the device export. */}
+			<div className="mm-account-value">
+				<p>
+					<strong>On this device:</strong> every format, nothing uploaded, no account.
+				</p>
+				<p>
+					<strong>With an account:</strong> private cloud copies, and hosted renders with captions
+					and audio on Creator.
+				</p>
+			</div>
 			<div className="mm-account-field">
 				{/* The message sits outside the label, so it describes the field instead of
 				    becoming part of its name. */}

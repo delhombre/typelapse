@@ -4915,14 +4915,83 @@ textarea.sc-source-field {
 	line-height: 16px;
 }
 
-.sc-scenes-empty {
+/* The empty scene list's fork (#250). It keeps the dashed hairline the bare line
+   wore: the room where scenes will be. Inside it one shape is filled, the primary
+   Capture (D2); the two other ways in are transparent rows with a chevron, which
+   promises a view the way the source hub's rows do. The rows' radius is the
+   container's less its 8px of padding (D3). */
+.sc-fork {
+	display: grid;
+	min-width: 0;
 	margin: 0;
-	padding: 16px 12px;
+	gap: 4px;
+	padding: 8px;
 	border: 1px dashed var(--camera-line);
 	border-radius: var(--r-surface);
+}
+
+.sc-fork-lead {
+	margin: 0;
+	padding: 4px 4px 8px;
 	color: var(--camera-muted);
 	font-size: var(--sc-text-md);
-	text-align: center;
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+.sc-fork-action {
+	display: flex;
+	width: 100%;
+	height: 40px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: calc(var(--r-surface) - 8px);
+	background: transparent;
+	color: var(--camera-ink);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+	text-align: left;
+	transition: background-color 150ms var(--ease-out), transform 100ms var(--ease-out);
+}
+
+.sc-fork-action > svg {
+	flex: none;
+	color: var(--camera-muted);
+}
+
+.sc-fork-action[data-kind="primary"] {
+	justify-content: center;
+	background: var(--camera-amber);
+	color: var(--color-on-primary);
+	font-weight: var(--sc-weight-strong);
+}
+
+.sc-fork-action[data-kind="primary"] > svg {
+	color: inherit;
+}
+
+.sc-fork-action:active {
+	transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.sc-fork-action[data-kind="secondary"]:hover {
+		background: var(--camera-pill);
+	}
+
+	.sc-fork-action[data-kind="primary"]:hover {
+		background: var(--color-primary-hover);
+	}
+}
+
+@media (pointer: coarse) {
+	.sc-fork-action {
+		height: 44px;
+	}
 }
 
 .sc-scene-action {

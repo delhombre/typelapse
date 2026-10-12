@@ -84,7 +84,11 @@ export function DiffImportMenu({
 		if (pending === null) {
 			return;
 		}
-		setText(pending);
+		// An empty hand-off is a plain "open the dialog" (the empty scene list asks
+		// for it): it must not wipe a paste the visitor left in the field.
+		if (pending !== "") {
+			setText(pending);
+		}
 		changeOpen(true);
 		takePending();
 	}, [changeOpen, pending, takePending]);

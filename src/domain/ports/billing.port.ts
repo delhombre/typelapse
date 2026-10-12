@@ -9,7 +9,15 @@ export interface BillingPrice {
 	readonly unitAmount: number;
 }
 
+/** Which payment provider the server is wired to: "sandbox" charges nobody. */
+export type BillingEnvironment = "sandbox" | "production";
+
 export interface BillingCatalog {
+	/**
+	 * Read from the server's own configuration, never guessed from the build.
+	 * Absent (an older server) counts as production: the test-mode line stays off.
+	 */
+	readonly environment?: BillingEnvironment;
 	readonly creator: Readonly<Partial<Record<BillingCadence, BillingPrice>>>;
 }
 
