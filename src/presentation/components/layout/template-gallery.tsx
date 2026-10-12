@@ -11,12 +11,13 @@ import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
 import { StudioBottomSheet } from "@/presentation/components/ui/studio-bottom-sheet";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
+import { useShowcaseRequestStore } from "@/presentation/stores/showcase-request.store";
 import {
 	hasStudioWorkToLose,
 	openStudioProjectDocument,
 } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { type CSSProperties, memo, useCallback, useMemo, useRef, useState } from "react";
+import { type CSSProperties, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, ChevronLeft, Grid, X } from "reicon-react";
 
 const SHOWCASE_THEMES: Record<string, () => Theme> = {
@@ -91,6 +92,17 @@ export function TemplateGallery() {
 	);
 
 	const dismiss = pending ? () => setPending(null) : close;
+
+	// Another surface (the empty scene list) can ask for the Showcase. Taking the
+	// request makes it one-shot: a re-render must not reopen it behind the visitor.
+	const requested = useShowcaseRequestStore((state) => state.requested);
+	const takeRequest = useShowcaseRequestStore((state) => state.take);
+	useEffect(() => {
+		if (requested) {
+			setOpen(true);
+			takeRequest();
+		}
+	}, [requested, takeRequest]);
 
 	return (
 		<>

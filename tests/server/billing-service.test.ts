@@ -59,6 +59,7 @@ class MemoryBillingStore implements BillingProjectionStore {
 }
 
 class FakePolar implements BillingGateway {
+	environment: "sandbox" | "production" = "production";
 	checkoutInput: Parameters<BillingGateway["createCheckout"]>[0] | null = null;
 	portalInput: Parameters<BillingGateway["createPortal"]>[0] | null = null;
 	event: NormalizedBillingEvent = {
@@ -156,6 +157,7 @@ describe("billing service", () => {
 		const second = await billing.catalog();
 
 		expect(first).toEqual({
+			environment: "production",
 			creator: {
 				monthly: { currency: "USD", unitAmount: 1200 },
 				annual: { currency: "USD", unitAmount: 9900 },
@@ -166,6 +168,14 @@ describe("billing service", () => {
 			"prod_creator_monthly",
 			"prod_creator_annual",
 		]);
+	});
+
+	it("says which Polar the catalog comes from, so a client never guesses test mode", async () => {
+		const polar = new FakePolar();
+		polar.environment = "sandbox";
+		const { billing } = service(new MemoryBillingStore(), polar);
+
+		expect((await billing.catalog()).environment).toBe("sandbox");
 	});
 
 	it("opens the customer portal for the account, and only once it has a billing customer", async () => {

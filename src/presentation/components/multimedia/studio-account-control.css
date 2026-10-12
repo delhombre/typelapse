@@ -192,6 +192,29 @@
 	line-height: 1.55;
 }
 
+/* The sign-in form's two paths: the lead-in in ink, the rest in the muted ink, so
+   the pair reads as a short list of facts above the field rather than as a
+   paragraph. Both are the 12px prose floor; the gap between them is tighter than
+   the block's own, which keeps the panel's height close to the one sentence it replaced. */
+.mm-account-form > .mm-account-value {
+	display: grid;
+	gap: 6px;
+	margin: 0 0 6px;
+}
+
+.mm-account-value p {
+	margin: 0;
+	color: var(--mm-muted);
+	font-size: 12px;
+	line-height: 1.45;
+	text-wrap: pretty;
+}
+
+.mm-account-value strong {
+	color: var(--mm-ink);
+	font-weight: 650;
+}
+
 /* The allowance is mostly numbers: figures of one width keep "2 of 3" steady as usage moves. */
 .mm-account-copy > .mm-account-allowance {
 	margin-bottom: 14px;

@@ -83,6 +83,7 @@ export function createPolarBillingGateway(input: {
 }): BillingGateway {
 	const { polar, webhookSecret, environment } = input;
 	return {
+		environment,
 		async createCheckout(checkout) {
 			const session = await polar.checkouts.create({
 				products: [checkout.productId],

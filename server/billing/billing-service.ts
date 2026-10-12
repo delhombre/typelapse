@@ -1,6 +1,7 @@
 import type {
 	BillingCadence,
 	BillingCatalog,
+	BillingEnvironment,
 	BillingPrice,
 } from "../../src/domain/ports/billing.port";
 
@@ -74,6 +75,8 @@ export type BillingWebhookHeaders = Readonly<Record<string, string | undefined>>
  * to be stored before the first checkout.
  */
 export interface BillingGateway {
+	/** Which Polar this gateway talks to: "sandbox" moves no real money. */
+	readonly environment: BillingEnvironment;
 	createCheckout(input: {
 		readonly userId: string;
 		readonly productId: string;
@@ -189,7 +192,7 @@ export function createBillingService(input: {
 				return [cadence, normalized] as const;
 			}),
 		);
-		return { creator: Object.fromEntries(entries) };
+		return { creator: Object.fromEntries(entries), environment: gateway.environment };
 	};
 
 	return {

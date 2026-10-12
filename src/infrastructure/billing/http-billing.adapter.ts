@@ -93,7 +93,14 @@ export class HttpBillingAdapter implements BillingPort {
 		if (!monthly && !annual) {
 			throw new Error("Billing returned an empty catalog");
 		}
-		return { creator: { ...(monthly ? { monthly } : {}), ...(annual ? { annual } : {}) } };
+		const environment =
+			body.environment === "sandbox" || body.environment === "production"
+				? body.environment
+				: undefined;
+		return {
+			...(environment ? { environment } : {}),
+			creator: { ...(monthly ? { monthly } : {}), ...(annual ? { annual } : {}) },
+		};
 	}
 
 	async getCurrentPlan(): Promise<Plan> {

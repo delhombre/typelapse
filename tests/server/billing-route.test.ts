@@ -18,8 +18,11 @@ class FakeBilling implements BillingService {
 	webhookError: Error | null = null;
 	checkoutCadence: "monthly" | "annual" | null = null;
 
+	environment: "sandbox" | "production" = "production";
+
 	async catalog() {
 		return {
+			environment: this.environment,
 			creator: {
 				monthly: { currency: "USD", unitAmount: 1200 },
 				annual: { currency: "USD", unitAmount: 9900 },
@@ -97,11 +100,22 @@ describe("billing route", () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({
+			environment: "production",
 			creator: {
 				monthly: { currency: "USD", unitAmount: 1200 },
 				annual: { currency: "USD", unitAmount: 9900 },
 			},
 		});
+	});
+
+	it("publishes the sandbox environment the server runs against", async () => {
+		const billing = new FakeBilling();
+		billing.environment = "sandbox";
+		const app = appFor({ auth: { verify: async () => null }, billing });
+
+		const response = await app.request("http://localhost/api/billing/catalog");
+
+		expect(((await response.json()) as { environment: string }).environment).toBe("sandbox");
 	});
 
 	it("keeps Checkout, Portal and plan behind an active account", async () => {
