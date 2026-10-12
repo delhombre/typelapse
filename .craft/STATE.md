@@ -3,7 +3,7 @@
 Kept current by the orchestrator so that compaction or a new session loses nothing. One line per item; prune when done.
 
 ## Current goal
-Everything through the fourth pass is on main (2026-10-08): #226 (#231) and #227 (#229) merged, D9 and D10 logged. No agent ticket open. Next: the next feature wave (viability D6: staging #70 is Bruno's, then #71); a gate pass before any release. Owner items: #65, #70, #71, #77, #79, #112, #217; #222 to decide.
+2026-10-12: design pass, passwordless auth, loupe and the Pipeline landing are all on main and on staging. Next: the UX waves of `docs/decisions/2026-10-12-ux-waves.md` (wave 1 = #250 #252 #258 then #257 #255; wave 2 = #254 #251 #256 #259 #260 #261; #253 deferred), then #71 on staging, then a gate pass. Weekly budget at ~87%: plan first, build on Bruno's go.
 
 ## Plan (checkbox per verifiable unit)
 - [x] #154 wave, #156 usage ledger, #158 phone pass two, #161 Polar billing, #162 migrate once, #163 opaque sheet, #164 citations: merged
