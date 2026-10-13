@@ -67,7 +67,7 @@ terms so issues, specs, tests and code use the same ones.
   (the piece before closes on one) and keeps the caption of the hunk it
   continues. A page that opens on nothing but `⋯` has no opening frame. A
   walkthrough (a diff, or one chapter of a pull request) plays at most
-  `MAX_WALKTHROUGH_PAGES` (8) pages, over at most 6 files; the marker line
+  `MAX_WALKTHROUGH_PAGES` (4) pages, over at most 6 files; the marker line
   (`⋯ n more files` or `⋯ more changes hidden`) says what is left.
   `application/layout/scene-readability` measures the px a plan lands at, with
   the same `fitCardToCanvas` the renderers call. A 9:16 frame is limited by the

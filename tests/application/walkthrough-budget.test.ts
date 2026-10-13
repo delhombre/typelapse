@@ -81,9 +81,9 @@ function markerOf(snapshots: CodeSnapshot[]): Set<string | undefined> {
 }
 
 describe("budgetWalkthrough", () => {
-	it("caps at 6 files and 8 pages of 24 rows: the line budget is derived from the pages", () => {
+	it("caps at 6 files and 4 pages of 24 rows: the line budget is derived from the pages", () => {
 		expect(MAX_WALKTHROUGH_FILES).toBe(6);
-		expect(MAX_WALKTHROUGH_PAGES).toBe(8);
+		expect(MAX_WALKTHROUGH_PAGES).toBe(4);
 		expect(MAX_SCENE_LINES).toBe(24);
 		expect(MAX_WALKTHROUGH_LINES).toBe(MAX_WALKTHROUGH_PAGES * MAX_SCENE_LINES);
 	});
@@ -165,7 +165,7 @@ describe("the page cap", () => {
 	const headersOf = (snapshots: CodeSnapshot[]) =>
 		new Set(snapshots.flatMap((snapshot) => headerLines(snapshot.code)));
 
-	it("keeps a walkthrough of a few hundred rows to 8 pages, and says what is left", () => {
+	it("keeps a walkthrough of a few hundred rows to 4 pages, and says what is left", () => {
 		const { snapshots } = diffToSnapshots(oneTallFileDiff(400));
 
 		for (const snapshot of snapshots) {
@@ -185,9 +185,9 @@ describe("the page cap", () => {
 	});
 
 	it("cuts the pages when the scaffold of each (separators) pushes past the cap", () => {
-		// 185 added rows fit the line budget (192) but not 8 pages: each page also
-		// carries its `⋯` rows, so the ninth page is cut and the marker says so.
-		const { snapshots } = diffToSnapshots(oneTallFileDiff(185));
+		// 90 added rows fit the line budget (96) but not 4 pages: each page also
+		// carries its `⋯` rows, so the fifth page is cut and the marker says so.
+		const { snapshots } = diffToSnapshots(oneTallFileDiff(90));
 
 		for (const snapshot of snapshots) {
 			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
@@ -198,20 +198,40 @@ describe("the page cap", () => {
 	});
 
 	it("counts the files a page cut hides, not only the ones the file cap dropped", () => {
-		// Six files of 30 added rows: 192 code rows fit the line budget, but each file
-		// takes two pages, so 8 pages show four files and the marker owns up to two.
+		// Eight files of 14 added rows: the file cap drops two, and the six kept
+		// (96 rows) fit the line budget, but each takes a page, so 4 pages show four
+		// files and the marker owns up to the other four.
 		const blocks: string[] = [];
-		for (let k = 0; k < 6; k++) {
-			blocks.push(`--- a/f${k}.ts`, `+++ b/f${k}.ts`, "@@ -1,2 +1,32 @@", " const first = 0;");
-			for (let i = 0; i < 30; i++) {
+		for (let k = 0; k < 8; k++) {
+			blocks.push(`--- a/f${k}.ts`, `+++ b/f${k}.ts`, "@@ -1,2 +1,16 @@", " const first = 0;");
+			for (let i = 0; i < 14; i++) {
 				blocks.push(`+const f${k}r${i} = ${i};`);
 			}
 			blocks.push(" const last = 0;");
 		}
 		const { snapshots } = diffToSnapshots(nl(blocks));
 
-		expect([...markerOf(snapshots)]).toEqual([`${ELLIPSIS} 2 more files`]);
+		expect([...markerOf(snapshots)]).toEqual([`${ELLIPSIS} 4 more files`]);
 		const shown = new Set(snapshots.flatMap((snapshot) => headerLines(snapshot.code)));
-		expect(shown.size).toBe(4);
+		expect(shown.size).toBe(MAX_WALKTHROUGH_PAGES);
+	});
+
+	it("holds a 246-file comparison to 4 pages, 11 steps or fewer, and counts the rest", () => {
+		const blocks: string[] = [];
+		for (let k = 0; k < 246; k++) {
+			blocks.push(`--- a/f${k}.ts`, `+++ b/f${k}.ts`, "@@ -1,3 +1,3 @@", " const a = 1;");
+			blocks.push(`-const b${k} = 2;`, `+const b${k} = 3;`, " const c = 3;");
+		}
+		const { snapshots } = diffToSnapshots(nl(blocks));
+
+		expect(snapshots.length).toBeLessThanOrEqual(11);
+		for (const snapshot of snapshots) {
+			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+		}
+		const marker = [...markerOf(snapshots)];
+		expect(marker).toHaveLength(1);
+		const hidden = Number(marker[0]?.match(/^⋯ (\d+) more files$/)?.[1]);
+		const shown = new Set(snapshots.flatMap((snapshot) => headerLines(snapshot.code)));
+		expect(hidden + shown.size).toBe(246);
 	});
 });
