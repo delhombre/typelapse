@@ -527,6 +527,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		await expect(
 			page.getByRole("button", { name: "Open project menu, Release notes" }),
 		).toBeVisible();
+		await settled(page.getByRole("menu", { name: "Local projects" }));
 		const field = await name.boundingBox();
 		expect(field?.height).toBeGreaterThanOrEqual(44);
 	});
