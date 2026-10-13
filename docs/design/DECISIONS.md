@@ -114,9 +114,10 @@ reduced-transparency query), `src/presentation/studio-camera.css`
 ## D6 Warm, in both themes, across both pages
 
 **Decision:** Paper `#faf9f6` light and `#121110` dark, ink `#1c1b19`, never
-a neutral slate. The studio remaps Tailwind's neutral ramp to warm stone
-whose ends land on the landing's paper and ink. Both themes ship; the
-browser chrome and the document match the theme before the bundle runs. The
+a neutral slate. The studio remaps Tailwind's neutral ramp to warm stone, but
+the page, in the studio too, is `--color-paper`, never a ramp step (#283).
+Both themes ship; the browser chrome and the document match the theme
+before the bundle runs. The
 landing's document chrome (`data-landing-theme`, `theme-color`) belongs to its
 route, so its error fallback keeps it.
 
