@@ -1,3 +1,4 @@
+// Throwaway: proves the hosted job is skipped for a landing-only change (#302).
 import type { CSSProperties, ReactNode } from "react";
 
 /**
