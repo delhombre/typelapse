@@ -9,7 +9,7 @@
  * the studio would make" while that test passes.
  */
 
-import { type CodeSnapshot, diffToSnapshots } from "@/application/diff";
+import { type CodeSnapshot, capWalkthrough, diffToSnapshots } from "@/application/diff";
 import { DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import { captionFromGeneratedLabel } from "@/domain/entities/step";
@@ -17,23 +17,6 @@ import { Theme } from "@/domain/entities/theme";
 
 /** Per-step hold applied to each step generated from a diff. */
 export const DIFF_STEP_DURATION = 1200;
-
-/** Upper bound on diff-generated steps so a pathological diff can't explode playback. */
-export const MAX_DIFF_STEPS = 40;
-
-/**
- * Cap diff snapshots at {@link MAX_DIFF_STEPS}, always keeping the final "after"
- * frame so the walkthrough still ends on the complete change (only pathologically
- * large diffs are ever trimmed).
- */
-export function capDiffSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
-	if (snapshots.length <= MAX_DIFF_STEPS) {
-		return snapshots;
-	}
-	const last = snapshots[snapshots.length - 1];
-	const head = snapshots.slice(0, MAX_DIFF_STEPS - 1);
-	return last ? [...head, last] : head;
-}
 
 /**
  * The project a fresh studio holds after importing `diffText`: its default
@@ -43,23 +26,24 @@ export function capDiffSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
  */
 export function projectFromDiff(diffText: string, meta: { title?: string } = {}): ProjectPayload {
 	const { snapshots, language, path } = diffToSnapshots(diffText);
-	return projectFromSnapshots(snapshots, {
+	return projectFromSnapshots([snapshots], {
 		title: meta.title || path?.split("/").pop() || "Untitled",
 		language,
 	});
 }
 
 /**
- * Staged snapshots → the project a fresh studio holds, capped and captioned the
- * way the store's diff import builds it. `openingCardMs` puts a blank step
+ * Staged snapshots, one sequence per chapter (a plain diff is one), → the project
+ * a fresh studio holds, capped and captioned the way the store's diff import
+ * builds it. `openingCardMs` puts a blank step
  * first, the title card a release opens on (the store's `importChapters` takes
  * the same option, and a test holds the two to the same file).
  */
 export function projectFromSnapshots(
-	snapshots: CodeSnapshot[],
+	sequences: CodeSnapshot[][],
 	meta: { title: string; language?: string; openingCardMs?: number },
 ): ProjectPayload {
-	const staged = capDiffSnapshots(snapshots);
+	const staged = capWalkthrough(sequences).snapshots;
 	const theme = Theme.midnight();
 	const steps = staged.map((snapshot) => {
 		const caption = captionFromGeneratedLabel(snapshot.label);

@@ -71,6 +71,12 @@ terms so issues, specs, tests and code use the same ones.
   walkthrough (a diff, or one chapter of a pull request) plays at most
   `MAX_WALKTHROUGH_PAGES` (4) pages, over at most 6 files; the marker line
   (`⋯ n more files` or `⋯ more changes hidden`) says what is left.
+- **Step cap**: pages bound the code, not the steps (a page holds a step per
+  hunk, so 45 small hunks still stage 47 steps, and a pull request chaptered by
+  commit adds its chapters up). `MAX_DIFF_STEPS` (40, `application/diff/step-cap`)
+  keeps whole chapters from the start and drops the tail; the last kept step
+  carries a `⋯ n more changes` row, and a chaptered import says
+  "Showing the first k of n commits". A first chapter past the cap is cut at it.
   `tests/support/scene-readability` measures the px a plan lands at, with
   the same `fitCardToCanvas` the renderers call. A 9:16 frame is limited by the
   longest line, not the rows (16.7 px for the example PR's 77 columns).

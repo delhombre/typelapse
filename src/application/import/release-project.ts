@@ -11,7 +11,7 @@
  * held to the same file by a test.
  */
 
-import { type DiffChapter, chapterLanguage, chapterSnapshots } from "@/application/diff";
+import { type DiffChapter, chapterLanguage, chapterSequences } from "@/application/diff";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import { TextBlock } from "@/domain/entities/block";
 import { hydrateProjectDocument } from "../project/hydrate-project-document";
@@ -78,11 +78,11 @@ export function releaseCardText(release: {
  * studio's words, when no commit carries a change to animate.
  */
 export function releaseProject(card: ReleaseCard, chapters: DiffChapter[]): ProjectPayload {
-	const snapshots = chapterSnapshots(chapters);
-	if (snapshots.length === 0) {
+	const sequences = chapterSequences(chapters);
+	if (sequences.flat().length === 0) {
 		throw new Error("These commits contain no changes to animate");
 	}
-	return projectFromSnapshots(snapshots, {
+	return projectFromSnapshots(sequences, {
 		title: card.title,
 		language: chapterLanguage(chapters),
 		openingCardMs: RELEASE_CARD_MS,

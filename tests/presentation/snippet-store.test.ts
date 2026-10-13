@@ -356,9 +356,9 @@ describe("snippet store importDiff", () => {
 	});
 
 	it("keeps each kept step's own label when the MAX cap trims a huge diff", () => {
-		// 45 single-line hunks → 46 stages; the store caps diff steps at 40, keeping
-		// the first 39 stages plus the final "after". Each kept step must retain the
-		// label of ITS OWN snapshot: the trim must not shift captions.
+		// 45 single-line hunks → 47 stages; the store caps diff steps at 40, keeping
+		// the first 40 and marking the cut. Each kept step must retain the label of
+		// ITS OWN snapshot: the trim must not shift captions.
 		const HUNKS = 45;
 		const lines = ["--- a/big.ts", "+++ b/big.ts"];
 		for (let k = 1; k <= HUNKS; k++) {
@@ -371,8 +371,10 @@ describe("snippet store importDiff", () => {
 		const { steps } = useSnippetStore.getState().snippet;
 		expect(steps).toHaveLength(40);
 		expect(steps[0]?.annotation).toBe("Before");
-		// The last kept stage keeps its own "After" label, not the trimmed neighbour's.
-		expect(steps[39]?.annotation).toBe("After");
+		// The last kept stage keeps its own label and says the video stops early.
+		expect(steps[39]?.annotation).toBe("Change 38");
+		expect(steps[39]?.code.endsWith("\n⋯ 7 more changes")).toBe(true);
+		expect(steps[38]?.code).not.toContain("more change");
 		// A kept middle stage keeps its own label (index unshifted). The scenes of a long
 		// diff each open on their own before-state, which carries the caption of the hunk
 		// it opens on: indices 25 and 26 both read "Change 25", so index 38 is the
@@ -492,10 +494,10 @@ describe("snippet store importChapters", () => {
 		expect(isPlaying).toBe(false);
 	});
 
-	it("caps chaptered steps at MAX_DIFF_STEPS, keeping the final after-frame", () => {
-		// Two chapters of 25 single-line hunks each: 26 + 25 = 51 stages after the
-		// second chapter's redundant before is dropped. The store caps at 40, keeping
-		// the first 39 plus the final after so the walkthrough still ends complete.
+	it("caps chaptered steps at MAX_DIFF_STEPS, keeping whole chapters and marking the cut", () => {
+		// Two chapters of 25 single-line hunks each: 27 + 26 = 53 stages. The first
+		// chapter fits whole (27); the second would pass 40, so it is dropped, and
+		// the last kept step says how many changes the video leaves out.
 		const bigDiff = (path: string) => {
 			const lines = [`--- a/${path}`, `+++ b/${path}`];
 			for (let k = 1; k <= 25; k++) {
@@ -506,7 +508,7 @@ describe("snippet store importChapters", () => {
 			return lines.join("\n");
 		};
 
-		useSnippetStore.getState().importChapters(
+		const cut = useSnippetStore.getState().importChapters(
 			[
 				{ title: "first half", diffText: bigDiff("one.ts") },
 				{ title: "second half", diffText: bigDiff("two.ts") },
@@ -515,10 +517,13 @@ describe("snippet store importChapters", () => {
 		);
 		const { steps } = useSnippetStore.getState().snippet;
 
-		expect(steps).toHaveLength(40);
-		// The final kept step is chapter 2's after-frame, with its own "After" label.
-		expect(steps[39]?.annotation).toBe("After");
-		expect(steps[39]?.code).toContain("const v25 = 250;");
+		expect(cut).toEqual({ shownChapters: 1, totalChapters: 2 });
+		expect(steps).toHaveLength(27);
+		expect(steps[0]?.annotation).toBe("1/2 · first half");
+		expect(steps[26]?.annotation).toBe("After");
+		expect(steps[26]?.code).toContain("const v25 = 250;");
+		expect(steps[26]?.code.endsWith("\n⋯ 26 more changes")).toBe(true);
+		expect(steps[25]?.code).not.toContain("more change");
 	});
 
 	it("infers a non-default language from the chapters", () => {

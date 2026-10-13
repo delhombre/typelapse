@@ -1,4 +1,4 @@
-import { chapterSnapshots } from "@/application/diff/chapters";
+import { chapterSequences, chapterSnapshots } from "@/application/diff/chapters";
 import { describe, expect, it } from "vitest";
 
 const nl = (lines: string[]) => lines.join("\n");
@@ -189,5 +189,22 @@ describe("chapterSnapshots", () => {
 		for (const snapshot of out) {
 			expect(snapshot.code).not.toContain("⋯");
 		}
+	});
+});
+
+describe("chapterSequences", () => {
+	it("keeps each kept chapter apart, in order, and skips lockfiles-only ones", () => {
+		const chapters = [
+			{ title: "add alpha", diffText: editDiff("a.ts", "const x = 1;", "const x = 2;") },
+			{ title: "lockfile", diffText: LOCK_ONLY },
+			{ title: "add beta", diffText: editDiff("b.ts", "const y = 1;", "const y = 2;") },
+		];
+
+		const sequences = chapterSequences(chapters);
+
+		expect(sequences).toHaveLength(2);
+		expect(sequences.flat()).toEqual(chapterSnapshots(chapters));
+		expect(sequences[0]?.[0]?.label).toBe("1/2 · add alpha");
+		expect(sequences[1]?.[0]?.label).toBe("2/2 · add beta");
 	});
 });

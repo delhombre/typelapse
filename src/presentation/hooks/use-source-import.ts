@@ -1,3 +1,4 @@
+import { commitsShownNotice } from "@/application/diff";
 import { classifySource, isBareLink } from "@/application/import/classify-source";
 import {
 	resolveCommitUrl,
@@ -19,6 +20,7 @@ import {
 } from "@/infrastructure/import/pr-import";
 import { fetchReleaseChapters } from "@/infrastructure/import/release-import";
 import { importCodeFromUrl } from "@/infrastructure/import/url-import";
+import { notify } from "@/presentation/stores/notice.store";
 import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
@@ -132,7 +134,9 @@ export function useSourceImport(): SourceImport {
 							setProgress({ done, total }),
 						);
 						// importChapters sets the title itself.
-						await replaceProject(() => store.importChapters(chapters, { title }));
+						await replaceProject(() => {
+							announceCut(store.importChapters(chapters, { title }));
+						});
 					} else {
 						await applyWalkthrough(() => fetchPrWalkthrough(ref));
 					}
@@ -158,8 +162,14 @@ export function useSourceImport(): SourceImport {
 						setProgress({ done, total }),
 					);
 					await replaceProject(
-						() =>
-							store.importChapters(chapters, { title: card.title, openingCardMs: RELEASE_CARD_MS }),
+						() => {
+							announceCut(
+								store.importChapters(chapters, {
+									title: card.title,
+									openingCardMs: RELEASE_CARD_MS,
+								}),
+							);
+						},
 						() => placeReleaseCard(card),
 					);
 					return true;
@@ -230,6 +240,17 @@ export function useSourceImport(): SourceImport {
 	);
 
 	return { loading, error, progress, run, reset };
+}
+
+/**
+ * Say so when a chaptered import played only the first commits: the video ends
+ * early on its own marker row, and this is the same fact in words.
+ */
+function announceCut(cut: { shownChapters: number; totalChapters: number }): void {
+	const message = commitsShownNotice(cut.shownChapters, cut.totalChapters);
+	if (message) {
+		notify(message);
+	}
 }
 
 /**

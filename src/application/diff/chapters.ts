@@ -89,15 +89,16 @@ function hasRealChanges(diffText: string): boolean {
 }
 
 /**
- * Concatenate several commit chapters into one ordered snapshot sequence: run
- * each through {@link diffToSnapshots}, drop the redundant leading before-frame of
- * every chapter after the first, and rehead each chapter's opening frame with its
- * `k/N · subject` label. Lockfiles-only and empty chapters are skipped.
+ * Several commit chapters as one snapshot sequence per kept chapter, in order:
+ * run each through {@link diffToSnapshots}, drop the redundant leading
+ * before-frame of every chapter after the first, and rehead each chapter's
+ * opening frame with its `k/N · subject` label. Lockfiles-only and empty chapters
+ * are skipped. The sequences stay apart so a cap can keep whole chapters.
  */
-export function chapterSnapshots(
+export function chapterSequences(
 	chapters: DiffChapter[],
 	options: DiffToSnapshotsOptions = {},
-): CodeSnapshot[] {
+): CodeSnapshot[][] {
 	const kept = chapters
 		.filter((chapter) => hasRealChanges(chapter.diffText))
 		.map((chapter) => ({
@@ -106,9 +107,8 @@ export function chapterSnapshots(
 		}));
 
 	const total = kept.length;
-	const out: CodeSnapshot[] = [];
 
-	kept.forEach((chapter, index) => {
+	return kept.map((chapter, index) => {
 		const position = index + 1;
 		let frames = chapter.snapshots;
 		// Every chapter but the first opens on a before-state the previous chapter
@@ -127,16 +127,21 @@ export function chapterSnapshots(
 			frames = frames.slice(1);
 		}
 		if (chapter.title === "") {
-			out.push(...frames);
-			return;
+			return frames;
 		}
 		const heading = chapterHeading(position, total, chapter.title);
-		frames.forEach((frame, frameIndex) => {
-			out.push(frameIndex === 0 ? { code: frame.code, label: heading } : frame);
-		});
+		return frames.map((frame, frameIndex) =>
+			frameIndex === 0 ? { code: frame.code, label: heading } : frame,
+		);
 	});
+}
 
-	return out;
+/** The chapters of {@link chapterSequences} played one after the other. */
+export function chapterSnapshots(
+	chapters: DiffChapter[],
+	options: DiffToSnapshotsOptions = {},
+): CodeSnapshot[] {
+	return chapterSequences(chapters, options).flat();
 }
 
 /**

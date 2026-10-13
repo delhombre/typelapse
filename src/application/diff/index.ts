@@ -5,12 +5,14 @@ export {
 	budgetWalkthrough,
 } from "./budget";
 export type { BudgetedWalkthrough } from "./budget";
-export { chapterLanguage, chapterSnapshots } from "./chapters";
+export { chapterLanguage, chapterSequences, chapterSnapshots } from "./chapters";
 export type { DiffChapter } from "./chapters";
 export { MAX_SCENE_LINES } from "./scenes";
 export { diffToSnapshots } from "./diff-to-snapshots";
 export { parseUnifiedDiff } from "./parse-unified-diff";
 export { generateSnapshots, normalizeSnapshots } from "./snapshots";
+export { MAX_DIFF_STEPS, capWalkthrough, commitsShownNotice } from "./step-cap";
+export type { CappedWalkthrough } from "./step-cap";
 export type {
 	CodeSnapshot,
 	DiffFile,
