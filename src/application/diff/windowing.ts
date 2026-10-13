@@ -229,10 +229,15 @@ function renderFileStage(
 /**
  * Render the whole diff at a stage: the first `appliedHunks` hunks (in document
  * order across files) render "after", the rest "before". Files are labelled with
- * a `// <path>` header when the diff touches more than one.
+ * a `// <path>` header when the diff touches more than one. A scene that shows
+ * one file of a multi-file diff passes `showHeaders` to keep its header.
  */
-export function renderWindowedStage(plans: FileWindowPlan[], appliedHunks: number): string {
-	const multiFile = plans.length > 1;
+export function renderWindowedStage(
+	plans: FileWindowPlan[],
+	appliedHunks: number,
+	showHeaders = plans.length > 1,
+): string {
+	const multiFile = showHeaders;
 	const out: string[] = [];
 	let globalHunk = 0;
 
