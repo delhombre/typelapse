@@ -10,7 +10,8 @@ import { downloadFrom, expect, openStudio, sceneCount, test } from "../support/s
  * back the size that was asked for, with no mark the visitor did not write.
  *
  * The mark sits in the bottom-right corner of the frame (this is the box that
- * holds it at 3840x2160, wide enough for the longer branding line too). A
+ * holds a short mark at 3840x2160 and the right end of the longer branding
+ * line, which is drawn from the same right edge). A
  * backdrop alone is smooth there; a line of text is not. The visitor's own
  * mark is the positive control: the same corner, measured the same way, must
  * show it.
