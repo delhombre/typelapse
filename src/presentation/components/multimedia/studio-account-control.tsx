@@ -689,7 +689,7 @@ const RESEND_AFTER_SECONDS = 60;
  * six-digit code mailed to it. Which step shows is the store's pending code, so
  * closing the panel, or reading the mail on another device, keeps the step.
  */
-function AuthForm({
+export function AuthForm({
 	operation,
 	error,
 	pendingCode,
@@ -837,11 +837,12 @@ function EmailStep({
 			    what signing in adds. Both claims are the plan rules (viability D2, D4): the
 			    device renders every format with nothing uploaded, a free account keeps a few
 			    private cloud copies, and hosted renders (the only path that bakes captions and
-			    audio) are Creator's. No resolution is promised on the device line: a hosted
-			    build still runs a Free plan's caps through the device export. */}
+			    audio) are Creator's. The device line names its ceiling because no plan clamps
+			    or watermarks a device export (device-exports-free D1, #265). */}
 			<div className="mm-account-value">
 				<p>
-					<strong>On this device:</strong> every format, nothing uploaded, no account.
+					<strong>On this device:</strong> every format up to 4K and 60 fps, no watermark, nothing
+					uploaded, no account.
 				</p>
 				<p>
 					<strong>With an account:</strong> private cloud copies, and hosted renders with captions

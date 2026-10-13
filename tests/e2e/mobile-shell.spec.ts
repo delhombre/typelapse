@@ -188,9 +188,10 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 
 			const controls = panel.locator(".si-sheet-body button");
 			const count = await controls.count();
-			// Format 3, Size 3, FPS 3, Where, PNG, Render. Where offers two in a local build, and
-			// This device alone in a hosted one signed out.
-			expect(count).toBe(HOSTED_PROFILE ? 12 : 13);
+			// Format 3, Size 3, FPS 3, Where, PNG, Render. Where offers two in either build:
+			// This device and Server locally, This device and Cloud hosted, where Cloud is
+			// listed signed out too and gated at the press (ux-waves D3).
+			expect(count).toBe(13);
 			for (let index = 0; index < count; index++) {
 				const control = controls.nth(index);
 				const name = (await control.textContent())?.trim() ?? `control ${index}`;

@@ -17,7 +17,7 @@ import { serverRenderOffered, useExportStore } from "@/presentation/stores/expor
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useEffect, useState } from "react";
 import { Camera, ChevronLeft, Sliders } from "reicon-react";
-import { useCloudRenderCta, useCloudTarget } from "./cloud-render";
+import { useCloudRenderCta, useCloudTarget, useWhereSelect } from "./cloud-render";
 import {
 	type ClusterId,
 	DEVICE_CANNOT_ENCODE,
@@ -34,6 +34,7 @@ import {
 	TEMPO_PRESETS,
 	THEMES,
 } from "./control-presets";
+import { HostedRenderSheet } from "./hosted-render-sheet";
 import { IslandInput, IslandSegmented, IslandSwatch, IslandToggle } from "./island-primitives";
 
 const FALLBACK_PRESET = { aspect: ASPECT_LABELS[0], tier: RESOLUTION_TIERS[0] } as const;
@@ -479,7 +480,7 @@ function ExportMode() {
 	const height = useExportStore((state) => state.height);
 	const setResolution = useExportStore((state) => state.setResolution);
 	const target = useExportStore((state) => state.target);
-	const setTarget = useExportStore((state) => state.setTarget);
+	const selectWhere = useWhereSelect("rail");
 	const deviceSupported = useExportStore((state) => state.deviceSupported);
 	const probeDevice = useExportStore((state) => state.probeDevice);
 	const isExporting = useExportStore((state) => state.isExporting);
@@ -554,7 +555,7 @@ function ExportMode() {
 					...(cloudTarget ? [cloudTarget] : []),
 				]}
 				value={target}
-				onSelect={setTarget}
+				onSelect={selectWhere}
 			/>
 			<button
 				type="button"
@@ -594,6 +595,7 @@ function ExportMode() {
 			>
 				<RenderCtaLabel idle="Render" shown={renderLabel} />
 			</button>
+			<HostedRenderSheet surface="rail" />
 		</>
 	);
 }

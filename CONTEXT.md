@@ -167,13 +167,16 @@ or it does not land.
   leaves the runner to render, and the comment says why. A hosted problem never
   fails the job, and a fork, which gets no secrets, renders on the runner.
 - **Where**: the export panel's choice of machine. **Device** (WebCodecs in
-  this tab), **Server** (the local Remotion routes) and, in a hosted build for
-  a signed-in account only, **Cloud**: Render saves the canonical revision
-  through the account island's cloud save, then submits a hosted render job.
-  The browser keeps nothing but the job id; status, the signed download and
-  every refusal (the 402 that names the plan, the grace period's end) come
-  from the server in its own sentence. A plan without hosted renders uploads
-  nothing.
+  this tab), **Server** (the local Remotion routes) and, in a hosted build,
+  **Cloud**, listed for everyone and gated at the press (ux-waves D3): signed
+  out or on Free, pressing it opens the **hosted render sheet** (what a hosted
+  render adds, then Sign in or Upgrade to Creator) and chooses nothing; on a
+  plan with hosted render time it is chosen. Chosen, Render saves the canonical
+  revision through the account island's cloud save, then submits a hosted
+  render job. The browser keeps nothing but the job id; status, the signed
+  download and every refusal (the 402 that names the plan, the grace period's
+  end) come from the server in its own sentence. A plan without hosted renders
+  uploads nothing. A local build never lists Cloud.
 - **GIF concessions**: the size and frame-rate caps a GIF gets, computed by
   the same functions on the client and the server, and said out loud in the
   export note.
