@@ -6,8 +6,10 @@ import {
 	type SignInCode,
 } from "@/application/auth/client-auth.port";
 import { type AccountUsage, planAllowance } from "@/application/billing/plan-allowance";
+import { RESOLUTION_TIERS } from "@/domain/entities/render-config";
 import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
+import { FPS_OPTIONS } from "@/presentation/components/controls/cluster-panels";
 import {
 	StudioAccountControl,
 	type StudioBillingControl,
@@ -107,9 +109,13 @@ describe("StudioAccountControl", () => {
 		const device = lineOf("On this device:");
 		const account = lineOf("With an account:");
 		// The two lines are claims about the product (viability D2 and D4), pinned word for word.
+		// The device line names the ceiling no plan clamps (device-exports-free D1, #265), and
+		// that ceiling is the one the export offers: the largest tier and the fastest rate.
 		expect(device.textContent).toBe(
-			"On this device: every format, up to 4K, nothing uploaded, no account.",
+			"On this device: every format up to 4K and 60 fps, no watermark, nothing uploaded, no account.",
 		);
+		expect(RESOLUTION_TIERS.at(-1)).toBe("4K");
+		expect(FPS_OPTIONS.at(-1)?.value).toBe(60);
 		expect(account.textContent).toBe(
 			"With an account: private cloud copies, and hosted renders with captions and audio on Creator.",
 		);

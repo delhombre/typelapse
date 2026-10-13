@@ -75,3 +75,7 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-08 [public-pages-fix](2026-10-08-public-pages-fix.md): the audit's
   findings on the import strip, the public render page, the billing return and
   the screens before the bundle.
+- 2026-10-13 [hosted-render-sheet](2026-10-13-hosted-render-sheet.md): Cloud
+  under Where for everyone, the press explains it (sign in in the sheet, the
+  allowance and Upgrade on Free, Cloud chosen on Creator), the dead upgrade
+  button deleted.

@@ -168,9 +168,10 @@ routes (`/` and `/app`).
 NOT wired, do not describe as shipped:
 - **Teams / workspaces**: the domain entities exist and are tested, but nothing
   imports them outside the tests. No adapter, no service, no UI
-- **Upgrade UI**: `upgrade-button.tsx` is not mounted anywhere. The billing
-  adapter and `plan.store.ts` are real: hosted mode resolves the signed-in plan,
-  local mode runs on `Plan.local()`
+- **A pricing page**: checkout starts only from the account panel's plan card
+  and the hosted render sheet (`hosted-render-sheet.tsx`, Cloud under Where),
+  both through `plan.store.ts`; hosted mode resolves the signed-in plan, local
+  mode runs on `Plan.local()`
 
 ## User Preferences
 

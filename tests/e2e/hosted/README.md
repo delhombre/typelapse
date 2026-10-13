@@ -52,8 +52,12 @@ the address), then type it into the island or post it, as a person would.
   the code read in maildev); signing up uploads nothing until "Save this project to cloud" is pressed (consent);
   the save writes one project row; the free allowance sentence is the
   server's own; the session and the cloud copy survive a reload.
-- `free-cloud.spec.ts`: a free account sees its allowance under Cloud; Render
-  gets the 402 with the plan's sentence, and nothing is saved or queued.
+- `cloud-under-where.spec.ts`: Cloud under Where in the three states (ux-waves D3).
+  Signed out, the press opens the hosted render sheet, Escape gives focus back to
+  Cloud, and signing in inside the sheet turns it into the Free view; on Free the
+  sheet shows the server's allowance and one Upgrade to Creator that reaches Polar's
+  checkout, and a render asked for anyway gets the 402 before its body; on Creator
+  the press chooses Cloud. Nothing is saved or queued for a plan without renders.
 - `device-export.spec.ts`: signed out, in the hosted build (which resolves the Free
   plan), a 4K export on this device comes out 3840x2160 with nothing stamped in the
   corner; the visitor's own watermark is the positive control for that measurement.

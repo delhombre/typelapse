@@ -15,6 +15,12 @@ export interface PlanState {
 	plan: Plan;
 	catalog: BillingCatalog | null;
 	billingAvailable: boolean;
+	/**
+	 * Whether `plan` is the signed-in account's own, read from the server since the
+	 * last sign-in. Until it is, a hosted account shows as Free; a surface that sells
+	 * Creator waits for it rather than offering an upgrade to someone who has it.
+	 */
+	accountPlanKnown: boolean;
 	/** The server's allowance sentence, shown verbatim; null when it has none. */
 	allowance: string | null;
 	/** The ceilings and usage that sentence was built from, for the plan card's meter; null without them. */
@@ -28,6 +34,11 @@ export interface PlanState {
 	/** Signed out, only the public catalog is read: plan and allowance need an account. */
 	refresh(options?: { readonly signedIn?: boolean }): Promise<void>;
 	upgrade(cadence?: BillingCadence): Promise<void>;
+	/**
+	 * Frees Upgrade after the page left for checkout and came back with its state
+	 * kept (the back-forward cache): nothing is on its way any more, and nothing failed.
+	 */
+	releaseCheckout(): void;
 	manageBilling(): Promise<void>;
 }
 
@@ -76,10 +87,15 @@ export function createPlanStore({
 		return configured;
 	};
 
+	// Each read is numbered; only the latest one may write. A signed-out read that
+	// answers after the signed-in one would otherwise leave the account's plan unknown.
+	let reads = 0;
+
 	return create<PlanState>((set, get) => ({
 		plan: deploymentMode === "local" ? Plan.local() : Plan.free(),
 		catalog: null,
 		billingAvailable: false,
+		accountPlanKnown: deploymentMode === "local",
 		allowance: null,
 		allowanceDetail: null,
 		notice: null,
@@ -89,11 +105,18 @@ export function createPlanStore({
 		selectCadence: (cadence) => set({ cadence }),
 
 		refresh: async ({ signedIn = true } = {}) => {
+			const read = ++reads;
+			const latest = () => read === reads;
 			if (deploymentMode === "local") {
 				set({ plan: Plan.local(), error: null });
 				return;
 			}
-			if (!(await billingConfigured())) {
+			// A signed-out read says nothing about the next account: its plan is unknown
+			// from the moment the visitor is a visitor again.
+			if (!signedIn) set({ accountPlanKnown: false });
+			const configured = await billingConfigured();
+			if (!latest()) return;
+			if (!configured) {
 				// A hosted server without a payment provider answers the catalog, plan
 				// and notice reads with a 503: nothing to ask, and Free is the whole
 				// story. The allowance does not depend on checkout (a free account has
@@ -101,11 +124,13 @@ export function createPlanStore({
 				const [allowance] = await Promise.allSettled([
 					signedIn ? readAllowance() : Promise.resolve(null),
 				]);
+				if (!latest()) return;
 				const reading = allowance.status === "fulfilled" ? allowance.value : null;
 				set({
 					catalog: null,
 					billingAvailable: false,
 					plan: Plan.free(),
+					accountPlanKnown: signedIn,
 					allowance: reading?.sentence ?? null,
 					allowanceDetail: reading?.detail ?? null,
 					notice: null,
@@ -119,11 +144,13 @@ export function createPlanStore({
 				signedIn ? readAllowance() : Promise.resolve(null),
 				signedIn ? (billing.getNotice?.() ?? Promise.resolve(null)) : Promise.resolve(null),
 			]);
+			if (!latest()) return;
 			const reading = allowance.status === "fulfilled" ? allowance.value : null;
 			set({
 				catalog: catalog.status === "fulfilled" ? catalog.value : null,
 				billingAvailable: catalog.status === "fulfilled",
 				plan: plan.status === "fulfilled" ? plan.value : Plan.free(),
+				accountPlanKnown: signedIn,
 				allowance: reading?.sentence ?? null,
 				allowanceDetail: reading?.detail ?? null,
 				notice: notice.status === "fulfilled" ? notice.value : null,
@@ -136,10 +163,13 @@ export function createPlanStore({
 				set({ error: "Cloud billing is not part of this local deployment." });
 				return;
 			}
+			// One checkout per press: a second press while the first is on its way waits on it.
+			if (get().isUpgrading) return;
 			set({ isUpgrading: true, error: null });
 			try {
 				const checkout = await billing.startCheckout(cadence ?? get().cadence);
-				set({ isUpgrading: false });
+				// Still busy: the page is leaving for the checkout, and a press between the
+				// departure and the unload must not open a second session. Only a failure frees it.
 				navigate(checkout.url);
 			} catch (error) {
 				set({
@@ -148,6 +178,8 @@ export function createPlanStore({
 				});
 			}
 		},
+
+		releaseCheckout: () => set({ isUpgrading: false }),
 
 		manageBilling: async () => {
 			if (deploymentMode === "local") {

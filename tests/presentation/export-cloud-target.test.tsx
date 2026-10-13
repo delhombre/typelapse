@@ -1,12 +1,14 @@
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { Snippet } from "@/domain/entities/snippet";
 import { Step } from "@/domain/entities/step";
+import { Plan } from "@/domain/value-objects/plan";
 import { ClusterPanel } from "@/presentation/components/controls/cluster-panels";
 import { ExportStatus } from "@/presentation/components/controls/export-status";
 import { StudioClusterMode } from "@/presentation/components/controls/studio-cluster-mode";
 import { useAuthStore } from "@/presentation/stores/auth.store";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useHostedRenderJobsStore } from "@/presentation/stores/hosted-render-jobs.store";
+import { usePlanStore } from "@/presentation/stores/plan.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	readStudioCompositionSnapshot,
@@ -135,18 +137,34 @@ describe.each(PANELS)("Cloud under Where in %s", (_name, panel) => {
 		expect(calls).toEqual([]);
 	});
 
-	it("does not exist for a signed-out visitor of a hosted build", () => {
+	it("is listed for a signed-out visitor of a hosted build, and pressing it calls nothing", () => {
 		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		const calls = freeAccountApi();
 		useAuthStore.setState({ status: { kind: "anonymous" } });
+		usePlanStore.setState({ plan: Plan.free() });
+		render(panel());
+
+		// ux-waves D3: the paid side is visible to everyone, gated at the press
+		// (the sheet it opens is pinned in hosted-render-sheet.test.tsx).
+		fireEvent.click(screen.getByRole("button", { name: "Cloud" }));
+		expect(useExportStore.getState().target).toBe("device");
+		expect(calls).toEqual([]);
+	});
+
+	it("is not listed where the hosted build has no accounts to sign in to", () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		useAuthStore.setState({ status: { kind: "hosted-unconfigured" } });
 		render(panel());
 
 		expect(screen.queryByRole("button", { name: "Cloud" })).toBeNull();
 	});
 
-	it("shows a free account its allowance, then the server's 402, with Render still live", async () => {
+	it("keeps a free account whose Where is already Cloud (a plan that ended) on the server's 402, with Render still live", async () => {
 		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
 		const calls = freeAccountApi();
 		signedIn();
+		usePlanStore.setState({ plan: Plan.free() });
+		useExportStore.getState().setTarget("cloud");
 		render(
 			<>
 				{panel()}
@@ -154,8 +172,8 @@ describe.each(PANELS)("Cloud under Where in %s", (_name, panel) => {
 			</>,
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "Cloud" }));
-		expect(useExportStore.getState().target).toBe("cloud");
+		// A press on Cloud would open the upgrade sheet; a Where chosen before the plan
+		// ended still reads the allowance first, then meets the server's refusal.
 		await waitFor(() =>
 			expect(screen.getByTestId("cloud-render-status").textContent).toBe(FREE_ALLOWANCE),
 		);
