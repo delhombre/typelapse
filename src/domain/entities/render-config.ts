@@ -58,7 +58,7 @@ export function dimensionsFor(
 
 /**
  * Reverse lookup: which preset produced these dimensions, if any. Returns null
- * for off-matrix sizes (a plan-clamped export, or a hand-edited share link) so
+ * for off-matrix sizes (a hand-edited share link) so
  * the UI can show "no chip selected" instead of claiming the wrong one.
  */
 export function presetFor(

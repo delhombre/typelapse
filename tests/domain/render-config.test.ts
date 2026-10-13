@@ -148,7 +148,7 @@ describe("presetFor", () => {
 
 	it("returns null for dimensions that match no preset", () => {
 		expect(presetFor(1234, 567)).toBeNull();
-		// A plan-clamped 4K 16:9 export lands off-matrix; the UI must not lie
+		// A 1920x1200 size lands off-matrix; the UI must not lie
 		// about which chip is selected.
 		expect(presetFor(1920, 1200)).toBeNull();
 	});

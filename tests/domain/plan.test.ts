@@ -1,4 +1,4 @@
-import { BRANDING_WATERMARK, Plan } from "@/domain/value-objects/plan";
+import { Plan } from "@/domain/value-objects/plan";
 import { describe, expect, it } from "vitest";
 
 describe("Plan", () => {
@@ -10,19 +10,16 @@ describe("Plan", () => {
 			expect(local.isPaid).toBe(false);
 			expect(local.isPro).toBe(false);
 			expect(local.isFree).toBe(false);
-			expect(local.capabilities.forcesBrandingWatermark).toBe(false);
-			expect(local.capabilities.allowsCustomWatermark).toBe(true);
 		});
 
-		it("free is a single-seat, unpaid tier capped at 1080p that forces branding", () => {
+		it("free is a single-seat, unpaid tier with a 1080p hosted-render rectangle", () => {
 			const free = Plan.free();
 			expect(free.tier).toBe("free");
 			expect(free.isFree).toBe(true);
 			expect(free.isPaid).toBe(false);
 			expect(free.seatLimit).toBe(1);
-			expect(free.capabilities.maxLongEdge).toBe(1920);
-			expect(free.capabilities.maxShortEdge).toBe(1080);
-			expect(free.capabilities.forcesBrandingWatermark).toBe(true);
+			expect(free.capabilities.hostedMaxLongEdge).toBe(1920);
+			expect(free.capabilities.hostedMaxShortEdge).toBe(1080);
 			expect(free.capabilities.allowsCloudExport).toBe(false);
 		});
 
@@ -32,9 +29,8 @@ describe("Plan", () => {
 			expect(pro.isPro).toBe(true);
 			expect(pro.isPaid).toBe(true);
 			expect(pro.seatLimit).toBe(1);
-			expect(pro.capabilities.maxLongEdge).toBe(3840);
-			expect(pro.capabilities.maxShortEdge).toBe(2160);
-			expect(pro.capabilities.forcesBrandingWatermark).toBe(false);
+			expect(pro.capabilities.hostedMaxLongEdge).toBe(3840);
+			expect(pro.capabilities.hostedMaxShortEdge).toBe(2160);
 			expect(pro.capabilities.allowsCloudExport).toBe(true);
 			expect(pro.capabilities.priorityQueue).toBe(true);
 		});
@@ -45,7 +41,7 @@ describe("Plan", () => {
 			expect(team.isPaid).toBe(true);
 			expect(team.seatLimit).toBe(5);
 			expect(team.capabilities.seats).toBe(5);
-			expect(team.capabilities.maxLongEdge).toBe(3840);
+			expect(team.capabilities.hostedMaxLongEdge).toBe(3840);
 			expect(team.capabilities.allowsCloudExport).toBe(true);
 		});
 
@@ -88,30 +84,11 @@ describe("Plan", () => {
 		});
 	});
 
-	describe("clampResolution", () => {
-		it("scales 4K down to 1080p on free, preserving aspect ratio and even dims", () => {
-			const { width, height } = Plan.free().clampResolution(3840, 2160);
-			expect(width).toBe(1920);
-			expect(height).toBe(1080);
-			expect(width % 2).toBe(0);
-			expect(height % 2).toBe(0);
-		});
-
-		it("leaves within-limit resolutions untouched", () => {
-			expect(Plan.free().clampResolution(1280, 720)).toEqual({ width: 1280, height: 720 });
-		});
-
-		it("keeps 4K on pro and on local", () => {
-			expect(Plan.pro().clampResolution(3840, 2160)).toEqual({ width: 3840, height: 2160 });
-			expect(Plan.local().clampResolution(3840, 2160)).toEqual({ width: 3840, height: 2160 });
-		});
-	});
-
-	describe("allowsResolution", () => {
-		it("rejects 4K on free but allows it on pro and local", () => {
-			expect(Plan.free().allowsResolution(3840, 2160)).toBe(false);
-			expect(Plan.pro().allowsResolution(3840, 2160)).toBe(true);
-			expect(Plan.local().allowsResolution(3840, 2160)).toBe(true);
+	describe("allowsHostedResolution", () => {
+		it("refuses a 4K hosted render on free but allows it on pro and local", () => {
+			expect(Plan.free().allowsHostedResolution(3840, 2160)).toBe(false);
+			expect(Plan.pro().allowsHostedResolution(3840, 2160)).toBe(true);
+			expect(Plan.local().allowsHostedResolution(3840, 2160)).toBe(true);
 		});
 	});
 
@@ -131,65 +108,32 @@ describe("Plan", () => {
 		];
 
 		for (const [width, height] of rotations) {
-			it(`pro allows ${width}x${height} and leaves it untouched`, () => {
-				expect(Plan.pro().allowsResolution(width, height)).toBe(true);
-				expect(Plan.pro().clampResolution(width, height)).toEqual({ width, height });
+			it(`pro allows a hosted render at ${width}x${height}`, () => {
+				expect(Plan.pro().allowsHostedResolution(width, height)).toBe(true);
 			});
 		}
 
-		it("free keeps a portrait 1080p export at full size", () => {
+		it("free allows a portrait 1080p hosted render", () => {
 			// 9:16 at 1080p is 1080x1920: the same entitlement as 1920x1080, rotated.
-			expect(Plan.free().allowsResolution(1080, 1920)).toBe(true);
-			expect(Plan.free().clampResolution(1080, 1920)).toEqual({ width: 1080, height: 1920 });
+			expect(Plan.free().allowsHostedResolution(1080, 1920)).toBe(true);
 		});
 
 		it("a plan answers identically for a size and its rotation", () => {
 			for (const plan of [Plan.free(), Plan.pro(), Plan.team(3), Plan.local()]) {
 				for (const [width, height] of rotations) {
-					expect(plan.allowsResolution(width, height)).toBe(plan.allowsResolution(height, width));
-					const upright = plan.clampResolution(width, height);
-					const rotated = plan.clampResolution(height, width);
-					expect({ w: upright.width, h: upright.height }).toEqual({
-						w: rotated.height,
-						h: rotated.width,
-					});
+					expect(plan.allowsHostedResolution(width, height)).toBe(
+						plan.allowsHostedResolution(height, width),
+					);
 				}
 			}
 		});
 
 		it("still refuses a size that outruns the rectangle in either orientation", () => {
 			// 5000 on the long edge beats Pro's 3840 whichever way round it is.
-			expect(Plan.pro().allowsResolution(5000, 2000)).toBe(false);
-			expect(Plan.pro().allowsResolution(2000, 5000)).toBe(false);
+			expect(Plan.pro().allowsHostedResolution(5000, 2000)).toBe(false);
+			expect(Plan.pro().allowsHostedResolution(2000, 5000)).toBe(false);
 			// 2400 on the SHORT edge beats Pro's 2160 even though 3000 fits the long.
-			expect(Plan.pro().allowsResolution(3000, 2400)).toBe(false);
-		});
-	});
-
-	describe("effectiveWatermark", () => {
-		it("free always renders the branding watermark, ignoring custom text", () => {
-			expect(Plan.free().effectiveWatermark("")).toBe(BRANDING_WATERMARK);
-			expect(Plan.free().effectiveWatermark("@me")).toBe(BRANDING_WATERMARK);
-		});
-
-		it("pro renders the user's custom watermark, or nothing when empty", () => {
-			expect(Plan.pro().effectiveWatermark("@me")).toBe("@me");
-			expect(Plan.pro().effectiveWatermark("   ")).toBeUndefined();
-			expect(Plan.pro().effectiveWatermark("")).toBeUndefined();
-		});
-
-		it("local passes the user's watermark through and never forces branding", () => {
-			expect(Plan.local().effectiveWatermark("@me")).toBe("@me");
-			expect(Plan.local().effectiveWatermark("")).toBeUndefined();
-		});
-	});
-
-	describe("duration", () => {
-		it("free allows short clips only; pro and local allow long ones", () => {
-			expect(Plan.free().allowsDuration(30_000)).toBe(true);
-			expect(Plan.free().allowsDuration(120_000)).toBe(false);
-			expect(Plan.pro().allowsDuration(120_000)).toBe(true);
-			expect(Plan.local().allowsDuration(60 * 60_000)).toBe(true);
+			expect(Plan.pro().allowsHostedResolution(3000, 2400)).toBe(false);
 		});
 	});
 
@@ -256,12 +200,35 @@ describe("Plan", () => {
 	});
 
 	describe("local gates nothing (the OSS default)", () => {
-		it("passes any resolution, fps and duration through untouched", () => {
-			const local = Plan.local();
-			expect(local.clampResolution(7680, 4320)).toEqual({ width: 7680, height: 4320 });
-			expect(local.clampFps(120)).toBe(120);
-			expect(local.allowsFps(240)).toBe(true);
-			expect(local.allowsDuration(Number.MAX_SAFE_INTEGER)).toBe(true);
+		it("passes any hosted-render size through", () => {
+			expect(Plan.local().allowsHostedResolution(7680, 4320)).toBe(true);
 		});
+	});
+
+	/**
+	 * Decision 2026-10-13-device-exports-free: a plan prices hosted compute,
+	 * cloud projects and media. It carries nothing about an export on the user's
+	 * own machine, so there is nothing to clamp or stamp there.
+	 */
+	describe("a plan carries no device-export entitlement", () => {
+		const DEVICE_ENTITLEMENTS = [
+			"maxFps",
+			"maxDurationMs",
+			"maxLongEdge",
+			"maxShortEdge",
+			"forcesBrandingWatermark",
+			"allowsCustomWatermark",
+		];
+
+		for (const plan of [Plan.local(), Plan.free(), Plan.pro(), Plan.team(3)]) {
+			it(`${plan.label} has none`, () => {
+				for (const name of DEVICE_ENTITLEMENTS) {
+					expect(plan.capabilities).not.toHaveProperty(name);
+				}
+				expect(plan).not.toHaveProperty("clampResolution");
+				expect(plan).not.toHaveProperty("clampFps");
+				expect(plan).not.toHaveProperty("effectiveWatermark");
+			});
+		}
 	});
 });
