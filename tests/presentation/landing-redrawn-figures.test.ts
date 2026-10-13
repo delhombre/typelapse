@@ -13,6 +13,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const REDRAWN = ["scenes"] as const;
 type Name = (typeof REDRAWN)[number];
 
+/** What each lap says, in the order it says it: the stops of its tour, one answer each, then rest. */
+const LAPS: Record<Name, string[]> = { scenes: ["scene 01", "scene 02", "scene 03", "rest"] };
+
 async function load(name: Name): Promise<HairlineFigureDef> {
 	return (
 		(await import(`@/presentation/landing/figures/${name}.ts`)) as { default: HairlineFigureDef }
@@ -107,11 +110,9 @@ describe.each(REDRAWN)("the redrawn %s figure", (name) => {
 		FakeIntersectionObserver.show();
 		run(20_000);
 
-		const lap = said.slice(1);
-		const stops = (def.tour ?? []).filter((stop) => stop !== null).length;
-		// something other than rest was answered, once per stop at least, and the lap ended at rest
-		expect(new Set(lap.filter((text) => text !== "rest")).size).toBe(stops);
-		expect(lap.at(-1)).toBe("rest");
+		// the lap says each stop once, in the order of the tour, with no answer in passing, and ends at rest
+		const lap = said.slice(1).filter((text, i, all) => text !== all[i - 1]);
+		expect(lap).toEqual(LAPS[name]);
 
 		// then the figure rests: nothing more is said or drawn, however long the page stays open
 		const spoken = said.length;

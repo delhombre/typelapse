@@ -20,8 +20,8 @@ const { Cam, clamp, facing, fit, proj, rad, rings, rrect, ringAt, seg, unproj } 
 const { tdone, tset, tval, tween, disposer, flatDot, mk, place, pointer, prism } = HL;
 const { poly, put, register, solid } = HL;
 
-/** Three pages, as the picture beside it holds three scenes: the code before the
-    change, then one per hunk. */
+/** Three pages, as the picture beside it holds three scenes. Each carries lines added and
+    removed, as a hunk does. */
 const N = 3;
 const RAIL = 10;
 const WP = 100;
@@ -124,7 +124,9 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 			ctx: path("nf"),
 			add: path("nf sil"),
 			del: path("nf dash"),
-			gutter: (LINES[i] ?? []).map(([kind]) => dot(kind === "a" ? "dot m" : "dot off")),
+			gutter: (LINES[i] ?? [])
+				.filter(([kind]) => kind !== "c")
+				.map(([kind]) => dot(kind === "a" ? "dot m" : "dot off")),
 			lights: [0, 1, 2].map(() => dot("dot off")),
 			a: tween(REST[i] ?? 0),
 			z: tween(0),
@@ -148,9 +150,10 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 			P(RAIL + u, yf - (D - v) * c - off * sn, (D - v) * sn + lift + PZ - off * c);
 		p.back.setAttribute("d", poly(shape.map((q) => w(q.u, q.v, TK))));
 		p.face.setAttribute("d", poly(shape.map((q) => w(q.u, q.v))));
-		p.bar.setAttribute("d", seg(w(1.2, 7), w(WP - 1.2, 7)));
+		p.bar.setAttribute("d", t > 0.02 ? seg(w(1.2, 7), w(1.2 + (WP - 2.4) * t, 7)) : "");
 		const rows: Record<Kind, string[]> = { c: [], a: [], d: [] };
 		let gone = 0;
+		let mark = 0;
 		(LINES[i] ?? []).forEach(([kind, ind, len], k) => {
 			// a removed line shortens as the page stands, and the lines below it close up
 			const keep = kind === "d" ? 1 - t : 1;
@@ -160,9 +163,9 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 			if (kind === "d") {
 				gone++;
 			}
-			const dot = p.gutter[k];
+			const dot = kind === "c" ? undefined : p.gutter[mark++];
 			if (dot) {
-				dot.setAttribute("r", String(kind === "c" ? 0 : 0.9 * (1 - t)));
+				dot.setAttribute("r", String(0.9 * (1 - t)));
 				place(dot, w(4.2, v));
 			}
 		});
@@ -237,7 +240,7 @@ const scenes: HairlineFigureDef = {
 		"A diff printed on tractor-feed paper and cut at its hunks: the page under the pointer stands up as a scene, its neighbours less.",
 	rules: [1, 2, 5, 9],
 	range: [0, 40, 90],
-	tour: [[200, 177], [163, 195], [237, 158], null],
+	tour: [[237, 158], [200, 177], [163, 195], null],
 	mount,
 };
 
