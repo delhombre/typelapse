@@ -128,8 +128,8 @@ export function PipelineSection() {
 					figure={{
 						load: loadScenes,
 						label:
-							"A pull request lying flat, cut into three slices; the slice under the pointer stands up as a scene.",
-						hint: "Move over the slices",
+							"A diff printed on tractor-feed paper and cut at its hunks into three pages; the page under the pointer stands up as a scene.",
+						hint: "Move over the pages",
 						flat: true,
 					}}
 					picture={
@@ -213,7 +213,7 @@ export function PipelineSection() {
 					figure={{
 						load: loadLocal,
 						label:
-							"A laptop exports a video; frames stack on the desk while the slot above, where a server would take the file, stays empty.",
+							"A laptop exports a video; its frames drop onto a stack on the desk, and nothing leaves the desk.",
 						hint: "Move along the desk",
 					}}
 					picture={<ExportShapes />}
