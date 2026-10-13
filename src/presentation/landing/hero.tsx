@@ -61,9 +61,9 @@ const PLACEHOLDERS: Record<Mode, string> = {
  * a wrong number is a row that visibly contradicts what it loads.
  */
 const EXAMPLES = [
-	{ url: "github.com/oven-sh/bun/pull/37643", files: "3 files", added: "+7", removed: "−6" },
-	{ url: "github.com/vercel/next.js/pull/97139", files: "1 file", added: "+19", removed: "−7" },
-	{ url: "github.com/honojs/hono/pull/5189", files: "3 files", added: "+44", removed: "−1" },
+	{ repo: "oven-sh/bun", number: 37643, files: "3 files", added: "+7", removed: "−6" },
+	{ repo: "vercel/next.js", number: 97139, files: "1 file", added: "+19", removed: "−7" },
+	{ repo: "honojs/hono", number: 5189, files: "3 files", added: "+44", removed: "−1" },
 ] as const;
 
 const META = ["Local by default", "Preview matches export", "MP4, WebM, GIF and PNG"] as const;
@@ -239,7 +239,7 @@ export function Hero() {
 					<RevealItem>
 						<ul className="lp-log">
 							{EXAMPLES.map((e) => (
-								<ExampleRow key={e.url} example={e} />
+								<ExampleRow key={e.number} example={e} />
 							))}
 						</ul>
 					</RevealItem>
@@ -276,12 +276,15 @@ export function Hero() {
  */
 function ExampleRow({ example }: { example: (typeof EXAMPLES)[number] }) {
 	const to = useMemo(
-		() => `/app${encodeImportIntent({ source: `https://${example.url}` })}`,
-		[example.url],
+		() =>
+			`/app${encodeImportIntent({ source: `https://github.com/${example.repo}/pull/${example.number}` })}`,
+		[example.repo, example.number],
 	);
 	return (
 		<li>
-			<Link to={to}>{example.url}</Link>
+			{/* The repository and the number, which is how a person names a pull request;
+			    the whole URL was cut by its own ellipsis at 390 and said nothing more. */}
+			<Link to={to}>{`${example.repo} #${example.number}`}</Link>
 			<span>{example.files}</span>
 			<span>{example.added}</span>
 			<span>{example.removed}</span>

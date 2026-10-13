@@ -107,6 +107,23 @@ describe("landing hero", () => {
 		]);
 	});
 
+	/* #272: the examples name the repository and the pull request number, which is
+	   what a person recognises, not a URL cut off by its own ellipsis. */
+	it("names each example by its repository and pull request number, and opens that change", () => {
+		renderHeroWithStudio();
+		const links = screen.getAllByRole("link");
+
+		expect(links.map((link) => link.textContent)).toEqual([
+			"oven-sh/bun #37643",
+			"vercel/next.js #97139",
+			"honojs/hono #5189",
+		]);
+		fireEvent.click(links[2] as HTMLElement);
+		expect(screen.getByLabelText("Studio").textContent).toBe(
+			`/app${encodeImportIntent({ source: "https://github.com/honojs/hono/pull/5189" })}`,
+		);
+	});
+
 	/* #40: the drawn block is a sibling after the field, so it can only stand at
 	   the end of the text. It holds the empty field alone, where the end is the
 	   only place the caret can be; with content the native caret takes over, the

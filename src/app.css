@@ -895,14 +895,11 @@ html.dark:not([data-landing-theme]) {
    lines up across rows cannot be sized inside a row: the list owns the columns,
    each row borrows them by subgrid. Its right edge is the field's own, so the
    log is exactly as wide as the object it reports on. */
-/* Every row is 24px because every row is a target: each one carries a real pull
-   request into the studio, and at 20px of line and 2px of gap the link was a
-   20px-tall thing to hit — under WCAG 2.5.8's 24px floor, on the three rows
-   most likely to be tapped with a thumb. The height goes into the line rather
-   than into a gap so the rows tile: 24px of link against 24px of link, with no
-   gutter between them that answers to nobody and no extension reaching into a
-   neighbour's row to steal its taps. The log is four rows of 24 instead of four
-   of 22; it costs the hero 8px and reads the same. */
+/* Every row is a target: each one carries a real pull request into the studio. The
+   link spans its whole row (below), so the target is the row, full width, and the rows
+   tile with no gutter between them that answers to nobody. 24px with a mouse, WCAG
+   2.5.8's floor; 44px under a finger (DECISIONS D10, #272), where the line height
+   carries the difference, so the stats stay centred on it. */
 .landing-root .lp-log {
 	display: grid;
 	grid-template-columns: 1fr auto auto auto;
@@ -910,11 +907,19 @@ html.dark:not([data-landing-theme]) {
 	margin-top: 14px;
 	font-family: var(--font-mono);
 	font-size: 12px;
-	/* 24px a row, and every row is a target: the ratio is 2 so it stays 24. */
+	/* 24px a row: the ratio is 2 so it stays 24. */
 	line-height: 2;
 }
 
+@media (pointer: coarse) {
+	.landing-root .lp-log {
+		/* 44px a row, 12px of type. */
+		line-height: calc(44 / 12);
+	}
+}
+
 .landing-root .lp-log li {
+	position: relative;
 	display: grid;
 	grid-column: 1 / -1;
 	grid-template-columns: subgrid;
@@ -934,6 +939,14 @@ html.dark:not([data-landing-theme]) {
 	white-space: nowrap;
 	color: var(--color-ash);
 	text-decoration: none;
+}
+
+/* The link is the row, not the column its text sits in: the counts beside the name
+   open the same change. */
+.landing-root .lp-log a::after {
+	content: "";
+	position: absolute;
+	inset: 0;
 }
 
 /* Gated, like every other hover here: on a touch screen the state has no way
