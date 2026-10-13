@@ -1,3 +1,4 @@
+import { planAllowance } from "@/application/billing/plan-allowance";
 import type { BillingPort } from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
 import { createPlanStore } from "@/presentation/stores/plan.store";
@@ -87,6 +88,55 @@ describe("deployment-aware plan store", () => {
 		});
 		await failing.getState().refresh();
 		expect(failing.getState().allowance).toBeNull();
+	});
+
+	it("keeps the allowance whole for the meter, and its sentence for everything else", async () => {
+		const reading = planAllowance(
+			Plan.free(),
+			{ cloudProjects: 2, mediaBytes: 0, hostedRenderMsThisMonth: 0, activeRenders: 0 },
+			new Date("2026-10-13T09:00:00.000Z"),
+		);
+		const read = vi.fn(async () => reading);
+		const getAllowance = vi.fn(async () => "never read when the reader answers");
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({ getAllowance }),
+			allowanceReader: { read },
+		});
+
+		await store.getState().refresh();
+
+		expect(store.getState().allowance).toBe(reading.sentence);
+		expect(store.getState().allowanceDetail).toEqual(reading);
+		expect(read).toHaveBeenCalledOnce();
+		expect(getAllowance).not.toHaveBeenCalled();
+
+		await store.getState().refresh({ signedIn: false });
+		expect(store.getState().allowanceDetail).toBeNull();
+		expect(read).toHaveBeenCalledOnce();
+	});
+
+	it("shows no meter when the allowance cannot be read, and none from a sentence alone", async () => {
+		const failing = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing(),
+			allowanceReader: {
+				read: async () => {
+					throw new Error("Hosted allowance is not configured");
+				},
+			},
+		});
+		await failing.getState().refresh();
+		expect(failing.getState().allowance).toBeNull();
+		expect(failing.getState().allowanceDetail).toBeNull();
+
+		const sentenceOnly = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({ getAllowance: async () => "You are using 1 of 3 cloud projects." }),
+		});
+		await sentenceOnly.getState().refresh();
+		expect(sentenceOnly.getState().allowance).toBe("You are using 1 of 3 cloud projects.");
+		expect(sentenceOnly.getState().allowanceDetail).toBeNull();
 	});
 
 	it("keeps the notice the server wrote, drops it when the server cannot give one, and never asks signed out", async () => {

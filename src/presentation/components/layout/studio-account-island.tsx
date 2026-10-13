@@ -88,6 +88,7 @@ function HostedAccountIsland({
 		catalog,
 		billingAvailable,
 		allowance,
+		allowanceDetail,
 		notice,
 		cadence,
 		isUpgrading,
@@ -125,6 +126,7 @@ function HostedAccountIsland({
 			cloudProjectState={cloudProjectState}
 			{...(runtime ? { onSaveToCloud: saveToCloud } : {})}
 			allowance={allowance}
+			allowanceDetail={allowanceDetail}
 			apiKeys={{ store: apiKeyStore }}
 			cloudProjects={{
 				store: cloudProjectsStore,

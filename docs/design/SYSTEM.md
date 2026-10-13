@@ -46,7 +46,7 @@ the one exception (DECISIONS D5).
 | Desktop CTA, timeline selection, a selected rail segment's well at 10% | `--camera-amber: var(--color-primary)` `src/presentation/studio-camera.css` `color-mix(in oklch, var(--camera-amber) 10%, transparent)` `src/presentation/studio-camera.css` | same |
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css` | same |
-| Error ink: a refused link or diff, a recording state (4.94:1 on the landing paper, 4.98:1 on the studio's, 7.9:1 on the dark paper) | `--camera-danger: #c53a3a` `src/presentation/studio-camera.css` | `--camera-danger: #f28b82` `src/presentation/studio-camera.css` |
+| Error ink: a refused link or diff, a recording state, a plan meter from 90% (with a mark and a bold count, never colour alone) (4.94:1 on the landing paper, 4.98:1 on the studio's, 7.9:1 on the dark paper) | `--camera-danger: #c53a3a` `src/presentation/studio-camera.css` | `--camera-danger: #f28b82` `src/presentation/studio-camera.css` |
 | Browser chrome before paint | `content="#FAF9F6"` `index.html` | `content="#121110"` `index.html` |
 | Document behind the studio | `background: #fafaf9` `src/app.css` | `background: #121110` `src/app.css @ html.dark` |
 

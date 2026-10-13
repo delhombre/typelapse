@@ -5,7 +5,7 @@ import { useDiffImportStore } from "@/presentation/stores/diff-import.store";
 import { useShowcaseRequestStore } from "@/presentation/stores/showcase-request.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { synchronizeStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.hoisted(() => {
@@ -77,6 +77,33 @@ describe.each(SURFACES)("the empty scene list on %s", (_name, Surface) => {
 			expect(button.getAttribute("data-kind")).toBe("secondary");
 		}
 		expect(fork.textContent).not.toMatch(/[–—]/);
+	});
+
+	it("has one Capture control while the fork is shown: the head's quiet one steps aside", () => {
+		load([]);
+		render(<Surface />);
+
+		expect(screen.getByRole("button", { name: "Capture this code" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Capture" })).toBeNull();
+		// The other ways to add a scene stay where they were.
+		expect(screen.getByRole("button", { name: "Blank" })).toBeTruthy();
+	});
+
+	it("gives the head's Capture back once the fork is gone", () => {
+		load([{ code: CODE, duration: 2_000 }]);
+		render(<Surface />);
+
+		expect(screen.getByRole("button", { name: "Capture" })).toBeTruthy();
+	});
+
+	it("gives the head's Capture back while the editor is empty, disabled, with its reason", () => {
+		load([]);
+		render(<Surface />);
+
+		act(() => useSnippetStore.getState().setCode(""));
+
+		const capture = screen.getByRole("button", { name: "Capture" });
+		expect((capture as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	it("captures the code as the first scene, and the fork goes away with it", () => {
@@ -163,6 +190,74 @@ describe.each(SURFACES)("the empty scene list on %s", (_name, Surface) => {
 
 		expect(await screen.findByRole("dialog", { name: "Import a git diff" })).toBeTruthy();
 		expect(useDiffImportStore.getState().pending).toBeNull();
+	});
+
+	it("returns focus to the row that opened the Showcase when it closes", async () => {
+		load([]);
+		render(
+			<>
+				<Surface />
+				<TemplateGallery />
+			</>,
+		);
+		const row = screen.getByRole("button", { name: "Start from an example" });
+		fireEvent.click(row);
+		const dialog = await screen.findByRole("dialog", { name: "Showcase" });
+
+		fireEvent.keyDown(dialog, { key: "Escape" });
+
+		await waitFor(() => expect(document.activeElement).toBe(row));
+	});
+
+	it("returns focus to the row that opened the pull request importer when it closes", async () => {
+		load([]);
+		render(
+			<>
+				<Surface />
+				<StudioSourceHub />
+			</>,
+		);
+		const row = screen.getByRole("button", { name: "Import a pull request" });
+		fireEvent.click(row);
+		await screen.findByRole("dialog", { name: "Import a git diff" });
+
+		fireEvent.keyDown(document, { key: "Escape" });
+
+		await waitFor(() => expect(document.activeElement).toBe(row));
+	});
+
+	it("opened from the header, the Showcase still returns focus to its own trigger", async () => {
+		load([{ code: CODE, duration: 2_000 }]);
+		render(<TemplateGallery />);
+		const trigger = screen.getByRole("button", { name: "Showcase" });
+		fireEvent.click(trigger);
+		const dialog = await screen.findByRole("dialog", { name: "Showcase" });
+
+		fireEvent.keyDown(dialog, { key: "Escape" });
+
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+	});
+
+	it("does not reach for a fork row that is gone: the trigger takes focus", async () => {
+		load([]);
+		render(
+			<>
+				<Surface />
+				<TemplateGallery />
+			</>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Start from an example" }));
+		const dialog = await screen.findByRole("dialog", { name: "Showcase" });
+		// A scene appears behind the dialog (an import finished): the fork unmounts.
+		act(() => {
+			useSnippetStore.getState().captureStep();
+		});
+
+		fireEvent.keyDown(dialog, { key: "Escape" });
+
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole("button", { name: "Showcase" })),
+		);
 	});
 
 	it("does not wipe a paste left in the importer when it is asked for again", async () => {

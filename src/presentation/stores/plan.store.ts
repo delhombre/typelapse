@@ -1,3 +1,4 @@
+import type { PlanAllowance, PlanAllowanceReader } from "@/application/billing/plan-allowance";
 import type {
 	BillingCadence,
 	BillingCatalog,
@@ -16,6 +17,8 @@ export interface PlanState {
 	billingAvailable: boolean;
 	/** The server's allowance sentence, shown verbatim; null when it has none. */
 	allowance: string | null;
+	/** The ceilings and usage that sentence was built from, for the plan card's meter; null without them. */
+	allowanceDetail: PlanAllowance | null;
 	/** The server's sentence for a payment that failed or a plan that ended; null when billing is in order. */
 	notice: BillingNotice | null;
 	cadence: BillingCadence;
@@ -31,6 +34,8 @@ export interface PlanState {
 export interface PlanStoreOptions {
 	readonly deploymentMode: ClientDeploymentMode;
 	readonly billing?: BillingPort;
+	/** Reads the allowance whole; the HTTP billing adapter does, by default. Without one only the sentence is known. */
+	readonly allowanceReader?: PlanAllowanceReader;
 	readonly navigate?: (url: string) => void;
 }
 
@@ -46,8 +51,23 @@ function browserNavigate(url: string): void {
 export function createPlanStore({
 	deploymentMode,
 	billing = new HttpBillingAdapter(),
+	allowanceReader = billing instanceof HttpBillingAdapter ? billing : undefined,
 	navigate = browserNavigate,
 }: PlanStoreOptions) {
+	interface AllowanceReading {
+		readonly sentence: string;
+		readonly detail: PlanAllowance | null;
+	}
+	/** Null when there is nothing to read (a server without an allowance, a build with no getter). */
+	const readAllowance = async (): Promise<AllowanceReading | null> => {
+		if (allowanceReader) {
+			const detail = await allowanceReader.read();
+			return { sentence: detail.sentence, detail };
+		}
+		const sentence = await (billing.getAllowance?.() ?? Promise.resolve(null));
+		return sentence === null ? null : { sentence, detail: null };
+	};
+
 	// Asked once per page: billing does not switch on while the studio is open.
 	let configured: Promise<boolean> | undefined;
 	const billingConfigured = () => {
@@ -61,6 +81,7 @@ export function createPlanStore({
 		catalog: null,
 		billingAvailable: false,
 		allowance: null,
+		allowanceDetail: null,
 		notice: null,
 		cadence: "monthly",
 		isUpgrading: false,
@@ -78,13 +99,15 @@ export function createPlanStore({
 				// story. The allowance does not depend on checkout (a free account has
 				// ceilings either way), so a signed-in account still reads it.
 				const [allowance] = await Promise.allSettled([
-					signedIn ? (billing.getAllowance?.() ?? Promise.resolve(null)) : Promise.resolve(null),
+					signedIn ? readAllowance() : Promise.resolve(null),
 				]);
+				const reading = allowance.status === "fulfilled" ? allowance.value : null;
 				set({
 					catalog: null,
 					billingAvailable: false,
 					plan: Plan.free(),
-					allowance: allowance.status === "fulfilled" ? allowance.value : null,
+					allowance: reading?.sentence ?? null,
+					allowanceDetail: reading?.detail ?? null,
 					notice: null,
 					error: null,
 				});
@@ -93,14 +116,16 @@ export function createPlanStore({
 			const [catalog, plan, allowance, notice] = await Promise.allSettled([
 				billing.getCatalog(),
 				signedIn ? billing.getCurrentPlan() : Promise.resolve(Plan.free()),
-				signedIn ? (billing.getAllowance?.() ?? Promise.resolve(null)) : Promise.resolve(null),
+				signedIn ? readAllowance() : Promise.resolve(null),
 				signedIn ? (billing.getNotice?.() ?? Promise.resolve(null)) : Promise.resolve(null),
 			]);
+			const reading = allowance.status === "fulfilled" ? allowance.value : null;
 			set({
 				catalog: catalog.status === "fulfilled" ? catalog.value : null,
 				billingAvailable: catalog.status === "fulfilled",
 				plan: plan.status === "fulfilled" ? plan.value : Plan.free(),
-				allowance: allowance.status === "fulfilled" ? allowance.value : null,
+				allowance: reading?.sentence ?? null,
+				allowanceDetail: reading?.detail ?? null,
 				notice: notice.status === "fulfilled" ? notice.value : null,
 				error: null,
 			});

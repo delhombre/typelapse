@@ -12,7 +12,8 @@ import { Add, ChevronRight } from "reicon-react";
  * The caller decides when it shows (no scene yet and code to capture); it goes
  * away by itself once a scene exists, because the caller stops rendering it.
  * The two rows ask the Showcase and the source hub's diff view to open through
- * their hand-off stores; neither surface is rebuilt here.
+ * their hand-off stores, naming themselves so each surface gives focus back to the
+ * row when it closes; neither surface is rebuilt here.
  */
 export function EmptySceneFork({ onCapture }: { readonly onCapture: () => void }) {
 	return (
@@ -30,9 +31,9 @@ export function EmptySceneFork({ onCapture }: { readonly onCapture: () => void }
 				className="sc-fork-action"
 				data-kind="secondary"
 				aria-haspopup="dialog"
-				onClick={() => {
+				onClick={(event) => {
 					feedback("selection");
-					useShowcaseRequestStore.getState().request();
+					useShowcaseRequestStore.getState().request(event.currentTarget);
 				}}
 			>
 				Start from an example
@@ -43,10 +44,10 @@ export function EmptySceneFork({ onCapture }: { readonly onCapture: () => void }
 				className="sc-fork-action"
 				data-kind="secondary"
 				aria-haspopup="dialog"
-				onClick={() => {
+				onClick={(event) => {
 					feedback("selection");
 					// An empty hand-off opens the diff view as it is.
-					useDiffImportStore.getState().handOff("");
+					useDiffImportStore.getState().handOff("", event.currentTarget);
 				}}
 			>
 				Import a pull request
