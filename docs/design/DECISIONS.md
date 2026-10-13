@@ -197,14 +197,16 @@ exceptions), `src/presentation/studio-camera.css` (`--camera-focus`).
 size (`.hit-target`, `.hit-ext`), and grows into the gap beside it no
 further. Under `pointer: coarse` every text field types at 16px. No tap
 highlight, `touch-action: manipulation`, no selection on a long-pressed
-button. On the phone's corner row that reach is the chip's padding plus
-half the gap to the next chip (`--edge-bleed`).
+button. On the phone's corner row, under a finger, each control is a 44px
+column at a 44px pitch, none reaching a neighbour; the end of a chip reaches half
+the gap (`--edge-bleed`). Showcase and Library live in More (`cornerRowPlan`, #282).
 
 **Why:** iOS zooms into a field under 16px and stays zoomed. A 44px square
 in a 35px pitch overhung its neighbour by 9px and stole its presses.
 
 **Enforced by:** `src/app.css`, `src/presentation/studio-camera.css`,
-`tests/e2e/mobile-shell.spec.ts` (every Export control reachable at 375x667),
+`tests/e2e/mobile-shell.spec.ts` (every Export control reachable at 375x667; the
+corner row's reach at 360, 390 and 430),
 `tests/presentation/layer-editor-in-sheet.test.ts`,
 `tests/application/phone-sheet.test.ts`.
 

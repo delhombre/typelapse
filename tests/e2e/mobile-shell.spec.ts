@@ -492,7 +492,8 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 			"Copy share link",
 		]);
 		expect(rows.at(-1)).toBe("Back to home");
-		// A row's own height is the target: 44px.
+		// A row's own height is the target: 44px, once the menu has finished arriving.
+		await settled(menu);
 		for (const name of ["Showcase", "Library"]) {
 			const box = await menu.getByRole("button", { name, exact: true }).boundingBox();
 			expect(box?.height).toBeGreaterThanOrEqual(44);
