@@ -16,7 +16,7 @@
 
 import { fitScale } from "./fit-scale";
 import { phoneSheetGeometry } from "./phone-sheet";
-import { DESKTOP_SCENE_MIN_WIDTH, type Room, pictureRoomAt } from "./scene-stage";
+import { DESKTOP_SCENE_MIN_WIDTH, type Room, pictureRoomAt, stageTransform } from "./scene-stage";
 
 /** The shape a new project exports at (`RenderConfig`'s default, 1080p wide). */
 const DEFAULT_SHAPE = { width: 1920, height: 1080 } as const;
@@ -35,12 +35,22 @@ export interface StageFrameInput {
 /** A box in window px, from the window's top-left corner. */
 export type FrameBox = Room;
 
+export interface StageFrameOptions {
+	/**
+	 * The desktop's code card is open (Edit): the stage is scaled about the
+	 * picture's centre and moved right, as `stageTransform` says. Ignored on a
+	 * phone, where the sheet and not a card holds the code.
+	 */
+	readonly editing?: boolean;
+}
+
 /**
  * The studio's frame at this window size, for a project that exports at the
  * default shape, with the sheet at its peek and the code card folded: the state
- * the studio opens in.
+ * a project with scenes opens in. `editing` is the state an empty one opens in
+ * on a desktop (#270).
  */
-export function stageFrameBox(input: StageFrameInput): FrameBox {
+export function stageFrameBox(input: StageFrameInput, options: StageFrameOptions = {}): FrameBox {
 	if (input.viewportWidth < DESKTOP_SCENE_MIN_WIDTH) {
 		const { left, top, width, height } = phoneSheetGeometry({
 			...input,
@@ -54,10 +64,45 @@ export function stageFrameBox(input: StageFrameInput): FrameBox {
 	// it is capped at 1 here too: a frame is never larger than its canvas.
 	const width = DEFAULT_SHAPE.width * scale;
 	const height = DEFAULT_SHAPE.height * scale;
-	return {
+	const folded = {
 		left: room.left + (room.width - width) / 2,
 		top: room.top + (room.height - height) / 2,
 		width,
 		height,
 	};
+	if (!options.editing) {
+		return folded;
+	}
+	const { x, y, scale: editScale } = stageTransform({ folded: false });
+	const scaledWidth = folded.width * editScale;
+	const scaledHeight = folded.height * editScale;
+	return {
+		left: folded.left + (folded.width - scaledWidth) / 2 + x,
+		top: folded.top + (folded.height - scaledHeight) / 2 + y,
+		width: scaledWidth,
+		height: scaledHeight,
+	};
+}
+
+/**
+ * The phone's scenes stop, where an empty project's sheet opens (#270): how tall
+ * the sheet is, and how far above its peek place the instrument rides it. Null on
+ * a desktop and where the frame leaves no scenes stop. The loading outline draws
+ * both, so they are in place before the studio is.
+ */
+export function phoneScenesStop(
+	input: StageFrameInput,
+): { readonly sheet: number; readonly dockRaise: number } | null {
+	if (input.viewportWidth >= DESKTOP_SCENE_MIN_WIDTH) {
+		return null;
+	}
+	const geometry = phoneSheetGeometry({
+		...input,
+		aspect: DEFAULT_SHAPE.width / DEFAULT_SHAPE.height,
+	});
+	const sheet = geometry.stops.scenes;
+	if (sheet === null) {
+		return null;
+	}
+	return { sheet, dockRaise: geometry.dockLift("scenes") - geometry.dockLift("peek") };
 }

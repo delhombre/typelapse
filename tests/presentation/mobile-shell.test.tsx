@@ -38,7 +38,7 @@ const shell = () =>
 	render(
 		<MemoryRouter>
 			<StudioTooltipProvider>
-				<MobileShell editor={<div />} stepBuilder={<div />} preview={<div />} />
+				<MobileShell editor={<div />} stepBuilder={<div />} preview={<div />} sceneCount={1} />
 			</StudioTooltipProvider>
 		</MemoryRouter>,
 	);
@@ -429,9 +429,20 @@ describe("the instrument on the sheet's edge", () => {
 		expect(dock.style.transform).toBe("translate3d(0, -280px, 0)");
 		expect(dock.style.transition).toBe("none");
 
+		// While the studio is placing the sheet on open (`data-opening`) the instrument is
+		// placed without the sheet's transition too: it never rides up to its stop (#270).
+		expect(sheet.hasAttribute("data-opening")).toBe(true);
 		await act(async () => {
 			sheet.style.transition = "transform 0.5s cubic-bezier(0.32, 0.72, 0, 1)";
 			sheet.style.transform = "translate3d(0, 58px, 0)";
+			await Promise.resolve();
+		});
+		expect(dock.style.transition).toBe("none");
+
+		// Opened: the sheet's transition is the instrument's again.
+		sheet.removeAttribute("data-opening");
+		await act(async () => {
+			sheet.style.transition = "transform 0.5s cubic-bezier(0.32, 0.72, 0, 1) 0s";
 			await Promise.resolve();
 		});
 		// Let go over the full stop: the instrument takes the sheet's own curve down to the bottom.

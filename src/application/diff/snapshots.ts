@@ -1,4 +1,5 @@
-import { budgetWalkthrough } from "./budget";
+import { MAX_WALKTHROUGH_PAGES, budgetWalkthrough, omissionMarker } from "./budget";
+import { type ScenePage, opensOnBeforeState, splitIntoScenes } from "./scenes";
 import type {
 	CodeSnapshot,
 	DiffHunk,
@@ -6,7 +7,7 @@ import type {
 	GenerateSnapshotsOptions,
 	ParsedDiff,
 } from "./types";
-import { planWindows, renderWindowedStage } from "./windowing";
+import { type FileWindowPlan, planWindows, renderWindowedStage } from "./windowing";
 
 /** Lines as they appear in the OLD file: context + removed (additions dropped). */
 function hunkBefore(hunk: DiffHunk): string[] {
@@ -112,14 +113,85 @@ export function generateSnapshots(
 
 	// Compute the windows once, then budget them; every stage renders against the
 	// same (kept, possibly truncated) boundaries and the same omission marker.
-	const { plans, marker } = budgetWalkthrough(planWindows(diff.files));
-	const hunks = plans.flatMap((plan) => plan.hunks);
-	if (hunks.length === 0) {
+	const planned = planWindows(diff.files);
+	const { plans, marker } = budgetWalkthrough(planned);
+	if (plans.every((plan) => plan.hunks.length === 0)) {
 		return [];
 	}
-	return buildStages(mode, hunks, (applied) =>
-		appendMarker(renderWindowedStage(plans, applied), marker),
-	);
+	return sceneSnapshots(mode, plans, marker, planned.length);
+}
+
+/**
+ * The windowed walkthrough as scenes (see ./scenes): each page plays on its own,
+ * its before-state, each of its hunks applied, its after-state. A diff that fits
+ * one scene is one page and comes out exactly as the unsplit walkthrough did.
+ *
+ * Captions across pages: the walkthrough opens on "Before" and ends on "After";
+ * every other frame carries its hunk's heading, or `Change n` numbered by the
+ * HUNK, so a continuation scene keeps the caption of the hunk it continues. A
+ * page opens on the caption of its own first hunk: the same one when it goes on
+ * with the hunk before, never the previous page's when it starts another (it may
+ * be another file's). A continuation of an addition has no opening frame (see
+ * {@link opensOnBeforeState}). The omission marker describes what follows the end
+ * of the video, so only the last page carries it.
+ */
+function sceneSnapshots(
+	mode: DiffStepMode,
+	plans: FileWindowPlan[],
+	omitted: string | null,
+	totalFiles: number,
+): CodeSnapshot[] {
+	let marker = omitted;
+	let pages = splitIntoScenes(plans, marker ? 1 : 0);
+	if (pages.length > MAX_WALKTHROUGH_PAGES) {
+		// The scaffold of each page (headers, separators) took the walkthrough past the
+		// page cap: lay the pages out again with the marker's row free, and cut them.
+		pages = splitIntoScenes(plans, 1).slice(0, MAX_WALKTHROUGH_PAGES);
+		// A file whose every window sat past the cut is hidden too: count it.
+		const shown = new Set(pages.flatMap((page) => page.plans.map((plan) => plan.path)));
+		marker = omissionMarker(totalFiles - shown.size, true);
+	}
+	const showHeaders = plans.length > 1;
+	const snapshots: CodeSnapshot[] = [];
+
+	pages.forEach((page, pageIndex) => {
+		const last = pageIndex === pages.length - 1;
+		const hunkCount = page.hunkNumbers.length;
+		const applied = mode === "before-after" ? [0, hunkCount] : range(hunkCount + 1);
+
+		for (const count of applied) {
+			if (count === 0 && !opensOnBeforeState(page, pages[pageIndex - 1])) {
+				continue;
+			}
+			const code = renderWindowedStage(page.plans, count, showHeaders);
+			snapshots.push({
+				code: appendMarker(code, last ? marker : null),
+				label: sceneLabel(page, count, pageIndex, last),
+			});
+		}
+	});
+	return snapshots;
+}
+
+function range(length: number): number[] {
+	return Array.from({ length }, (_, index) => index);
+}
+
+/** A hunk's own caption: its heading, or `Change n` numbered by the hunk across the walkthrough. */
+function hunkCaption(page: ScenePage, index: number): string {
+	const hunk = page.plans.flatMap((plan) => plan.hunks)[index];
+	return hunk?.heading ? hunk.heading : `Change ${(page.hunkNumbers[index] ?? index) + 1}`;
+}
+
+/** The caption of the stage that has applied the first `count` hunks of a page. */
+function sceneLabel(page: ScenePage, count: number, pageIndex: number, lastPage: boolean): string {
+	if (count === 0) {
+		return pageIndex === 0 ? "Before" : hunkCaption(page, 0);
+	}
+	if (lastPage && count === page.hunkNumbers.length) {
+		return "After";
+	}
+	return hunkCaption(page, count - 1);
 }
 
 /**

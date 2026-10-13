@@ -57,6 +57,23 @@ terms so issues, specs, tests and code use the same ones.
   quiet rows, "Start from an example" (opens the Showcase) and "Import a pull
   request" (opens the source hub's diff view). It is not rendered once a scene
   exists, on the phone sheet and on the desktop panel alike.
+- **Continuation scene**: a diff import holds at most `MAX_SCENE_LINES` rows
+  in any frame (`application/diff/scenes`), because one card serves every scene
+  and the tallest frame sets its size: 56 rows left the code at 9 px in the
+  1080p export, 24 leave it at 18.8 (`MIN_READABLE_CODE_PX` is 18). What the
+  budget keeps is split into pages, each played on its own (its before-state, its
+  hunks applied, its after-state). A window taller than a page is cut, and the
+  scene after the cut is a continuation scene: it opens with the `⋯` separator
+  (the piece before closes on one) and keeps the caption of the hunk it
+  continues. A block of removals and additions is windowed interleaved (r1 a1 r2
+  a2), so a cut keeps each old line facing the line that replaces it. A page
+  that continues an addition, or opens on nothing but `⋯`, has no opening frame. A
+  walkthrough (a diff, or one chapter of a pull request) plays at most
+  `MAX_WALKTHROUGH_PAGES` (4) pages, over at most 6 files; the marker line
+  (`⋯ n more files` or `⋯ more changes hidden`) says what is left.
+  `tests/support/scene-readability` measures the px a plan lands at, with
+  the same `fitCardToCanvas` the renderers call. A 9:16 frame is limited by the
+  longest line, not the rows (16.7 px for the example PR's 77 columns).
 - **Magic move**: the pure, dependency-free token-morphing engine
   (`src/application/magic-move`) shared by every renderer.
 

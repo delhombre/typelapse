@@ -21,6 +21,16 @@
 /** The sheet's three stops, by what each one is for. */
 export type PhoneSheetStop = "peek" | "scenes" | "full";
 
+/**
+ * Where the sheet opens (gate five D3): a project with no scene yet opens on
+ * the scenes stop, where its first move is on screen without a gesture, and a
+ * project with scenes opens on the peek, where the frame has the screen. A
+ * phone with no scenes stop resolves it to the peek.
+ */
+export function openingStop(sceneCount: number): PhoneSheetStop {
+	return sceneCount === 0 ? "scenes" : "peek";
+}
+
 /** The handle and a breath of sheet under it, above the home indicator. */
 const PEEK = 56;
 /** The corner row: its margin from the top (or the notch) and its height. */

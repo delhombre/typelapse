@@ -1,7 +1,8 @@
 import { stageFrameBox } from "@/application/layout/stage-frame";
 import { StudioSkeleton } from "@/presentation/studio/studio-skeleton";
+import { DRAFT_STORAGE_KEY } from "@/presentation/utils/studio-storage-keys";
 import { act, cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * #226: the outline drew its frame at sizes of its own (692x390 where the studio
@@ -34,11 +35,18 @@ function frameBox(): number[] {
 	);
 }
 
+/** A project with a scene, stored the way the studio's autosave leaves it. */
+const STORED_SCENE = JSON.stringify({ title: "x", code: "a", steps: [{ code: "a", duration: 1 }] });
+
+beforeEach(() => {
+	window.localStorage.clear();
+});
 afterEach(cleanup);
 
 describe("the studio's outline", () => {
 	for (const [width, height, studio] of STUDIO) {
 		it(`draws its frame where the studio's is at ${width}x${height}`, () => {
+			window.localStorage.setItem(DRAFT_STORAGE_KEY, STORED_SCENE);
 			setWindow(width, height);
 			render(<StudioSkeleton />);
 			const box = frameBox();
@@ -49,6 +57,7 @@ describe("the studio's outline", () => {
 	}
 
 	it("takes its box from the layout math, not from the stylesheet", () => {
+		window.localStorage.setItem(DRAFT_STORAGE_KEY, STORED_SCENE);
 		setWindow(1366, 650);
 		render(<StudioSkeleton />);
 		const expected = stageFrameBox({
@@ -61,6 +70,7 @@ describe("the studio's outline", () => {
 	});
 
 	it("follows the window while the studio is still on its way", () => {
+		window.localStorage.setItem(DRAFT_STORAGE_KEY, STORED_SCENE);
 		setWindow(1280, 800);
 		render(<StudioSkeleton />);
 		expect(frameBox()[2]).toBeCloseTo(576, 1);
@@ -73,6 +83,7 @@ describe("the studio's outline", () => {
 	});
 
 	it("needs nothing a browser might lack: it is what stands in while the studio loads", () => {
+		window.localStorage.setItem(DRAFT_STORAGE_KEY, STORED_SCENE);
 		vi.stubGlobal("ResizeObserver", undefined);
 		setWindow(1280, 800);
 		render(<StudioSkeleton />);
@@ -95,5 +106,36 @@ describe("the studio's outline", () => {
 		const { getByRole } = render(<StudioSkeleton />);
 		expect(getByRole("status", { name: "Loading the studio" })).toBeTruthy();
 		expect(document.querySelector(".sk-frame")?.getAttribute("aria-hidden")).toBe("true");
+	});
+
+	// #270: an empty project opens in Edit on a desktop, so the outline draws that
+	// layout (the code card at the left, the frame shifted right) and the studio
+	// lands without the picture stepping sideways.
+	it("draws the Edit layout on a first visit at 1440x900", () => {
+		setWindow(1440, 900);
+		render(<StudioSkeleton />);
+		const expected = stageFrameBox(
+			{ viewportWidth: 1440, viewportHeight: 900, safeTop: 0, safeBottom: 0 },
+			{ editing: true },
+		);
+		expect(frameBox()).toEqual([expected.left, expected.top, expected.width, expected.height]);
+		expect(document.querySelector(".sk-root")?.hasAttribute("data-editing")).toBe(true);
+	});
+
+	it("draws the Preview layout for a stored project with a scene", () => {
+		window.localStorage.setItem(DRAFT_STORAGE_KEY, STORED_SCENE);
+		setWindow(1440, 900);
+		render(<StudioSkeleton />);
+		expect(document.querySelector(".sk-root")?.hasAttribute("data-editing")).toBe(false);
+	});
+
+	it("draws the Edit layout for a stored project with no scene yet", () => {
+		window.localStorage.setItem(
+			DRAFT_STORAGE_KEY,
+			JSON.stringify({ title: "x", code: "a", steps: [] }),
+		);
+		setWindow(1440, 900);
+		render(<StudioSkeleton />);
+		expect(document.querySelector(".sk-root")?.hasAttribute("data-editing")).toBe(true);
 	});
 });

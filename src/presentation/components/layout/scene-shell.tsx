@@ -13,6 +13,7 @@ import { trigger } from "@/presentation/haptics";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { springs } from "@/presentation/motion";
 import {
+	openingCodeFolded,
 	readShellPreferences,
 	writeShellPreferences,
 } from "@/presentation/utils/shell-preferences";
@@ -31,6 +32,8 @@ interface SceneShellProps {
 	editor: ReactNode;
 	sceneInspector: ReactNode;
 	preview: ReactNode;
+	/** How many scenes the project had when the studio opened: none opens in Edit. */
+	sceneCount: number;
 }
 
 const ARRIVAL_DELAY = { stage: 0, rail: 0.06, chrome: 0.1, editor: 0.14 } as const;
@@ -40,9 +43,11 @@ const ARRIVAL_DELAY = { stage: 0, rail: 0.06, chrome: 0.1, editor: 0.14 } as con
  * history, and editing is a temporary sheet rather than a column the preview
  * must carry forever.
  */
-export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps) {
+export function SceneShell({ editor, sceneInspector, preview, sceneCount }: SceneShellProps) {
 	const reduce = useReducedMotion() === true;
-	const [folded, setFolded] = useState(() => readShellPreferences().codeFolded);
+	const [folded, setFolded] = useState(() =>
+		openingCodeFolded(sceneCount, readShellPreferences().codeFolded),
+	);
 	const draggingFile = useStudioFileDrop();
 
 	const fold = useCallback((next: boolean) => {
@@ -117,7 +122,7 @@ export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps)
 						className="sc-stage-arrival"
 						{...arrival(ARRIVAL_DELAY.stage, { scale: 0.985 })}
 					>
-						<motion.div className="sc-stage" animate={stage} transition={settle}>
+						<motion.div className="sc-stage" initial={false} animate={stage} transition={settle}>
 							{preview}
 						</motion.div>
 					</motion.div>
@@ -134,7 +139,7 @@ export function SceneShell({ editor, sceneInspector, preview }: SceneShellProps)
 
 				<div className="sc-dock-slot">
 					<motion.div className="sc-dock-arrival" {...arrival(ARRIVAL_DELAY.rail, { y: 18 })}>
-						<motion.div className="sc-dock" animate={rail} transition={settle}>
+						<motion.div className="sc-dock" initial={false} animate={rail} transition={settle}>
 							<ExportStatus />
 							<StudioControlRail />
 						</motion.div>

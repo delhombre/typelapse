@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { STAGE_FLOOR_HEIGHT } from "../../src/application/layout/scene-stage";
-import { expect, openStudio, settled, test } from "./support/studio";
+import { expect, oneSceneHash, openStudio, settled, test } from "./support/studio";
 
 /**
  * The desktop shell itself: the paper never slides under the controls, and the
@@ -164,7 +164,7 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 
 	test("at 1440x500 the picture keeps its floor and the page scrolls", async ({ page }) => {
 		await page.setViewportSize({ width: 1440, height: 500 });
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		await expect(page.getByTestId("preview-frame")).toBeVisible();
 
 		await expect
@@ -185,7 +185,7 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 	// scrolls takes it along rather than away.
 	test("at 1440x500 the header stays in view while the shell scrolls", async ({ page }) => {
 		await page.setViewportSize({ width: 1440, height: 500 });
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		await expect(page.getByTestId("preview-frame")).toBeVisible();
 		const preview = page.getByRole("button", { name: "Preview", exact: true });
 		const edit = page.getByRole("button", { name: "Edit", exact: true });
@@ -241,7 +241,7 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 
 	test("at 1440x900 the header is where it always was", async ({ page }) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		const header = await page.locator(".studio-camera-header").boundingBox();
 		expect(header).toMatchObject({ x: 0, y: 0, width: 1440, height: 80 });
 		// The corner arrives on a spring from 8px above; its rest is the 20px it had.
@@ -254,7 +254,7 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 	// bands around the picture give way before the shell scrolls.
 	test("at 1440x650 the page fits and the picture keeps its floor", async ({ page }) => {
 		await page.setViewportSize({ width: 1440, height: 650 });
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		await expect(page.getByTestId("preview-frame")).toBeVisible();
 
 		await expect
@@ -275,7 +275,7 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 		page,
 	}) => {
 		await page.setViewportSize({ width: 1440, height: 780 });
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		await expect(page.getByTestId("preview-frame")).toBeVisible();
 
 		const scrolling = await page.evaluate(() => ({
@@ -296,7 +296,7 @@ test.describe("Studio shell: a short window scrolls, it does not shrink the pict
 		page,
 	}) => {
 		await page.setViewportSize({ width: 1440, height: 900 });
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		await expect(page.getByTestId("preview-frame")).toBeVisible();
 
 		const scrolling = await page.evaluate(() => ({
