@@ -68,7 +68,10 @@ test.describe("Billing against the fake Polar", () => {
 			"GET",
 			"/__requests",
 		);
-		expect(asked.find((entry) => entry.route === "POST /v1/checkouts")?.body).toMatchObject({
+		// The fake's log is shared by every journey (two workers, retries): pick this account's checkout.
+		const mine = (entry: { route: string; body: Record<string, unknown> }) =>
+			entry.route === "POST /v1/checkouts" && entry.body.external_customer_id === id;
+		expect(asked.find(mine)?.body).toMatchObject({
 			products: [POLAR_E2E.fakeProducts.annual],
 			external_customer_id: id,
 		});
