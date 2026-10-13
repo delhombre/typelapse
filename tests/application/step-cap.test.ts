@@ -50,7 +50,7 @@ describe("capWalkthrough", () => {
 		// Everything before the last kept step is untouched, nothing in the middle is lost.
 		expect(cut.snapshots.slice(0, -1)).toEqual(chapter(0, 10).slice(0, -1));
 		const last = cut.snapshots.at(-1);
-		expect(last?.code).toBe("c0s9\n⋯ 50 more changes");
+		expect(last?.code).toBe("c0s9\n⋯ 50 more scenes");
 		expect(last?.label).toBe("Change 9");
 	});
 
@@ -64,7 +64,7 @@ describe("capWalkthrough", () => {
 		expect(cut.shownChapters).toBe(3);
 		expect(cut.omittedSteps).toBe(15);
 		expect(cut.snapshots.slice(0, -1)).toEqual(sequences.slice(0, 3).flat().slice(0, -1));
-		expect(cut.snapshots.at(-1)?.code).toBe("c2s4\n⋯ 15 more changes");
+		expect(cut.snapshots.at(-1)?.code).toBe("c2s4\n⋯ 15 more scenes");
 	});
 
 	it("drops a whole chapter that would straddle the cap, never half of it", () => {
@@ -76,7 +76,7 @@ describe("capWalkthrough", () => {
 		expect(cut.snapshots).toHaveLength(10);
 		expect(cut.shownChapters).toBe(1);
 		expect(cut.omittedSteps).toBe(12);
-		expect(cut.snapshots.at(-1)?.code).toBe("c0s9\n⋯ 12 more changes");
+		expect(cut.snapshots.at(-1)?.code).toBe("c0s9\n⋯ 12 more scenes");
 	});
 
 	it("cuts inside the first chapter when it alone is past the cap", () => {
@@ -85,17 +85,17 @@ describe("capWalkthrough", () => {
 
 		expect(cut.snapshots).toHaveLength(MAX_DIFF_STEPS);
 		expect(cut.snapshots.slice(0, -1)).toEqual(chapter(0, 47).slice(0, MAX_DIFF_STEPS - 1));
-		expect(cut.snapshots.at(-1)?.code).toBe(`c0s${MAX_DIFF_STEPS - 1}\n⋯ 31 more changes`);
+		expect(cut.snapshots.at(-1)?.code).toBe(`c0s${MAX_DIFF_STEPS - 1}\n⋯ 31 more scenes`);
 		expect(cut.shownChapters).toBe(1);
 		expect(cut.totalChapters).toBe(1);
 		expect(cut.omittedSteps).toBe(31);
 		expect(cut.cutWithinChapter).toBe(true);
 	});
 
-	it("says 'change' for a single omitted step", () => {
+	it("says 'scene' for a single omitted step", () => {
 		const cut = capWalkthrough([chapter(0, MAX_DIFF_STEPS + 1)]);
 
-		expect(cut.snapshots.at(-1)?.code).toBe(`c0s${MAX_DIFF_STEPS - 1}\n⋯ 1 more change`);
+		expect(cut.snapshots.at(-1)?.code).toBe(`c0s${MAX_DIFF_STEPS - 1}\n⋯ 1 more scene`);
 	});
 
 	it("shares the budget's own marker row instead of stacking a second one under it", () => {
@@ -106,7 +106,7 @@ describe("capWalkthrough", () => {
 
 		const cut = capWalkthrough([kept, chapter(1, 5)]);
 
-		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯ 4 more files, 5 more changes");
+		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯ 4 more files, 5 more scenes");
 	});
 
 	it("lets the count replace the generic hidden-changes marker", () => {
@@ -117,7 +117,7 @@ describe("capWalkthrough", () => {
 
 		const cut = capWalkthrough([kept, chapter(1, 3)]);
 
-		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯ 3 more changes");
+		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯ 3 more scenes");
 	});
 
 	it("does not take a trailing separator for a marker", () => {
@@ -125,7 +125,7 @@ describe("capWalkthrough", () => {
 
 		const cut = capWalkthrough([kept, chapter(1, 3)]);
 
-		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯\n⋯ 3 more changes");
+		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯\n⋯ 3 more scenes");
 	});
 
 	it("takes no chapters at all as nothing", () => {

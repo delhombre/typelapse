@@ -374,9 +374,9 @@ describe("snippet store importDiff", () => {
 		expect(steps[0]?.annotation).toBe("Before");
 		// The last kept stage keeps its own label and says the video stops early.
 		expect(steps[15]?.annotation).toBe("Change 15");
-		expect(steps[15]?.code.endsWith("\n⋯ 31 more changes")).toBe(true);
+		expect(steps[15]?.code.endsWith("\n⋯ 31 more scenes")).toBe(true);
 		expect(steps[14]?.annotation).toBe("Change 14");
-		expect(steps[14]?.code).not.toContain("more change");
+		expect(steps[14]?.code).not.toContain("more scene");
 	});
 
 	it("survives a hunk heading longer than the caption bound", () => {
@@ -521,8 +521,8 @@ describe("snippet store importChapters", () => {
 		expect(steps[0]?.annotation).toBe("1/3 · first");
 		expect(steps[12]?.annotation).toBe("After");
 		expect(steps[12]?.code).toContain("const v6 = 60;");
-		expect(steps[12]?.code.endsWith("\n⋯ 6 more changes")).toBe(true);
-		expect(steps[11]?.code).not.toContain("more change");
+		expect(steps[12]?.code.endsWith("\n⋯ 6 more scenes")).toBe(true);
+		expect(steps[11]?.code).not.toContain("more scene");
 	});
 
 	it("infers a non-default language from the chapters", () => {

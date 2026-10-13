@@ -233,6 +233,6 @@ describe("chapters past the step cap", () => {
 		for (const snapshot of cut.snapshots) {
 			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
 		}
-		expect(cut.snapshots.at(-1)?.code).toMatch(/\n⋯ \d+ more changes$/);
+		expect(cut.snapshots.at(-1)?.code).toMatch(/\n⋯ \d+ more scenes$/);
 	});
 });

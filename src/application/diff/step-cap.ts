@@ -6,7 +6,7 @@
  * stages), and a pull request chaptered by commit multiplies that by its commits.
  * Past {@link MAX_DIFF_STEPS} the video ends early, and it says so: whole chapters
  * are kept from the start, the tail is dropped, and the last kept step carries a
- * `⋯ n more changes` row, the same kind of row the budget's marker is, so the
+ * `⋯ n more scenes` row, the same kind of row the budget's marker is, so the
  * viewer sees the story stop rather than jump from a middle change to "After".
  *
  * Pure: it composes sibling diff modules and has no framework deps.
@@ -56,8 +56,8 @@ export interface CappedWalkthrough {
 export type WalkthroughCut = Omit<CappedWalkthrough, "snapshots">;
 
 /** The row a walkthrough ends on when its tail was dropped. */
-function changesMarker(omitted: number): string {
-	return `${ELLIPSIS} ${omitted} more ${omitted === 1 ? "change" : "changes"}`;
+function scenesMarker(omitted: number): string {
+	return `${ELLIPSIS} ${omitted} more ${omitted === 1 ? "scene" : "scenes"}`;
 }
 
 /**
@@ -68,7 +68,7 @@ function changesMarker(omitted: number): string {
  * changes`, and the generic `⋯ more changes hidden` gives way to the count.
  */
 function markCut(code: string, omitted: number): string {
-	const marker = changesMarker(omitted);
+	const marker = scenesMarker(omitted);
 	if (code === "") {
 		return marker;
 	}
@@ -77,9 +77,7 @@ function markCut(code: string, omitted: number): string {
 	if (!lastLine.startsWith(`${ELLIPSIS} `)) {
 		return `${code}\n${marker}`;
 	}
-	const own = /^⋯ \d+ more files?$/.test(lastLine)
-		? `${lastLine}, ${omitted} more changes`
-		: marker;
+	const own = /^⋯ \d+ more files?$/.test(lastLine) ? `${lastLine}, ${omitted} more scenes` : marker;
 	return [...lines.slice(0, -1), own].join("\n");
 }
 

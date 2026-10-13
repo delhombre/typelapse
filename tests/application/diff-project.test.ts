@@ -52,7 +52,7 @@ describe("a diff past the step cap", () => {
 		expect(steps).toHaveLength(MAX_DIFF_STEPS);
 		// Nothing in the middle is lost: only the tail, and the last kept step says so.
 		const code = steps.at(-1)?.code ?? "";
-		expect(code.endsWith("\n⋯ 32 more changes")).toBe(true);
+		expect(code.endsWith("\n⋯ 32 more scenes")).toBe(true);
 	});
 
 	it("keeps every frame within a scene's rows, the marker row included", () => {
@@ -71,7 +71,7 @@ describe("a diff past the step cap", () => {
 			for (const step of steps) {
 				expect(step.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
 			}
-			expect(steps.at(-1)?.code).toMatch(/\n⋯ \d+ more changes$/);
+			expect(steps.at(-1)?.code).toMatch(/\n⋯ \d+ more scenes$/);
 		}
 	});
 

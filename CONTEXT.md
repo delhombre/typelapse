@@ -79,7 +79,7 @@ terms so issues, specs, tests and code use the same ones.
   commit adds its chapters up). `MAX_DIFF_STEPS` (16, `application/diff/step-cap`)
   is a duration budget: n steps run 1.85 n - 0.65 s, so 16 run 29 s, under the
   30 s a social clip tolerates. It keeps whole chapters from the start and drops
-  the tail; the last kept step carries a `⋯ n more changes` row (sharing the
+  the tail; the last kept step carries a `⋯ n more scenes` row (sharing the
   budget's marker row when it has one, and every page keeps that row free once a
   walkthrough is past the cap, so no frame passes `MAX_SCENE_LINES`). A release's
   title card counts as one of the 16 (`stepBudget`). The import says "Showing the
