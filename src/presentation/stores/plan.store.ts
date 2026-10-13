@@ -90,6 +90,23 @@ export function createPlanStore({
 	// Each read is numbered; only the latest one may write. A signed-out read that
 	// answers after the signed-in one would otherwise leave the account's plan unknown.
 	let reads = 0;
+	// A read that was overtaken does not hand its caller back an empty store: it waits for
+	// the read that stands to write, so "refresh() resolved" always means "the store is current".
+	// The checkout return depends on it, since it reads the store right after asking.
+	let overtaken: (() => void)[] = [];
+	let landedRead = 0;
+	const landed = (read: number) => {
+		landedRead = read;
+		const waiting = overtaken;
+		overtaken = [];
+		for (const resolve of waiting) resolve();
+	};
+	const standing = () =>
+		landedRead === reads
+			? Promise.resolve()
+			: new Promise<void>((resolve) => {
+					overtaken.push(resolve);
+				});
 
 	return create<PlanState>((set, get) => ({
 		plan: deploymentMode === "local" ? Plan.local() : Plan.free(),
@@ -109,13 +126,14 @@ export function createPlanStore({
 			const latest = () => read === reads;
 			if (deploymentMode === "local") {
 				set({ plan: Plan.local(), error: null });
+				landed(read);
 				return;
 			}
 			// A signed-out read says nothing about the next account: its plan is unknown
 			// from the moment the visitor is a visitor again.
 			if (!signedIn) set({ accountPlanKnown: false });
 			const configured = await billingConfigured();
-			if (!latest()) return;
+			if (!latest()) return standing();
 			if (!configured) {
 				// A hosted server without a payment provider answers the catalog, plan
 				// and notice reads with a 503: nothing to ask, and Free is the whole
@@ -124,7 +142,7 @@ export function createPlanStore({
 				const [allowance] = await Promise.allSettled([
 					signedIn ? readAllowance() : Promise.resolve(null),
 				]);
-				if (!latest()) return;
+				if (!latest()) return standing();
 				const reading = allowance.status === "fulfilled" ? allowance.value : null;
 				set({
 					catalog: null,
@@ -136,6 +154,7 @@ export function createPlanStore({
 					notice: null,
 					error: null,
 				});
+				landed(read);
 				return;
 			}
 			const [catalog, plan, allowance, notice] = await Promise.allSettled([
@@ -144,7 +163,7 @@ export function createPlanStore({
 				signedIn ? readAllowance() : Promise.resolve(null),
 				signedIn ? (billing.getNotice?.() ?? Promise.resolve(null)) : Promise.resolve(null),
 			]);
-			if (!latest()) return;
+			if (!latest()) return standing();
 			const reading = allowance.status === "fulfilled" ? allowance.value : null;
 			set({
 				catalog: catalog.status === "fulfilled" ? catalog.value : null,
@@ -156,6 +175,7 @@ export function createPlanStore({
 				notice: notice.status === "fulfilled" ? notice.value : null,
 				error: null,
 			});
+			landed(read);
 		},
 
 		upgrade: async (cadence) => {

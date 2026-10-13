@@ -371,6 +371,43 @@ describe("deployment-aware plan store", () => {
 		expect(store.getState().accountPlanKnown).toBe(true);
 	});
 
+	it("a read that was overtaken resolves only once the standing read has written", async () => {
+		// The checkout return asks for the plan, then reads the store: if the account island
+		// started its own read in between, the first ask must not resolve on an empty store.
+		const catalogs: ((value: Awaited<ReturnType<BillingPort["getCatalog"]>>) => void)[] = [];
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({
+				getCatalog: () =>
+					new Promise((resolve) => {
+						catalogs.push(resolve);
+					}),
+				getCurrentPlan: async () => Plan.pro(),
+				getNotice: async () => ({ kind: "ended", sentence: "Your Creator plan has ended." }),
+			}),
+		});
+		const catalog = { creator: { monthly: { currency: "USD", unitAmount: 1200 } } };
+
+		const overtaken = store.getState().refresh({ signedIn: true });
+		await vi.waitFor(() => expect(catalogs).toHaveLength(1));
+		const standing = store.getState().refresh({ signedIn: true });
+		await vi.waitFor(() => expect(catalogs).toHaveLength(2));
+
+		let overtakenResolved = false;
+		void overtaken.then(() => {
+			overtakenResolved = true;
+		});
+		catalogs[0]?.(catalog);
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(overtakenResolved).toBe(false);
+
+		catalogs[1]?.(catalog);
+		await overtaken;
+		await standing;
+		expect(store.getState().plan.tier).toBe("pro");
+		expect(store.getState().notice?.kind).toBe("ended");
+	});
+
 	it("frees the button for a page restored from the back-forward cache, with no error", async () => {
 		const store = createPlanStore({
 			deploymentMode: "hosted",
