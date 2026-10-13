@@ -461,8 +461,9 @@ html.dark:not([data-landing-theme]) {
 	align-items: center;
 }
 
-/* A grid item's `min-width` is `auto`, which is its content. Zero, at every
-   width, so the field inside answers to the column and never the reverse. */
+/* The `minmax(0, …)` tracks are the fix. This is the guard: a grid item's
+   `min-width` is `auto`, which is its content, so should a track ever go back
+   to `auto` or `fr`, the field would again outgrow the column. */
 .landing-root .lp-hero-copy,
 .landing-root .lp-hero-instrument {
 	min-width: 0;
