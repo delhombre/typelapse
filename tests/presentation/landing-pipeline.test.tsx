@@ -4,6 +4,7 @@ import { PipelineSection, StepStrip } from "@/presentation/landing/pipeline";
 import { PricingSection } from "@/presentation/landing/pricing-section";
 import { SpecSheet } from "@/presentation/landing/spec-sheet";
 import { render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 /* The stages' pictures are tested on their own; here they only have to be there. */
@@ -129,14 +130,23 @@ describe("landing specification", () => {
 
 describe("landing pricing", () => {
 	it("splits the product in two columns and quotes no price", () => {
-		const { container } = render(<PricingSection />);
+		const { container } = render(
+			<MemoryRouter>
+				<PricingSection />
+			</MemoryRouter>,
+		);
 
 		expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
 			"On your machine",
 			"Hosted",
 		]);
 		expect(container.textContent).not.toMatch(/[$€£]\s?\d|\d\s?(?:USD|EUR)|\/\s?mo/i);
-		// The close below is the zone's one filled action.
-		expect(container.querySelector("a, button")).toBeNull();
+		// The close below is the zone's one filled action: the only way on from here is a
+		// text link to the plan page, and nothing in either column is a button.
+		expect(container.querySelector("button")).toBeNull();
+		expect(screen.getByRole("link", { name: "See the plans" }).getAttribute("href")).toBe(
+			"/pricing",
+		);
+		expect(container.querySelectorAll("a")).toHaveLength(1);
 	});
 });
