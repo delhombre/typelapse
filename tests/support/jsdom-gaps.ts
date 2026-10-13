@@ -30,17 +30,17 @@ const MONOSPACE_ADVANCE_EM = 0.6;
 
 /**
  * Gives `<canvas>.getContext("2d")` a context that measures text the way a real
- * monospace face does: `advanceEm` per character at the size in `font`. The
+ * monospace face does: 0.6 em per character at the size in `font`. The
  * composition measures its theme font's advance on one (`measureAdvance`), and
  * a card sized on any other number is not the card a browser draws.
  */
-export function useMonospaceCanvas(advanceEm = MONOSPACE_ADVANCE_EM): void {
+export function useMonospaceCanvas(): void {
 	holdForFile(() => {
 		const meter = {
 			font: "",
 			measureText(text: string) {
 				const size = Number.parseFloat(/(\d+(?:\.\d+)?)px/.exec(meter.font)?.[1] ?? "0");
-				return { width: advanceEm * size * text.length };
+				return { width: MONOSPACE_ADVANCE_EM * size * text.length };
 			},
 		};
 		return vi

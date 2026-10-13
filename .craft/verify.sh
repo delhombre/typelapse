@@ -47,7 +47,9 @@ for step in "${STEPS[@]}"; do
   if grep -q "Not implemented" "$log"; then
     echo "!! FAILED: $step printed jsdom \"Not implemented\" lines ($(grep -c "Not implemented" "$log")); first:"
     grep -m3 "Not implemented" "$log"
-    echo "   Stub the call in the test file that makes it: tests/support/jsdom-gaps.ts"
+    echo "   The line has no file name. Find the test: pnpm vitest run <file> 2>&1 | grep -c 'Not implemented'"
+    echo "   (bisect by directory: tests/presentation, tests/server, ...). Then call useMonospaceCanvas()"
+    echo "   or useInertWindowScroll() from tests/support/jsdom-gaps.ts at the top of that file."
     exit 1
   fi
 done
