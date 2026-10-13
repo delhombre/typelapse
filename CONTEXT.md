@@ -274,6 +274,15 @@ or it does not land.
   still Free), says what changed once the server reports a paid plan, or says
   only that the payment arrived when twenty seconds pass. A cancelled checkout
   stays a toast.
+- **Cloud intent**: the one-shot hash `/app#cloud`, which the pricing page's
+  Creator action (and, later, the sign-in and checkout mails) links to. The
+  studio reads it once on arrival, clears it from the URL, waits for the
+  session and the plan to be read, then answers in the state the account is in:
+  signed out, the hosted render sheet (what a hosted render adds, Sign in); Free,
+  the same sheet with the allowance and one Upgrade; Creator, Cloud chosen under
+  Where and no sheet. The sheet is the stage's, opened with no opener, so its
+  focus and Escape rules are unchanged. A local build clears the hash and does
+  nothing. It loads no editor: a phone's code sheet stays at its stop.
 - **Grace period**: how long past hosted outputs stay downloadable once the
   plan no longer covers hosted rendering (30 days from the later of the render
   and the downgrade).

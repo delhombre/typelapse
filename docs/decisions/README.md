@@ -88,3 +88,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-13 [landing-figures-anatomy](2026-10-13-landing-figures-anatomy.md):
   Anatomy's rule as a review criterion on the five figures; scenes fails and is
   redrawn as a printed listing on a cutting mat, the other four pass.
+- 2026-10-14 [cloud-intent](2026-10-14-cloud-intent.md): `/app#cloud` opens the
+  hosted render sheet in the state the account is in, after the session and plan
+  are read; the pricing page's Creator action is that link.

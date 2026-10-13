@@ -39,15 +39,20 @@ function accountOf(kind: AuthStoreState["status"]["kind"]): CloudAccount {
 	}
 }
 
+/** Where the visitor stands with accounts, as `cloudGate` and the Cloud intent read it. */
+export function useCloudAccount(): CloudAccount {
+	return accountOf(useAuthStore((state) => state.status.kind));
+}
+
 /**
  * What Cloud under Where is for this visitor (ux-waves D3): absent in a local
  * build, and in a hosted one listed for everyone and gated only at the press.
  */
 export function useCloudGate(): CloudGate {
-	const kind = useAuthStore((state) => state.status.kind);
+	const account = useCloudAccount();
 	const plan = usePlanStore((state) => state.plan);
 	const planKnown = usePlanStore((state) => state.accountPlanKnown);
-	return cloudGate({ hosted: isHostedBuild(), account: accountOf(kind), plan, planKnown });
+	return cloudGate({ hosted: isHostedBuild(), account, plan, planKnown });
 }
 
 /** Whether a press on Cloud opens the hosted render sheet rather than choosing it. */
