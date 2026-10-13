@@ -65,7 +65,7 @@ export const CLUSTERS: { id: ClusterId; label: string }[] = [
 
 /**
  * What the shape and size chips fall back to when the stored dimensions match
- * no preset — a plan-clamped export, or a hand-edited link. Neither row lights
+ * no preset, such as a hand-edited link. Neither row lights
  * up in that case; these only decide what the *next* press composes against, so
  * a stray size can still be corrected in one tap.
  */

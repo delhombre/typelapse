@@ -38,7 +38,7 @@ describe("the export CTA's label", () => {
 	});
 
 	it("says nothing it cannot vouch for when the size matches no tier", () => {
-		// A plan-clamped export or a hand-edited link: quoting a tier that is not
+		// A hand-edited link: quoting a tier that is not
 		// what will be rendered is worse than quoting none.
 		expect(exportCtaLabel({ format: "mp4", width: 1234, height: 567 })).toBe("Export · MP4");
 	});
