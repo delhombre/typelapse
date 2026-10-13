@@ -2717,7 +2717,10 @@ html.dark:not([data-landing-theme]) {
    gives up room first. */
 .studio-root .si-track {
 	flex: none;
-	width: 72px;
+	width: 64px;
+	/* Clear of the counter: the track's end and the first digit of "01 / 03" touched
+	   at 360 (#272). The 8px comes out of the bar, which is the row's shock absorber. */
+	margin-right: 8px;
 	height: 4px;
 	border-radius: 999px;
 	background: rgb(255 255 255 / 0.14);
