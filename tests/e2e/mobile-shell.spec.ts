@@ -41,7 +41,10 @@ async function captureScenes(page: Page, count: number) {
 	const sheet = page.getByRole("dialog", { name: "Code and scenes" });
 	await page.locator("[data-vaul-handle]").tap();
 	for (let scenes = 1; scenes <= count; scenes++) {
-		await sheet.getByRole("button", { name: "Capture", exact: true }).tap();
+		// With no scene yet the fork's "Capture this code" is the one Capture control.
+		await sheet
+			.getByRole("button", { name: scenes === 1 ? "Capture this code" : "Capture", exact: true })
+			.tap();
 		await expect(sheet.getByText(new RegExp(`^${scenes} scenes?$`))).toBeVisible();
 	}
 }
@@ -55,7 +58,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 
 		// Raise the sheet to the scenes stop, then capture the live code.
 		await page.locator("[data-vaul-handle]").tap();
-		await sheet.getByRole("button", { name: "Capture", exact: true }).tap();
+		await sheet.getByRole("button", { name: "Capture this code", exact: true }).tap();
 		await expect(sheet.getByText(/^1 scenes?$/)).toBeVisible();
 
 		// A photo dropped anywhere lands in the selected scene.

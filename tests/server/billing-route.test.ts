@@ -302,6 +302,9 @@ describe("billing route", () => {
 		expect(await response.json()).toEqual({
 			allowance: {
 				plan: "free",
+				planLabel: "Free",
+				// Hosted minutes start again on the first of the next UTC month (NOW is 30 August).
+				resetsAt: "2026-09-01T00:00:00.000Z",
 				sentence:
 					"You are using 2 of 3 cloud projects and 12\u00a0MB of 100\u00a0MB of media; hosted renders come with Creator.",
 				limits: {
@@ -318,6 +321,45 @@ describe("billing route", () => {
 				},
 			},
 		});
+	});
+
+	it("reads the clock once: a request over a month's midnight reports one month, not two", async () => {
+		const readings = [
+			new Date("2026-08-31T23:59:59.999Z"),
+			new Date("2026-09-01T00:00:00.001Z"),
+			new Date("2026-09-01T00:00:00.002Z"),
+			new Date("2026-09-01T00:00:00.003Z"),
+		];
+		let taken = 0;
+		const periods: string[] = [];
+		const app = new Hono().route(
+			"/api/billing",
+			createBillingRoute({
+				// A session that outlives the pinned clock, which runs past the 31st.
+				auth: {
+					verify: async () => ({
+						accountId: "user-7",
+						expiresAt: new Date("2026-09-30T00:00:00.000Z"),
+					}),
+				},
+				billing: null,
+				subscriptions: { planFor: async () => Plan.free() },
+				usage: {
+					usageFor: async (_ownerId, periodStart) => {
+						periods.push(periodStart.toISOString());
+						return { cloudProjects: 0, mediaBytes: 0, hostedRenderMsThisMonth: 0, activeRenders: 0 };
+					},
+				},
+				now: () => readings[Math.min(taken++, readings.length - 1)] as Date,
+			}),
+		);
+
+		const response = await app.request(accountRequest("/api/billing/allowance"));
+
+		const body = (await response.json()) as { allowance: { resetsAt: string } };
+		// August's usage, and August's reset (the first of September), whatever the clock did after.
+		expect(periods).toEqual(["2026-08-01T00:00:00.000Z"]);
+		expect(body.allowance.resetsAt).toBe("2026-09-01T00:00:00.000Z");
 	});
 
 	it("fails closed when billing is not configured", async () => {

@@ -245,7 +245,15 @@ or it does not land.
   spent for the month; renders in flight are counted from the jobs, which a
   delete never takes while they run.
 - **Allowance**: the one sentence the server writes about an account's
-  ceilings and usage; the account island shows it verbatim.
+  ceilings and usage, and the numbers it was built from (the ceilings, the
+  usage, the instant the month's minutes reset). The plan card draws a bar and
+  a count per quota from the numbers, warns at 90%, and keeps the sentence as
+  the screen reader's summary; the client adds no figure of a plan.
+- **Checkout return sheet**: the dialog `?billing=success` raises in place of
+  a toast. It confirms (the provider's webhook has not landed, so the plan is
+  still Free), says what changed once the server reports a paid plan, or says
+  only that the payment arrived when twenty seconds pass. A cancelled checkout
+  stays a toast.
 - **Grace period**: how long past hosted outputs stay downloadable once the
   plan no longer covers hosted rendering (30 days from the later of the render
   and the downgrade).

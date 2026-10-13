@@ -368,6 +368,97 @@
 	line-height: 1.4;
 }
 
+/* The plan meter: one row per quota, a label and a count over a thin track. Figures
+   are tabular so a count that grows does not push its label. The fill is a scaled
+   box (never a width, DECISIONS D8) in the ink, and the warning swaps it for the
+   error ink the panel already owns (--mm-danger, 4.9:1 and up on the surface); the
+   count turns bold and takes a mark, so the state is not carried by colour alone. */
+.mm-meter {
+	margin: 0;
+}
+
+.mm-meter-list {
+	display: grid;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.mm-meter-row {
+	display: grid;
+	gap: 5px;
+	color: var(--mm-ink);
+	font-size: var(--sc-text-md, 12px);
+	line-height: 1.3;
+}
+
+.mm-meter-line {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+/* The plan card styles every span in it as 10px muted small print; the meter's words are body. */
+.mm-meter-row > .mm-meter-line > span {
+	color: var(--mm-ink);
+	font-size: var(--sc-text-md, 12px);
+}
+
+.mm-meter-count {
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}
+
+.mm-meter-row[data-warn] .mm-meter-count {
+	font-weight: var(--sc-weight-strong, 650);
+}
+
+.mm-meter-row[data-warn] .mm-meter-count::before {
+	content: "";
+	display: inline-block;
+	width: 6px;
+	height: 6px;
+	margin-right: 6px;
+	border-radius: var(--r-pill);
+	background: var(--mm-danger);
+	vertical-align: 1px;
+}
+
+.mm-meter-track {
+	height: 4px;
+	overflow: hidden;
+	border-radius: var(--r-pill);
+	background: rgb(28 27 25 / 0.1);
+}
+
+.dark .mm-meter-track {
+	background: rgb(255 255 255 / 0.12);
+}
+
+.mm-meter-fill {
+	height: 100%;
+	border-radius: inherit;
+	background: var(--mm-ink);
+	transform-origin: left center;
+	transition: transform 200ms var(--ease-out), background-color 150ms var(--ease-out);
+}
+
+.mm-meter-row[data-warn] .mm-meter-fill {
+	background: var(--mm-danger);
+}
+
+/* "resets Nov 1": a fact about the month, so the muted ink at the card's body size. */
+.mm-meter-row > .mm-meter-resets {
+	color: var(--mm-muted);
+	font-size: var(--sc-text-md, 12px);
+}
+
+.mm-account-plan-card > .mm-meter {
+	margin: 2px 0;
+}
+
 .mm-account-form {
 	display: grid;
 	gap: 10px;

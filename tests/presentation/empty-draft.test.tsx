@@ -115,15 +115,19 @@ describe("Capture while the editor is empty", () => {
 	it("is off in the scene inspector, and on again with code", () => {
 		load([]);
 		render(<SceneInspector />);
-		const capture = screen.getByRole("button", { name: "Capture" }) as HTMLButtonElement;
-		expect(capture.disabled).toBe(false);
+		// With code and no scene the fork's Capture is the one control (the head's steps aside).
+		const forkCapture = screen.getByRole("button", { name: "Capture this code" });
+		expect((forkCapture as HTMLButtonElement).disabled).toBe(false);
+		expect(screen.queryByRole("button", { name: "Capture" })).toBeNull();
 
 		act(() => useSnippetStore.getState().setCode(""));
+		const capture = screen.getByRole("button", { name: "Capture" }) as HTMLButtonElement;
 		expect(capture.disabled).toBe(true);
 		expect(screen.getByText("Write some code to capture.")).toBeTruthy();
 
 		act(() => useSnippetStore.getState().setCode("const b = 2;"));
-		expect(capture.disabled).toBe(false);
+		expect(screen.getByRole("button", { name: "Capture this code" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Capture" })).toBeNull();
 	});
 
 	it("is off in the phone's scene list", () => {

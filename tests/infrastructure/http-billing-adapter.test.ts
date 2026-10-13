@@ -122,6 +122,39 @@ describe("hosted billing client", () => {
 		).rejects.toThrow("allowance");
 	});
 
+	it("reads the allowance whole: the sentence, the ceilings, the usage and the reset", async () => {
+		const allowance = {
+			plan: "creator",
+			planLabel: "Creator",
+			sentence: "You are using 4 of 100 cloud projects.",
+			limits: {
+				cloudProjects: 100,
+				mediaBytes: 5 * 1024 * 1024 * 1024,
+				hostedRenderTime: 3_600_000,
+				concurrentRenders: 3,
+			},
+			usage: {
+				cloudProjects: 4,
+				mediaBytes: 10,
+				hostedRenderMsThisMonth: 90_000,
+				activeRenders: 0,
+			},
+			resetsAt: "2026-11-01T00:00:00.000Z",
+		};
+		const fetcher = vi.fn(async () => jsonResponse({ allowance }));
+
+		await expect(new HttpBillingAdapter(fetcher).read()).resolves.toEqual(allowance);
+		expect(fetcher).toHaveBeenCalledWith("/api/billing/allowance", { credentials: "include" });
+	});
+
+	it("refuses an allowance it cannot read as numbers rather than draw a meter from it", async () => {
+		const broken = vi.fn(async () =>
+			jsonResponse({ allowance: { sentence: "Allowance.", limits: { cloudProjects: "3" } } }),
+		);
+
+		await expect(new HttpBillingAdapter(broken).read()).rejects.toThrow("allowance");
+	});
+
 	it("reads the notice the server wrote for an account whose billing is not in order", async () => {
 		const notice =
 			"Your last payment failed and Creator is paused; update your card in Manage billing.";

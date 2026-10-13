@@ -88,15 +88,33 @@ test.describe("Billing against the fake Polar", () => {
 				current_period_end: period,
 				cancel_at_period_end: false,
 			});
+		// Back from checkout before Polar has told us: the sheet says it is confirming, not nothing.
+		await page.goto("/app?billing=success");
+		await expect(page.getByRole("dialog", { name: "Confirming your payment" })).toBeVisible();
+		await expect(page).toHaveURL(/\/app$/);
+
 		await polarSays("active");
 		expect(await postSignedEvent({ ...subscription, type: "subscription.active" })).toMatchObject({
 			outcome: "processed",
 		});
 
+		// The next ask finds Creator and the same sheet turns into what changed.
+		const sheet = page.getByRole("dialog", { name: "Creator is on." });
+		await expect(sheet).toBeVisible({ timeout: 15_000 });
+		await expect(sheet.getByText("Cloud is now under Where when you export.")).toBeVisible();
+		await expect(sheet.getByText(/hosted render minutes this month/)).toBeVisible();
+		await sheet.getByRole("button", { name: "Render in the cloud" }).click();
+		await expect(sheet).toBeHidden();
+		await page.getByRole("button", { name: /^Export · / }).click();
+		await expect(
+			page.getByRole("group", { name: "Where" }).getByRole("button", { name: "Cloud" }),
+		).toHaveAttribute("aria-pressed", "true");
+
 		await openStudio(page);
 		panel = await openAccountPanel(page, account);
 		await expect(panel.getByText("Creator", { exact: true })).toBeVisible();
 		await expect(panel.getByText(/hosted render minutes this month/)).toBeVisible();
+		await expect(panel.getByText("Hosted render minutes", { exact: true })).toBeVisible();
 		await expect(panel.getByRole("button", { name: "Upgrade to Creator" })).toHaveCount(0);
 
 		// The portal opens for the account through a pre-authenticated session.
@@ -121,6 +139,56 @@ test.describe("Billing against the fake Polar", () => {
 		await expect(panel.getByRole("status")).toHaveText(FREE_ENDED);
 		await expect(panel.getByRole("button", { name: "Upgrade to Creator" })).toBeVisible();
 		await panel.screenshot({ path: "test-results/e2e-hosted/billing-ended.png" });
+	});
+
+	test("a lapsed account that pays again is told what changed, with its earlier renders no longer expiring", async ({
+		page,
+	}) => {
+		const account = newAccount("lapsed");
+		await openStudio(page);
+		await signUpInIsland(page, account);
+		const id = await accountId(account.email);
+		const period = new Date(Date.now() + 30 * 86_400_000).toISOString();
+		const subscribe = async (subscriptionId: string, status: string, type: string) => {
+			await fakePolar("PUT", `/__subscriptions/${subscriptionId}`, {
+				status,
+				customer_id: `cus_e2e_${id}`,
+				product_id: POLAR_E2E.fakeProducts.annual,
+				current_period_end: period,
+				cancel_at_period_end: false,
+			});
+			expect(
+				await postSignedEvent({
+					subscriptionId,
+					customerId: `cus_e2e_${id}`,
+					accountId: id,
+					type,
+				}),
+			).toMatchObject({ outcome: "processed" });
+		};
+
+		// Creator, then Polar revokes it: free, inside the 30 days of grace.
+		await subscribe(`sub_e2e_${id}_first`, "active", "subscription.active");
+		await subscribe(`sub_e2e_${id}_first`, "canceled", "subscription.revoked");
+
+		// Back from a second checkout before Polar has said it is active: the first read
+		// is still Free and still carries the ended plan's notice, so the sheet confirms.
+		await page.goto("/app?billing=success");
+		const confirming = page.getByRole("dialog", { name: "Confirming your payment" });
+		await expect(confirming).toBeVisible();
+
+		await subscribe(`sub_e2e_${id}_second`, "active", "subscription.active");
+
+		const sheet = page.getByRole("dialog", { name: "Creator is on." });
+		await expect(sheet).toBeVisible({ timeout: 15_000 });
+		await expect(sheet.getByText("Cloud is now under Where when you export.")).toBeVisible();
+		await expect(sheet.getByText(/hosted render minutes this month/)).toBeVisible();
+		await expect(
+			sheet.getByText("Your earlier renders no longer expire after 30 days."),
+		).toBeVisible();
+		await expect(sheet.getByRole("button", { name: "Render in the cloud" })).toHaveCount(1);
+		await sheet.getByRole("button", { name: "Render in the cloud" }).click();
+		await expect(sheet).toBeHidden();
 	});
 
 	test("refuses a webhook whose signature is not Polar's and never claims it", async () => {

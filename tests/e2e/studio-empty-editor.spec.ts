@@ -42,7 +42,10 @@ test.describe("Studio editor emptied with Select all and Delete", () => {
 		await expect(preview).not.toContainText("Add your text");
 		await expect(page.getByRole("button", { name: "Play timeline" })).toBeDisabled();
 		await expect(page.getByRole("button", { name: "Add scene" })).toBeEnabled();
-		await expect(page.getByRole("button", { name: "Capture", exact: true })).toBeEnabled();
+		// With code and no scene, the fork's Capture is the one Capture control.
+		await expect(
+			page.getByRole("button", { name: "Capture this code", exact: true }),
+		).toBeEnabled();
 		expect(consoleErrors.slice(errorsBefore)).toEqual([]);
 	});
 });

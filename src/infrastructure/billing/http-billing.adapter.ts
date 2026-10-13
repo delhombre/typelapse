@@ -1,3 +1,4 @@
+import type { PlanAllowance, PlanAllowanceReader } from "@/application/billing/plan-allowance";
 import type {
 	BillingCadence,
 	BillingCatalog,
@@ -58,7 +59,7 @@ function billingPrice(value: unknown): { currency: string; unitAmount: number } 
 const HEALTH_TIMEOUT_MS = 4000;
 
 /** Browser adapter for the server-authoritative billing API (Polar behind it). */
-export class HttpBillingAdapter implements BillingPort {
+export class HttpBillingAdapter implements BillingPort, PlanAllowanceReader {
 	// The default wraps fetch rather than storing it: called as `this.fetcher(...)`
 	// a bare window.fetch throws "Illegal invocation" in every browser.
 	constructor(private readonly fetcher: typeof fetch = (input, init) => fetch(input, init)) {}
@@ -123,6 +124,57 @@ export class HttpBillingAdapter implements BillingPort {
 			return null;
 		}
 		return { kind: notice.kind, sentence: notice.sentence };
+	}
+
+	/** The allowance whole, for the plan card's meter; `getAllowance` is its sentence alone. */
+	async read(): Promise<PlanAllowance> {
+		const response = await this.fetcher("/api/billing/allowance", { credentials: "include" });
+		const body = await responseBody(response);
+		const allowance = body.allowance;
+		const invalid = new Error("Billing returned an invalid allowance");
+		if (!isRecord(allowance) || !isRecord(allowance.limits) || !isRecord(allowance.usage)) {
+			throw invalid;
+		}
+		const { limits, usage } = allowance;
+		const count = (value: unknown): number => {
+			if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+				throw invalid;
+			}
+			return value;
+		};
+		// JSON has no Infinity: a ceiling the plan does not have arrives as null.
+		const ceiling = (value: unknown): number =>
+			value === null ? Number.POSITIVE_INFINITY : count(value);
+		if (
+			typeof allowance.sentence !== "string" ||
+			!allowance.sentence.trim() ||
+			typeof allowance.planLabel !== "string" ||
+			typeof allowance.resetsAt !== "string" ||
+			(allowance.plan !== "local" &&
+				allowance.plan !== "free" &&
+				allowance.plan !== "creator" &&
+				allowance.plan !== "team")
+		) {
+			throw invalid;
+		}
+		return {
+			plan: allowance.plan,
+			planLabel: allowance.planLabel,
+			sentence: allowance.sentence,
+			limits: {
+				cloudProjects: ceiling(limits.cloudProjects),
+				mediaBytes: ceiling(limits.mediaBytes),
+				hostedRenderTime: ceiling(limits.hostedRenderTime),
+				concurrentRenders: ceiling(limits.concurrentRenders),
+			},
+			usage: {
+				cloudProjects: count(usage.cloudProjects),
+				mediaBytes: count(usage.mediaBytes),
+				hostedRenderMsThisMonth: count(usage.hostedRenderMsThisMonth),
+				activeRenders: count(usage.activeRenders),
+			},
+			resetsAt: allowance.resetsAt,
+		};
 	}
 
 	async getAllowance(): Promise<string> {
