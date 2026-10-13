@@ -104,13 +104,15 @@ jobs:
 
       # Playwright starts the API (prepare.ts again, a no-op now), the fake
       # Polar (tests/support/fake-polar.ts, no token needed), the render worker
-      # and the preview of the build above, and stops them at the end. One
-      # worker: the journeys share one render worker and one database
-      # (playwright.config.ts).
+      # and the preview of the build above, and stops them at the end. Two
+      # workers, over the config's one: the 97 journeys take 10 minutes in a
+      # line, and each test account is its own visitor in its own rows, so
+      # only the render queue is shared (renders wait for each other, inside
+      # the 240 s test timeout).
       - name: Hosted journeys
         env:
           E2E_SKIP_BUILD: "1"
-        run: pnpm e2e:hosted
+        run: pnpm e2e:hosted --workers=2
 
       - name: MinIO log
         if: failure()
