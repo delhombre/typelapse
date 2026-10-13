@@ -19,6 +19,7 @@
 		"billing:sandbox-products": "tsx --env-file-if-exists=.env scripts/polar-sandbox-products.ts",
 		"demo:render": "tsx scripts/render-demo.mjs",
 		"typelapse": "node cli/bin.mjs",
+		"render:smoke": "tsx scripts/render-smoke.ts",
 		"sharpness:render": "tsx scripts/render-sharpness.mjs",
 		"test": "vitest run",
 		"test:watch": "vitest",

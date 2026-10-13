@@ -59,6 +59,18 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # Vitest, tsc and vite build all passed while every Remotion render on
+      # main failed ("Can't resolve '@/...'": Remotion's webpack does not know
+      # the alias; #227, found by #236). Only a render sees that. It is a step
+      # of this job, not a job of its own, for the reason the services block
+      # gives: the ruleset requires this check by name. The Render PR workflow
+      # cannot stand in for it: it is a demo that stays green on a failed render.
+      # ubuntu-latest ships the browser's libraries; Remotion downloads its
+      # headless Chrome on the first render. The last line printed is ffprobe's
+      # summary of the clip.
+      - name: Render a clip through Remotion
+        run: pnpm render:smoke
+
       # Every tests/**/*.contract.test.ts, found by its name so a new one runs
       # with no line added here. They skip when the variable is unset, which is
       # why only this step sets it: the Test step above and a laptop skip them.
