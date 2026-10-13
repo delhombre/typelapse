@@ -80,10 +80,11 @@ export function HostedRenderSheet({ surface }: { surface: CloudSurface }) {
 
 	const onClosed = () => {
 		setSigningIn(false);
+		// Back to what opened it; a caveat link that chose Cloud is gone with its
+		// caveat, so Cloud under Where takes the focus instead.
 		const { opener } = useHostedRenderSheetStore.getState();
-		if (opener?.isConnected) {
-			opener.focus({ preventScroll: true });
-		}
+		const back = opener?.isConnected ? opener : cloudChip();
+		back?.focus({ preventScroll: true });
 	};
 
 	// The island closes its panel on a document Escape: this one is the sheet's.
@@ -146,6 +147,12 @@ export function HostedRenderSheet({ surface }: { surface: CloudSurface }) {
 		</div>,
 		document.body,
 	);
+}
+
+function cloudChip(): HTMLButtonElement | null {
+	const group = document.querySelector('[role="group"][aria-label="Where"]');
+	const chips = group ? Array.from(group.querySelectorAll<HTMLButtonElement>("button")) : [];
+	return chips.find((chip) => chip.textContent?.trim() === "Cloud") ?? null;
 }
 
 function OfferSignIn({ onSignIn }: { onSignIn: () => void }) {

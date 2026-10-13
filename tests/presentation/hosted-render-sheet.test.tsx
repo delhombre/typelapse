@@ -299,6 +299,26 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 		expect(useExportStore.getState().target).toBe("device");
 	});
 
+	it("gives focus to Cloud when the caveat link that opened it went away with its caveat", async () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		recordFetch();
+		oneScene({ caption: true });
+		signedOut();
+		render(panel());
+
+		const link = screen.getAllByRole("button", { name: "Keep them with Cloud" })[0] as HTMLElement;
+		link.focus();
+		fireEvent.click(link);
+		const sheet = await screen.findByRole("dialog", { name: SHEET });
+		await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+
+		act(() => signedIn(Plan.pro()));
+
+		await waitFor(() => expect(screen.queryByRole("dialog", { name: SHEET })).toBeNull());
+		expect(useExportStore.getState().target).toBe("cloud");
+		await waitFor(() => expect(document.activeElement).toBe(cloudChip()));
+	});
+
 	it("lets the captions caveat choose Cloud outright for a Creator", () => {
 		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
 		recordFetch();

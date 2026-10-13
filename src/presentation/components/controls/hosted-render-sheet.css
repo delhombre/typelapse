@@ -35,6 +35,9 @@
 	padding: 6px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
 		max(24px, env(safe-area-inset-bottom, 0px))
 		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
+	/* A flex child of a capped panel: without a floor of 0 it cannot shrink, and a
+	   short window would clip the action instead of scrolling to it. */
+	min-height: 0;
 	overflow-y: auto;
 	color: var(--camera-ink);
 	font-size: var(--sc-text-lg);
@@ -134,4 +137,10 @@
 
 .hosted-render-sign-in .mm-account-form h2 {
 	margin-right: 0;
+}
+
+/* The panel's busy and spent states, which its stylesheet scopes to the popover. */
+.hosted-render-sign-in .mm-account-primary:is(:disabled, [aria-disabled="true"]) {
+	cursor: progress;
+	background: color-mix(in srgb, var(--mm-deep) 82%, var(--mm-surface));
 }
