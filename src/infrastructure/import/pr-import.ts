@@ -68,15 +68,17 @@ function rateLimitDetail(headers: Headers): string | undefined {
 	const remaining = number("x-ratelimit-remaining");
 	const reset = number("x-ratelimit-reset");
 	const retryAfter = number("retry-after");
+	// The wait GitHub asked for outranks a quota it still has: a secondary limit answers 403
+	// with requests left, and "4210 of 5000 left" would hide that it is a wait.
+	if (retryAfter !== null) {
+		return `retry after ${retryAfter} seconds`;
+	}
 	const parts: string[] = [];
 	if (limit !== null && remaining !== null) {
 		parts.push(`${remaining} of ${limit} requests left`);
 	}
 	if (reset !== null && remaining === 0) {
 		parts.push(`resets at ${new Date(reset * 1000).toISOString().slice(11, 16)} UTC`);
-	}
-	if (parts.length === 0 && retryAfter !== null) {
-		parts.push(`retry after ${retryAfter} seconds`);
 	}
 	return parts.length > 0 ? parts.join(", ") : undefined;
 }

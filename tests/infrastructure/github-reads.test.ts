@@ -142,6 +142,23 @@ describe("a rate limit", () => {
 		);
 	});
 
+	it("gives the wait it asked for before a quota it still has (a secondary limit)", async () => {
+		fakeGitHub(
+			() =>
+				new Response("{}", {
+					status: 403,
+					headers: {
+						"x-ratelimit-limit": "5000",
+						"x-ratelimit-remaining": "4210",
+						"retry-after": "30",
+					},
+				}),
+		);
+		await expect(fetchPrWalkthrough(PR)).rejects.toThrow(
+			"GitHub rate limit hit (retry after 30 seconds): paste the diff instead",
+		);
+	});
+
 	it("is the old sentence when GitHub sent no headers", async () => {
 		fakeGitHub(() => new Response("{}", { status: 403 }));
 		await expect(fetchPrWalkthrough(PR)).rejects.toThrow(

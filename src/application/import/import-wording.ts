@@ -49,7 +49,13 @@ function retryWhen(detail: string | undefined): string {
 		return `Try again after ${resetsAt}`;
 	}
 	const seconds = detail ? /retry after (\d+) seconds/.exec(detail)?.[1] : undefined;
-	return seconds ? `Try again in ${seconds} seconds` : "Try again in a few minutes";
+	if (seconds === undefined) {
+		return "Try again in a few minutes";
+	}
+	if (Number(seconds) === 0) {
+		return "Try again now";
+	}
+	return `Try again in ${seconds} ${Number(seconds) === 1 ? "second" : "seconds"}`;
 }
 
 /**
@@ -66,6 +72,9 @@ export function importFailureCopy(
 ): ImportFailureCopy {
 	if (!LINK_KINDS.has(kind)) {
 		return { reason: message, nextStep: "Check what you pasted, then try again." };
+	}
+	if (kind === "code-url") {
+		return fileFailureCopy(message, options.online);
 	}
 	switch (importFailureOf(message)) {
 		case "not-found":
@@ -100,4 +109,33 @@ export function importFailureCopy(
 		case "other":
 			return { reason: message, nextStep: `Try another link, or ${PASTE_DIFF}` };
 	}
+}
+
+const PASTE_CODE = "paste the code instead.";
+
+/**
+ * A file or a gist has its own sentences (code-url-failure.ts, url-import.ts), each a
+ * reason and its way out, and the way out is the code, not a diff: the sentence is cut
+ * at its first full stop into the two lines, so the status of a failed fetch and the
+ * studio's own 2 MB limit keep their numbers.
+ */
+function fileFailureCopy(message: string, online: boolean | undefined): ImportFailureCopy {
+	if (importFailureOf(message) === "unreachable") {
+		return online === false
+			? { reason: "You are offline", nextStep: `Reconnect and try again, or ${PASTE_CODE}` }
+			: {
+					reason: "Could not reach GitHub",
+					nextStep: `Check your connection and try again, or ${PASTE_CODE}`,
+				};
+	}
+	if (/too large to import/i.test(message)) {
+		return { reason: message, nextStep: "Open a smaller file, or paste the part you need." };
+	}
+	const stop = message.indexOf(". ");
+	if (stop > 0) {
+		return { reason: message.slice(0, stop), nextStep: message.slice(stop + 2) };
+	}
+	return /timed out/i.test(message)
+		? { reason: message, nextStep: "Try again, or paste the code." }
+		: { reason: message, nextStep: "Try another link, or paste the code." };
 }
