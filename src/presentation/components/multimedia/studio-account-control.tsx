@@ -1,6 +1,7 @@
 import type { PlanAllowance } from "@/application/billing/plan-allowance";
 import { type QuotaMeter, nearAnyLimit, quotaMeters } from "@/application/billing/quota-meter";
 import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
+import { useScrollEdges } from "@/presentation/hooks/use-scroll-edges";
 import {
 	type ClientAuthOperation,
 	type ClientAuthStatus,
@@ -122,6 +123,10 @@ export function StudioAccountControl({
 	const reduceMotion = useReducedMotion() === true;
 	const rootRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	/* The desktop panel ends above the timeline and scrolls inside that room; its foot
+	   fades while there is more to scroll to (studio-account-control.css). */
+	const dialogRef = useRef<HTMLDialogElement>(null);
+	const { edges: dialogEdges, measure: measureDialog } = useScrollEdges(dialogRef);
 	const [open, setOpen] = useState(false);
 	const openRef = useRef(open);
 	openRef.current = open;
@@ -355,8 +360,12 @@ export function StudioAccountControl({
 			<AnimatePresence initial={false}>
 				{open ? (
 					<motion.dialog
+						ref={dialogRef}
 						open
 						className="mm-account-popover"
+						data-more-above={dialogEdges.above}
+						data-more-below={dialogEdges.below}
+						onScroll={measureDialog}
 						aria-label={status.kind === "local-offline" ? "Local project" : "Typelapse account"}
 						initial={reduceMotion ? false : { opacity: 0, y: -5, scale: 0.985 }}
 						animate={{ opacity: 1, y: 0, scale: 1 }}
