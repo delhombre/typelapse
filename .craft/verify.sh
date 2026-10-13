@@ -28,10 +28,28 @@ if [ "${CRAFT_VERIFY_RENDER:-0}" = "1" ]; then
   STEPS+=("pnpm render:smoke")
 fi
 
+# jsdom answers a call it does not implement (a canvas context, window.scrollTo)
+# with a "Not implemented" line and carries on, so the tests pass while the log
+# fills with it and buries a real error (#300). A test that reaches such a call
+# stubs it for its own file (tests/support/jsdom-gaps.ts); the gate fails if one
+# is left unstubbed. The grep reads the whole log, before `tail` trims it.
+log="$(mktemp)"
+trap 'rm -f "$log"' EXIT
+
 for step in "${STEPS[@]}"; do
   echo "== $step"
-  if ! { eval "$step" 2>&1 | tail -n 80; }; then
+  if ! eval "$step" >"$log" 2>&1; then
+    tail -n 80 "$log"
     echo "!! FAILED: $step"
+    exit 1
+  fi
+  tail -n 80 "$log"
+  if grep -q "Not implemented" "$log"; then
+    echo "!! FAILED: $step printed jsdom \"Not implemented\" lines ($(grep -c "Not implemented" "$log")); first:"
+    grep -m3 "Not implemented" "$log"
+    echo "   The line has no file name. Find the test: pnpm vitest run <file> 2>&1 | grep -c 'Not implemented'"
+    echo "   (bisect by directory: tests/presentation, tests/server, ...). Then call useMonospaceCanvas()"
+    echo "   or useInertWindowScroll() from tests/support/jsdom-gaps.ts at the top of that file."
     exit 1
   fi
 done

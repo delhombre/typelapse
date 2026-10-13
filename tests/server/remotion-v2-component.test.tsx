@@ -5,6 +5,7 @@ import { V2RemotionComposition } from "../../server/remotion/v2/composition";
 import { buildCodeCardInput } from "../../server/render/v2/code-card-input";
 import type { ProjectDocumentV2 } from "../../src/application/project/project-document";
 import { proofDocument } from "./remotion-v2-proof-document";
+import { useMonospaceCanvas } from "../support/jsdom-gaps";
 
 const currentFrame = vi.hoisted(() => ({ value: 0 }));
 
@@ -202,6 +203,8 @@ function videoAndCodeDocument(): ProjectDocumentV2 {
 		},
 	};
 }
+
+useMonospaceCanvas();
 
 describe("V2 Remotion component", () => {
 	it("renders concrete image and text elements from the deterministic plan", () => {

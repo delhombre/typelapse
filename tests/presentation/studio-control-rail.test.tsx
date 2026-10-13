@@ -4,6 +4,7 @@ import { useExportStore } from "@/presentation/stores/export.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { useInertWindowScroll } from "../support/jsdom-gaps";
 
 vi.hoisted(() => {
 	window.matchMedia = ((query: string) => ({
@@ -39,6 +40,8 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+useInertWindowScroll();
 
 describe("the timeline control rail", () => {
 	it("turns a cluster into a focused rail mode instead of opening a detached sheet", async () => {

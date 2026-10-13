@@ -11,6 +11,7 @@ import { CodeCard } from "../../server/remotion/composition";
 import { buildCodeCardInput } from "../../server/render/v2/code-card-input";
 import { WINDOW_LEAD_ROWS } from "../../src/application/magic-move/window";
 import { proofDocument } from "./remotion-v2-proof-document";
+import { useMonospaceCanvas } from "../support/jsdom-gaps";
 
 vi.mock("remotion", async () => {
 	const ReactRuntime = await import("react");
@@ -58,6 +59,8 @@ async function longCard() {
 		loop: false,
 	});
 }
+
+useMonospaceCanvas();
 
 describe("the server's card on a long file", () => {
 	it("places each step's window from its focus band or its edit", async () => {
