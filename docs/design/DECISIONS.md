@@ -197,8 +197,7 @@ exceptions), `src/presentation/studio-camera.css` (`--camera-focus`).
 size (`.hit-target`, `.hit-ext`), and grows into the gap beside it no
 further. Under `pointer: coarse` every text field types at 16px. No tap
 highlight, `touch-action: manipulation`, no selection on a long-pressed
-button. On the phone's corner row, under a finger, each control is a 44px
-column at a 44px pitch; Showcase and Library live in More (`cornerRowPlan`, #282).
+button. Corner row under a finger: 44px columns, Showcase and Library in More (#282).
 
 **Why:** iOS zooms into a field under 16px and stays zoomed. A 44px square
 in a 35px pitch overhung its neighbour by 9px and stole its presses.
