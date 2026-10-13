@@ -8,6 +8,8 @@ import type {
 	BillingPrice,
 } from "../../domain/ports/billing.port";
 import { Plan } from "../../domain/value-objects/plan";
+import { ROUTE_HEADS } from "../routing/route-head";
+import { DEVICE_MAX_FPS, deviceIntro } from "./device-export-claim";
 import { formatBytes, formatMinutes, hostedOutputGraceDays } from "./plan-allowance";
 import { priceLabel } from "./price-label";
 
@@ -19,12 +21,7 @@ import { priceLabel } from "./price-label";
  * until the catalog states one (final prices wait on #79).
  */
 
-/**
- * The fastest rate the device export offers. The export panel owns the list
- * (`FPS_OPTIONS`), and importing it here would drag the whole studio into a
- * public page, so the number is stated once more and a test holds the two together.
- */
-export const DEVICE_MAX_FPS = 60;
+export { DEVICE_MAX_FPS };
 
 /** What the page knows about the catalog: still asking, no answer, or an answer. */
 export type CatalogReading =
@@ -141,11 +138,6 @@ function creatorCard(price: CreatorPrice): PricingView["creator"] {
 	};
 }
 
-function deviceIntro(): string {
-	const top = RESOLUTION_TIERS.at(-1);
-	return `MP4 and WebM up to ${top} at ${DEVICE_MAX_FPS} fps, and GIF and PNG from the same frame`;
-}
-
 function comparisonRows(creator: Plan): readonly ComparisonRow[] {
 	const minutes = formatMinutes(creator.limitFor("hostedRenderTime"));
 	return [
@@ -216,7 +208,7 @@ export function pricingView(input: { readonly reading: CatalogReading }): Pricin
 	const creator = Plan.pro();
 	const sandbox = input.reading.kind === "ready" && input.reading.catalog.environment === "sandbox";
 	return {
-		description: `Exporting on your own device is free: ${deviceIntro()}, no watermark, no account. Creator adds hosted renders with captions and audio baked in.`,
+		description: ROUTE_HEADS.pricing.description,
 		testMode: sandbox,
 		device: {
 			points: [deviceIntro(), "No watermark", "Nothing uploaded, no account"],

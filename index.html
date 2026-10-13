@@ -18,7 +18,6 @@
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#FAF9F6" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121110" />
-		<title>Typelapse: sharp code videos from a pull request</title>
 		<!-- Paints the document in the theme the app will open in, before the bundle
 		     runs: on / the landing's stored choice, elsewhere the studio's, and the OS
 		     before either (use-landing-theme.ts and theme-mode.store.ts decide the
@@ -176,11 +175,19 @@
 				border-radius: 2px;
 			}
 		</style>
+		<!-- What a scraper reads, which runs no script: the title, the description, the
+		     canonical address and the share card. These are the landing's, the default
+		     for / and for a 404; the static host writes the route's own between the
+		     markers for every page in APP_PATHS (server/static/route-head.ts, from the
+		     table in src/application/routing/route-head.ts, which a test holds this
+		     block to). The share image is root-relative here; vite-plugin-absolute-og.ts
+		     puts it on TYPELAPSE_APP_URL at build time for a host that does not fill it. -->
+		<!-- route-head -->
+		<title>Typelapse: sharp code videos from a pull request</title>
 		<meta
 			name="description"
 			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."
 		/>
-		<!-- OpenGraph -->
 		<meta property="og:title" content="Typelapse: code videos as sharp as their preview" />
 		<meta
 			property="og:description"
@@ -188,8 +195,6 @@
 		/>
 		<meta property="og:type" content="website" />
 		<meta property="og:site_name" content="Typelapse" />
-		<!-- Rendered by Typelapse itself (1200×630 frame of the self-demo). Root-relative here;
-		     vite-plugin-absolute-og.ts puts it on TYPELAPSE_APP_URL at build time. -->
 		<meta property="og:image" content="/og.png" />
 		<meta property="og:image:width" content="1200" />
 		<meta property="og:image:height" content="630" />
@@ -197,7 +202,6 @@
 			property="og:image:alt"
 			content="A code window on a purple and blue gradient, showing a function that captures code, morphs its steps and renders the video."
 		/>
-		<!-- Twitter -->
 		<meta name="twitter:card" content="summary_large_image" />
 		<meta name="twitter:image" content="/og.png" />
 		<meta
@@ -209,6 +213,7 @@
 			name="twitter:description"
 			content="Make a code video in your browser from a pull request, as sharp as its preview. Text, images, video and audio share the same scenes."
 		/>
+		<!-- /route-head -->
 		<!-- Two UI families, not four: Geist carries every sans role, Ioskeley Mono every
 		     mono role, both served from /fonts (the faces come from the font registry,
 		     src/application/fonts/code-fonts.ts). Geist sets text on every route, so its
@@ -222,8 +227,9 @@
 		     asks for its chunk until the entry bundle has run and React has rendered,
 		     and the build wrote their hashed names into the JSON element above
 		     (vite-plugin-studio-preload.ts). The tab is named here too, so it never
-		     says "the landing" over the studio while the bundle loads; the studio takes
-		     over the name once it mounts. -->
+		     says "the landing" over the studio while the bundle loads (a dev server
+		     and a host that does not fill the route-head block above); the studio
+		     takes over the name once it mounts. -->
 		<script>
 			(function () {
 				var path = location.pathname;

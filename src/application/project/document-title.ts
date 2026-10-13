@@ -1,11 +1,13 @@
+import { ROUTE_HEADS } from "../routing/route-head";
+
 const SITE = "Typelapse";
 
 /**
- * The landing's title: what index.html's `<title>` says and what a page that
- * borrowed the tab gives back. The same words are written in index.html, which
- * cannot import this, and a test holds the two together.
+ * The landing's title: what a page that borrowed the tab gives back. It is the
+ * route head table's, which the served index.html is also written from; the
+ * source index.html cannot import it and a test holds the two together.
  */
-export const LANDING_DOCUMENT_TITLE = "Typelapse: sharp code videos from a pull request";
+export const LANDING_DOCUMENT_TITLE = ROUTE_HEADS.landing.title;
 
 /** What a project is called until someone names it: "Untitled", then "Untitled 2" and on. */
 const DEFAULT_NAME = /^untitled(?: \d+)?$/i;
@@ -17,5 +19,5 @@ const DEFAULT_NAME = /^untitled(?: \d+)?$/i;
  */
 export function studioDocumentTitle(projectTitle: string): string {
 	const name = projectTitle.trim();
-	return DEFAULT_NAME.test(name) || name === "" ? `Studio · ${SITE}` : `${name} · ${SITE}`;
+	return DEFAULT_NAME.test(name) || name === "" ? ROUTE_HEADS.studio.title : `${name} · ${SITE}`;
 }
