@@ -453,8 +453,19 @@ html.dark:not([data-landing-theme]) {
 
 .landing-root .lp-hero-grid {
 	display: grid;
+	/* `minmax(0, 1fr)`, not the implicit `auto` track: an auto track is as wide as
+	   its widest item's min-content, so whatever a visitor types into the field
+	   would grow the column and then the page (#268). */
+	grid-template-columns: minmax(0, 1fr);
 	gap: 40px;
 	align-items: center;
+}
+
+/* A grid item's `min-width` is `auto`, which is its content. Zero, at every
+   width, so the field inside answers to the column and never the reverse. */
+.landing-root .lp-hero-copy,
+.landing-root .lp-hero-instrument {
+	min-width: 0;
 }
 
 /* The engine beside the copy once the column can hold both: the stage is then
@@ -473,7 +484,7 @@ html.dark:not([data-landing-theme]) {
 	/* The copy takes the wider column: the headline is two lines, one sentence
 	   each, and "A pull request in." has to fit one of them whole. */
 	.landing-root .lp-hero-grid {
-		grid-template-columns: 6fr 5fr;
+		grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
 		gap: 56px;
 	}
 
@@ -669,8 +680,10 @@ html.dark:not([data-landing-theme]) {
 }
 
 /* Sized to its content so the caret can stand at the end of the text instead of
-   at the end of the box. It still shrinks when the text outgrows the room, and
-   the caret then sits where the text visibly ends, which is the same place. */
+   at the end of the box. It shrinks when the text outgrows the room (`flex-shrink`
+   and `min-width: 0`), and the column it sits in is `min-width: 0` too, so the
+   field never asks the page for more width than the column has (#268). Past the
+   room the text scrolls inside the textarea and the caret carries the view. */
 .landing-root .lp-field textarea {
 	field-sizing: content;
 	flex: 0 1 auto;
@@ -682,9 +695,10 @@ html.dark:not([data-landing-theme]) {
 	background: none;
 	font: inherit;
 	color: var(--color-ink);
-	/* Never wrapped: a pull-request URL too long for the room scrolls, the way it
-	   did while this was an input, rather than folding onto a second line and
-	   doubling the height of the field. A diff must not be re-wrapped either. */
+	/* Never wrapped: a pull-request URL too long for the room scrolls inside the
+	   textarea, the way it did while this was an input, rather than folding onto
+	   a second line and doubling the height of the field. A diff must not be
+	   re-wrapped either. */
 	white-space: pre;
 	overflow: auto;
 	/* The bars would otherwise appear inside a 40px field on the platforms that

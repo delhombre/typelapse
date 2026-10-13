@@ -140,6 +140,100 @@ test.describe("Landing: the hero's paste field", () => {
 });
 
 /**
+ * #268 / gate-five D1: what a visitor types or pastes never changes the page's
+ * width. `field-sizing: content` once let a typed link grow its grid column, so
+ * a 21-character link pushed a 390px phone to 409px and the hero's own example
+ * link to 591px, and at 1440 the field ran over the engine.
+ */
+const LONG_LINK =
+	"github.com/some-organisation/a-repository-with-a-long-name/pull/1234567890/files";
+const DIFF = [
+	"diff --git a/src/a.ts b/src/a.ts",
+	"--- a/src/a.ts",
+	"+++ b/src/a.ts",
+	"@@ -1,2 +1,2 @@",
+	"-const a = 1;",
+	"+const a = 2; // and a trailing comment that is much longer than a phone is wide",
+].join("\n");
+
+const WIDTHS = [
+	{ width: 360, height: 780 },
+	{ width: 390, height: 844 },
+	{ width: 768, height: 1024 },
+	{ width: 1024, height: 768 },
+	{ width: 1440, height: 900 },
+] as const;
+
+test.describe("Landing: the hero's field never widens the page", { tag: "@smoke" }, () => {
+	for (const { width, height } of WIDTHS) {
+		for (const kind of ["link", "diff"] as const) {
+			test(`${kind === "link" ? "a 90-character link" : "a pasted multi-line diff"} at ${width}px`, async ({
+				browser,
+			}) => {
+				const context = await browser.newContext({
+					viewport: { width, height },
+					hasTouch: width < 768,
+					isMobile: width < 768,
+				});
+				const page = await context.newPage();
+				await page.goto("/");
+				const field = page.getByRole("textbox", { name: /paste a/i });
+				const column = page.locator(".lp-hero-copy");
+				await expect(field).toBeVisible();
+				// Settled: the reveal moves the column while it plays.
+				await expect(async () => {
+					const first = await column.boundingBox();
+					await page.waitForTimeout(150);
+					expect(await column.boundingBox()).toEqual(first);
+				}).toPass();
+				const before = await column.boundingBox();
+
+				if (kind === "link") {
+					expect(LONG_LINK.length).toBeGreaterThanOrEqual(80);
+					await field.pressSequentially(LONG_LINK, { delay: 0 });
+				} else {
+					await field.fill(DIFF);
+				}
+
+				const measure = await page.evaluate(() => {
+					const rect = (selector: string) => {
+						const box = document.querySelector(selector)?.getBoundingClientRect();
+						if (!box) {
+							throw new Error(`no ${selector}`);
+						}
+						return { left: box.left, right: box.right, width: box.width };
+					};
+					return {
+						scrollWidth: document.documentElement.scrollWidth,
+						innerWidth: window.innerWidth,
+						column: rect(".lp-hero-copy"),
+						field: rect(".lp-field"),
+						cta: rect(".lp-field-cta"),
+						instrument: rect(".lp-hero-instrument"),
+					};
+				});
+				expect(measure.scrollWidth, "the page scrolls sideways").toBe(measure.innerWidth);
+				expect(measure.column.width, "the column grew").toBeCloseTo(before?.width ?? 0, 0);
+				expect(measure.field.right, "the field leaves its column").toBeLessThanOrEqual(
+					measure.column.right + 0.5,
+				);
+				expect(measure.cta.right, "the button leaves the field").toBeLessThanOrEqual(
+					measure.field.right,
+				);
+				expect(measure.cta.right, "the button is off screen").toBeLessThanOrEqual(width);
+				// Side by side (960px and up): the field never reaches the engine.
+				if (width >= 960) {
+					expect(measure.field.right, "the field covers the engine").toBeLessThanOrEqual(
+						measure.instrument.left,
+					);
+				}
+				await context.close();
+			});
+		}
+	}
+});
+
+/**
  * The studio's import status is a toast: it covers no control, on any shell
  * (verify-gate-findings D8, #202). The corner row is the header on every width
  * under 1280px; from 1280px the desktop header owns the top 76px.
