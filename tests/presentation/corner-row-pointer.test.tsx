@@ -78,6 +78,8 @@ describe("the phone's corner row under a finger", () => {
 		expect(rows[0]).toBe("Showcase");
 		expect(rows[1]).toBe("Library");
 		expect(rows.at(-1)).toBe("Back to home");
+		// The way out of the studio is set apart from the actions above it.
+		expect(menu.querySelector(":scope > hr + a")).not.toBeNull();
 	});
 
 	it("asks the Showcase to open and closes the menu", async () => {
@@ -100,6 +102,16 @@ describe("the phone's corner row under a finger", () => {
 		});
 		expect(await screen.findByRole("dialog", { name: "Capture library" })).toBeTruthy();
 		expect(useLibraryRequestStore.getState().requested).toBe(false);
+	});
+
+	it("keeps the name's field out of the menu role, in a region beside it", () => {
+		shell();
+		fireEvent.click(screen.getByRole("button", { name: /^Open project menu/ }));
+		const region = screen.getByRole("region", { name: "Project" });
+		const menu = within(region).getByRole("menu", { name: "Local projects" });
+		expect(within(region).getByRole("textbox", { name: "Project name" })).toBeTruthy();
+		expect(within(menu).queryByRole("textbox")).toBeNull();
+		expect(within(menu).getAllByRole("menuitem").length).toBeGreaterThan(0);
 	});
 
 	it("renames the project in its menu, where the chip is one button", () => {

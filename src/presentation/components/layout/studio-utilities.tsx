@@ -289,10 +289,13 @@ export function StudioUtilities({
 									</span>
 								</button>
 								{homeLink && (
-									<Link to="/">
-										<Home size={14} aria-hidden="true" />
-										<span>Back to home</span>
-									</Link>
+									<>
+										<hr />
+										<Link to="/">
+											<Home size={14} aria-hidden="true" />
+											<span>Back to home</span>
+										</Link>
+									</>
 								)}
 							</motion.div>
 						)}

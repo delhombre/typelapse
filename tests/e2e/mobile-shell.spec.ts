@@ -520,16 +520,43 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		await expect(menu).toHaveCount(0);
 		await expect(more).toBeFocused();
 
-		// The chip is one button; its menu holds the name as a field.
-		await page.getByRole("button", { name: /^Open project menu/ }).tap();
-		const name = page.getByRole("textbox", { name: "Project name" });
+		// The chip is one button; its menu holds the name as a field, outside the menu role.
+		const chip = page.getByRole("button", { name: /^Open project menu/ });
+		await chip.tap();
+		const project = page.getByRole("region", { name: "Project" });
+		const name = project.getByRole("textbox", { name: "Project name" });
+		await expect(
+			page.getByRole("menu", { name: "Local projects" }).getByRole("textbox"),
+		).toHaveCount(0);
+		await settled(project);
+		const field = await name.boundingBox();
+		expect(field?.height).toBeGreaterThanOrEqual(44);
+		// It types at 16px under a finger, or iOS zooms into it and stays zoomed (D10).
+		expect(await name.evaluate((input) => getComputedStyle(input).fontSize)).toBe("16px");
+
+		// A tap focuses it, and a real name saves as it is typed.
+		await name.tap();
+		await expect(name).toBeFocused();
 		await name.fill("Release notes");
 		await expect(
 			page.getByRole("button", { name: "Open project menu, Release notes" }),
 		).toBeVisible();
-		await settled(page.getByRole("menu", { name: "Local projects" }));
-		const field = await name.boundingBox();
-		expect(field?.height).toBeGreaterThanOrEqual(44);
+
+		// Enter puts the keyboard away and leaves the menu open.
+		await name.press("Enter");
+		await expect(name).not.toBeFocused();
+		await expect(project).toBeVisible();
+
+		// An emptied field is a draft: Enter settles it on "Untitled".
+		await name.fill("");
+		await name.press("Enter");
+		await expect(page.getByRole("button", { name: "Open project menu, Untitled" })).toBeVisible();
+
+		// Escape closes the menu and puts the focus back on the chip.
+		await name.tap();
+		await page.keyboard.press("Escape");
+		await expect(project).toHaveCount(0);
+		await expect(chip).toBeFocused();
 	});
 
 	// Four scenes are one more than the island has room for at 44px each, so the counter
@@ -1239,7 +1266,9 @@ test.describe("Mobile shell: the corner row and the frame after the design audit
 			// The name is renamed in the project menu, and the chip says it on its one button.
 			await page.getByRole("button", { name: /^Open project menu/ }).tap();
 			const menu = page.getByRole("menu", { name: "Local projects" });
-			const name = menu.getByRole("textbox", { name: "Project name" });
+			const name = page.getByRole("region", { name: "Project" }).getByRole("textbox", {
+				name: "Project name",
+			});
 			await name.fill(TITLE);
 			await name.blur();
 			await expect(name).toHaveValue(TITLE);

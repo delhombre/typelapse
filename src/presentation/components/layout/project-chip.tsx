@@ -239,9 +239,11 @@ export function ProjectChip({ oneTarget = false }: { oneTarget?: boolean } = {})
 
 			<AnimatePresence>
 				{open && (
-					<motion.div
-						role="menu"
-						aria-label="Local projects"
+					<motion.section
+						// A region, not the menu: it holds the name's field, which a menu's
+						// roles cannot (a screen reader in menu mode swallows typing). The
+						// projects are the menu inside it.
+						aria-label="Project"
 						className="sc-project-menu"
 						initial={
 							reduce ? { opacity: 0 } : { opacity: 0, y: -5, scale: 0.97, filter: "blur(4px)" }
@@ -268,55 +270,57 @@ export function ProjectChip({ oneTarget = false }: { oneTarget?: boolean } = {})
 							<span>This project</span>
 							{oneTarget ? <ProjectNameField /> : <strong>{displayTitle}</strong>}
 						</p>
-						<header className="sc-project-menu-head">
-							<div>
-								<span>Local projects</span>
-								<small>Saved on this device</small>
-							</div>
-							<span>{library.projects.length}</span>
-						</header>
-						<div className="sc-project-list">
-							{library.projects.map((project, index) => {
-								const active = project.id === library.activeId;
-								const label = labels[index] ?? project.project.title;
-								return (
-									<button
-										key={project.id}
-										type="button"
-										role="menuitem"
-										aria-label={`Open ${label}`}
-										data-active={active ? "" : undefined}
-										className="sc-project-row"
-										onClick={() => switchTo(project.id)}
-									>
-										<span
-											className="sc-project-thumb"
-											style={{ background: resolveBackgroundCss(project.project.background, 0) }}
-											aria-hidden="true"
-										/>
-										<span className="sc-project-copy">
-											<strong>{label}</strong>
-											{/* The head already says where they live; each row says what
+						<div role="menu" aria-label="Local projects">
+							<header className="sc-project-menu-head">
+								<div>
+									<span>Local projects</span>
+									<small>Saved on this device</small>
+								</div>
+								<span>{library.projects.length}</span>
+							</header>
+							<div className="sc-project-list">
+								{library.projects.map((project, index) => {
+									const active = project.id === library.activeId;
+									const label = labels[index] ?? project.project.title;
+									return (
+										<button
+											key={project.id}
+											type="button"
+											role="menuitem"
+											aria-label={`Open ${label}`}
+											data-active={active ? "" : undefined}
+											className="sc-project-row"
+											onClick={() => switchTo(project.id)}
+										>
+											<span
+												className="sc-project-thumb"
+												style={{ background: resolveBackgroundCss(project.project.background, 0) }}
+												aria-hidden="true"
+											/>
+											<span className="sc-project-copy">
+												<strong>{label}</strong>
+												{/* The head already says where they live; each row says what
 										    tells two projects apart, how much is in them. */}
-											<small>
-												{active ? "Open now" : sceneCountLabel(project.project.steps.length)}
-											</small>
-										</span>
-										{active && <Check size={13} strokeWidth={1.8} aria-hidden="true" />}
-									</button>
-								);
-							})}
+												<small>
+													{active ? "Open now" : sceneCountLabel(project.project.steps.length)}
+												</small>
+											</span>
+											{active && <Check size={13} strokeWidth={1.8} aria-hidden="true" />}
+										</button>
+									);
+								})}
+							</div>
+							<button
+								type="button"
+								role="menuitem"
+								className="sc-project-new"
+								onClick={createProject}
+							>
+								<span aria-hidden="true">+</span>
+								New project
+							</button>
 						</div>
-						<button
-							type="button"
-							role="menuitem"
-							className="sc-project-new"
-							onClick={createProject}
-						>
-							<span aria-hidden="true">+</span>
-							New project
-						</button>
-					</motion.div>
+					</motion.section>
 				)}
 			</AnimatePresence>
 		</div>

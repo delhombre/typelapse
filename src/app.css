@@ -4136,7 +4136,9 @@ html.dark:not([data-landing-theme]) {
 }
 
 /* The name is renamed here under a finger: the menu's "This project" row is the field
-   (the chip is a button), 44px tall, typing at 16px like every phone field. */
+   (the chip is a button), 44px tall. It types at 16px, or iOS zooms into it and stays
+   zoomed (D10). A hairline, not a fill: the active project row under it is the zone's
+   one filled shape (D2). */
 .sc-corner-row .sc-project-menu-current .sc-title {
 	display: block;
 	width: 100%;
@@ -4146,11 +4148,25 @@ html.dark:not([data-landing-theme]) {
 	margin-top: 2px;
 	padding-inline: 10px;
 	border-radius: var(--r-control);
-	background: var(--camera-pill);
+	background: transparent;
+	box-shadow: inset 0 0 0 1px var(--camera-line);
 	color: var(--camera-ink);
 	field-sizing: fixed;
-	font-size: var(--sc-text-lg);
+	font-size: 16px;
 	font-weight: var(--sc-weight-strong);
+}
+
+.sc-corner-row .sc-project-menu-current .sc-title:focus {
+	background: transparent;
+	box-shadow: inset 0 0 0 2px var(--camera-focus);
+	outline: 0;
+}
+
+/* The way out of the studio is set apart from the actions above it. */
+.sc-utility-overflow-menu > hr {
+	margin: 5px -5px;
+	border: 0;
+	border-top: 1px solid var(--camera-line);
 }
 
 .sc-utilities {
