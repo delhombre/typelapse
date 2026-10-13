@@ -1,10 +1,12 @@
 import {
 	MAX_WALKTHROUGH_FILES,
 	MAX_WALKTHROUGH_LINES,
+	MAX_WALKTHROUGH_PAGES,
 	budgetWalkthrough,
 } from "@/application/diff/budget";
 import { diffToSnapshots } from "@/application/diff/diff-to-snapshots";
 import { parseUnifiedDiff } from "@/application/diff/parse-unified-diff";
+import { MAX_SCENE_LINES } from "@/application/diff/scenes";
 import type { CodeSnapshot } from "@/application/diff/types";
 import { ELLIPSIS, planWindows } from "@/application/diff/windowing";
 import { describe, expect, it } from "vitest";
@@ -68,20 +70,37 @@ function headerLines(frame: string): string[] {
 	return frame.split("\n").filter((line) => line.startsWith("// "));
 }
 
-/** The single trailing omission marker (starts with `⋯ `, unlike a bare `⋯` separator). */
-function markerOf(snapshots: CodeSnapshot[]): Set<string | undefined> {
-	return new Set(
-		snapshots.map((snapshot) => {
-			const last = snapshot.code.split("\n").at(-1);
-			return last?.startsWith(`${ELLIPSIS} `) ? last : undefined;
-		}),
-	);
+/** The omission marker line of a frame (starts with `⋯ `, unlike a bare `⋯` separator). */
+function markerLine(snapshot: CodeSnapshot): string | undefined {
+	const last = snapshot.code.split("\n").at(-1);
+	return last?.startsWith(`${ELLIPSIS} `) ? last : undefined;
+}
+
+/**
+ * The marker the walkthrough ends on, and whether it is the last page's alone: it
+ * describes what follows the end of the video, so it sits on the frames of the last
+ * page (a suffix of the walkthrough) and on no other.
+ */
+function endMarker(snapshots: CodeSnapshot[]): {
+	marker: string | undefined;
+	onLastPageOnly: boolean;
+} {
+	const marks = snapshots.map(markerLine);
+	const marker = marks.at(-1);
+	const first = marks.findIndex((mark) => mark !== undefined);
+	const onLastPageOnly =
+		marker === undefined
+			? first === -1
+			: marks.slice(first).every((mark) => mark === marker) && first >= 0;
+	return { marker, onLastPageOnly };
 }
 
 describe("budgetWalkthrough", () => {
-	it("caps at 6 files and 50 code lines", () => {
+	it("caps at 6 files and 4 pages of 24 rows: the line budget is derived from the pages", () => {
 		expect(MAX_WALKTHROUGH_FILES).toBe(6);
-		expect(MAX_WALKTHROUGH_LINES).toBe(50);
+		expect(MAX_WALKTHROUGH_PAGES).toBe(4);
+		expect(MAX_SCENE_LINES).toBe(24);
+		expect(MAX_WALKTHROUGH_LINES).toBe(MAX_WALKTHROUGH_PAGES * MAX_SCENE_LINES);
 	});
 
 	it("keeps only the first MAX_WALKTHROUGH_FILES files and reports the dropped rest", () => {
@@ -124,12 +143,13 @@ describe("diffToSnapshots size cap", () => {
 		}
 	});
 
-	it("appends one omission marker, byte-identical across every staged frame", () => {
+	it("appends one omission marker, byte-identical across the frames of the last page", () => {
 		const { snapshots } = diffToSnapshots(manyFilesDiff(20));
-		const markers = markerOf(snapshots);
 
-		expect(markers.size).toBe(1);
-		expect([...markers][0]).toBe(`${ELLIPSIS} 14 more files`);
+		expect(endMarker(snapshots)).toEqual({
+			marker: `${ELLIPSIS} 14 more files`,
+			onLastPageOnly: true,
+		});
 	});
 
 	it("caps a single very tall hunk so no frame blows the line budget", () => {
@@ -139,9 +159,10 @@ describe("diffToSnapshots size cap", () => {
 		for (const snapshot of snapshots) {
 			expect(codeLines(snapshot.code).length).toBeLessThanOrEqual(MAX_WALKTHROUGH_LINES);
 		}
-		const markers = markerOf(snapshots);
-		expect(markers.size).toBe(1);
-		expect([...markers][0]).toBe(`${ELLIPSIS} more changes hidden`);
+		expect(endMarker(snapshots)).toEqual({
+			marker: `${ELLIPSIS} more changes hidden`,
+			onLastPageOnly: true,
+		});
 	});
 
 	it("leaves a small multi-file diff untouched: no marker, no truncation", () => {
@@ -153,5 +174,95 @@ describe("diffToSnapshots size cap", () => {
 			expect(snapshot.code).toContain("// one.ts");
 			expect(snapshot.code).toContain("// two.ts");
 		}
+	});
+});
+
+describe("the page cap", () => {
+	/** Every `// path` header of a walkthrough, in the order its scenes show them. */
+	const headersOf = (snapshots: CodeSnapshot[]) =>
+		new Set(snapshots.flatMap((snapshot) => headerLines(snapshot.code)));
+
+	it("keeps a walkthrough of a few hundred rows to 4 pages, and says what is left", () => {
+		const { snapshots } = diffToSnapshots(oneTallFileDiff(400));
+
+		for (const snapshot of snapshots) {
+			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+		}
+		// One hunk, one stage per page, plus the page's own before-state when it has one.
+		expect(snapshots.length).toBeLessThanOrEqual(MAX_WALKTHROUGH_PAGES * 2);
+		expect(endMarker(snapshots)).toEqual({
+			marker: `${ELLIPSIS} more changes hidden`,
+			onLastPageOnly: true,
+		});
+	});
+
+	it("shows every file of a PR that fits the pages, with no marker", () => {
+		const { snapshots } = diffToSnapshots(manyFilesDiff(MAX_WALKTHROUGH_FILES));
+
+		expect(headersOf(snapshots).size).toBe(MAX_WALKTHROUGH_FILES);
+		expect(endMarker(snapshots)).toEqual({ marker: undefined, onLastPageOnly: true });
+	});
+
+	it("cuts the pages when the scaffold of each (separators) pushes past the cap", () => {
+		// 90 added rows fit the line budget (96) but not 4 pages: each page also
+		// carries its `⋯` rows, so the fifth page is cut and the marker says so.
+		const { snapshots } = diffToSnapshots(oneTallFileDiff(90));
+
+		for (const snapshot of snapshots) {
+			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+		}
+		expect(endMarker(snapshots)).toEqual({
+			marker: `${ELLIPSIS} more changes hidden`,
+			onLastPageOnly: true,
+		});
+		expect(snapshots.length).toBeLessThanOrEqual(MAX_WALKTHROUGH_PAGES + 1);
+	});
+
+	it("counts the files a page cut hides, not only the ones the file cap dropped", () => {
+		// Eight files of 14 added rows: the file cap drops two, and the six kept
+		// (96 rows) fit the line budget, but each takes a page, so 4 pages show four
+		// files and the marker owns up to the other four.
+		const blocks: string[] = [];
+		for (let k = 0; k < 8; k++) {
+			blocks.push(`--- a/f${k}.ts`, `+++ b/f${k}.ts`, "@@ -1,2 +1,16 @@", " const first = 0;");
+			for (let i = 0; i < 14; i++) {
+				blocks.push(`+const f${k}r${i} = ${i};`);
+			}
+			blocks.push(" const last = 0;");
+		}
+		const { snapshots } = diffToSnapshots(nl(blocks));
+
+		expect(endMarker(snapshots)).toEqual({
+			marker: `${ELLIPSIS} 4 more files`,
+			onLastPageOnly: true,
+		});
+		const shown = new Set(snapshots.flatMap((snapshot) => headerLines(snapshot.code)));
+		expect(shown.size).toBe(MAX_WALKTHROUGH_PAGES);
+	});
+
+	it("holds a 246-file comparison to 4 pages, 11 steps or fewer, and counts the rest", () => {
+		// Files of 20 added lines: the file cap keeps 6 and the line budget takes 4 of
+		// them, so the page cut is what decides how many are shown.
+		const blocks: string[] = [];
+		for (let k = 0; k < 246; k++) {
+			blocks.push(`--- a/f${k}.ts`, `+++ b/f${k}.ts`, "@@ -1,2 +1,22 @@", " const first = 0;");
+			for (let i = 0; i < 20; i++) {
+				blocks.push(`+const f${k}r${i} = ${i};`);
+			}
+			blocks.push(" const last = 0;");
+		}
+		const { snapshots } = diffToSnapshots(nl(blocks));
+
+		expect(snapshots.length).toBeLessThanOrEqual(11);
+		for (const snapshot of snapshots) {
+			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+		}
+		const shown = new Set(snapshots.flatMap((snapshot) => headerLines(snapshot.code)));
+		expect(shown.size).toBeGreaterThan(0);
+		expect(shown.size).toBeLessThan(MAX_WALKTHROUGH_FILES);
+		expect(endMarker(snapshots)).toEqual({
+			marker: `${ELLIPSIS} ${246 - shown.size} more files`,
+			onLastPageOnly: true,
+		});
 	});
 });
