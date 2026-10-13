@@ -65,6 +65,8 @@ Actions, "Deploy staging", Run workflow, on the branch you want to see running. 
 6. runs each worker once from its CronJob to prove it starts and exits cleanly (an empty queue exits 0 in seconds; the bound is 1000 s, above the render timeout, and a Job still running at the bound is left alone because it may be a real render), and deletes the Jobs that finished;
 7. resumes the CronJobs. This is the only step that does.
 
+The cluster steps live in `scripts/deploy/staging.sh`. Each kubectl call is retried up to 5 times (2, 4, 8, 16 s) when it fails on a connection error, and a smoke poll the cluster cannot answer is counted and logged, not fatal. Smoke Jobs older than an hour are deleted at the start of step 6. In a log, look for `kube: attempt N/5 failed on a connection error` and `Smoke poll of ... failed`.
+
 The Secret and the ConfigMap are applied before the release Job, so a failed release leaves them updated. Any failure after step 3 leaves the workers suspended, and the API on whatever it was running, until a later deploy succeeds. The API keeps running during the release.
 
 ## Read the release Job logs
