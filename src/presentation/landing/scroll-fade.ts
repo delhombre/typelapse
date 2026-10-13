@@ -23,7 +23,10 @@ export function scrollFades({
 	};
 }
 
-/** Keeps `data-fade-start` and `data-fade-end` on a row in step with its scroll and its size. */
+/**
+ * Keeps `data-fade-start` and `data-fade-end` on a row in step with its scroll and
+ * its size, and, for a field that scrolls to its caret, with what is typed into it.
+ */
 export function useScrollFades(row: RefObject<HTMLElement | null>): void {
 	useEffect(() => {
 		const el = row.current;
@@ -37,10 +40,13 @@ export function useScrollFades(row: RefObject<HTMLElement | null>): void {
 		};
 		update();
 		el.addEventListener("scroll", update, { passive: true });
+		// Typing at the start, or a paste, changes what overflows without moving or resizing the box.
+		el.addEventListener("input", update);
 		const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
 		resize?.observe(el);
 		return () => {
 			el.removeEventListener("scroll", update);
+			el.removeEventListener("input", update);
 			resize?.disconnect();
 		};
 	}, [row]);

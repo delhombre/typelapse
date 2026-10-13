@@ -12,6 +12,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { Instrument } from "./instrument";
 import { Reveal, RevealGroup, RevealItem } from "./primitives";
+import { useScrollFades } from "./scroll-fade";
 import { CONTAINER } from "./tokens";
 
 /**
@@ -106,6 +107,9 @@ export function Hero() {
 	/* And an input that no longer spans the row no longer catches a press on the
 	   empty part of it, which is what filling the row used to do for free. */
 	const field = useRef<HTMLTextAreaElement>(null);
+	/* A link longer than the room scrolls inside the field; the edge that still hides
+	   text fades, so a glyph cut at the edge reads as a scroll and not a clip. */
+	useScrollFades(field);
 	const navigate = useNavigate();
 
 	/* A diff is many lines by definition, so the field has to be able to hold

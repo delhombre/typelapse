@@ -124,6 +124,49 @@ describe("landing hero", () => {
 		);
 	});
 
+	/* #272: a link scrolled inside the field leaves a glyph cut at the edge. The edge
+	   that still hides text fades; with nothing hidden, nothing fades. */
+	describe("the field's edges while a long link scrolls inside it", () => {
+		function geometry(input: HTMLElement, box: { scrollLeft: number; scrollWidth: number }) {
+			Object.defineProperty(input, "clientWidth", { configurable: true, value: 155 });
+			Object.defineProperty(input, "scrollWidth", { configurable: true, value: box.scrollWidth });
+			(input as HTMLTextAreaElement).scrollLeft = box.scrollLeft;
+			fireEvent.scroll(input);
+		}
+		const fades = (input: HTMLElement) => [
+			input.hasAttribute("data-fade-start"),
+			input.hasAttribute("data-fade-end"),
+		];
+
+		it("fades the left edge once scrolled, the right while text is still to come, and neither when it fits", () => {
+			renderHero();
+			const input = screen.getByRole("textbox", { name: /paste a pull request/i });
+
+			geometry(input, { scrollLeft: 0, scrollWidth: 155 });
+			expect(fades(input)).toEqual([false, false]);
+
+			geometry(input, { scrollLeft: 0, scrollWidth: 330 });
+			expect(fades(input)).toEqual([false, true]);
+
+			geometry(input, { scrollLeft: 90, scrollWidth: 330 });
+			expect(fades(input)).toEqual([true, true]);
+
+			geometry(input, { scrollLeft: 175, scrollWidth: 330 });
+			expect(fades(input)).toEqual([true, false]);
+		});
+
+		it("follows what is typed, which can overflow without a scroll", () => {
+			renderHero();
+			const input = screen.getByRole("textbox", { name: /paste a pull request/i });
+			Object.defineProperty(input, "clientWidth", { configurable: true, value: 155 });
+			Object.defineProperty(input, "scrollWidth", { configurable: true, value: 330 });
+
+			fireEvent.input(input);
+
+			expect(fades(input)).toEqual([false, true]);
+		});
+	});
+
 	/* #40: the drawn block is a sibling after the field, so it can only stand at
 	   the end of the text. It holds the empty field alone, where the end is the
 	   only place the caret can be; with content the native caret takes over, the

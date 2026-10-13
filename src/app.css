@@ -716,6 +716,34 @@ html.dark:not([data-landing-theme]) {
 	caret-color: transparent;
 }
 
+/* A link longer than the room scrolls inside the field. The edge that still hides
+   text fades over 20px (data-fade-start, data-fade-end, from the field's own scroll,
+   see useScrollFades), so a glyph cut at the edge reads as a scroll, not a clip.
+   With nothing hidden there is no mask at all. */
+.landing-root .lp-field textarea {
+	--fade-start: 0px;
+	--fade-end: 0px;
+}
+
+.landing-root .lp-field textarea[data-fade-start],
+.landing-root .lp-field textarea[data-fade-end] {
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 var(--fade-start),
+		#000 calc(100% - var(--fade-end)),
+		transparent
+	);
+}
+
+.landing-root .lp-field textarea[data-fade-start] {
+	--fade-start: 20px;
+}
+
+.landing-root .lp-field textarea[data-fade-end] {
+	--fade-end: 20px;
+}
+
 .landing-root .lp-field textarea::-webkit-scrollbar {
 	display: none;
 }
