@@ -79,3 +79,6 @@ posture, deleting data) is written as a diamond in the graph and marked
   under Where for everyone, the press explains it (sign in in the sheet, the
   allowance and Upgrade on Free, Cloud chosen on Creator), the dead upgrade
   button deleted.
+- 2026-10-13 [landing-figures-anatomy](2026-10-13-landing-figures-anatomy.md):
+  Anatomy's rule as a review criterion on the five figures; scenes fails and is
+  redrawn as a printed listing on a cutting mat, the other four pass.

@@ -98,7 +98,7 @@ function mount({ stage, svg, read }: FigureContext, value: number) {
 	const front = facing(C);
 	const g = mk("g", {}, svg);
 
-	// the phone: a slab, the glass's edge, the island at the top, the side buttons
+	// the phone: a slab, the glass's edge, the island at the top
 	// Rounded with 14 steps a corner (rule 09): at r 13 the default four show their facets.
 	const br = rrect(0, 0, PW, PH, 13, 14);
 	const bi = rrect(2, 2, PW - 2, PH - 2, 11, 14);
