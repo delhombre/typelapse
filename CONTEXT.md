@@ -302,6 +302,18 @@ or it does not land.
   A tap grows the live DOM preview over the screen by a transform; it is the
   same picture, still playing, never a copy. Closed by a tap, a pull down,
   Done or Escape (`application/layout/code-loupe.ts`).
+- **First video card**: a dismissible card in the scene panel, beside the empty
+  scene's fork, that walks a first-time visitor to a first video in three
+  steps: capture a scene, add a focus or a caption, render. It shows "n of 3"
+  and only the next step with one line. The steps tick from real state, never
+  from a click on the card: the project's scene count, any scene carrying a
+  focus range or a caption, and a finished video render on this browser (a PNG
+  snapshot does not count; the fact is remembered across loads, because the
+  export store only holds the last outcome). "Later" hides it for good, kept in
+  a localStorage key of its own (`typelapse:first-video`), no account. It never
+  shows on a project with three or more scenes, and once all three hold it says
+  so in one line and is gone from the next load
+  (`application/onboarding/first-video.ts`, `stores/first-video.store.ts`).
 - **Account island**: the part of the island that carries sign-in, cloud save
   (behind an explicit upload consent) and billing in a hosted build. Absent in
   a local build.

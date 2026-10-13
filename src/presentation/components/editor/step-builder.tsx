@@ -26,6 +26,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useId, useRef, useState } from "react";
 import { Add, ChevronDown } from "reicon-react";
 import { EmptySceneFork } from "./empty-scene-fork";
+import { FirstVideoCard } from "./first-video-card";
 import { StudioLayerStrip } from "./studio-layer-strip";
 
 /**
@@ -39,6 +40,14 @@ function rowEntrance(known: boolean, reduce: boolean) {
 		return false;
 	}
 	return { opacity: 0, y: 6 };
+}
+
+/** The First video card's "Add a focus or a caption": the selected scene's own field takes focus. */
+function refineScene(step: Step | undefined, prefix: "row" | "scene") {
+	if (!step) {
+		return;
+	}
+	document.getElementById(`${prefix}-${step.id}-${step.hasCode ? "focus" : "caption"}`)?.focus();
 }
 
 /** The first line of a scene's code. The row's own ellipsis is the only truncation. */
@@ -229,6 +238,8 @@ export function StepBuilder() {
 					}}
 				/>
 			)}
+
+			<FirstVideoCard onRefine={() => refineScene(steps[currentStepIndex], "row")} />
 
 			{/* No cap and no scroll of its own: the list used to carry a 192px max-height
 			    inside the card's own 228px scroller, which is two scroll regions stacked one
@@ -479,6 +490,7 @@ export function SceneInspector() {
 						{extraReason}
 					</p>
 				) : null}
+				<FirstVideoCard onRefine={isLayerSelected ? undefined : () => refineScene(step, "scene")} />
 			</div>
 
 			<StudioLayerStrip />

@@ -1,0 +1,152 @@
+/* The First video card (#251): three steps to a first video, one shown at a time.
+   It sits where the empty scene's fork does and takes no fill (DECISIONS D2): the
+   fork's Capture is the one filled shape of the zone, so the card is a hairline
+   outline, "Later" is an outlined control and the step line is a text link.
+   Everything is drawn in the camera's own tokens, so both themes follow. */
+.fv-card {
+	display: grid;
+	min-width: 0;
+	margin: 0;
+	gap: 6px;
+	padding: 12px;
+	border: 1px solid var(--camera-line);
+	border-radius: var(--r-surface);
+	color: var(--camera-ink);
+}
+
+.fv-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 0;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+	line-height: 16px;
+}
+
+.fv-count {
+	font-variant-numeric: tabular-nums;
+}
+
+.fv-title {
+	margin: 0;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	line-height: 18px;
+	text-wrap: balance;
+}
+
+.fv-line {
+	margin: 0;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	line-height: 16px;
+	text-wrap: pretty;
+}
+
+/* The step line as a link: the ink of a title, underlined, never a fill. */
+.fv-link {
+	justify-self: start;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--camera-ink);
+	font-family: inherit;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	line-height: 18px;
+	text-align: left;
+	text-decoration: underline;
+	text-decoration-color: var(--camera-muted);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+}
+
+.fv-progress {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.fv-step {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+/* Three outlined marks: a tick for a step done, a dashed ring for one to come.
+   They carry the count a second time; the words carry it first. A literal 50%:
+   the pill token is not set on the phone's sheet. */
+.fv-marks {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.fv-mark {
+	display: grid;
+	width: 14px;
+	height: 14px;
+	place-items: center;
+	border: 1px dashed var(--camera-muted);
+	border-radius: 50%;
+	color: var(--camera-ink);
+}
+
+.fv-mark[data-done] {
+	border: 1px solid var(--camera-ink);
+}
+
+.fv-mark > svg {
+	width: 9px;
+	height: 9px;
+}
+
+.fv-later {
+	display: inline-flex;
+	height: 28px;
+	align-items: center;
+	padding: 0 12px;
+	border: 1px solid var(--camera-line);
+	border-radius: var(--r-control);
+	background: transparent;
+	color: var(--camera-ink);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+	transition: background-color 150ms var(--ease-out), transform 100ms var(--ease-out);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.fv-later:active {
+		transform: scale(0.97);
+	}
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.fv-later:hover {
+		background: var(--camera-pill);
+	}
+
+	.fv-link:hover {
+		text-decoration-color: var(--camera-ink);
+	}
+}
+
+/* Under a finger: 44px targets. The link grows by padding it takes back with a
+   negative margin, so the card keeps its drawn size. */
+@media (pointer: coarse) {
+	.fv-later {
+		height: 44px;
+	}
+
+	.fv-link {
+		min-height: 44px;
+		margin-block: -13px;
+		padding-block: 13px;
+	}
+}
