@@ -88,15 +88,33 @@ test.describe("Billing against the fake Polar", () => {
 				current_period_end: period,
 				cancel_at_period_end: false,
 			});
+		// Back from checkout before Polar has told us: the sheet says it is confirming, not nothing.
+		await page.goto("/app?billing=success");
+		await expect(page.getByRole("dialog", { name: "Confirming your payment" })).toBeVisible();
+		await expect(page).toHaveURL(/\/app$/);
+
 		await polarSays("active");
 		expect(await postSignedEvent({ ...subscription, type: "subscription.active" })).toMatchObject({
 			outcome: "processed",
 		});
 
+		// The next ask finds Creator and the same sheet turns into what changed.
+		const sheet = page.getByRole("dialog", { name: "Creator is on." });
+		await expect(sheet).toBeVisible({ timeout: 15_000 });
+		await expect(sheet.getByText("Cloud is now under Where when you export.")).toBeVisible();
+		await expect(sheet.getByText(/hosted render minutes this month/)).toBeVisible();
+		await sheet.getByRole("button", { name: "Render in the cloud" }).click();
+		await expect(sheet).toBeHidden();
+		await page.getByRole("button", { name: /^Export · / }).click();
+		await expect(
+			page.getByRole("group", { name: "Where" }).getByRole("button", { name: "Cloud" }),
+		).toHaveAttribute("aria-pressed", "true");
+
 		await openStudio(page);
 		panel = await openAccountPanel(page, account);
 		await expect(panel.getByText("Creator", { exact: true })).toBeVisible();
 		await expect(panel.getByText(/hosted render minutes this month/)).toBeVisible();
+		await expect(panel.getByText("Hosted render minutes", { exact: true })).toBeVisible();
 		await expect(panel.getByRole("button", { name: "Upgrade to Creator" })).toHaveCount(0);
 
 		// The portal opens for the account through a pre-authenticated session.
