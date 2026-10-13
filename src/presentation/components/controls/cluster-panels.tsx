@@ -1,4 +1,9 @@
-import { captionsCaveat, exportCtaLabel, gifFpsCaveat } from "@/application/export/export-label";
+import {
+	WHERE_LABEL,
+	captionsCaveat,
+	exportCtaLabel,
+	gifFpsCaveat,
+} from "@/application/export/export-label";
 import { renderBlock } from "@/application/export/render-block";
 import { FONT_PRESETS } from "@/application/fonts/code-fonts";
 import {
@@ -23,8 +28,8 @@ import {
 import { useCallback, useEffect } from "react";
 import { Camera } from "reicon-react";
 import {
+	KeepCaptionsLink,
 	RENDER_BUSY_LABELS,
-	useCloudGate,
 	useCloudRenderCta,
 	useCloudTarget,
 	useWhereSelect,
@@ -493,7 +498,7 @@ function ExportCluster() {
 					options={[
 						{
 							value: "device" as const,
-							label: "This device",
+							label: WHERE_LABEL.device,
 							title:
 								deviceSupported === false
 									? DEVICE_CANNOT_ENCODE
@@ -504,7 +509,7 @@ function ExportCluster() {
 							? [
 									{
 										value: "server" as const,
-										label: "Server",
+										label: WHERE_LABEL.server,
 										title:
 											"Renders with Remotion on the Typelapse API server, which has to be running.",
 									},
@@ -637,9 +642,6 @@ export function RenderNotes({ variant }: { variant: "sheet" | "pill" }) {
 	const isExporting = useExportStore((s) => s.isExporting);
 	const hasCaptions = useSnippetStore((s) => s.snippet.steps.some((step) => step.annotation));
 	const captureStep = useSnippetStore((s) => s.captureStep);
-	const gate = useCloudGate();
-	const selectWhere = useWhereSelect(variant === "pill" ? "rail" : "cluster");
-
 	const gifNote = gifFpsCaveat({ format, fps, safeFps: gifSafeFps(fps) });
 	const captionsNote = captionsCaveat({
 		hasCaptions,
@@ -677,17 +679,11 @@ export function RenderNotes({ variant }: { variant: "sheet" | "pill" }) {
 					{/* Where a hosted render bakes them, the caveat says so (ux-waves D3): the
 					    link chooses Cloud for a plan that renders there, and opens the sheet
 					    that explains it for any other. A local build has no Cloud to name. */}
-					{note === captionsNote && gate !== "absent" ? (
-						<button
-							type="button"
+					{note === captionsNote ? (
+						<KeepCaptionsLink
+							surface={variant === "pill" ? "rail" : "cluster"}
 							className="si-note-action"
-							onClick={() => {
-								if (gate === "open") feedback("commit");
-								selectWhere("cloud");
-							}}
-						>
-							Keep them with Cloud
-						</button>
+						/>
 					) : null}
 				</span>
 			))}

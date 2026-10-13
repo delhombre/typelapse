@@ -68,6 +68,35 @@ export function exportCodecNote(format: RenderFormat, codecLabel: string | null)
 }
 
 /**
+ * The names of the Where options, the one table the control (both of its
+ * surfaces), the captions caveat, the link and the line under the frame read.
+ * The desktop rail has no room for "This device", so it takes the compact form.
+ */
+export const WHERE_LABEL = {
+	device: "This device",
+	deviceCompact: "Device",
+	server: "Server",
+	cloud: "Cloud",
+} as const;
+
+/**
+ * What the line under the frame tags a caption nothing on this device draws:
+ * the target that does bake it, as Where lists it in this build. Server where the
+ * local API is offered, Cloud where a hosted build lists it (accounts on), and,
+ * on a hosted build with no accounts, where Where lists only This device, no
+ * target bakes it.
+ */
+export function bakingTargetTag(input: { serverOffered: boolean; cloudListed: boolean }): string {
+	if (input.serverOffered) {
+		return `${WHERE_LABEL.server} only`;
+	}
+	if (input.cloudListed) {
+		return `${WHERE_LABEL.cloud} only`;
+	}
+	return "Not in this export";
+}
+
+/**
  * What the on-device export says about captions, video and still alike: the
  * painter keeps the caption band but bakes no caption into it, so a project
  * with one gets a file that does not carry it. Only the server render does.
@@ -91,7 +120,7 @@ export function captionsCaveat(input: {
 		return null;
 	}
 	return input.serverOffered
-		? "Captions are not baked on this device yet. Render on the server to keep them."
+		? `Captions are not baked on this device yet. Choose ${WHERE_LABEL.server} to keep them.`
 		: "Captions are not baked on this device yet.";
 }
 
