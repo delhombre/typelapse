@@ -78,13 +78,20 @@ export function isVideoExport(filename: string): boolean {
 }
 
 /**
- * Whether the card is on screen: never on a project that already has three
- * scenes, never after "Later", never once its completion has been shown.
+ * Whether the card is on screen: from the first scene on (on an empty project
+ * the fork already says to capture, and the card would only repeat it), never
+ * on a project that already has three, never after "Later", never once its
+ * completion has been shown.
  */
 export function firstVideoShown(input: {
 	readonly sceneCount: number;
 	readonly dismissed: boolean;
 	readonly completed: boolean;
 }): boolean {
-	return input.sceneCount < FIRST_VIDEO_SCENE_LIMIT && !input.dismissed && !input.completed;
+	return (
+		input.sceneCount >= 1 &&
+		input.sceneCount < FIRST_VIDEO_SCENE_LIMIT &&
+		!input.dismissed &&
+		!input.completed
+	);
 }

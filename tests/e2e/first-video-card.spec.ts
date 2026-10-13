@@ -11,10 +11,11 @@ test.describe("The First video card", () => {
 	}, testInfo) => {
 		await openStudio(page);
 		const card = page.getByRole("group", { name: "First video" });
-		await expect(card).toContainText("0 of 3");
-		await expect(card).toContainText("Capture a scene");
+		// On an empty project the fork says to capture; the card would only repeat it.
+		await expect(page.getByRole("button", { name: "Capture this code" })).toBeVisible();
+		await expect(card).toHaveCount(0);
 
-		// Capture is the fork's one filled button: the card adds no second control for it.
+		// Capture is the fork's one filled button: the card appears as earned progress.
 		await page.getByRole("button", { name: "Capture this code" }).click();
 		await expect(card).toContainText("1 of 3");
 		await expect(card).toContainText("Add a focus or a caption");
@@ -36,7 +37,9 @@ test.describe("The First video card", () => {
 		);
 		await expect(card).toContainText("3 of 3");
 		await expect(card).toContainText("Your first video is made.");
-		await expect(card.getByRole("button")).toHaveCount(0);
+		// Completed, it offers one way to put it away; otherwise it is gone on the next load.
+		await expect(card.getByRole("button")).toHaveCount(1);
+		await expect(card.getByRole("button", { name: "Done" })).toBeVisible();
 
 		// The load after the completion: a project with a scene opens in Preview, so
 		// open Edit and see that the panel is there and the card is not.
@@ -49,8 +52,9 @@ test.describe("The First video card", () => {
 
 	test("Later hides it for good, across a reload", async ({ page }) => {
 		await openStudio(page);
+		await page.getByRole("button", { name: "Capture this code" }).click();
 		const card = page.getByRole("group", { name: "First video" });
-		await expect(card).toContainText("0 of 3");
+		await expect(card).toContainText("1 of 3");
 
 		await card.getByRole("button", { name: /^Later/ }).click();
 		await expect(card).toHaveCount(0);
@@ -59,7 +63,8 @@ test.describe("The First video card", () => {
 
 		await page.reload();
 		await expect(page.getByRole("button", { name: "Add source" })).toBeEnabled();
-		await expect(page.getByText("No scene yet")).toBeVisible();
+		await page.getByRole("button", { name: "Edit", exact: true }).click();
+		await expect(page.getByText("Scene 1 of 1")).toBeVisible();
 		await expect(page.getByRole("group", { name: "First video" })).toHaveCount(0);
 	});
 });

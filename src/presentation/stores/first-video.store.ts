@@ -6,6 +6,7 @@ import {
 } from "@/presentation/utils/first-video-preference";
 import { create } from "zustand";
 import { useExportStore } from "./export.store";
+import { useHostedRenderJobsStore } from "./hosted-render-jobs.store";
 
 interface FirstVideoState {
 	preference: FirstVideoPreference;
@@ -25,18 +26,12 @@ interface FirstVideoState {
 
 const loaded = readFirstVideoPreference();
 
-function update(
-	state: FirstVideoState,
-	change: Partial<FirstVideoPreference>,
-): Pick<FirstVideoState, "preference"> | FirstVideoState {
-	const preference = { ...state.preference, ...change };
-	if (
-		preference.dismissed === state.preference.dismissed &&
-		preference.rendered === state.preference.rendered &&
-		preference.completed === state.preference.completed
-	) {
-		return state;
-	}
+/**
+ * Read, merge, write: another tab may have hidden the card, or seen a render,
+ * since this one loaded, and writing this tab's older copy back would erase it.
+ */
+function update(change: Partial<FirstVideoPreference>): { preference: FirstVideoPreference } {
+	const preference = { ...readFirstVideoPreference(), ...change };
 	writeFirstVideoPreference(preference);
 	return { preference };
 }
@@ -44,9 +39,9 @@ function update(
 export const useFirstVideoStore = create<FirstVideoState>((set) => ({
 	preference: loaded,
 	completedAtLoad: loaded.completed,
-	dismiss: () => set((state) => update(state, { dismissed: true })),
-	markRendered: () => set((state) => update(state, { rendered: true })),
-	markCompleted: () => set((state) => update(state, { completed: true })),
+	dismiss: () => set(() => update({ dismissed: true })),
+	markRendered: () => set(() => update({ rendered: true })),
+	markCompleted: () => set(() => update({ completed: true })),
 }));
 
 // At module scope, not in the card: a render that finishes while the card is
@@ -55,6 +50,18 @@ export const useFirstVideoStore = create<FirstVideoState>((set) => ({
 useExportStore.subscribe((state, previous) => {
 	const outcome = state.outcome;
 	if (outcome !== previous.outcome && outcome?.kind === "done" && isVideoExport(outcome.filename)) {
+		useFirstVideoStore.getState().markRendered();
+	}
+});
+
+// A hosted Cloud render sets no export outcome: its phase is the fact. A job
+// that succeeds, or a reload that resumes straight onto one, is a first video.
+useHostedRenderJobsStore.subscribe((state, previous) => {
+	const phase = state.phase;
+	if (phase.kind !== "succeeded") {
+		return;
+	}
+	if (previous.phase.kind !== "succeeded" || previous.phase.jobId !== phase.jobId) {
 		useFirstVideoStore.getState().markRendered();
 	}
 });

@@ -46,7 +46,7 @@ export function FirstVideoCard({ onRefine }: { readonly onRefine?: () => void })
 		}
 	}, [shown, progress.complete, markCompleted]);
 
-	function later() {
+	function putAway() {
 		// The button unmounts under the focus it holds: the panel's first control takes it.
 		const scope = cardRef.current?.closest(".sc-scenes");
 		scope?.querySelector<HTMLElement>("button:not(:disabled)")?.focus({ preventScroll: true });
@@ -55,77 +55,87 @@ export function FirstVideoCard({ onRefine }: { readonly onRefine?: () => void })
 	}
 
 	const next = progress.next;
+	// Said to a screen reader when a step ticks: the card stays mounted between
+	// ticks, so this region exists before it has anything new to say.
+	const announcement = next
+		? `${progress.done} of ${progress.total} steps done. Next: ${next.title}`
+		: "Your first video is made.";
 
 	return (
-		<>
-			<AnimatePresence>
-				{shown && (
-					<motion.fieldset
-						key="first-video"
-						ref={cardRef}
-						className="fv-card"
-						initial={reduce ? false : { opacity: 0, y: 6 }}
-						animate={{ opacity: 1, y: 0 }}
-						// Leaves faster and quieter than it came: a short ease-out, not the entrance's spring.
-						exit={
-							reduce
-								? { opacity: 0 }
-								: { opacity: 0, y: 4, transition: { duration: 0.15, ease: "easeOut" } }
-						}
-						transition={reduce ? { duration: 0 } : springs.snappy}
-					>
-						<legend className="sr-only">First video</legend>
-						<p className="fv-head">
-							<span aria-hidden="true">First video</span>
-							<span className="fv-progress">
-								<span className="fv-marks" aria-hidden="true">
-									{progress.steps.map((step) => (
-										<span key={step.id} className="fv-mark" data-done={step.done ? "" : undefined}>
-											{step.done ? (
-												<svg
-													viewBox="0 0 10 10"
-													fill="none"
-													stroke="currentColor"
-													strokeWidth="1.5"
-													aria-hidden="true"
-												>
-													<path
-														d="m2 5.2 2.1 2.1L8 3"
-														strokeLinecap="round"
-														strokeLinejoin="round"
-													/>
-												</svg>
-											) : null}
-										</span>
-									))}
-								</span>
-								<span className="fv-count" aria-live="polite">
-									{progress.done} of {progress.total}
-								</span>
+		// No entrance on a remount (Edit and Preview, the sheet coming back): only a
+		// card that arrives while the studio is open, the first scene, moves in.
+		<AnimatePresence initial={false}>
+			{shown && (
+				<motion.fieldset
+					key="first-video"
+					ref={cardRef}
+					className="fv-card"
+					initial={reduce ? false : { opacity: 0, y: 6 }}
+					animate={{ opacity: 1, y: 0 }}
+					// Leaves faster and quieter than it came: a short ease-out, not the entrance's spring.
+					exit={
+						reduce
+							? { opacity: 0 }
+							: { opacity: 0, y: 4, transition: { duration: 0.15, ease: "easeOut" } }
+					}
+					transition={reduce ? { duration: 0 } : springs.snappy}
+				>
+					<legend className="sr-only">First video</legend>
+					<p className="fv-head">
+						<span aria-hidden="true">First video</span>
+						<span className="fv-progress">
+							<span className="fv-marks" aria-hidden="true">
+								{progress.steps.map((step) => (
+									<span key={step.id} className="fv-mark" data-done={step.done ? "" : undefined}>
+										{step.done ? (
+											<svg
+												viewBox="0 0 10 10"
+												fill="none"
+												stroke="currentColor"
+												strokeWidth="1.5"
+												aria-hidden="true"
+											>
+												<path d="m2 5.2 2.1 2.1L8 3" strokeLinecap="round" strokeLinejoin="round" />
+											</svg>
+										) : null}
+									</span>
+								))}
 							</span>
-						</p>
-						{next ? (
-							<>
-								<div className="fv-step">
-									<NextStep id={next.id} title={next.title} onRefine={onRefine} />
-									<button
-										type="button"
-										className="fv-later"
-										aria-label="Later: hide this card for good"
-										onClick={later}
-									>
-										Later
-									</button>
-								</div>
-								<p className="fv-line">{next.line}</p>
-							</>
-						) : (
-							<p className="fv-title">Your first video is made.</p>
-						)}
-					</motion.fieldset>
-				)}
-			</AnimatePresence>
-		</>
+							<span className="fv-count">
+								{progress.done} of {progress.total}
+								<span className="sr-only"> steps done</span>
+							</span>
+						</span>
+					</p>
+					{next ? (
+						<>
+							<div className="fv-step">
+								<NextStep id={next.id} title={next.title} onRefine={onRefine} />
+								<button
+									type="button"
+									className="fv-later"
+									aria-label="Later: hide this card for good"
+									onClick={putAway}
+								>
+									Later
+								</button>
+							</div>
+							<p className="fv-line">{next.line}</p>
+						</>
+					) : (
+						<div className="fv-step">
+							<output className="fv-title">Your first video is made.</output>
+							<button type="button" className="fv-later" onClick={putAway}>
+								Done
+							</button>
+						</div>
+					)}
+					<span aria-live="polite" className="sr-only">
+						{announcement}
+					</span>
+				</motion.fieldset>
+			)}
+		</AnimatePresence>
 	);
 }
 

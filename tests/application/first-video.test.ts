@@ -102,15 +102,19 @@ describe("what counts as a rendered video", () => {
 });
 
 describe("when the card shows", () => {
-	const open = { sceneCount: 0, dismissed: false, completed: false };
+	const open = { sceneCount: 1, dismissed: false, completed: false };
 
-	it("shows on a fresh project", () => {
+	it("shows once a scene is captured, as progress earned", () => {
 		expect(firstVideoShown(open)).toBe(true);
+		expect(firstVideoShown({ ...open, sceneCount: 2 })).toBe(true);
+	});
+
+	it("never shows on an empty project, where the fork already says to capture", () => {
+		expect(firstVideoShown({ ...open, sceneCount: 0 })).toBe(false);
 	});
 
 	it("never shows on a project with three or more scenes", () => {
 		expect(FIRST_VIDEO_SCENE_LIMIT).toBe(3);
-		expect(firstVideoShown({ ...open, sceneCount: 2 })).toBe(true);
 		expect(firstVideoShown({ ...open, sceneCount: 3 })).toBe(false);
 		expect(firstVideoShown({ ...open, sceneCount: 12 })).toBe(false);
 	});
