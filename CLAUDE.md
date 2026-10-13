@@ -153,7 +153,7 @@ Export, all working:
     MP4/WebM/GIF, 1080p/1440p/4K (`RESOLUTION_TIERS`)
 15. **On the server**: Remotion, same engine, the fallback when the browser has
     no encoder. Still the only path that bakes captions and audio: the painter
-    does neither yet (`frame-painter/scene.ts` hardcodes `hasCaption: false`)
+    does neither yet (`frame-painter/scene.ts` hardcodes `hasCaption: false`), so the preview follows Where: under This device the frame's caption band stays empty and the caption shows under the frame as "Hosted only" (`captionsBakedFor`)
 16. **Share by link, JSON in/out, PNG snapshot, watermark**
 
 Landing page (`src/presentation/landing/`): a full marketing page running the

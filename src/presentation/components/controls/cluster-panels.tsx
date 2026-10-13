@@ -23,8 +23,8 @@ import {
 import { useCallback, useEffect } from "react";
 import { Camera } from "reicon-react";
 import {
+	KeepCaptionsLink,
 	RENDER_BUSY_LABELS,
-	useCloudGate,
 	useCloudRenderCta,
 	useCloudTarget,
 	useWhereSelect,
@@ -637,9 +637,6 @@ export function RenderNotes({ variant }: { variant: "sheet" | "pill" }) {
 	const isExporting = useExportStore((s) => s.isExporting);
 	const hasCaptions = useSnippetStore((s) => s.snippet.steps.some((step) => step.annotation));
 	const captureStep = useSnippetStore((s) => s.captureStep);
-	const gate = useCloudGate();
-	const selectWhere = useWhereSelect(variant === "pill" ? "rail" : "cluster");
-
 	const gifNote = gifFpsCaveat({ format, fps, safeFps: gifSafeFps(fps) });
 	const captionsNote = captionsCaveat({
 		hasCaptions,
@@ -677,17 +674,11 @@ export function RenderNotes({ variant }: { variant: "sheet" | "pill" }) {
 					{/* Where a hosted render bakes them, the caveat says so (ux-waves D3): the
 					    link chooses Cloud for a plan that renders there, and opens the sheet
 					    that explains it for any other. A local build has no Cloud to name. */}
-					{note === captionsNote && gate !== "absent" ? (
-						<button
-							type="button"
+					{note === captionsNote ? (
+						<KeepCaptionsLink
+							surface={variant === "pill" ? "rail" : "cluster"}
 							className="si-note-action"
-							onClick={() => {
-								if (gate === "open") feedback("commit");
-								selectWhere("cloud");
-							}}
-						>
-							Keep them with Cloud
-						</button>
+						/>
 					) : null}
 				</span>
 			))}

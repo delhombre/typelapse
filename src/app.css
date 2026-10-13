@@ -3047,6 +3047,64 @@ html.dark:not([data-landing-theme]) {
 	text-underline-offset: 3px;
 }
 
+/* The author's line under the frame when the chosen Where does not bake captions
+   (#271): the step's caption, muted, tagged, with the way to keep it. On paper,
+   so it reads in the paper's inks and not the island's. Out of flow, hanging from
+   the frame's foot, so it never moves the frame. One line: a long caption gives
+   way to the ellipsis before the tag or the link do. */
+.studio-root .sc-caption-note {
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	max-width: 100%;
+	margin-top: 6px;
+	color: var(--color-ash);
+	font-size: 12px;
+	line-height: 16px;
+	white-space: nowrap;
+}
+
+/* The loupe scales the frame to a readable code size; the note is not part of the
+   frame, and magnified it would hang over the page. */
+.sc-stage-slot[data-loupe] .sc-caption-note {
+	display: none;
+}
+
+.studio-root .sc-caption-note-tag {
+	flex: none;
+	padding: 0 6px;
+	border: 1px solid var(--color-hairline);
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 14px;
+}
+
+.studio-root .sc-caption-note-text {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* The link keeps its 16px line and takes its 44px target from an extension, so a
+   touch screen does not make the line taller than the room under the frame. */
+.studio-root .sc-caption-note .si-note-action {
+	flex: none;
+	min-height: 0;
+	color: var(--color-ink);
+}
+
+.studio-root .sc-caption-note .si-note-action::after {
+	content: "";
+	position: absolute;
+	/* 44px tall, reaching down and not up: upward it would take the frame's foot. */
+	inset: -4px -8px -24px;
+}
+
 /* The same words above the desktop rail, whose one row has no room for a line:
    the status pill's material, as wide as its sentence. */
 .studio-root .si-render-notes {

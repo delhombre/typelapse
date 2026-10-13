@@ -5,7 +5,7 @@ import { create } from "zustand";
  * cluster (the phone, and a desktop's preview island) or the desktop rail. Each
  * mounts its own sheet, so the one that opens is the one under the press.
  */
-export type CloudSurface = "cluster" | "rail";
+export type CloudSurface = "cluster" | "rail" | "stage";
 
 interface HostedRenderSheetState {
 	/** The surface whose sheet is open; null when none is. */

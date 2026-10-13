@@ -237,13 +237,15 @@ shadow, line height) is read from one table in `src/application` by the DOM
 preview, the Remotion composition and the canvas painter. A visual change
 lands in all three or does not land. On a phone the code is read through a
 loupe: a tap scales that same DOM preview to an 11px code floor inside a clip-path, never a fourth picture.
+The frame also follows Where (#271): the painter bakes no caption, so under This
+device the band stays empty and the caption shows under the frame as "Hosted only".
 
 **Why:** the canvas painter is a third renderer; four drifts in one PR came
 from literals copied between renderers. At 374px a 1080p frame draws its code at 2 to 6px.
 
 **Enforced by:** `src/application/layout/frame-metrics.ts`,
 `tests/application/frame-metrics.test.ts`,
-`tests/application/canonical-card-width.test.tsx`, `src/application/layout/code-loupe.ts`, `tests/e2e/mobile-shell.spec.ts` (the loupe).
+`tests/application/canonical-card-width.test.tsx`, `src/application/layout/code-loupe.ts`, `tests/e2e/mobile-shell.spec.ts` (the loupe), `captions/caption-baking.ts`, `tests/e2e/device-export.spec.ts` (the band).
 
 **Pivot:** "The export may differ from the preview."
 

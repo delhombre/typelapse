@@ -1,4 +1,5 @@
 import { type CloudAccount, type CloudGate, cloudGate } from "@/application/billing/cloud-gate";
+import { feedback } from "@/presentation/haptics";
 import { type AuthStoreState, useAuthStore } from "@/presentation/stores/auth.store";
 import { type ExportTarget, useExportStore } from "@/presentation/stores/export.store";
 import {
@@ -71,6 +72,36 @@ export function useWhereSelect(surface: CloudSurface): (target: ExportTarget) =>
 			setTarget(target);
 		},
 		[gate, setTarget, show, surface],
+	);
+}
+
+/**
+ * The way out of "captions are not baked on this device": Cloud bakes them.
+ * Where Cloud exists, a plan that renders there chooses it and any other opens
+ * the sheet that explains it (ux-waves D3); a local build has no Cloud to name,
+ * so there is no link. One component for the export notes and the line under the
+ * preview, so the two cannot answer a press differently.
+ */
+export function KeepCaptionsLink({
+	surface,
+	className,
+}: { surface: CloudSurface; className?: string }) {
+	const gate = useCloudGate();
+	const selectWhere = useWhereSelect(surface);
+	if (gate === "absent") {
+		return null;
+	}
+	return (
+		<button
+			type="button"
+			className={className}
+			onClick={() => {
+				if (gate === "open") feedback("commit");
+				selectWhere("cloud");
+			}}
+		>
+			Keep them with Cloud
+		</button>
 	);
 }
 
