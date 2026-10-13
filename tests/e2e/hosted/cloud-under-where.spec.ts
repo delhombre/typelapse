@@ -74,7 +74,9 @@ test.describe("Hosted: Cloud under Where is visible to everyone, gated at the pr
 			const cloud = page
 				.getByRole("group", { name: "Where" })
 				.getByRole("button", { name: "Cloud" });
-			await expect(cloud).toHaveAttribute("aria-pressed", "false");
+			// Gated, it is a button that opens a dialog, not a toggle left off.
+			await expect(cloud).toHaveAttribute("aria-haspopup", "dialog");
+			await expect(cloud).not.toHaveAttribute("aria-pressed");
 
 			// Escape closes the sheet and leaves the export panel open, focus on Cloud.
 			await page.keyboard.press("Escape");
@@ -119,9 +121,10 @@ test.describe("Hosted: Cloud under Where is visible to everyone, gated at the pr
 		await expect(sheet.getByRole("button", { name: "Sign in" })).toHaveCount(0);
 		await sheet.getByRole("button", { name: "Close", exact: true }).click();
 		await expect(sheet).toBeHidden();
-		await expect(
-			page.getByRole("group", { name: "Where" }).getByRole("button", { name: "Cloud" }),
-		).toHaveAttribute("aria-pressed", "false");
+		const cloud = page.getByRole("group", { name: "Where" }).getByRole("button", { name: "Cloud" });
+		await expect(cloud).toHaveAttribute("aria-haspopup", "dialog");
+		await expect(cloud).not.toHaveAttribute("aria-pressed");
+		await expect(page.getByTestId("cloud-render-status")).toHaveCount(0);
 
 		// The gate is the server's, not the sheet's: a render asked for anyway is refused
 		// before its body, in the plan's own words.

@@ -206,6 +206,8 @@ function SheetBody({
 				))}
 			</ul>
 			{price ? <p className="hosted-render-price">{price}</p> : null}
+			{/* Beside the price, before any action: test money never looks like real money. */}
+			<TestModeLine environment={catalog?.environment} />
 			{view === "upgrade" ? <UpgradeStep /> : null}
 			{view === "pending" ? (
 				<p className="hosted-render-note" aria-busy="true">
@@ -213,7 +215,6 @@ function SheetBody({
 				</p>
 			) : null}
 			{view === "offer" ? <OfferSignIn onSignIn={() => onSignIn(true)} /> : null}
-			<TestModeLine environment={catalog?.environment} />
 		</>
 	);
 }
