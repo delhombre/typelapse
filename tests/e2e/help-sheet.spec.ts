@@ -93,8 +93,8 @@ test.describe("Help on a phone", () => {
 		await more.tap();
 		const row = page.getByRole("button", { name: "Help", exact: true });
 		await expect(row.locator(".sc-new-dot")).toBeVisible();
-		const box = await row.boundingBox();
-		expect(box?.height).toBeGreaterThanOrEqual(44);
+		// Its own height, not the box a scale-in is still arriving at.
+		expect(await row.evaluate((el) => (el as HTMLElement).offsetHeight)).toBeGreaterThanOrEqual(44);
 		await row.tap();
 
 		const sheet = await readSheet(page);

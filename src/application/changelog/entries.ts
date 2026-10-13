@@ -24,6 +24,13 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
 		summary: "Scenes, focus ranges and keyboard shortcuts are explained in the studio, under Help.",
 	},
 	{
+		id: "first-video-card",
+		date: "2026-10-13",
+		title: "A First video card",
+		summary:
+			"A new project shows three steps to a first video, only the next one at a time, and Later puts it away for good.",
+	},
+	{
 		id: "paid-side-under-where",
 		date: "2026-10-13",
 		title: "The paid side is visible under Where",

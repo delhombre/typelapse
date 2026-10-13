@@ -483,18 +483,19 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		const more = page.getByRole("button", { name: "More actions" });
 		await more.tap();
 		const menu = page.locator(".sc-utility-overflow-menu");
-		// The account first, then the resources the row gave up, then the file actions.
-		const rows = await menu.locator("> :is(button, a) > span").allTextContents();
-		expect(rows.slice(0, 4)).toEqual([
+		// The account first, then the resources the row gave up, Help, then the file actions.
+		const rows = await menu.locator("> :is(button, a) > span:not(.sc-new-dot)").allTextContents();
+		expect(rows.slice(0, 5)).toEqual([
 			"Showcase",
 			"Library",
+			"Help",
 			"Export project file",
 			"Copy share link",
 		]);
 		expect(rows.at(-1)).toBe("Back to home");
 		// A row's own height is the target: 44px, once the menu has finished arriving.
 		await settled(menu);
-		for (const name of ["Showcase", "Library"]) {
+		for (const name of ["Showcase", "Library", "Help"]) {
 			const box = await menu.getByRole("button", { name, exact: true }).boundingBox();
 			expect(box?.height).toBeGreaterThanOrEqual(44);
 		}
