@@ -21,6 +21,9 @@ const words = (head: Document | HTMLElement) => {
 	const meta = (selector: string) =>
 		head.querySelector<HTMLMetaElement>(selector)?.getAttribute("content");
 	return {
+		canonical: head.querySelector('link[rel="canonical"]')?.getAttribute("href"),
+		ogUrl: meta('meta[property="og:url"]'),
+		ogImage: meta('meta[property="og:image"]'),
 		description: meta('meta[name="description"]'),
 		ogTitle: meta('meta[property="og:title"]'),
 		ogDescription: meta('meta[property="og:description"]'),
@@ -59,6 +62,28 @@ describe("the static host and the client hook", () => {
 			expect(words(fromHost).description).toBe(ROUTE_HEADS[key].description);
 		});
 	}
+
+	it("hand the landing's address and card back on leaving, after a hard load of another page", () => {
+		for (const key of KEYS) {
+			const hardLoad = served(ROUTE_HEADS[key].path);
+			document.head.innerHTML = hardLoad.head.innerHTML;
+			document.title = hardLoad.title;
+
+			render(<Page route={key} />).unmount();
+
+			expect(words(document.head), key).toEqual(words(served("/")));
+			expect(document.title, key).toBe(ROUTE_HEADS.landing.title);
+		}
+	});
+
+	it("leave the address alone where the document has none (a dev server)", () => {
+		document.head.innerHTML = '<meta name="description" content="x">';
+
+		render(<Page route="pricing" />);
+
+		expect(document.head.querySelector('link[rel="canonical"]')).toBeNull();
+		expect(document.head.querySelector('meta[property="og:url"]')).toBeNull();
+	});
 
 	it("serve one title tag per page, and keep the other head tags of the shell", () => {
 		for (const key of KEYS) {

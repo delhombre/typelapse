@@ -36,6 +36,20 @@ describe("the route head table", () => {
 		expect(routeHeadFor("/app/extra")).toBeNull();
 	});
 
+	it("keeps the public pages' descriptions under the 160 characters a results page shows", () => {
+		// The studio is a tool, not a page to be found by its sentence, and its
+		// wording is the owner's (it must not overclaim what stays on the device).
+		for (const key of ["landing", "pricing"] as const) {
+			expect(ROUTE_HEADS[key].description.length, key).toBeLessThanOrEqual(160);
+		}
+	});
+
+	it("says what the studio sends nowhere: nothing leaves the device unless a hosted render is picked", () => {
+		expect(ROUTE_HEADS.studio.description).toBe(
+			"The Typelapse studio: paste a pull request, a diff or a snippet, shape the steps and export the video on your own device. Nothing is uploaded unless you pick a hosted render.",
+		);
+	});
+
 	it("is the pricing view's description: the table is the one source", () => {
 		const view = pricingView({ reading: { kind: "pending" } });
 

@@ -1,4 +1,4 @@
-import { deviceIntro } from "../billing/device-export-claim";
+import { deviceVideoFormats } from "../billing/device-export-claim";
 import { APP_PATHS } from "./app-paths";
 
 /**
@@ -57,13 +57,14 @@ export const ROUTE_HEADS: Readonly<Record<AppRouteKey, RouteHead>> = {
 		path: APP_PATHS.studio,
 		title: "Studio · Typelapse",
 		description:
-			"The Typelapse studio: paste a pull request, a diff or a snippet, shape the steps and export the video from your browser. Nothing is uploaded.",
+			"The Typelapse studio: paste a pull request, a diff or a snippet, shape the steps and export the video on your own device. Nothing is uploaded unless you pick a hosted render.",
 		image: DEFAULT_SHARE_IMAGE,
 	},
 	pricing: {
 		path: APP_PATHS.pricing,
 		title: "Pricing · Typelapse",
-		description: `Exporting on your own device is free: ${deviceIntro()}, no watermark, no account. Creator adds hosted renders with captions and audio baked in.`,
+		// Under 160 characters, or a results page cuts it.
+		description: `Exporting on your own device is free: ${deviceVideoFormats()}, GIF and PNG too, no watermark, no account. Creator adds hosted renders.`,
 		image: DEFAULT_SHARE_IMAGE,
 	},
 };
