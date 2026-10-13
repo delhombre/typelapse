@@ -355,6 +355,38 @@ describe("the sheet a billing return raises in the studio", () => {
 		expect(vi.getTimerCount()).toBe(0);
 	});
 
+	it("keeps polling through a session blip: unavailable for a moment is not a sign-out", async () => {
+		vi.useFakeTimers();
+		refresh.mockImplementation(async () => undefined);
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(0);
+		});
+		expect(screen.getByRole("dialog", { name: "Confirming your payment" })).toBeTruthy();
+		const session = useAuthStore.getState().status;
+
+		act(() => {
+			useAuthStore.setState({ status: { kind: "hosted-unavailable" } });
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(BILLING_RETRY_MS);
+		});
+		act(() => {
+			useAuthStore.setState({ status: session });
+		});
+		expect(screen.getByRole("dialog", { name: "Confirming your payment" })).toBeTruthy();
+
+		refresh.mockImplementation(async () => {
+			usePlanStore.setState({ plan: Plan.pro(), allowance: "You are using 0 of 100." });
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(BILLING_RETRY_MS);
+		});
+
+		expect(screen.getByRole("dialog", { name: "Creator is on." })).toBeTruthy();
+	});
+
 	it("goes straight to Creator is on, with no confirming in between, when the webhook was first", async () => {
 		const seen: string[] = [];
 		const stop = useBillingReturnStore.subscribe((state) => {

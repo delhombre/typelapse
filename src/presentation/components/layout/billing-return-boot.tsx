@@ -71,8 +71,10 @@ function startBillingReturn(outcome: BillingReturn): BillingReturnRun {
 	const returns = useBillingReturnStore.getState();
 	returns.reset();
 	// A sign-out mid-poll ends it: the plan is no longer the signed-in person's to confirm.
+	// Only a real "anonymous" counts: a session read that failed for a moment
+	// ("hosted-unavailable") or is being read again ("checking") is not a sign-out.
 	const unsubscribe = useAuthStore.subscribe((state) => {
-		if (state.status.kind !== "authenticated" && state.status.kind !== "checking") {
+		if (state.status.kind === "anonymous") {
 			controller.abort();
 		}
 	});
