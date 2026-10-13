@@ -208,11 +208,10 @@ in a 35px pitch overhung its neighbour by 9px and stole its presses.
 `tests/presentation/layer-editor-in-sheet.test.ts`,
 `tests/application/phone-sheet.test.ts`.
 
-On the island's sheet and status row the 44px is drawn, not extended: rows are
-7 to 12px apart, so a reach past a 44px box would be shared with the row beside
-it (`src/app.css`, the coarse block above the export status). The phone's social
-row joins the 44px cells with no gap. The 44px is a finger's floor: under
-`pointer: fine` a row may be 24px, WCAG 2.5.8's floor, as the landing's example rows are (#272).
+On the island's sheet and status row the 44px is drawn, not extended: rows sit
+7 to 12px apart, so a reach past the box would be shared with the next row. The
+social row joins its 44px cells with no gap. Under `pointer: fine` a row may be
+24px (WCAG 2.5.8), as the landing's example rows are (#272).
 
 **Pivot:** "Desktop only; drop the touch rules."
 
@@ -236,13 +235,13 @@ smears; a fallback with other metrics shifts the layout when the file lands.
 **Decision:** What is drawn inside the video frame (card radius, chrome bar,
 shadow, line height) is read from one table in `src/application` by the DOM
 preview, the Remotion composition and the canvas painter. A visual change
-lands in all three or does not land. On a phone the code is read through a
-loupe: a tap scales that same DOM preview to an 11px code floor inside a clip-path, never a fourth picture.
-The frame also follows Where (#271): the painter bakes no caption, so under This
-device the band stays empty and the caption shows under the frame as "Server only" or "Cloud only".
+lands in all three or does not land. The phone loupe scales that same DOM
+preview to an 11px code floor, never a fourth picture. The frame follows Where
+(#271): the painter bakes no caption, so under This device the band stays empty
+and the caption shows under the frame as "Server only" or "Cloud only".
 
-**Why:** the canvas painter is a third renderer; four drifts in one PR came
-from literals copied between renderers. At 374px a 1080p frame draws its code at 2 to 6px.
+**Why:** the canvas painter is a third renderer; four drifts in one PR came from
+literals copied between renderers, and at 374px a 1080p frame draws code at 2 to 6px.
 
 **Enforced by:** `src/application/layout/frame-metrics.ts`,
 `tests/application/frame-metrics.test.ts`,
