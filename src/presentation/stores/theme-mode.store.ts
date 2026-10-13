@@ -1,3 +1,4 @@
+import { CHROME_COLOR } from "@/presentation/chrome-color";
 import { create } from "zustand";
 
 /** The side the studio is painted on. */
@@ -18,9 +19,6 @@ const STORAGE_KEY = "typelapse.studio-appearance";
 const LEGACY_KEY = "typelapse.studio-theme";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
-
-/** The studio ramp's two ends (app.css paints the document with the same pair). */
-const CHROME_COLOR: Record<ThemeMode, string> = { light: "#fafaf9", dark: "#121110" };
 
 function systemMode(): ThemeMode {
 	return typeof window.matchMedia === "function" && window.matchMedia(DARK_QUERY).matches
