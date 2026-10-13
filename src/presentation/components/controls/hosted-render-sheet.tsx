@@ -122,7 +122,8 @@ export function HostedRenderSheet({ surface }: { surface: CloudSurface }) {
 		// Back to what opened it; a caveat link that chose Cloud is gone with its
 		// caveat, so this surface's Cloud under Where takes the focus instead.
 		const { opener } = useHostedRenderSheetStore.getState();
-		const back = opener?.isConnected ? opener : cloudChipNear(anchorRef.current);
+		const back =
+			opener?.isConnected && !opener.closest("[inert]") ? opener : focusFallback(anchorRef.current);
 		back?.focus({ preventScroll: true });
 	};
 
@@ -180,6 +181,19 @@ function viewOf(gate: ReturnType<typeof useCloudGate>, signingIn: boolean): Shee
 		default:
 			return null;
 	}
+}
+
+/**
+ * Where focus goes when the control that opened the sheet is gone: this surface's
+ * Cloud under Where, or, on the stage (no Where group beside it), the island's
+ * Export trigger, which is where the person's next step is.
+ */
+function focusFallback(anchor: HTMLElement | null): HTMLElement | null {
+	return (
+		cloudChipNear(anchor) ??
+		document.querySelector<HTMLElement>('[data-island-opener="export"]') ??
+		document.querySelector<HTMLElement>(".sc-loupe-target")
+	);
 }
 
 /** The Where group's Cloud on the surface the sheet belongs to. */

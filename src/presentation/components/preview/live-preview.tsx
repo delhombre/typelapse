@@ -5,6 +5,7 @@ import {
 	parseMeshBackground,
 	resolveBackgroundCss,
 } from "@/application/backgrounds/mesh-gradient";
+import { captionsBakedFor } from "@/application/captions/caption-baking";
 import { captionAt } from "@/application/captions/caption-timing";
 import { scriptFrameAt } from "@/application/export/video-script";
 import { focusLineSet } from "@/application/focus/line-ranges";
@@ -53,7 +54,7 @@ import {
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
 	type ReactNode,
 	type RefObject,
@@ -65,6 +66,9 @@ import {
 	useState,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { HostedRenderSheet } from "../controls/hosted-render-sheet";
+import { BakedCaption } from "./baked-caption";
+import { CaptionNote } from "./caption-note";
 import { ClipFades } from "./clip-fades";
 import { FocusZoomBody } from "./focus-zoom-body";
 import { FrameChrome, type WindowChrome } from "./frame-chrome";
@@ -73,7 +77,6 @@ import { GrainOverlay } from "./grain-overlay";
 import { MagicMoveCanvas } from "./magic-move-canvas";
 import { ReelsProgress } from "./reels-progress";
 import { SocialPreviewOverlay } from "./social-preview-overlay";
-import { StepCaption } from "./step-caption";
 import { StudioCompositionAudio, StudioCompositionLayers } from "./studio-composition-layers";
 import { useCharWidthRatio } from "./use-char-width-ratio";
 
@@ -237,6 +240,7 @@ export function LivePreview() {
 	const transitionEasing = useExportStore((s) => s.transitionEasing);
 	const transitionMs = useExportStore((s) => s.transitionMs);
 	const exportFps = useExportStore((s) => s.fps);
+	const target = useExportStore((s) => s.target);
 	const loop = useExportStore((s) => s.loop);
 	const composition = useStudioCompositionStore();
 	const liveCode = useSnippetStore(liveCodeOf);
@@ -488,6 +492,10 @@ export function LivePreview() {
 				opacity: annotations[currentStepIndex] ? 1 : 0,
 			};
 
+	// What the chosen Where exports: the frame shows a caption only where the render
+	// bakes it, and the note under the frame carries it where it does not.
+	const captionsBaked = captionsBakedFor(target);
+
 	const isTransparent = background === "transparent";
 	// The size the card is laid out at: the composition's on the export canvas,
 	// editor size on the plain fit-to-viewport card.
@@ -623,7 +631,8 @@ export function LivePreview() {
 				</FrameShell>
 
 				{hasCaptions && (
-					<StepCaption
+					<BakedCaption
+						baked={captionsBaked}
 						text={caption.text}
 						opacity={caption.opacity}
 						scale={layoutScale}
@@ -659,7 +668,9 @@ export function LivePreview() {
 			) : null}
 			<div
 				ref={setContainerNode}
-				className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-[var(--camera-frame-inset,2rem)]"
+				// Clips sideways only: the note under the frame hangs below it, past the
+				// phone's stage, which is exactly as tall as the frame.
+				className="flex min-h-0 flex-1 items-center justify-center overflow-x-clip p-[var(--camera-frame-inset,2rem)]"
 			>
 				{aspectCanvas ? (
 					// Faithful aspect-canvas preview: the export's mesh box with the code
@@ -667,119 +678,136 @@ export function LivePreview() {
 					// over the FULL canvas. The overlay is a SIBLING of [data-export-target]
 					// (never a descendant), so the PNG capture and the Remotion render never
 					// see it.
-					<motion.div
-						ref={boxRef}
-						data-testid="preview-frame"
-						data-preview-frame
-						layout
-						className="relative shrink-0 overflow-hidden"
-						style={{
-							width: aspectCanvas.boxWidth,
-							height: aspectCanvas.boxHeight,
-							borderRadius: aspectCanvas.radius,
-							background: staticBackground(background, isMesh, isImage),
-						}}
-						animate={
-							isMesh || isImage
-								? undefined
-								: { background: isTransparent ? "transparent" : background }
-						}
-						transition={{
-							layout: springs.default,
-							background: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
-						}}
-					>
-						{/* The exporters' canvas texture, the glow and the grain they lay over
-						    the background under the card, at the box's share of the canvas. */}
-						{!isTransparent ? <GlowDecoration scale={aspectCanvas.boxScale} /> : null}
-						{!isTransparent ? <GrainOverlay scale={aspectCanvas.boxScale} /> : null}
-						{hasCompositionLayers ? (
-							<div
-								className="sc-composition-surface-host"
-								data-slot="under-code"
-								style={{
-									width: compositionDocument.project.canvas.width,
-									height: compositionDocument.project.canvas.height,
-									transform: `scale(${aspectCanvas.boxWidth / compositionDocument.project.canvas.width})`,
-								}}
-							>
-								<StudioCompositionLayers
-									document={compositionDocument}
-									frame={compositionFrame}
-									fps={exportFps}
-									slot="under-code"
-									playing={isPlaying}
-									selectedBlockId={composition.selectedBlockId}
-									onSelectLayer={(sceneId, blockId) => {
-										composition.selectBlock(sceneId, blockId);
-										selectAuthoredAudio(null);
-										const index = snippet.steps.findIndex((step) => step.id === sceneId);
-										if (index >= 0) {
-											useSnippetStore.getState().setCurrentStepIndex(index);
-										}
-									}}
-								/>
-							</div>
-						) : null}
-						<div
-							className="absolute top-1/2 left-1/2"
+					//
+					// Keyed: this wrapper and the plain card's are both divs at one place, and
+					// React would otherwise hand the card's motion.div to the frame's box.
+					<div key="aspect-frame" className="relative shrink-0">
+						<motion.div
+							ref={boxRef}
+							data-testid="preview-frame"
+							data-preview-frame
+							layout
+							className="relative shrink-0 overflow-hidden"
 							style={{
-								zIndex: 1,
-								opacity: primaryCodeOpacity,
-								pointerEvents: primaryCodeOpacity === 0 ? "none" : undefined,
-								transform: `translate(-50%, -50%) scale(${aspectCanvas.cardScale})`,
-								transformOrigin: "center center",
+								width: aspectCanvas.boxWidth,
+								height: aspectCanvas.boxHeight,
+								borderRadius: aspectCanvas.radius,
+								background: staticBackground(background, isMesh, isImage),
+							}}
+							animate={
+								isMesh || isImage
+									? undefined
+									: { background: isTransparent ? "transparent" : background }
+							}
+							transition={{
+								layout: springs.default,
+								background: { duration: 0.6, ease: [0.4, 0, 0.2, 1] },
 							}}
 						>
-							{cardElement}
-						</div>
-						{hasCompositionLayers ? (
+							{/* The exporters' canvas texture, the glow and the grain they lay over
+							    the background under the card, at the box's share of the canvas. */}
+							{!isTransparent ? <GlowDecoration scale={aspectCanvas.boxScale} /> : null}
+							{!isTransparent ? <GrainOverlay scale={aspectCanvas.boxScale} /> : null}
+							{hasCompositionLayers ? (
+								<div
+									className="sc-composition-surface-host"
+									data-slot="under-code"
+									style={{
+										width: compositionDocument.project.canvas.width,
+										height: compositionDocument.project.canvas.height,
+										transform: `scale(${aspectCanvas.boxWidth / compositionDocument.project.canvas.width})`,
+									}}
+								>
+									<StudioCompositionLayers
+										document={compositionDocument}
+										frame={compositionFrame}
+										fps={exportFps}
+										slot="under-code"
+										playing={isPlaying}
+										selectedBlockId={composition.selectedBlockId}
+										onSelectLayer={(sceneId, blockId) => {
+											composition.selectBlock(sceneId, blockId);
+											selectAuthoredAudio(null);
+											const index = snippet.steps.findIndex((step) => step.id === sceneId);
+											if (index >= 0) {
+												useSnippetStore.getState().setCurrentStepIndex(index);
+											}
+										}}
+									/>
+								</div>
+							) : null}
 							<div
-								className="sc-composition-surface-host"
-								data-slot="over-code"
+								className="absolute top-1/2 left-1/2"
 								style={{
-									width: compositionDocument.project.canvas.width,
-									height: compositionDocument.project.canvas.height,
-									transform: `scale(${aspectCanvas.boxWidth / compositionDocument.project.canvas.width})`,
+									zIndex: 1,
+									opacity: primaryCodeOpacity,
+									pointerEvents: primaryCodeOpacity === 0 ? "none" : undefined,
+									transform: `translate(-50%, -50%) scale(${aspectCanvas.cardScale})`,
+									transformOrigin: "center center",
 								}}
 							>
-								<StudioCompositionLayers
-									document={compositionDocument}
-									frame={compositionFrame}
-									fps={exportFps}
-									slot="over-code"
-									playing={isPlaying}
-									selectedBlockId={composition.selectedBlockId}
-									onSelectLayer={(sceneId, blockId) => {
-										composition.selectBlock(sceneId, blockId);
-										selectAuthoredAudio(null);
-										const index = snippet.steps.findIndex((step) => step.id === sceneId);
-										if (index >= 0) {
-											useSnippetStore.getState().setCurrentStepIndex(index);
-										}
-									}}
-								/>
+								{cardElement}
 							</div>
-						) : null}
-						{watermark ? (
-							<CanvasWatermark
-								text={watermark}
-								color={getWatermarkColor(background, snippet.theme.foreground)}
-								fontFamily={snippet.theme.fontFamily}
-								scale={renderScaleFor(exportWidth, exportHeight, BASE_VIDEO_SCALE)}
-								boxScale={aspectCanvas.boxScale}
-							/>
-						) : null}
-						{activeSocialPlatform && (
-							<SocialPreviewOverlay
-								platform={activeSocialPlatform}
-								showGuides={socialShowGuides}
-								radius={aspectCanvas.radius}
-							/>
-						)}
-					</motion.div>
+							{hasCompositionLayers ? (
+								<div
+									className="sc-composition-surface-host"
+									data-slot="over-code"
+									style={{
+										width: compositionDocument.project.canvas.width,
+										height: compositionDocument.project.canvas.height,
+										transform: `scale(${aspectCanvas.boxWidth / compositionDocument.project.canvas.width})`,
+									}}
+								>
+									<StudioCompositionLayers
+										document={compositionDocument}
+										frame={compositionFrame}
+										fps={exportFps}
+										slot="over-code"
+										playing={isPlaying}
+										selectedBlockId={composition.selectedBlockId}
+										onSelectLayer={(sceneId, blockId) => {
+											composition.selectBlock(sceneId, blockId);
+											selectAuthoredAudio(null);
+											const index = snippet.steps.findIndex((step) => step.id === sceneId);
+											if (index >= 0) {
+												useSnippetStore.getState().setCurrentStepIndex(index);
+											}
+										}}
+									/>
+								</div>
+							) : null}
+							{watermark ? (
+								<CanvasWatermark
+									text={watermark}
+									color={getWatermarkColor(background, snippet.theme.foreground)}
+									fontFamily={snippet.theme.fontFamily}
+									scale={renderScaleFor(exportWidth, exportHeight, BASE_VIDEO_SCALE)}
+									boxScale={aspectCanvas.boxScale}
+								/>
+							) : null}
+							{activeSocialPlatform && (
+								<SocialPreviewOverlay
+									platform={activeSocialPlatform}
+									showGuides={socialShowGuides}
+									radius={aspectCanvas.radius}
+								/>
+							)}
+						</motion.div>
+						{/* Under the frame, out of flow: the caption the chosen Where does not bake. */}
+						<AnimatePresence>
+							{hasCaptions && !captionsBaked ? (
+								<CaptionNote
+									key="caption-note"
+									text={caption.text}
+									opacity={caption.opacity}
+									playing={playback !== null}
+								/>
+							) : null}
+						</AnimatePresence>
+					</div>
 				) : (
 					<div
+						key="plain-card"
 						className="shrink-0"
 						style={{ transform: `scale(${fitScaleValue})`, transformOrigin: "center center" }}
 					>
@@ -787,6 +815,9 @@ export function LivePreview() {
 					</div>
 				)}
 			</div>
+			{/* Beside the note, never inside it: the note leaves when Where moves to Cloud, and a
+			    sheet that the plan arriving closes has to outlive it to close in its own way. */}
+			<HostedRenderSheet surface="stage" />
 		</div>
 	);
 }

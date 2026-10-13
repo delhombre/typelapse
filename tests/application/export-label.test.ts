@@ -1,4 +1,6 @@
 import {
+	WHERE_LABEL,
+	bakingTargetTag,
 	captionsCaveat,
 	captionsNote,
 	exportCodecNote,
@@ -83,6 +85,26 @@ describe("the captions note: the on-device export draws none, video or still (#1
 	});
 });
 
+describe("the tag on a caption this device does not draw", () => {
+	it("names Server on a local build", () => {
+		expect(bakingTargetTag({ serverOffered: true, cloudListed: false })).toBe(
+			`${WHERE_LABEL.server} only`,
+		);
+	});
+
+	it("names Cloud on a hosted build with accounts", () => {
+		expect(bakingTargetTag({ serverOffered: false, cloudListed: true })).toBe(
+			`${WHERE_LABEL.cloud} only`,
+		);
+	});
+
+	it("says it is not in this export where Where lists nothing that bakes it", () => {
+		expect(bakingTargetTag({ serverOffered: false, cloudListed: false })).toBe(
+			"Not in this export",
+		);
+	});
+});
+
 describe("the captions caveat, read before Render", () => {
 	it("warns on this device when a scene carries a caption", () => {
 		expect(captionsCaveat({ hasCaptions: true, onDevice: true, serverOffered: false })).toBe(
@@ -90,9 +112,9 @@ describe("the captions caveat, read before Render", () => {
 		);
 	});
 
-	it("names the server as the way out when one is offered", () => {
+	it("names Server as the way out when one is offered", () => {
 		expect(captionsCaveat({ hasCaptions: true, onDevice: true, serverOffered: true })).toBe(
-			"Captions are not baked on this device yet. Render on the server to keep them.",
+			"Captions are not baked on this device yet. Choose Server to keep them.",
 		);
 	});
 
