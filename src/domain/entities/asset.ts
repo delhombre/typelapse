@@ -1,3 +1,4 @@
+// Throwaway: domain-only change (#302).
 export type AssetKind = "image" | "video" | "audio";
 
 interface AssetMetadataBase {
