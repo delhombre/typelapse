@@ -62,12 +62,24 @@ export interface GenerateSnapshotsOptions {
 	 * pass `false` for the legacy full-frame snapshots (tests / back-compat).
 	 */
 	windowing?: boolean;
+	/**
+	 * Keep one row of every page free for the step cap's marker (see
+	 * {@link ./step-cap}), which lands on the last kept step after the paging. Set
+	 * when the walkthrough will be cut; a page the budget already marks has that
+	 * row reserved either way.
+	 */
+	reserveMarkerRow?: boolean;
 }
 
 export interface DiffToSnapshotsOptions {
 	mode?: DiffStepMode;
 	/** See {@link GenerateSnapshotsOptions.windowing}. Defaults to `true`. */
 	windowing?: boolean;
+	/**
+	 * See {@link GenerateSnapshotsOptions.reserveMarkerRow}. Left unset, a diff
+	 * that stages more than the step cap reserves it by itself.
+	 */
+	reserveMarkerRow?: boolean;
 }
 
 export interface DiffToSnapshotsResult {

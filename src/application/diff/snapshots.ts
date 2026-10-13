@@ -118,7 +118,7 @@ export function generateSnapshots(
 	if (plans.every((plan) => plan.hunks.length === 0)) {
 		return [];
 	}
-	return sceneSnapshots(mode, plans, marker, planned.length);
+	return sceneSnapshots(mode, plans, marker, planned.length, options.reserveMarkerRow === true);
 }
 
 /**
@@ -140,9 +140,10 @@ function sceneSnapshots(
 	plans: FileWindowPlan[],
 	omitted: string | null,
 	totalFiles: number,
+	reserveMarkerRow: boolean,
 ): CodeSnapshot[] {
 	let marker = omitted;
-	let pages = splitIntoScenes(plans, marker ? 1 : 0);
+	let pages = splitIntoScenes(plans, marker || reserveMarkerRow ? 1 : 0);
 	if (pages.length > MAX_WALKTHROUGH_PAGES) {
 		// The scaffold of each page (headers, separators) took the walkthrough past the
 		// page cap: lay the pages out again with the marker's row free, and cut them.

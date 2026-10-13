@@ -1,6 +1,7 @@
 import { languageFromPath } from "@/application/language/language-from-filename";
 import { parseUnifiedDiff } from "./parse-unified-diff";
 import { generateSnapshots, normalizeSnapshots } from "./snapshots";
+import { MAX_DIFF_STEPS } from "./step-cap";
 import type { DiffFile, DiffHunk, DiffToSnapshotsOptions, DiffToSnapshotsResult } from "./types";
 import { ELLIPSIS, filterLockfiles } from "./windowing";
 
@@ -71,9 +72,20 @@ export function diffToSnapshots(
 	}
 
 	// Windowed by default (readable on real PRs); options can force full frames.
-	const snapshots = normalizeSnapshots(
-		generateSnapshots({ files }, { mode: options.mode, windowing: options.windowing }),
-	);
+	const stage = (reserveMarkerRow: boolean) =>
+		normalizeSnapshots(
+			generateSnapshots(
+				{ files },
+				{ mode: options.mode, windowing: options.windowing, reserveMarkerRow },
+			),
+		);
+	let snapshots = stage(options.reserveMarkerRow === true);
+	// A walkthrough past the step cap ends on the cap's marker row, which is added
+	// after the paging: lay the pages out again with that row free, so no frame
+	// grows past a scene.
+	if (options.reserveMarkerRow === undefined && snapshots.length > MAX_DIFF_STEPS) {
+		snapshots = stage(true);
+	}
 	if (snapshots.length === 0) {
 		throw new Error("The diff contains no changes to animate.");
 	}

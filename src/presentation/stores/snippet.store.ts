@@ -1,12 +1,15 @@
 import {
 	type CodeSnapshot,
 	type DiffChapter,
+	type WalkthroughCut,
+	capWalkthrough,
 	chapterLanguage,
-	chapterSnapshots,
+	chapterSequences,
 	diffToSnapshots,
+	stepBudget,
 } from "@/application/diff";
 import { focusLineSet, formatLineRanges, readLineRanges } from "@/application/focus/line-ranges";
-import { DIFF_STEP_DURATION, capDiffSnapshots } from "@/application/import/diff-project";
+import { DIFF_STEP_DURATION } from "@/application/import/diff-project";
 import { DEFAULT_TRANSITION_EASING, isCubicBezier } from "@/application/magic-move/easing";
 import { frameLineCount } from "@/application/magic-move/engine";
 import { assertImportableCode } from "@/application/project/project-document";
@@ -163,9 +166,10 @@ interface SnippetState {
 	/**
 	 * Turn a pasted unified diff into an animated walkthrough: replace the snippet
 	 * with the diff's before-state code and a step per hunk stage (before→…→after).
+	 * Past MAX_DIFF_STEPS the head plays and the result says how much was cut.
 	 * Throws a user-facing Error on unusable input: the caller surfaces it.
 	 */
-	importDiff: (diffText: string) => void;
+	importDiff: (diffText: string) => WalkthroughCut;
 	/**
 	 * Replace the studio with a plain code paste: no steps, one static frame.
 	 *
@@ -179,14 +183,16 @@ interface SnippetState {
 	/**
 	 * Turn a PR's commits into one chaptered walkthrough: each commit is a chapter
 	 * (its own windowed staged sequence), played in order. Applies the SAME
-	 * MAX_DIFF_STEPS cap and caption wiring as {@link importDiff}. Throws when no
-	 * chapter carries changes, before any mutation, so the snippet stays intact.
-	 * `openingCardMs` opens on a blank step that long: a release's title card.
+	 * MAX_DIFF_STEPS cap and caption wiring as {@link importDiff}; the cap keeps
+	 * whole chapters from the start, and the result says how many were kept.
+	 * Throws when no chapter carries changes, before any mutation, so the snippet
+	 * stays intact. `openingCardMs` opens on a blank step that long: a release's
+	 * title card.
 	 */
 	importChapters: (
 		chapters: DiffChapter[],
 		meta: { title: string; openingCardMs?: number },
-	) => void;
+	) => WalkthroughCut;
 }
 
 /** True while the editor is empty: there is nothing on screen to capture. */
@@ -466,9 +472,9 @@ const PLAYBACK_RESET = {
 } as const;
 
 /**
- * Build the snippet a diff or chapters import replaces the studio with: cap the
- * staged snapshots, open on the first frame's before-state, and turn each snapshot
- * into a step whose caption is its label. Pure: the caller commits it and rebuilds
+ * Build the snippet a diff or chapters import replaces the studio with: open on
+ * the first frame's before-state (the snapshots arrive already capped, see
+ * `capWalkthrough`), and turn each snapshot into a step whose caption is its label. Pure: the caller commits it and rebuilds
  * the plan. A blank title or absent language falls back to the current snippet's.
  */
 function buildDiffSnippet(
@@ -476,9 +482,8 @@ function buildDiffSnippet(
 	snapshots: CodeSnapshot[],
 	meta: { title?: string; language?: string; openingCardMs?: number },
 ): Snippet {
-	const staged = capDiffSnapshots(snapshots);
 	// Open on the "before" state (first frame); playback morphs forward to "after".
-	const beforeCode = staged[0]?.code ?? base.code;
+	const beforeCode = snapshots[0]?.code ?? base.code;
 	let rebuilt = Snippet.create({
 		title: meta.title ? meta.title : base.title,
 		code: beforeCode,
@@ -489,7 +494,7 @@ function buildDiffSnippet(
 	if (meta.openingCardMs !== undefined) {
 		rebuilt = rebuilt.addStep(Step.create({ code: "", duration: meta.openingCardMs }));
 	}
-	for (const snapshot of staged) {
+	for (const snapshot of snapshots) {
 		// The snapshot's label ("Before" / a hunk heading / "After" / a "k/N · subject"
 		// chapter head) narrates the step, so it lands as the caption and the
 		// walkthrough explains itself. An empty label leaves the caption unset.
@@ -1004,7 +1009,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		// before any set(), so a bad paste leaves the current snippet untouched.
 		const { snapshots, language, path } = diffToSnapshots(diffText);
 		// Adopt the changed file's name as the title, like URL import does.
-		const rebuilt = buildDiffSnippet(get().snippet, snapshots, {
+		const { snapshots: staged, ...cut } = capWalkthrough([snapshots]);
+		const rebuilt = buildDiffSnippet(get().snippet, staged, {
 			title: path?.split("/").pop(),
 			language,
 		});
@@ -1015,6 +1021,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		markBaseline();
 
 		get().rebuildPlan();
+		return cut;
 	},
 
 	importSnippet: (code: string, meta?: { title?: string; language?: string }) => {
@@ -1047,10 +1054,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		// chapterSnapshots skips lockfiles-only / empty chapters; if that leaves
 		// nothing to animate we throw before any set(), so a dead PR leaves the
 		// current snippet untouched, exactly like importDiff's contract.
-		const snapshots = chapterSnapshots(chapters);
-		if (snapshots.length === 0) {
+		// A release's title card is a step of the video: the chapters are staged and
+		// capped against the rest of the budget.
+		const maxSteps = stepBudget(meta.openingCardMs !== undefined);
+		const sequences = chapterSequences(chapters, { maxSteps });
+		if (sequences.flat().length === 0) {
 			throw new Error("These commits contain no changes to animate");
 		}
+		const { snapshots, ...cut } = capWalkthrough(sequences, maxSteps);
 		const rebuilt = buildDiffSnippet(get().snippet, snapshots, {
 			title: meta.title,
 			language: chapterLanguage(chapters),
@@ -1063,6 +1074,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		markBaseline();
 
 		get().rebuildPlan();
+		return cut;
 	},
 }));
 
