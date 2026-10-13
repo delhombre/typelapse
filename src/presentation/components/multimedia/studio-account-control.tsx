@@ -1081,7 +1081,8 @@ function CodeStep({
 		else if (opening && arrived) headingRef.current?.focus();
 	}, [pending.sentAt]);
 
-	// A refused code is cleared and the field is ready again, the refusal under the button.
+	// A refused code is cleared on purpose (three tries, and a wrong code is not worth editing)
+	// and the field is ready again, the refusal under the button.
 	const wasSigningIn = useRef(false);
 	useEffect(() => {
 		if (wasSigningIn.current && !signingIn && error) {
@@ -1192,7 +1193,12 @@ function CodeStep({
 					Use another email
 				</button>
 			</div>
-			<AlertSlot error={error} />
+			{/* One message at a time. Six digits go as they are typed, so by the time a finger
+			    reaches Sign in the refusal has come back and emptied the field, and the press
+			    on it is a newer thing to say than the refusal: the short-code line takes the
+			    refusal's place instead of standing beside it (#272, DECISIONS D4 of the
+			    passwordless-auth log). The refusal returns with the next wrong code. */}
+			<AlertSlot error={short ? null : error} />
 		</form>
 	);
 }

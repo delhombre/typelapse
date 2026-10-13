@@ -224,6 +224,47 @@ describe("StudioAccountControl", () => {
 		expect(within(panel).getByRole("textbox", { name: "Code" })).toBe(code);
 	});
 
+	it("says one thing when Sign in is pressed on the field a refusal just emptied (#272)", async () => {
+		const { panel } = await openSignIn({
+			signInWithCode: async () => {
+				throw new ClientAuthFailure("invalid-code");
+			},
+		});
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+		fireEvent.change(code, { target: { value: "000000" } });
+		await within(panel).findByText("That code does not match. Try again.");
+		await waitFor(() => expect((code as HTMLInputElement).value).toBe(""));
+
+		// Six digits go as they are typed, so a tap on the button lands on the emptied field.
+		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
+
+		const messages = within(panel).queryAllByText(
+			/Enter the six digits from the email\.|That code does not match/,
+		);
+		expect(messages.map((message) => message.textContent)).toEqual([
+			"Enter the six digits from the email.",
+		]);
+	});
+
+	it("shows the refusal again, alone, on the next wrong code", async () => {
+		const { panel } = await openSignIn({
+			signInWithCode: async () => {
+				throw new ClientAuthFailure("invalid-code");
+			},
+		});
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+		fireEvent.change(code, { target: { value: "000000" } });
+		await within(panel).findByText("That code does not match. Try again.");
+		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
+
+		fireEvent.change(code, { target: { value: "111111" } });
+
+		await within(panel).findByText("That code does not match. Try again.");
+		expect(within(panel).queryByText("Enter the six digits from the email.")).toBeNull();
+	});
+
 	it("offers another code after a minute, counting down until then", async () => {
 		vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
 		vi.setSystemTime(NOW);
