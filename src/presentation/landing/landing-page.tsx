@@ -1,12 +1,12 @@
-import { Link } from "react-router-dom";
 import { Hero } from "./hero";
 import { Nav } from "./nav";
 import { PipelineSection, StepStrip } from "./pipeline";
 import { PricingSection } from "./pricing-section";
-import { InkButton, LandingIntroProvider, LogoLockup, Reveal } from "./primitives";
+import { InkButton, LandingIntroProvider, Reveal } from "./primitives";
 import { SharpnessSection } from "./sharpness-section";
+import { SiteFooter } from "./site-footer";
 import { ThemeToggle } from "./theme-toggle";
-import { CONTAINER, HAIRLINE, SECTION_PY } from "./tokens";
+import { CONTAINER, SECTION_PY } from "./tokens";
 import { useLandingTheme } from "./use-landing-theme";
 import { useStudioPrefetch } from "./use-studio-prefetch";
 
@@ -44,7 +44,7 @@ export function LandingPage() {
 					<PricingSection />
 					<Cta />
 				</main>
-				<Footer />
+				<SiteFooter />
 			</div>
 		</LandingIntroProvider>
 	);
@@ -67,40 +67,5 @@ function Cta() {
 				<p className="lp-micro mt-5">Start without an account. Render locally by default.</p>
 			</Reveal>
 		</section>
-	);
-}
-
-/* ──────────── Footer ──────────── */
-
-function Footer() {
-	return (
-		<footer className={`border-t ${HAIRLINE}`}>
-			<div
-				className={`${CONTAINER} flex flex-col gap-4 py-10 sm:flex-row sm:items-center sm:justify-between`}
-			>
-				<div className="flex items-center gap-3">
-					<LogoLockup markSize={17} textClassName="text-base" />
-					<span className="text-[13px] text-ash">Your code, in motion.</span>
-				</div>
-				<div className="flex items-center gap-6 text-[13px]">
-					<Link
-						to="/app"
-						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
-					>
-						Studio
-					</Link>
-					{/* The figures are drawn on hairline's kernel (MIT); its notice ships at
-					    /licenses/hairline-MIT.txt and in the kernel's own header. */}
-					<a
-						href="https://hairline.lucasmarkes.com"
-						target="_blank"
-						rel="noreferrer"
-						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
-					>
-						Figures: hairline
-					</a>
-				</div>
-			</div>
-		</footer>
 	);
 }

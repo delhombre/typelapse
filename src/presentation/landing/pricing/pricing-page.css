@@ -1,0 +1,308 @@
+/* The public pricing page, in the landing's material: warm paper, one hairline,
+   raised surfaces that take their edge from a ring and never from a border
+   (DECISIONS D5), and a single filled shape. Every colour is a role token, so
+   both themes follow `.landing-root[data-theme]`. */
+
+/* The sandbox line was written for the studio's surfaces: it reads --mm-* and
+   --camera-* tokens the landing does not publish. Pointed at the landing's own. */
+.pricing-root {
+	--mm-ink: var(--color-ink);
+	--mm-hairline: var(--color-hairline);
+	--r-field: 8px;
+}
+
+.pricing-root .pr-plans {
+	display: grid;
+	gap: 1px;
+	overflow: hidden;
+	border-radius: 16px;
+	background: var(--color-hairline);
+	box-shadow: var(--raised-ring);
+}
+
+@media (min-width: 760px) {
+	.pricing-root .pr-plans {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+.pricing-root .pr-card {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+	padding: 28px;
+	background: var(--color-surface);
+}
+
+@media (max-width: 479px) {
+	.pricing-root .pr-card {
+		padding: 22px 20px;
+	}
+}
+
+.pricing-root .pr-plan-name {
+	font-family: var(--font-display);
+	font-weight: 600;
+	font-size: clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+	line-height: 1.2;
+	letter-spacing: -0.012em;
+	color: var(--color-ink);
+}
+
+/* The price keeps its place while the catalog is read and when it states none:
+   the card never changes height under a reader. */
+.pricing-root .pr-price-slot {
+	display: grid;
+	align-content: start;
+	gap: 4px;
+	min-height: 100px;
+}
+
+.pricing-root .pr-price {
+	font-family: var(--font-display);
+	font-weight: 600;
+	font-size: clamp(2rem, 1.5rem + 1.6vw, 2.5rem);
+	line-height: 1.1;
+	letter-spacing: -0.02em;
+	color: var(--color-ink);
+	font-variant-numeric: tabular-nums;
+}
+
+.pricing-root .pr-price-alt {
+	font-size: 1rem;
+	line-height: 1.5;
+	color: var(--color-ash);
+	font-variant-numeric: tabular-nums;
+}
+
+.pricing-root .pr-saving {
+	display: block;
+	margin-top: 2px;
+	font-family: var(--font-sans);
+	font-size: 0.875rem;
+	font-weight: 500;
+	letter-spacing: 0;
+	color: var(--color-ash);
+}
+
+.pricing-root .pr-unpriced {
+	font-size: 1.0625rem;
+	line-height: 1.5;
+	color: var(--color-ash);
+}
+
+.pricing-root .pr-points {
+	display: grid;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	font-size: 1rem;
+	line-height: 1.5;
+	color: var(--color-ink);
+}
+
+.pricing-root .pr-points li {
+	position: relative;
+	padding-left: 18px;
+	text-wrap: pretty;
+}
+
+/* A short hairline stroke for a bullet: the page's one mark, in the ash. */
+.pricing-root .pr-points li::before {
+	content: "";
+	position: absolute;
+	top: 0.72em;
+	left: 0;
+	width: 8px;
+	height: 1.5px;
+	border-radius: 1px;
+	background: var(--color-ash);
+}
+
+.pricing-root .pr-card-action {
+	display: grid;
+	justify-items: start;
+	gap: 12px;
+	margin-top: auto;
+	padding-top: 8px;
+}
+
+.pricing-root .pr-text-link {
+	position: relative;
+	align-self: flex-start;
+	margin-top: auto;
+	padding-top: 8px;
+	font-size: 0.9375rem;
+	font-weight: 500;
+	color: var(--color-ink);
+	text-decoration: underline;
+	text-decoration-color: var(--color-hairline);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 4px;
+	transition: text-decoration-color 150ms var(--ease-out);
+}
+
+/* 44px to a finger, the text as drawn. */
+.pricing-root .pr-text-link::after {
+	content: "";
+	position: absolute;
+	inset: -6px -8px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.pricing-root .pr-text-link:hover {
+		text-decoration-color: currentColor;
+	}
+}
+
+.pricing-root .test-mode-line {
+	margin: 0;
+	border-radius: 8px;
+}
+
+/* The pill's current page: the section links only mark a section by colour
+   change on hover, so the page you are on takes the plate's ink and a wash. */
+.pricing-root .lp-nav-links a[aria-current="page"] {
+	color: var(--dock-ink);
+	background: var(--dock-hover);
+}
+
+/* ─────────── The table ─────────── */
+
+.pricing-root .pr-table-frame {
+	margin-top: 24px;
+	overflow: hidden;
+	border-radius: 16px;
+	background: var(--color-surface);
+	box-shadow: var(--raised-ring);
+}
+
+.pricing-root .pr-table {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+	font-size: 0.9375rem;
+	line-height: 1.45;
+	text-align: left;
+}
+
+.pricing-root .pr-table :is(th, td) {
+	padding: 14px 20px;
+	vertical-align: top;
+	border-top: 1px solid var(--color-hairline);
+}
+
+.pricing-root .pr-table thead th {
+	border-top: 0;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--color-ash);
+}
+
+.pricing-root .pr-table tbody th {
+	font-weight: 500;
+	color: var(--color-ink);
+}
+
+.pricing-root .pr-table td {
+	overflow-wrap: break-word;
+	color: var(--color-ash);
+	font-variant-numeric: tabular-nums;
+}
+
+.pricing-root .pr-table :is(th, td):first-child {
+	width: 38%;
+}
+
+@media (max-width: 559px) {
+	.pricing-root .pr-table {
+		font-size: 0.875rem;
+	}
+	.pricing-root .pr-table :is(th, td) {
+		padding: 12px 10px;
+	}
+	.pricing-root .pr-table :is(th, td):first-child {
+		padding-left: 14px;
+	}
+	.pricing-root .pr-table :is(th, td):last-child {
+		padding-right: 14px;
+	}
+	.pricing-root .pr-table thead th {
+		letter-spacing: 0.04em;
+		overflow-wrap: anywhere;
+	}
+}
+
+.pricing-root .pr-note {
+	margin-top: 16px;
+	max-width: 62ch;
+	font-size: 0.9375rem;
+	line-height: 1.6;
+	color: var(--color-ash);
+	text-wrap: pretty;
+}
+
+/* ─────────── The questions ─────────── */
+
+.pricing-root .pr-faq {
+	margin-top: 24px;
+	max-width: 720px;
+	border-bottom: 1px solid var(--color-hairline);
+}
+
+.pricing-root .pr-faq details {
+	border-top: 1px solid var(--color-hairline);
+}
+
+.pricing-root .pr-faq summary {
+	display: flex;
+	min-height: 56px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 12px 0;
+	font-size: 1.0625rem;
+	font-weight: 500;
+	line-height: 1.35;
+	color: var(--color-ink);
+	cursor: pointer;
+	list-style: none;
+}
+
+.pricing-root .pr-faq summary::-webkit-details-marker {
+	display: none;
+}
+
+/* A chevron drawn in two strokes; it turns, it does not swap. */
+.pricing-root .pr-faq summary::after {
+	content: "";
+	flex: none;
+	width: 8px;
+	height: 8px;
+	margin-right: 4px;
+	border-right: 1.5px solid var(--color-ash);
+	border-bottom: 1.5px solid var(--color-ash);
+	transform: rotate(45deg) translate(-2px, -2px);
+	transition: transform 150ms var(--ease-out);
+}
+
+.pricing-root .pr-faq details[open] summary::after {
+	transform: rotate(-135deg) translate(-2px, -2px);
+}
+
+.pricing-root .pr-faq details p {
+	max-width: 62ch;
+	padding: 0 32px 20px 0;
+	font-size: 1rem;
+	line-height: 1.65;
+	color: var(--color-ash);
+	text-wrap: pretty;
+}
+
+.pricing-root .pr-faq summary:focus-visible {
+	outline-offset: 2px;
+	border-radius: 4px;
+}

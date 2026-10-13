@@ -49,26 +49,43 @@ const NAV_TUCK_REDUCED_MS = 34;
 /** The frames the swapped pill stays out of sight before it drops back in. */
 const NAV_SETTLE_MS = 34;
 
-const SECTIONS = [
+/** One entry of the pill: an anchor on this page, or the page the visitor is on. */
+export interface NavLinkItem {
+	readonly href: string;
+	readonly label: string;
+	/** This entry is the page on screen, which a reader of the pill is told. */
+	readonly current?: boolean;
+}
+
+const SECTIONS: readonly NavLinkItem[] = [
 	{ href: "#how-it-works", label: "How it works" },
 	{ href: "#proof", label: "Proof" },
 	{ href: "#pricing", label: "Pricing" },
-] as const;
+];
 
-const SECTION_IDS = SECTIONS.map((section) => section.href.slice(1));
+interface DynamicNavProps {
+	/** What the pill links to. The landing's own sections by default. */
+	readonly links?: readonly NavLinkItem[];
+	/**
+	 * Whether the page opens on the landing's hero. The pill holds back its
+	 * "Open studio" while the hero's field is in view; a page with no hero has no
+	 * field to defer to, so the pill carries it from the first frame.
+	 */
+	readonly hasHero?: boolean;
+}
 
-export function DynamicNav() {
+export function DynamicNav({ links = SECTIONS, hasHero = true }: DynamicNavProps = {}) {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
 	const [hidden, setHidden] = useState(false);
 	/* Whether the hero, and so its filled button, is still on screen. The page
 	   opens on it, so the first frame already has the quiet capsule: starting
 	   filled painted a yellow flash the observer then faded out. */
-	const [overHero, setOverHero] = useState(true);
+	const [overHero, setOverHero] = useState(hasHero);
 	/* Whether the pill holds its CTA. It follows `overHero`, but only while the
 	   pill is out of sight. It starts without, as the page opens on the hero
 	   (which is not in the document yet when this first renders). */
-	const [withCta, setWithCta] = useState(false);
+	const [withCta, setWithCta] = useState(!hasHero);
 	const [tucking, setTucking] = useState(false);
 	const wantCta = !overHero;
 	/* Measured rather than assumed to be one viewport: the hero's content can
@@ -102,7 +119,9 @@ export function DynamicNav() {
 		};
 	}, []);
 
-	const inView = useSectionInView(SECTION_IDS);
+	const inView = useSectionInView(
+		links.filter((link) => link.href.startsWith("#")).map((link) => link.href.slice(1)),
+	);
 
 	/* The hero came or went: tuck, swap out of sight, then drop back in. A pill
 	   already hidden by the scroll stays hidden through it. */
@@ -154,13 +173,15 @@ export function DynamicNav() {
 					<span className="font-semibold text-[14px] tracking-tight">Typelapse</span>
 				</Link>
 				<nav aria-label="Sections" className="lp-nav-links">
-					{SECTIONS.map((section) => (
+					{links.map((link) => (
 						<a
-							key={section.href}
-							href={section.href}
-							aria-current={inView === section.href.slice(1) ? "location" : undefined}
+							key={link.href}
+							href={link.href}
+							aria-current={
+								link.current ? "page" : link.href === `#${inView}` ? "location" : undefined
+							}
 						>
-							{section.label}
+							{link.label}
 						</a>
 					))}
 				</nav>

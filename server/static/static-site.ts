@@ -91,10 +91,10 @@ function cacheControlFor(path: string, file: string): string {
  * Serves the built app from one origin with the API.
  *
  * Mounted after every API route, so it only ever sees what the API did not
- * answer. The client has a single HTML entry and two routes, "/" and "/app",
- * both resolved to index.html. Any other path is a real 404; a browser asking
- * for a page gets the app's shell with that status, so the client's own
- * not-found screen renders instead of a bare line.
+ * answer. The client has a single HTML entry and three routes, "/", "/app" and
+ * the public "/pricing", all resolved to index.html. Any other path is a real 404;
+ * a browser asking for a page gets the app's shell with that status, so the
+ * client's own not-found screen renders instead of a bare line.
  */
 export function createStaticSite(root: string): MiddlewareHandler {
 	// A link inside the build must not lead out of it, so containment is checked
@@ -113,7 +113,7 @@ export function createStaticSite(root: string): MiddlewareHandler {
 			return c.html(shell, status);
 		};
 
-		if (path === "/" || path === "/app" || path === "/app/") {
+		if (path === "/" || path === "/app" || path === "/app/" || path === "/pricing" || path === "/pricing/") {
 			return html(200);
 		}
 

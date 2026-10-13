@@ -551,7 +551,11 @@ function AccountPanel({
 					) : null}
 				</div>
 				<div className="mm-account-actions">
-					{!billing?.available ? <a href="/">About Typelapse</a> : null}
+					{!billing?.available ? (
+						<a href="/">About Typelapse</a>
+					) : (
+						<a href="/pricing">Plans and pricing</a>
+					)}
 					<button
 						type="button"
 						disabled={operation === "signing-out"}
