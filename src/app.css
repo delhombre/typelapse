@@ -2968,29 +2968,41 @@ html.dark:not([data-landing-theme]) {
 	initial-value: 0px;
 }
 
+@property --si-sheet-fade-end {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
 .sc-root-mobile .si-sheet-body {
 	--si-sheet-fade-start: 0px;
+	--si-sheet-fade-end: 0px;
 	min-height: 0;
 	flex: 1 1 auto;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	/* Rows still to scroll to dissolve into the sheet's foot instead of being cut
-	   flat. The fade is the cluster's own 16px of bottom padding, so at the end of
-	   the scroll nothing is faded. The top does the same under the tabs, but only
-	   once the controls have scrolled (data-more-above, from the scroller's own
-	   position): at rest the first row sits sharp against the tab row. */
+	/* Rows still to scroll to dissolve under the tabs and into the sheet's foot
+	   instead of being cut flat, and only on the edge that has more: at rest the
+	   first row sits sharp against the tab row, and a sheet that fits has no foot
+	   to dissolve into, so its last row (the Where pill, over the Render button)
+	   is never veiled. Both come from the scroller's own position
+	   (data-more-above, data-more-below). */
 	mask-image: linear-gradient(
 		to bottom,
 		transparent,
 		black var(--si-sheet-fade-start),
-		black calc(100% - 16px),
+		black calc(100% - var(--si-sheet-fade-end)),
 		transparent
 	);
-	transition: --si-sheet-fade-start 200ms var(--ease-out);
+	transition: --si-sheet-fade-start 200ms var(--ease-out), --si-sheet-fade-end 200ms var(--ease-out);
 }
 
 .sc-root-mobile .si-sheet-body[data-more-above="true"] {
 	--si-sheet-fade-start: 16px;
+}
+
+.sc-root-mobile .si-sheet-body[data-more-below="true"] {
+	--si-sheet-fade-end: 16px;
 }
 
 .studio-root .si-cluster-group {
@@ -3272,7 +3284,9 @@ html.dark:not([data-landing-theme]) {
 }
 
 /* The rows scrolling under it dissolve into the footer's fill instead of being cut
-   flat at its edge (a chip sliced across at rest). */
+   flat at its edge (a chip sliced across at rest). Only while rows are still under
+   it (data-more-below): with nothing to scroll to, or at the end of the scroll, the
+   18px would veil the last row above the footer (the Where pill, #272). */
 .sc-root-mobile .si-sheet-body[data-roomy="true"] .si-cluster-footer::before {
 	content: "";
 	position: absolute;
@@ -3281,7 +3295,15 @@ html.dark:not([data-landing-theme]) {
 	left: 0;
 	height: 18px;
 	background: linear-gradient(to top, var(--dock-bg), transparent);
+	opacity: 0;
 	pointer-events: none;
+	transition: opacity 150ms var(--ease-out);
+}
+
+.sc-root-mobile
+	.si-sheet-body[data-roomy="true"][data-more-below="true"]
+	.si-cluster-footer::before {
+	opacity: 1;
 }
 
 /* RenderCtaLabel: every label in one cell, so the widest sets the width. */
