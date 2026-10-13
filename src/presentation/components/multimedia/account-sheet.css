@@ -261,6 +261,8 @@
 	}
 }
 
+/* No press scale under reduced motion, as the account's other buttons
+   (studio-account-control.css): a transform is a movement, not a colour. */
 @media (prefers-reduced-motion: reduce) {
 	.account-sheet-sign-out:active:not([aria-disabled="true"]) {
 		transform: none;
