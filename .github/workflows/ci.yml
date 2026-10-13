@@ -147,6 +147,52 @@ jobs:
             playwright-report/
           retention-days: 14
 
+  # Which pull requests touch the hosted side. Not a `paths:` filter on the
+  # workflow: that would skip the whole of CI, and the Quality gate must report
+  # on every pull request because the ruleset requires it by name.
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      hosted: ${{ steps.filter.outputs.hosted }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            hosted:
+              - 'server/**'
+              - 'cli/**'
+              - 'src/presentation/stores/**'
+              - 'src/presentation/components/multimedia/**'
+              - 'src/presentation/components/billing/**'
+              - 'src/application/billing/**'
+              - 'tests/e2e/hosted/**'
+              - 'tests/e2e/support/**'
+              - 'tests/support/fake-polar.ts'
+              - 'playwright.config.ts'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/hosted-e2e.yml'
+              - '.github/workflows/ci.yml'
+
+  # The hosted journeys, on the pull requests that can break them (#302: #279
+  # merged green and the break went unseen for hours). A job skipped by `if`
+  # reports "skipped", which a required check counts as passing, so a landing-only
+  # pull request is never left waiting on it. Not a required check yet: see
+  # docs/agents/QUALITY_LOOP.md for how to make it one.
+  hosted-e2e:
+    name: Hosted journeys
+    needs: changes
+    if: needs.changes.outputs.hosted == 'true'
+    uses: ./.github/workflows/hosted-e2e.yml
+
   audit:
     name: Advisories
     runs-on: ubuntu-latest

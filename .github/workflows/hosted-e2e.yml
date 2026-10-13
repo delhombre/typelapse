@@ -1,0 +1,128 @@
+# The hosted journeys (`pnpm e2e:hosted`): a hosted build behind vite preview,
+# the API in hosted mode, the real render worker, PostgreSQL, MinIO over TLS and
+# maildev. Written once and called from two places, because a service container
+# cannot live in a composite action and two copies of this job would drift:
+#   - ci.yml, on pull requests that touch the hosted side (path filter there);
+#   - e2e-nightly.yml, every night, unconditionally.
+name: Hosted journeys
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  hosted:
+    name: Hosted journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # The runner reaches a service on localhost through its published port; the
+    # ports are the ones playwright.config.ts and services.sh default to.
+    # services.sh could start these too, but the runner's own service containers
+    # are ready before the first step and need no docker commands; the images
+    # and the credentials below are the ones services.sh uses.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: typelapse
+          POSTGRES_DB: typelapse
+        ports:
+          - 54381:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d typelapse"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      # Catches the sign-in codes the API mails; the journeys read them from its REST API.
+      maildev:
+        image: maildev/maildev:2.2.1
+        ports:
+          - 10281:1025
+          - 10881:1080
+        options: >-
+          --health-cmd "wget -q -O - http://localhost:1080/healthz || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      # vite build with Monaco peaks near 4.5 GB; Node's default heap dies first.
+      NODE_OPTIONS: --max-old-space-size=6144
+      E2E_HOSTED_STATE: /tmp/typelapse-e2e-hosted
+      E2E_HOSTED_OUT_DIR: /tmp/typelapse-e2e-hosted-dist
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # The render worker is the real Remotion; the same cache as the Quality
+      # gate (ci.yml), so a download that fails is not this job's failure.
+      - name: Remember Remotion's browser
+        id: remotion
+        run: echo "version=$(node -p "require('@remotion/renderer/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        with:
+          path: node_modules/.remotion
+          key: typelapse-remotion-${{ runner.os }}-${{ runner.arch }}-${{ steps.remotion.outputs.version }}
+
+      # Not a service container: a service takes no command (MinIO needs
+      # `server`), and it starts before any step could make the certificate the
+      # R2 adapter's https-only rule needs. services.sh makes a self-signed one
+      # and starts MinIO behind it; Node trusts it through NODE_EXTRA_CA_CERTS.
+      - name: MinIO over TLS
+        run: tests/e2e/hosted/services.sh minio
+
+      - name: Migrations and bucket
+        env:
+          NODE_EXTRA_CA_CERTS: /tmp/typelapse-e2e-hosted/certs/public.crt
+        run: pnpm exec tsx tests/e2e/hosted/prepare.ts
+
+      # Built once here; Playwright then only serves it (E2E_SKIP_BUILD).
+      - name: Hosted build
+        env:
+          VITE_TYPELAPSE_DEPLOYMENT_MODE: hosted
+        run: pnpm exec vite build --outDir "$E2E_HOSTED_OUT_DIR" --emptyOutDir --logLevel warn
+
+      # Playwright starts the API (prepare.ts again, a no-op now), the fake
+      # Polar (tests/support/fake-polar.ts, no token needed), the render worker
+      # and the preview of the build above, and stops them at the end. One
+      # worker: the journeys share one render worker and one database
+      # (playwright.config.ts).
+      - name: Hosted journeys
+        env:
+          E2E_SKIP_BUILD: "1"
+        run: pnpm e2e:hosted
+
+      - name: MinIO log
+        if: failure()
+        run: docker logs typelapse-e2e-minio > minio.log 2>&1 || true
+
+      - name: Upload report, traces, videos and logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-hosted-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/e2e-hosted/
+            playwright-report/
+            minio.log
+          retention-days: 14

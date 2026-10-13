@@ -2,8 +2,11 @@
 
 The hosted profile, end to end: a hosted `vite build` behind `vite preview`,
 the API in hosted mode, the real render worker (Remotion), PostgreSQL 16,
-MinIO behind TLS and maildev, which catches the sign-in codes the API mails. They run nightly and on demand (`e2e-nightly.yml`, job
-"Hosted journeys"), never on a pull request.
+MinIO behind TLS and maildev, which catches the sign-in codes the API mails. In CI they are one reusable
+workflow (`hosted-e2e.yml`, service containers for PostgreSQL and maildev, MinIO through `services.sh minio`),
+called from `ci.yml` as "Hosted journeys" on pull requests that touch `server/`, `cli/`, the stores, the
+multimedia and billing components, `src/application/billing/`, `tests/e2e/hosted/` or the workflows, and from
+`e2e-nightly.yml` every night with no filter (also on demand).
 
 ## Run them
 
