@@ -61,7 +61,7 @@ export const MAX_WALKTHROUGH_PAGES = 8;
 export const MAX_WALKTHROUGH_LINES = MAX_WALKTHROUGH_PAGES * MAX_SCENE_LINES;
 
 /** The marker a walkthrough ends on when changes were cut and no whole file was. */
-export const CHANGES_HIDDEN_MARKER = `${ELLIPSIS} more changes hidden`;
+const CHANGES_HIDDEN_MARKER = `${ELLIPSIS} more changes hidden`;
 
 export interface BudgetedWalkthrough {
 	/** The kept (and possibly truncated) file window plans, in document order. */
@@ -130,7 +130,7 @@ function truncateWindowEnd(hunk: DiffHunk, window: LineWindow, budget: number): 
 }
 
 /** The single omission line: prefers a dropped-file count, else a generic notice. */
-function omissionMarker(droppedFiles: number, contentTruncated: boolean): string | null {
+export function omissionMarker(droppedFiles: number, contentTruncated: boolean): string | null {
 	if (droppedFiles > 0) {
 		const noun = droppedFiles === 1 ? "file" : "files";
 		return `${ELLIPSIS} ${droppedFiles} more ${noun}`;

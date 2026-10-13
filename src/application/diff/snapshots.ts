@@ -1,4 +1,4 @@
-import { CHANGES_HIDDEN_MARKER, MAX_WALKTHROUGH_PAGES, budgetWalkthrough } from "./budget";
+import { MAX_WALKTHROUGH_PAGES, budgetWalkthrough, omissionMarker } from "./budget";
 import { type ScenePage, hasBeforeCode, splitIntoScenes } from "./scenes";
 import type {
 	CodeSnapshot,
@@ -113,11 +113,12 @@ export function generateSnapshots(
 
 	// Compute the windows once, then budget them; every stage renders against the
 	// same (kept, possibly truncated) boundaries and the same omission marker.
-	const { plans, marker } = budgetWalkthrough(planWindows(diff.files));
+	const planned = planWindows(diff.files);
+	const { plans, marker } = budgetWalkthrough(planned);
 	if (plans.every((plan) => plan.hunks.length === 0)) {
 		return [];
 	}
-	return sceneSnapshots(mode, plans, marker);
+	return sceneSnapshots(mode, plans, marker, planned.length);
 }
 
 /**
@@ -137,14 +138,17 @@ function sceneSnapshots(
 	mode: DiffStepMode,
 	plans: FileWindowPlan[],
 	omitted: string | null,
+	totalFiles: number,
 ): CodeSnapshot[] {
 	let marker = omitted;
 	let pages = splitIntoScenes(plans, marker ? 1 : 0);
 	if (pages.length > MAX_WALKTHROUGH_PAGES) {
 		// The scaffold of each page (headers, separators) took the walkthrough past the
 		// page cap: lay the pages out again with the marker's row free, and cut them.
-		marker ??= CHANGES_HIDDEN_MARKER;
 		pages = splitIntoScenes(plans, 1).slice(0, MAX_WALKTHROUGH_PAGES);
+		// A file whose every window sat past the cut is hidden too: count it.
+		const shown = new Set(pages.flatMap((page) => page.plans.map((plan) => plan.path)));
+		marker = omissionMarker(totalFiles - shown.size, true);
 	}
 	const showHeaders = plans.length > 1;
 	const snapshots: CodeSnapshot[] = [];

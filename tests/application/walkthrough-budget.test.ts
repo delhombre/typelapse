@@ -196,4 +196,22 @@ describe("the page cap", () => {
 		expect([...markerOf(snapshots)][0]).toBe(`${ELLIPSIS} more changes hidden`);
 		expect(snapshots.length).toBeLessThanOrEqual(MAX_WALKTHROUGH_PAGES + 1);
 	});
+
+	it("counts the files a page cut hides, not only the ones the file cap dropped", () => {
+		// Six files of 30 added rows: 192 code rows fit the line budget, but each file
+		// takes two pages, so 8 pages show four files and the marker owns up to two.
+		const blocks: string[] = [];
+		for (let k = 0; k < 6; k++) {
+			blocks.push(`--- a/f${k}.ts`, `+++ b/f${k}.ts`, "@@ -1,2 +1,32 @@", " const first = 0;");
+			for (let i = 0; i < 30; i++) {
+				blocks.push(`+const f${k}r${i} = ${i};`);
+			}
+			blocks.push(" const last = 0;");
+		}
+		const { snapshots } = diffToSnapshots(nl(blocks));
+
+		expect([...markerOf(snapshots)]).toEqual([`${ELLIPSIS} 2 more files`]);
+		const shown = new Set(snapshots.flatMap((snapshot) => headerLines(snapshot.code)));
+		expect(shown.size).toBe(4);
+	});
 });
