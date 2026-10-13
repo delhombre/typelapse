@@ -1,4 +1,5 @@
 import { AppRoutes } from "@/app-routes";
+import { ROUTE_HEADS } from "@/application/routing/route-head";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -69,9 +70,12 @@ describe("the /pricing route", () => {
 			document.head.querySelector('meta[name="description"]')?.getAttribute("content"),
 		).toMatch(/^Exporting on your own device is free/);
 		unmount();
+		// The landing's own words, not what the head held at mount: a hard load of
+		// /pricing would otherwise hand pricing's words to the landing.
 		expect(document.head.querySelector('meta[name="description"]')?.getAttribute("content")).toBe(
-			"the landing",
+			ROUTE_HEADS.landing.description,
 		);
+		expect(document.title).toBe(ROUTE_HEADS.landing.title);
 	});
 
 	it("shows the catalog's prices, annual first, once it answers", async () => {
