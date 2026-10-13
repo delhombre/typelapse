@@ -1,6 +1,7 @@
 import {
 	DEFAULT_SHELL_PREFERENCES,
 	SHELL_STORAGE_KEY,
+	openingCodeFolded,
 	parseShellPreferences,
 	readShellPreferences,
 	writeShellPreferences,
@@ -37,5 +38,17 @@ describe("what the shell remembers between visits", () => {
 		expect(window.localStorage.getItem(SHELL_STORAGE_KEY)).toBe('{"codeFolded":true}');
 		expect(window.localStorage.getItem("typelapse:draft")).toBeNull();
 		expect(readShellPreferences()).toEqual({ codeFolded: true });
+	});
+});
+
+describe("which mode the studio opens in", () => {
+	it("opens an empty project in Edit, whatever was remembered, so its path shows", () => {
+		expect(openingCodeFolded(0, true)).toBe(false);
+		expect(openingCodeFolded(0, false)).toBe(false);
+	});
+
+	it("opens a project with scenes in the mode that was remembered", () => {
+		expect(openingCodeFolded(1, true)).toBe(true);
+		expect(openingCodeFolded(3, false)).toBe(false);
 	});
 });

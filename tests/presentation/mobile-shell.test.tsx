@@ -38,7 +38,7 @@ const shell = () =>
 	render(
 		<MemoryRouter>
 			<StudioTooltipProvider>
-				<MobileShell editor={<div />} stepBuilder={<div />} preview={<div />} />
+				<MobileShell editor={<div />} stepBuilder={<div />} preview={<div />} sceneCount={1} />
 			</StudioTooltipProvider>
 		</MemoryRouter>,
 	);

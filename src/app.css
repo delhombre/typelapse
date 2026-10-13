@@ -4726,3 +4726,11 @@ html.dark:not([data-landing-theme]) {
 .dark .sc-sheet {
 	--sc-hairline: rgb(245 243 239 / 0.12);
 }
+
+/* The sheet is placed at its stop when the studio opens, never slid up to it: the
+   drawer's own 0.5s transition and its inline styles both lose to this, for the
+   frames it takes to place it (mobile-shell.tsx drops the attribute after). */
+.sc-sheet[data-opening] {
+	transition: none !important;
+	animation: none !important;
+}

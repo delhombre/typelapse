@@ -1,6 +1,7 @@
 import {
 	type PhoneSheetStep,
 	type PhoneSheetStop,
+	openingStop,
 	phoneSheetGeometry,
 } from "@/application/layout/phone-sheet";
 import { ExportStatus } from "@/presentation/components/controls/export-status";
@@ -14,11 +15,13 @@ import { usePhoneDockRoom } from "@/presentation/hooks/use-phone-dock-room";
 import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
 import { useExportStore } from "@/presentation/stores/export.store";
+import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { motion } from "motion/react";
 import {
 	type KeyboardEvent,
 	type ReactNode,
 	useCallback,
+	useEffect,
 	useId,
 	useMemo,
 	useRef,
@@ -38,6 +41,8 @@ interface MobileShellProps {
 	editor: ReactNode;
 	stepBuilder: ReactNode;
 	preview: ReactNode;
+	/** How many scenes the project had when the studio opened: none opens on the scenes stop. */
+	sceneCount: number;
 }
 
 /** What the handle says its state is: what the sheet shows, in words, not the stop's name. */
@@ -75,7 +80,7 @@ const HANDLE_KEYS: Record<string, PhoneSheetStep> = {
  * the settings stay reachable at every snap, and the sheet only has to hold the
  * work surface.
  */
-export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) {
+export function MobileShell({ editor, stepBuilder, preview, sceneCount }: MobileShellProps) {
 	// The stops are pixels from the viewport and its safe areas (application/
 	// layout/phone-sheet.ts): a phone on its side has no scenes stop, and the
 	// sheet is held by the name of its stop so a rotation keeps it there.
@@ -89,7 +94,9 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 		[phone, exportWidth, exportHeight],
 	);
 	const sheet = useMemo(() => phoneSheetGeometry(viewport), [viewport]);
-	const [wanted, setWanted] = useState<PhoneSheetStop>("peek");
+	// Opened at its stop on the first frame, never slid there (gate five D3): a
+	// project with no scene starts on its path, the fork of the empty scene.
+	const [wanted, setWanted] = useState<PhoneSheetStop>(() => openingStop(sceneCount));
 	const stop = sheet.resolve(wanted);
 	// An island panel needs the room the sheet takes: the sheet goes down to the
 	// peek while one is open, so the frame stays above it at its own size, and
@@ -138,6 +145,19 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 	// Monaco is a megabyte: it waits for the sheet to rise, but a finger on the
 	// handle is enough to start it, so the code is there when the sheet lands.
 	const [warm, setWarm] = useState(false);
+	// The drawer slides up to its first stop; the studio opens with the sheet
+	// there already, so its transition waits out the two frames that place it.
+	const [opening, setOpening] = useState(true);
+	useEffect(() => {
+		let frame = requestAnimationFrame(() => {
+			frame = requestAnimationFrame(() => setOpening(false));
+		});
+		return () => cancelAnimationFrame(frame);
+	}, []);
+	// The empty project's scenes stop shows the fork and no code: Monaco waits for
+	// the Edit stop, a finger on the handle, or the first scene (#214).
+	const hasScenes = useSnippetStore((state) => state.snippet.steps.length > 0);
+	const editorShown = stop === "full" || warm || (!isPeek && hasScenes);
 	// Where the More menu holds the account while it is open (null while it is shut).
 	const [accountSection, setAccountSection] = useState<HTMLElement | null>(null);
 	// The code is read through a loupe on the frame (code-loupe.tsx); while it is
@@ -229,6 +249,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 					<Drawer.Content
 						className="sc-sheet"
 						ref={setSheetElement}
+						data-opening={opening ? "" : undefined}
 						data-loupe-aside={loupeOpen ? "" : undefined}
 						inert={loupeOpen}
 					>
@@ -316,7 +337,7 @@ export function MobileShell({ editor, stepBuilder, preview }: MobileShellProps) 
 									    The editor takes the rest of the stop and never less than 240px. */}
 										<div className="relative min-h-[240px] flex-1">
 											<div className="absolute inset-0">
-												<EditorPresence shown={!isPeek || warm}>{editor}</EditorPresence>
+												<EditorPresence shown={editorShown}>{editor}</EditorPresence>
 											</div>
 										</div>
 									</section>

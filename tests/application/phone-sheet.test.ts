@@ -1,4 +1,4 @@
-import { DOCK_ROOM, phoneSheetGeometry } from "@/application/layout/phone-sheet";
+import { DOCK_ROOM, openingStop, phoneSheetGeometry } from "@/application/layout/phone-sheet";
 import { describe, expect, it } from "vitest";
 
 describe("the phone sheet's stops", () => {
@@ -306,5 +306,26 @@ describe("moving between the stops without a finger", () => {
 
 	it("moves on from a stop that is not there as from the peek", () => {
 		expect(landscape.step("scenes", "raise")).toBe("full");
+	});
+});
+
+describe("where the sheet opens", () => {
+	it("opens an empty project on the scenes stop, where its path is on screen", () => {
+		expect(openingStop(0)).toBe("scenes");
+	});
+
+	it("opens a project with scenes on the peek, as before", () => {
+		expect(openingStop(1)).toBe("peek");
+		expect(openingStop(12)).toBe("peek");
+	});
+
+	it("falls back to the peek where the frame leaves no scenes stop", () => {
+		const landscape = phoneSheetGeometry({
+			viewportWidth: 844,
+			viewportHeight: 390,
+			safeTop: 0,
+			safeBottom: 21,
+		});
+		expect(landscape.resolve(openingStop(0))).toBe("peek");
 	});
 });

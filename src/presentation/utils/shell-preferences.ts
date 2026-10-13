@@ -38,6 +38,16 @@ export function parseShellPreferences(raw: string | null): ShellPreferences {
 	}
 }
 
+/**
+ * Whether the studio opens with the code folded (gate five D3): a project with
+ * no scene yet opens in Edit, whatever was remembered, because Preview has no
+ * path to its first scene. The choice is not stored; a project with scenes
+ * opens in the mode that was.
+ */
+export function openingCodeFolded(sceneCount: number, remembered: boolean): boolean {
+	return sceneCount === 0 ? false : remembered;
+}
+
 export function readShellPreferences(): ShellPreferences {
 	try {
 		return parseShellPreferences(window.localStorage.getItem(SHELL_STORAGE_KEY));

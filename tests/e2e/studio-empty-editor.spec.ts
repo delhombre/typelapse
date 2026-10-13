@@ -1,4 +1,4 @@
-import { expect, openStudio, test } from "./support/studio";
+import { expect, oneSceneHash, openStudio, test } from "./support/studio";
 
 /**
  * An emptied editor is a draft (#168): the studio keeps working, the preview
@@ -44,5 +44,40 @@ test.describe("Studio editor emptied with Select all and Delete", () => {
 		await expect(page.getByRole("button", { name: "Add scene" })).toBeEnabled();
 		await expect(page.getByRole("button", { name: "Capture", exact: true })).toBeEnabled();
 		expect(consoleErrors.slice(errorsBefore)).toEqual([]);
+	});
+});
+
+/**
+ * An empty project opens on its path (#270): in Edit, so the fork of the empty
+ * scene is on screen at load. A project with a scene opens as it always did.
+ */
+test.describe("Studio opened on an empty project", () => {
+	test.use({ viewport: { width: 1440, height: 900 } });
+
+	test("shows the fork in Edit on load, with no click", async ({ page }) => {
+		await openStudio(page);
+		await expect(page.getByRole("button", { name: "Edit", exact: true })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		for (const name of [
+			/^Capture this code$/,
+			/^Start from an example/,
+			/^Import a pull request/,
+		]) {
+			const action = page.getByRole("button", { name });
+			await expect(action).toBeVisible();
+			const box = await action.boundingBox();
+			expect(box && box.y >= 0 && box.y + box.height <= 900, String(name)).toBe(true);
+		}
+	});
+
+	test("opens in Preview, with no fork, once the project has a scene", async ({ page }) => {
+		await openStudio(page, oneSceneHash());
+		await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await expect(page.getByRole("button", { name: /^Capture this code$/ })).toBeHidden();
 	});
 });

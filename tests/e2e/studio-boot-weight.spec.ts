@@ -1,5 +1,5 @@
 import { type Page, devices } from "@playwright/test";
-import { expect, openStudio, shareHash, test } from "./support/studio";
+import { expect, oneSceneHash, openStudio, shareHash, test } from "./support/studio";
 
 /**
  * Ticket #214: a visit pays for what it uses. Monaco is a megabyte of script
@@ -34,12 +34,12 @@ test.describe("Studio boot weight: desktop", () => {
 		page,
 	}) => {
 		const monaco = watchMonaco(page);
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute(
 			"aria-pressed",
 			"true",
 		);
-		await expect(page.getByTestId("preview-frame")).toContainText("greet");
+		await expect(page.getByTestId("preview-frame")).toContainText("const");
 		// The page is idle and settled: nothing has asked for the editor.
 		await page.waitForLoadState("networkidle");
 		expect(monaco.requested()).toEqual([]);
@@ -57,13 +57,25 @@ test.describe("Studio boot weight: desktop", () => {
 		await page.getByRole("button", { name: "Preview", exact: true }).click();
 		await page.getByRole("button", { name: "Edit", exact: true }).click();
 		await expect(editor).toContainText("const kept = 1;");
-		await expect(page.getByTestId("preview-frame")).toContainText("kept");
 	});
 
-	test("a studio that opens on Edit mounts the editor at once", async ({ page }) => {
-		await setPreferences(page, false);
+	test("an empty project opens in Edit, and mounts the editor at once (#270)", async ({ page }) => {
 		const monaco = watchMonaco(page);
 		await openStudio(page);
+		await expect(page.getByRole("button", { name: "Edit", exact: true })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await expect(page.locator("#studio-editor .view-line").first()).toBeVisible();
+		expect(monaco.requested().some((url) => /monaco-runtime-/.test(url))).toBe(true);
+	});
+
+	test("a project with a scene opens in the mode that was kept: Edit mounts the editor at once", async ({
+		page,
+	}) => {
+		await setPreferences(page, false);
+		const monaco = watchMonaco(page);
+		await openStudio(page, oneSceneHash());
 		await expect(page.locator("#studio-editor .view-line").first()).toBeVisible();
 		expect(monaco.requested().some((url) => /monaco-runtime-/.test(url))).toBe(true);
 	});
@@ -107,9 +119,27 @@ test.describe("Studio boot weight: phone", () => {
 	const { defaultBrowserType: _engine, ...phone } = devices["iPhone 13"];
 	test.use({ ...phone, viewport: { width: 390, height: 844 } });
 
-	test("the sheet at its peek holds no editor; raising it mounts Monaco", async ({ page }) => {
+	test("an empty project's sheet opens on the scenes stop with no editor; the Edit stop mounts Monaco (#270)", async ({
+		page,
+	}) => {
 		const monaco = watchMonaco(page);
 		await openStudio(page);
+		const handle = page.getByRole("slider", { name: "Sheet height" });
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+		await page.waitForLoadState("networkidle");
+		expect(monaco.requested()).toEqual([]);
+
+		await handle.focus();
+		await page.keyboard.press("End");
+		await expect(handle).toHaveAttribute("aria-valuetext", "Open");
+		const sheet = page.getByRole("dialog", { name: "Code and scenes" });
+		await expect(sheet.getByRole("textbox", { name: "Editor content" })).toBeAttached();
+		expect(monaco.requested().some((url) => /monaco-runtime-/.test(url))).toBe(true);
+	});
+
+	test("the sheet at its peek holds no editor; raising it mounts Monaco", async ({ page }) => {
+		const monaco = watchMonaco(page);
+		await openStudio(page, oneSceneHash());
 		await expect(page.getByRole("slider", { name: "Sheet height" })).toHaveAttribute(
 			"aria-valuetext",
 			"Collapsed",
@@ -240,7 +270,9 @@ test.describe("Studio boot: the files, the tab, the outline", () => {
 				await held;
 				await route.continue();
 			});
-			await page.goto("/app", { waitUntil: "commit" });
+			// The outline draws the Preview's frame. A project with a scene opens there on a
+			// desktop; an empty one opens in Edit (#270), where the stage sits to the right.
+			await page.goto(`/app${width >= 1280 ? oneSceneHash() : ""}`, { waitUntil: "commit" });
 			await expect(page.locator(".sk-frame")).toBeVisible();
 			const outline = await boxOf(page, ".sk-frame");
 
