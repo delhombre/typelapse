@@ -1,6 +1,7 @@
 import type { PlanAllowance } from "@/application/billing/plan-allowance";
 import { type QuotaMeter, nearAnyLimit, quotaMeters } from "@/application/billing/quota-meter";
 import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
+import { useScrollEdges } from "@/presentation/hooks/use-scroll-edges";
 import {
 	type ClientAuthOperation,
 	type ClientAuthStatus,
@@ -122,6 +123,10 @@ export function StudioAccountControl({
 	const reduceMotion = useReducedMotion() === true;
 	const rootRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	/* The desktop panel ends above the timeline and scrolls inside that room; its foot
+	   fades while there is more to scroll to (studio-account-control.css). */
+	const dialogRef = useRef<HTMLDialogElement>(null);
+	const { edges: dialogEdges, measure: measureDialog } = useScrollEdges(dialogRef);
 	const [open, setOpen] = useState(false);
 	const openRef = useRef(open);
 	openRef.current = open;
@@ -355,8 +360,12 @@ export function StudioAccountControl({
 			<AnimatePresence initial={false}>
 				{open ? (
 					<motion.dialog
+						ref={dialogRef}
 						open
 						className="mm-account-popover"
+						data-more-above={dialogEdges.above}
+						data-more-below={dialogEdges.below}
+						onScroll={measureDialog}
 						aria-label={status.kind === "local-offline" ? "Local project" : "Typelapse account"}
 						initial={reduceMotion ? false : { opacity: 0, y: -5, scale: 0.985 }}
 						animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1072,7 +1081,8 @@ function CodeStep({
 		else if (opening && arrived) headingRef.current?.focus();
 	}, [pending.sentAt]);
 
-	// A refused code is cleared and the field is ready again, the refusal under the button.
+	// A refused code is cleared on purpose (three tries, and a wrong code is not worth editing)
+	// and the field is ready again, the refusal under the button.
 	const wasSigningIn = useRef(false);
 	useEffect(() => {
 		if (wasSigningIn.current && !signingIn && error) {
@@ -1083,7 +1093,9 @@ function CodeStep({
 	}, [signingIn, error]);
 
 	const signIn = (value: string) => {
-		if (busy) return;
+		// A spent code is not tried again: the refusal says to ask for another, and a fourth
+		// try against it would only be refused too.
+		if (busy || pending.spent) return;
 		if (value.length !== CODE_LENGTH) {
 			setShort(true);
 			inputRef.current?.focus();
@@ -1093,7 +1105,7 @@ function CodeStep({
 	};
 
 	const leave = useCheckOnLeave(() => {
-		if (code.length > 0 && code.length < CODE_LENGTH) setShort(true);
+		if (!pending.spent && code.length > 0 && code.length < CODE_LENGTH) setShort(true);
 	});
 
 	const change = (raw: string) => {
@@ -1183,7 +1195,13 @@ function CodeStep({
 					Use another email
 				</button>
 			</div>
-			<AlertSlot error={error} />
+			{/* One message at a time. Six digits go as they are typed, so by the time a finger
+			    reaches Sign in the refusal has come back and emptied the field, and the press
+			    on it is a newer thing to say than the refusal: the short-code line takes the
+			    refusal's place instead of standing beside it (#272, DECISIONS D4 of the
+			    passwordless-auth log). The refusal returns with the next wrong code. Only
+			    that one: "this code no longer works" is what to do next and stays. */}
+			<AlertSlot error={short ? null : error} />
 		</form>
 	);
 }

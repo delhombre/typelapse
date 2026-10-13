@@ -160,9 +160,9 @@ describe("the timeline control rail", () => {
 });
 
 describe("the settings sheet's scroll edges", () => {
-	function scrolled(body: HTMLElement, scrollTop: number) {
+	function scrolled(body: HTMLElement, scrollTop: number, scrollHeight = 500) {
 		Object.defineProperty(body, "clientHeight", { configurable: true, value: 200 });
-		Object.defineProperty(body, "scrollHeight", { configurable: true, value: 500 });
+		Object.defineProperty(body, "scrollHeight", { configurable: true, value: scrollHeight });
 		body.scrollTop = scrollTop;
 		fireEvent.scroll(body);
 	}
@@ -182,5 +182,23 @@ describe("the settings sheet's scroll edges", () => {
 
 		scrolled(body, 0);
 		expect(body.getAttribute("data-more-above")).toBe("false");
+	});
+
+	it("fades the foot only while there is more to scroll to, so a last row that fits stays sharp", async () => {
+		const { container } = render(<PreviewIsland />);
+		fireEvent.click(screen.getByRole("button", { name: "Look settings" }));
+		await waitFor(() => expect(container.querySelector(".si-sheet-body")).not.toBeNull());
+		const body = container.querySelector<HTMLElement>(".si-sheet-body");
+		if (!body) throw new Error("The sheet must have a body");
+
+		scrolled(body, 0);
+		expect(body.getAttribute("data-more-below")).toBe("true");
+
+		scrolled(body, 300);
+		expect(body.getAttribute("data-more-below")).toBe("false");
+
+		// A sheet whose controls all fit has nothing below.
+		scrolled(body, 0, 200);
+		expect(body.getAttribute("data-more-below")).toBe("false");
 	});
 });

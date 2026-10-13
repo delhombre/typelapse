@@ -120,6 +120,11 @@ export async function importCodeFromUrl(input: string): Promise<ImportedCode> {
 		if (err instanceof DOMException && err.name === "AbortError") {
 			throw new Error("Request timed out");
 		}
+		// fetch rejects with a bare TypeError when the network or CORS fails: the browser's
+		// wording ("Failed to fetch") means nothing to the user.
+		if (err instanceof TypeError) {
+			throw new Error("Could not reach GitHub: check your connection, or paste the code instead");
+		}
 		throw err instanceof Error ? err : new Error("Import failed");
 	} finally {
 		clearTimeout(timeout);

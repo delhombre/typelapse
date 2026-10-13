@@ -73,6 +73,45 @@
 	transform-origin: top right;
 }
 
+/* From 1280px the panel hangs under the avatar over the stage, and covers neither the
+   picture nor the timeline (#272). It is 312px, so its left edge clears the frame's right
+   edge at 1440x900 (frame to 1097, panel from 1107) and at 1280x800 (928, from 947); and it
+   ends a gap above the timeline, whose top is the window's height less the timeline, its
+   bottom margin and the panel's own 76px of start (the avatar's bottom, 56, and the 10px
+   the panel hangs below it, to 66, and 10 more of air): a taller account view scrolls
+   inside it, as the keys view already did. */
+.mm-account:not(.mm-account-section) > .mm-account-popover {
+	width: min(312px, calc(100vw - 24px));
+	max-height: calc(
+		100dvh -
+		var(--camera-timeline-height, 218px) -
+		var(--camera-timeline-bottom, 16px) -
+		76px
+	);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+/* A panel cut by its own height says so: a veil in the panel's own fill sticks to its
+   foot while there is more to scroll to. A veil and not a mask, which would fade the
+   card's own shadow and edge with it. */
+.mm-account:not(.mm-account-section) > .mm-account-popover::after {
+	content: "";
+	position: sticky;
+	bottom: 0;
+	display: block;
+	height: 36px;
+	margin: -36px -18px 0;
+	background: linear-gradient(to top, var(--mm-surface), transparent);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 150ms var(--ease-out);
+}
+
+.mm-account:not(.mm-account-section) > .mm-account-popover[data-more-below="true"]::after {
+	opacity: 1;
+}
+
 .mm-account-close {
 	transition: color 150ms var(--ease-out);
 	position: absolute;

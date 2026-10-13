@@ -164,7 +164,7 @@ describe("the studio's appearance", () => {
 		store.getState().setPreference("dark");
 		expect(themeColors()).toEqual(["#121110", "#121110"]);
 		store.getState().setPreference("light");
-		expect(themeColors()).toEqual(["#fafaf9", "#fafaf9"]);
+		expect(themeColors()).toEqual(["#faf9f6", "#faf9f6"]);
 
 		// Back to System, the metas answer the OS again through their media queries.
 		store.getState().setPreference("system");

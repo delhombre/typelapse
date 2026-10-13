@@ -867,6 +867,7 @@ function ClusterSheet({
 				ref={bodyRef}
 				className="si-sheet-body"
 				data-more-above={edges.above}
+				data-more-below={edges.below}
 				data-roomy={roomy}
 				onScroll={measure}
 				transition={reduce ? { duration: 0 } : springs.default}

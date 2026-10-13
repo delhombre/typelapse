@@ -1,5 +1,6 @@
 import type { CaptureRecord } from "@/application/captures/capture-record";
 import { deviceExportRefusal } from "@/application/export/device-export-refusal";
+import { exportFilename } from "@/application/export/export-filename";
 import { exportCodecNote, formatName } from "@/application/export/export-label";
 import { NOTHING_TO_RENDER } from "@/application/export/render-block";
 import { resolveDeviceExport } from "@/application/export/resolve-device-export";
@@ -284,7 +285,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			return;
 		}
 
-		const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
+		const filename = exportFilename(snippet.title);
 		const startedAt = performance.now();
 		// The saved document, not the raw composition: the composition keeps the
 		// render settings it was loaded with (#129).
@@ -529,7 +530,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			});
 			const blob = await renderer.renderStill(snippet, resolved.config, currentStepIndex);
 
-			const filename = snippet.title.replace(/[^a-zA-Z0-9-_]/g, "_") || "typelapse";
+			const filename = exportFilename(snippet.title);
 			await exporter.export(blob, filename, "png" as RenderFormat);
 			await rememberCapture(blob, `${filename}.png`, "png");
 
