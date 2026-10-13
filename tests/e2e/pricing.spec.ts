@@ -42,6 +42,10 @@ test.describe("Pricing: a visitor reads the plans before signing in", { tag: "@s
 
 		const card = page.getByTestId("creator-card");
 		await expect(card).toHaveAttribute("data-price-state", "priced");
+		await expect(page.getByRole("link", { name: "Start a hosted render" })).toHaveAttribute(
+			"href",
+			"/app",
+		);
 		await expect(page.getByTestId("creator-price")).toContainText("$120 / year");
 		await expect(page.getByTestId("creator-price")).toContainText("or $12 / month");
 		await expect(page.getByText("Test mode: no real charges")).toHaveCount(0);
@@ -58,6 +62,8 @@ test.describe("Pricing: a visitor reads the plans before signing in", { tag: "@s
 		const text = (await card.textContent()) ?? "";
 		expect(text).not.toMatch(/\d/);
 		expect(text).not.toMatch(/[$€£]/);
+		await expect(page.getByRole("link", { name: "Start a hosted render" })).toHaveCount(0);
+		await expect(page.getByRole("link", { name: "See Creator in the studio" })).toBeVisible();
 		// The rest of the page keeps its facts, which are not prices.
 		await expect(page.getByRole("cell", { name: "60 minutes a month" })).toBeVisible();
 	});
@@ -70,7 +76,9 @@ test.describe("Pricing: a visitor reads the plans before signing in", { tag: "@s
 		await expect(card).toHaveAttribute("data-price-state", "unpriced");
 		expect((await card.textContent()) ?? "").not.toMatch(/\d|[$€£]/);
 		await expect(page.getByRole("alert")).toHaveCount(0);
-		await expect(page.getByRole("link", { name: "Start a hosted render" })).toHaveAttribute(
+		// Billing is not configured, so no hosted render is promised: the same link, a neutral name.
+		await expect(page.getByRole("link", { name: "Start a hosted render" })).toHaveCount(0);
+		await expect(page.getByRole("link", { name: "See Creator in the studio" })).toHaveAttribute(
 			"href",
 			"/app",
 		);

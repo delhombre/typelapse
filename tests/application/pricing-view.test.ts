@@ -70,6 +70,25 @@ describe("the pricing page's Creator card", () => {
 	});
 });
 
+describe("the Creator card's action", () => {
+	it("promises a hosted render only where the catalog proves billing is there", () => {
+		expect(view({ kind: "ready", catalog: PRICED }).creator.action).toEqual({
+			label: "Start a hosted render",
+			hint: "Opens the studio; choose Cloud under Where.",
+		});
+		for (const reading of [
+			{ kind: "unavailable" },
+			{ kind: "pending" },
+			{ kind: "ready", catalog: { creator: {} } },
+		] as const) {
+			expect(view(reading).creator.action).toEqual({
+				label: "See Creator in the studio",
+				hint: "Opens the studio.",
+			});
+		}
+	});
+});
+
 describe("the page's description", () => {
 	it("makes the card's claim, from the same tier, and never the wider one", () => {
 		const { description } = view({ kind: "pending" });

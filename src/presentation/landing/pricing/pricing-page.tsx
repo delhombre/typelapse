@@ -105,8 +105,8 @@ function Plans({ view }: { view: PricingView }) {
 					    "Open studio" back while these cards are in view. The sheet that sells
 					    Creator lives in the studio, under Where, until a deep link ships (#290). */}
 					<div className="pr-card-action">
-						<InkButton to="/app">Start a hosted render</InkButton>
-						<p className="lp-micro">Opens the studio; choose Cloud under Where.</p>
+						<InkButton to="/app">{view.creator.action.label}</InkButton>
+						<p className="lp-micro">{view.creator.action.hint}</p>
 					</div>
 				</article>
 			</div>

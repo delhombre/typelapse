@@ -35,8 +35,8 @@ export function creatorPriceLine(catalog: BillingCatalog | null): string | null 
 	const monthly = catalog?.creator.monthly;
 	const annual = catalog?.creator.annual;
 	const prices = [
-		monthly ? priceLabel(monthly, "monthly") : null,
 		annual ? priceLabel(annual, "annual") : null,
+		monthly ? priceLabel(monthly, "monthly") : null,
 	].filter((price): price is string => price !== null);
 	return prices.length === 0 ? null : `Creator is ${prices.join(", or ")}.`;
 }

@@ -71,7 +71,16 @@ export interface PricingView {
 	/** The payment provider behind this build is its sandbox: say so beside the price. */
 	readonly testMode: boolean;
 	readonly device: { readonly points: readonly string[] };
-	readonly creator: { readonly price: CreatorPrice; readonly adds: readonly string[] };
+	readonly creator: {
+		readonly price: CreatorPrice;
+		readonly adds: readonly string[];
+		/**
+		 * The card's one action. Only a catalog that states a price proves billing is
+		 * there, so only then does it promise a hosted render; a 503 means the studio
+		 * has no Cloud to choose, and the card says only that it opens the studio.
+		 */
+		readonly action: { readonly label: string; readonly hint: string };
+	};
 	readonly table: {
 		readonly rows: readonly ComparisonRow[];
 		/** What a free account holds, which Creator is not sold on. */
@@ -120,6 +129,17 @@ const CREATOR_ADDS = [
 	"Past renders stay downloadable while you subscribe",
 	"Works in a browser with no video encoder",
 ] as const;
+
+function creatorCard(price: CreatorPrice): PricingView["creator"] {
+	const priced = price.state === "priced";
+	return {
+		price,
+		adds: CREATOR_ADDS,
+		action: priced
+			? { label: "Start a hosted render", hint: "Opens the studio; choose Cloud under Where." }
+			: { label: "See Creator in the studio", hint: "Opens the studio." },
+	};
+}
 
 function deviceIntro(): string {
 	const top = RESOLUTION_TIERS.at(-1);
@@ -201,7 +221,7 @@ export function pricingView(input: { readonly reading: CatalogReading }): Pricin
 		device: {
 			points: [deviceIntro(), "No watermark", "Nothing uploaded, no account"],
 		},
-		creator: { price: creatorPrice(input.reading), adds: CREATOR_ADDS },
+		creator: creatorCard(creatorPrice(input.reading)),
 		table: {
 			rows: comparisonRows(creator),
 			freeAccount: `A free account keeps up to ${free.limitFor("cloudProjects")} cloud projects and ${formatBytes(free.limitFor("mediaBytes"))} of private media. Hosted renders come with ${creator.label}.`,

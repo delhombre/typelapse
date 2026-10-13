@@ -92,6 +92,11 @@ describe("the /pricing route", () => {
 		await waitFor(() => expect(card.getAttribute("data-price-state")).toBe("unpriced"));
 		expect(card.textContent).not.toMatch(/\d/);
 		expect(card.textContent).not.toMatch(/[$€£]/);
+		// Billing is not configured: no hosted render is promised, the link is the same.
+		expect(within(card).queryByRole("link", { name: "Start a hosted render" })).toBeNull();
+		expect(
+			within(card).getByRole("link", { name: "See Creator in the studio" }).getAttribute("href"),
+		).toBe("/app");
 	});
 
 	it("says test mode beside the price only for the sandbox", async () => {
@@ -114,7 +119,11 @@ describe("the /pricing route", () => {
 		catalogAnswers(Response.json(PRICED));
 		mountAt("/pricing");
 
-		const action = await screen.findByRole("link", { name: "Start a hosted render" });
+		const action = await screen.findByRole(
+			"link",
+			{ name: "Start a hosted render" },
+			{ timeout: 5000 },
+		);
 		expect(action.getAttribute("href")).toBe("/app");
 		expect(screen.getByText("Opens the studio; choose Cloud under Where.")).toBeTruthy();
 		const footer = screen.getByRole("contentinfo");
