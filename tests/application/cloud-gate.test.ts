@@ -13,25 +13,43 @@ describe("cloudGate", () => {
 
 	it("lists nothing in a local build, whatever the account", () => {
 		for (const account of ["none", "checking", "signed-out", "signed-in"] as CloudAccount[]) {
-			expect(cloudGate({ hosted: false, account, plan: creator })).toBe("absent");
+			expect(cloudGate({ hosted: false, account, plan: creator, planKnown: true })).toBe("absent");
 		}
 	});
 
 	it("lists nothing in a hosted build without accounts: there is no way in to offer", () => {
-		expect(cloudGate({ hosted: true, account: "none", plan: free })).toBe("absent");
+		expect(cloudGate({ hosted: true, account: "none", plan: free, planKnown: true })).toBe(
+			"absent",
+		);
 	});
 
 	it("asks a signed-out visitor to sign in, and so while the session is still being read", () => {
-		expect(cloudGate({ hosted: true, account: "signed-out", plan: free })).toBe("sign-in");
-		expect(cloudGate({ hosted: true, account: "checking", plan: free })).toBe("sign-in");
+		expect(cloudGate({ hosted: true, account: "signed-out", plan: free, planKnown: true })).toBe(
+			"sign-in",
+		);
+		expect(cloudGate({ hosted: true, account: "checking", plan: free, planKnown: true })).toBe(
+			"sign-in",
+		);
 	});
 
 	it("offers Creator to a free account, which has no hosted render time", () => {
-		expect(cloudGate({ hosted: true, account: "signed-in", plan: free })).toBe("upgrade");
+		expect(cloudGate({ hosted: true, account: "signed-in", plan: free, planKnown: true })).toBe(
+			"upgrade",
+		);
 	});
 
 	it("opens Cloud to a plan with hosted render time", () => {
-		expect(cloudGate({ hosted: true, account: "signed-in", plan: creator })).toBe("open");
-		expect(cloudGate({ hosted: true, account: "signed-in", plan: Plan.team(3) })).toBe("open");
+		expect(cloudGate({ hosted: true, account: "signed-in", plan: creator, planKnown: true })).toBe(
+			"open",
+		);
+		expect(
+			cloudGate({ hosted: true, account: "signed-in", plan: Plan.team(3), planKnown: true }),
+		).toBe("open");
+	});
+
+	it("waits while a signed-in account's plan has not been read: Free is only the default", () => {
+		expect(cloudGate({ hosted: true, account: "signed-in", plan: free, planKnown: false })).toBe(
+			"pending",
+		);
 	});
 });

@@ -7,13 +7,15 @@
 	--sheet-inline: 24px;
 	--sheet-width: 440px;
 	min-height: 0;
-	/* The code form reads the account panel's tokens; here they are the sheet's paper. */
+	/* The code form reads the account panel's tokens; here they are the sheet's paper,
+	   and its one filled button wears the primary, as every filled action in the sheet
+	   does (DECISIONS D2). The panel's ink fill is the panel's own choice, not this zone's. */
 	--mm-surface: var(--camera-paper);
 	--mm-ink: var(--camera-ink);
 	--mm-muted: var(--camera-muted);
 	--mm-hairline: var(--camera-line);
-	--mm-deep: var(--camera-ink);
-	--mm-deep-ink: var(--camera-paper);
+	--mm-deep: var(--color-primary);
+	--mm-deep-ink: var(--color-on-primary);
 	--mm-primary: var(--color-primary);
 	--mm-danger: var(--camera-danger);
 }
@@ -70,6 +72,14 @@
 	background: var(--camera-muted);
 }
 
+.hosted-render-price {
+	margin: 0;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-strong);
+	font-variant-numeric: tabular-nums;
+}
+
 .hosted-render-note {
 	margin: 0;
 	color: var(--camera-muted);
@@ -99,7 +109,7 @@
 
 /* Busy, it keeps its fill and says what it is doing (DECISIONS D16): only the
    cursor says the press is spent. */
-.hosted-render-action:disabled {
+.hosted-render-action[aria-disabled="true"] {
 	cursor: progress;
 }
 
@@ -110,12 +120,12 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-	.hosted-render-action:hover:not(:disabled) {
+	.hosted-render-action:hover:not([aria-disabled="true"]) {
 		background: var(--color-primary-hover);
 	}
 }
 
-.hosted-render-action:active:not(:disabled) {
+.hosted-render-action:active:not([aria-disabled="true"]) {
 	transform: scale(0.97);
 }
 
@@ -124,23 +134,27 @@
 	outline-offset: 2px;
 }
 
-/* The account's form, in the sheet: its own type and spacing, the sheet's paper, and
-   the eyebrow as the account panel draws it (studio-account-island.css). */
-.hosted-render-sign-in .mm-eyebrow {
+/* The account's form, in the sheet: the sheet's title is its title, so the form
+   comes without its own (AuthForm `embedded`); the code step's heading is one level
+   down and set at the sheet's scale. */
+.hosted-render-sign-in .mm-account-form h3 {
 	margin: 0;
-	color: var(--mm-muted);
-	font-size: 9px;
-	font-weight: 650;
-	letter-spacing: 0.14em;
-	text-transform: uppercase;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
 }
 
-.hosted-render-sign-in .mm-account-form h2 {
-	margin-right: 0;
+.hosted-render-sign-in .mm-account-form h3:focus-visible {
+	outline: none;
 }
 
 /* The panel's busy and spent states, which its stylesheet scopes to the popover. */
 .hosted-render-sign-in .mm-account-primary:is(:disabled, [aria-disabled="true"]) {
 	cursor: progress;
 	background: color-mix(in srgb, var(--mm-deep) 82%, var(--mm-surface));
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.hosted-render-sign-in .mm-account-primary:hover:not(:disabled, [aria-disabled="true"]) {
+		background: var(--color-primary-hover);
+	}
 }

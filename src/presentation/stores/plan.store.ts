@@ -15,6 +15,12 @@ export interface PlanState {
 	plan: Plan;
 	catalog: BillingCatalog | null;
 	billingAvailable: boolean;
+	/**
+	 * Whether `plan` is the signed-in account's own, read from the server since the
+	 * last sign-in. Until it is, a hosted account shows as Free; a surface that sells
+	 * Creator waits for it rather than offering an upgrade to someone who has it.
+	 */
+	accountPlanKnown: boolean;
 	/** The server's allowance sentence, shown verbatim; null when it has none. */
 	allowance: string | null;
 	/** The ceilings and usage that sentence was built from, for the plan card's meter; null without them. */
@@ -80,6 +86,7 @@ export function createPlanStore({
 		plan: deploymentMode === "local" ? Plan.local() : Plan.free(),
 		catalog: null,
 		billingAvailable: false,
+		accountPlanKnown: deploymentMode === "local",
 		allowance: null,
 		allowanceDetail: null,
 		notice: null,
@@ -93,6 +100,9 @@ export function createPlanStore({
 				set({ plan: Plan.local(), error: null });
 				return;
 			}
+			// A signed-out read says nothing about the next account: its plan is unknown
+			// from the moment the visitor is a visitor again.
+			if (!signedIn) set({ accountPlanKnown: false });
 			if (!(await billingConfigured())) {
 				// A hosted server without a payment provider answers the catalog, plan
 				// and notice reads with a 503: nothing to ask, and Free is the whole
@@ -106,6 +116,7 @@ export function createPlanStore({
 					catalog: null,
 					billingAvailable: false,
 					plan: Plan.free(),
+					accountPlanKnown: signedIn,
 					allowance: reading?.sentence ?? null,
 					allowanceDetail: reading?.detail ?? null,
 					notice: null,
@@ -124,6 +135,7 @@ export function createPlanStore({
 				catalog: catalog.status === "fulfilled" ? catalog.value : null,
 				billingAvailable: catalog.status === "fulfilled",
 				plan: plan.status === "fulfilled" ? plan.value : Plan.free(),
+				accountPlanKnown: signedIn,
 				allowance: reading?.sentence ?? null,
 				allowanceDetail: reading?.detail ?? null,
 				notice: notice.status === "fulfilled" ? notice.value : null,
@@ -136,6 +148,8 @@ export function createPlanStore({
 				set({ error: "Cloud billing is not part of this local deployment." });
 				return;
 			}
+			// One checkout per press: a second press while the first is on its way waits on it.
+			if (get().isUpgrading) return;
 			set({ isUpgrading: true, error: null });
 			try {
 				const checkout = await billing.startCheckout(cadence ?? get().cadence);

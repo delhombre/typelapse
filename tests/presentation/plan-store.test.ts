@@ -246,4 +246,62 @@ describe("deployment-aware plan store", () => {
 		expect(store.getState().billingAvailable).toBe(false);
 		expect(store.getState().catalog).toBeNull();
 	});
+
+	it("starts one checkout for two presses: the second waits on the first", async () => {
+		let finish: (value: { url: string; sessionId: string }) => void = () => {};
+		const startCheckout = vi.fn(
+			() =>
+				new Promise<{ url: string; sessionId: string }>((resolve) => {
+					finish = resolve;
+				}),
+		);
+		const navigate = vi.fn();
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({ startCheckout }),
+			navigate,
+		});
+
+		const first = store.getState().upgrade();
+		const second = store.getState().upgrade();
+		finish({ url: "https://sandbox.polar.sh/checkout/co_once", sessionId: "cs_once" });
+		await Promise.all([first, second]);
+
+		expect(startCheckout).toHaveBeenCalledOnce();
+		expect(navigate).toHaveBeenCalledOnce();
+	});
+
+	it("knows the account's plan only once a signed-in read has landed", async () => {
+		let answer: (plan: Plan) => void = () => {};
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({
+				getCurrentPlan: () =>
+					new Promise<Plan>((resolve) => {
+						answer = resolve;
+					}),
+			}),
+		});
+		expect(store.getState().accountPlanKnown).toBe(false);
+
+		await store.getState().refresh({ signedIn: false });
+		expect(store.getState().accountPlanKnown).toBe(false);
+
+		const reading = store.getState().refresh({ signedIn: true });
+		await Promise.resolve();
+		expect(store.getState().accountPlanKnown).toBe(false);
+		answer(Plan.pro());
+		await reading;
+		expect(store.getState().accountPlanKnown).toBe(true);
+		expect(store.getState().plan.tier).toBe("pro");
+
+		// Signed out again, the next account's plan is unknown until it is read.
+		await store.getState().refresh({ signedIn: false });
+		expect(store.getState().accountPlanKnown).toBe(false);
+	});
+
+	it("knows the plan at once in a local build, where it is always local", () => {
+		const store = createPlanStore({ deploymentMode: "local", billing: billing() });
+		expect(store.getState().accountPlanKnown).toBe(true);
+	});
 });

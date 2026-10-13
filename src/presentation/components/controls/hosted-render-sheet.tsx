@@ -1,4 +1,8 @@
-import { AuthForm } from "@/presentation/components/multimedia/studio-account-control";
+import { hostedOutputGraceDays } from "@/application/billing/plan-allowance";
+import type { BillingCatalog } from "@/domain/ports/billing.port";
+import { Plan } from "@/domain/value-objects/plan";
+import { TestModeLine } from "@/presentation/components/billing/test-mode-line";
+import { AuthForm, priceLabel } from "@/presentation/components/multimedia/studio-account-control";
 import { StudioBottomSheet } from "@/presentation/components/ui/studio-bottom-sheet";
 import { feedback } from "@/presentation/haptics";
 import { useAuthStore } from "@/presentation/stores/auth.store";
@@ -14,22 +18,48 @@ import { X } from "reicon-react";
 import { useCloudGate } from "./cloud-render";
 import "./hosted-render-sheet.css";
 
-/** What a hosted render adds over this device, and nothing it cannot prove (viability D2). */
+/**
+ * What a hosted render adds over this device, and nothing the plan rules do not
+ * say (viability D2, D4): the third line is Creator's own entitlement, read from
+ * the Plan value object, since a free account already has private storage.
+ */
 export const HOSTED_RENDER_ADDS = [
 	"Captions and audio baked into the video.",
-	"Rendered on our servers, not on your laptop.",
-	"Kept in your private cloud storage.",
+	"Rendered on our servers, not on your device.",
+	`Renders stay downloadable while you are on Creator, and ${hostedOutputGraceDays(Plan.free())} days after.`,
 ] as const;
+
+/** Creator's prices as the public catalog states them; null when it states none. */
+export function creatorPriceLine(catalog: BillingCatalog | null): string | null {
+	const monthly = catalog?.creator.monthly;
+	const annual = catalog?.creator.annual;
+	const prices = [
+		monthly ? priceLabel(monthly, "monthly") : null,
+		annual ? priceLabel(annual, "annual") : null,
+	].filter((price): price is string => price !== null);
+	return prices.length === 0 ? null : `Creator is ${prices.join(", or ")}.`;
+}
+
+type SheetView = "offer" | "code" | "pending" | "upgrade";
+
+const SUBTITLES: Record<SheetView, string> = {
+	offer: "This device keeps rendering for free. A hosted render adds:",
+	code: "Sign in with a code we email you.",
+	pending: "This device keeps rendering for free. A hosted render adds:",
+	upgrade: "This device keeps rendering for free. A hosted render adds:",
+};
 
 /**
  * The paid side, said at the press (ux-waves D3, Dub's upgrade-required toast
  * without its exclamation). Cloud under Where opens it for a visitor whose plan
  * does not render there yet, and so does the captions caveat's link:
  *
- * - signed out: what a hosted render adds, then Sign in, which swaps the body for
- *   the account's own code form, the same one the account panel shows;
- * - Free: the same three lines, the server's allowance sentence, and one
- *   Upgrade to Creator, the account panel's checkout;
+ * - signed out: what a hosted render adds and Creator's price, then Sign in,
+ *   which swaps the body for the account's own code form, without its pitch;
+ * - signed in, plan not read yet: the same lines and "Checking your plan…", so a
+ *   Creator is never offered Creator while the server answers;
+ * - Free: the same lines, the server's allowance sentence, and one Upgrade to
+ *   Creator, the account panel's checkout;
  * - Creator: never opens; if the plan arrives while it is open, it chooses Cloud
  *   and closes, because there is nothing left to explain.
  *
@@ -45,12 +75,15 @@ export function HostedRenderSheet({ surface }: { surface: CloudSurface }) {
 	const setTarget = useExportStore((state) => state.setTarget);
 	const titleId = useId();
 	const headingRef = useRef<HTMLHeadingElement>(null);
+	const panelRef = useRef<HTMLDivElement>(null);
+	// Beside the surface's own controls in the page, so focus can find its Cloud.
+	const anchorRef = useRef<HTMLSpanElement>(null);
 	const [signingIn, setSigningIn] = useState(false);
 
 	// The words stay on screen while the sheet slides out.
-	const live = gate === "sign-in" && signingIn ? "code" : gate;
-	const shown = useRef(live);
-	if (open) {
+	const live: SheetView | null = viewOf(gate, signingIn);
+	const shown = useRef<SheetView>(live ?? "offer");
+	if (open && live) {
 		shown.current = live;
 	}
 	const view = shown.current;
@@ -68,22 +101,28 @@ export function HostedRenderSheet({ surface }: { surface: CloudSurface }) {
 		}
 	}, [open, gate, setTarget, close]);
 
-	// The body changed under the focus (the code form gave way to the upgrade):
-	// the heading takes it, so a keyboard user is still in the sheet, at its top.
+	// The body changed under the focus: Sign in gave way to the form (whose address
+	// takes the focus only under a cursor: a finger's keyboard is not raised for a
+	// field nobody tapped), or the form gave way to the upgrade. Whatever is left
+	// without focus, the heading takes it, so a person is still in the sheet, at its
+	// top. This runs after the form's own effects, so a focused address stays focused.
 	const previous = useRef(view);
 	useEffect(() => {
-		if (open && previous.current === "code" && view === "upgrade") {
+		const changed = previous.current !== view;
+		previous.current = view;
+		if (!open || !changed) return;
+		const active = document.activeElement;
+		if (!panelRef.current?.contains(active) || active === panelRef.current) {
 			headingRef.current?.focus();
 		}
-		previous.current = view;
 	}, [open, view]);
 
 	const onClosed = () => {
 		setSigningIn(false);
 		// Back to what opened it; a caveat link that chose Cloud is gone with its
-		// caveat, so Cloud under Where takes the focus instead.
+		// caveat, so this surface's Cloud under Where takes the focus instead.
 		const { opener } = useHostedRenderSheetStore.getState();
-		const back = opener?.isConnected ? opener : cloudChip();
+		const back = opener?.isConnected ? opener : cloudChipNear(anchorRef.current);
 		back?.focus({ preventScroll: true });
 	};
 
@@ -96,63 +135,87 @@ export function HostedRenderSheet({ surface }: { surface: CloudSurface }) {
 
 	if (typeof document === "undefined") return null;
 
-	return createPortal(
-		<div className="studio-root sc-tokens" data-island-companion="" onKeyDown={keepEscape}>
-			<StudioBottomSheet
-				open={open}
-				onClose={close}
-				onClosed={onClosed}
-				labelledBy={titleId}
-				className="hosted-render-sheet"
-			>
-				<header className="studio-sheet-header">
-					<div>
-						{/* On the code step the account's form brings its own heading; this one
-						    stays the dialog's name for a screen reader. */}
-						<h2
-							id={titleId}
-							ref={headingRef}
-							tabIndex={-1}
-							className={view === "code" ? "sr-only" : undefined}
-						>
-							Render on Typelapse Cloud
-						</h2>
-						{view === "code" ? null : (
-							<p>This device keeps rendering for free. A hosted render adds:</p>
-						)}
-					</div>
-					<button type="button" onClick={close} aria-label="Close">
-						<X size={14} strokeWidth={1.7} aria-hidden="true" />
-					</button>
-				</header>
-				<div className="hosted-render-body">
-					{view === "code" ? (
-						<SignInStep />
-					) : (
-						<>
-							<ul className="hosted-render-adds">
-								{HOSTED_RENDER_ADDS.map((line) => (
-									<li key={line}>{line}</li>
-								))}
-							</ul>
-							{view === "upgrade" ? (
-								<UpgradeStep />
-							) : (
-								<OfferSignIn onSignIn={() => setSigningIn(true)} />
-							)}
-						</>
-					)}
-				</div>
-			</StudioBottomSheet>
-		</div>,
-		document.body,
+	return (
+		<>
+			<span ref={anchorRef} hidden />
+			{createPortal(
+				<div className="studio-root sc-tokens" data-island-companion="" onKeyDown={keepEscape}>
+					<StudioBottomSheet
+						open={open}
+						onClose={close}
+						onClosed={onClosed}
+						labelledBy={titleId}
+						className="hosted-render-sheet"
+					>
+						<header className="studio-sheet-header">
+							<div>
+								<h2 id={titleId} ref={headingRef} tabIndex={-1}>
+									Render on Typelapse Cloud
+								</h2>
+								<p>{SUBTITLES[view]}</p>
+							</div>
+							<button type="button" onClick={close} aria-label="Close">
+								<X size={14} strokeWidth={1.7} aria-hidden="true" />
+							</button>
+						</header>
+						<div ref={panelRef} className="hosted-render-body">
+							{view === "code" ? <SignInStep /> : <SheetBody view={view} onSignIn={setSigningIn} />}
+						</div>
+					</StudioBottomSheet>
+				</div>,
+				document.body,
+			)}
+		</>
 	);
 }
 
-function cloudChip(): HTMLButtonElement | null {
-	const group = document.querySelector('[role="group"][aria-label="Where"]');
+function viewOf(gate: ReturnType<typeof useCloudGate>, signingIn: boolean): SheetView | null {
+	switch (gate) {
+		case "sign-in":
+			return signingIn ? "code" : "offer";
+		case "pending":
+			return "pending";
+		case "upgrade":
+			return "upgrade";
+		default:
+			return null;
+	}
+}
+
+/** The Where group's Cloud on the surface the sheet belongs to. */
+function cloudChipNear(anchor: HTMLElement | null): HTMLButtonElement | null {
+	const group = anchor?.parentElement?.querySelector('[role="group"][aria-label="Where"]');
 	const chips = group ? Array.from(group.querySelectorAll<HTMLButtonElement>("button")) : [];
 	return chips.find((chip) => chip.textContent?.trim() === "Cloud") ?? null;
+}
+
+function SheetBody({
+	view,
+	onSignIn,
+}: {
+	view: Exclude<SheetView, "code">;
+	onSignIn: (signingIn: boolean) => void;
+}) {
+	const catalog = usePlanStore((state) => state.catalog);
+	const price = creatorPriceLine(catalog);
+	return (
+		<>
+			<ul className="hosted-render-adds">
+				{HOSTED_RENDER_ADDS.map((line) => (
+					<li key={line}>{line}</li>
+				))}
+			</ul>
+			{price ? <p className="hosted-render-price">{price}</p> : null}
+			{view === "upgrade" ? <UpgradeStep /> : null}
+			{view === "pending" ? (
+				<p className="hosted-render-note" aria-busy="true">
+					Checking your plan…
+				</p>
+			) : null}
+			{view === "offer" ? <OfferSignIn onSignIn={() => onSignIn(true)} /> : null}
+			<TestModeLine environment={catalog?.environment} />
+		</>
+	);
 }
 
 function OfferSignIn({ onSignIn }: { onSignIn: () => void }) {
@@ -163,8 +226,9 @@ function OfferSignIn({ onSignIn }: { onSignIn: () => void }) {
 			<button
 				type="button"
 				className="hosted-render-action"
-				disabled={checking}
+				aria-disabled={checking || undefined}
 				onClick={() => {
+					if (checking) return;
 					feedback("commit");
 					onSignIn();
 				}}
@@ -175,7 +239,7 @@ function OfferSignIn({ onSignIn }: { onSignIn: () => void }) {
 	);
 }
 
-/** The account panel's code form, the same store and the same steps. */
+/** The account panel's code form, the same store and the same steps, without its pitch. */
 function SignInStep() {
 	const operation = useAuthStore((state) => state.operation);
 	const error = useAuthStore((state) => state.error);
@@ -186,6 +250,8 @@ function SignInStep() {
 	return (
 		<div className="hosted-render-sign-in">
 			<AuthForm
+				embedded
+				checkScope=".hosted-render-sheet"
 				operation={operation}
 				error={error}
 				pendingCode={pendingCode}
@@ -215,9 +281,12 @@ function UpgradeStep() {
 				<button
 					type="button"
 					className="hosted-render-action"
-					disabled={busy}
+					// Busy, it stays focusable (a disabled button drops a keyboard user's focus)
+					// and says what it is doing; a second press starts nothing.
+					aria-disabled={busy || undefined}
 					aria-busy={busy || undefined}
 					onClick={() => {
+						if (busy) return;
 						feedback("commit");
 						void upgrade();
 					}}

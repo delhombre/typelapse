@@ -44,7 +44,13 @@ function accountOf(kind: AuthStoreState["status"]["kind"]): CloudAccount {
 export function useCloudGate(): CloudGate {
 	const kind = useAuthStore((state) => state.status.kind);
 	const plan = usePlanStore((state) => state.plan);
-	return cloudGate({ hosted: isHostedBuild(), account: accountOf(kind), plan });
+	const planKnown = usePlanStore((state) => state.accountPlanKnown);
+	return cloudGate({ hosted: isHostedBuild(), account: accountOf(kind), plan, planKnown });
+}
+
+/** Whether a press on Cloud opens the hosted render sheet rather than choosing it. */
+export function isGated(gate: CloudGate): boolean {
+	return gate === "sign-in" || gate === "pending" || gate === "upgrade";
 }
 
 /**
@@ -58,7 +64,7 @@ export function useWhereSelect(surface: CloudSurface): (target: ExportTarget) =>
 	const show = useHostedRenderSheetStore((state) => state.show);
 	return useCallback(
 		(target: ExportTarget) => {
-			if (target === "cloud" && (gate === "sign-in" || gate === "upgrade")) {
+			if (target === "cloud" && isGated(gate)) {
 				show(surface, focusedElement());
 				return;
 			}
@@ -82,7 +88,26 @@ export const CLOUD_TARGET_TITLE =
  * Chosen, it reads the allowance, so the account sees what its plan includes
  * before it presses Render; signing out puts Where back on this device.
  */
-export function useCloudTarget(): { value: "cloud"; label: string; title: string } | null {
+/** What Cloud's tooltip says, which is what a press on it does in this state. */
+export function cloudTargetTitle(gate: CloudGate): string {
+	switch (gate) {
+		case "sign-in":
+			return "Renders on Typelapse servers, with captions and audio. Sign in to start.";
+		case "upgrade":
+			return "Hosted renders come with Creator.";
+		case "pending":
+			return "Checking your plan.";
+		default:
+			return CLOUD_TARGET_TITLE;
+	}
+}
+
+export function useCloudTarget(): {
+	value: "cloud";
+	label: string;
+	title: string;
+	haspopup?: "dialog";
+} | null {
 	const gate = useCloudGate();
 	const available = useCloudRenderAvailable();
 	const target = useExportStore((state) => state.target);
@@ -98,7 +123,15 @@ export function useCloudTarget(): { value: "cloud"; label: string; title: string
 		void refreshAllowance();
 	}, [available, target, setTarget, refreshAllowance]);
 
-	return gate === "absent" ? null : { value: "cloud", label: "Cloud", title: CLOUD_TARGET_TITLE };
+	if (gate === "absent") return null;
+	// Gated, the press opens a dialog and chooses nothing: it is announced as such,
+	// not as a toggle that stays off.
+	return {
+		value: "cloud",
+		label: "Cloud",
+		title: cloudTargetTitle(gate),
+		...(isGated(gate) ? { haspopup: "dialog" as const } : {}),
+	};
 }
 
 const BUSY_LABELS: Partial<Record<CloudRenderPhase["kind"], string>> = {

@@ -1,7 +1,9 @@
+import { hostedOutputGraceDays } from "@/application/billing/plan-allowance";
 import { createStudioCompositionDocument } from "@/application/project/studio-composition";
 import { Snippet } from "@/domain/entities/snippet";
 import { Step } from "@/domain/entities/step";
 import { Plan } from "@/domain/value-objects/plan";
+import { cloudTargetTitle } from "@/presentation/components/controls/cloud-render";
 import { ClusterPanel, RenderNotes } from "@/presentation/components/controls/cluster-panels";
 import { StudioClusterMode } from "@/presentation/components/controls/studio-cluster-mode";
 import { useAuthStore } from "@/presentation/stores/auth.store";
@@ -19,9 +21,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.hoisted(() => {
+/** A finger rather than a cursor, switched per test. */
+const pointer = vi.hoisted(() => {
+	const state = { coarse: false };
 	window.matchMedia = ((query: string) => ({
-		matches: query.includes("reduced-motion"),
+		matches:
+			query.includes("reduced-motion") || (state.coarse && query.includes("pointer: coarse")),
 		media: query,
 		onchange: null,
 		addEventListener: () => {},
@@ -30,6 +35,7 @@ vi.hoisted(() => {
 		removeListener: () => {},
 		dispatchEvent: () => false,
 	})) as unknown as typeof window.matchMedia;
+	return state;
 });
 
 vi.mock("@/infrastructure/export/webcodecs-renderer.adapter", () => ({
@@ -39,6 +45,13 @@ vi.mock("@/infrastructure/export/webcodecs-renderer.adapter", () => ({
 const FREE_ALLOWANCE =
 	"You are using 0 of 3 cloud projects and 0 MB of 100 MB of media; hosted renders come with Creator.";
 const SHEET = "Render on Typelapse Cloud";
+const CATALOG = {
+	creator: {
+		monthly: { currency: "USD", unitAmount: 1200 },
+		annual: { currency: "USD", unitAmount: 9900 },
+	},
+};
+const GRACE = `Renders stay downloadable while you are on Creator, and ${hostedOutputGraceDays(Plan.free())} days after.`;
 
 /** Every call the studio makes; a gated Cloud makes none. */
 function recordFetch(): string[] {
@@ -78,12 +91,12 @@ const SESSION = {
 
 function signedIn(plan: Plan): void {
 	useAuthStore.setState({ status: { kind: "authenticated", session: SESSION } });
-	usePlanStore.setState({ plan });
+	usePlanStore.setState({ plan, accountPlanKnown: true });
 }
 
 function signedOut(): void {
 	useAuthStore.setState({ status: { kind: "anonymous" } });
-	usePlanStore.setState({ plan: Plan.free(), allowance: null });
+	usePlanStore.setState({ plan: Plan.free(), allowance: null, accountPlanKnown: false });
 }
 
 const PANELS: [string, () => ReactElement][] = [
@@ -113,6 +126,7 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 		usePlanStore.setState({
 			plan: Plan.free(),
 			allowance: null,
+			catalog: null,
 			billingAvailable: true,
 			isUpgrading: false,
 			error: null,
@@ -122,6 +136,7 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 	});
 
 	afterEach(() => {
+		pointer.coarse = false;
 		cleanup();
 		vi.unstubAllEnvs();
 		vi.unstubAllGlobals();
@@ -150,8 +165,17 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 
 		const sheet = await screen.findByRole("dialog", { name: SHEET });
 		expect(within(sheet).getByText("Captions and audio baked into the video.")).toBeTruthy();
-		expect(within(sheet).getByText("Rendered on our servers, not on your laptop.")).toBeTruthy();
-		expect(within(sheet).getByText("Kept in your private cloud storage.")).toBeTruthy();
+		expect(within(sheet).getByText("Rendered on our servers, not on your device.")).toBeTruthy();
+		// The third gain is the plan's, not storage a free account already has: a Creator's
+		// renders do not expire, and a downgrade keeps them for the grace period.
+		expect(within(sheet).getByText(GRACE)).toBeTruthy();
+		expect(
+			Plan.pro().keepsHostedOutput({
+				completedAt: new Date(0),
+				downgradedAt: null,
+				now: new Date(),
+			}),
+		).toBe(true);
 		// One filled action (DECISIONS D2), and nothing chosen or asked of the server yet.
 		expect(within(sheet).getAllByRole("button", { name: "Sign in" })).toHaveLength(1);
 		expect(useExportStore.getState().target).toBe("device");
@@ -216,8 +240,11 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 		fireEvent.click(cloudChip());
 
 		const sheet = await screen.findByRole("dialog", { name: SHEET });
+		// Busy, it stays focusable and says so; a press does nothing more (the store also
+		// refuses a second checkout).
 		const busy = within(sheet).getByRole("button", { name: "Opening secure checkout…" });
-		expect((busy as HTMLButtonElement).disabled).toBe(true);
+		expect(busy.getAttribute("aria-disabled")).toBe("true");
+		expect((busy as HTMLButtonElement).disabled).toBe(false);
 	});
 
 	it("offers no upgrade where the server sells none, and still says what the plan includes", async () => {
@@ -244,6 +271,132 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 
 		expect(useExportStore.getState().target).toBe("cloud");
 		expect(screen.queryByRole("dialog", { name: SHEET })).toBeNull();
+	});
+
+	it("presents a gated Cloud as what it is, a button that opens a dialog, and an open one as a choice", () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		recordFetch();
+		signedOut();
+		const { unmount } = render(panel());
+
+		expect(cloudChip().getAttribute("aria-haspopup")).toBe("dialog");
+		expect(cloudChip().hasAttribute("aria-pressed")).toBe(false);
+		unmount();
+
+		signedIn(Plan.pro());
+		render(panel());
+		expect(cloudChip().getAttribute("aria-pressed")).toBe("false");
+		expect(cloudChip().hasAttribute("aria-haspopup")).toBe(false);
+	});
+
+	it("keeps its own title through the code step, with the form's heading and pitch left out", async () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		recordFetch();
+		signedOut();
+		render(panel());
+
+		fireEvent.click(cloudChip());
+		const sheet = await screen.findByRole("dialog", { name: SHEET });
+		fireEvent.click(within(sheet).getByRole("button", { name: "Sign in" }));
+
+		const title = within(sheet).getByRole("heading", { name: SHEET });
+		expect(title.className).not.toContain("sr-only");
+		expect(within(sheet).getAllByRole("heading", { level: 2 })).toEqual([title]);
+		expect(within(sheet).queryByText("Continue your work.")).toBeNull();
+		expect(within(sheet).queryByText("On this device:")).toBeNull();
+		expect(within(sheet).getByRole("button", { name: "Email me a code" })).toBeTruthy();
+	});
+
+	it("checks the address when it is left for another control in the sheet", async () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		recordFetch();
+		signedOut();
+		render(panel());
+
+		fireEvent.click(cloudChip());
+		const sheet = await screen.findByRole("dialog", { name: SHEET });
+		fireEvent.click(within(sheet).getByRole("button", { name: "Sign in" }));
+		const field = within(sheet).getByRole("textbox", { name: "Email" });
+		fireEvent.change(field, { target: { value: "ada" } });
+		fireEvent.blur(field, {
+			relatedTarget: within(sheet).getByRole("button", { name: "Close", exact: true } as never),
+		});
+
+		expect(
+			await within(sheet).findByText("Enter an email address like ada@example.com."),
+		).toBeTruthy();
+	});
+
+	it("keeps focus in the sheet on a phone, where the address does not raise the keyboard", async () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		recordFetch();
+		pointer.coarse = true;
+		signedOut();
+		render(panel());
+
+		fireEvent.click(cloudChip());
+		const sheet = await screen.findByRole("dialog", { name: SHEET });
+		await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+		fireEvent.click(within(sheet).getByRole("button", { name: "Sign in" }));
+
+		await waitFor(() =>
+			expect(document.activeElement).toBe(within(sheet).getByRole("heading", { name: SHEET })),
+		);
+	});
+
+	it("waits for a signed-in account's plan before it offers Creator, then chooses Cloud for a Creator", async () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		recordFetch();
+		useAuthStore.setState({ status: { kind: "authenticated", session: SESSION } });
+		usePlanStore.setState({ plan: Plan.free(), accountPlanKnown: false, allowance: null });
+		render(panel());
+
+		fireEvent.click(cloudChip());
+		const sheet = await screen.findByRole("dialog", { name: SHEET });
+		expect(within(sheet).getByText("Checking your plan…")).toBeTruthy();
+		expect(within(sheet).queryByRole("button", { name: "Upgrade to Creator" })).toBeNull();
+		expect(useExportStore.getState().target).toBe("device");
+
+		act(() => usePlanStore.setState({ plan: Plan.pro(), accountPlanKnown: true }));
+
+		await waitFor(() => expect(screen.queryByRole("dialog", { name: SHEET })).toBeNull());
+		expect(useExportStore.getState().target).toBe("cloud");
+	});
+
+	it("shows Creator's price from the public catalog, signed out and on Free alike", async () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		recordFetch();
+		signedOut();
+		usePlanStore.setState({ catalog: CATALOG });
+		const { unmount } = render(panel());
+
+		fireEvent.click(cloudChip());
+		let sheet = await screen.findByRole("dialog", { name: SHEET });
+		expect(within(sheet).getByText("Creator is $12 / month, or $99 / year.")).toBeTruthy();
+		unmount();
+		useHostedRenderSheetStore.setState({ openFor: null, opener: null });
+
+		signedIn(Plan.free());
+		usePlanStore.setState({ allowance: FREE_ALLOWANCE });
+		render(panel());
+		fireEvent.click(cloudChip());
+		sheet = await screen.findByRole("dialog", { name: SHEET });
+		expect(within(sheet).getByText("Creator is $12 / month, or $99 / year.")).toBeTruthy();
+	});
+
+	it("names no price where the catalog has none, and says test mode where the provider is its sandbox", async () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		recordFetch();
+		signedIn(Plan.free());
+		render(panel());
+
+		fireEvent.click(cloudChip());
+		const sheet = await screen.findByRole("dialog", { name: SHEET });
+		expect(within(sheet).queryByText(/^Creator is /)).toBeNull();
+		expect(within(sheet).queryByText("Test mode: no real charges")).toBeNull();
+
+		act(() => usePlanStore.setState({ catalog: { ...CATALOG, environment: "sandbox" } }));
+		expect(await within(sheet).findByText("Test mode: no real charges")).toBeTruthy();
 	});
 
 	it("chooses Cloud and closes once the account it was waiting for turns out to be Creator", async () => {
@@ -331,5 +484,18 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 
 		expect(useExportStore.getState().target).toBe("cloud");
 		expect(screen.queryByRole("dialog", { name: SHEET })).toBeNull();
+	});
+});
+
+describe("Cloud's tooltip", () => {
+	it("says what the press does in each state", () => {
+		expect(cloudTargetTitle("open")).toBe(
+			"Saves this project to your private cloud and renders it on Typelapse servers.",
+		);
+		expect(cloudTargetTitle("sign-in")).toBe(
+			"Renders on Typelapse servers, with captions and audio. Sign in to start.",
+		);
+		expect(cloudTargetTitle("upgrade")).toBe("Hosted renders come with Creator.");
+		expect(cloudTargetTitle("pending")).toBe("Checking your plan.");
 	});
 });
