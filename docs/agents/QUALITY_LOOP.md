@@ -127,7 +127,7 @@ proven against a disposable PostgreSQL. Do not run the full `pnpm test` while
 another agent runs anything in the same worktree; the orchestrator runs the
 full suite, `pnpm build` and `pnpm lint` once, serially, before a commit.
 
-The render itself is proven too, because Vitest, `tsc` and `vite build` all pass
+If the brief does not mention `CRAFT_VERIFY_RENDER=1`, set it yourself. The render itself is proven too, because Vitest, `tsc` and `vite build` all pass
 while Remotion's own webpack cannot bundle the composition (an `@/` import broke
 every server render for days, #237). `pnpm render:smoke` renders a two-second clip
 through the shipped `/render` route and prints one line: the file, then ffprobe's
@@ -137,7 +137,7 @@ Chrome), so a subagent stop stays fast. The `/craft-harness:verify` skill lives 
 the plugin cache, outside this repository, and does not set that variable: the
 orchestrator briefs the verifier to run `CRAFT_VERIFY_RENDER=1 bash .craft/verify.sh`
 every time. A failed render is a **Blocking (P1)** finding, and the report quotes
-the `render-smoke` line, file path included. CI runs the same script as a step of
+the `render-smoke` line, file path included (the clip is kept in the OS temp dir, success or failure, so the path stays valid). CI runs the same script as a step of
 the `Quality gate` job; the `Render the pull request` workflow cannot stand in for
 it, since it is a demo that stays green when the render fails.
 

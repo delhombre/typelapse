@@ -94,6 +94,19 @@ describe("judgeClip", () => {
 		expect(judgeClip({ ...HEALTHY, codec: "vp9" })).toEqual([expect.stringMatching(/vp9/)]);
 	});
 
+	it("fails a frame rate other than the one asked, which doubles the frames while the file stays valid", () => {
+		expect(judgeClip({ ...HEALTHY, fps: 60, frames: 120 })).toEqual([
+			expect.stringMatching(/60 fps.*30 fps/),
+			expect.stringMatching(/120 frames.*60/),
+		]);
+	});
+
+	it("fails a frame count that is not fps times seconds, give or take one", () => {
+		expect(judgeClip({ ...HEALTHY, frames: 59 })).toEqual([]);
+		expect(judgeClip({ ...HEALTHY, frames: 61 })).toEqual([]);
+		expect(judgeClip({ ...HEALTHY, frames: 45 })).toEqual([expect.stringMatching(/45 frames.*60/)]);
+	});
+
 	it("fails a clip whose length is far from the two seconds asked", () => {
 		expect(judgeClip({ ...HEALTHY, durationSeconds: 0.2 })).toEqual([
 			expect.stringMatching(/0\.20s/),

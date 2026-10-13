@@ -113,6 +113,13 @@ export function judgeClip(clip: ProbeSummary): string[] {
 			`the frame is ${clip.width}x${clip.height}, not the ${SMOKE.width}x${SMOKE.height} asked for`,
 		);
 	}
+	if (clip.fps !== SMOKE.fps) {
+		problems.push(`the frame rate is ${clip.fps} fps, not the ${SMOKE.fps} fps asked for`);
+	}
+	const expectedFrames = SMOKE.fps * SMOKE.seconds;
+	if (Math.abs(clip.frames - expectedFrames) > 1) {
+		problems.push(`the clip has ${clip.frames} frames, not the ${expectedFrames} asked for`);
+	}
 	if (Math.abs(clip.durationSeconds - SMOKE.seconds) > SMOKE.toleranceSeconds) {
 		problems.push(
 			`the clip lasts ${clip.durationSeconds.toFixed(2)}s, not the ${SMOKE.seconds}s asked for`,

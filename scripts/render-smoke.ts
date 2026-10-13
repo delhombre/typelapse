@@ -15,15 +15,17 @@
  * second path to drift from the first.
  *
  * Prints one line on success (the file, then ffprobe's length, size, codec and
- * resolution) and exits 1 with the reason on anything else. The file stays in the
- * OS temp dir so a report can name it.
+resolution) and exits 1 with the reason on anything else. The file is kept, on
+ * success and on failure alike, in a fresh `typelapse-smoke-*` dir of the OS temp
+ * dir: the gate's report names it, so deleting it would leave the report pointing
+ * at nothing. It is about 100 KB and the OS clears the temp dir.
  *
  * ffprobe: the system one when there is one, else the one Remotion ships
  * (`remotion ffprobe`), which is the only one in the container image.
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -67,9 +69,6 @@ async function main(): Promise<void> {
 
 	const file = join(mkdtempSync(join(tmpdir(), "typelapse-smoke-")), "smoke.mp4");
 	writeFileSync(file, bytes);
-	if (statSync(file).size === 0) {
-		throw new Error(`the render wrote an empty file: ${file}`);
-	}
 
 	const clip = parseProbe(ffprobe(file), file);
 	const problems = judgeClip(clip);
