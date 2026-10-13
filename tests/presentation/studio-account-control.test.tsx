@@ -16,6 +16,7 @@ import {
 } from "@/presentation/components/multimedia/studio-account-control";
 import { createAuthStore } from "@/presentation/stores/auth.store";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /** A fixed clock: the session below must stay live however long this test outlives it. */
@@ -1008,6 +1009,49 @@ describe("StudioAccountControl", () => {
 				open(billing({ catalog }));
 				expect(screen.queryByText(/test mode/i)).toBeNull();
 			}
+		});
+	});
+
+	describe("the way out to the public pages", () => {
+		const open = (billing: ComponentProps<typeof StudioAccountControl>["billing"]) => {
+			const store = createAuthStore({ kind: "local-offline" });
+			store.setState({
+				status: { kind: "authenticated", session: SESSION },
+				operation: "idle",
+				canSync: true,
+				error: null,
+			});
+			render(<StudioAccountControl store={store} billing={billing} />);
+			fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
+		};
+
+		it("offers the plans beside About Typelapse where billing is not available", () => {
+			open(undefined);
+
+			expect(screen.getByRole("link", { name: "About Typelapse" }).getAttribute("href")).toBe("/");
+			expect(screen.getByRole("link", { name: "Plans and pricing" }).getAttribute("href")).toBe(
+				"/pricing",
+			);
+		});
+
+		it("offers the plans where billing is available, and then About is not needed", () => {
+			open({
+				planLabel: "Free",
+				paid: false,
+				available: true,
+				catalog: null,
+				cadence: "monthly",
+				busy: false,
+				error: null,
+				onCadence: vi.fn(),
+				onUpgrade: vi.fn(),
+				onManageBilling: vi.fn(),
+			});
+
+			expect(screen.getByRole("link", { name: "Plans and pricing" }).getAttribute("href")).toBe(
+				"/pricing",
+			);
+			expect(screen.queryByRole("link", { name: "About Typelapse" })).toBeNull();
 		});
 	});
 });

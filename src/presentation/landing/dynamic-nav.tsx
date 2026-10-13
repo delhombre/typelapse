@@ -49,15 +49,33 @@ const NAV_TUCK_REDUCED_MS = 34;
 /** The frames the swapped pill stays out of sight before it drops back in. */
 const NAV_SETTLE_MS = 34;
 
-const SECTIONS = [
+/** One entry of the pill: an anchor on this page, or the page the visitor is on. */
+export interface NavLinkItem {
+	readonly href: string;
+	readonly label: string;
+	/** This entry is the page on screen, which a reader of the pill is told. */
+	readonly current?: boolean;
+}
+
+const SECTIONS: readonly NavLinkItem[] = [
 	{ href: "#how-it-works", label: "How it works" },
 	{ href: "#proof", label: "Proof" },
 	{ href: "#pricing", label: "Pricing" },
-] as const;
+];
 
-const SECTION_IDS = SECTIONS.map((section) => section.href.slice(1));
+interface DynamicNavProps {
+	/** What the pill links to. The landing's own sections by default. */
+	readonly links?: readonly NavLinkItem[];
+	/**
+	 * The zone whose own filled action holds the first screen's one way in. The
+	 * pill holds back its "Open studio" while that zone is in view: the landing's
+	 * hero by default, the plan cards on the pricing page. A selector that matches
+	 * nothing is a page with no such zone, and the pill carries its CTA from the start.
+	 */
+	readonly deferCtaTo?: string;
+}
 
-export function DynamicNav() {
+export function DynamicNav({ links = SECTIONS, deferCtaTo = ".lp-hero" }: DynamicNavProps = {}) {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
 	const [hidden, setHidden] = useState(false);
@@ -76,7 +94,7 @@ export function DynamicNav() {
 	const heroBottom = useRef(0);
 
 	useEffect(() => {
-		const hero = document.querySelector(".lp-hero");
+		const hero = document.querySelector(deferCtaTo);
 		if (!hero) {
 			// No hero on this page: no other filled button to defer to.
 			setOverHero(false);
@@ -100,9 +118,11 @@ export function DynamicNav() {
 			resize.disconnect();
 			seen?.disconnect();
 		};
-	}, []);
+	}, [deferCtaTo]);
 
-	const inView = useSectionInView(SECTION_IDS);
+	const inView = useSectionInView(
+		links.filter((link) => link.href.startsWith("#")).map((link) => link.href.slice(1)),
+	);
 
 	/* The hero came or went: tuck, swap out of sight, then drop back in. A pill
 	   already hidden by the scroll stays hidden through it. */
@@ -154,13 +174,15 @@ export function DynamicNav() {
 					<span className="font-semibold text-[14px] tracking-tight">Typelapse</span>
 				</Link>
 				<nav aria-label="Sections" className="lp-nav-links">
-					{SECTIONS.map((section) => (
+					{links.map((link) => (
 						<a
-							key={section.href}
-							href={section.href}
-							aria-current={inView === section.href.slice(1) ? "location" : undefined}
+							key={link.href}
+							href={link.href}
+							aria-current={
+								link.current ? "page" : link.href === `#${inView}` ? "location" : undefined
+							}
 						>
-							{section.label}
+							{link.label}
 						</a>
 					))}
 				</nav>

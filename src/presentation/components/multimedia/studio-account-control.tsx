@@ -1,4 +1,5 @@
 import type { PlanAllowance } from "@/application/billing/plan-allowance";
+import { priceLabel } from "@/application/billing/price-label";
 import { type QuotaMeter, nearAnyLimit, quotaMeters } from "@/application/billing/quota-meter";
 import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
 import { useScrollEdges } from "@/presentation/hooks/use-scroll-edges";
@@ -552,6 +553,7 @@ function AccountPanel({
 				</div>
 				<div className="mm-account-actions">
 					{!billing?.available ? <a href="/">About Typelapse</a> : null}
+					<a href="/pricing">Plans and pricing</a>
 					<button
 						type="button"
 						disabled={operation === "signing-out"}
@@ -586,20 +588,6 @@ function AccountPanel({
 			onForgetCode={onForgetCode}
 		/>
 	);
-}
-
-export function priceLabel(
-	price: NonNullable<BillingCatalog["creator"][BillingCadence]>,
-	cadence: BillingCadence,
-): string {
-	const amount = price.unitAmount / 100;
-	const formatted = new Intl.NumberFormat("en", {
-		style: "currency",
-		currency: price.currency,
-		minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
-		maximumFractionDigits: 2,
-	}).format(amount);
-	return `${formatted} / ${cadence === "monthly" ? "month" : "year"}`;
 }
 
 function AccountNotice({ notice }: { readonly notice: BillingNotice }) {

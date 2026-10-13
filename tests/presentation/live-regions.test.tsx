@@ -94,12 +94,14 @@ describe("the scene deletion's live region", () => {
 
 	it("is in the page and empty before a scene is deleted", () => {
 		render(<StepBuilder />);
-		const status = screen.getByRole("status");
-		expect(status.textContent).toBe("");
+		// The First video card may say "Your first video is made." in its own status line.
+		const deletion = () => screen.getByTestId("scene-deletion-status");
+		const status = deletion();
+		expect(status?.textContent).toBe("");
 
 		fireEvent.click(screen.getByRole("button", { name: "Delete scene 1" }));
 
-		expect(screen.getByRole("status")).toBe(status);
-		expect(status.textContent).toBe("Scene 1 deleted.");
+		expect(deletion()).toBe(status);
+		expect(status?.textContent).toBe("Scene 1 deleted.");
 	});
 });

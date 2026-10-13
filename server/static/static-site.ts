@@ -2,6 +2,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import type { MiddlewareHandler } from "hono";
+import { APP_PATHS } from "../../src/application/routing/app-paths";
 import { getMimeType } from "hono/utils/mime";
 
 interface StaticSiteEnvironment {
@@ -36,6 +37,13 @@ export function staticRootFrom(
 		throw new Error(`TYPELAPSE_STATIC_ROOT (${root}) must be a directory holding index.html`);
 	}
 	return root;
+}
+
+const APP_PAGES: ReadonlySet<string> = new Set(Object.values(APP_PATHS));
+
+/** A page the client routes, with or without its trailing slash. */
+function isAppPage(path: string): boolean {
+	return APP_PAGES.has(path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path);
 }
 
 function isApiPath(path: string): boolean {
@@ -91,10 +99,10 @@ function cacheControlFor(path: string, file: string): string {
  * Serves the built app from one origin with the API.
  *
  * Mounted after every API route, so it only ever sees what the API did not
- * answer. The client has a single HTML entry and two routes, "/" and "/app",
- * both resolved to index.html. Any other path is a real 404; a browser asking
- * for a page gets the app's shell with that status, so the client's own
- * not-found screen renders instead of a bare line.
+ * answer. The client has a single HTML entry and the routes in `APP_PATHS`, all
+ * resolved to index.html. Any other path is a real 404;
+ * a browser asking for a page gets the app's shell with that status, so the
+ * client's own not-found screen renders instead of a bare line.
  */
 export function createStaticSite(root: string): MiddlewareHandler {
 	// A link inside the build must not lead out of it, so containment is checked
@@ -113,7 +121,7 @@ export function createStaticSite(root: string): MiddlewareHandler {
 			return c.html(shell, status);
 		};
 
-		if (path === "/" || path === "/app" || path === "/app/") {
+		if (isAppPage(path)) {
 			return html(200);
 		}
 

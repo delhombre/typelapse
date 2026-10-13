@@ -156,6 +156,14 @@ Export, all working:
     does neither yet (`frame-painter/scene.ts` hardcodes `hasCaption: false`), so the preview follows Where: under This device the frame's caption band stays empty and the caption shows under the frame as "Server only" or "Cloud only" (`captionsBakedFor`)
 16. **Share by link, JSON in/out, PNG snapshot, watermark**
 
+Onboarding, working:
+17. **First video card**: a dismissible three-step card in the scene panel
+    (capture a scene, add a focus or a caption, render), shown from the first
+    scene to the third, ticking from the project and from a finished video
+    render, kept in its own localStorage key
+    (`application/onboarding/first-video.ts`, `stores/first-video.store.ts`,
+    `components/editor/first-video-card.tsx`)
+
 Landing page (`src/presentation/landing/`): a full marketing page running the
 real engine as its product shot. Haptics (`src/presentation/haptics.ts`) are
 shared by the landing and the studio controls.
