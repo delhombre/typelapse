@@ -18,6 +18,11 @@ describe("exportFilename", () => {
 		expect(exportFilename("  [WIP] feat: add (a thing)!  ")).toBe("WIP_feat_add_a_thing");
 	});
 
+	it("keeps the letter under an accent instead of cutting a word in two", () => {
+		expect(exportFilename("Café déjà vu")).toBe("Cafe_deja_vu");
+		expect(exportFilename("Ångström crème brûlée")).toBe("Angstrom_creme_brulee");
+	});
+
 	it("falls back to the product's name when nothing usable is left", () => {
 		expect(exportFilename("")).toBe("typelapse");
 		expect(exportFilename("???")).toBe("typelapse");
