@@ -14,6 +14,7 @@ import {
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useInertWindowScroll } from "../support/jsdom-gaps";
 
 const imports = vi.hoisted(() => ({ importStudioMediaFiles: vi.fn() }));
 vi.mock("@/presentation/utils/studio-media-import", () => imports);
@@ -42,6 +43,8 @@ const shell = () =>
 			</StudioTooltipProvider>
 		</MemoryRouter>,
 	);
+
+useInertWindowScroll();
 
 describe("the phone studio", () => {
 	let stopHistory: () => void = () => undefined;

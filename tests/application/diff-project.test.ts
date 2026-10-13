@@ -1,10 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-	MAX_DIFF_STEPS,
-	capDiffSnapshots,
-	projectFromDiff,
-} from "@/application/import/diff-project";
+import { MAX_DIFF_STEPS, MAX_SCENE_LINES } from "@/application/diff";
+import { projectFromDiff } from "@/application/import/diff-project";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { describe, expect, it } from "vitest";
 
@@ -38,16 +35,50 @@ describe("projectFromDiff", () => {
 	});
 });
 
-describe("capDiffSnapshots", () => {
-	it("keeps the final frame when a diff stages more steps than playback allows", () => {
-		const snapshots = Array.from({ length: MAX_DIFF_STEPS + 5 }, (_, index) => ({
-			code: `step ${index}`,
-			label: "",
-		}));
+describe("a diff past the step cap", () => {
+	/** `count` single-line hunks far enough apart to be a step each. */
+	const manyHunks = (count: number) => {
+		const lines = ["--- a/big.ts", "+++ b/big.ts"];
+		for (let k = 0; k < count; k++) {
+			const at = 1 + k * 30;
+			lines.push(`@@ -${at},1 +${at},1 @@`, `-const v${k} = ${k};`, `+const v${k} = ${k * 10};`);
+		}
+		return lines.join("\n");
+	};
 
-		const capped = capDiffSnapshots(snapshots);
+	it("plays its head and ends on a row that says what the video leaves out", () => {
+		const { steps } = projectFromDiff(manyHunks(45));
 
-		expect(capped).toHaveLength(MAX_DIFF_STEPS);
-		expect(capped.at(-1)?.code).toBe(`step ${MAX_DIFF_STEPS + 4}`);
+		expect(steps).toHaveLength(MAX_DIFF_STEPS);
+		// Nothing in the middle is lost: only the tail, and the last kept step says so.
+		const code = steps.at(-1)?.code ?? "";
+		expect(code.endsWith("\n⋯ 32 more scenes")).toBe(true);
+	});
+
+	it("keeps every frame within a scene's rows, the marker row included", () => {
+		// Hunks 3 and 4 lines apart fill each page to its 24 rows, the case where
+		// a marker added after the paging would make a 25th.
+		for (const gap of [3, 4, 30]) {
+			const lines = ["--- a/big.ts", "+++ b/big.ts"];
+			for (let k = 0; k < 45; k++) {
+				const at = 1 + k * gap;
+				lines.push(`@@ -${at},1 +${at},1 @@`, `-const v${k} = ${k};`, `+const v${k} = ${k * 10};`);
+			}
+
+			const { steps } = projectFromDiff(lines.join("\n"));
+
+			expect(steps).toHaveLength(MAX_DIFF_STEPS);
+			for (const step of steps) {
+				expect(step.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+			}
+			expect(steps.at(-1)?.code).toMatch(/\n⋯ \d+ more scenes$/);
+		}
+	});
+
+	it("is the project the studio holds after the same import", () => {
+		const diff = manyHunks(45);
+		useSnippetStore.getState().importDiff(diff);
+
+		expect(projectFromDiff(diff)).toEqual(useSnippetStore.getState().toProjectPayload());
 	});
 });

@@ -12,10 +12,10 @@
  * does not resolve the "@/" path mapping unless it starts from the repository.
  */
 
-import type { DiffChapter } from "../diff";
+import { type DiffChapter, cutNotice } from "../diff";
 import type { ProjectPayload } from "../project/project-payload";
 import { isBareLink, looksLikeUnifiedDiff } from "./classify-source";
-import { projectFromDiff } from "./diff-project";
+import { type ImportedWalkthrough, walkthroughFromDiff } from "./diff-project";
 import {
 	type CommitRef,
 	type CompareRef,
@@ -26,7 +26,7 @@ import {
 	resolvePrUrl,
 	resolveReleaseUrl,
 } from "./pr-url";
-import { type ReleaseCard, releaseProject } from "./release-project";
+import { type ReleaseCard, releaseWalkthrough } from "./release-project";
 
 /** The sources read from GitHub, with the coordinates the fetchers need. */
 export type RemoteSource =
@@ -187,19 +187,36 @@ async function build(
 				source.kind === "pr"
 					? await fetchers.fetchPr(source.ref, ...told)
 					: await fetchers.fetchCommit(source.ref, ...told);
-			return { kind: source.kind, project: projectFromDiff(diffText, { title }) };
+			return withCut(source.kind, walkthroughFromDiff(diffText, { title }));
 		}
 		case "release":
 		case "compare": {
 			const { card, chapters, notice } = await fetchers.fetchRelease(source.ref, ...told);
-			const project = releaseProject(card, chapters);
-			return notice
-				? { kind: source.kind, project, card, notice }
-				: { kind: source.kind, project, card };
+			return withCut(source.kind, releaseWalkthrough(card, chapters), notice, card);
 		}
 		case "diff":
-			return { kind: "diff", project: projectFromDiff(source.text) };
+			return withCut("diff", walkthroughFromDiff(source.text));
 	}
+}
+
+/**
+ * The import, said alongside: what the fetcher noted about the source, then what
+ * the step cap left out, one clause each, set apart by a middle dot (the CLI keeps a notice to one line).
+ */
+function withCut(
+	kind: ImportSource["kind"],
+	{ project, cut }: ImportedWalkthrough,
+	fetched?: string,
+	card?: ReleaseCard,
+): ImportedSource {
+	const sentences = [fetched, cutNotice(cut)].filter((s): s is string => Boolean(s));
+	const notice = sentences.map((s) => s.replace(/\.$/, "")).join(" · ");
+	return {
+		kind,
+		project,
+		...(card ? { card } : {}),
+		...(notice ? { notice } : {}),
+	};
 }
 
 /**
