@@ -30,6 +30,7 @@
 
 import { changesOnlyLineEndings, diffToSnapshots } from "./diff-to-snapshots";
 import { parseUnifiedDiff } from "./parse-unified-diff";
+import { MAX_DIFF_STEPS } from "./step-cap";
 import type { CodeSnapshot, DiffToSnapshotsOptions, DiffToSnapshotsResult } from "./types";
 import { isLockfile } from "./windowing";
 
@@ -89,26 +90,35 @@ function hasRealChanges(diffText: string): boolean {
 }
 
 /**
- * Concatenate several commit chapters into one ordered snapshot sequence: run
- * each through {@link diffToSnapshots}, drop the redundant leading before-frame of
- * every chapter after the first, and rehead each chapter's opening frame with its
- * `k/N · subject` label. Lockfiles-only and empty chapters are skipped.
+ * Several commit chapters as one snapshot sequence per kept chapter, in order:
+ * run each through {@link diffToSnapshots}, drop the redundant leading
+ * before-frame of every chapter after the first, and rehead each chapter's
+ * opening frame with its `k/N · subject` label. Lockfiles-only and empty chapters
+ * are skipped. The sequences stay apart so a cap can keep whole chapters.
  */
-export function chapterSnapshots(
+export function chapterSequences(
 	chapters: DiffChapter[],
-	options: DiffToSnapshotsOptions = {},
-): CodeSnapshot[] {
-	const kept = chapters
-		.filter((chapter) => hasRealChanges(chapter.diffText))
-		.map((chapter) => ({
+	{ maxSteps = MAX_DIFF_STEPS, ...options }: ChapterOptions = {},
+): CodeSnapshot[][] {
+	const real = chapters.filter((chapter) => hasRealChanges(chapter.diffText));
+	const stage = (opts: DiffToSnapshotsOptions) =>
+		real.map((chapter) => ({
 			title: chapter.title,
-			...pick(diffToSnapshots(chapter.diffText, options)),
+			...pick(diffToSnapshots(chapter.diffText, opts)),
 		}));
+	let kept = stage(options);
+	// Past the step cap the walkthrough ends on the cap's marker row, which lands
+	// after the paging: stage every chapter again with that row free.
+	if (
+		options.reserveMarkerRow === undefined &&
+		kept.reduce((sum, chapter) => sum + chapter.snapshots.length, 0) > maxSteps
+	) {
+		kept = stage({ ...options, reserveMarkerRow: true });
+	}
 
 	const total = kept.length;
-	const out: CodeSnapshot[] = [];
 
-	kept.forEach((chapter, index) => {
+	return kept.map((chapter, index) => {
 		const position = index + 1;
 		let frames = chapter.snapshots;
 		// Every chapter but the first opens on a before-state the previous chapter
@@ -127,16 +137,27 @@ export function chapterSnapshots(
 			frames = frames.slice(1);
 		}
 		if (chapter.title === "") {
-			out.push(...frames);
-			return;
+			return frames;
 		}
 		const heading = chapterHeading(position, total, chapter.title);
-		frames.forEach((frame, frameIndex) => {
-			out.push(frameIndex === 0 ? { code: frame.code, label: heading } : frame);
-		});
+		return frames.map((frame, frameIndex) =>
+			frameIndex === 0 ? { code: frame.code, label: heading } : frame,
+		);
 	});
+}
 
-	return out;
+/** What chaptering may be told: the diff options, and the steps the walkthrough may play. */
+export interface ChapterOptions extends DiffToSnapshotsOptions {
+	/** The cap the sequences will meet (default {@link MAX_DIFF_STEPS}); see {@link stepBudget}. */
+	maxSteps?: number;
+}
+
+/** The chapters of {@link chapterSequences} played one after the other. */
+export function chapterSnapshots(
+	chapters: DiffChapter[],
+	options: DiffToSnapshotsOptions = {},
+): CodeSnapshot[] {
+	return chapterSequences(chapters, options).flat();
 }
 
 /**

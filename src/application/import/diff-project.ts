@@ -9,7 +9,13 @@
  * the studio would make" while that test passes.
  */
 
-import { type CodeSnapshot, diffToSnapshots } from "@/application/diff";
+import {
+	type CodeSnapshot,
+	type WalkthroughCut,
+	capWalkthrough,
+	diffToSnapshots,
+	stepBudget,
+} from "@/application/diff";
 import { DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import { captionFromGeneratedLabel } from "@/domain/entities/step";
@@ -18,21 +24,10 @@ import { Theme } from "@/domain/entities/theme";
 /** Per-step hold applied to each step generated from a diff. */
 export const DIFF_STEP_DURATION = 1200;
 
-/** Upper bound on diff-generated steps so a pathological diff can't explode playback. */
-export const MAX_DIFF_STEPS = 40;
-
-/**
- * Cap diff snapshots at {@link MAX_DIFF_STEPS}, always keeping the final "after"
- * frame so the walkthrough still ends on the complete change (only pathologically
- * large diffs are ever trimmed).
- */
-export function capDiffSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
-	if (snapshots.length <= MAX_DIFF_STEPS) {
-		return snapshots;
-	}
-	const last = snapshots[snapshots.length - 1];
-	const head = snapshots.slice(0, MAX_DIFF_STEPS - 1);
-	return last ? [...head, last] : head;
+/** A project and what its step cap left out, which the import says in words ({@link cutNotice}). */
+export interface ImportedWalkthrough {
+	readonly project: ProjectPayload;
+	readonly cut: WalkthroughCut;
 }
 
 /**
@@ -42,24 +37,36 @@ export function capDiffSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
  * Throws the importer's own user-facing message on an unusable diff.
  */
 export function projectFromDiff(diffText: string, meta: { title?: string } = {}): ProjectPayload {
+	return walkthroughFromDiff(diffText, meta).project;
+}
+
+/** {@link projectFromDiff}, with what the step cap left out. */
+export function walkthroughFromDiff(
+	diffText: string,
+	meta: { title?: string } = {},
+): ImportedWalkthrough {
 	const { snapshots, language, path } = diffToSnapshots(diffText);
-	return projectFromSnapshots(snapshots, {
+	return walkthroughFromSnapshots([snapshots], {
 		title: meta.title || path?.split("/").pop() || "Untitled",
 		language,
 	});
 }
 
 /**
- * Staged snapshots → the project a fresh studio holds, capped and captioned the
- * way the store's diff import builds it. `openingCardMs` puts a blank step
- * first, the title card a release opens on (the store's `importChapters` takes
- * the same option, and a test holds the two to the same file).
+ * Staged snapshots, one sequence per chapter (a plain diff is one), → the project
+ * a fresh studio holds, capped and captioned the way the store's diff import
+ * builds it. `openingCardMs` puts a blank step first, the title card a release
+ * opens on (the store's `importChapters` takes the same option, and a test holds
+ * the two to the same file); the card counts in the step budget.
  */
-export function projectFromSnapshots(
-	snapshots: CodeSnapshot[],
+export function walkthroughFromSnapshots(
+	sequences: CodeSnapshot[][],
 	meta: { title: string; language?: string; openingCardMs?: number },
-): ProjectPayload {
-	const staged = capDiffSnapshots(snapshots);
+): ImportedWalkthrough {
+	const { snapshots: staged, ...cut } = capWalkthrough(
+		sequences,
+		stepBudget(meta.openingCardMs !== undefined),
+	);
 	const theme = Theme.midnight();
 	const steps = staged.map((snapshot) => {
 		const caption = captionFromGeneratedLabel(snapshot.label);
@@ -70,7 +77,7 @@ export function projectFromSnapshots(
 	if (meta.openingCardMs !== undefined) {
 		steps.unshift({ code: "", duration: meta.openingCardMs });
 	}
-	return {
+	const project: ProjectPayload = {
 		title: meta.title,
 		code: staged[0]?.code ?? "",
 		language: meta.language ?? "typescript",
@@ -94,4 +101,5 @@ export function projectFromSnapshots(
 		height: 1080,
 		// No fps: the studio writes one only when it differs from its default of 60.
 	};
+	return { project, cut };
 }

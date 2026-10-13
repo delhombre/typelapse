@@ -1,3 +1,4 @@
+import { type WalkthroughCut, cutNotice } from "@/application/diff";
 import { classifySource, isBareLink } from "@/application/import/classify-source";
 import {
 	resolveCommitUrl,
@@ -19,6 +20,7 @@ import {
 } from "@/infrastructure/import/pr-import";
 import { fetchReleaseChapters } from "@/infrastructure/import/release-import";
 import { importCodeFromUrl } from "@/infrastructure/import/url-import";
+import { notify } from "@/presentation/stores/notice.store";
 import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
@@ -132,7 +134,9 @@ export function useSourceImport(): SourceImport {
 							setProgress({ done, total }),
 						);
 						// importChapters sets the title itself.
-						await replaceProject(() => store.importChapters(chapters, { title }));
+						await replaceProject(() => {
+							announceCut(store.importChapters(chapters, { title }));
+						});
 					} else {
 						await applyWalkthrough(() => fetchPrWalkthrough(ref));
 					}
@@ -158,8 +162,14 @@ export function useSourceImport(): SourceImport {
 						setProgress({ done, total }),
 					);
 					await replaceProject(
-						() =>
-							store.importChapters(chapters, { title: card.title, openingCardMs: RELEASE_CARD_MS }),
+						() => {
+							announceCut(
+								store.importChapters(chapters, {
+									title: card.title,
+									openingCardMs: RELEASE_CARD_MS,
+								}),
+							);
+						},
 						() => placeReleaseCard(card),
 					);
 					return true;
@@ -179,7 +189,9 @@ export function useSourceImport(): SourceImport {
 
 				if (kind === "diff") {
 					// Throws a user-facing message on unusable input, before anything changes.
-					await replaceProject(() => store.importDiff(trimmed));
+					await replaceProject(() => {
+						announceCut(store.importDiff(trimmed));
+					});
 					return true;
 				}
 
@@ -220,7 +232,7 @@ export function useSourceImport(): SourceImport {
 			async function applyWalkthrough(fetcher: () => Promise<Walkthrough>) {
 				const { diffText, title } = await fetcher();
 				await replaceProject(() => {
-					store.importDiff(diffText);
+					announceCut(store.importDiff(diffText));
 					// The PR / commit title overrides the filename title importDiff inferred.
 					store.setTitle(title);
 				});
@@ -230,6 +242,18 @@ export function useSourceImport(): SourceImport {
 	);
 
 	return { loading, error, progress, run, reset };
+}
+
+/**
+ * Say so when an import plays only the head of its walkthrough (the first commits,
+ * the first changes): the video ends early on its own marker row, and this is the
+ * same fact in words.
+ */
+function announceCut(cut: WalkthroughCut): void {
+	const message = cutNotice(cut);
+	if (message) {
+		notify(message);
+	}
 }
 
 /**

@@ -7,6 +7,7 @@ import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { synchronizeStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useInertWindowScroll } from "../support/jsdom-gaps";
 
 vi.hoisted(() => {
 	window.matchMedia = ((query: string) => ({
@@ -59,6 +60,8 @@ const SURFACES = [
 	["the phone sheet", StepBuilder],
 	["the desktop panel", SceneInspector],
 ] as const;
+
+useInertWindowScroll();
 
 describe.each(SURFACES)("the empty scene list on %s", (_name, Surface) => {
 	it("offers a primary Capture and two quiet ways in, in one named group", () => {
