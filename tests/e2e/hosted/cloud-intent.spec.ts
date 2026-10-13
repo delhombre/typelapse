@@ -103,6 +103,9 @@ test.describe("Hosted: /app#cloud opens the sheet in the state the account is in
 		await openCloud(page);
 		await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();
 
+		// No sheet, so the notice is the only word that Cloud was chosen.
+		await expect(page.getByText("Cloud is selected under Where")).toBeVisible();
+
 		await page.getByRole("button", { name: /^Export · / }).click();
 		await expect(
 			page.getByRole("group", { name: "Where" }).getByRole("button", { name: "Cloud" }),

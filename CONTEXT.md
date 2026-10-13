@@ -293,7 +293,9 @@ or it does not land.
   session and the plan to be read, then answers in the state the account is in:
   signed out, the hosted render sheet (what a hosted render adds, Sign in); Free,
   the same sheet with the allowance and one Upgrade; Creator, Cloud chosen under
-  Where and no sheet. The sheet is the stage's, opened with no opener, so its
+  Where and no sheet, with a one-line notice ("Cloud is selected under Where")
+  since nothing else would say so. On a studio already open the plan is read
+  again first, and a sheet the person already opened is left as it is. The sheet is the stage's, opened with no opener, so its
   focus and Escape rules are unchanged. A local build clears the hash and does
   nothing. It loads no editor: a phone's code sheet stays at its stop.
 - **Grace period**: how long past hosted outputs stay downloadable once the

@@ -20,13 +20,20 @@ signed out or Free, open the sheet; Creator, choose Cloud and open nothing; a lo
 build, nothing. While the session is being read or a signed-in account's plan is not
 read, it waits. After ten seconds it opens the sheet anyway, which has words for both
 ("Checking account…", "Checking your plan…"). A `hashchange` on an open studio is
-followed, as the import's is. No haptic: a link is not a press.
+followed, as the import's is, after asking the server for the plan again when the account is
+signed in and its plan already known: the plan in memory can be older than an upgrade made in
+another tab, and Upgrade would then answer "already subscribed". The hash is scrubbed before
+that await. A sheet already open when a late intent fires (Cloud under Where pressed while it
+waited) is left alone, opener included. A Creator, who gets no sheet, is told once through the
+notice store, "Cloud is selected under Where", on this direct path only. No haptic: a link is
+not a press.
 
 **Why:** `cloudGate` says "sign-in" for a session not read yet, so answering at once
 would flash the signed-out offer at a Creator and close it a few hundred ms later. The
 sheet's own effect would have closed it; the flash is what the wait removes.
 
 **Rejected:** opening at once and letting the sheet correct itself (the flash).
+Selecting Cloud with no word at all (a Creator would land with nothing said).
 Waiting forever (a link that does nothing is worse than a sheet that says it is checking).
 
 **Impact:** `cloud-intent.ts` (application and `presentation/utils`), `cloud-intent-boot.tsx`,
@@ -47,6 +54,12 @@ payload: the stored draft is still restored and the loading outline draws the dr
 the stage's does not. No editor is requested: on a phone the code sheet stays at its stop
 (#214 holds).
 
+**Rejected:** the Export panel's sheet (`"cluster"` or `"rail"`): it exists only where that
+panel is mounted, which a closed panel or the other shell does not guarantee.
+
+**Impact:** `cloud-intent-boot.tsx` (no new store: it calls `show("stage", null)`),
+`hosted-render-sheet.tsx` untouched, `studio-boot-weight.spec.ts` (#214) still green.
+
 **Pivot:** "Open the Export panel first, then its sheet."
 
 ## D3 One link, two copies
@@ -60,5 +73,11 @@ does the choosing.
 **Why:** a call to action that ends in instructions is a weak one (#290). Without a price
 the page promises no hosted render, so the words stay neutral; the destination is the same
 because the sheet says honestly what the account can do.
+
+**Rejected:** a different link for the unpriced card (`/app`, as before): the sheet already
+says honestly what the account can do, and one destination is one thing to test.
+
+**Impact:** `pricing-view.ts` (`action.to`), `pricing-page.tsx`, `pricing-view.test.ts`,
+`pricing-route.test.tsx`, `tests/e2e/pricing.spec.ts`.
 
 **Pivot:** "Link to /app only when the catalog has no price."

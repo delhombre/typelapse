@@ -1,12 +1,14 @@
 import { Plan } from "@/domain/value-objects/plan";
 import { HostedRenderSheet } from "@/presentation/components/controls/hosted-render-sheet";
 import {
+	CLOUD_CHOSEN_NOTICE,
 	CLOUD_INTENT_WAIT_MS,
 	CloudIntentBoot,
 } from "@/presentation/components/layout/cloud-intent-boot";
 import { useAuthStore } from "@/presentation/stores/auth.store";
 import { useExportStore } from "@/presentation/stores/export.store";
 import { useHostedRenderSheetStore } from "@/presentation/stores/hosted-render-sheet.store";
+import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { usePlanStore } from "@/presentation/stores/plan.store";
 import { scenesFromArrival } from "@/presentation/utils/shell-preferences";
 import { hasArrivalPayload } from "@/presentation/utils/studio-draft";
@@ -62,6 +64,7 @@ beforeEach(() => {
 	vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
 	useExportStore.setState(useExportStore.getInitialState(), true);
 	useHostedRenderSheetStore.setState({ openFor: null, opener: null });
+	useNoticeStore.setState({ notices: [] });
 	usePlanStore.setState({ billingAvailable: true, catalog: null, isUpgrading: false, error: null });
 });
 
@@ -204,6 +207,83 @@ describe("The Cloud intent, on arrival at /app#cloud", () => {
 		});
 		expect(useHostedRenderSheetStore.getState().openFor).toBe("stage");
 		expect(window.location.hash).toBe("");
+	});
+
+	it("on a studio already open, asks for the plan again first: an upgrade made in another tab", async () => {
+		signedIn(Plan.free(), FREE_ALLOWANCE);
+		const hashWhenAsked: string[] = [];
+		const refresh = vi.fn(async () => {
+			hashWhenAsked.push(window.location.hash);
+			usePlanStore.setState({ plan: Plan.pro() });
+		});
+		usePlanStore.setState({ refresh });
+		studio();
+		await act(async () => {});
+
+		await act(async () => {
+			land("#cloud");
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		expect(refresh).toHaveBeenCalledTimes(1);
+		expect(refresh).toHaveBeenCalledWith({ signedIn: true });
+		// Scrubbed before the await, as on arrival.
+		expect(hashWhenAsked).toEqual([""]);
+		expect(useHostedRenderSheetStore.getState().openFor).toBeNull();
+		expect(screen.queryByRole("dialog", { name: SHEET })).toBeNull();
+		expect(useExportStore.getState().target).toBe("cloud");
+	});
+
+	it("does not ask for the plan on arrival, nor for a signed-out visitor", async () => {
+		const refresh = vi.fn(async () => {});
+		usePlanStore.setState({ refresh });
+		signedOut();
+		studio();
+		await act(async () => {
+			land("#cloud");
+			window.dispatchEvent(new HashChangeEvent("hashchange"));
+		});
+		expect(refresh).not.toHaveBeenCalled();
+		expect(useHostedRenderSheetStore.getState().openFor).toBe("stage");
+	});
+
+	it("leaves a sheet the person already opened as it is, opener included", async () => {
+		useAuthStore.setState({ status: { kind: "checking" } });
+		land("#cloud");
+		studio();
+		await act(async () => {});
+
+		// Cloud under Where, pressed while the intent waited for the session.
+		const opener = document.createElement("button");
+		document.body.append(opener);
+		await act(async () => {
+			useHostedRenderSheetStore.getState().show("rail", opener);
+		});
+		await act(async () => {
+			useAuthStore.setState({ status: { kind: "anonymous" } });
+		});
+
+		expect(useHostedRenderSheetStore.getState().openFor).toBe("rail");
+		expect(useHostedRenderSheetStore.getState().opener).toBe(opener);
+		opener.remove();
+	});
+
+	it("tells a Creator once that Cloud is selected, and tells no one else", async () => {
+		signedIn(Plan.pro());
+		land("#cloud");
+		studio();
+		await act(async () => {});
+
+		const messages = useNoticeStore.getState().notices.map((notice) => notice.message);
+		expect(messages).toEqual([CLOUD_CHOSEN_NOTICE]);
+		expect(CLOUD_CHOSEN_NOTICE).toBe("Cloud is selected under Where");
+	});
+
+	it("says nothing where the sheet opens or there is no Cloud", async () => {
+		signedOut();
+		land("#cloud");
+		studio();
+		await screen.findByRole("dialog", { name: SHEET });
+		expect(useNoticeStore.getState().notices).toEqual([]);
 	});
 
 	it("leaves an unknown hash alone, for the reader that owns it", async () => {
