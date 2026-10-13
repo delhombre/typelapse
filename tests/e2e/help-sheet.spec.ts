@@ -98,6 +98,11 @@ test.describe("Help on a phone", () => {
 		await row.tap();
 
 		const sheet = await readSheet(page);
+		// With the card on top, the help itself starts in the first screen of a phone.
+		const heading = await sheet.getByRole("heading", { name: "How scenes work" }).boundingBox();
+		expect((heading?.y ?? Number.POSITIVE_INFINITY) + (heading?.height ?? 0)).toBeLessThanOrEqual(
+			844,
+		);
 		await sheet.getByRole("button", { name: "Dismiss" }).tap();
 		await expect(sheet.getByRole("region", { name: "What's new" })).toHaveCount(0);
 		await sheet.getByRole("button", { name: "Close help" }).tap();

@@ -126,10 +126,14 @@ describe("What's new", () => {
 		).toBeNull();
 	});
 
-	it("shows the dot on More while something is unread", () => {
+	it("shows the dot on More while something is unread, and describes it with the menu shut", () => {
 		studio(true);
-		expect(
-			screen.getByRole("button", { name: "More actions" }).querySelector(".sc-new-dot"),
-		).not.toBeNull();
+		const more = screen.getByRole("button", { name: "More actions" });
+		expect(more.querySelector(".sc-new-dot")).not.toBeNull();
+		const described = more.getAttribute("aria-describedby");
+		expect(described).toBeTruthy();
+		expect(document.getElementById(described as string)?.textContent).toContain("What's new");
+		// The description is not the name.
+		expect(screen.queryByRole("button", { name: /What's new/ })).toBeNull();
 	});
 });

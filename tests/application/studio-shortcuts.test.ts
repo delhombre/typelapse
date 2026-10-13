@@ -52,6 +52,11 @@ describe("matchShortcut", () => {
 		expect(matchShortcut(press("y", { ctrlKey: true, shiftKey: true }))).toBeNull();
 	});
 
+	it("does not capture a scene with Alt held: Alt+Cmd+Enter is no shortcut", () => {
+		expect(matchShortcut(press("Enter", { metaKey: true, altKey: true }))).toBeNull();
+		expect(matchShortcut(press("Enter", { ctrlKey: true, altKey: true }))).toBeNull();
+	});
+
 	it("does not take Alt chords", () => {
 		expect(matchShortcut(press("z", { metaKey: true, altKey: true }))).toBeNull();
 	});

@@ -9,9 +9,9 @@ import { focusLineSet, parseLineRanges } from "@/application/focus/line-ranges";
 
 /** How scenes work, in three lines. */
 export const SCENE_LINES = [
-	"A scene is one step of the video: a piece of code, how long it stays, and an optional caption.",
-	"Between two scenes the code morphs: the tokens that stay glide to their new place, and the new ones fade in.",
-	"Add a scene by capturing the editor's code, or from a source such as a pull request or a diff. The video plays them in order.",
+	"A scene is one step of the video: a piece of code, how long it holds before it morphs, and an optional caption.",
+	"Between two scenes the code morphs: shared tokens glide to their new place, removed ones fade out, and new ones appear.",
+	"Add a scene by capturing the editor's code, or from a source such as a pull request or a diff. The video plays them in order, and the first scene can type itself out.",
 ] as const;
 
 /** The focus field's example, exactly as a person types it into "Focus lines". */

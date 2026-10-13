@@ -1592,11 +1592,6 @@ textarea.sc-source-field {
 	font-variant-numeric: tabular-nums;
 }
 
-.help-body code,
-.help-body kbd {
-	font-family: inherit;
-}
-
 .help-body code {
 	padding: 1px 6px;
 	border-radius: var(--r-field);
@@ -1655,23 +1650,18 @@ textarea.sc-source-field {
 	background: var(--camera-surface);
 	box-shadow: 0 0 0 1px var(--camera-line), 0 1px 0 var(--camera-line);
 	color: var(--camera-ink);
-	font-size: var(--sc-text-sm);
+	font-family: var(--font-mono);
+	font-size: var(--sc-text-md);
 	font-weight: var(--sc-weight-regular);
 }
 
 .help-docs a {
 	position: relative;
 	color: var(--camera-ink);
+	/* A link reads as one without colour: a solid 1px underline in the ink. */
 	text-decoration: underline;
-	text-decoration-color: var(--camera-line);
+	text-decoration-thickness: 1px;
 	text-underline-offset: 3px;
-	transition: text-decoration-color 150ms var(--ease-out);
-}
-
-@media (hover: hover) and (pointer: fine) {
-	.help-docs a:hover {
-		text-decoration-color: currentcolor;
-	}
 }
 
 .help-docs a:focus-visible {
@@ -1679,13 +1669,14 @@ textarea.sc-source-field {
 	outline-offset: 2px;
 }
 
-/* What's new: a card on the sheet's paper, the opaque surface with its ring and no
-   border (DECISIONS D5). It carries no fill of its own to compete with a CTA. */
+/* What's new: three rows on the sheet's paper, the opaque surface with its hairline ring
+   and no shadow (DECISIONS D2, D5), so the help itself starts in the first screen of a
+   phone. It carries no fill of its own to compete with a CTA. */
 .help-news {
-	padding: 14px 16px 16px;
+	padding: 8px 16px 10px;
 	border-radius: var(--r-surface);
 	background: var(--camera-surface);
-	box-shadow: var(--camera-raised);
+	box-shadow: 0 0 0 1px var(--camera-line);
 }
 
 .help-news-head {
@@ -1693,7 +1684,6 @@ textarea.sc-source-field {
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
-	margin-bottom: 4px;
 }
 
 .help-news-head h3 {
@@ -1702,36 +1692,31 @@ textarea.sc-source-field {
 
 .help-news ul {
 	display: grid;
-	gap: 12px;
+	gap: 4px;
 	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 
 .help-news li {
-	display: grid;
-	grid-template-columns: 52px minmax(0, 1fr);
-	column-gap: 12px;
-	row-gap: 2px;
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
 }
 
 .help-news time {
-	grid-row: 1 / span 2;
-	padding-top: 2px;
+	flex: none;
 	color: var(--camera-muted);
 	font-size: var(--sc-text-sm);
 	font-variant-numeric: tabular-nums;
 }
 
 .help-news strong {
+	min-width: 0;
 	color: var(--camera-ink);
-	font-size: var(--sc-text-lg);
-	font-weight: var(--sc-weight-strong);
-}
-
-.help-news li p {
-	color: var(--camera-muted);
 	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
 }
 
 .help-news-dismiss {

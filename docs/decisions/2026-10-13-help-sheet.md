@@ -39,6 +39,12 @@ coarse pointer.
 **Why:** the corner row has no room left at 360 (#282); More already holds the browse
 actions.
 
+**Rejected:** a Help button in the phone's corner row (five 44px columns already fill
+it); a "?" key shortcut (not asked for, and a bare key competes with typing).
+
+**Impact:** `help-sheet.tsx`, `help-request.store.ts`, `studio-utilities.tsx` (the glyph,
+the row), `corner-row-pointer.test.tsx`, `mobile-shell.spec.ts`.
+
 ## D3 What's new is a card in the sheet, dismissed per entry
 
 **Decision:** The card lists the latest three entries of a static file
@@ -52,8 +58,19 @@ technology, not part of the control's name.
 **Rejected:** a count (it asks to be cleared); a card in More (the menu is the account
 and the actions, and has no room for three entries).
 
+**Impact:** `application/changelog/entries.ts`, `changelog.store.ts`,
+`utils/changelog-dismissals.ts`, `new-mark.tsx`, `help-sheet.tsx`, and the dot in
+`studio-utilities.tsx`. The card is three rows (a title and a muted date), so the help
+starts in the first screen of a phone; an entry's sentence stays in the data.
+
 ## D4 The docs link is the landing's How it works
 
 **Decision:** There is no docs site: `docs/` is the team's notes. The link is
 `/#how-it-works`, the landing's section, as a plain address that opens in a new tab so
 the studio keeps its project.
+
+**Rejected:** a router `Link` (a fragment on another route does not scroll reliably); a
+docs site (none exists, and building one is not this ticket); the repository's `docs/`
+path (internal notes, not for users).
+
+**Impact:** `application/help/help-content.ts` (`DOCS_HREF`), `help-sheet.tsx`.

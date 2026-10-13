@@ -208,6 +208,7 @@ export function StudioUtilities({
 							transition={springs.snappy}
 							className="hit-ext sc-glyph-button"
 							aria-label="More actions"
+							aria-describedby={hasNews ? newsId : undefined}
 							aria-expanded={menuOpen}
 							aria-controls={menuOpen ? menuId : undefined}
 						>

@@ -47,7 +47,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
 	{
 		id: "device-exports-free",
 		date: "2026-10-13",
-		title: "Device exports are free and unlimited",
+		title: "Device exports are free and never limited by a plan",
 		summary:
 			"No plan limits the resolution, frame rate or length of an export that runs on your machine, and no plan adds a watermark.",
 	},

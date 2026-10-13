@@ -114,9 +114,8 @@ function WhatsNew({ onDismissed }: { onDismissed: () => void }) {
 			<ul>
 				{shown.map((entry) => (
 					<li key={entry.id}>
-						<time dateTime={entry.date}>{shortDate(entry.date)}</time>
 						<strong>{entry.title}</strong>
-						<p>{entry.summary}</p>
+						<time dateTime={entry.date}>{shortDate(entry.date)}</time>
 					</li>
 				))}
 			</ul>
