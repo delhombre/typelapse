@@ -1352,8 +1352,11 @@ test.describe("Mobile shell: the corner row and the frame after the design audit
 		expect(await codeField.evaluate((field) => getComputedStyle(field).fontSize)).toBe("16px");
 		const code = await codeFor(account.email, since);
 		await codeField.fill(code);
-		await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toBeVisible();
-		await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+		// Signed in, the menu's row names the account; Sign out lives in the account sheet's foot.
+		await expect(page.getByRole("button", { name: `Account for ${account.name}` })).toContainText(
+			account.name,
+		);
+		await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
 		// Still four chips once signed in.
 		await expect(page.locator(".sc-corner-row > *")).toHaveCount(4);
 	});

@@ -130,11 +130,22 @@ export function StudioUtilities({
 				closeMenu();
 			}
 		};
+		// A row drawn into the menu from outside it (the account's) that opens a modal
+		// sheet closes the menu first, as the resources' rows do; the sheet hands focus
+		// back to the menu's button. A DOM listener: the row is a portal of another tree.
+		const root = rootRef.current;
+		const onClick = (event: Event) => {
+			if ((event.target as Element | null)?.closest?.("[data-dismiss-menu]")) {
+				setMenuOpen(false);
+			}
+		};
 		document.addEventListener("pointerdown", onPointerDown);
 		document.addEventListener("keydown", onKeyDown);
+		root?.addEventListener("click", onClick);
 		return () => {
 			document.removeEventListener("pointerdown", onPointerDown);
 			document.removeEventListener("keydown", onKeyDown);
+			root?.removeEventListener("click", onClick);
 		};
 	}, [closeMenu, compact, menuOpen]);
 
@@ -208,6 +219,7 @@ export function StudioUtilities({
 							transition={springs.snappy}
 							className="hit-ext sc-glyph-button"
 							aria-label="More actions"
+							data-menu-trigger=""
 							aria-describedby={hasNews ? newsId : undefined}
 							aria-expanded={menuOpen}
 							aria-controls={menuOpen ? menuId : undefined}

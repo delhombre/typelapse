@@ -116,11 +116,11 @@ test("a person deletes a cloud project from the island, and its renders and thei
 	await setRenderDuration(jobId, SPENT_MS);
 	// The island reads its allowance on load, so a fresh load reads this render in it.
 	await page.reload();
-	const panel = await openAccountPanel(page, owner);
+	const panel = await openAccountPanel(page, owner, "Plan");
 	await expect(panel.getByText(allowance(1), { exact: true })).toBeVisible();
 
 	await test.step("the island lists it as the cloud copy of the open project", async () => {
-		await panel.getByRole("button", { name: "Cloud projects" }).click();
+		await panel.getByRole("tab", { name: "Projects" }).click();
 		await expect(panel.getByRole("heading", { name: "Cloud projects" })).toBeVisible();
 		const row = panel.getByRole("listitem");
 		await expect(row).toHaveCount(1);
@@ -159,11 +159,11 @@ test("a person deletes a cloud project from the island, and its renders and thei
 	});
 
 	await test.step("the studio stays on its own project, on this device, and offers to save again", async () => {
-		await panel.getByRole("button", { name: "Back to account" }).click();
 		await expect(panel.getByText("On this device")).toBeVisible();
-		// The project count fell with the delete; the minutes did not.
-		await expect(panel.getByText(allowance(0), { exact: true })).toBeVisible();
 		await expect(panel.getByText("Cloud copy needs attention")).toHaveCount(0);
+		// The project count fell with the delete; the minutes did not.
+		await panel.getByRole("tab", { name: "Plan" }).click();
+		await expect(panel.getByText(allowance(0), { exact: true })).toBeVisible();
 		await page.keyboard.press("Escape");
 		await expect(page.getByText("1 scene", { exact: true }).first()).toBeVisible();
 		// The render it showed is gone with its project, and the status says so.

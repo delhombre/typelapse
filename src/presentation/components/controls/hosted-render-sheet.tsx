@@ -3,7 +3,7 @@ import { priceLabel } from "@/application/billing/price-label";
 import type { BillingCatalog } from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
 import { TestModeLine } from "@/presentation/components/billing/test-mode-line";
-import { AuthForm } from "@/presentation/components/multimedia/studio-account-control";
+import { AuthForm } from "@/presentation/components/multimedia/auth-form";
 import { StudioBottomSheet } from "@/presentation/components/ui/studio-bottom-sheet";
 import { feedback } from "@/presentation/haptics";
 import { useAuthStore } from "@/presentation/stores/auth.store";
@@ -65,9 +65,10 @@ const SUBTITLES: Record<SheetView, string> = {
  *   and closes, because there is nothing left to explain.
  *
  * A native modal dialog (the studio's bottom sheet: focus held inside, Escape
- * closes), a centred panel on a desktop and a sheet on a phone. It is portaled to
- * the body, out of the island's dark plate, and marked as the island's companion
- * so a press inside it does not close the export panel it came from.
+ * closes), a bottom-anchored panel, centred, on a desktop and a sheet on a phone.
+ * It is portaled to the body, out of the island's dark plate, and marked as the
+ * island's companion so a press inside it does not close the export panel it
+ * came from.
  */
 export function HostedRenderSheet({ surface }: { surface: CloudSurface }) {
 	const open = useHostedRenderSheetStore((state) => state.openFor === surface);

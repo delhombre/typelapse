@@ -90,7 +90,7 @@ function renderControl(keyPort: ApiKeyPort, options: { withKeys?: boolean } = {}
 
 async function openKeys() {
 	fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
-	fireEvent.click(screen.getByRole("button", { name: "API keys" }));
+	fireEvent.click(screen.getByRole("tab", { name: "API keys" }));
 	await screen.findByRole("heading", { name: "API keys" });
 }
 
@@ -189,8 +189,9 @@ describe("API keys in the account island", () => {
 		await openKeys();
 		await screen.findByText("GitHub Action");
 
-		fireEvent.click(screen.getByRole("button", { name: "Back to account" }));
-		fireEvent.click(screen.getByRole("button", { name: "API keys" }));
+		// Coming back to the tab reads the list again.
+		fireEvent.click(screen.getByRole("tab", { name: "Projects" }));
+		fireEvent.click(screen.getByRole("tab", { name: "API keys" }));
 
 		expect((await screen.findByRole("alert")).textContent).toBe(
 			"API keys are not available right now.",
@@ -310,7 +311,7 @@ describe("API keys in the account island", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Create key" }));
 		await screen.findByText(NEW_KEY);
 
-		fireEvent.click(screen.getByRole("button", { name: "Close account panel" }));
+		fireEvent.click(screen.getByRole("button", { name: "Close account" }));
 		await waitFor(() => expect(screen.queryByText(NEW_KEY)).toBeNull());
 		fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
 
@@ -385,29 +386,33 @@ describe("API keys in the account island", () => {
 		expect(screen.queryByRole("button", { name: "Create key" })).toBeNull();
 	});
 
-	it("start at the account again when the panel is opened anew, and keep the keys while it leaves", async () => {
+	it("open on Projects again when the sheet is opened anew, and keep the keys while it leaves", async () => {
 		renderControl(port([GITHUB]));
 		await openKeys();
 
-		fireEvent.click(screen.getByRole("button", { name: "Close account panel" }));
-		// While the panel fades out it still shows what it showed.
+		fireEvent.click(screen.getByRole("button", { name: "Close account" }));
+		// While the sheet slides out it still shows what it showed.
 		expect(screen.getByRole("heading", { name: "API keys" })).toBeTruthy();
 		await waitFor(() => expect(screen.queryByRole("heading", { name: "API keys" })).toBeNull());
 		fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
 
 		expect(await screen.findByRole("button", { name: "Sign out" })).toBeTruthy();
+		expect(screen.getByRole("tab", { name: "Projects" }).getAttribute("aria-selected")).toBe(
+			"true",
+		);
 		expect(screen.queryByRole("heading", { name: "API keys" })).toBeNull();
 	});
 
-	it("lead back to the account, where the person was", async () => {
+	it("keep a half-typed name while another tab is looked at", async () => {
 		renderControl(port([]));
 		await openKeys();
+		fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Git" } });
 
-		fireEvent.click(screen.getByRole("button", { name: "Back to account" }));
-
-		expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+		fireEvent.click(screen.getByRole("tab", { name: "Plan" }));
 		expect(screen.queryByRole("heading", { name: "API keys" })).toBeNull();
-		expect(document.activeElement).toBe(screen.getByRole("button", { name: "API keys" }));
+		fireEvent.click(screen.getByRole("tab", { name: "API keys" }));
+
+		expect((screen.getByLabelText("Name") as HTMLInputElement).value).toBe("Git");
 	});
 
 	it("are forgotten, and so is a key on screen, when the account signs out", async () => {

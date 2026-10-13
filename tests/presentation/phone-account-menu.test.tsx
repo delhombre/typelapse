@@ -5,7 +5,7 @@ import { Plan } from "@/domain/value-objects/plan";
 import { StudioAccountIsland } from "@/presentation/components/layout/studio-account-island";
 import { createAuthStore } from "@/presentation/stores/auth.store";
 import { createPlanStore } from "@/presentation/stores/plan.store";
-import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -128,7 +128,8 @@ describe("the account in the phone's More menu", () => {
 
 		const account = await within(menu).findByRole("button", { name: "Account for Ada Lovelace" });
 		await waitFor(() => expect(document.activeElement).toBe(account));
-		expect(within(menu).getByRole("button", { name: "Sign out" })).toBeTruthy();
+		// One Sign out, in the account sheet's foot: the menu holds the account's row alone.
+		expect(within(menu).queryByRole("button", { name: "Sign out" })).toBeNull();
 		await waitFor(() => expect(account.textContent).toContain("Free"));
 	});
 
@@ -173,9 +174,13 @@ describe("the account in the phone's More menu", () => {
 		expect(await within(menu).findByRole("button", { name: "Sign in" })).toBeTruthy();
 	});
 
-	it("signs out from its row, and focus lands on the Sign in row that replaces it", async () => {
+	it("signs out from the sheet's foot, and focus lands on the Sign in row that replaces the account", async () => {
 		const { menu, authStore } = phone(SESSION);
-		const signOut = await within(menu).findByRole("button", { name: "Sign out" });
+		fireEvent.click(await within(menu).findByRole("button", { name: "Account for Ada Lovelace" }));
+		const signOut = within(screen.getByRole("dialog", { name: "Typelapse account" })).getByRole(
+			"button",
+			{ name: "Sign out" },
+		);
 		signOut.focus();
 		fireEvent.click(signOut);
 		await waitFor(() => expect(authStore.getState().status.kind).toBe("anonymous"));
@@ -184,10 +189,17 @@ describe("the account in the phone's More menu", () => {
 		await waitFor(() => expect(document.activeElement).toBe(signIn));
 	});
 
-	it("opens the signed-in account's panel from the account's row", async () => {
+	it("opens the account sheet from the account's row, out of the menu", async () => {
 		const { menu } = phone(SESSION);
-		fireEvent.click(await within(menu).findByRole("button", { name: "Account for Ada Lovelace" }));
-		const panel = within(menu).getByRole("region", { name: "Typelapse account" });
-		expect(within(panel).getByText("ada@example.com")).toBeTruthy();
+		const row = await within(menu).findByRole("button", { name: "Account for Ada Lovelace" });
+		expect(row.getAttribute("aria-haspopup")).toBe("dialog");
+		// The row asks the menu to close first, as the resources' rows do.
+		expect(row.hasAttribute("data-dismiss-menu")).toBe(true);
+		fireEvent.click(row);
+
+		const sheet = screen.getByRole("dialog", { name: "Typelapse account" });
+		expect(menu.contains(sheet)).toBe(false);
+		expect(within(sheet).getByText("ada@example.com")).toBeTruthy();
+		expect(within(sheet).getByRole("button", { name: "Sign out" })).toBeTruthy();
 	});
 });
