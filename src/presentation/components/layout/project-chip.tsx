@@ -101,12 +101,15 @@ function sceneCountLabel(count: number): string {
  * used to carry a second field bound to the same value; two inputs for one
  * string is a question about which one is the real one, and the answer was
  * never interesting.
+ *
+ * `oneTarget` is the chip under a finger (`cornerRowPlan`, #282): the brand, the
+ * name and the chevron are one button that opens the menu, because a field, a
+ * link and a menu button in 139px cannot each be 44px. The name is then edited
+ * in the menu's "This project" row, and the way home is the More menu's.
  */
-export function ProjectChip() {
+export function ProjectChip({ oneTarget = false }: { oneTarget?: boolean } = {}) {
 	const title = useSnippetStore((s) => s.snippet.title);
-	const setTitle = useSnippetStore((s) => s.setTitle);
 	const steps = useSnippetStore((s) => s.snippet.steps.length);
-	const [blankDraft, setBlankDraft] = useState<string | null>(null);
 	const [open, setOpen] = useState(false);
 	const [library, setLibrary] = useState(readLocalProjects);
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -173,75 +176,74 @@ export function ProjectChip() {
 		close();
 	}, [close]);
 
+	const displayTitle = title.trim() === "" ? "Untitled" : title;
+	const toggle = () => {
+		setLibrary(readLocalProjects());
+		setOpen((current) => !current);
+	};
+
 	return (
 		<div ref={rootRef} className="sc-project-root">
-			<div className="sc-chip sc-project">
-				<StudioTooltip content="Back to home" side="bottom">
-					<Link to="/" className="sc-brand" aria-label="Typelapse home">
-						<Logomark size={13} />
-					</Link>
-				</StudioTooltip>
-				<input
-					type="text"
-					value={blankDraft ?? title}
-					onChange={(event) => {
-						// A real name saves as it is typed. A blank one is only a draft:
-						// the field may be emptied to type over, and it settles on blur.
-						const value = event.target.value;
-						if (value.trim() === "") {
-							setBlankDraft(value);
-							return;
-						}
-						setBlankDraft(null);
-						setTitle(value);
-					}}
-					onBlur={() => {
-						if (blankDraft !== null) {
-							setTitle(blankDraft);
-							setBlankDraft(null);
-						}
-					}}
-					// Enter only has to put the keyboard away; the blur settles the name.
-					onKeyDown={(event) => {
-						if (event.key === "Enter") {
-							event.currentTarget.blur();
-						}
-					}}
-					enterKeyHint="done"
-					spellCheck={false}
-					autoComplete="off"
-					placeholder="Untitled"
-					title={title || undefined}
-					aria-label="Project name"
-					className="sc-title"
-				/>
-				<span className="sc-steps">{steps === 1 ? "1 scene" : `${steps} scenes`}</span>
-				<button
-					ref={triggerRef}
-					type="button"
-					aria-label="Open project menu"
-					aria-haspopup="menu"
-					aria-expanded={open}
-					className="sc-project-trigger"
-					onClick={() => {
-						setLibrary(readLocalProjects());
-						setOpen((current) => !current);
-					}}
-				>
-					<ChevronDown
-						size={11}
-						strokeWidth={1.8}
-						aria-hidden="true"
-						style={{ transform: open ? "rotate(180deg)" : undefined }}
-					/>
-				</button>
+			<div className={`sc-chip sc-project${oneTarget ? " sc-project-whole" : ""}`}>
+				{oneTarget ? (
+					<button
+						ref={triggerRef}
+						type="button"
+						// The name is on the button, so the name it is read by says it
+						// (WCAG 2.5.3, Label in Name).
+						aria-label={`Open project menu, ${displayTitle}`}
+						aria-haspopup="menu"
+						aria-expanded={open}
+						className="sc-project-trigger sc-project-wholebtn"
+						onClick={toggle}
+					>
+						<span className="sc-brand" aria-hidden="true">
+							<Logomark size={13} />
+						</span>
+						<span className="sc-project-name">{displayTitle}</span>
+						<ChevronDown
+							size={11}
+							strokeWidth={1.8}
+							aria-hidden="true"
+							style={{ transform: open ? "rotate(180deg)" : undefined }}
+						/>
+					</button>
+				) : (
+					<>
+						<StudioTooltip content="Back to home" side="bottom">
+							<Link to="/" className="sc-brand" aria-label="Typelapse home">
+								<Logomark size={13} />
+							</Link>
+						</StudioTooltip>
+						<ProjectNameField />
+						<span className="sc-steps">{steps === 1 ? "1 scene" : `${steps} scenes`}</span>
+						<button
+							ref={triggerRef}
+							type="button"
+							aria-label="Open project menu"
+							aria-haspopup="menu"
+							aria-expanded={open}
+							className="sc-project-trigger"
+							onClick={toggle}
+						>
+							<ChevronDown
+								size={11}
+								strokeWidth={1.8}
+								aria-hidden="true"
+								style={{ transform: open ? "rotate(180deg)" : undefined }}
+							/>
+						</button>
+					</>
+				)}
 			</div>
 
 			<AnimatePresence>
 				{open && (
-					<motion.div
-						role="menu"
-						aria-label="Local projects"
+					<motion.section
+						// A region, not the menu: it holds the name's field, which a menu's
+						// roles cannot (a screen reader in menu mode swallows typing). The
+						// projects are the menu inside it.
+						aria-label="Project"
 						className="sc-project-menu"
 						initial={
 							reduce ? { opacity: 0 } : { opacity: 0, y: -5, scale: 0.97, filter: "blur(4px)" }
@@ -266,59 +268,106 @@ export function ProjectChip() {
 						    tooltip is no way to read the rest under a finger (design audit D3). */}
 						<p className="sc-project-menu-current">
 							<span>This project</span>
-							<strong>{title.trim() === "" ? "Untitled" : title}</strong>
+							{oneTarget ? <ProjectNameField /> : <strong>{displayTitle}</strong>}
 						</p>
-						<header className="sc-project-menu-head">
-							<div>
-								<span>Local projects</span>
-								<small>Saved on this device</small>
-							</div>
-							<span>{library.projects.length}</span>
-						</header>
-						<div className="sc-project-list">
-							{library.projects.map((project, index) => {
-								const active = project.id === library.activeId;
-								const label = labels[index] ?? project.project.title;
-								return (
-									<button
-										key={project.id}
-										type="button"
-										role="menuitem"
-										aria-label={`Open ${label}`}
-										data-active={active ? "" : undefined}
-										className="sc-project-row"
-										onClick={() => switchTo(project.id)}
-									>
-										<span
-											className="sc-project-thumb"
-											style={{ background: resolveBackgroundCss(project.project.background, 0) }}
-											aria-hidden="true"
-										/>
-										<span className="sc-project-copy">
-											<strong>{label}</strong>
-											{/* The head already says where they live; each row says what
+						<div role="menu" aria-label="Local projects">
+							<header className="sc-project-menu-head">
+								<div>
+									<span>Local projects</span>
+									<small>Saved on this device</small>
+								</div>
+								<span>{library.projects.length}</span>
+							</header>
+							<div className="sc-project-list">
+								{library.projects.map((project, index) => {
+									const active = project.id === library.activeId;
+									const label = labels[index] ?? project.project.title;
+									return (
+										<button
+											key={project.id}
+											type="button"
+											role="menuitem"
+											aria-label={`Open ${label}`}
+											data-active={active ? "" : undefined}
+											className="sc-project-row"
+											onClick={() => switchTo(project.id)}
+										>
+											<span
+												className="sc-project-thumb"
+												style={{ background: resolveBackgroundCss(project.project.background, 0) }}
+												aria-hidden="true"
+											/>
+											<span className="sc-project-copy">
+												<strong>{label}</strong>
+												{/* The head already says where they live; each row says what
 										    tells two projects apart, how much is in them. */}
-											<small>
-												{active ? "Open now" : sceneCountLabel(project.project.steps.length)}
-											</small>
-										</span>
-										{active && <Check size={13} strokeWidth={1.8} aria-hidden="true" />}
-									</button>
-								);
-							})}
+												<small>
+													{active ? "Open now" : sceneCountLabel(project.project.steps.length)}
+												</small>
+											</span>
+											{active && <Check size={13} strokeWidth={1.8} aria-hidden="true" />}
+										</button>
+									);
+								})}
+							</div>
+							<button
+								type="button"
+								role="menuitem"
+								className="sc-project-new"
+								onClick={createProject}
+							>
+								<span aria-hidden="true">+</span>
+								New project
+							</button>
 						</div>
-						<button
-							type="button"
-							role="menuitem"
-							className="sc-project-new"
-							onClick={createProject}
-						>
-							<span aria-hidden="true">+</span>
-							New project
-						</button>
-					</motion.div>
+					</motion.section>
 				)}
 			</AnimatePresence>
 		</div>
+	);
+}
+
+/**
+ * The project's name, as the field it is: a real name saves as it is typed, and a
+ * blank one is only a draft, so the field may be emptied to type over and settles
+ * on blur.
+ */
+function ProjectNameField() {
+	const title = useSnippetStore((s) => s.snippet.title);
+	const setTitle = useSnippetStore((s) => s.setTitle);
+	const [blankDraft, setBlankDraft] = useState<string | null>(null);
+	return (
+		<input
+			type="text"
+			value={blankDraft ?? title}
+			onChange={(event) => {
+				const value = event.target.value;
+				if (value.trim() === "") {
+					setBlankDraft(value);
+					return;
+				}
+				setBlankDraft(null);
+				setTitle(value);
+			}}
+			onBlur={() => {
+				if (blankDraft !== null) {
+					setTitle(blankDraft);
+					setBlankDraft(null);
+				}
+			}}
+			// Enter only has to put the keyboard away; the blur settles the name.
+			onKeyDown={(event) => {
+				if (event.key === "Enter") {
+					event.currentTarget.blur();
+				}
+			}}
+			enterKeyHint="done"
+			spellCheck={false}
+			autoComplete="off"
+			placeholder="Untitled"
+			title={title || undefined}
+			aria-label="Project name"
+			className="sc-title"
+		/>
 	);
 }

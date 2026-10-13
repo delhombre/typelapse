@@ -42,6 +42,20 @@ export async function openStudio(page: Page, hash = ""): Promise<void> {
 	await expect(page.getByRole("button", { name: "Add source" })).toBeEnabled();
 }
 
+/**
+ * Open the Showcase the way the pointer does: a cursor's row has its button, and under
+ * a finger it is the More menu's first resource (`cornerRowPlan`, #282).
+ */
+export async function openShowcase(page: Page, { touch }: { touch: boolean }): Promise<void> {
+	const showcase = page.getByRole("button", { name: "Showcase", exact: true });
+	if (touch) {
+		await page.getByRole("button", { name: "More actions" }).tap();
+		await showcase.tap();
+		return;
+	}
+	await showcase.click();
+}
+
 /** The scene count the project chip shows ("0 scenes", "1 scene", "2 scenes"). */
 export function sceneCount(page: Page, count: number) {
 	return page.getByText(new RegExp(`^${count} scenes?$`));

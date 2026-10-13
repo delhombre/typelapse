@@ -1,3 +1,4 @@
+import { cornerRowPlan } from "@/application/layout/corner-row";
 import {
 	type PhoneSheetStep,
 	type PhoneSheetStop,
@@ -11,6 +12,7 @@ import { EditorPresence } from "@/presentation/contexts/editor-presence";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
 import { useDockFollowsSheet } from "@/presentation/hooks/use-dock-follows-sheet";
 import { useEditorKind } from "@/presentation/hooks/use-editor-kind";
+import { useIsCoarse } from "@/presentation/hooks/use-media-query";
 import { usePhoneDockRoom } from "@/presentation/hooks/use-phone-dock-room";
 import { usePhoneViewport } from "@/presentation/hooks/use-phone-viewport";
 import { useStudioFileDrop } from "@/presentation/hooks/use-studio-file-drop";
@@ -163,6 +165,10 @@ export function MobileShell({ editor, stepBuilder, preview, sceneCount }: Mobile
 	// The code is read through a loupe on the frame (code-loupe.tsx); while it is
 	// open the corner row, the instrument and the sheet step aside and go inert.
 	const [loupeOpen, setLoupeOpen] = useState(false);
+	// What the row holds depends on the pointer: a finger gets 44px per control, and
+	// the browse actions move to More to make the room (application/layout/corner-row.ts).
+	const coarse = useIsCoarse();
+	const plan = cornerRowPlan({ coarse });
 
 	return (
 		<main className="studio-root sc-root sc-root-mobile">
@@ -192,15 +198,18 @@ export function MobileShell({ editor, stepBuilder, preview, sceneCount }: Mobile
 			    gives up its width first. */}
 			<div
 				className="sc-corner-row"
+				data-pointer={coarse ? "coarse" : "fine"}
 				data-loupe-aside={loupeOpen ? "" : undefined}
 				inert={loupeOpen}
 			>
-				<ProjectChip />
+				<ProjectChip oneTarget={plan.projectChipIsOneTarget} />
 				<StudioHistoryControls />
+				{/* The library and the Showcase stay mounted whoever asks for them: where
+				    the row does not hold their button the More menu does, and asks. */}
 				<section className="sc-chip sc-mobile-resources" aria-label="Studio resources">
 					<StudioSourceHub />
-					<CaptureLibrary />
-					<TemplateGallery />
+					<CaptureLibrary trigger={plan.row.includes("library")} />
+					<TemplateGallery trigger={plan.row.includes("showcase")} />
 				</section>
 				{/* Four chips: the row's width was planned for four, and the account as a
 				    fifth covered the project menu's button (#222). It is the More menu's
@@ -208,6 +217,8 @@ export function MobileShell({ editor, stepBuilder, preview, sceneCount }: Mobile
 				<StudioUtilities
 					compact
 					leading={<div ref={setAccountSection} className="sc-more-account" />}
+					resources={plan.more}
+					homeLink={plan.projectChipIsOneTarget}
 				/>
 			</div>
 			<StudioAccountIsland menuSection={accountSection} />

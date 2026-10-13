@@ -1,9 +1,12 @@
+import type { MovableResource } from "@/application/layout/corner-row";
 import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
 import { useInterfaceFeedbackStore } from "@/presentation/stores/interface-feedback.store";
+import { useLibraryRequestStore } from "@/presentation/stores/library-request.store";
 import { notify } from "@/presentation/stores/notice.store";
+import { useShowcaseRequestStore } from "@/presentation/stores/showcase-request.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import {
 	NEXT_PREFERENCE,
@@ -20,9 +23,13 @@ import { studioProjectFileJson } from "@/presentation/utils/studio-project-repla
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import {
 	Check,
 	Download,
+	Grid,
+	Home,
+	Library,
 	Monitor,
 	Moon,
 	MoreH,
@@ -53,14 +60,32 @@ interface StudioUtilitiesProps {
 	 * as a fifth chip in a row planned for four (design audit 2026-10-08, D3).
 	 */
 	leading?: ReactNode;
+	/**
+	 * The resources the corner row gave up, top to bottom (`cornerRowPlan`): each
+	 * is a row that asks the sheet it stands for to open.
+	 */
+	resources?: readonly MovableResource[];
+	/** A way back to the home page, for the phone chip that no longer holds a link. */
+	homeLink?: boolean;
 }
+
+/** The rows of the resources a phone keeps in More: what each is called, and how it is asked for. */
+const MORE_RESOURCES = {
+	showcase: { label: "Showcase", Icon: Grid, store: useShowcaseRequestStore },
+	library: { label: "Library", Icon: Library, store: useLibraryRequestStore },
+} as const;
 
 /**
  * Quiet, global utilities that affect the whole studio.
  * Sources and destinations have their own named islands; this cluster stays
  * compact because every control here is a familiar, reversible action.
  */
-export function StudioUtilities({ compact = false, leading }: StudioUtilitiesProps = {}) {
+export function StudioUtilities({
+	compact = false,
+	leading,
+	resources = [],
+	homeLink = false,
+}: StudioUtilitiesProps = {}) {
 	const preference = useThemeModeStore((s) => s.preference);
 	const setPreference = useThemeModeStore((s) => s.setPreference);
 	const cycleAppearance = useThemeModeStore((s) => s.cycle);
@@ -203,6 +228,25 @@ export function StudioUtilities({ compact = false, leading }: StudioUtilitiesPro
 								style={{ transformOrigin: "top right" }}
 							>
 								{leading}
+								{resources.map((id) => {
+									const { label, Icon, store } = MORE_RESOURCES[id];
+									return (
+										<button
+											key={id}
+											type="button"
+											onClick={() => {
+												feedback("selection");
+												// The sheet is modal and portaled: the menu goes first, and the
+												// sheet hands focus back to this button when it closes.
+												setMenuOpen(false);
+												store.getState().request(menuTriggerRef.current);
+											}}
+										>
+											<Icon size={14} aria-hidden="true" />
+											<span>{label}</span>
+										</button>
+									);
+								})}
 								<button type="button" onClick={handleExport}>
 									<Download size={14} aria-hidden="true" />
 									<span>Export project file</span>
@@ -244,6 +288,15 @@ export function StudioUtilities({ compact = false, leading }: StudioUtilitiesPro
 										{interfaceFeedback ? "Mute interface feedback" : "Enable interface feedback"}
 									</span>
 								</button>
+								{homeLink && (
+									<>
+										<hr />
+										<Link to="/">
+											<Home size={14} aria-hidden="true" />
+											<span>Back to home</span>
+										</Link>
+									</>
+								)}
 							</motion.div>
 						)}
 					</AnimatePresence>
