@@ -1,5 +1,5 @@
 import { MAX_WALKTHROUGH_PAGES, budgetWalkthrough, omissionMarker } from "./budget";
-import { type ScenePage, hasBeforeCode, splitIntoScenes } from "./scenes";
+import { type ScenePage, opensOnBeforeState, splitIntoScenes } from "./scenes";
 import type {
 	CodeSnapshot,
 	DiffHunk,
@@ -129,10 +129,11 @@ export function generateSnapshots(
  * Captions across pages: the walkthrough opens on "Before" and ends on "After";
  * every other frame carries its hunk's heading, or `Change n` numbered by the
  * HUNK, so a continuation scene keeps the caption of the hunk it continues. A
- * page opens on the caption the page before closed on, so the caption holds
- * across the cut instead of flickering back to "Before". A page whose
- * before-state is only the `⋯` scaffold (a continuation of an addition) has no
- * opening frame: the page before already ended on the change.
+ * page opens on the caption of its own first hunk: the same one when it goes on
+ * with the hunk before, never the previous page's when it starts another (it may
+ * be another file's). A continuation of an addition has no opening frame (see
+ * {@link opensOnBeforeState}). The omission marker describes what follows the end
+ * of the video, so only the last page carries it.
  */
 function sceneSnapshots(
 	mode: DiffStepMode,
@@ -152,7 +153,6 @@ function sceneSnapshots(
 	}
 	const showHeaders = plans.length > 1;
 	const snapshots: CodeSnapshot[] = [];
-	let carried = "Before";
 
 	pages.forEach((page, pageIndex) => {
 		const last = pageIndex === pages.length - 1;
@@ -160,18 +160,14 @@ function sceneSnapshots(
 		const applied = mode === "before-after" ? [0, hunkCount] : range(hunkCount + 1);
 
 		for (const count of applied) {
-			const label = sceneLabel(page, count, last);
-			const opening = count === 0;
-			if (!opening || pageIndex === 0 || hasBeforeCode(page)) {
-				const code = renderWindowedStage(page.plans, count, showHeaders);
-				snapshots.push({
-					code: appendMarker(code, marker),
-					label: opening && pageIndex > 0 ? carried : label,
-				});
+			if (count === 0 && !opensOnBeforeState(page, pages[pageIndex - 1])) {
+				continue;
 			}
-			if (!opening) {
-				carried = label;
-			}
+			const code = renderWindowedStage(page.plans, count, showHeaders);
+			snapshots.push({
+				code: appendMarker(code, last ? marker : null),
+				label: sceneLabel(page, count, pageIndex, last),
+			});
 		}
 	});
 	return snapshots;
@@ -181,16 +177,21 @@ function range(length: number): number[] {
 	return Array.from({ length }, (_, index) => index);
 }
 
+/** A hunk's own caption: its heading, or `Change n` numbered by the hunk across the walkthrough. */
+function hunkCaption(page: ScenePage, index: number): string {
+	const hunk = page.plans.flatMap((plan) => plan.hunks)[index];
+	return hunk?.heading ? hunk.heading : `Change ${(page.hunkNumbers[index] ?? index) + 1}`;
+}
+
 /** The caption of the stage that has applied the first `count` hunks of a page. */
-function sceneLabel(page: ScenePage, count: number, lastPage: boolean): string {
+function sceneLabel(page: ScenePage, count: number, pageIndex: number, lastPage: boolean): string {
 	if (count === 0) {
-		return "Before";
+		return pageIndex === 0 ? "Before" : hunkCaption(page, 0);
 	}
 	if (lastPage && count === page.hunkNumbers.length) {
 		return "After";
 	}
-	const hunk = page.plans.flatMap((plan) => plan.hunks)[count - 1];
-	return hunk?.heading ? hunk.heading : `Change ${(page.hunkNumbers[count - 1] ?? count - 1) + 1}`;
+	return hunkCaption(page, count - 1);
 }
 
 /**

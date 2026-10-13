@@ -3,7 +3,7 @@
  *
  * One card serves every scene (the morph needs it), so the tallest frame sizes
  * them all. A 56-line frame in a 1080p video lands its code at about 9 px (see
- * `layout/scene-readability`), and the budget in {@link ./budget} only bounds the
+ * `tests/support/scene-readability`), and the budget in {@link ./budget} only bounds the
  * WHOLE walkthrough. This module splits what the budget kept into pages: runs of
  * windows whose frames each hold at most {@link MAX_SCENE_LINES} rows. A page is
  * played on its own (its before-state, each hunk applied, its after-state), so
@@ -147,13 +147,24 @@ export function splitIntoScenes(plans: FileWindowPlan[], reserve = 0): ScenePage
 	return pages;
 }
 
-/** True when a page's before-state shows code of its own (not only `⋯` and headers). */
-export function hasBeforeCode(page: ScenePage): boolean {
-	return page.plans.some((plan) =>
-		plan.hunks.some((hunk, hunkIndex) =>
-			(plan.windows[hunkIndex] ?? []).some((window) =>
-				hunk.lines.slice(window.start, window.end + 1).some((line) => line.type !== "add"),
+/**
+ * Whether a page opens on a frame of its own: its before-state. A page that goes
+ * on with the last hunk of the page before has one only when it still holds a line
+ * to replace: its before-state is otherwise a `⋯` and the hunk's trailing context,
+ * a near-empty card between two full ones. A page that starts another hunk opens
+ * on the code around it, unless that is only the scaffold (a lone `⋯`).
+ */
+export function opensOnBeforeState(page: ScenePage, previous: ScenePage | undefined): boolean {
+	if (!previous) {
+		return true;
+	}
+	const continues = page.hunkNumbers[0] === previous.hunkNumbers.at(-1);
+	const lines = page.plans.flatMap((plan) =>
+		plan.hunks.flatMap((hunk, hunkIndex) =>
+			(plan.windows[hunkIndex] ?? []).flatMap((window) =>
+				hunk.lines.slice(window.start, window.end + 1),
 			),
 		),
 	);
+	return lines.some((line) => (continues ? line.type === "remove" : line.type !== "add"));
 }

@@ -1,9 +1,5 @@
-import {
-	MIN_READABLE_CODE_PX,
-	effectiveCodePx,
-	measureScenes,
-} from "@/application/layout/scene-readability";
 import { describe, expect, it } from "vitest";
+import { MIN_READABLE_CODE_PX, effectiveCodePx, measureScenes } from "../support/scene-readability";
 
 const LANDSCAPE = { width: 1920, height: 1080 };
 const PORTRAIT = { width: 1080, height: 1920 };

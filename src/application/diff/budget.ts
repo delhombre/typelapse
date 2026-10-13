@@ -54,7 +54,7 @@ export const MAX_WALKTHROUGH_FILES = 6;
  * Measured, not guessed: at the default timing (1.2 s a step, 0.65 s a transition)
  * n steps run 1.85 n - 0.65 s, and a social clip tolerates about 20 s, so about 11
  * steps. The three examples the hero proposes (honojs/hono#5189, vercel/next.js
- * #97139, oven-sh/bun #37643) already fit in 4 pages (14.2, 17.9 and 14.2 s), and
+ * #97139, oven-sh/bun #37643) already fit in 4 pages (12.3, 17.9 and 14.1 s), and
  * the 246-file comparison honojs/hono v4.6.0...v4.7.0 lands at 11 steps, 19.7 s,
  * where 8 pages ran 40 s. A product constant, to revisit when a long-form option
  * exists (docs/decisions/2026-10-13-gate-five.md, D2 follow-up).

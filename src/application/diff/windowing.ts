@@ -28,7 +28,7 @@
  * is a future nicety, out of scope here.
  */
 
-import type { DiffFile, DiffHunk } from "./types";
+import type { DiffFile, DiffHunk, DiffLine } from "./types";
 
 /** Context lines kept on each side of a changed region. */
 export const CONTEXT_LINES = 3;
@@ -126,13 +126,61 @@ export function computeHunkWindows(
 	return windows;
 }
 
+/**
+ * The hunk with each contiguous block of changes interleaved: a unified diff lists
+ * a block's removals, then its additions (r1 r2 a1 a2); this lists them r1 a1 r2 a2.
+ * The before-state (context + removals) and the after-state (context + additions)
+ * keep their lines in their order, so no stage renders differently. What changes is
+ * where a cut falls: a scene that ends mid-block shows the old lines and the new
+ * lines that replace them together, so the morph still runs old-to-new face to face.
+ */
+export function interleaveChanges(hunk: DiffHunk): DiffHunk {
+	const lines: DiffLine[] = [];
+	let removals: DiffLine[] = [];
+	let additions: DiffLine[] = [];
+	const flush = () => {
+		const length = Math.max(removals.length, additions.length);
+		for (let i = 0; i < length; i++) {
+			const removed = removals[i];
+			const added = additions[i];
+			if (removed) {
+				lines.push(removed);
+			}
+			if (added) {
+				lines.push(added);
+			}
+		}
+		removals = [];
+		additions = [];
+	};
+	for (const line of hunk.lines) {
+		if (line.type === "remove") {
+			// A removal after additions opens the next block of the same run of changes.
+			if (additions.length > 0) {
+				flush();
+			}
+			removals.push(line);
+		} else if (line.type === "add") {
+			additions.push(line);
+		} else {
+			flush();
+			lines.push(line);
+		}
+	}
+	flush();
+	return { ...hunk, lines };
+}
+
 /** Compute every file's windows once, ready to render at any stage. */
 export function planWindows(files: DiffFile[]): FileWindowPlan[] {
-	return files.map((file) => ({
-		path: file.newPath ?? file.oldPath ?? "",
-		hunks: file.hunks,
-		windows: file.hunks.map((hunk) => computeHunkWindows(hunk)),
-	}));
+	return files.map((file) => {
+		const hunks = file.hunks.map(interleaveChanges);
+		return {
+			path: file.newPath ?? file.oldPath ?? "",
+			hunks,
+			windows: hunks.map((hunk) => computeHunkWindows(hunk)),
+		};
+	});
 }
 
 /** The header line that attributes the windows below it to a file. */
@@ -237,12 +285,11 @@ export function renderWindowedStage(
 	appliedHunks: number,
 	showHeaders = plans.length > 1,
 ): string {
-	const multiFile = showHeaders;
 	const out: string[] = [];
 	let globalHunk = 0;
 
 	for (const plan of plans) {
-		if (multiFile) {
+		if (showHeaders) {
 			// Emit the header even for an empty section (a not-yet-applied new file)
 			// so the header stays byte-identical across stages and morphs cleanly.
 			out.push(fileHeaderLine(plan.path));

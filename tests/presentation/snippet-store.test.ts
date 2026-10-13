@@ -1,4 +1,3 @@
-import { diffToSnapshots } from "@/application/diff";
 import { migrateV1ToV2 } from "@/application/project/migrate-v1-project";
 import { Snippet } from "@/domain/entities/snippet";
 import { MAX_ANNOTATION_LENGTH } from "@/domain/entities/step";
@@ -370,17 +369,15 @@ describe("snippet store importDiff", () => {
 
 		useSnippetStore.getState().importDiff(lines.join("\n"));
 		const { steps } = useSnippetStore.getState().snippet;
-		// The scenes of a long diff each open on their own before-state, so a stage
-		// no longer sits at its hunk's number: the trim is held to the snapshots.
-		const { snapshots } = diffToSnapshots(lines.join("\n"));
-
 		expect(steps).toHaveLength(40);
 		expect(steps[0]?.annotation).toBe("Before");
 		// The last kept stage keeps its own "After" label, not the trimmed neighbour's.
 		expect(steps[39]?.annotation).toBe("After");
-		// A kept middle stage keeps its own "Change N" label (index unshifted).
-		expect(steps[38]?.annotation).toBe(snapshots[38]?.label);
-		expect(steps[38]?.annotation).toMatch(/^Change \d+$/);
+		// A kept middle stage keeps its own label (index unshifted). The scenes of a long
+		// diff each open on their own before-state, which carries the caption of the hunk
+		// it opens on: indices 25 and 26 both read "Change 25", so index 38 is the
+		// snapshot of "Change 37", not of "Change 38".
+		expect(steps[38]?.annotation).toBe("Change 37");
 	});
 
 	it("survives a hunk heading longer than the caption bound", () => {

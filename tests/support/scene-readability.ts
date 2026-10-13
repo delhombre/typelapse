@@ -1,11 +1,11 @@
-import { displayWidth } from "../text/display-width";
 import {
 	BASE_VIDEO_SCALE,
 	CANVAS_MARGIN,
 	type PlanExtent,
 	fitCardToCanvas,
 	renderScaleFor,
-} from "./canvas-fit";
+} from "@/application/layout/canvas-fit";
+import { displayWidth } from "@/application/text/display-width";
 
 /**
  * How big the code of a scene plan lands in the exported frame: pure, read-only.

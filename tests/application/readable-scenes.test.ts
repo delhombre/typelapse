@@ -1,13 +1,9 @@
 import { readFileSync } from "node:fs";
 import { MAX_SCENE_LINES, chapterSnapshots, diffToSnapshots } from "@/application/diff";
 import type { CodeSnapshot } from "@/application/diff";
-import {
-	MIN_READABLE_CODE_PX,
-	effectiveCodePx,
-	measureScenes,
-} from "@/application/layout/scene-readability";
 import { captionFromGeneratedLabel } from "@/domain/entities/step";
 import { describe, expect, it } from "vitest";
+import { MIN_READABLE_CODE_PX, effectiveCodePx, measureScenes } from "../support/scene-readability";
 
 /** honojs/hono#5189, fetched token-free from api.github.com: the hero's example PR. */
 const HONO_PR = readFileSync("tests/fixtures/hono-pr-5189.diff", "utf8");
@@ -202,5 +198,104 @@ describe("a chaptered PR", () => {
 			"1/2 · first commit",
 			"2/2 · second commit",
 		]);
+	});
+});
+
+/** A block replacing `count` lines `old1..` by `count` lines `neu1..`, between two context lines. */
+function replacement(count: number): string {
+	return nl([
+		"--- a/swap.ts",
+		"+++ b/swap.ts",
+		`@@ -1,${count + 2} +1,${count + 2} @@ function swap()`,
+		" const head = 0;",
+		...Array.from({ length: count }, (_, i) => `-const old${i + 1} = ${i + 1};`),
+		...Array.from({ length: count }, (_, i) => `+const neu${i + 1} = ${i + 1};`),
+		" const tail = 0;",
+	]);
+}
+
+const indicesOf = (code: string, name: "old" | "neu") =>
+	[...code.matchAll(new RegExp(`const ${name}(\\d+) =`, "g"))].map((match) => Number(match[1]));
+
+describe("a block replaced by another, taller than a scene", () => {
+	const { snapshots } = diffToSnapshots(replacement(30));
+
+	it("morphs each old line into its new line face to face: the frame after a page's old lines shows the same indices as new", () => {
+		const shown = snapshots.map((snapshot) => ({
+			old: indicesOf(snapshot.code, "old"),
+			neu: indicesOf(snapshot.code, "neu"),
+		}));
+		const withOld = shown.flatMap((frame, index) => (frame.old.length > 0 ? [index] : []));
+
+		expect(withOld.length).toBeGreaterThan(1);
+		for (const index of withOld) {
+			expect(shown[index + 1]?.neu).toEqual(shown[index]?.old);
+		}
+	});
+
+	it("never empties the card between the old and the new of a page", () => {
+		for (const snapshot of snapshots) {
+			expect(snapshot.code.split("\n").length).toBeGreaterThan(3);
+		}
+	});
+
+	it("shows every old line before it is replaced and every new line after", () => {
+		const old = new Set(snapshots.flatMap((snapshot) => indicesOf(snapshot.code, "old")));
+		const neu = new Set(snapshots.flatMap((snapshot) => indicesOf(snapshot.code, "neu")));
+
+		expect(old.size).toBe(30);
+		expect(neu.size).toBe(30);
+	});
+});
+
+describe("a continuation of an addition", () => {
+	it("has no opening frame of its own: 40 added lines play as three frames", () => {
+		const { snapshots } = diffToSnapshots(tallHunk(40, "function big()"));
+
+		expect(snapshots.map((snapshot) => snapshot.label)).toEqual([
+			"Before",
+			"function big()",
+			"After",
+		]);
+	});
+});
+
+describe("the caption of a scene", () => {
+	/** The file each hunk heading of the diff belongs to. */
+	function headingFiles(diff: string): Map<string, string> {
+		const files = new Map<string, string>();
+		let path = "";
+		for (const line of diff.split("\n")) {
+			path = line.startsWith("+++ b/") ? line.slice("+++ b/".length) : path;
+			const heading = line.match(/^@@ [^@]+ @@ (.+)$/)?.[1];
+			if (heading) {
+				files.set(heading, path);
+			}
+		}
+		return files;
+	}
+
+	it("names a hunk of the file the scene shows (hono#5189)", () => {
+		const { snapshots } = diffToSnapshots(HONO_PR);
+		const owner = headingFiles(HONO_PR);
+		let checked = 0;
+
+		for (const snapshot of snapshots) {
+			const file = owner.get(snapshot.label ?? "");
+			if (file) {
+				expect(snapshot.code).toContain(`// ${file}`);
+				checked += 1;
+			}
+		}
+		expect(checked).toBeGreaterThan(2);
+	});
+
+	it("takes the first hunk's own caption when a page opens on another hunk, never the last one's", () => {
+		const { snapshots } = diffToSnapshots(HONO_PR);
+		const nodeFrame = snapshots.find((snapshot) =>
+			snapshot.code.includes("// src/router/trie-router/node.ts"),
+		);
+
+		expect(nodeFrame?.label).not.toBe("describe('The same name is used for path params', () => {");
 	});
 });
