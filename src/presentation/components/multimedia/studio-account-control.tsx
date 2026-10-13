@@ -1093,7 +1093,9 @@ function CodeStep({
 	}, [signingIn, error]);
 
 	const signIn = (value: string) => {
-		if (busy) return;
+		// A spent code is not tried again: the refusal says to ask for another, and a fourth
+		// try against it would only be refused too.
+		if (busy || pending.spent) return;
 		if (value.length !== CODE_LENGTH) {
 			setShort(true);
 			inputRef.current?.focus();
@@ -1103,7 +1105,7 @@ function CodeStep({
 	};
 
 	const leave = useCheckOnLeave(() => {
-		if (code.length > 0 && code.length < CODE_LENGTH) setShort(true);
+		if (!pending.spent && code.length > 0 && code.length < CODE_LENGTH) setShort(true);
 	});
 
 	const change = (raw: string) => {
@@ -1197,7 +1199,8 @@ function CodeStep({
 			    reaches Sign in the refusal has come back and emptied the field, and the press
 			    on it is a newer thing to say than the refusal: the short-code line takes the
 			    refusal's place instead of standing beside it (#272, DECISIONS D4 of the
-			    passwordless-auth log). The refusal returns with the next wrong code. */}
+			    passwordless-auth log). The refusal returns with the next wrong code. Only
+			    that one: "this code no longer works" is what to do next and stays. */}
 			<AlertSlot error={short ? null : error} />
 		</form>
 	);
