@@ -246,7 +246,7 @@ or it does not land.
   from the studio makes it regular and from then on it counts, and that save
   is refused, like a new project, when the account is already at the ceiling.
   Nothing deletes an automation project for being one.
-- **Delete a cloud project**: what the account island's Cloud projects view
+- **Delete a cloud project**: what the account sheet's cloud projects list
   offers on each project, behind the shared confirmation. It takes the project
   with its media, its render jobs and their public pages; the files they stored
   get a durable note for the object-deletion worker in the same transaction.
@@ -282,7 +282,7 @@ or it does not land.
   private). It lives while the owner's plan keeps the output; anything else is
   the same 404. Its video and poster addresses re-sign a one-hour object URL on
   each request, so making it private takes effect at once.
-- **API key**: a credential an account makes in the account island for a
+- **API key**: a credential an account makes in the account sheet for a
   script that has no browser. Named, optionally expiring, shown once and kept
   only as a hash, rate limited per key, revoked by deleting it. It stands in
   for the session on the hosted render routes (render by URL included) and on
@@ -318,7 +318,23 @@ or it does not land.
   (`application/onboarding/first-video.ts`, `stores/first-video.store.ts`).
 - **Account island**: the part of the island that carries sign-in, cloud save
   (behind an explicit upload consent) and billing in a hosted build. Absent in
-  a local build.
+  a local build. Signed out, it opens the sign-in form (a small panel under the
+  avatar on a desktop, in place of the More menu's rows on a phone), named "Sign
+  in to Typelapse"; signed in, it opens the account sheet, which holds the one
+  Sign out.
+- **Account sheet**: the signed-in account, as the studio's bottom sheet (440px
+  on a desktop, opened from the More menu's account row on a phone): the person
+  on top, three tabs, and Sign out in a foot that never scrolls away. Projects
+  is this project's cloud copy with Save to cloud (the upload consent), then the
+  account's cloud projects; Plan is the plan card with its meter, the allowance
+  sentence, Upgrade or Manage billing, the billing notice, the test-mode line and
+  the pricing link; API keys makes, shows once and revokes keys. It opens on
+  Projects, on API keys while a new key waits to be copied, and on Plan while
+  billing is not in order. A tab is drawn the first time it is chosen and keeps
+  its scroll and focus while the sheet is open. Modal, like the hosted render
+  sheet: it sits over the island and the timeline under its scrim, and Escape
+  gives focus back to what opened it
+  (`presentation/components/multimedia/account-sheet.tsx`).
 - **Local project**: one entry of the on-device library behind the project
   chip, with its own id. Its V2 document (layers, media, audio cues) is stored
   in IndexedDB under that id; its code spine is also kept in localStorage.

@@ -15,7 +15,7 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { Check, ChevronLeft, Copy } from "reicon-react";
+import { Check, Copy } from "reicon-react";
 import "./studio-api-keys.css";
 
 type ApiKeyStore = typeof useApiKeyStore;
@@ -44,30 +44,29 @@ const BLANK_NAME = "Name the key, for example GitHub Action.";
 const FOCUS = { preventScroll: true } as const;
 
 /**
- * The account island's second view: the keys that let a script render on
+ * The account sheet's API keys tab: the keys that let a script render on
  * Typelapse Cloud without a browser. Every refusal is the server's own sentence;
  * the one copy of a new key is shown until the person says they have it.
  */
 export function StudioApiKeys({
 	keys: { store, now = () => new Date() },
-	onBack,
+	active = true,
 }: {
 	readonly keys: StudioApiKeysControl;
-	readonly onBack: () => void;
+	/** The tab is the one on screen: the list is read again each time it comes into view. */
+	readonly active?: boolean;
 }) {
 	const { keys, status, error, creating, created, revoking, load, create, dismissCreated, revoke } =
 		store();
 	const headingRef = useRef<HTMLHeadingElement>(null);
 	const nameRef = useRef<HTMLInputElement>(null);
 	const [notice, setNotice] = useState<string | null>(null);
-	const holdsKey = created !== null;
-	const holdsKeyAtOpen = useRef(holdsKey);
 
-	// Entering the view moves focus into it, to the key to copy when one is waiting.
+	// Coming into view reads the list again. Focus stays where the tab put it; a key
+	// waiting to be copied takes it (SecretCard).
 	useEffect(() => {
-		void load();
-		if (!holdsKeyAtOpen.current) headingRef.current?.focus(FOCUS);
-	}, [load]);
+		if (active) void load();
+	}, [active, load]);
 
 	const makeKey = async (input: NewApiKey) => {
 		setNotice(null);
@@ -97,13 +96,11 @@ export function StudioApiKeys({
 
 	return (
 		<div className="mm-account-copy mm-keys">
-			<button type="button" className="mm-keys-back" aria-label="Back to account" onClick={onBack}>
-				<ChevronLeft size={14} aria-hidden="true" />
-				Account
-			</button>
-			<h2 ref={headingRef} tabIndex={-1}>
+			{/* The tab says it already; the heading is for a screen reader's outline, and is where
+			    focus lands when the row it was on is revoked. */}
+			<h3 ref={headingRef} tabIndex={-1} className="sr-only">
 				API keys
-			</h2>
+			</h3>
 			<p>Let a script render on Typelapse Cloud without a browser.</p>
 
 			{created ? (
@@ -263,7 +260,7 @@ function SecretCard({
 
 	return (
 		<section className="mm-keys-secret" aria-label="Your new key">
-			<h3>Copy your key now</h3>
+			<h4>Copy your key now</h4>
 			<p>It is shown once. Anyone who has it can render on your account.</p>
 			<code ref={keyRef} className="mm-keys-key">
 				{created.key}
@@ -272,6 +269,8 @@ function SecretCard({
 				ref={copyRef}
 				type="button"
 				className="mm-account-primary mm-keys-copy"
+				// The sheet opening on a key still to copy hands focus here, not to the tab.
+				data-autofocus=""
 				onClick={() => void copyKey()}
 			>
 				{/* Copy to check: the old icon blurs out as the new one sharpens in. */}

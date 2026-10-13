@@ -80,7 +80,6 @@ function renderControl(
 
 async function openList() {
 	fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
-	fireEvent.click(screen.getByRole("button", { name: "Cloud projects" }));
 	await screen.findByRole("heading", { name: "Cloud projects" });
 }
 

@@ -47,7 +47,7 @@ test.describe("Hosted API keys: a script renders on Typelapse Cloud without a br
 		const project = await newestCloudProject(owner.email);
 
 		await test.step("the island makes a key: shown once, copied, then gone from the page", async () => {
-			await panel.getByRole("button", { name: "API keys" }).click();
+			await panel.getByRole("tab", { name: "API keys" }).click();
 			await expect(panel.getByRole("heading", { name: "API keys" })).toBeVisible();
 			await expect(panel.getByText("No keys yet. Create one above.")).toBeVisible();
 
@@ -156,8 +156,9 @@ test.describe("Hosted API keys: a script renders on Typelapse Cloud without a br
 		});
 
 		await test.step("the island shows that the key was used", async () => {
-			await panel.getByRole("button", { name: "Back to account" }).click();
-			await panel.getByRole("button", { name: "API keys" }).click();
+			// Coming back to the tab reads the list again.
+			await panel.getByRole("tab", { name: "Projects" }).click();
+			await panel.getByRole("tab", { name: "API keys" }).click();
 			await expect(panel.getByText(/^Used (just now|\d+ min ago)$/)).toBeVisible();
 			expect((await apiKeysOf(owner.email))[0]?.lastUsedAt).not.toBeNull();
 		});

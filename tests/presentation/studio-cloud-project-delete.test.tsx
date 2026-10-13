@@ -181,7 +181,7 @@ async function saveToCloud() {
 }
 
 async function deleteFromList(title: string, options: { openNow?: boolean } = {}) {
-	fireEvent.click(screen.getByRole("button", { name: "Cloud projects" }));
+	// The list is under this project's cloud copy, in the same tab.
 	await screen.findByText(title);
 	// The cloud copy of the project that is open says so.
 	if (options.openNow) expect(screen.getByText("Open now")).toBeTruthy();
@@ -201,7 +201,6 @@ describe("deleting the cloud copy of the open project", () => {
 		const composition = island(fixture);
 		await saveToCloud();
 		await deleteFromList("Launch", { openNow: true });
-		fireEvent.click(screen.getByRole("button", { name: "Back to account" }));
 
 		expect(fixture.api.delete).toHaveBeenCalledWith("project_1");
 		// Nothing was loaded over the work on this device.
@@ -225,9 +224,11 @@ describe("deleting the cloud copy of the open project", () => {
 		await saveToCloud();
 		const other = record("project_other", { ...localDocument("Changelog") });
 		fixture.kept.set(other.id, other);
+		// Coming back to the tab reads the list again, with the project saved elsewhere.
+		fireEvent.click(screen.getByRole("tab", { name: "Plan" }));
+		fireEvent.click(screen.getByRole("tab", { name: "Projects" }));
 
 		await deleteFromList("Changelog");
-		fireEvent.click(screen.getByRole("button", { name: "Back to account" }));
 
 		expect(fixture.api.delete).toHaveBeenCalledWith("project_other");
 		expect(screen.getByText("Cloud copy saved")).toBeTruthy();
@@ -278,10 +279,12 @@ describe("deleting the cloud copy of the open project", () => {
 		);
 		await saveToCloud();
 		// One read when the account opens, one more now that the save has landed.
+		fireEvent.click(screen.getByRole("tab", { name: "Plan" }));
 		await screen.findByText("Allowance as read 2 times.");
 
+		fireEvent.click(screen.getByRole("tab", { name: "Projects" }));
 		await deleteFromList("Launch");
-		fireEvent.click(screen.getByRole("button", { name: "Back to account" }));
+		fireEvent.click(screen.getByRole("tab", { name: "Plan" }));
 
 		expect(await screen.findByText("Allowance as read 3 times.")).toBeTruthy();
 	});

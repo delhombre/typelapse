@@ -289,7 +289,7 @@ export async function signInInIsland(page: Page, account: TestAccount): Promise<
 	await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
 	// The trigger is disabled while the session check runs, then reads "Sign in".
 	await page.getByRole("button", { name: "Sign in", exact: true }).click();
-	const panel = page.getByRole("dialog", { name: "Typelapse account" });
+	const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 	await panel.getByRole("textbox", { name: "Email" }).fill(account.email);
 	const since = new Date();
 	const sent = page.waitForResponse((response) => new URL(response.url()).pathname === SEND_CODE);
@@ -304,11 +304,23 @@ export async function signInInIsland(page: Page, account: TestAccount): Promise<
 /** The first sign-in of a new address is its sign-up: one flow. */
 export const signUpInIsland = signInInIsland;
 
-/** Open the account island (signed in) and return its panel. */
-export async function openAccountPanel(page: Page, account: TestAccount) {
+/** A section of the signed-in account sheet, as its tab names it. */
+export type AccountTab = "Projects" | "Plan" | "API keys";
+
+/**
+ * Open the account (signed in, the account sheet) and return it, on the tab asked
+ * for; without one, on the tab it opens on (Projects, or Plan while billing is not
+ * in order, or API keys while a new key waits to be copied).
+ */
+export async function openAccountPanel(page: Page, account: TestAccount, tab?: AccountTab) {
 	await page.getByRole("button", { name: `Account for ${account.name}` }).click();
 	const panel = page.getByRole("dialog", { name: "Typelapse account" });
 	await expect(panel.getByRole("heading", { name: account.name })).toBeVisible();
+	if (tab) {
+		const control = panel.getByRole("tab", { name: tab });
+		await control.click();
+		await expect(control).toHaveAttribute("aria-selected", "true");
+	}
 	return panel;
 }
 

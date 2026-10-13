@@ -52,6 +52,11 @@ the address), then type it into the island or post it, as a person would.
   the code read in maildev); signing up uploads nothing until "Save this project to cloud" is pressed (consent);
   the save writes one project row; the free allowance sentence is the
   server's own; the session and the cloud copy survive a reload.
+- `account-sheet.spec.ts`: the signed-in account sheet (#261). Its three tabs switch
+  by press and by arrow, Plan keeps its scroll and the control that had focus, Escape
+  gives focus back to the trigger, Sign out sits in the foot inside the window on every
+  tab and leaves focus on Sign in; at 1440x900 and 1280x800 it is 440px wide, over the
+  island, and Free's Plan tab fits without scrolling.
 - `cloud-under-where.spec.ts`: Cloud under Where in the three states (ux-waves D3).
   Signed out, the press opens the hosted render sheet, Escape gives focus back to
   Cloud, and signing in inside the sheet turns it into the Free view; on Free the
