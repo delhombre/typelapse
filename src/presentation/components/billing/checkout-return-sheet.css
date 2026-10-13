@@ -68,8 +68,9 @@
 	color: var(--camera-muted);
 }
 
-/* A fade, not a spinner: the wait is a few seconds and nothing here is progress.
-   Reduced motion keeps the dot still, which still reads as "waiting" beside the words. */
+/* A fade, not a spinner: a progress indicator for the wait, capped by the 20 s
+   window the poll runs for. Reduced motion keeps the dot still, which still reads
+   as "waiting" beside the words. */
 .checkout-return-pulse {
 	width: 8px;
 	height: 8px;

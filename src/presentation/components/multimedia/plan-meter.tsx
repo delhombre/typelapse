@@ -17,6 +17,13 @@ export function PlanMeter({
 	readonly sentence: string | null;
 }) {
 	const near = meters.filter((meter) => meter.kind === "bar" && meter.warn);
+	// What the sentence does not carry and the drawn rows do: the facts and the reset date.
+	const facts = meters.flatMap((meter) => {
+		if (meter.kind === "fact") {
+			return [`${meter.label}: ${meter.text}.`];
+		}
+		return meter.resets ? [`${meter.label} ${meter.resets}.`] : [];
+	});
 	return (
 		<div className="mm-meter">
 			<ul className="mm-meter-list" aria-hidden="true">
@@ -43,6 +50,7 @@ export function PlanMeter({
 				)}
 			</ul>
 			{sentence ? <p className="sr-only">{sentence}</p> : null}
+			{facts.length > 0 ? <p className="sr-only">{facts.join(" ")}</p> : null}
 			{near.length > 0 ? (
 				<p className="sr-only">
 					Close to the limit: {near.map((meter) => meter.label.toLowerCase()).join(", ")}.

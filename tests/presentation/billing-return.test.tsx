@@ -99,6 +99,7 @@ function harness(overrides: Partial<BillingReturnDeps> & { plans?: Plan[] } = {}
 		wait: async (ms) => {
 			waits.push(ms);
 		},
+		signal: new AbortController().signal,
 		...overrides,
 	};
 	return { deps, messages, phases, waits, asked: () => asked };
@@ -107,11 +108,11 @@ function harness(overrides: Partial<BillingReturnDeps> & { plans?: Plan[] } = {}
 const kinds = (phases: readonly BillingReturnPhase[]) => phases.map((phase) => phase.kind);
 
 describe("announcing a return from checkout", () => {
-	it("confirms at once when the server already knows the plan, after saying it is asking", async () => {
+	it("confirms at once when the server already knows the plan, without a flash of confirming", async () => {
 		const run = harness({ plans: [Plan.pro()] });
 		await announceBillingReturn("success", run.deps);
-		expect(kinds(run.phases)).toEqual(["confirming", "confirmed"]);
-		expect(run.phases[1]).toMatchObject({ plan: { tier: "pro" } });
+		expect(kinds(run.phases)).toEqual(["confirmed"]);
+		expect(run.phases[0]).toMatchObject({ plan: { tier: "pro" } });
 		expect(run.messages).toEqual([]);
 		expect(run.asked()).toBe(1);
 		expect(run.waits).toEqual([]);
@@ -141,6 +142,47 @@ describe("announcing a return from checkout", () => {
 		await announceBillingReturn("success", run.deps);
 		expect(kinds(run.phases)).toEqual(["confirming", "confirmed"]);
 		expect(run.asked()).toBe(3);
+	});
+
+	it("says confirming only after the first read still says Free", async () => {
+		const seen: string[] = [];
+		const run = harness({
+			plans: [Plan.free(), Plan.pro()],
+			phase: (next) => {
+				seen.push(`${next.kind} after ${run.asked()} asks`);
+			},
+		});
+		await announceBillingReturn("success", run.deps);
+		expect(seen).toEqual(["confirming after 1 asks", "confirmed after 2 asks"]);
+	});
+
+	it("stops asking, and says nothing more, once it is told to stop", async () => {
+		const stop = new AbortController();
+		const run = harness({
+			plans: [Plan.free()],
+			signal: stop.signal,
+			wait: async () => {
+				stop.abort();
+			},
+		});
+		await announceBillingReturn("success", run.deps);
+		// One ask, one wait that was cut short: no second ask, no timed-out sheet.
+		expect(kinds(run.phases)).toEqual(["confirming"]);
+		expect(run.asked()).toBe(1);
+	});
+
+	it("says nothing when it is stopped before the session has answered", async () => {
+		const stop = new AbortController();
+		const run = harness({
+			signal: stop.signal,
+			signedIn: async () => {
+				stop.abort();
+				return true;
+			},
+		});
+		await announceBillingReturn("success", run.deps);
+		expect(run.phases).toEqual([]);
+		expect(run.asked()).toBe(0);
 	});
 
 	it("is silent in local mode: there is no plan to confirm", async () => {
@@ -250,6 +292,84 @@ describe("the sheet a billing return raises in the studio", () => {
 		expect(screen.getByRole("button", { name: "Render in the cloud" })).toBeTruthy();
 	});
 
+	it("keeps a poll that is still waiting through StrictMode's remount", async () => {
+		vi.useFakeTimers();
+		refresh.mockImplementation(async () => undefined);
+		land("?billing=success");
+		render(
+			<StrictMode>
+				<BillingReturnBoot />
+			</StrictMode>,
+		);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(0);
+		});
+		expect(screen.getByRole("dialog", { name: "Confirming your payment" })).toBeTruthy();
+
+		refresh.mockImplementation(async () => {
+			usePlanStore.setState({ plan: Plan.pro(), allowance: "You are using 0 of 100." });
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(BILLING_RETRY_MS);
+		});
+
+		expect(screen.getByRole("dialog", { name: "Creator is on." })).toBeTruthy();
+	});
+
+	it("stops asking, and clears its timer, when the studio goes away", async () => {
+		vi.useFakeTimers();
+		refresh.mockImplementation(async () => undefined);
+		land("?billing=success");
+		const { unmount } = render(<BillingReturnBoot />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(0);
+		});
+		expect(refresh).toHaveBeenCalledTimes(1);
+
+		unmount();
+		await vi.advanceTimersByTimeAsync(BILLING_RETRY_WINDOW_MS + BILLING_RETRY_MS);
+
+		expect(refresh).toHaveBeenCalledTimes(1);
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("stops asking, and closes the sheet, when the person signs out mid-poll", async () => {
+		vi.useFakeTimers();
+		refresh.mockImplementation(async () => undefined);
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(0);
+		});
+		expect(screen.getByRole("dialog", { name: "Confirming your payment" })).toBeTruthy();
+
+		act(() => {
+			useAuthStore.setState({ status: { kind: "anonymous" } });
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(BILLING_RETRY_WINDOW_MS + BILLING_RETRY_MS);
+		});
+
+		expect(refresh).toHaveBeenCalledTimes(1);
+		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it("goes straight to Creator is on, with no confirming in between, when the webhook was first", async () => {
+		const seen: string[] = [];
+		const stop = useBillingReturnStore.subscribe((state) => {
+			if (state.phase) {
+				seen.push(state.phase.kind);
+			}
+		});
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		await screen.findByRole("dialog", { name: "Creator is on." });
+		stop();
+
+		expect(seen).toEqual(["confirmed"]);
+	});
+
 	it("says the payment arrived when the window runs out", async () => {
 		vi.useFakeTimers();
 		refresh.mockImplementation(async () => undefined);
@@ -292,12 +412,15 @@ describe("the sheet a billing return raises in the studio", () => {
 		expect(useBillingReturnStore.getState().phase).toBeNull();
 	});
 
-	it("is a named dialog with a close button", async () => {
+	it("is a named dialog with a close button, and says its phase in a live region", async () => {
 		land("?billing=success");
 		render(<BillingReturnBoot />);
-		await screen.findByRole("dialog", { name: "Creator is on." });
+		const dialog = await screen.findByRole("dialog", { name: "Creator is on." });
 
 		expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+		const live = dialog.querySelector("[aria-live]");
+		expect(live?.querySelector(".sr-only")?.textContent).toBe("Creator is on.");
+		expect(dialog.querySelector("[aria-busy]")).toBeNull();
 	});
 
 	it("adds the sandbox line when the billing catalog says the provider is a sandbox", async () => {

@@ -148,6 +148,18 @@ describe("the warning at 90%", () => {
 		expect(over[0]).toMatchObject({ warn: true, ratio: 1 });
 	});
 
+	it("draws a full bar, never NaN, for a ceiling of zero", () => {
+		const base = allowance(Plan.free());
+		for (const used of [0, 2]) {
+			const meters = quotaMeters({
+				...base,
+				limits: { ...base.limits, cloudProjects: 0 },
+				usage: usage({ cloudProjects: used }),
+			});
+			expect(meters[0]).toMatchObject({ kind: "bar", count: `${used} of 0`, ratio: 1, warn: true });
+		}
+	});
+
 	it("warns on the render minutes too", () => {
 		const meters = quotaMeters(allowance(Plan.pro(), { hostedRenderMsThisMonth: 55 * MINUTE }));
 		expect(meters.find((meter) => meter.key === "hostedRenderTime")).toMatchObject({ warn: true });

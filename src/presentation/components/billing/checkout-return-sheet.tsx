@@ -65,8 +65,11 @@ export function CheckoutReturnSheet() {
 					</button>
 				</header>
 				<div className="checkout-return-body" aria-live="polite">
+					{/* The sheet's title changes as the phase does, and a title is not read again
+					    when its text changes: this says it in the live region. */}
+					<p className="sr-only">{titleOf(view)}</p>
 					{view?.kind === "confirming" ? (
-						<p className="checkout-return-wait" aria-busy="true">
+						<p className="checkout-return-wait">
 							<span className="checkout-return-pulse" aria-hidden="true" />
 							This takes a few seconds. You do not need to do anything.
 						</p>

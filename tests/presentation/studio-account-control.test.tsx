@@ -636,6 +636,21 @@ describe("StudioAccountControl", () => {
 			expect(document.querySelector(".mm-meter-list")?.getAttribute("aria-hidden")).toBe("true");
 		});
 
+		it("tells a screen reader the Hosted renders fact and the reset date the sentence leaves out", () => {
+			openWith(Plan.free(), { cloudProjects: 1 });
+			const free = Array.from(document.querySelectorAll(".mm-meter .sr-only")).map(
+				(node) => node.textContent,
+			);
+			expect(free).toContain("Hosted renders: 0 on Free.");
+
+			cleanup();
+			openWith(Plan.pro(), { hostedRenderMsThisMonth: 12 * 60_000 });
+			const creator = Array.from(document.querySelectorAll(".mm-meter .sr-only")).map(
+				(node) => node.textContent,
+			);
+			expect(creator).toContain("Hosted render minutes resets Nov 1.");
+		});
+
 		it("shows the render minutes and their reset date on Creator", () => {
 			openWith(Plan.pro(), { hostedRenderMsThisMonth: 12 * 60_000 });
 

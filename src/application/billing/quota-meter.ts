@@ -37,7 +37,8 @@ function bar(
 	limit: number,
 	resets?: string,
 ): QuotaBar {
-	const ratio = Math.min(1, used / limit);
+	// A ceiling of zero allows nothing, so any account is at it: full, not 0 / 0.
+	const ratio = limit > 0 ? Math.min(1, used / limit) : 1;
 	return {
 		kind: "bar",
 		key,
