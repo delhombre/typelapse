@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Eyebrow } from "./primitives";
 import { CONTAINER, SECTION_PY } from "./tokens";
 
@@ -51,6 +52,12 @@ export function PricingSection() {
 					</div>
 				))}
 			</div>
+			<Link
+				to="/pricing"
+				className="hit-ext mt-8 inline-block font-medium text-[15px] text-ink underline decoration-[var(--color-hairline)] underline-offset-4 transition-colors ease-[var(--ease-out)] hover:decoration-[var(--color-ink)]"
+			>
+				See the plans
+			</Link>
 		</section>
 	);
 }

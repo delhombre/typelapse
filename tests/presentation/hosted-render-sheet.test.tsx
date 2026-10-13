@@ -372,7 +372,7 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 
 		fireEvent.click(cloudChip());
 		let sheet = await screen.findByRole("dialog", { name: SHEET });
-		expect(within(sheet).getByText("Creator is $12 / month, or $99 / year.")).toBeTruthy();
+		expect(within(sheet).getByText("Creator is $99 / year, or $12 / month.")).toBeTruthy();
 		unmount();
 		useHostedRenderSheetStore.setState({ openFor: null, opener: null });
 
@@ -381,7 +381,7 @@ describe.each(PANELS)("The hosted render sheet in %s", (_name, panel) => {
 		render(panel());
 		fireEvent.click(cloudChip());
 		sheet = await screen.findByRole("dialog", { name: SHEET });
-		expect(within(sheet).getByText("Creator is $12 / month, or $99 / year.")).toBeTruthy();
+		expect(within(sheet).getByText("Creator is $99 / year, or $12 / month.")).toBeTruthy();
 	});
 
 	it("names no price where the catalog has none, and says test mode where the provider is its sandbox", async () => {

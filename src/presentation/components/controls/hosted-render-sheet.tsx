@@ -1,8 +1,9 @@
 import { hostedOutputGraceDays } from "@/application/billing/plan-allowance";
+import { priceLabel } from "@/application/billing/price-label";
 import type { BillingCatalog } from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
 import { TestModeLine } from "@/presentation/components/billing/test-mode-line";
-import { AuthForm, priceLabel } from "@/presentation/components/multimedia/studio-account-control";
+import { AuthForm } from "@/presentation/components/multimedia/studio-account-control";
 import { StudioBottomSheet } from "@/presentation/components/ui/studio-bottom-sheet";
 import { feedback } from "@/presentation/haptics";
 import { useAuthStore } from "@/presentation/stores/auth.store";
@@ -34,8 +35,8 @@ export function creatorPriceLine(catalog: BillingCatalog | null): string | null 
 	const monthly = catalog?.creator.monthly;
 	const annual = catalog?.creator.annual;
 	const prices = [
-		monthly ? priceLabel(monthly, "monthly") : null,
 		annual ? priceLabel(annual, "annual") : null,
+		monthly ? priceLabel(monthly, "monthly") : null,
 	].filter((price): price is string => price !== null);
 	return prices.length === 0 ? null : `Creator is ${prices.join(", or ")}.`;
 }

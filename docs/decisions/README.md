@@ -79,3 +79,6 @@ posture, deleting data) is written as a diamond in the graph and marked
   under Where for everyone, the press explains it (sign in in the sheet, the
   allowance and Upgrade on Free, Cloud chosen on Creator), the dead upgrade
   button deleted.
+- 2026-10-13 [pricing-page](2026-10-13-pricing-page.md): `/pricing` from the
+  catalog and the Plan, no number without a price, the device card as true as
+  GIF and the painter allow, the static host answers the route.
