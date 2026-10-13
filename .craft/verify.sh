@@ -17,6 +17,17 @@ if [ "${CRAFT_E2E_IN_GATE:-0}" = "1" ] && [ -f e2e.config.ts ]; then
   STEPS+=("npx e2e run")
 fi
 
+# One real clip through the Remotion path, then ffprobe on it (~4 s warm, ~35 s on
+# a cold checkout that must still download Chrome). Off by default because it is
+# too slow for every subagent stop. The orchestrator sets it for the
+# /craft-harness:verify gate (docs/agents/QUALITY_LOOP.md, gate 5), and CI runs the
+# same script as a step of the "Quality gate" job. Vitest and tsc pass while a
+# Remotion bundle is broken (#237), so a green gate without this proves nothing
+# about renders. The summary line is last, so `tail` keeps it.
+if [ "${CRAFT_VERIFY_RENDER:-0}" = "1" ]; then
+  STEPS+=("pnpm render:smoke")
+fi
+
 for step in "${STEPS[@]}"; do
   echo "== $step"
   if ! { eval "$step" 2>&1 | tail -n 80; }; then
