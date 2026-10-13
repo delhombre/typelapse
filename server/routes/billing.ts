@@ -79,19 +79,22 @@ export function createBillingRoute({
 		if (!subscriptions || !usage) {
 			return c.json({ error: "Hosted allowance is not configured" }, 503);
 		}
+		// One reading of the clock for the whole answer: the usage's period and the reset
+		// date must be the same month even when the request crosses a UTC midnight.
+		const at = now();
 		const accountId = await authenticateAccount({
 			credential: c.req.header("cookie") ?? null,
 			auth,
-			now: now(),
+			now: at,
 		});
 		if (!accountId) {
 			return c.json({ error: "Sign in to see your allowance" }, 401);
 		}
 		const [plan, current] = await Promise.all([
 			subscriptions.planFor(accountId),
-			usage.usageFor(accountId, renderPeriodStart(now())),
+			usage.usageFor(accountId, renderPeriodStart(at)),
 		]);
-		return c.json({ allowance: planAllowance(plan, current, now()) });
+		return c.json({ allowance: planAllowance(plan, current, at) });
 	});
 
 	route.get("/catalog", async (c) => {
