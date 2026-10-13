@@ -13,6 +13,7 @@ import { CodeCard } from "../../server/remotion/composition";
 import { buildCodeCardInput } from "../../server/render/v2/code-card-input";
 import { ZOOM_SCALE } from "../../src/application/magic-move/focus-zoom";
 import { proofDocument } from "./remotion-v2-proof-document";
+import { useMonospaceCanvas } from "../support/jsdom-gaps";
 
 vi.mock("remotion", async () => {
 	const ReactRuntime = await import("react");
@@ -50,6 +51,8 @@ async function zoomedCard() {
 		loop: false,
 	});
 }
+
+useMonospaceCanvas();
 
 describe("the composition's push-in", () => {
 	it("scales the code inside a clip that stays at the body's own box", async () => {
