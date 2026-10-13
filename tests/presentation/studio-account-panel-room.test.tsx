@@ -9,6 +9,9 @@ import { afterEach, describe, expect, it } from "vitest";
 afterEach(cleanup);
 
 describe("the desktop account panel's room (#272)", () => {
+	// jsdom has no layout: scrollHeight and clientHeight are set by hand below, so this
+	// checks the attribute follows the geometry, not that the veil takes no room of its
+	// own. That is measured in a browser (tests/e2e/hosted/account.spec.ts, "fits what it holds").
 	it("says it scrolls: its foot fades only while there is more to scroll to", () => {
 		render(<StudioAccountControl store={createAuthStore({ kind: "local-offline" })} />);
 		fireEvent.click(screen.getByRole("button", { name: "On this device" }));
