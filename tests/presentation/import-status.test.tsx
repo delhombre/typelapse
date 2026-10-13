@@ -1,4 +1,3 @@
-import { importNextStep } from "@/application/import/import-wording";
 import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
 import { encodeImportIntent } from "@/presentation/utils/import-intent";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -52,6 +51,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	history.replaceState(null, "", "/");
 });
@@ -93,15 +93,44 @@ describe("the import status", () => {
 });
 
 describe("what to do after an import failed", () => {
-	it("sends a bad link to the link or to a pasted diff", () => {
-		for (const kind of ["pr", "commit", "release", "compare", "code-url"] as const) {
-			expect(importNextStep(kind)).toBe("Check the link, or paste the diff instead.");
-		}
+	it("tells a rate limit when to retry and does not blame the link", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				async () =>
+					new Response("{}", {
+						status: 403,
+						headers: {
+							"x-ratelimit-limit": "60",
+							"x-ratelimit-remaining": "0",
+							"x-ratelimit-reset": String(Date.UTC(2026, 9, 13, 4, 0) / 1000),
+						},
+					}),
+			),
+		);
+		render(<ImportIntentBoot />);
+		arriveWith(PR);
+
+		const status = await screen.findByTestId("import-status");
+		await screen.findByText("GitHub's rate limit was hit");
+		expect(status.textContent).toContain("Try again after 04:00 UTC, or paste the diff instead.");
+		expect(status.textContent).not.toContain("Check the link");
 	});
 
-	it("sends a bad paste back to the paste", () => {
-		for (const kind of ["diff", "snippet", "empty"] as const) {
-			expect(importNextStep(kind)).toBe("Check what you pasted, then try again.");
-		}
+	it("says it is offline when the browser is", async () => {
+		vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => {
+				throw new TypeError("Failed to fetch");
+			}),
+		);
+		render(<ImportIntentBoot />);
+		arriveWith(PR);
+
+		const status = await screen.findByTestId("import-status");
+		await screen.findByText("You are offline");
+		expect(status.textContent).toContain("Reconnect and try again, or paste the diff instead.");
+		expect(status.textContent).not.toContain("Check the link");
 	});
 });

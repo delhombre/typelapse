@@ -1,7 +1,7 @@
 import { classifySource } from "@/application/import/classify-source";
 import {
 	importConfirmLabel,
-	importNextStep,
+	importFailureCopy,
 	importReplaceQuestion,
 } from "@/application/import/import-wording";
 import { ConfirmDiscard } from "@/presentation/components/ui/confirm-discard";
@@ -94,7 +94,13 @@ export function ImportIntentBoot() {
 		);
 	}
 
-	const message = error ?? describe(intent, progress);
+	const failure =
+		error === null
+			? null
+			: importFailureCopy(classifySource(intent.source.trim()), error, {
+					online: typeof navigator === "undefined" || navigator.onLine,
+				});
+	const message = failure?.reason ?? describe(intent, progress);
 	// Success is its own announcement: the studio fills with the change. Only the
 	// waiting and the failure need words.
 	const show = loading || error !== null;
@@ -105,7 +111,7 @@ export function ImportIntentBoot() {
 			loading={loading}
 			error={error !== null}
 			message={message}
-			nextStep={importNextStep(classifySource(intent.source.trim()))}
+			nextStep={failure?.nextStep ?? ""}
 			onDismiss={() => {
 				reset();
 				setIntent(null);
