@@ -136,6 +136,18 @@ function startBillingReturn(outcome: BillingReturn): BillingReturnRun {
  */
 export function BillingReturnBoot() {
 	const run = useRef<BillingReturnRun | null>(null);
+	// Back from checkout through the back-forward cache, the studio comes back with
+	// Upgrade still "Opening secure checkout…" (the store keeps it busy while the page
+	// leaves): a restored page frees it. A fresh load starts free anyway.
+	useEffect(() => {
+		const onPageShow = (event: PageTransitionEvent) => {
+			if (event.persisted) {
+				usePlanStore.getState().releaseCheckout();
+			}
+		};
+		window.addEventListener("pageshow", onPageShow);
+		return () => window.removeEventListener("pageshow", onPageShow);
+	}, []);
 	useEffect(() => {
 		if (!run.current) {
 			const outcome = takeBillingReturn();

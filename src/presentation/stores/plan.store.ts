@@ -34,6 +34,11 @@ export interface PlanState {
 	/** Signed out, only the public catalog is read: plan and allowance need an account. */
 	refresh(options?: { readonly signedIn?: boolean }): Promise<void>;
 	upgrade(cadence?: BillingCadence): Promise<void>;
+	/**
+	 * Frees Upgrade after the page left for checkout and came back with its state
+	 * kept (the back-forward cache): nothing is on its way any more, and nothing failed.
+	 */
+	releaseCheckout(): void;
 	manageBilling(): Promise<void>;
 }
 
@@ -173,6 +178,8 @@ export function createPlanStore({
 				});
 			}
 		},
+
+		releaseCheckout: () => set({ isUpgrading: false }),
 
 		manageBilling: async () => {
 			if (deploymentMode === "local") {

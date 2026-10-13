@@ -370,4 +370,19 @@ describe("deployment-aware plan store", () => {
 		expect(store.getState().plan.tier).toBe("pro");
 		expect(store.getState().accountPlanKnown).toBe(true);
 	});
+
+	it("frees the button for a page restored from the back-forward cache, with no error", async () => {
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing(),
+			navigate: vi.fn(),
+		});
+		await store.getState().upgrade();
+		expect(store.getState().isUpgrading).toBe(true);
+
+		store.getState().releaseCheckout();
+
+		expect(store.getState().isUpgrading).toBe(false);
+		expect(store.getState().error).toBeNull();
+	});
 });
