@@ -20,7 +20,7 @@ export function EmptySceneFork({ onCapture }: { readonly onCapture: () => void }
 		<fieldset className="sc-fork">
 			<legend className="sr-only">Your first scene</legend>
 			<p className="sc-fork-lead">
-				Capture the code in the editor as your first scene, or start from something else.
+				Capture this code as your first scene, or start from something else.
 			</p>
 			<button type="button" className="sc-fork-action" data-kind="primary" onClick={onCapture}>
 				<Add size={13} strokeWidth={1.8} aria-hidden="true" />
