@@ -1,5 +1,6 @@
 import { type Page, devices } from "@playwright/test";
-import { expect, oneSceneHash, openStudio, shareHash, test } from "./support/studio";
+import { GREET_DIFF } from "./support/fixtures";
+import { expect, importHash, oneSceneHash, openStudio, shareHash, test } from "./support/studio";
 
 /**
  * Ticket #214: a visit pays for what it uses. Monaco is a megabyte of script
@@ -68,6 +69,26 @@ test.describe("Studio boot weight: desktop", () => {
 		);
 		await expect(page.locator("#studio-editor .view-line").first()).toBeVisible();
 		expect(monaco.requested().some((url) => /monaco-runtime-/.test(url))).toBe(true);
+
+		// A keystroke in the empty studio shows in the frame.
+		await page.locator("#studio-editor .view-line").first().click();
+		await page.keyboard.press("Control+End");
+		await page.keyboard.type("\nconst kept = 1;");
+		await expect(page.getByTestId("preview-frame")).toContainText("kept");
+	});
+
+	test("an import link opens in Preview and never asks for Monaco: a scene is on its way (#270)", async ({
+		page,
+	}) => {
+		const monaco = watchMonaco(page);
+		await openStudio(page, importHash(GREET_DIFF));
+		await expect(page.getByRole("button", { name: "Preview", exact: true })).toHaveAttribute(
+			"aria-pressed",
+			"true",
+		);
+		await expect(page.getByText(/^[1-9]\d* scenes?$/)).toBeVisible();
+		await page.waitForLoadState("networkidle");
+		expect(monaco.requested()).toEqual([]);
 	});
 
 	test("a project with a scene opens in the mode that was kept: Edit mounts the editor at once", async ({
@@ -137,6 +158,19 @@ test.describe("Studio boot weight: phone", () => {
 		expect(monaco.requested().some((url) => /monaco-runtime-/.test(url))).toBe(true);
 	});
 
+	test("an import link opens the sheet at its peek and never asks for Monaco (#270)", async ({
+		page,
+	}) => {
+		const monaco = watchMonaco(page);
+		await openStudio(page, importHash(GREET_DIFF));
+		await expect(page.getByRole("slider", { name: "Sheet height" })).toHaveAttribute(
+			"aria-valuetext",
+			"Collapsed",
+		);
+		await page.waitForLoadState("networkidle");
+		expect(monaco.requested()).toEqual([]);
+	});
+
 	test("the sheet at its peek holds no editor; raising it mounts Monaco", async ({ page }) => {
 		const monaco = watchMonaco(page);
 		await openStudio(page, oneSceneHash());
@@ -172,6 +206,16 @@ test.describe("Studio boot: the files, the tab, the outline", () => {
 		);
 		expect(hinted.some((href) => /\/assets\/studio-route-/.test(href ?? ""))).toBe(true);
 		expect(hinted.some((href) => /monaco-runtime/.test(href ?? ""))).toBe(false);
+	});
+
+	test("the entry bundle carries no share-link notice: the outline reads the link on its own (#270)", async ({
+		page,
+	}) => {
+		const served = await (await page.request.get("/app")).text();
+		const entry = /\/assets\/index-[^"']+\.js/.exec(served)?.[0];
+		if (!entry) throw new Error("no entry chunk in /app");
+		const script = await (await page.request.get(entry)).text();
+		expect(script).not.toContain("That share link could not be read");
 	});
 
 	test("the landing does not fetch the studio until a way into it is reached", async ({ page }) => {

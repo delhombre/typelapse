@@ -1,7 +1,6 @@
 import { CARD_SLOT } from "@/application/layout/scene-stage";
 import "@/presentation/studio/studio-skeleton.css";
 import { useStageFrame } from "@/presentation/studio/use-stage-frame";
-import { decodeShareLink } from "@/presentation/utils/share-link";
 import {
 	openingCodeFolded,
 	readShellPreferences,
@@ -17,15 +16,18 @@ import { type CSSProperties, useState } from "react";
  * the stored draft's, and the remembered mode. A first visit has none and opens
  * in Edit.
  */
-function opensEditing(): boolean {
+function opening(): { readonly editing: boolean; readonly empty: boolean } {
 	let draft: string | null = null;
 	try {
 		draft = window.localStorage.getItem(DRAFT_STORAGE_KEY);
 	} catch {
 		// Blocked storage: the studio is amnesiac too, and opens the default project.
 	}
-	const scenes = scenesBeforeBoot({ shared: decodeShareLink(), draft });
-	return !openingCodeFolded(scenes, readShellPreferences().codeFolded);
+	const scenes = scenesBeforeBoot({ hash: window.location.hash, draft });
+	return {
+		editing: !openingCodeFolded(scenes, readShellPreferences().codeFolded),
+		empty: scenes === 0,
+	};
 }
 
 /**
@@ -47,14 +49,24 @@ function opensEditing(): boolean {
  * "wait" and an outline says "this is what is coming".
  */
 export function StudioSkeleton() {
-	const [editing] = useState(opensEditing);
-	const frame = useStageFrame(editing);
+	const [{ editing, empty }] = useState(opening);
+	const { scenesStop, ...frame } = useStageFrame(editing);
+	// An empty project's phone opens its sheet on the scenes stop: the outline's sheet and
+	// instrument are there too, so neither moves when the studio arrives.
+	const sheet = empty ? scenesStop : null;
 	return (
 		<output
 			className="studio-root sk-root"
 			aria-label="Loading the studio"
 			data-editing={editing ? "" : undefined}
-			style={{ "--sk-card-slot": `${CARD_SLOT}px` } as CSSProperties}
+			style={
+				{
+					"--sk-card-slot": `${CARD_SLOT}px`,
+					...(sheet
+						? { "--sk-sheet": `${sheet.sheet}px`, "--sk-dock-raise": `${sheet.dockRaise}px` }
+						: {}),
+				} as CSSProperties
+			}
 		>
 			<div className="sk-header" aria-hidden="true">
 				<div className="sk-group-start">

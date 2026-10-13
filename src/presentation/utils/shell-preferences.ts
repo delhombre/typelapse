@@ -49,21 +49,51 @@ export function openingCodeFolded(sceneCount: number, remembered: boolean): bool
 }
 
 /**
- * How many scenes a visit will open with, judged before the studio has loaded,
- * from what it will read: the scenes of a `#share=` link, which wins, else those
- * of the stored draft. A first visit has neither, and a draft that cannot be
- * read is set aside by the studio, which then opens the default project: none.
- * The loading outline draws the mode this chooses (#270).
+ * How many scenes the link a visit arrived with says it opens: a `#share=` link
+ * carries its own, and a `#import=` link (the landing hero's paste) brings its
+ * first as the studio reads it, so a scene is on its way (`ARRIVAL` in
+ * `import-intent-boot.tsx`). Null when the link says nothing, a payload that
+ * cannot be read included: the studio then opens what it has.
+ *
+ * Pure and free of the stores, so the loading outline, which is part of the
+ * entry bundle, can ask it (the share link's own reader pulls the notice store).
+ */
+export function scenesFromArrival(hash: string): number | null {
+	if (hash.startsWith("#import=")) {
+		return 1;
+	}
+	if (!hash.startsWith("#share=")) {
+		return null;
+	}
+	try {
+		const json = decodeURIComponent(escape(atob(hash.slice("#share=".length))));
+		const data = JSON.parse(json) as { title?: unknown; code?: unknown; steps?: unknown };
+		if (typeof data.title !== "string" || typeof data.code !== "string") {
+			return null;
+		}
+		return Array.isArray(data.steps) ? data.steps.length : 0;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * How many scenes a visit will open with, judged before the studio has loaded:
+ * the arrival link's (`scenesFromArrival`), else the stored draft's. A first
+ * visit has neither, and a draft that cannot be read is set aside by the studio,
+ * which then opens the default project: none. The loading outline draws the mode
+ * this chooses (#270).
  */
 export function scenesBeforeBoot({
-	shared,
+	hash,
 	draft,
 }: {
-	shared: { steps?: readonly unknown[] } | null;
+	hash: string;
 	draft: string | null;
 }): number {
-	if (shared) {
-		return shared.steps?.length ?? 0;
+	const arrived = scenesFromArrival(hash);
+	if (arrived !== null) {
+		return arrived;
 	}
 	if (draft === null) {
 		return 0;

@@ -83,3 +83,26 @@ export function stageFrameBox(input: StageFrameInput, options: StageFrameOptions
 		height: scaledHeight,
 	};
 }
+
+/**
+ * The phone's scenes stop, where an empty project's sheet opens (#270): how tall
+ * the sheet is, and how far above its peek place the instrument rides it. Null on
+ * a desktop and where the frame leaves no scenes stop. The loading outline draws
+ * both, so they are in place before the studio is.
+ */
+export function phoneScenesStop(
+	input: StageFrameInput,
+): { readonly sheet: number; readonly dockRaise: number } | null {
+	if (input.viewportWidth >= DESKTOP_SCENE_MIN_WIDTH) {
+		return null;
+	}
+	const geometry = phoneSheetGeometry({
+		...input,
+		aspect: DEFAULT_SHAPE.width / DEFAULT_SHAPE.height,
+	});
+	const sheet = geometry.stops.scenes;
+	if (sheet === null) {
+		return null;
+	}
+	return { sheet, dockRaise: geometry.dockLift("scenes") - geometry.dockLift("peek") };
+}

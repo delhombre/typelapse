@@ -40,7 +40,12 @@ function linesOfCode(count: number): string {
 /** Raise the sheet to its scenes stop and capture the live code `count` times. */
 async function captureScenes(page: Page, count: number) {
 	const sheet = page.getByRole("dialog", { name: "Code and scenes" });
-	await page.locator("[data-vaul-handle]").tap();
+	// A fresh studio opens on the scenes stop already (#270): a tap there would raise it past it.
+	const handle = page.locator("[data-vaul-handle]");
+	if ((await handle.getAttribute("aria-valuetext")) === "Collapsed") {
+		await handle.tap();
+	}
+	await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
 	for (let scenes = 1; scenes <= count; scenes++) {
 		// With no scene yet the fork's "Capture this code" is the one Capture control.
 		await sheet
@@ -1701,7 +1706,10 @@ test.describe("Mobile shell: an empty project opens on its path", () => {
 			w.__tops = [];
 			const frame = () => {
 				const top = document.querySelector(".sc-sheet")?.getBoundingClientRect().top;
-				if (top !== undefined) w.__tops.push(Math.round(top * 10) / 10);
+				const dock = document.querySelector(".sc-dock-slot")?.getBoundingClientRect().top;
+				if (top !== undefined && dock !== undefined) {
+					w.__tops.push(Math.round(top * 10) / 10, Math.round(dock * 10) / 10);
+				}
 				requestAnimationFrame(frame);
 			};
 			requestAnimationFrame(frame);
@@ -1709,8 +1717,34 @@ test.describe("Mobile shell: an empty project opens on its path", () => {
 		await openStudio(page);
 		await settled(page.locator(".sc-sheet"));
 		const tops = await page.evaluate(() => (window as unknown as { __tops: number[] }).__tops);
-		expect(tops.length).toBeGreaterThan(5);
-		expect(new Set(tops), "the sheet's top, every frame").toEqual(new Set([tops[0]]));
+		expect(tops.length).toBeGreaterThan(10);
+		// Pairs: the sheet's top, then the instrument slot's, on every frame since the studio
+		// was drawn. Neither moves: the instrument is where it rests from the first frame.
+		const sheets = tops.filter((_, index) => index % 2 === 0);
+		const docks = tops.filter((_, index) => index % 2 === 1);
+		expect(new Set(sheets), "the sheet's top, every frame").toEqual(new Set([sheets[0]]));
+		expect(new Set(docks), "the instrument's top, every frame").toEqual(new Set([docks[0]]));
+	});
+
+	test("an import link opens at the peek: a scene is on its way", async ({ page }) => {
+		await openStudio(page, importHash(GREET_DIFF));
+		await expect(page.getByRole("slider", { name: "Sheet height" })).toHaveAttribute(
+			"aria-valuetext",
+			"Collapsed",
+		);
+	});
+
+	test("the code's title waits for a code: not drawn on the scenes stop of an empty project", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		const section = page.locator("[data-editor-section]");
+		await settled(page.locator(".sc-sheet"));
+		await expect(section).toHaveCSS("opacity", "0");
+		await expect(section).toHaveJSProperty("inert", true);
+		// It keeps its room: raising the sheet shows it where it was.
+		await page.getByRole("slider", { name: "Sheet height" }).press("End");
+		await expect(section).toHaveCSS("opacity", "1");
 	});
 
 	test("a project with a scene still opens at the peek", async ({ page }) => {

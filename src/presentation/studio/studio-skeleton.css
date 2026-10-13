@@ -103,7 +103,7 @@
 
 .sk-dock {
 	position: absolute;
-	bottom: calc(80px + env(safe-area-inset-bottom));
+	bottom: calc(80px + env(safe-area-inset-bottom) + var(--sk-dock-raise, 0px));
 	left: 50%;
 	width: 160px;
 	height: 48px;
@@ -118,7 +118,7 @@
 .sk-timeline {
 	position: absolute;
 	inset: auto 0 0;
-	height: 56px;
+	height: var(--sk-sheet, 56px);
 	border-radius: var(--r-sheet) var(--r-sheet) 0 0;
 }
 

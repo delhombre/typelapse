@@ -4,7 +4,7 @@ import {
 	STAGE_FLOOR_HEIGHT,
 	pictureHeightAt,
 } from "@/application/layout/scene-stage";
-import { type FrameBox, stageFrameBox } from "@/application/layout/stage-frame";
+import { type FrameBox, phoneScenesStop, stageFrameBox } from "@/application/layout/stage-frame";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -159,5 +159,26 @@ describe("the desktop shell's frame with the code open", () => {
 
 	it("changes nothing on a phone, where the sheet and not a card holds the code", () => {
 		expect(editing(390, 844)).toEqual(open(390, 844));
+	});
+});
+
+describe("where an empty project's phone studio opens its sheet and instrument", () => {
+	const input = { viewportWidth: 390, viewportHeight: 844, safeTop: 0, safeBottom: 0 };
+
+	it("is the scenes stop: the sheet that tall, the instrument that much above the peek's place", () => {
+		const stop = phoneScenesStop(input);
+		// The scenes stop is 481 (phone-sheet.test.ts); the peek is 56.
+		expect(stop?.sheet).toBe(481);
+		expect(stop?.dockRaise).toBe(481 - 56);
+	});
+
+	it("is none where the frame leaves no scenes stop, as on a phone on its side", () => {
+		expect(
+			phoneScenesStop({ viewportWidth: 844, viewportHeight: 390, safeTop: 0, safeBottom: 21 }),
+		).toBeNull();
+	});
+
+	it("is none on a desktop, where there is no sheet", () => {
+		expect(phoneScenesStop({ ...input, viewportWidth: 1440, viewportHeight: 900 })).toBeNull();
 	});
 });

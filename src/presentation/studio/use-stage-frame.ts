@@ -1,6 +1,7 @@
 import {
 	type FrameBox,
 	type StageFrameInput,
+	phoneScenesStop,
 	stageFrameBox,
 } from "@/application/layout/stage-frame";
 import { useLayoutEffect, useState } from "react";
@@ -30,7 +31,9 @@ function readWindow(probe: HTMLElement): StageFrameInput {
  * outline's frame with the room, as it would the studio's. `editing` is the
  * desktop layout with the code card open, where an empty project opens (#270).
  */
-export function useStageFrame(editing = false): FrameBox {
+export function useStageFrame(
+	editing = false,
+): FrameBox & { readonly scenesStop: ReturnType<typeof phoneScenesStop> } {
 	const [viewport, setViewport] = useState<StageFrameInput>(() => ({
 		viewportWidth: window.innerWidth,
 		viewportHeight: window.innerHeight,
@@ -66,5 +69,5 @@ export function useStageFrame(editing = false): FrameBox {
 		};
 	}, []);
 
-	return stageFrameBox(viewport, { editing });
+	return { ...stageFrameBox(viewport, { editing }), scenesStop: phoneScenesStop(viewport) };
 }

@@ -3,7 +3,7 @@ import { useIsDesktop } from "@/presentation/hooks/use-media-query";
 import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { StudioSkeleton } from "@/presentation/studio/studio-skeleton";
-import { decodeShareLink } from "@/presentation/utils/share-link";
+import { scenesFromArrival } from "@/presentation/utils/shell-preferences";
 import { type ReactNode, useEffect, useState } from "react";
 import { MobileShell } from "./mobile-shell";
 import { SceneShell } from "./scene-shell";
@@ -16,14 +16,14 @@ interface ResponsiveShellProps {
 }
 
 /**
- * How many scenes the project opens with. A `#share=` link is opened by a
- * control inside the shell (`openShareLinkOnBoot`), which is not mounted yet,
- * so the link's own scenes are counted; otherwise the store holds the project,
- * restored from the draft by now.
+ * How many scenes the project opens with. A link's own (`#share=`) or the one
+ * it is about to bring (`#import=`) is read from the hash the page arrived with:
+ * those are opened by controls that run after this one (or inside the shell,
+ * which is not mounted yet), and the import clears its hash in its own effect.
+ * Otherwise the store holds the project, restored from the draft by now.
  */
-function scenesAtOpening(): number {
-	const shared = decodeShareLink();
-	return shared ? (shared.steps?.length ?? 0) : useSnippetStore.getState().snippet.steps.length;
+function scenesAtOpening(arrivalHash: string): number {
+	return scenesFromArrival(arrivalHash) ?? useSnippetStore.getState().snippet.steps.length;
 }
 
 /**
@@ -50,8 +50,9 @@ export function ResponsiveShell({
 	useKeyboardShortcuts();
 	const isDesktop = useIsDesktop();
 	// How many scenes the project had when the studio finished booting.
+	const [arrivalHash] = useState(() => window.location.hash);
 	const [openedWith, setOpenedWith] = useState<number | null>(null);
-	useEffect(() => setOpenedWith(scenesAtOpening()), []);
+	useEffect(() => setOpenedWith(scenesAtOpening(arrivalHash)), [arrivalHash]);
 
 	// The project history records while the studio is open, on either layout.
 	useEffect(() => studioHistory.start(), []);

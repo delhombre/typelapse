@@ -131,7 +131,7 @@ export function MobileShell({ editor, stepBuilder, preview, sceneCount }: Mobile
 	// the instrument follows it from there (hooks/use-dock-follows-sheet.ts).
 	const [sheetElement, setSheetElement] = useState<HTMLElement | null>(null);
 	const dockRef = useRef<HTMLDivElement>(null);
-	useDockFollowsSheet(sheetElement, dockRef, sheet);
+	useDockFollowsSheet(sheetElement, dockRef, sheet, stop);
 	// An island panel is capped to the room between the frame and the screen's
 	// foot, which the stage and the dock share (application/layout/phone-panel.ts).
 	const stageRef = useRef<HTMLDivElement>(null);
@@ -329,7 +329,14 @@ export function MobileShell({ editor, stepBuilder, preview, sceneCount }: Mobile
 									{/* The layer row is the desktop card's toggle: once a layer is picked
 								    on the stage its inspector covers the code, and the Code chip (or the
 								    selected chip pressed again) is the way back. */}
-									<section className="flex min-h-0 flex-1 flex-col gap-3" data-editor-section>
+									<section
+										className={`flex min-h-0 flex-1 flex-col gap-3 transition-opacity duration-150 ease-out ${editorShown ? "" : "opacity-0"}`}
+										data-editor-section
+										// Where no editor is on its way (an empty project's scenes stop) the
+										// title and the strip are not drawn for a code that is not there: the
+										// section keeps its room, so nothing moves when it arrives.
+										inert={!editorShown}
+									>
 										<span className="sc-eyebrow">{editorKind}</span>
 										<StudioLayerStrip />
 										{/* At the peek the content is below the screen and inert: Monaco is
