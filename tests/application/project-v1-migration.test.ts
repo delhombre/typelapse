@@ -156,3 +156,39 @@ describe("migrateV1ToV2", () => {
 		expect(() => projectV2ToV1(mixed)).toThrow("only code-only V2 projects can roll back");
 	});
 });
+
+describe("scene breaks (#280)", () => {
+	const BROKEN: ProjectDocumentV1 = {
+		...LEGACY,
+		steps: [
+			{ code: "const answer = 1;", duration: 900 },
+			{ code: "const answer = 2;", duration: 900 },
+			{ code: "export class Node {}", duration: 900, sceneBreak: true },
+		],
+	};
+
+	it("stores a break as a crossfade out of the scene before, over the morph's duration", () => {
+		const scenes = migrateV1ToV2(BROKEN).project.scenes;
+		expect(scenes.map((scene) => scene.transitionOut)).toEqual([
+			{ kind: "magic-move", durationMs: 1000 },
+			{ kind: "crossfade", durationMs: 1000 },
+			undefined,
+		]);
+	});
+
+	it("reads the break back onto the step that opens the scene", () => {
+		expect(projectV2ToV1(migrateV1ToV2(BROKEN)).steps).toEqual(BROKEN.steps);
+	});
+
+	it("opens a project file that carries a break", () => {
+		const parsed = parseProjectDocument({ ...BROKEN });
+		expect(parsed.schemaVersion).toBe(1);
+		if (parsed.schemaVersion === 1) {
+			expect(parsed.document.steps.map((step) => step.sceneBreak === true)).toEqual([
+				false,
+				false,
+				true,
+			]);
+		}
+	});
+});

@@ -36,6 +36,8 @@ export interface ProjectStepPayload {
 	focus?: string;
 	/** Caption shown while this step holds. */
 	caption?: string;
+	/** This step opens a new scene: the plan fades into it, no token glides (#280). */
+	sceneBreak?: true;
 }
 
 export interface ProjectPayload {

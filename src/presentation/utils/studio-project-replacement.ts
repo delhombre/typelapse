@@ -216,6 +216,7 @@ function takeStoredSceneIds(document: ProjectDocumentV2): void {
 				duration: step.duration,
 				highlightRanges: [...step.highlightRanges],
 				annotation: step.annotation,
+				sceneBreak: step.sceneBreak,
 			}),
 		);
 	});

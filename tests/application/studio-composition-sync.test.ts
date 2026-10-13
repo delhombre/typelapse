@@ -61,6 +61,27 @@ describe("studio composition synchronization", () => {
 		);
 	});
 
+	it("writes a scene break as a crossfade out of the scene before it on every sync (#280)", () => {
+		const scenes = [
+			{ id: "a", code: "const a = 1;", durationMs: 1_000 },
+			{ id: "b", code: "const b = 2;", durationMs: 1_000 },
+			{ id: "c", code: "export class C {}", durationMs: 1_000, sceneBreak: true as const },
+		];
+		const base = hydrateProjectDocument(createStudioCompositionDocument(snapshot(scenes))).project;
+		const synced = synchronizeStudioComposition(base, snapshot(scenes));
+		expect(synced.scenes.map((scene) => scene.transitionOut)).toEqual([
+			{ kind: "magic-move", durationMs: 650 },
+			{ kind: "crossfade", durationMs: 650 },
+			undefined,
+		]);
+		// Dropping the break turns the crossfade back into a morph.
+		const merged = synchronizeStudioComposition(
+			synced,
+			snapshot(scenes.map(({ sceneBreak: _break, ...scene }) => scene)),
+		);
+		expect(merged.scenes[1]?.transitionOut?.kind).toBe("magic-move");
+	});
+
 	it("creates a code-only V2 document without changing the accepted scene model", () => {
 		const document = createStudioCompositionDocument(snapshot());
 

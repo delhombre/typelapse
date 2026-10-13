@@ -343,6 +343,7 @@ function normalizeV1(input: Record<string, unknown>): ProjectDocumentV1 {
 			duration,
 			...(focus ? { focus } : {}),
 			...(caption ? { caption } : {}),
+			...(raw.sceneBreak === true ? { sceneBreak: true as const } : {}),
 		};
 	});
 

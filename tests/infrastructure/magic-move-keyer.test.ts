@@ -124,4 +124,33 @@ describe("buildMagicMovePlan", () => {
 			}
 		}
 	});
+
+	it("matches no token across a scene break, and still morphs inside a scene (#280)", () => {
+		// Two files that share most of their tokens (`const`, `=`, `;`): across the
+		// break none of them may glide, they leave with the old frame.
+		const other = "const greeting = greet(name);\nconst count = 1;";
+		const plan = buildMagicMovePlan(
+			highlighter,
+			[A, B, other],
+			"typescript",
+			"midnight",
+			BG,
+			true,
+			[],
+			[false, false, true],
+		);
+		expect(plan.transitions).toHaveLength(2);
+		const across = plan.transitions[1];
+		const fromKeys = new Set(across?.from.map((token) => token.key));
+		expect(across?.to.filter((token) => fromKeys.has(token.key))).toEqual([]);
+		const placed = (tokens: { content: string; line: number; col: number }[] = []) =>
+			tokens.map(({ content, line, col }) => ({ content, line, col }));
+		expect(placed(across?.from)).toEqual(placed(plan.frames[1]?.tokens));
+		expect(placed(across?.to)).toEqual(placed(plan.frames[2]?.tokens));
+		// The loop back to A crosses the break too.
+		const loopFrom = new Set(plan.loopTransition?.from.map((token) => token.key));
+		expect(plan.loopTransition?.to.some((token) => loopFrom.has(token.key))).toBe(false);
+		// Inside the scene the morph is the one it always was.
+		expect(plan.transitions[0]).toEqual(referencePlan([A, B], false).transitions[0]);
+	});
 });

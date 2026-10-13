@@ -55,6 +55,12 @@ export interface StepProps {
 	duration?: number;
 	highlightRanges?: HighlightRange[];
 	annotation?: string;
+	/**
+	 * A scene break: this step opens a new page or chapter of an import and
+	 * shares nothing with the step before it, so the plan fades across the pair
+	 * instead of morphing it token by token (#280).
+	 */
+	sceneBreak?: boolean;
 }
 
 /** Field edits accepted by `Step.with`: anything omitted is carried over. */
@@ -72,6 +78,7 @@ export class Step {
 	readonly duration: number;
 	readonly highlightRanges: readonly HighlightRange[];
 	readonly annotation?: string;
+	readonly sceneBreak: boolean;
 
 	private constructor(props: {
 		id: string;
@@ -79,12 +86,14 @@ export class Step {
 		duration: number;
 		highlightRanges: readonly HighlightRange[];
 		annotation?: string;
+		sceneBreak: boolean;
 	}) {
 		this.id = props.id;
 		this.code = props.code;
 		this.duration = props.duration;
 		this.highlightRanges = props.highlightRanges;
 		this.annotation = props.annotation;
+		this.sceneBreak = props.sceneBreak;
 	}
 
 	/**
@@ -132,6 +141,7 @@ export class Step {
 			duration,
 			highlightRanges: props.highlightRanges ?? [],
 			annotation: Step.normalizeAnnotation(props.annotation),
+			sceneBreak: props.sceneBreak ?? false,
 		});
 	}
 
@@ -152,6 +162,7 @@ export class Step {
 			highlightRanges: changes.highlightRanges ?? this.highlightRanges,
 			annotation:
 				"annotation" in changes ? Step.normalizeAnnotation(changes.annotation) : this.annotation,
+			sceneBreak: this.sceneBreak,
 		});
 	}
 }

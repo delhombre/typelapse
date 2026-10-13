@@ -96,6 +96,8 @@ export interface MagicMoveTiming {
 	moveEase?: (t: number) => number;
 	/** Easing applied to the entering fade. Defaults to easeOutCubic. */
 	enterEase?: (t: number) => number;
+	/** Easing applied to the leaving fade (1 - it is the opacity). Defaults to easeOutCubic. */
+	leaveEase?: (t: number) => number;
 	/** Progress by which shared tokens have finished gliding. Default 0.62. */
 	moveDuration?: number;
 	/** Progress by which leaving tokens have fully faded out. Default 0.34. */
@@ -117,11 +119,30 @@ export interface MagicMoveTiming {
 const DEFAULT_TIMING: Required<MagicMoveTiming> = {
 	moveEase: easeInOutQuart,
 	enterEase: easeOutCubic,
+	leaveEase: easeOutCubic,
 	moveDuration: 0.62,
 	leaveEnd: 0.34,
 	enterStart: 0.6,
 	stagger: 0.12,
 };
+
+/**
+ * Two frames that share no token (a scene break, #280) have nothing to clear
+ * before the new tokens arrive, so the two-beat gap would only show an empty
+ * card for a third of the morph. The fades overlap instead: the old frame
+ * fades out linearly until 0.6, the new one fades in from 0.4, and the most
+ * visible token never drops below about 0.245.
+ */
+const BREAK_TIMING: MagicMoveTiming = {
+	leaveEase: linear,
+	leaveEnd: 0.6,
+	enterStart: 0.4,
+	enterEase: easeOutCubic,
+};
+
+function linear(t: number): number {
+	return t;
+}
 
 /**
  * A spotlight over a frame: the set of 1-indexed line numbers to keep bright.
@@ -243,6 +264,8 @@ export function renderStatic(tokens: LaidOutToken[], focus?: FocusSpec): RenderT
  * Two beats: leaving tokens fade out and shared tokens glide to their final
  * positions first; entering tokens then fade in once the space is clear, so
  * nothing crosses mid-transition. At t=0 the result equals `from`, at t=1 `to`.
+ * Two non-empty frames that share no token overlap their fades instead
+ * ({@link BREAK_TIMING}): there is no glide to wait for.
  *
  * `fromFocus`/`toFocus` spotlight the source/target frames: the resulting dim
  * factor multiplies each token's enter/leave/glide opacity (it never replaces
@@ -258,16 +281,20 @@ export function renderTransition(
 	fromFocus?: FocusSpec,
 	toFocus?: FocusSpec,
 ): RenderToken[] {
-	const { moveEase, enterEase, moveDuration, leaveEnd, enterStart, stagger } = {
-		...DEFAULT_TIMING,
-		...timing,
-	};
 	const progress = clamp01(t);
 	const fromByKey = new Map(from.map((token) => [token.key, token]));
 	const toByKey = new Map(to.map((token) => [token.key, token]));
 	const result: RenderToken[] = [];
 
 	const movedCount = from.reduce((n, token) => (toByKey.has(token.key) ? n + 1 : n), 0);
+	// Nothing shared and something on both sides: overlap the fades (an explicit
+	// timing from the caller still wins).
+	const unrelated = movedCount === 0 && from.length > 0 && to.length > 0;
+	const { moveEase, enterEase, leaveEase, moveDuration, leaveEnd, enterStart, stagger } = {
+		...DEFAULT_TIMING,
+		...(unrelated ? BREAK_TIMING : {}),
+		...timing,
+	};
 	let movedIndex = 0;
 
 	// Moved (shared) and leaving tokens.
@@ -293,7 +320,7 @@ export function renderTransition(
 		} else {
 			// Guard leaveEnd against 0 (like the move/enter windows) so a custom
 			// timing can't produce 0/0 = NaN opacity.
-			const fade = 1 - easeOutCubic(clamp01(progress / Math.max(0.0001, leaveEnd)));
+			const fade = 1 - leaveEase(clamp01(progress / Math.max(0.0001, leaveEnd)));
 			result.push({ ...token, opacity: fade * dimFactor(token.line, fromFocus) });
 		}
 	}

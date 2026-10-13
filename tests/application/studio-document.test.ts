@@ -261,3 +261,26 @@ describe("studioProjectDocument", () => {
 		expect(reopened.spine.steps[0]?.caption).toBe("Launch");
 	});
 });
+
+describe("a scene break through the studio's saved file (#280)", () => {
+	it("writes the break as a crossfade and opens it again on the step that opens the scene", () => {
+		const live = snapshot([
+			{ id: "test-a", code: "it('a', () => {});", durationMs: 1200 },
+			{ id: "test-b", code: "it('b', () => {});", durationMs: 1200 },
+			{ id: "source", code: "export class Node {}", durationMs: 1200, sceneBreak: true },
+		]);
+		const composed = createStudioCompositionDocument(live);
+		expect(composed.project.scenes.map((scene) => scene.transitionOut?.kind)).toEqual([
+			"magic-move",
+			"crossfade",
+			undefined,
+		]);
+		const saved = studioProjectDocument(composed, live, "export class Node {}");
+		const reopened = openStudioDocument(JSON.parse(JSON.stringify(saved)));
+		expect(reopened.spine.steps.map((step) => step.sceneBreak === true)).toEqual([
+			false,
+			false,
+			true,
+		]);
+	});
+});

@@ -20,6 +20,8 @@ export function buildServerMagicMovePlan(
 	loop = false,
 	/** Each step's 1-indexed focused lines: where a long file's window goes. */
 	focus: readonly (Iterable<number> | undefined)[] = [],
+	/** Whether each step opens a new scene: no token is matched across it (#280). */
+	breaks: readonly boolean[] = [],
 ): MagicMovePlan {
 	const options = { lang, theme: shikiTheme } as Parameters<typeof highlighter.codeToTokens>[1];
 	// Keep unchanged code stable across a morph; only edited tokens enter/leave.
@@ -38,5 +40,6 @@ export function buildServerMagicMovePlan(
 		themeBackground,
 		loop,
 		focus,
+		breaks,
 	);
 }

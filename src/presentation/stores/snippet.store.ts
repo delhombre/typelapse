@@ -456,6 +456,9 @@ function contentOf(state: SnippetState): ProjectContent {
 			if (step.annotation) {
 				serialized.caption = step.annotation;
 			}
+			if (step.sceneBreak) {
+				serialized.sceneBreak = true;
+			}
 			return serialized;
 		}),
 	};
@@ -502,7 +505,12 @@ function buildDiffSnippet(
 		// length, so it is shortened here rather than allowed to fail the import.
 		const annotation = captionFromGeneratedLabel(snapshot.label);
 		rebuilt = rebuilt.addStep(
-			Step.create({ code: snapshot.code, duration: DIFF_STEP_DURATION, annotation }),
+			Step.create({
+				code: snapshot.code,
+				duration: DIFF_STEP_DURATION,
+				annotation,
+				sceneBreak: snapshot.sceneBreak === true,
+			}),
 		);
 	}
 	return rebuilt;
@@ -672,6 +680,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 			true,
 			// A long file's window follows each step's focus band.
 			snippet.steps.map((step) => focusLineSet(step.highlightRanges, frameLineCount(step.code))),
+			// A page or a chapter of an import fades in rather than morphing (#280).
+			snippet.steps.map((step) => step.sceneBreak),
 		);
 		const maxIndex = Math.max(0, plan.frames.length - 1);
 		set({
@@ -964,6 +974,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 					duration: step.duration,
 					highlightRanges,
 					annotation: step.caption,
+					sceneBreak: step.sceneBreak === true,
 				}),
 			);
 		}

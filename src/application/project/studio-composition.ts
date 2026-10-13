@@ -17,6 +17,7 @@ import type {
 	ProjectTempoMs,
 	ProjectWindowChrome,
 } from "./project-payload";
+import { codeSceneTransition } from "./scene-break";
 
 export const STUDIO_LIVE_SCENE_ID = "studio-live-scene";
 
@@ -26,6 +27,8 @@ export interface StudioCompositionSceneSnapshot {
 	readonly durationMs: number;
 	readonly caption?: string;
 	readonly focus?: string;
+	/** The scene opens on a scene break: the one before it fades out (#280). */
+	readonly sceneBreak?: true;
 }
 
 export interface StudioCompositionSnapshot {
@@ -278,13 +281,14 @@ function starterTitle(sceneId: string): TextBlock {
 
 function transitionFor(
 	index: number,
-	sceneCount: number,
+	scenes: readonly StudioCompositionSceneSnapshot[],
 	transitionMs: number,
-): { readonly kind: "magic-move"; readonly durationMs: number } | undefined {
-	if (index >= sceneCount - 1) {
+): ReturnType<typeof codeSceneTransition> | undefined {
+	const next = scenes[index + 1];
+	if (!next) {
 		return undefined;
 	}
-	return { kind: "magic-move", durationMs: transitionMs };
+	return codeSceneTransition(next.sceneBreak === true, transitionMs);
 }
 
 /**
@@ -312,7 +316,7 @@ export function synchronizeStudioComposition(
 				? project.scenes[0]
 				: undefined;
 		const source = exact ?? previous ?? liveFallback;
-		const transitionOut = transitionFor(index, snapshot.scenes.length, snapshot.transitionMs);
+		const transitionOut = transitionFor(index, snapshot.scenes, snapshot.transitionMs);
 		scenes.push(
 			Scene.create({
 				id: target.id,
@@ -443,10 +447,10 @@ export function createStudioCompositionDocument(
 				...(scene.caption ? { caption: scene.caption } : {}),
 				...(index < snapshot.scenes.length - 1
 					? {
-							transitionOut: {
-								kind: "magic-move" as const,
-								durationMs: snapshot.transitionMs,
-							},
+							transitionOut: codeSceneTransition(
+								snapshot.scenes[index + 1]?.sceneBreak === true,
+								snapshot.transitionMs,
+							),
 						}
 					: {}),
 				// A blank scene starts with no block at all.

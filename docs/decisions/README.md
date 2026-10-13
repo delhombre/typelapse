@@ -91,3 +91,7 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-14 [route-head](2026-10-14-route-head.md): one table for each public
   page's title, description, canonical and share card; the static host writes it
   into the served `index.html`, staging keeps the production canonical.
+- 2026-10-14 [scene-break](2026-10-14-scene-break.md): a page or a new
+  chapter of an import is a scene break; the plan walk matches no token across
+  it, the two fades overlap so the card is never empty; stored as a V2
+  crossfade.

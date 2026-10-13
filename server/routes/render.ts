@@ -264,6 +264,7 @@ renderRoute.post(
 				theme.background,
 				loop,
 				clampedSteps.map((s) => s.focus),
+				clampedSteps.map((s) => s.sceneBreak === true),
 			);
 			const plan =
 				typingIndex === 0

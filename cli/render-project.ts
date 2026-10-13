@@ -49,6 +49,7 @@ export function renderRequestBody(payload: ProjectPayload, settings: RenderSetti
 				duration: step.duration,
 				focus: focus.length > 0 ? focus : undefined,
 				caption: step.caption || undefined,
+				sceneBreak: step.sceneBreak || undefined,
 			};
 		}),
 		background: payload.background,

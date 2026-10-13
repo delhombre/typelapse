@@ -13,6 +13,8 @@ export interface StepData {
 	focus?: number[];
 	/** Caption shown beneath the frame during this step. Missing = none. */
 	caption?: string;
+	/** This step opens a new scene: no token glides into it (#280). Missing = morph. */
+	sceneBreak?: boolean;
 }
 
 export interface ThemeData {

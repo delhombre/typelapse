@@ -7,6 +7,7 @@ import type {
 	CodeBlockPayload,
 	ProjectDocumentV2,
 } from "../../../src/application/project/project-document";
+import { sceneBreaks } from "../../../src/application/project/scene-break";
 import {
 	PRIMARY_CODE_CONTINUITY_KEY,
 	hasCodeCard,
@@ -124,6 +125,8 @@ export async function buildCodeCardInput(input: {
 		theme.background,
 		input.loop,
 		steps.map((step) => step.focus),
+		// A crossfade out of the scene before is a scene break: no token glides (#280).
+		sceneBreaks(project.scenes),
 	);
 
 	return {

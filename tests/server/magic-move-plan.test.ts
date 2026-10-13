@@ -1,0 +1,71 @@
+// @vitest-environment node
+/**
+ * The server's keyer: the same plan walk on the server's highlighter. A scene
+ * break (#280) matches no token across the pair, exactly as the studio's keyer
+ * does, so the Remotion video fades where the preview and the painter fade.
+ */
+
+import { buildMagicMovePlan } from "@/infrastructure/highlighting/magic-move-keyer";
+import { type Highlighter, createHighlighter } from "shiki";
+import { beforeAll, describe, expect, it } from "vitest";
+import { buildServerMagicMovePlan } from "../../server/remotion/magic-move-plan";
+
+const BG = "#0d1117";
+const PAGE_ONE = "describe('node', () => {\n  it('matches', () => {\n    expect(1).toBe(1);\n  });\n});";
+const PAGE_ONE_AFTER = `${PAGE_ONE}\nconst extra = 2;`;
+const PAGE_TWO = "export class Node<T> {\n  #children: Record<string, Node<T>> = {};\n}";
+
+let highlighter: Highlighter;
+beforeAll(async () => {
+	highlighter = await createHighlighter({ themes: ["github-dark"], langs: ["typescript"] });
+});
+
+describe("buildServerMagicMovePlan", () => {
+	it("matches no token across a scene break, every old token leaving and every new one entering", () => {
+		const plan = buildServerMagicMovePlan(
+			highlighter,
+			[PAGE_ONE, PAGE_ONE_AFTER, PAGE_TWO],
+			"typescript",
+			"github-dark",
+			BG,
+			false,
+			[],
+			[false, false, true],
+		);
+		const across = plan.transitions[1];
+		const fromKeys = new Set(across?.from.map((token) => token.key));
+		expect(across?.to.filter((token) => fromKeys.has(token.key))).toEqual([]);
+		expect(across?.from).toHaveLength(plan.frames[1]?.tokens.length ?? -1);
+		expect(across?.to).toHaveLength(plan.frames[2]?.tokens.length ?? -1);
+		// Inside the scene, shared tokens still keep one key.
+		const inside = plan.transitions[0];
+		const insideFrom = new Set(inside?.from.map((token) => token.key));
+		expect(inside?.to.filter((token) => insideFrom.has(token.key)).length).toBeGreaterThan(0);
+	});
+
+	it("builds the plan the studio's keyer builds, break included", () => {
+		const args = [[PAGE_ONE, PAGE_ONE_AFTER, PAGE_TWO], "typescript"] as const;
+		const server = buildServerMagicMovePlan(
+			highlighter,
+			[...args[0]],
+			args[1],
+			"github-dark",
+			BG,
+			true,
+			[],
+			[false, false, true],
+		);
+		const client = buildMagicMovePlan(
+			highlighter,
+			[...args[0]],
+			args[1],
+			// The studio's theme name for the same Shiki theme.
+			"midnight",
+			BG,
+			true,
+			[],
+			[false, false, true],
+		);
+		expect(server).toEqual(client);
+	});
+});
