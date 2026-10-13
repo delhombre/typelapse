@@ -18,20 +18,15 @@
 	--mm-deep: var(--camera-ink);
 	--mm-deep-ink: var(--camera-paper);
 	--mm-primary: var(--color-primary);
-	/* Red that reads at 11px on both papers: 5.2:1 on white. */
-	--mm-danger: #c53a3a;
+	/* The studio's one error ink, so a theme flip and the measured contrast
+	   (4.9:1 on the paper, 7.9:1 on the dark one) are the camera's alone. */
+	--mm-danger: var(--camera-danger);
 }
 
 .sc-account-island {
 	display: flex;
 	align-items: center;
 	padding-inline: 3px;
-}
-
-.dark .sc-account-island,
-.dark .mm-account-section {
-	/* The light theme's red is 3:1 on this surface; this one is 6:1. */
-	--mm-danger: #f28b82;
 }
 
 /* Same 32px round target as the utility glyphs beside it. */

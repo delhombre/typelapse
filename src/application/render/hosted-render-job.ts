@@ -101,8 +101,8 @@ const RENDER_FORMATS = new Set<HostedRenderFormat>(["mp4", "webm"]);
 
 /** What a size past the plan's rectangle is told, by the job queue and by anyone who asks first. */
 export function resolutionLimitMessage(plan: Plan, width: number, height: number): string {
-	const { maxLongEdge, maxShortEdge } = plan.capabilities;
-	return `${plan.label} renders up to ${maxLongEdge}×${maxShortEdge} in either orientation, and ${width}×${height} is larger`;
+	const { hostedMaxLongEdge, hostedMaxShortEdge } = plan.capabilities;
+	return `${plan.label} renders up to ${hostedMaxLongEdge}×${hostedMaxShortEdge} in either orientation, and ${width}×${height} is larger`;
 }
 
 export function parseHostedRenderOptions(input: unknown): HostedRenderOptions {
@@ -164,7 +164,7 @@ export function createHostedRenderJobService(input: {
 			// The size rule admits any even size up to 3840 on each axis; the plan sells a
 			// rectangle, so 3840x3840 is twice the pixels Creator's 4K pays for.
 			const { width, height } = request.renderOptions;
-			if (!request.plan.allowsResolution(width, height)) {
+			if (!request.plan.allowsHostedResolution(width, height)) {
 				return {
 					outcome: "resolution-limit",
 					message: resolutionLimitMessage(request.plan, width, height),

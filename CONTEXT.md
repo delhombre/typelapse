@@ -203,7 +203,13 @@ or it does not land.
   (ten in ten minutes, the client read from `TRUSTED_CLIENT_IP_HEADER` when set) and
   per instance (two hundred an hour).
 - **Plan**: `free` or `creator` (paid). Resolved server-side from the Polar
-  subscription projection; never from a header or a body field.
+  subscription projection; never from a header or a body field. A plan carries
+  hosted entitlements only (hosted renders and their size rectangle, cloud
+  projects, media), never anything about an export on the user's machine.
+- **Device export**: an export rendered on the user's own machine (the browser
+  encoder, or their local Remotion server). Plan-independent: no plan clamps its
+  size, rate or length, and Typelapse never stamps a watermark on it. The
+  **watermark** is the user's own text, or nothing.
 - **Billing environment**: `sandbox` or `production`, read by the server from
   `POLAR_ENVIRONMENT` and published as `environment` on `/api/billing/catalog`.
   The client never infers it from the build. Only `sandbox` draws the **test mode
@@ -239,7 +245,15 @@ or it does not land.
   spent for the month; renders in flight are counted from the jobs, which a
   delete never takes while they run.
 - **Allowance**: the one sentence the server writes about an account's
-  ceilings and usage; the account island shows it verbatim.
+  ceilings and usage, and the numbers it was built from (the ceilings, the
+  usage, the instant the month's minutes reset). The plan card draws a bar and
+  a count per quota from the numbers, warns at 90%, and keeps the sentence as
+  the screen reader's summary; the client adds no figure of a plan.
+- **Checkout return sheet**: the dialog `?billing=success` raises in place of
+  a toast. It confirms (the provider's webhook has not landed, so the plan is
+  still Free), says what changed once the server reports a paid plan, or says
+  only that the payment arrived when twenty seconds pass. A cancelled checkout
+  stays a toast.
 - **Grace period**: how long past hosted outputs stay downloadable once the
   plan no longer covers hosted rendering (30 days from the later of the render
   and the downgrade).

@@ -4,8 +4,7 @@ import { authenticateAccount } from "../../src/application/auth/authenticate-acc
 import { billingNotice } from "../../src/application/billing/billing-notice";
 import {
 	type AccountUsagePort,
-	allowanceSentence,
-	hostedTierName,
+	planAllowance,
 	renderPeriodStart,
 } from "../../src/application/billing/plan-allowance";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
@@ -80,31 +79,22 @@ export function createBillingRoute({
 		if (!subscriptions || !usage) {
 			return c.json({ error: "Hosted allowance is not configured" }, 503);
 		}
+		// One reading of the clock for the whole answer: the usage's period and the reset
+		// date must be the same month even when the request crosses a UTC midnight.
+		const at = now();
 		const accountId = await authenticateAccount({
 			credential: c.req.header("cookie") ?? null,
 			auth,
-			now: now(),
+			now: at,
 		});
 		if (!accountId) {
 			return c.json({ error: "Sign in to see your allowance" }, 401);
 		}
 		const [plan, current] = await Promise.all([
 			subscriptions.planFor(accountId),
-			usage.usageFor(accountId, renderPeriodStart(now())),
+			usage.usageFor(accountId, renderPeriodStart(at)),
 		]);
-		return c.json({
-			allowance: {
-				plan: hostedTierName(plan),
-				sentence: allowanceSentence(plan, current),
-				limits: {
-					cloudProjects: plan.limitFor("cloudProjects"),
-					mediaBytes: plan.limitFor("mediaBytes"),
-					hostedRenderTime: plan.limitFor("hostedRenderTime"),
-					concurrentRenders: plan.limitFor("concurrentRenders"),
-				},
-				usage: current,
-			},
-		});
+		return c.json({ allowance: planAllowance(plan, current, at) });
 	});
 
 	route.get("/catalog", async (c) => {

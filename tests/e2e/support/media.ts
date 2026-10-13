@@ -86,3 +86,48 @@ export function meanAbsoluteError(a: Buffer, b: Buffer): number {
 	for (let i = 0; i < a.length; i++) total += Math.abs((a[i] ?? 0) - (b[i] ?? 0));
 	return total / a.length;
 }
+
+/**
+ * How much fine detail a rectangle of one frame holds: the mean absolute step
+ * between neighbouring pixels along a row, in luma, 0 (flat) to 255. `region` is
+ * in pixels of the full-resolution frame. A smooth backdrop, however much it
+ * brightens across the frame, steps by a fraction of a level; a line of small
+ * text steps by several.
+ */
+export function edgeEnergy(
+	path: string,
+	region: { x: number; y: number; width: number; height: number },
+	atSeconds = 0,
+): number {
+	const { x, y, width, height } = region;
+	const raw = execFileSync(
+		"ffmpeg",
+		[
+			"-v",
+			"error",
+			"-ss",
+			atSeconds.toFixed(3),
+			"-i",
+			path,
+			"-frames:v",
+			"1",
+			"-vf",
+			`crop=${width}:${height}:${x}:${y},format=gray`,
+			"-f",
+			"rawvideo",
+			"pipe:1",
+		],
+		{ maxBuffer: 64 * 1024 * 1024 },
+	);
+	if (raw.length !== width * height) throw new Error(`${path}: expected ${width}x${height} luma`);
+	let total = 0;
+	let steps = 0;
+	for (let row = 0; row < height; row++) {
+		for (let column = 1; column < width; column++) {
+			const at = row * width + column;
+			total += Math.abs((raw[at] ?? 0) - (raw[at - 1] ?? 0));
+			steps++;
+		}
+	}
+	return total / steps;
+}

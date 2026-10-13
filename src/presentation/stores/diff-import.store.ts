@@ -20,12 +20,18 @@ interface DiffImportHandoff {
 	 * An empty string hands over no text: the dialog just opens, as it is.
 	 */
 	pending: string | null;
-	handOff: (text: string) => void;
+	/**
+	 * The control that handed over, kept until the dialog picks the hand-off up:
+	 * the dialog gives focus back to it when it closes.
+	 */
+	opener: HTMLElement | null;
+	handOff: (text: string, opener?: HTMLElement | null) => void;
 	take: () => void;
 }
 
 export const useDiffImportStore = create<DiffImportHandoff>((set) => ({
 	pending: null,
-	handOff: (text) => set({ pending: text }),
-	take: () => set({ pending: null }),
+	opener: null,
+	handOff: (text, opener = null) => set({ pending: text, opener }),
+	take: () => set({ pending: null, opener: null }),
 }));

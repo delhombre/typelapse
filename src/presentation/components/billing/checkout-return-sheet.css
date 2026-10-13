@@ -1,0 +1,135 @@
+/* The sheet after a successful checkout. It borrows the studio's bottom sheet and
+   only sets what that sheet does not know: a width for three short lines, no
+   minimum height (the Showcase's 420px would leave a blank sheet), and one filled
+   shape, the primary (DECISIONS D2). */
+.studio-sheet-panel.checkout-return-sheet {
+	--sheet-inline: 24px;
+	--sheet-width: 480px;
+	min-height: 0;
+}
+
+.checkout-return-sheet .studio-sheet-header {
+	min-height: 0;
+	align-items: center;
+	border-bottom: 0;
+	padding-bottom: 4px;
+}
+
+.checkout-return-body {
+	display: grid;
+	gap: 14px;
+	padding: 4px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
+		max(24px, env(safe-area-inset-bottom, 0px))
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
+	color: var(--camera-ink);
+	font-size: var(--sc-text-lg);
+	line-height: 1.5;
+}
+
+.checkout-return-body p {
+	margin: 0;
+	text-wrap: pretty;
+}
+
+.checkout-return-changes {
+	display: grid;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.checkout-return-changes li {
+	position: relative;
+	padding-left: 16px;
+	text-wrap: pretty;
+}
+
+/* A mark in place of a bullet glyph, drawn so it lines up with the first line. */
+.checkout-return-changes li::before {
+	content: "";
+	position: absolute;
+	top: 0.6em;
+	left: 0;
+	width: 6px;
+	height: 6px;
+	border-radius: var(--r-pill);
+	background: var(--camera-muted);
+}
+
+.checkout-return-body .test-mode-line {
+	margin: 0;
+}
+
+.checkout-return-wait {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	color: var(--camera-muted);
+}
+
+/* A fade, not a spinner: a progress indicator for the wait, capped by the 20 s
+   window the poll runs for. Reduced motion keeps the dot still, which still reads
+   as "waiting" beside the words. */
+.checkout-return-pulse {
+	width: 8px;
+	height: 8px;
+	flex: none;
+	border-radius: var(--r-pill);
+	background: var(--camera-muted);
+	animation: checkout-return-pulse 1.2s var(--ease-in-out) infinite alternate;
+}
+
+@keyframes checkout-return-pulse {
+	from {
+		opacity: 0.35;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.checkout-return-pulse {
+		animation: none;
+	}
+}
+
+.checkout-return-action {
+	height: 44px;
+	padding: 0 18px;
+	border: 0;
+	border-radius: var(--r-control);
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	transition: background-color 150ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+@media (min-width: 721px) {
+	.checkout-return-action {
+		justify-self: start;
+	}
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.checkout-return-action:hover {
+		background: var(--color-primary-hover);
+	}
+}
+
+.checkout-return-action:active {
+	transform: scale(0.97);
+}
+
+.checkout-return-action:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.checkout-return-action:active {
+		transform: none;
+	}
+}
