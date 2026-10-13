@@ -49,8 +49,8 @@ function raisesKeyboard(element: HTMLElement): boolean {
 /**
  * The account sheet's sections as tabs (WAI-ARIA tabs, automatic activation): the
  * arrows, Home and End walk the tabs and choose as they go, one tab is in the tab
- * order. A panel is drawn the first time its tab is chosen (so the keys are asked
- * for only once someone looks at them) and stays, hidden, after: a half-typed key
+ * order. A panel's section is drawn the first time its tab is chosen (so the keys
+ * are asked for only once someone looks at them) and stays, hidden, after: a half-typed key
  * name or a question about a project survives a look at another tab. Each panel is
  * its own scroller and is given back its scroll, and the control that had focus in
  * it when a tab is pressed again (or when Tab leaves the tab for its panel).
@@ -168,33 +168,33 @@ export function AccountTabs<Id extends string>({
 					);
 				})}
 			</div>
-			{tabs.map((item) =>
-				visited.has(item.id) ? (
-					<div
-						key={item.id}
-						ref={(element) => {
-							if (element) panelRefs.current.set(item.id, element);
-							else panelRefs.current.delete(item.id);
-						}}
-						role="tabpanel"
-						id={panelId(item.id)}
-						aria-labelledby={tabId(item.id)}
-						hidden={item.id !== active}
-						tabIndex={-1}
-						className="account-panel"
-						onScroll={(event) => {
-							if (item.id === active) remembered(item.id).scroll = event.currentTarget.scrollTop;
-						}}
-						onFocus={(event) => {
-							if (event.target !== event.currentTarget) {
-								remembered(item.id).focus = event.target as HTMLElement;
-							}
-						}}
-					>
-						{item.content}
-					</div>
-				) : null,
-			)}
+			{/* Every panel is in the page, so each tab's aria-controls names one; a panel holds
+			    its section only from the first time its tab is chosen. */}
+			{tabs.map((item) => (
+				<div
+					key={item.id}
+					ref={(element) => {
+						if (element) panelRefs.current.set(item.id, element);
+						else panelRefs.current.delete(item.id);
+					}}
+					role="tabpanel"
+					id={panelId(item.id)}
+					aria-labelledby={tabId(item.id)}
+					hidden={item.id !== active}
+					tabIndex={-1}
+					className="account-panel"
+					onScroll={(event) => {
+						if (item.id === active) remembered(item.id).scroll = event.currentTarget.scrollTop;
+					}}
+					onFocus={(event) => {
+						if (event.target !== event.currentTarget) {
+							remembered(item.id).focus = event.target as HTMLElement;
+						}
+					}}
+				>
+					{visited.has(item.id) ? item.content : null}
+				</div>
+			))}
 		</>
 	);
 }

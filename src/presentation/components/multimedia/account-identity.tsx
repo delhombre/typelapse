@@ -13,11 +13,9 @@ export function initials(name: string): string {
 export function AccountIdentity({
 	name,
 	email,
-	headingId,
 }: {
 	readonly name: string;
 	readonly email: string;
-	readonly headingId?: string;
 }) {
 	return (
 		<div className="mm-account-identity">
@@ -25,7 +23,7 @@ export function AccountIdentity({
 				{initials(name)}
 			</span>
 			<div>
-				<h2 id={headingId}>{name}</h2>
+				<h2>{name}</h2>
 				<p>{email}</p>
 			</div>
 		</div>

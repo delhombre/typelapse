@@ -47,7 +47,7 @@ describe("AuthForm in the account panel", () => {
 		render(<StudioAccountControl store={store} />);
 		await waitFor(() => expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy());
 		fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-		return { store, panel: screen.getByRole("dialog", { name: "Typelapse account" }) };
+		return { store, panel: screen.getByRole("dialog", { name: "Sign in to Typelapse" }) };
 	}
 
 	function askForCode(panel: HTMLElement, email = "ada@example.com") {
@@ -321,7 +321,7 @@ describe("AuthForm in the account panel", () => {
 		expect(trigger.getAttribute("aria-expanded")).toBe("false");
 		fireEvent.click(trigger);
 
-		const reopened = screen.getAllByRole("dialog", { name: "Typelapse account" }).at(-1);
+		const reopened = screen.getAllByRole("dialog", { name: "Sign in to Typelapse" }).at(-1);
 		expect(within(reopened as HTMLElement).getByRole("textbox", { name: "Code" })).toBeTruthy();
 	});
 

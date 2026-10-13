@@ -190,6 +190,42 @@ describe("the account sheet", () => {
 	});
 });
 
+describe("the sign-in panel beside the sheet", () => {
+	it("is named for signing in, and leaves the sheet the only account dialog once signed in", async () => {
+		let session: ClientSession | null = null;
+		const store = createAuthStore(
+			{
+				kind: "hosted",
+				port: hostedPort({
+					getSession: async () => session,
+					signInWithCode: async () => {
+						session = SESSION;
+					},
+				}),
+			},
+			{ now: () => NOW },
+		);
+		render(<StudioAccountControl store={store} />);
+		fireEvent.click(await screen.findByRole("button", { name: "Sign in" }));
+		const panel = screen.getByRole("dialog", { name: "Sign in to Typelapse" });
+		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
+			target: { value: "ada@example.com" },
+		});
+		fireEvent.click(within(panel).getByRole("button", { name: "Email me a code" }));
+		fireEvent.change(await within(panel).findByRole("textbox", { name: "Code" }), {
+			target: { value: "042917" },
+		});
+
+		const trigger = await screen.findByRole("button", { name: "Account for Ada Lovelace" });
+		// Leaving, the panel keeps what it showed instead of collapsing to nothing.
+		const leaving = screen.queryByRole("dialog", { name: "Sign in to Typelapse" });
+		if (leaving) expect(within(leaving).getByText("Check your email.")).toBeTruthy();
+		fireEvent.click(trigger);
+
+		expect(screen.getAllByRole("dialog", { name: "Typelapse account" })).toHaveLength(1);
+	});
+});
+
 describe("openingSection", () => {
 	it("is API keys for a key to copy, then Plan for a billing notice, else Projects", () => {
 		expect(openingSection({ keyWaiting: true, billingNotice: true })).toBe("keys");

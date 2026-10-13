@@ -117,7 +117,7 @@ test.describe("Hosted account: a refused code leaves the form where it was", () 
 		await openStudio(page);
 		await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
 		await page.getByRole("button", { name: "Sign in", exact: true }).click();
-		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 
 		// The panel holds a form, so it is the opaque studio surface (DECISIONS D5), like a menu.
 		expect(
@@ -167,7 +167,7 @@ test.describe("Hosted account: the sign-in form follows the forms checklist", ()
 		await openStudio(page);
 		await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
 		await page.getByRole("button", { name: "Sign in", exact: true }).click();
-		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 		const email = panel.getByRole("textbox", { name: "Email" });
 
 		await expect(email).toBeFocused();
@@ -201,7 +201,7 @@ test.describe("Hosted account: the desktop panel fits what it holds (#272)", () 
 	}) => {
 		await openStudio(page);
 		await page.getByRole("button", { name: "Sign in", exact: true }).click();
-		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 		await expect(panel.getByRole("button", { name: "Email me a code" })).toBeVisible();
 
 		// The foot's veil takes no room of its own: a panel that fits has scrollHeight equal

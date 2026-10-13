@@ -125,7 +125,9 @@ test.describe("Billing against the fake Polar", () => {
 		await polarSays("past_due");
 		await postSignedEvent({ ...subscription, type: "subscription.past_due" });
 		await openStudio(page);
-		panel = await openAccountPanel(page, account, "Plan");
+		panel = await openAccountPanel(page, account);
+		// Billing not in order: the sheet opens on Plan, so the notice is never behind a tab.
+		await expect(panel.getByRole("tab", { name: "Plan" })).toHaveAttribute("aria-selected", "true");
 		await expect(panel.getByRole("status")).toHaveText(PAST_DUE);
 		await expect(panel.getByRole("button", { name: "Manage billing" })).toBeVisible();
 		await expect(panel.getByRole("button", { name: "Upgrade to Creator" })).toHaveCount(0);
@@ -135,7 +137,9 @@ test.describe("Billing against the fake Polar", () => {
 		await polarSays("canceled");
 		await postSignedEvent({ ...subscription, type: "subscription.revoked" });
 		await openStudio(page);
-		panel = await openAccountPanel(page, account, "Plan");
+		panel = await openAccountPanel(page, account);
+		// Billing not in order: the sheet opens on Plan, so the notice is never behind a tab.
+		await expect(panel.getByRole("tab", { name: "Plan" })).toHaveAttribute("aria-selected", "true");
 		await expect(panel.getByRole("status")).toHaveText(FREE_ENDED);
 		await expect(panel.getByRole("button", { name: "Upgrade to Creator" })).toBeVisible();
 		await panel.screenshot({ path: "test-results/e2e-hosted/billing-ended.png" });
@@ -420,7 +424,8 @@ test.describe("Billing against the Polar sandbox", () => {
 			outcome: "processed",
 		});
 		await openStudio(page);
-		const ended = await openAccountPanel(page, account, "Plan");
+		const ended = await openAccountPanel(page, account);
+		await expect(ended.getByRole("tab", { name: "Plan" })).toHaveAttribute("aria-selected", "true");
 		await expect(ended.getByRole("status")).toHaveText(FREE_ENDED);
 		await expect(ended.getByRole("button", { name: "Upgrade to Creator" })).toBeVisible();
 	});

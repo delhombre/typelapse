@@ -65,9 +65,10 @@ const SUBTITLES: Record<SheetView, string> = {
  *   and closes, because there is nothing left to explain.
  *
  * A native modal dialog (the studio's bottom sheet: focus held inside, Escape
- * closes), a centred panel on a desktop and a sheet on a phone. It is portaled to
- * the body, out of the island's dark plate, and marked as the island's companion
- * so a press inside it does not close the export panel it came from.
+ * closes), a bottom-anchored panel, centred, on a desktop and a sheet on a phone.
+ * It is portaled to the body, out of the island's dark plate, and marked as the
+ * island's companion so a press inside it does not close the export panel it
+ * came from.
  */
 export function HostedRenderSheet({ surface }: { surface: CloudSurface }) {
 	const open = useHostedRenderSheetStore((state) => state.openFor === surface);

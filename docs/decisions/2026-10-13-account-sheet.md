@@ -24,8 +24,12 @@ flowchart TD
 sign-in form, the local mode, the cloud that is not there). On a phone the More
 menu's account row opens the same sheet; the row closes the menu first
 (`data-dismiss-menu`, as the Showcase and Library rows do) and focus comes back to
-the More button. The menu keeps its Sign out row. Sign out is the sheet's foot, out
-of every scroller.
+the More button. Sign out is the sheet's foot, out of every scroller, and only there:
+the More menu's own Sign out row is gone (review of #299), and a sign-out from the foot
+gives focus back to the More button on a phone, to Sign in on a desktop. The small
+panel is named "Sign in to Typelapse", as the phone's inline form is, and keeps what
+it showed while it leaves on a sign-in, so for a moment there are never two dialogs
+named "Typelapse account".
 
 **Why:** the panel stacked identity, plan, sync, projects and keys in 312px and put
 Sign out under the fold; a sheet has the width for the plan card and a foot that
@@ -35,7 +39,8 @@ never scrolls.
 popover and the More menu already hold it well (#272, #153).
 
 **Impact:** `studio-account-control.tsx`, `account-sheet.tsx`, `studio-utilities.tsx`,
-`tests/presentation/account-sheet.test.tsx`, `tests/presentation/phone-account-menu.test.tsx`.
+`tests/presentation/account-sheet.test.tsx`, `tests/presentation/phone-account-menu.test.tsx`,
+`tests/e2e/mobile-shell.spec.ts` (the signed-in row names the account; no Sign out in the menu).
 
 **Pivot:** "Keep the account a popover under the avatar."
 
@@ -43,7 +48,8 @@ popover and the More menu already hold it well (#272, #153).
 
 **Decision:** the sheet is the studio's modal bottom sheet, under its scrim. At
 1440x900 it runs from y 324 to 900 (frame bottom 533, island 614 to 654, timeline 666
-to 884); at 1280x800 from 224 to 800 (frame bottom 438, island 514 to 554). It covers
+to 884); at 1280x800 from 224 to 800 (frame 146 to 438, island 514 to 554): there it
+covers 73% of the frame and 78px of the frame stay visible above it. It covers
 the island and the timeline, and the frame's lower part, while it is open, as the
 hosted render sheet does (512 to 900 at 1440x900). The "covers neither the picture nor
 the timeline" rule is gate-five's rule for the non-modal panel, which the person keeps
@@ -70,13 +76,15 @@ placement, logged and checked at both sizes).
 (arrows, Home, End; one tab in the tab order), `AccountTabs`. A panel is drawn the
 first time its tab is chosen (the keys are asked for only once someone looks) and
 stays, hidden, after: a half-typed key name or a delete question survives a look at
-another tab. Each panel is its own scroller; it gets back its scroll on return, and
+another tab. Every panel is in the page from the start, so each tab's `aria-controls` names
+one; it holds its section from its first visit. Each panel is its own scroller; it gets back its scroll on return, and
 the control that had focus in it when its tab is pressed again or when Tab leaves the
 tab for it, except a text field under a finger (no keyboard raised). Opened, focus
 goes to the chosen tab, or to Copy key when a key waits. The line under the chosen
 tab is a line, not a fill (D2), and glides on a transform with the snappy spring
 (D8), at once under reduced motion. Coming into view reads the projects or keys list
-again, and a cloud copy that has just landed is read into the projects list.
+again (one read per return, kept on purpose: the list on screen stays while it is read,
+so nothing flashes), and a cloud copy that has just landed is read into the projects list.
 
 **Why:** Polar groups the account into named places; Dub puts plan and usage on one
 page. Tabs give both without a scroll through everything.
@@ -102,7 +110,8 @@ otherwise this project's cloud copy is what the account is opened for most.
 **Rejected:** the last tab used (a notice could stay hidden behind it).
 
 **Impact:** `studio-account-control.tsx`, `tests/presentation/account-sheet.test.tsx`,
-the hosted journeys pick their tab (`openAccountPanel(page, account, tab)`).
+the hosted journeys pick their tab (`openAccountPanel(page, account, tab)`); `billing.spec.ts`
+opens the past-due and ended accounts with no tab and checks that Plan is chosen.
 
 **Pivot:** "Open on Plan every time."
 

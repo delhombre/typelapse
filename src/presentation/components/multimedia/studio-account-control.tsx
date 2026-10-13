@@ -9,7 +9,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, HardDrive, Logout, Profile, X } from "reicon-react";
+import { ChevronLeft, HardDrive, Profile, X } from "reicon-react";
 import { initials } from "./account-identity";
 import type { StudioBillingControl } from "./account-plan";
 import type { StudioCloudProjectState } from "./account-projects";
@@ -101,6 +101,10 @@ export function StudioAccountControl({
 	const openRef = useRef(open);
 	openRef.current = open;
 	const signedIn = status.kind === "authenticated" ? status.session.account : null;
+	// What the small panel shows: the last status that is not signed in, so a panel
+	// leaving on a sign-in keeps the code step it showed instead of collapsing.
+	const panelState = useRef({ status, operation, error, pendingCode });
+	if (!signedIn) panelState.current = { status, operation, error, pendingCode };
 
 	// The signed-in account's sheet. It keeps the account it was opened for while it
 	// slides out, so signing out does not empty it under its own exit.
@@ -120,8 +124,7 @@ export function StudioAccountControl({
 		refocusTrigger.current = true;
 		setOpen(false);
 	};
-	// Signing out from the menu's row swaps the rows under the focus too: the Sign
-	// in row that comes back takes it, once the status says signed out.
+	// The trigger comes back once the status is settled (not while it is checked).
 	const statusKind = status.kind;
 	useEffect(() => {
 		if (!open && refocusTrigger.current && statusKind !== "checking") {
@@ -255,10 +258,10 @@ export function StudioAccountControl({
 
 	const panel = (
 		<AccountPanel
-			status={status}
-			operation={operation}
-			error={error}
-			pendingCode={pendingCode}
+			status={panelState.current.status}
+			operation={panelState.current.operation}
+			error={panelState.current.error}
+			pendingCode={panelState.current.pendingCode}
 			onSendCode={sendCode}
 			onSignInWithCode={signInWithCode}
 			onForgetCode={forgetCode}
@@ -322,28 +325,6 @@ export function StudioAccountControl({
 											<span>{signedIn ? signedIn.name : trigger.label}</span>
 											{signedIn && billing ? <small>{billing.planLabel}</small> : null}
 										</button>
-										{signedIn ? (
-											<button
-												type="button"
-												className="mm-account-row"
-												disabled={operation === "signing-out"}
-												onClick={() => {
-													refocusTrigger.current = true;
-													// Refused, the row stays: focus stays where it is.
-													const keepFocus = () => {
-														refocusTrigger.current = false;
-													};
-													void signOut().then(() => {
-														if (store.getState().status.kind === "authenticated") {
-															keepFocus();
-														}
-													}, keepFocus);
-												}}
-											>
-												<Logout size={14} aria-hidden="true" />
-												<span>{operation === "signing-out" ? "Signing out…" : "Sign out"}</span>
-											</button>
-										) : null}
 									</>
 								)}
 							</div>,
@@ -380,7 +361,12 @@ export function StudioAccountControl({
 							data-more-above={dialogEdges.above}
 							data-more-below={dialogEdges.below}
 							onScroll={measureDialog}
-							aria-label={status.kind === "local-offline" ? "Local project" : "Typelapse account"}
+							// "Typelapse account" is the signed-in sheet; the panel is the way in.
+							aria-label={
+								panelState.current.status.kind === "local-offline"
+									? "Local project"
+									: "Sign in to Typelapse"
+							}
 							initial={reduceMotion ? false : { opacity: 0, y: -5, scale: 0.985 }}
 							animate={{ opacity: 1, y: 0, scale: 1 }}
 							exit={
@@ -431,7 +417,7 @@ function AccountPanel({
 	readonly onSignInWithCode: (code: string) => Promise<void>;
 	readonly onForgetCode: () => void;
 }) {
-	// Signed in, the account is the sheet; the panel only fades out while it closes.
+	// Signed in, the account is the sheet: the panel never shows one.
 	if (status.kind === "authenticated") return null;
 	if (status.kind === "local-offline") {
 		return (

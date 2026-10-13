@@ -128,7 +128,8 @@ describe("the account in the phone's More menu", () => {
 
 		const account = await within(menu).findByRole("button", { name: "Account for Ada Lovelace" });
 		await waitFor(() => expect(document.activeElement).toBe(account));
-		expect(within(menu).getByRole("button", { name: "Sign out" })).toBeTruthy();
+		// One Sign out, in the account sheet's foot: the menu holds the account's row alone.
+		expect(within(menu).queryByRole("button", { name: "Sign out" })).toBeNull();
 		await waitFor(() => expect(account.textContent).toContain("Free"));
 	});
 
@@ -173,9 +174,13 @@ describe("the account in the phone's More menu", () => {
 		expect(await within(menu).findByRole("button", { name: "Sign in" })).toBeTruthy();
 	});
 
-	it("signs out from its row, and focus lands on the Sign in row that replaces it", async () => {
+	it("signs out from the sheet's foot, and focus lands on the Sign in row that replaces the account", async () => {
 		const { menu, authStore } = phone(SESSION);
-		const signOut = await within(menu).findByRole("button", { name: "Sign out" });
+		fireEvent.click(await within(menu).findByRole("button", { name: "Account for Ada Lovelace" }));
+		const signOut = within(screen.getByRole("dialog", { name: "Typelapse account" })).getByRole(
+			"button",
+			{ name: "Sign out" },
+		);
 		signOut.focus();
 		fireEvent.click(signOut);
 		await waitFor(() => expect(authStore.getState().status.kind).toBe("anonymous"));

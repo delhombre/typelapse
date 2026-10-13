@@ -461,7 +461,7 @@ describe("StudioAccountIsland when the auth rate limiter answers", () => {
 	/** Open the panel, type an address and ask for a code. */
 	async function askForCode() {
 		fireEvent.click(await screen.findByRole("button", { name: "Sign in" }));
-		const panel = screen.getByRole("dialog", { name: "Typelapse account" });
+		const panel = screen.getByRole("dialog", { name: "Sign in to Typelapse" });
 		fireEvent.change(within(panel).getByRole("textbox", { name: "Email" }), {
 			target: { value: "ada@example.com" },
 		});

@@ -69,6 +69,17 @@ describe("AccountTabs", () => {
 		expect(tab("Projects").getAttribute("aria-controls")).toBe(panel.id);
 	});
 
+	it("points every tab at a panel that exists, before it has been chosen", () => {
+		render(<Harness />);
+
+		for (const name of ["Projects", "Plan", "API keys"]) {
+			expect(panelOf(name).getAttribute("role")).toBe("tabpanel");
+		}
+		// Unvisited, the panel is there and hidden, and holds nothing yet.
+		expect(panelOf("Plan").hidden).toBe(true);
+		expect(panelOf("Plan").childElementCount).toBe(0);
+	});
+
 	it("moves between tabs with the arrow keys, Home and End, and wraps at the ends", () => {
 		render(<Harness />);
 		tab("Projects").focus();

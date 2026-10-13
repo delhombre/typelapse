@@ -289,7 +289,7 @@ export async function signInInIsland(page: Page, account: TestAccount): Promise<
 	await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
 	// The trigger is disabled while the session check runs, then reads "Sign in".
 	await page.getByRole("button", { name: "Sign in", exact: true }).click();
-	const panel = page.getByRole("dialog", { name: "Typelapse account" });
+	const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 	await panel.getByRole("textbox", { name: "Email" }).fill(account.email);
 	const since = new Date();
 	const sent = page.waitForResponse((response) => new URL(response.url()).pathname === SEND_CODE);

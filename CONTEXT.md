@@ -319,8 +319,9 @@ or it does not land.
 - **Account island**: the part of the island that carries sign-in, cloud save
   (behind an explicit upload consent) and billing in a hosted build. Absent in
   a local build. Signed out, it opens the sign-in form (a small panel under the
-  avatar on a desktop, in place of the More menu's rows on a phone); signed in,
-  it opens the account sheet.
+  avatar on a desktop, in place of the More menu's rows on a phone), named "Sign
+  in to Typelapse"; signed in, it opens the account sheet, which holds the one
+  Sign out.
 - **Account sheet**: the signed-in account, as the studio's bottom sheet (440px
   on a desktop, opened from the More menu's account row on a phone): the person
   on top, three tabs, and Sign out in a foot that never scrolls away. Projects
