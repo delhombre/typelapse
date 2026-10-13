@@ -27,9 +27,10 @@ function readWindow(probe: HTMLElement): StageFrameInput {
  * for the studio while it loads, and a stand-in must not fail, so it asks only
  * for what every browser the studio runs in has: the resize event, which a
  * rotation also fires. A resize while the chunk is still on the way moves the
- * outline's frame with the room, as it would the studio's.
+ * outline's frame with the room, as it would the studio's. `editing` is the
+ * desktop layout with the code card open, where an empty project opens (#270).
  */
-export function useStageFrame(): FrameBox {
+export function useStageFrame(editing = false): FrameBox {
 	const [viewport, setViewport] = useState<StageFrameInput>(() => ({
 		viewportWidth: window.innerWidth,
 		viewportHeight: window.innerHeight,
@@ -65,5 +66,5 @@ export function useStageFrame(): FrameBox {
 		};
 	}, []);
 
-	return stageFrameBox(viewport);
+	return stageFrameBox(viewport, { editing });
 }

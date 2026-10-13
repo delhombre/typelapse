@@ -110,6 +110,11 @@
 	translate: -50% 0;
 }
 
+/* The code card, drawn only where an empty project opens in Edit on a desktop. */
+.sk-card {
+	display: none;
+}
+
 .sk-timeline {
 	position: absolute;
 	inset: auto 0 0;
@@ -175,5 +180,25 @@
 		height: 218px;
 		border-radius: var(--r-sheet);
 		background: transparent;
+	}
+
+	/* Edit (#270): the card is at the left (`.sc-card-slot`: 18px in, the card slot
+	   less 28px wide, from the header's foot to above the timeline) and the
+	   instrument sits half a card slot to the right, as the studio's does. The frame
+	   is placed by the layout math, inline. */
+	.sk-root[data-editing] .sk-card {
+		display: block;
+		position: absolute;
+		top: 88px;
+		bottom: 252px;
+		left: 18px;
+		width: calc(var(--sk-card-slot) - 28px);
+		border-radius: var(--r-surface);
+		background: var(--sk-fill);
+		box-shadow: 0 0 0 1px var(--sc-hairline);
+	}
+
+	.sk-root[data-editing] .sk-dock {
+		translate: calc(-50% + var(--sk-card-slot) / 2) 0;
 	}
 }

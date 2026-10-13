@@ -48,6 +48,34 @@ export function openingCodeFolded(sceneCount: number, remembered: boolean): bool
 	return sceneCount === 0 ? false : remembered;
 }
 
+/**
+ * How many scenes a visit will open with, judged before the studio has loaded,
+ * from what it will read: the scenes of a `#share=` link, which wins, else those
+ * of the stored draft. A first visit has neither, and a draft that cannot be
+ * read is set aside by the studio, which then opens the default project: none.
+ * The loading outline draws the mode this chooses (#270).
+ */
+export function scenesBeforeBoot({
+	shared,
+	draft,
+}: {
+	shared: { steps?: readonly unknown[] } | null;
+	draft: string | null;
+}): number {
+	if (shared) {
+		return shared.steps?.length ?? 0;
+	}
+	if (draft === null) {
+		return 0;
+	}
+	try {
+		const steps = (JSON.parse(draft) as { steps?: unknown }).steps;
+		return Array.isArray(steps) ? steps.length : 0;
+	} catch {
+		return 0;
+	}
+}
+
 export function readShellPreferences(): ShellPreferences {
 	try {
 		return parseShellPreferences(window.localStorage.getItem(SHELL_STORAGE_KEY));

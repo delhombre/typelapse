@@ -4,6 +4,7 @@ import {
 	openingCodeFolded,
 	parseShellPreferences,
 	readShellPreferences,
+	scenesBeforeBoot,
 	writeShellPreferences,
 } from "@/presentation/utils/shell-preferences";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -50,5 +51,30 @@ describe("which mode the studio opens in", () => {
 	it("opens a project with scenes in the mode that was remembered", () => {
 		expect(openingCodeFolded(1, true)).toBe(true);
 		expect(openingCodeFolded(3, false)).toBe(false);
+	});
+});
+
+describe("how many scenes a visit will open with, judged before the studio has loaded", () => {
+	const draft = (steps: unknown) => JSON.stringify({ title: "x", code: "a", steps });
+
+	it("is none on a first visit: no link, no stored draft", () => {
+		expect(scenesBeforeBoot({ shared: null, draft: null })).toBe(0);
+	});
+
+	it("counts the scenes of a stored draft", () => {
+		expect(scenesBeforeBoot({ shared: null, draft: draft([{}, {}]) })).toBe(2);
+		expect(scenesBeforeBoot({ shared: null, draft: draft([]) })).toBe(0);
+	});
+
+	it("counts a share link's own scenes, which win over the draft", () => {
+		const shared = { title: "x", code: "a", steps: [{}] };
+		expect(scenesBeforeBoot({ shared, draft: draft([]) })).toBe(1);
+		expect(scenesBeforeBoot({ shared: { ...shared, steps: [] }, draft: draft([{}]) })).toBe(0);
+	});
+
+	it("takes a draft it cannot read for none, as the studio does when it sets one aside", () => {
+		expect(scenesBeforeBoot({ shared: null, draft: "not json" })).toBe(0);
+		expect(scenesBeforeBoot({ shared: null, draft: "[]" })).toBe(0);
+		expect(scenesBeforeBoot({ shared: null, draft: draft("nope") })).toBe(0);
 	});
 });

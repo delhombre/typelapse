@@ -122,7 +122,7 @@ export function SceneShell({ editor, sceneInspector, preview, sceneCount }: Scen
 						className="sc-stage-arrival"
 						{...arrival(ARRIVAL_DELAY.stage, { scale: 0.985 })}
 					>
-						<motion.div className="sc-stage" animate={stage} transition={settle}>
+						<motion.div className="sc-stage" initial={false} animate={stage} transition={settle}>
 							{preview}
 						</motion.div>
 					</motion.div>
@@ -139,7 +139,7 @@ export function SceneShell({ editor, sceneInspector, preview, sceneCount }: Scen
 
 				<div className="sc-dock-slot">
 					<motion.div className="sc-dock-arrival" {...arrival(ARRIVAL_DELAY.rail, { y: 18 })}>
-						<motion.div className="sc-dock" animate={rail} transition={settle}>
+						<motion.div className="sc-dock" initial={false} animate={rail} transition={settle}>
 							<ExportStatus />
 							<StudioControlRail />
 						</motion.div>

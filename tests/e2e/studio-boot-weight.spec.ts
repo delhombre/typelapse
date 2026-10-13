@@ -292,6 +292,81 @@ test.describe("Studio boot: the files, the tab, the outline", () => {
 		});
 	}
 
+	// #270: a fresh visit opens in Edit, so the outline draws that layout. Sampled on every
+	// frame from the first paint: the outline never moves, and the studio arrives in its box.
+	for (const [width, height] of [
+		[1280, 800],
+		[1440, 900],
+	] as const) {
+		test(`a fresh visit's outline is the Edit layout, and its frame is the studio's, at ${width}x${height}`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height });
+			await page.addInitScript(() => {
+				const w = window as unknown as { __rows: { sk?: number[]; studio?: number[] }[] };
+				w.__rows = [];
+				const read = (selector: string) => {
+					const r = document.querySelector(selector)?.getBoundingClientRect();
+					return r ? [r.left, r.top, r.width, r.height] : undefined;
+				};
+				const frame = () => {
+					w.__rows.push({
+						sk: read(".sk-frame"),
+						studio: read("[data-testid=preview-frame]"),
+					});
+					requestAnimationFrame(frame);
+				};
+				requestAnimationFrame(frame);
+			});
+			let release: () => void = () => undefined;
+			const held = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			await page.route(/\/assets\/studio-route-.*\.js/, async (route) => {
+				await held;
+				await route.continue();
+			});
+			await page.goto("/app", { waitUntil: "commit" });
+			await expect(page.locator(".sk-frame")).toBeVisible();
+			await expect(page.locator(".sk-card")).toBeVisible();
+			await page.waitForTimeout(300);
+
+			release();
+			await expect(page.getByRole("button", { name: "Add source" })).toBeEnabled();
+			await expect(async () => {
+				const before = await boxOf(page, "[data-testid=preview-frame]");
+				await page.waitForTimeout(150);
+				expect(await boxOf(page, "[data-testid=preview-frame]")).toEqual(before);
+			}).toPass();
+			const settledBox = await boxOf(page, "[data-testid=preview-frame]");
+
+			const rows = await page.evaluate(
+				() => (window as unknown as { __rows: { sk?: number[]; studio?: number[] }[] }).__rows,
+			);
+			const outline = rows.flatMap((row) => (row.sk ? [row.sk] : []));
+			expect(outline.length, "frames with the outline up").toBeGreaterThan(5);
+			// One box on every frame the outline was up.
+			for (const box of outline) {
+				box.forEach((value, index) => {
+					expect(Math.abs(value - (outline[0]?.[index] ?? Number.NaN))).toBeLessThanOrEqual(0.01);
+				});
+			}
+			// And it is the box the studio settles on.
+			const last = outline.at(-1) ?? [];
+			last.forEach((value, index) => {
+				expect(Math.abs(value - (settledBox[index] ?? Number.NaN))).toBeLessThanOrEqual(1);
+			});
+			// The studio's own frame never shows up displaced: its first frame's centre is
+			// within the arrival's 1.5% scale (about the slot's centre) of where it ends.
+			const first = rows.find((row) => row.studio)?.studio ?? [];
+			expect(
+				Math.abs(
+					(first[0] ?? 0) + (first[2] ?? 0) / 2 - (settledBox[0] ?? 0) - (settledBox[2] ?? 0) / 2,
+				),
+			).toBeLessThanOrEqual(3);
+		});
+	}
+
 	test("a studio with no entry bundle says so instead of staying blank", async ({ page }) => {
 		await page.route(/\/assets\/index-.*\.js/, (route) => route.abort());
 		await page.goto("/app");
