@@ -356,8 +356,8 @@ describe("snippet store importDiff", () => {
 	});
 
 	it("keeps each kept step's own label when the MAX cap trims a huge diff", () => {
-		// 45 single-line hunks → 47 stages; the store caps diff steps at 40, keeping
-		// the first 40 and marking the cut. Each kept step must retain the label of
+		// 45 single-line hunks → 47 stages; the store caps diff steps at 16, keeping
+		// the first 16 and marking the cut. Each kept step must retain the label of
 		// ITS OWN snapshot: the trim must not shift captions.
 		const HUNKS = 45;
 		const lines = ["--- a/big.ts", "+++ b/big.ts"];
@@ -367,19 +367,16 @@ describe("snippet store importDiff", () => {
 			lines.push(`+const v${k} = ${k * 10};`);
 		}
 
-		useSnippetStore.getState().importDiff(lines.join("\n"));
+		const cut = useSnippetStore.getState().importDiff(lines.join("\n"));
 		const { steps } = useSnippetStore.getState().snippet;
-		expect(steps).toHaveLength(40);
+		expect(steps).toHaveLength(16);
+		expect(cut).toMatchObject({ shownSteps: 16, omittedSteps: 31 });
 		expect(steps[0]?.annotation).toBe("Before");
 		// The last kept stage keeps its own label and says the video stops early.
-		expect(steps[39]?.annotation).toBe("Change 38");
-		expect(steps[39]?.code.endsWith("\n⋯ 7 more changes")).toBe(true);
-		expect(steps[38]?.code).not.toContain("more change");
-		// A kept middle stage keeps its own label (index unshifted). The scenes of a long
-		// diff each open on their own before-state, which carries the caption of the hunk
-		// it opens on: indices 25 and 26 both read "Change 25", so index 38 is the
-		// snapshot of "Change 37", not of "Change 38".
-		expect(steps[38]?.annotation).toBe("Change 37");
+		expect(steps[15]?.annotation).toBe("Change 15");
+		expect(steps[15]?.code.endsWith("\n⋯ 31 more changes")).toBe(true);
+		expect(steps[14]?.annotation).toBe("Change 14");
+		expect(steps[14]?.code).not.toContain("more change");
 	});
 
 	it("survives a hunk heading longer than the caption bound", () => {
@@ -495,12 +492,13 @@ describe("snippet store importChapters", () => {
 	});
 
 	it("caps chaptered steps at MAX_DIFF_STEPS, keeping whole chapters and marking the cut", () => {
-		// Two chapters of 25 single-line hunks each: 27 + 26 = 53 stages. The first
-		// chapter fits whole (27); the second would pass 40, so it is dropped, and
-		// the last kept step says how many changes the video leaves out.
-		const bigDiff = (path: string) => {
+		// Three chapters of 6 single-line hunks each: 7 + 6 + 6 = 19 stages once the
+		// later chapters' redundant before is dropped. The first two fit whole (13);
+		// the third would pass 16, so it is dropped, and the last kept step says how
+		// many changes the video leaves out.
+		const smallDiff = (path: string) => {
 			const lines = [`--- a/${path}`, `+++ b/${path}`];
-			for (let k = 1; k <= 25; k++) {
+			for (let k = 1; k <= 6; k++) {
 				lines.push(`@@ -${k},1 +${k},1 @@`);
 				lines.push(`-const v${k} = ${k};`);
 				lines.push(`+const v${k} = ${k * 10};`);
@@ -510,20 +508,21 @@ describe("snippet store importChapters", () => {
 
 		const cut = useSnippetStore.getState().importChapters(
 			[
-				{ title: "first half", diffText: bigDiff("one.ts") },
-				{ title: "second half", diffText: bigDiff("two.ts") },
+				{ title: "first", diffText: smallDiff("one.ts") },
+				{ title: "second", diffText: smallDiff("two.ts") },
+				{ title: "third", diffText: smallDiff("three.ts") },
 			],
 			{ title: "big pr" },
 		);
 		const { steps } = useSnippetStore.getState().snippet;
 
-		expect(cut).toEqual({ shownChapters: 1, totalChapters: 2 });
-		expect(steps).toHaveLength(27);
-		expect(steps[0]?.annotation).toBe("1/2 · first half");
-		expect(steps[26]?.annotation).toBe("After");
-		expect(steps[26]?.code).toContain("const v25 = 250;");
-		expect(steps[26]?.code.endsWith("\n⋯ 26 more changes")).toBe(true);
-		expect(steps[25]?.code).not.toContain("more change");
+		expect(cut).toMatchObject({ shownChapters: 2, totalChapters: 3, omittedSteps: 6 });
+		expect(steps).toHaveLength(13);
+		expect(steps[0]?.annotation).toBe("1/3 · first");
+		expect(steps[12]?.annotation).toBe("After");
+		expect(steps[12]?.code).toContain("const v6 = 60;");
+		expect(steps[12]?.code.endsWith("\n⋯ 6 more changes")).toBe(true);
+		expect(steps[11]?.code).not.toContain("more change");
 	});
 
 	it("infers a non-default language from the chapters", () => {

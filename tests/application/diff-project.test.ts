@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { MAX_DIFF_STEPS } from "@/application/diff";
+import { MAX_DIFF_STEPS, MAX_SCENE_LINES } from "@/application/diff";
 import { projectFromDiff } from "@/application/import/diff-project";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { describe, expect, it } from "vitest";
@@ -52,7 +52,27 @@ describe("a diff past the step cap", () => {
 		expect(steps).toHaveLength(MAX_DIFF_STEPS);
 		// Nothing in the middle is lost: only the tail, and the last kept step says so.
 		const code = steps.at(-1)?.code ?? "";
-		expect(code).toMatch(/\n⋯ \d+ more changes$/);
+		expect(code.endsWith("\n⋯ 32 more changes")).toBe(true);
+	});
+
+	it("keeps every frame within a scene's rows, the marker row included", () => {
+		// Hunks 3 and 4 lines apart fill each page to its 24 rows, the case where
+		// a marker added after the paging would make a 25th.
+		for (const gap of [3, 4, 30]) {
+			const lines = ["--- a/big.ts", "+++ b/big.ts"];
+			for (let k = 0; k < 45; k++) {
+				const at = 1 + k * gap;
+				lines.push(`@@ -${at},1 +${at},1 @@`, `-const v${k} = ${k};`, `+const v${k} = ${k * 10};`);
+			}
+
+			const { steps } = projectFromDiff(lines.join("\n"));
+
+			expect(steps).toHaveLength(MAX_DIFF_STEPS);
+			for (const step of steps) {
+				expect(step.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+			}
+			expect(steps.at(-1)?.code).toMatch(/\n⋯ \d+ more changes$/);
+		}
 	});
 
 	it("is the project the studio holds after the same import", () => {

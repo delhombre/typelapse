@@ -30,6 +30,7 @@
 
 import { changesOnlyLineEndings, diffToSnapshots } from "./diff-to-snapshots";
 import { parseUnifiedDiff } from "./parse-unified-diff";
+import { MAX_DIFF_STEPS } from "./step-cap";
 import type { CodeSnapshot, DiffToSnapshotsOptions, DiffToSnapshotsResult } from "./types";
 import { isLockfile } from "./windowing";
 
@@ -99,12 +100,21 @@ export function chapterSequences(
 	chapters: DiffChapter[],
 	options: DiffToSnapshotsOptions = {},
 ): CodeSnapshot[][] {
-	const kept = chapters
-		.filter((chapter) => hasRealChanges(chapter.diffText))
-		.map((chapter) => ({
+	const real = chapters.filter((chapter) => hasRealChanges(chapter.diffText));
+	const stage = (opts: DiffToSnapshotsOptions) =>
+		real.map((chapter) => ({
 			title: chapter.title,
-			...pick(diffToSnapshots(chapter.diffText, options)),
+			...pick(diffToSnapshots(chapter.diffText, opts)),
 		}));
+	let kept = stage(options);
+	// Past the step cap the walkthrough ends on the cap's marker row, which lands
+	// after the paging: stage every chapter again with that row free.
+	if (
+		options.reserveMarkerRow === undefined &&
+		kept.reduce((sum, chapter) => sum + chapter.snapshots.length, 0) > MAX_DIFF_STEPS
+	) {
+		kept = stage({ ...options, reserveMarkerRow: true });
+	}
 
 	const total = kept.length;
 

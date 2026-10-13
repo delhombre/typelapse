@@ -15,8 +15,18 @@
 import type { CodeSnapshot } from "./types";
 import { ELLIPSIS } from "./windowing";
 
-/** Upper bound on diff-generated steps so a pathological diff can't explode playback. */
-export const MAX_DIFF_STEPS = 40;
+/**
+ * The most steps a walkthrough plays: a duration budget, not a safety valve.
+ * At the default timing (1.2 s a step, 0.65 s a transition) n steps run
+ * 1.85 n - 0.65 s, so 16 steps run 28.95 s, under the 30 s a social clip
+ * tolerates (17 would run 30.8 s). The cases measured for the page budget
+ * (docs/decisions/2026-10-13-gate-five.md, D2 follow-up) stay whole: the three
+ * hero examples (honojs/hono#5189, vercel/next.js#97139, oven-sh/bun#37643) are
+ * 7, 10 and 8 steps and the 246-file honojs/hono v4.6.0...v4.7.0 is 11, so none
+ * is cut. At the old 40 one file of 45 small hunks still played 74 s. A product
+ * constant, to revisit with a long-form option.
+ */
+export const MAX_DIFF_STEPS = 16;
 
 export interface CappedWalkthrough {
 	/** The kept steps, the last one carrying the marker when something was dropped. */
@@ -24,9 +34,14 @@ export interface CappedWalkthrough {
 	/** Chapters that start the video (a chapter cut in two still counts). */
 	shownChapters: number;
 	totalChapters: number;
+	/** Steps the video plays. */
+	shownSteps: number;
 	/** Steps the video does not play; 0 when the whole walkthrough fit. */
 	omittedSteps: number;
 }
+
+/** What a cap decided, without the frames: what an import reports back. */
+export type WalkthroughCut = Omit<CappedWalkthrough, "snapshots">;
 
 /** The row a walkthrough ends on when its tail was dropped. */
 function changesMarker(omitted: number): string {
@@ -71,6 +86,7 @@ export function capWalkthrough(
 			snapshots: sequences.flat(),
 			shownChapters: sequences.length,
 			totalChapters: sequences.length,
+			shownSteps: total,
 			omittedSteps: 0,
 		};
 	}
@@ -95,16 +111,26 @@ export function capWalkthrough(
 	const snapshots = last
 		? [...kept.slice(0, -1), { ...last, code: markCut(last.code, omittedSteps) }]
 		: kept;
-	return { snapshots, shownChapters, totalChapters: sequences.length, omittedSteps };
+	return {
+		snapshots,
+		shownChapters,
+		totalChapters: sequences.length,
+		shownSteps: kept.length,
+		omittedSteps,
+	};
 }
 
 /**
- * What the import says when a pull request's tail was cut, or `null` when every
- * commit plays (or there was only the one change to play).
+ * What the import says when the video plays only the head of the walkthrough, or
+ * `null` when everything plays. A pull request chaptered by commit counts commits;
+ * a single change counts its steps (the same count the marker row carries).
  */
-export function commitsShownNotice(shown: number, total: number): string | null {
-	if (total <= 1 || shown >= total) {
+export function cutNotice(cut: WalkthroughCut): string | null {
+	if (cut.omittedSteps === 0) {
 		return null;
 	}
-	return `Showing the first ${shown} of ${total} commits`;
+	if (cut.totalChapters > 1) {
+		return `Showing the first ${cut.shownChapters} of ${cut.totalChapters} commits`;
+	}
+	return `Showing the first ${cut.shownSteps} of ${cut.shownSteps + cut.omittedSteps} changes`;
 }

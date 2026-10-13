@@ -1,6 +1,7 @@
 import {
 	type CodeSnapshot,
 	type DiffChapter,
+	type WalkthroughCut,
 	capWalkthrough,
 	chapterLanguage,
 	chapterSequences,
@@ -164,9 +165,10 @@ interface SnippetState {
 	/**
 	 * Turn a pasted unified diff into an animated walkthrough: replace the snippet
 	 * with the diff's before-state code and a step per hunk stage (before→…→after).
+	 * Past MAX_DIFF_STEPS the head plays and the result says how much was cut.
 	 * Throws a user-facing Error on unusable input: the caller surfaces it.
 	 */
-	importDiff: (diffText: string) => void;
+	importDiff: (diffText: string) => WalkthroughCut;
 	/**
 	 * Replace the studio with a plain code paste: no steps, one static frame.
 	 *
@@ -189,7 +191,7 @@ interface SnippetState {
 	importChapters: (
 		chapters: DiffChapter[],
 		meta: { title: string; openingCardMs?: number },
-	) => { shownChapters: number; totalChapters: number };
+	) => WalkthroughCut;
 }
 
 /** True while the editor is empty: there is nothing on screen to capture. */
@@ -1006,7 +1008,8 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		// before any set(), so a bad paste leaves the current snippet untouched.
 		const { snapshots, language, path } = diffToSnapshots(diffText);
 		// Adopt the changed file's name as the title, like URL import does.
-		const rebuilt = buildDiffSnippet(get().snippet, capWalkthrough([snapshots]).snapshots, {
+		const { snapshots: staged, ...cut } = capWalkthrough([snapshots]);
+		const rebuilt = buildDiffSnippet(get().snippet, staged, {
 			title: path?.split("/").pop(),
 			language,
 		});
@@ -1017,6 +1020,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		markBaseline();
 
 		get().rebuildPlan();
+		return cut;
 	},
 
 	importSnippet: (code: string, meta?: { title?: string; language?: string }) => {
@@ -1053,7 +1057,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		if (sequences.flat().length === 0) {
 			throw new Error("These commits contain no changes to animate");
 		}
-		const { snapshots, shownChapters, totalChapters } = capWalkthrough(sequences);
+		const { snapshots, ...cut } = capWalkthrough(sequences);
 		const rebuilt = buildDiffSnippet(get().snippet, snapshots, {
 			title: meta.title,
 			language: chapterLanguage(chapters),
@@ -1066,7 +1070,7 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		markBaseline();
 
 		get().rebuildPlan();
-		return { shownChapters, totalChapters };
+		return cut;
 	},
 }));
 

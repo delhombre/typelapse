@@ -1,4 +1,4 @@
-import { commitsShownNotice } from "@/application/diff";
+import { type WalkthroughCut, cutNotice } from "@/application/diff";
 import { classifySource, isBareLink } from "@/application/import/classify-source";
 import {
 	resolveCommitUrl,
@@ -189,7 +189,9 @@ export function useSourceImport(): SourceImport {
 
 				if (kind === "diff") {
 					// Throws a user-facing message on unusable input, before anything changes.
-					await replaceProject(() => store.importDiff(trimmed));
+					await replaceProject(() => {
+						announceCut(store.importDiff(trimmed));
+					});
 					return true;
 				}
 
@@ -230,7 +232,7 @@ export function useSourceImport(): SourceImport {
 			async function applyWalkthrough(fetcher: () => Promise<Walkthrough>) {
 				const { diffText, title } = await fetcher();
 				await replaceProject(() => {
-					store.importDiff(diffText);
+					announceCut(store.importDiff(diffText));
 					// The PR / commit title overrides the filename title importDiff inferred.
 					store.setTitle(title);
 				});
@@ -243,11 +245,12 @@ export function useSourceImport(): SourceImport {
 }
 
 /**
- * Say so when a chaptered import played only the first commits: the video ends
- * early on its own marker row, and this is the same fact in words.
+ * Say so when an import plays only the head of its walkthrough (the first commits,
+ * the first changes): the video ends early on its own marker row, and this is the
+ * same fact in words.
  */
-function announceCut(cut: { shownChapters: number; totalChapters: number }): void {
-	const message = commitsShownNotice(cut.shownChapters, cut.totalChapters);
+function announceCut(cut: WalkthroughCut): void {
+	const message = cutNotice(cut);
 	if (message) {
 		notify(message);
 	}

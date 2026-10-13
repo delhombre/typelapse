@@ -1,4 +1,4 @@
-import { MAX_DIFF_STEPS, capWalkthrough, commitsShownNotice } from "@/application/diff/step-cap";
+import { MAX_DIFF_STEPS, capWalkthrough, cutNotice } from "@/application/diff/step-cap";
 import { describe, expect, it } from "vitest";
 
 /** A chapter of `size` frames, each carrying a unique body so a lost one is visible. */
@@ -9,9 +9,16 @@ function chapter(index: number, size: number) {
 	}));
 }
 
+describe("MAX_DIFF_STEPS", () => {
+	it("is a duration budget: n steps run 1.85 n - 0.65 s, kept under 30 s", () => {
+		expect(1.85 * MAX_DIFF_STEPS - 0.65).toBeLessThan(30);
+		expect(1.85 * (MAX_DIFF_STEPS + 1) - 0.65).toBeGreaterThanOrEqual(30);
+	});
+});
+
 describe("capWalkthrough", () => {
 	it("leaves a walkthrough under the cap exactly as it came", () => {
-		const sequences = [chapter(0, 10), chapter(1, 12)];
+		const sequences = [chapter(0, 7), chapter(1, 9)];
 
 		const cut = capWalkthrough(sequences);
 
@@ -22,42 +29,57 @@ describe("capWalkthrough", () => {
 	});
 
 	it("keeps the first whole chapters, drops the tail, and marks the last kept step", () => {
-		// 60 steps in 6 chapters of 10: four fit (40), two do not.
+		// 60 steps in 6 chapters of 10: only one fits under 16, the rest go whole.
 		const sequences = Array.from({ length: 6 }, (_, index) => chapter(index, 10));
 
 		const cut = capWalkthrough(sequences);
 
-		expect(cut.snapshots).toHaveLength(MAX_DIFF_STEPS);
-		expect(cut.shownChapters).toBe(4);
+		expect(cut.snapshots).toHaveLength(10);
+		expect(cut.shownChapters).toBe(1);
 		expect(cut.totalChapters).toBe(6);
-		expect(cut.omittedSteps).toBe(20);
+		expect(cut.omittedSteps).toBe(50);
 		// Everything before the last kept step is untouched, nothing in the middle is lost.
-		expect(cut.snapshots.slice(0, -1)).toEqual(sequences.slice(0, 4).flat().slice(0, -1));
+		expect(cut.snapshots.slice(0, -1)).toEqual(chapter(0, 10).slice(0, -1));
 		const last = cut.snapshots.at(-1);
-		expect(last?.code).toBe("c3s9\n⋯ 20 more changes");
+		expect(last?.code).toBe("c0s9\n⋯ 50 more changes");
 		expect(last?.label).toBe("Change 9");
 	});
 
-	it("drops a whole chapter that would straddle the cap, never half of it", () => {
-		const sequences = [chapter(0, 25), chapter(1, 25), chapter(2, 5)];
+	it("keeps as many whole chapters as fit", () => {
+		// 6 chapters of 5: three fit (15), the fourth would reach 20.
+		const sequences = Array.from({ length: 6 }, (_, index) => chapter(index, 5));
 
 		const cut = capWalkthrough(sequences);
 
-		// The second chapter would reach 50: it goes whole, and so does the small one after it.
-		expect(cut.snapshots).toHaveLength(25);
+		expect(cut.snapshots).toHaveLength(15);
+		expect(cut.shownChapters).toBe(3);
+		expect(cut.omittedSteps).toBe(15);
+		expect(cut.snapshots.slice(0, -1)).toEqual(sequences.slice(0, 3).flat().slice(0, -1));
+		expect(cut.snapshots.at(-1)?.code).toBe("c2s4\n⋯ 15 more changes");
+	});
+
+	it("drops a whole chapter that would straddle the cap, never half of it", () => {
+		const sequences = [chapter(0, 10), chapter(1, 10), chapter(2, 2)];
+
+		const cut = capWalkthrough(sequences);
+
+		// The second chapter would reach 20: it goes whole, and so does the small one after it.
+		expect(cut.snapshots).toHaveLength(10);
 		expect(cut.shownChapters).toBe(1);
-		expect(cut.omittedSteps).toBe(30);
-		expect(cut.snapshots.at(-1)?.code).toBe("c0s24\n⋯ 30 more changes");
+		expect(cut.omittedSteps).toBe(12);
+		expect(cut.snapshots.at(-1)?.code).toBe("c0s9\n⋯ 12 more changes");
 	});
 
 	it("cuts inside the first chapter when it alone is past the cap", () => {
-		const cut = capWalkthrough([chapter(0, 48)]);
+		// A 45-hunk single file stages 47 steps.
+		const cut = capWalkthrough([chapter(0, 47)]);
 
 		expect(cut.snapshots).toHaveLength(MAX_DIFF_STEPS);
-		expect(cut.snapshots.slice(0, -1)).toEqual(chapter(0, 48).slice(0, MAX_DIFF_STEPS - 1));
-		expect(cut.snapshots.at(-1)?.code).toBe("c0s39\n⋯ 8 more changes");
+		expect(cut.snapshots.slice(0, -1)).toEqual(chapter(0, 47).slice(0, MAX_DIFF_STEPS - 1));
+		expect(cut.snapshots.at(-1)?.code).toBe(`c0s${MAX_DIFF_STEPS - 1}\n⋯ 31 more changes`);
 		expect(cut.shownChapters).toBe(1);
 		expect(cut.totalChapters).toBe(1);
+		expect(cut.omittedSteps).toBe(31);
 	});
 
 	it("says 'change' for a single omitted step", () => {
@@ -104,13 +126,21 @@ describe("capWalkthrough", () => {
 	});
 });
 
-describe("commitsShownNotice", () => {
+describe("cutNotice", () => {
 	it("names how many commits the video starts with when some were cut", () => {
-		expect(commitsShownNotice(4, 6)).toBe("Showing the first 4 of 6 commits");
+		const cut = capWalkthrough(Array.from({ length: 6 }, (_, index) => chapter(index, 5)));
+
+		expect(cutNotice(cut)).toBe("Showing the first 3 of 6 commits");
 	});
 
-	it("is silent when every commit fits, and for a single change", () => {
-		expect(commitsShownNotice(6, 6)).toBeNull();
-		expect(commitsShownNotice(1, 1)).toBeNull();
+	it("names how many changes a single diff plays when it was cut", () => {
+		const cut = capWalkthrough([chapter(0, 47)]);
+
+		expect(cutNotice(cut)).toBe("Showing the first 16 of 47 changes");
+	});
+
+	it("is silent when everything plays", () => {
+		expect(cutNotice(capWalkthrough([chapter(0, 7), chapter(1, 9)]))).toBeNull();
+		expect(cutNotice(capWalkthrough([chapter(0, 3)]))).toBeNull();
 	});
 });

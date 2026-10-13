@@ -1,3 +1,4 @@
+import { MAX_SCENE_LINES, capWalkthrough } from "@/application/diff";
 import { chapterSequences, chapterSnapshots } from "@/application/diff/chapters";
 import { describe, expect, it } from "vitest";
 
@@ -206,5 +207,32 @@ describe("chapterSequences", () => {
 		expect(sequences.flat()).toEqual(chapterSnapshots(chapters));
 		expect(sequences[0]?.[0]?.label).toBe("1/2 · add alpha");
 		expect(sequences[1]?.[0]?.label).toBe("2/2 · add beta");
+	});
+});
+
+describe("chapters past the step cap", () => {
+	it("keep every frame of the capped walkthrough within a scene's rows, marker included", () => {
+		// Hunks 3 lines apart fill each page to its rows: the last kept step's marker
+		// row must already be free, or it would make a row too many.
+		const dense = (path: string) => {
+			const lines = [`--- a/${path}`, `+++ b/${path}`];
+			for (let k = 0; k < 30; k++) {
+				const at = 1 + k * 3;
+				lines.push(`@@ -${at},1 +${at},1 @@`, `-const v${k} = ${k};`, `+const v${k} = ${k * 10};`);
+			}
+			return lines.join("\n");
+		};
+		const chapters = [
+			{ title: "one", diffText: dense("one.ts") },
+			{ title: "two", diffText: dense("two.ts") },
+		];
+
+		const cut = capWalkthrough(chapterSequences(chapters));
+
+		expect(cut.omittedSteps).toBeGreaterThan(0);
+		for (const snapshot of cut.snapshots) {
+			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+		}
+		expect(cut.snapshots.at(-1)?.code).toMatch(/\n⋯ \d+ more changes$/);
 	});
 });

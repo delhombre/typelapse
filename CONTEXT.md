@@ -73,13 +73,14 @@ terms so issues, specs, tests and code use the same ones.
   (`⋯ n more files` or `⋯ more changes hidden`) says what is left.
 - **Step cap**: pages bound the code, not the steps (a page holds a step per
   hunk, so 45 small hunks still stage 47 steps, and a pull request chaptered by
-  commit adds its chapters up). `MAX_DIFF_STEPS` (40, `application/diff/step-cap`)
-  keeps whole chapters from the start and drops the tail; the last kept step
-  carries a `⋯ n more changes` row, and a chaptered import says
-  "Showing the first k of n commits". A first chapter past the cap is cut at it.
-  `tests/support/scene-readability` measures the px a plan lands at, with
-  the same `fitCardToCanvas` the renderers call. A 9:16 frame is limited by the
-  longest line, not the rows (16.7 px for the example PR's 77 columns).
+  commit adds its chapters up). `MAX_DIFF_STEPS` (16, `application/diff/step-cap`)
+  is a duration budget: n steps run 1.85 n - 0.65 s, so 16 run 29 s, under the
+  30 s a social clip tolerates. It keeps whole chapters from the start and drops
+  the tail; the last kept step carries a `⋯ n more changes` row (sharing the
+  budget's marker row when it has one, and every page keeps that row free once a
+  walkthrough is past the cap, so no frame passes `MAX_SCENE_LINES`). The import
+  says "Showing the first k of n commits", or "Showing the first 16 of 48
+  changes" for a single change. A first chapter past the cap is cut at it.
 - **Magic move**: the pure, dependency-free token-morphing engine
   (`src/application/magic-move`) shared by every renderer.
 
