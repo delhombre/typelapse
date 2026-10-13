@@ -204,8 +204,7 @@ column at a 44px pitch; Showcase and Library live in More (`cornerRowPlan`, #282
 in a 35px pitch overhung its neighbour by 9px and stole its presses.
 
 **Enforced by:** `src/app.css`, `src/presentation/studio-camera.css`,
-`tests/e2e/mobile-shell.spec.ts` (every Export control reachable at 375x667; the
-corner row's reach at 360, 390 and 430),
+`tests/e2e/mobile-shell.spec.ts` (every Export control reachable at 375x667),
 `tests/presentation/layer-editor-in-sheet.test.ts`,
 `tests/application/phone-sheet.test.ts`.
 
