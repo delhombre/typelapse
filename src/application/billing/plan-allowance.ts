@@ -45,6 +45,11 @@ export function renderPeriodStart(now: Date): Date {
 	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
+/** When the month's hosted minutes next start from zero: the first of the next UTC month. */
+export function renderPeriodReset(now: Date): Date {
+	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+}
+
 /**
  * The hosted render ceiling a new render of `durationMs` would cross, or null
  * when it fits. The render queue enforces the same two ceilings, in this order,
@@ -73,7 +78,7 @@ function oneDecimal(value: number): string {
 /** No-break space: a narrow island must not leave "100" on one line and "MB" on the next. */
 const UNIT_SPACE = "\u00a0";
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
 	if (bytes >= GIBIBYTE) {
 		return `${oneDecimal(bytes / GIBIBYTE)}${UNIT_SPACE}GB`;
 	}
@@ -81,7 +86,7 @@ function formatBytes(bytes: number): string {
 	return `${megabytes < 10 ? oneDecimal(megabytes) : Math.round(megabytes)}${UNIT_SPACE}MB`;
 }
 
-function formatMinutes(ms: number): string {
+export function formatMinutes(ms: number): string {
 	return oneDecimal(ms / MINUTE_MS);
 }
 
@@ -125,6 +130,11 @@ export function planLimitRefusal(plan: Plan, ceiling: PlanCeiling, used: number)
 	};
 }
 
+/** How many days a past hosted render stays downloadable after a downgrade to `plan`. */
+export function hostedOutputGraceDays(plan: Plan): number {
+	return Math.round(plan.capabilities.hostedOutputGraceMs / (24 * 60 * MINUTE_MS));
+}
+
 /** The body of the 402 a download gets once a past output's grace period is over. */
 export function outputExpiredRefusal(plan: Plan): {
 	readonly error: string;
@@ -133,7 +143,7 @@ export function outputExpiredRefusal(plan: Plan): {
 	readonly upgradeTo: HostedTierName | null;
 } {
 	const upgrade = plan.upgradeFor("hostedRenderTime");
-	const days = Math.round(plan.capabilities.hostedOutputGraceMs / (24 * 60 * MINUTE_MS));
+	const days = hostedOutputGraceDays(plan);
 	const own = `${plan.label} keeps past hosted renders for ${days} days`;
 	return {
 		error: upgrade ? `${own}; ${upgrade.label} keeps them` : own,
@@ -157,4 +167,46 @@ export function allowanceSentence(plan: Plan, usage: AccountUsage): string {
 	}
 	const minutes = `${formatMinutes(usage.hostedRenderMsThisMonth)} of ${formatMinutes(renderLimit)} hosted render minutes this month`;
 	return `You are using ${projects}, ${media} and ${minutes}.`;
+}
+
+/**
+ * What `GET /api/billing/allowance` answers, whole: the sentence for a screen
+ * reader or a surface with no room for a meter, and the ceilings and usage it
+ * was built from, so the meter shows the server's numbers and the client adds none.
+ */
+export interface PlanAllowance {
+	readonly plan: HostedTierName;
+	/** The Plan's own word for itself ("Free", "Creator"), so no client table names a tier. */
+	readonly planLabel: string;
+	readonly sentence: string;
+	readonly limits: {
+		readonly cloudProjects: number;
+		readonly mediaBytes: number;
+		readonly hostedRenderTime: number;
+		readonly concurrentRenders: number;
+	};
+	readonly usage: AccountUsage;
+	/** ISO instant the month's hosted minutes reset. */
+	readonly resetsAt: string;
+}
+
+/** One read of the account's allowance: the plan store asks it, the HTTP adapter answers. */
+export interface PlanAllowanceReader {
+	read(): Promise<PlanAllowance>;
+}
+
+export function planAllowance(plan: Plan, usage: AccountUsage, now: Date): PlanAllowance {
+	return {
+		plan: hostedTierName(plan),
+		planLabel: plan.label,
+		sentence: allowanceSentence(plan, usage),
+		limits: {
+			cloudProjects: plan.limitFor("cloudProjects"),
+			mediaBytes: plan.limitFor("mediaBytes"),
+			hostedRenderTime: plan.limitFor("hostedRenderTime"),
+			concurrentRenders: plan.limitFor("concurrentRenders"),
+		},
+		usage,
+		resetsAt: renderPeriodReset(now).toISOString(),
+	};
 }

@@ -1,3 +1,5 @@
+import type { PlanAllowance } from "@/application/billing/plan-allowance";
+import { type QuotaMeter, nearAnyLimit, quotaMeters } from "@/application/billing/quota-meter";
 import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
 import {
 	type ClientAuthOperation,
@@ -31,6 +33,7 @@ import {
 	X,
 } from "reicon-react";
 import { TestModeLine } from "../billing/test-mode-line";
+import { PlanMeter } from "./plan-meter";
 import { StudioApiKeys, type StudioApiKeysControl } from "./studio-api-keys";
 import { StudioCloudProjects, type StudioCloudProjectsControl } from "./studio-cloud-projects";
 import "./studio-account-control.css";
@@ -47,6 +50,8 @@ export interface StudioAccountControlProps {
 	readonly billing?: StudioBillingControl;
 	/** The server's allowance sentence, shown as written; the client holds no numbers. */
 	readonly allowance?: string | null;
+	/** The ceilings and usage behind that sentence: with them the plan card draws a meter per quota. */
+	readonly allowanceDetail?: PlanAllowance | null;
 	/** Offered to a signed-in account only; without it the panel has no keys view. */
 	readonly apiKeys?: StudioApiKeysControl;
 	/** Offered to a signed-in account only; without it the panel has no cloud projects view. */
@@ -95,6 +100,7 @@ export function StudioAccountControl({
 	onSaveToCloud,
 	billing,
 	allowance,
+	allowanceDetail,
 	apiKeys,
 	cloudProjects,
 	menuSection,
@@ -240,6 +246,7 @@ export function StudioAccountControl({
 			cloudProjectState={cloudProjectState}
 			billing={billing}
 			allowance={allowance}
+			allowanceDetail={allowanceDetail}
 			apiKeys={apiKeys}
 			view={view}
 			cloudProjects={cloudProjects}
@@ -387,6 +394,7 @@ interface AccountPanelProps {
 	readonly cloudProjectState: StudioCloudProjectState;
 	readonly billing?: StudioBillingControl;
 	readonly allowance?: string | null;
+	readonly allowanceDetail?: PlanAllowance | null;
 	readonly apiKeys?: StudioApiKeysControl;
 	readonly cloudProjects?: StudioCloudProjectsControl;
 	readonly view: PanelView;
@@ -408,6 +416,7 @@ function AccountPanel({
 	cloudProjectState,
 	billing,
 	allowance,
+	allowanceDetail,
 	apiKeys,
 	cloudProjects,
 	view,
@@ -470,6 +479,7 @@ function AccountPanel({
 			}
 		})();
 		const { name, email } = status.session.account;
+		const meters = allowanceDetail ? quotaMeters(allowanceDetail) : [];
 		return (
 			<div className="mm-account-copy">
 				{/* Who first, then what the plan allows, then this project's cloud copy
@@ -484,8 +494,18 @@ function AccountPanel({
 						<p>{email}</p>
 					</div>
 				</div>
-				{billing ? <AccountBilling billing={billing} /> : null}
-				{allowance ? <p className="mm-account-allowance">{allowance}</p> : null}
+				{/* With the ceilings and usage in hand the allowance is a meter, inside the plan
+				    card when there is one; the sentence alone is the fallback (an older server,
+				    a build with no billing) and the screen reader's own summary. */}
+				{billing?.available ? (
+					<AccountBilling billing={billing} meters={meters} sentence={allowance ?? null} />
+				) : null}
+				{!billing?.available && meters.length > 0 ? (
+					<PlanMeter meters={meters} sentence={allowance ?? null} />
+				) : null}
+				{meters.length === 0 && allowance ? (
+					<p className="mm-account-allowance">{allowance}</p>
+				) : null}
 				{cloudProjects ? (
 					<button
 						ref={projectsEntryRef}
@@ -580,17 +600,34 @@ function AccountNotice({ notice }: { readonly notice: BillingNotice }) {
 }
 
 /** The plan card, with the sandbox line above it when the server says it is one. */
-function AccountBilling({ billing }: { readonly billing: StudioBillingControl }) {
+function AccountBilling({
+	billing,
+	meters,
+	sentence,
+}: {
+	readonly billing: StudioBillingControl;
+	readonly meters: readonly QuotaMeter[];
+	readonly sentence: string | null;
+}) {
 	if (!billing.available) return null;
 	return (
 		<>
 			<TestModeLine environment={billing.catalog?.environment} />
-			<PlanCard billing={billing} />
+			<PlanCard billing={billing} meters={meters} sentence={sentence} />
 		</>
 	);
 }
 
-function PlanCard({ billing }: { readonly billing: StudioBillingControl }) {
+function PlanCard({
+	billing,
+	meters,
+	sentence,
+}: {
+	readonly billing: StudioBillingControl;
+	readonly meters: readonly QuotaMeter[];
+	readonly sentence: string | null;
+}) {
+	const meter = meters.length > 0 ? <PlanMeter meters={meters} sentence={sentence} /> : null;
 	if (billing.paid) {
 		return (
 			<div className="mm-account-plan-card" data-plan="paid">
@@ -601,6 +638,7 @@ function PlanCard({ billing }: { readonly billing: StudioBillingControl }) {
 				<button type="button" disabled={billing.busy} onClick={billing.onManageBilling}>
 					Manage billing
 				</button>
+				{meter}
 				{billing.error ? <p role="alert">{billing.error}</p> : null}
 			</div>
 		);
@@ -618,6 +656,7 @@ function PlanCard({ billing }: { readonly billing: StudioBillingControl }) {
 					</div>
 				</div>
 				<AccountNotice notice={billing.notice} />
+				{meter}
 				<button
 					type="button"
 					className="mm-account-primary"
@@ -634,16 +673,11 @@ function PlanCard({ billing }: { readonly billing: StudioBillingControl }) {
 	const monthly = billing.catalog?.creator.monthly;
 	const annual = billing.catalog?.creator.annual;
 	const selectedPrice = billing.catalog?.creator[billing.cadence];
-	return (
-		<div className="mm-account-plan-card" data-plan="free">
-			<div className="mm-account-plan-heading">
-				<div>
-					<span>Current plan</span>
-					<strong>{billing.planLabel}</strong>
-				</div>
-				<span>Private cloud + render compute</span>
-			</div>
-			{billing.notice ? <AccountNotice notice={billing.notice} /> : null}
+	// The upgrade sits under the meter, and above it once a quota is close to its
+	// ceiling: that is the moment it is wanted (Dub's sidebar does the same).
+	const upgradeFirst = nearAnyLimit(meters);
+	const upgrade = (
+		<>
 			{monthly && annual ? (
 				<div className="mm-account-cadence" aria-label="Creator billing cadence">
 					<button
@@ -674,6 +708,25 @@ function PlanCard({ billing }: { readonly billing: StudioBillingControl }) {
 					{billing.busy ? "Opening secure checkout…" : "Upgrade to Creator"}
 				</button>
 			) : null}
+		</>
+	);
+	return (
+		<div
+			className="mm-account-plan-card"
+			data-plan="free"
+			data-near-limit={upgradeFirst ? "" : undefined}
+		>
+			<div className="mm-account-plan-heading">
+				<div>
+					<span>Current plan</span>
+					<strong>{billing.planLabel}</strong>
+				</div>
+				<span>Private cloud + render compute</span>
+			</div>
+			{billing.notice ? <AccountNotice notice={billing.notice} /> : null}
+			{upgradeFirst ? upgrade : null}
+			{meter}
+			{upgradeFirst ? null : upgrade}
 			{billing.error ? <p role="alert">{billing.error}</p> : null}
 		</div>
 	);
@@ -837,11 +890,10 @@ function EmailStep({
 			    what signing in adds. Both claims are the plan rules (viability D2, D4): the
 			    device renders every format with nothing uploaded, a free account keeps a few
 			    private cloud copies, and hosted renders (the only path that bakes captions and
-			    audio) are Creator's. No resolution is promised on the device line: a hosted
-			    build still runs a Free plan's caps through the device export. */}
+			    audio) are Creator's. "Up to 4K" is true on the device (RESOLUTION_TIERS). */}
 			<div className="mm-account-value">
 				<p>
-					<strong>On this device:</strong> every format, nothing uploaded, no account.
+					<strong>On this device:</strong> every format, up to 4K, nothing uploaded, no account.
 				</p>
 				<p>
 					<strong>With an account:</strong> private cloud copies, and hosted renders with captions

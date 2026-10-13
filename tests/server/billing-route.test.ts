@@ -302,6 +302,9 @@ describe("billing route", () => {
 		expect(await response.json()).toEqual({
 			allowance: {
 				plan: "free",
+				planLabel: "Free",
+				// Hosted minutes start again on the first of the next UTC month (NOW is 30 August).
+				resetsAt: "2026-09-01T00:00:00.000Z",
 				sentence:
 					"You are using 2 of 3 cloud projects and 12\u00a0MB of 100\u00a0MB of media; hosted renders come with Creator.",
 				limits: {

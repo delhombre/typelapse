@@ -65,6 +65,8 @@ export function DiffImportMenu({
 	const [confirming, setConfirming] = useState(false);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const rootRef = useRef<HTMLDivElement>(null);
+	const openerRef = useRef<HTMLElement | null>(null);
+	const wasOpenRef = useRef(false);
 	const errorId = useId();
 	const reduce = useReducedMotion() === true;
 
@@ -89,9 +91,24 @@ export function DiffImportMenu({
 		if (pending !== "") {
 			setText(pending);
 		}
+		openerRef.current = useDiffImportStore.getState().opener;
 		changeOpen(true);
 		takePending();
 	}, [changeOpen, pending, takePending]);
+
+	// The control that handed over (the empty scene list's row) gets focus back when
+	// the dialog closes, if it is still there: an import that filled the scene list
+	// removed it, and the hub's own trigger keeps the focus it was given.
+	useEffect(() => {
+		if (wasOpenRef.current && !open) {
+			const opener = openerRef.current;
+			openerRef.current = null;
+			if (opener?.isConnected) {
+				opener.focus();
+			}
+		}
+		wasOpenRef.current = open;
+	}, [open]);
 
 	useEffect(() => {
 		if (!open) {

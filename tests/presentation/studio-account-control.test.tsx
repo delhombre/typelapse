@@ -5,8 +5,13 @@ import {
 	type ClientSession,
 	type SignInCode,
 } from "@/application/auth/client-auth.port";
+import { type AccountUsage, planAllowance } from "@/application/billing/plan-allowance";
 import type { BillingCadence, BillingCatalog, BillingNotice } from "@/domain/ports/billing.port";
-import { StudioAccountControl } from "@/presentation/components/multimedia/studio-account-control";
+import { Plan } from "@/domain/value-objects/plan";
+import {
+	StudioAccountControl,
+	type StudioBillingControl,
+} from "@/presentation/components/multimedia/studio-account-control";
 import { createAuthStore } from "@/presentation/stores/auth.store";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -102,7 +107,9 @@ describe("StudioAccountControl", () => {
 		const device = lineOf("On this device:");
 		const account = lineOf("With an account:");
 		// The two lines are claims about the product (viability D2 and D4), pinned word for word.
-		expect(device.textContent).toBe("On this device: every format, nothing uploaded, no account.");
+		expect(device.textContent).toBe(
+			"On this device: every format, up to 4K, nothing uploaded, no account.",
+		);
 		expect(account.textContent).toBe(
 			"With an account: private cloud copies, and hosted renders with captions and audio on Creator.",
 		);
@@ -558,6 +565,122 @@ describe("StudioAccountControl", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
 
 		expect(screen.getByText(sentence)).toBeTruthy();
+	});
+
+	describe("the plan meter (#255)", () => {
+		const MB = 1024 * 1024;
+		const AT = new Date("2026-10-13T09:00:00.000Z");
+
+		function openWith(
+			plan: Plan,
+			used: Partial<AccountUsage>,
+			billingOverrides: Partial<StudioBillingControl> = {},
+		) {
+			const store = createAuthStore({ kind: "local-offline" });
+			store.setState({
+				status: { kind: "authenticated", session: SESSION },
+				operation: "idle",
+				canSync: true,
+				error: null,
+			});
+			const detail = planAllowance(
+				plan,
+				{ cloudProjects: 0, mediaBytes: 0, hostedRenderMsThisMonth: 0, activeRenders: 0, ...used },
+				AT,
+			);
+			render(
+				<StudioAccountControl
+					store={store}
+					allowance={detail.sentence}
+					allowanceDetail={detail}
+					billing={{
+						planLabel: plan.label,
+						paid: plan.isPro,
+						available: true,
+						catalog: {
+							creator: { monthly: { currency: "EUR", unitAmount: 1200 } },
+						},
+						cadence: "monthly",
+						busy: false,
+						error: null,
+						onCadence: vi.fn(),
+						onUpgrade: vi.fn(),
+						onManageBilling: vi.fn(),
+						...billingOverrides,
+					}}
+				/>,
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
+			return detail;
+		}
+
+		const rows = () => Array.from(document.querySelectorAll<HTMLElement>(".mm-meter-row"));
+
+		it("draws a bar and a count per quota, and Hosted renders as a fact on Free", () => {
+			openWith(Plan.free(), { cloudProjects: 1, mediaBytes: 12 * MB });
+
+			expect(rows().map((row) => row.textContent)).toEqual([
+				"Cloud projects1 of 3",
+				"Media12 MB of 100 MB",
+				"Hosted renders0 on Free",
+			]);
+			expect(rows().filter((row) => row.querySelector(".mm-meter-fill"))).toHaveLength(2);
+			expect(rows().some((row) => row.hasAttribute("data-warn"))).toBe(false);
+		});
+
+		it("keeps the server's sentence as text for a screen reader, and hides the drawn rows", () => {
+			const detail = openWith(Plan.free(), { cloudProjects: 1 });
+
+			const sentence = document.querySelector(".mm-meter .sr-only");
+			expect(sentence?.textContent).toBe(detail.sentence);
+			expect(document.querySelector(".mm-meter-list")?.getAttribute("aria-hidden")).toBe("true");
+		});
+
+		it("shows the render minutes and their reset date on Creator", () => {
+			openWith(Plan.pro(), { hostedRenderMsThisMonth: 12 * 60_000 });
+
+			expect(rows().map((row) => row.textContent)).toContain(
+				"Hosted render minutes12 of 60resets Nov 1",
+			);
+		});
+
+		it("puts the upgrade under the meter until a quota is near its ceiling, then above it", () => {
+			openWith(Plan.free(), { cloudProjects: 1 });
+			const upgrade = screen.getByRole("button", { name: "Upgrade to Creator" });
+			const meter = document.querySelector(".mm-meter") as HTMLElement;
+			expect(
+				meter.compareDocumentPosition(upgrade) & Node.DOCUMENT_POSITION_FOLLOWING,
+			).toBeTruthy();
+
+			cleanup();
+			openWith(Plan.free(), { cloudProjects: 3 });
+			const nearUpgrade = screen.getByRole("button", { name: "Upgrade to Creator" });
+			const nearMeter = document.querySelector(".mm-meter") as HTMLElement;
+			expect(
+				nearMeter.compareDocumentPosition(nearUpgrade) & Node.DOCUMENT_POSITION_PRECEDING,
+			).toBeTruthy();
+			expect(rows()[0]?.hasAttribute("data-warn")).toBe(true);
+			expect(document.querySelector(".mm-meter .sr-only:last-child")?.textContent).toBe(
+				"Close to the limit: cloud projects.",
+			);
+		});
+
+		it("falls back to the sentence alone when the server sent no numbers", () => {
+			const store = createAuthStore({ kind: "local-offline" });
+			store.setState({
+				status: { kind: "authenticated", session: SESSION },
+				operation: "idle",
+				canSync: true,
+				error: null,
+			});
+			render(
+				<StudioAccountControl store={store} allowance="You are using 1 of 3 cloud projects." />,
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Account for Ada Lovelace" }));
+
+			expect(document.querySelector(".mm-meter")).toBeNull();
+			expect(screen.getByText("You are using 1 of 3 cloud projects.")).toBeTruthy();
+		});
 	});
 
 	it("offers provider-backed monthly and annual Creator checkout inside the account island", () => {

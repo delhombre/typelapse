@@ -4,8 +4,7 @@ import { authenticateAccount } from "../../src/application/auth/authenticate-acc
 import { billingNotice } from "../../src/application/billing/billing-notice";
 import {
 	type AccountUsagePort,
-	allowanceSentence,
-	hostedTierName,
+	planAllowance,
 	renderPeriodStart,
 } from "../../src/application/billing/plan-allowance";
 import type { AuthPort } from "../../src/domain/ports/auth.port";
@@ -92,19 +91,7 @@ export function createBillingRoute({
 			subscriptions.planFor(accountId),
 			usage.usageFor(accountId, renderPeriodStart(now())),
 		]);
-		return c.json({
-			allowance: {
-				plan: hostedTierName(plan),
-				sentence: allowanceSentence(plan, current),
-				limits: {
-					cloudProjects: plan.limitFor("cloudProjects"),
-					mediaBytes: plan.limitFor("mediaBytes"),
-					hostedRenderTime: plan.limitFor("hostedRenderTime"),
-					concurrentRenders: plan.limitFor("concurrentRenders"),
-				},
-				usage: current,
-			},
-		});
+		return c.json({ allowance: planAllowance(plan, current, now()) });
 	});
 
 	route.get("/catalog", async (c) => {

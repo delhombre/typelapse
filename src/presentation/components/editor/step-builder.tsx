@@ -185,11 +185,17 @@ export function StepBuilder() {
 				<div className="sc-scenes-actions">
 					<RecordButton />
 					<BlankSceneButton onAdd={addBlankScene} />
-					<CaptureButton
-						onCapture={captureStep}
-						disabled={emptyDraft}
-						describedBy={reason ? reasonId : undefined}
-					/>
+					{/* The fork below carries the one Capture while there is no scene to
+					    add to: a second, quiet one in the head would be two controls for
+					    the same act (it returns with the first scene, or when the editor
+					    is empty and Capture has to say why it is off). */}
+					{showFork ? null : (
+						<CaptureButton
+							onCapture={captureStep}
+							disabled={emptyDraft}
+							describedBy={reason ? reasonId : undefined}
+						/>
+					)}
 				</div>
 			</div>
 
@@ -444,11 +450,14 @@ export function SceneInspector() {
 						<div className="sc-scenes-actions">
 							<RecordButton />
 							<BlankSceneButton onAdd={addBlankScene} />
-							<CaptureButton
-								onCapture={captureStep}
-								disabled={emptyDraft}
-								describedBy={describedBy}
-							/>
+							{/* The fork below is the one Capture while there is no scene. */}
+							{showFork ? null : (
+								<CaptureButton
+									onCapture={captureStep}
+									disabled={emptyDraft}
+									describedBy={describedBy}
+								/>
+							)}
 						</div>
 					)}
 				</div>

@@ -1,18 +1,34 @@
 import { Plan } from "@/domain/value-objects/plan";
 import { BillingReturnBoot } from "@/presentation/components/layout/billing-return-boot";
 import { useAuthStore } from "@/presentation/stores/auth.store";
+import { useBillingReturnStore } from "@/presentation/stores/billing-return.store";
+import { useExportStore } from "@/presentation/stores/export.store";
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { usePlanStore } from "@/presentation/stores/plan.store";
 import {
 	BILLING_RETRY_MS,
 	BILLING_RETRY_WINDOW_MS,
 	type BillingReturnDeps,
+	type BillingReturnPhase,
 	announceBillingReturn,
 	takeBillingReturn,
 } from "@/presentation/utils/billing-return";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.hoisted(() => {
+	window.matchMedia = ((query: string) => ({
+		matches: query.includes("reduced-motion"),
+		media: query,
+		onchange: null,
+		addEventListener: () => {},
+		removeEventListener: () => {},
+		addListener: () => {},
+		removeListener: () => {},
+		dispatchEvent: () => false,
+	})) as unknown as typeof window.matchMedia;
+});
 
 function land(search: string, hash = "") {
 	window.history.replaceState(null, "", `/app${search}${hash}`);
@@ -62,6 +78,7 @@ describe("the billing return address", () => {
 /** What the announcement does, with the clock, the account and the plan in the test's hands. */
 function harness(overrides: Partial<BillingReturnDeps> & { plans?: Plan[] } = {}) {
 	const messages: string[] = [];
+	const phases: BillingReturnPhase[] = [];
 	const waits: number[] = [];
 	const plans = overrides.plans ?? [Plan.free()];
 	let asked = 0;
@@ -76,35 +93,42 @@ function harness(overrides: Partial<BillingReturnDeps> & { plans?: Plan[] } = {}
 		notify: (message) => {
 			messages.push(message);
 		},
+		phase: (next) => {
+			phases.push(next);
+		},
 		wait: async (ms) => {
 			waits.push(ms);
 		},
 		...overrides,
 	};
-	return { deps, messages, waits, asked: () => asked };
+	return { deps, messages, phases, waits, asked: () => asked };
 }
 
+const kinds = (phases: readonly BillingReturnPhase[]) => phases.map((phase) => phase.kind);
+
 describe("announcing a return from checkout", () => {
-	it("says Creator is on at once when the server already knows the plan", async () => {
+	it("confirms at once when the server already knows the plan, after saying it is asking", async () => {
 		const run = harness({ plans: [Plan.pro()] });
 		await announceBillingReturn("success", run.deps);
-		expect(run.messages).toEqual(["Creator is on."]);
+		expect(kinds(run.phases)).toEqual(["confirming", "confirmed"]);
+		expect(run.phases[1]).toMatchObject({ plan: { tier: "pro" } });
+		expect(run.messages).toEqual([]);
 		expect(run.asked()).toBe(1);
 		expect(run.waits).toEqual([]);
 	});
 
-	it("says nothing until the server confirms: the webhook has not arrived, then it has", async () => {
+	it("stays on confirming until the server confirms: the webhook has not arrived, then it has", async () => {
 		const run = harness({ plans: [Plan.free(), Plan.pro()] });
 		await announceBillingReturn("success", run.deps);
-		expect(run.messages).toEqual(["Creator is on."]);
+		expect(kinds(run.phases)).toEqual(["confirming", "confirmed"]);
 		expect(run.asked()).toBe(2);
 		expect(run.waits).toEqual([BILLING_RETRY_MS]);
 	});
 
-	it("asks again every two seconds for twenty, then says only that the payment arrived", async () => {
+	it("asks again every two seconds for twenty, then times out", async () => {
 		const run = harness({ plans: [Plan.free()] });
 		await announceBillingReturn("success", run.deps);
-		expect(run.messages).toEqual(["Payment received. Your plan updates in a moment."]);
+		expect(kinds(run.phases)).toEqual(["confirming", "timed-out"]);
 		expect(BILLING_RETRY_MS).toBe(2_000);
 		expect(BILLING_RETRY_WINDOW_MS).toBe(20_000);
 		// The first ask, then one per retry over the whole window.
@@ -112,10 +136,10 @@ describe("announcing a return from checkout", () => {
 		expect(run.waits.every((ms) => ms === BILLING_RETRY_MS)).toBe(true);
 	});
 
-	it("never says Creator is on before the plan is not Free", async () => {
+	it("never confirms before the plan is not Free", async () => {
 		const run = harness({ plans: [Plan.free(), Plan.free(), Plan.pro()] });
 		await announceBillingReturn("success", run.deps);
-		expect(run.messages).toEqual(["Creator is on."]);
+		expect(kinds(run.phases)).toEqual(["confirming", "confirmed"]);
 		expect(run.asked()).toBe(3);
 	});
 
@@ -124,36 +148,50 @@ describe("announcing a return from checkout", () => {
 		await announceBillingReturn("success", run.deps);
 		await announceBillingReturn("cancelled", run.deps);
 		expect(run.messages).toEqual([]);
+		expect(run.phases).toEqual([]);
 		expect(run.asked()).toBe(0);
 	});
 
-	it("is silent when nobody is signed in: the plan is not theirs to confirm", async () => {
+	it("is silent when nobody is signed in, and never opens the sheet to close it again", async () => {
 		const run = harness({ signedIn: async () => false });
 		await announceBillingReturn("success", run.deps);
 		expect(run.messages).toEqual([]);
+		expect(run.phases).toEqual([]);
 		expect(run.asked()).toBe(0);
 	});
 
-	it("says nothing was charged after a cancelled checkout, in hosted mode, without asking the plan", async () => {
+	it("keeps a cancelled checkout a toast, in hosted mode, without asking the plan", async () => {
 		const run = harness({ signedIn: async () => false });
 		await announceBillingReturn("cancelled", run.deps);
 		expect(run.messages).toEqual(["Checkout cancelled, nothing was charged."]);
+		expect(run.phases).toEqual([]);
 		expect(run.asked()).toBe(0);
 	});
 });
 
-describe("the notice a billing return raises in the studio", () => {
+describe("the sheet a billing return raises in the studio", () => {
 	const refresh = vi.fn(async () => undefined);
 
 	beforeEach(() => {
 		land("");
 		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
 		useNoticeStore.setState({ notices: [] });
+		useBillingReturnStore.getState().reset();
+		useExportStore.setState({ target: "device" });
 		refresh.mockReset();
 		refresh.mockImplementation(async () => {
-			usePlanStore.setState({ plan: Plan.pro() });
+			usePlanStore.setState({
+				plan: Plan.pro(),
+				allowance: "You are using 0 of 100 cloud projects.",
+			});
 		});
-		usePlanStore.setState({ plan: Plan.free(), refresh });
+		usePlanStore.setState({
+			plan: Plan.free(),
+			allowance: null,
+			catalog: null,
+			notice: null,
+			refresh,
+		});
 		useAuthStore.setState({
 			status: {
 				kind: "authenticated",
@@ -164,27 +202,169 @@ describe("the notice a billing return raises in the studio", () => {
 	afterEach(() => {
 		cleanup();
 		vi.unstubAllEnvs();
+		vi.useRealTimers();
 	});
 
 	const messages = () => useNoticeStore.getState().notices.map((notice) => notice.message);
+	const sheet = () => screen.queryByRole("dialog");
 
-	it("announces once, after the plan is confirmed, under StrictMode's double mount", async () => {
+	it("opens once, after the plan is confirmed, under StrictMode's double mount", async () => {
 		land("?billing=success");
 		render(
 			<StrictMode>
 				<BillingReturnBoot />
 			</StrictMode>,
 		);
-		await waitFor(() => expect(messages()).toEqual(["Creator is on."]));
+
+		const dialog = await screen.findByRole("dialog", { name: "Creator is on." });
+		expect(screen.getAllByRole("dialog")).toHaveLength(1);
+		expect(dialog.textContent).toContain("Cloud is now under Where when you export.");
+		// The allowance sentence is the plan store's own, as the server wrote it.
+		expect(dialog.textContent).toContain("You are using 0 of 100 cloud projects.");
 		expect(refresh).toHaveBeenCalledTimes(1);
 		expect(refresh).toHaveBeenCalledWith({ signedIn: true });
 		expect(window.location.search).toBe("");
+		expect(messages()).toEqual([]);
+	});
+
+	it("shows Confirming your payment while the plan is still Free, then the confirmed sheet", async () => {
+		vi.useFakeTimers();
+		refresh.mockImplementation(async () => undefined);
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(0);
+		});
+		expect(screen.getByRole("dialog", { name: "Confirming your payment" })).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Render in the cloud" })).toBeNull();
+
+		refresh.mockImplementation(async () => {
+			usePlanStore.setState({ plan: Plan.pro(), allowance: "You are using 0 of 100." });
+		});
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(BILLING_RETRY_MS);
+		});
+
+		expect(screen.getByRole("dialog", { name: "Creator is on." })).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Render in the cloud" })).toBeTruthy();
+	});
+
+	it("says the payment arrived when the window runs out", async () => {
+		vi.useFakeTimers();
+		refresh.mockImplementation(async () => undefined);
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(BILLING_RETRY_WINDOW_MS + BILLING_RETRY_MS);
+		});
+
+		const dialog = screen.getByRole("dialog", { name: "Payment received." });
+		expect(dialog.textContent).toContain("Your plan updates in a moment.");
+		expect(screen.queryByRole("button", { name: "Render in the cloud" })).toBeNull();
+	});
+
+	it("sets Where to Cloud and closes when Render in the cloud is pressed", async () => {
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		await screen.findByRole("dialog", { name: "Creator is on." });
+
+		fireEvent.click(screen.getByRole("button", { name: "Render in the cloud" }));
+
+		expect(useExportStore.getState().target).toBe("cloud");
+		expect(useBillingReturnStore.getState().phase).toBeNull();
+	});
+
+	it("closes on Escape and on its close button without touching Where, and stays closed", async () => {
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		const dialog = await screen.findByRole("dialog", { name: "Creator is on." });
+
+		fireEvent.keyDown(dialog, { key: "Escape" });
+
+		expect(useBillingReturnStore.getState().phase).toBeNull();
+		expect(useExportStore.getState().target).toBe("device");
+		// A late confirmation does not bring it back over the person's work.
+		act(() => {
+			useBillingReturnStore.getState().show({ kind: "timed-out" });
+		});
+		expect(useBillingReturnStore.getState().phase).toBeNull();
+	});
+
+	it("is a named dialog with a close button", async () => {
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		await screen.findByRole("dialog", { name: "Creator is on." });
+
+		expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
+	});
+
+	it("adds the sandbox line when the billing catalog says the provider is a sandbox", async () => {
+		usePlanStore.setState({
+			catalog: {
+				environment: "sandbox",
+				creator: { monthly: { currency: "USD", unitAmount: 1200 } },
+			},
+		});
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		const dialog = await screen.findByRole("dialog", { name: "Creator is on." });
+
+		expect(dialog.textContent).toContain("Test mode: no real charges");
+	});
+
+	it("leaves the sandbox line out of a production build", async () => {
+		usePlanStore.setState({
+			catalog: {
+				environment: "production",
+				creator: { monthly: { currency: "USD", unitAmount: 1200 } },
+			},
+		});
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		const dialog = await screen.findByRole("dialog", { name: "Creator is on." });
+
+		expect(dialog.textContent).not.toContain("Test mode");
+	});
+
+	it("says what the new plan lifts only for an account that had lapsed", async () => {
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		const plain = await screen.findByRole("dialog", { name: "Creator is on." });
+		expect(plain.textContent).not.toContain("no longer expire");
+
+		cleanup();
+		useBillingReturnStore.getState().reset();
+		usePlanStore.setState({
+			plan: Plan.free(),
+			notice: { kind: "ended", sentence: "Your Creator plan has ended." },
+		});
+		refresh.mockImplementation(async () => {
+			usePlanStore.setState({ plan: Plan.pro() });
+		});
+		land("?billing=success");
+		render(<BillingReturnBoot />);
+		const lapsed = await screen.findByRole("dialog", { name: "Creator is on." });
+
+		// The day count is the Free plan's own grace, read from the domain.
+		expect(lapsed.textContent).toContain("Your earlier renders no longer expire after 30 days.");
+	});
+
+	it("keeps a cancelled checkout a toast, with no sheet", async () => {
+		land("?billing=cancelled");
+		render(<BillingReturnBoot />);
+
+		await waitFor(() => expect(messages()).toEqual(["Checkout cancelled, nothing was charged."]));
+		expect(sheet()).toBeNull();
+		expect(refresh).not.toHaveBeenCalled();
 	});
 
 	it("stays silent on an ordinary visit", async () => {
 		render(<BillingReturnBoot />);
 		await Promise.resolve();
 		expect(messages()).toEqual([]);
+		expect(sheet()).toBeNull();
 		expect(refresh).not.toHaveBeenCalled();
 	});
 
@@ -194,16 +374,19 @@ describe("the notice a billing return raises in the studio", () => {
 		render(<BillingReturnBoot />);
 		await Promise.resolve();
 		expect(messages()).toEqual([]);
+		expect(sheet()).toBeNull();
 		expect(refresh).not.toHaveBeenCalled();
 		expect(window.location.search).toBe("");
 	});
 
-	it("is silent when signed out", async () => {
+	it("is silent when signed out: no sheet, no flash", async () => {
 		useAuthStore.setState({ status: { kind: "anonymous" } });
 		land("?billing=success");
 		render(<BillingReturnBoot />);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(messages()).toEqual([]);
+		expect(sheet()).toBeNull();
+		expect(useBillingReturnStore.getState().phase).toBeNull();
 		expect(refresh).not.toHaveBeenCalled();
 	});
 });

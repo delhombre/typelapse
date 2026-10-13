@@ -58,6 +58,7 @@ export function TemplateGallery() {
 	const [pending, setPending] = useState<TemplateDefinition | null>(null);
 	const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	const openerRef = useRef<HTMLElement | null>(null);
 	const reduce = useReducedMotion() === true;
 
 	const close = useCallback(() => {
@@ -99,10 +100,23 @@ export function TemplateGallery() {
 	const takeRequest = useShowcaseRequestStore((state) => state.take);
 	useEffect(() => {
 		if (requested) {
+			openerRef.current = useShowcaseRequestStore.getState().opener;
 			setOpen(true);
 			takeRequest();
 		}
 	}, [requested, takeRequest]);
+
+	// The control that asked (the empty scene list's row) gets focus back when the
+	// gallery has closed, if it is still there; a loaded project removes it, and the
+	// header trigger, which `close` already focused, keeps focus. This waits for the
+	// exit because the page behind a modal dialog is inert until it has finished.
+	const returnFocusToOpener = useCallback(() => {
+		const opener = openerRef.current;
+		openerRef.current = null;
+		if (opener?.isConnected) {
+			opener.focus();
+		}
+	}, []);
 
 	return (
 		<>
@@ -127,6 +141,7 @@ export function TemplateGallery() {
 			<StudioBottomSheet
 				open={open}
 				onClose={dismiss}
+				onClosed={returnFocusToOpener}
 				labelledBy="showcase-title"
 				className="showcase-sheet"
 			>
