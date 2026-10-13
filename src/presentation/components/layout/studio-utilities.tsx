@@ -134,7 +134,7 @@ export function StudioUtilities({
 		// sheet closes the menu first, as the resources' rows do; the sheet hands focus
 		// back to the menu's button. A DOM listener: the row is a portal of another tree.
 		const root = rootRef.current;
-		const onClick = (event: MouseEvent) => {
+		const onClick = (event: Event) => {
 			if ((event.target as Element | null)?.closest?.("[data-dismiss-menu]")) {
 				setMenuOpen(false);
 			}
