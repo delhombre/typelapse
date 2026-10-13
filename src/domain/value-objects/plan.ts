@@ -3,9 +3,11 @@
  *
  * This is the single, reconciled Plan for Typelapse. It unifies two orthogonal
  * concerns into one immutable value object:
- *   1. Export entitlements (resolution, fps, duration, watermark, hosted
- *      render) that gate what an export may do, so the preview, the export UI
- *      and the render server all agree on one source of truth (WYSIWYG).
+ *   1. Hosted entitlements: what runs on OUR machines (hosted renders, cloud
+ *      projects, private media). A plan prices our compute and storage and
+ *      nothing else. It carries no entitlement for an export on the user's own
+ *      machine: that is free, never clamped, never watermarked
+ *      (decision 2026-10-13-device-exports-free, after viability D2).
  *   2. Team seats: the per-seat billing foundation for the B2B track. An
  *      Organization may hold no more members than its plan grants seats.
  *
@@ -13,9 +15,6 @@
  */
 
 export type PlanTier = "local" | "free" | "pro" | "team";
-
-/** Discrete branding watermark stamped on every free-tier export. */
-export const BRANDING_WATERMARK = "Made with Typelapse";
 
 const MEBIBYTE = 1024 * 1024;
 const MINUTE_MS = 60_000;
@@ -29,31 +28,26 @@ export type PlanCeiling = "cloudProjects" | "mediaBytes" | "hostedRenderTime" | 
 
 export interface PlanCapabilities {
 	/**
-	 * Largest export dimension in pixels, on whichever axis is the longer one.
+	 * Largest dimension, in pixels, of a HOSTED render on whichever axis is the
+	 * longer one. Applies to renders on our servers only; an export on the user's
+	 * own machine has no size limit.
 	 *
-	 * Resolution is capped by SHAPE, not by axis. A tier names the short edge
+	 * A hosted render is capped by SHAPE, not by axis. A tier names the short edge
 	 * (`dimensionsFor`: "1440p" vertical is 1440x2560), and the export bar offers
 	 * every aspect at every tier, so the same tier lands on width or on height
 	 * depending on the orientation the user picked. Capping `width` and `height`
 	 * separately would therefore sell a resolution and deliver another: Pro's 4K
 	 * is 3840x2160 wide, and the identical entitlement is 2160x3840 vertical.
 	 *
-	 * So a plan grants a rectangle, and the export is allowed if it fits that
-	 * rectangle in either orientation: long edge against `maxLongEdge`, short edge
-	 * against `maxShortEdge`. Free grants 1920x1080 (the whole 1080p row, portrait
-	 * included); Pro and Team grant 3840x2160 (every shipped preset).
+	 * So a plan grants a rectangle, and the render is allowed if it fits that
+	 * rectangle in either orientation: long edge against `hostedMaxLongEdge`,
+	 * short edge against `hostedMaxShortEdge`. Free grants 1920x1080 (the whole
+	 * 1080p row, portrait included); Pro and Team grant 3840x2160 (every shipped
+	 * preset).
 	 */
-	readonly maxLongEdge: number;
-	/** Largest export dimension on whichever axis is the shorter one. */
-	readonly maxShortEdge: number;
-	/** Highest frame rate the tier may export at. */
-	readonly maxFps: number;
-	/** Longest video the tier may export, in milliseconds. */
-	readonly maxDurationMs: number;
-	/** A Typelapse branding watermark is forced onto every export. */
-	readonly forcesBrandingWatermark: boolean;
-	/** The user may set their own watermark text. */
-	readonly allowsCustomWatermark: boolean;
+	readonly hostedMaxLongEdge: number;
+	/** Largest dimension of a hosted render on whichever axis is the shorter one. */
+	readonly hostedMaxShortEdge: number;
 	/** Hosted (cloud) rendering is available: no local server required. */
 	readonly allowsCloudExport: boolean;
 	/** Renders are placed on the priority queue. */
@@ -82,12 +76,8 @@ export interface PlanCapabilities {
  * nerfs itself. Caps are unbounded so every gate is a pass-through no-op.
  */
 const LOCAL: PlanCapabilities = {
-	maxLongEdge: Number.POSITIVE_INFINITY,
-	maxShortEdge: Number.POSITIVE_INFINITY,
-	maxFps: Number.POSITIVE_INFINITY,
-	maxDurationMs: Number.POSITIVE_INFINITY,
-	forcesBrandingWatermark: false,
-	allowsCustomWatermark: true,
+	hostedMaxLongEdge: Number.POSITIVE_INFINITY,
+	hostedMaxShortEdge: Number.POSITIVE_INFINITY,
 	allowsCloudExport: false,
 	priorityQueue: false,
 	seats: 1,
@@ -102,12 +92,8 @@ const LOCAL: PlanCapabilities = {
 // The hosted ceilings are decision log 2026-10-03-viability D4: free exists so
 // cloud save and the PR-by-URL flow can be tried; a render is paid compute.
 const FREE: PlanCapabilities = {
-	maxLongEdge: 1920,
-	maxShortEdge: 1080,
-	maxFps: 60,
-	maxDurationMs: 60_000,
-	forcesBrandingWatermark: true,
-	allowsCustomWatermark: false,
+	hostedMaxLongEdge: 1920,
+	hostedMaxShortEdge: 1080,
 	allowsCloudExport: false,
 	priorityQueue: false,
 	seats: 1,
@@ -119,12 +105,8 @@ const FREE: PlanCapabilities = {
 };
 
 const PRO: PlanCapabilities = {
-	maxLongEdge: 3840,
-	maxShortEdge: 2160,
-	maxFps: 60,
-	maxDurationMs: 600_000,
-	forcesBrandingWatermark: false,
-	allowsCustomWatermark: true,
+	hostedMaxLongEdge: 3840,
+	hostedMaxShortEdge: 2160,
 	allowsCloudExport: true,
 	priorityQueue: true,
 	seats: 1,
@@ -148,11 +130,6 @@ const TIER_LABELS: Record<PlanTier, string> = {
 	pro: "Creator",
 	team: "Team",
 };
-
-/** Round down to the nearest even integer >= 2 (h264/yuv420p needs even dims). */
-function toEven(n: number): number {
-	return Math.max(2, Math.floor(n / 2) * 2);
-}
 
 function assertSeatLimit(seatLimit: number): void {
 	if (!Number.isInteger(seatLimit)) {
@@ -233,56 +210,16 @@ export class Plan {
 	}
 
 	/**
-	 * How far the request must shrink to fit the plan's rectangle: 1 when it
-	 * already fits. Orientation-free — the request's long edge is measured against
-	 * the plan's long edge and its short edge against the short edge, so a preset
-	 * and its portrait twin (3840x2160 and 2160x3840) are the same entitlement.
+	 * Whether a hosted render at this size fits the plan's rectangle.
+	 * Orientation-free: the request's long edge is measured against the plan's
+	 * long edge and its short edge against the short edge, so a preset and its
+	 * portrait twin (3840x2160 and 2160x3840) are the same entitlement.
 	 */
-	private resolutionScale(width: number, height: number): number {
-		const { maxLongEdge, maxShortEdge } = this.capabilities;
-		const longEdge = Math.max(width, height);
-		const shortEdge = Math.min(width, height);
-		return Math.min(1, maxLongEdge / longEdge, maxShortEdge / shortEdge);
-	}
-
-	/** Whether the requested resolution fits within the plan's limits. */
-	allowsResolution(width: number, height: number): boolean {
-		return this.resolutionScale(width, height) >= 1;
-	}
-
-	/** Fit the requested resolution within the plan, preserving aspect ratio. */
-	clampResolution(width: number, height: number): { width: number; height: number } {
-		const scale = this.resolutionScale(width, height);
-		if (scale >= 1) {
-			return { width, height };
-		}
-		return { width: toEven(width * scale), height: toEven(height * scale) };
-	}
-
-	allowsFps(fps: number): boolean {
-		return fps <= this.capabilities.maxFps;
-	}
-
-	clampFps(fps: number): number {
-		return Math.min(fps, this.capabilities.maxFps);
-	}
-
-	allowsDuration(durationMs: number): boolean {
-		return durationMs <= this.capabilities.maxDurationMs;
-	}
-
-	/**
-	 * The watermark actually rendered for this plan.
-	 *
-	 * Free always carries the discrete branding mark; local, pro and team show
-	 * the user's own mark when set, and nothing otherwise.
-	 */
-	effectiveWatermark(userWatermark: string): string | undefined {
-		if (this.capabilities.forcesBrandingWatermark) {
-			return BRANDING_WATERMARK;
-		}
-		const trimmed = userWatermark.trim();
-		return trimmed.length > 0 ? trimmed : undefined;
+	allowsHostedResolution(width: number, height: number): boolean {
+		const { hostedMaxLongEdge, hostedMaxShortEdge } = this.capabilities;
+		return (
+			Math.max(width, height) <= hostedMaxLongEdge && Math.min(width, height) <= hostedMaxShortEdge
+		);
 	}
 
 	/** The plan's value for a hosted ceiling (milliseconds, bytes or a count). */

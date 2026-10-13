@@ -203,7 +203,13 @@ or it does not land.
   (ten in ten minutes, the client read from `TRUSTED_CLIENT_IP_HEADER` when set) and
   per instance (two hundred an hour).
 - **Plan**: `free` or `creator` (paid). Resolved server-side from the Polar
-  subscription projection; never from a header or a body field.
+  subscription projection; never from a header or a body field. A plan carries
+  hosted entitlements only (hosted renders and their size rectangle, cloud
+  projects, media), never anything about an export on the user's machine.
+- **Device export**: an export rendered on the user's own machine (the browser
+  encoder, or their local Remotion server). Plan-independent: no plan clamps its
+  size, rate or length, and Typelapse never stamps a watermark on it. The
+  **watermark** is the user's own text, or nothing.
 - **Billing environment**: `sandbox` or `production`, read by the server from
   `POLAR_ENVIRONMENT` and published as `environment` on `/api/billing/catalog`.
   The client never infers it from the build. Only `sandbox` draws the **test mode

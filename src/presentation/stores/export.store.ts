@@ -2,7 +2,7 @@ import type { CaptureRecord } from "@/application/captures/capture-record";
 import { deviceExportRefusal } from "@/application/export/device-export-refusal";
 import { exportCodecNote, formatName } from "@/application/export/export-label";
 import { NOTHING_TO_RENDER } from "@/application/export/render-block";
-import { resolveExport } from "@/application/export/resolve-export";
+import { resolveDeviceExport } from "@/application/export/resolve-device-export";
 import { focusLineSet } from "@/application/focus/line-ranges";
 import { type CubicBezier, DEFAULT_TRANSITION_EASING } from "@/application/magic-move/easing";
 import { type MagicMovePlan, frameLineCount } from "@/application/magic-move/engine";
@@ -26,7 +26,6 @@ import { create } from "zustand";
 // import is erased at build time, so no server code enters the client bundle.
 import type { RenderRequestBody } from "../../../server/remotion/types";
 import { isHostedBuild, useHostedRenderJobsStore } from "./hosted-render-jobs.store";
-import { usePlanStore } from "./plan.store";
 import { useSnippetStore } from "./snippet.store";
 
 export interface ExportProgress {
@@ -240,10 +239,8 @@ export const useExportStore = create<ExportState>((set, get) => ({
 			transitionEasing,
 		} = get();
 
-		const { plan } = usePlanStore.getState();
-		// Apply plan entitlements (resolution/fps caps + watermark) in one place so
-		// the preview and the export never disagree. Under Plan.local this is a
-		// pass-through no-op: nothing is clamped and the user's watermark is kept.
+		// No plan reaches a device export: the size, the rate and the watermark are
+		// the ones asked for, whoever is signed in (decision 2026-10-13).
 		// The encoders take even sizes only (4:2:0 chroma is subsampled by two) and
 		// `RenderConfig` refuses an odd one outright. The chips only ever offer even
 		// sizes, but a share link or a project file can carry any integer, and the
@@ -251,9 +248,9 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		// button did nothing at all. So the size is brought down to even here, the
 		// way the worker would, and anything else that refuses says so on screen.
 		const even = evenDimensions(width, height);
-		let resolved: ReturnType<typeof resolveExport>;
+		let resolved: ReturnType<typeof resolveDeviceExport>;
 		try {
-			resolved = resolveExport(plan, { ...even, fps, format, userWatermark: watermark });
+			resolved = resolveDeviceExport({ ...even, fps, format, userWatermark: watermark });
 		} catch (error) {
 			set({
 				outcome: {
@@ -467,12 +464,12 @@ export const useExportStore = create<ExportState>((set, get) => ({
 		const { snippet, plan: magicMovePlan, currentStepIndex, watermark } = snippetState;
 		const { format, width, height, fps } = get();
 
-		// The size the video would come out at: the preset's, clamped to the plan,
-		// and even. The PNG is a frame of that export, so it takes the same
-		// decisions in the same place instead of reading them off the window.
-		let resolved: ReturnType<typeof resolveExport>;
+		// The size the video would come out at: the preset's, and even. The PNG is
+		// a frame of that export, so it takes the same decisions in the same place
+		// instead of reading them off the window.
+		let resolved: ReturnType<typeof resolveDeviceExport>;
 		try {
-			resolved = resolveExport(usePlanStore.getState().plan, {
+			resolved = resolveDeviceExport({
 				...evenDimensions(width, height),
 				fps,
 				format,

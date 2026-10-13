@@ -313,7 +313,7 @@ export function createRenderBySourceService(deps: RenderBySourceDeps): RenderByS
 		async submit({ ownerId, plan, source, renderOptions, theme, now }) {
 			// Pure, so asked before the network and before anything is written.
 			const { width, height } = renderOptions;
-			if (!plan.allowsResolution(width, height)) {
+			if (!plan.allowsHostedResolution(width, height)) {
 				return {
 					outcome: "resolution-limit",
 					message: resolutionLimitMessage(plan, width, height),
