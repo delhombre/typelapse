@@ -229,7 +229,7 @@ describe("the links of the two fallbacks", () => {
 		expect(light).not.toBe("");
 		expect(dark).not.toBe("");
 		// The two grounds are app.css's own: html's light fill and its dark one.
-		expect(contrastRatio(light, "#fafaf9")).toBeGreaterThanOrEqual(4.5);
+		expect(contrastRatio(light, "#faf9f6")).toBeGreaterThanOrEqual(4.5);
 		expect(contrastRatio(dark, "#121110")).toBeGreaterThanOrEqual(4.5);
 	});
 

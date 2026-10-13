@@ -85,3 +85,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-13 [pricing-page](2026-10-13-pricing-page.md): `/pricing` from the
   catalog and the Plan, no number without a price, the device card as true as
   GIF and the painter allow, the static host answers the route.
+- 2026-10-13 [landing-figures-anatomy](2026-10-13-landing-figures-anatomy.md):
+  Anatomy's rule as a review criterion on the five figures; scenes fails and is
+  redrawn as a printed listing on a cutting mat, the other four pass.

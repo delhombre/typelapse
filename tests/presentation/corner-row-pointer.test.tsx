@@ -77,6 +77,9 @@ describe("the phone's corner row under a finger", () => {
 		);
 		expect(rows[0]).toBe("Showcase");
 		expect(rows[1]).toBe("Library");
+		// Help follows them and leads the file actions: it is never in the row itself.
+		expect(rows[2]).toMatch(/^Help/);
+		expect(rows[3]).toBe("Export project file");
 		expect(rows.at(-1)).toBe("Back to home");
 		// The way out of the studio is set apart from the actions above it.
 		expect(menu.querySelector(":scope > hr + a")).not.toBeNull();
@@ -146,5 +149,16 @@ describe("the phone's corner row under a cursor", () => {
 		expect(within(menu).queryByRole("button", { name: "Showcase" })).toBeNull();
 		expect(within(menu).queryByRole("button", { name: "Library" })).toBeNull();
 		expect(within(menu).queryByRole("link")).toBeNull();
+	});
+
+	it("keeps Help in More here too, after the account and before the file actions", () => {
+		shell();
+		fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+		const menu = document.querySelector(".sc-utility-overflow-menu") as HTMLElement;
+		const rows = [...menu.querySelectorAll(":scope > :is(button, a)")].map((el) =>
+			el.textContent?.trim(),
+		);
+		expect(rows[0]).toMatch(/^Help/);
+		expect(rows[1]).toBe("Export project file");
 	});
 });

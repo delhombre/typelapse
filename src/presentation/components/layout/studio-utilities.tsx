@@ -3,6 +3,7 @@ import type { ProjectDocumentV2 } from "@/application/project/project-document";
 import { StudioTooltip } from "@/presentation/components/ui/studio-tooltip";
 import { feedback } from "@/presentation/haptics";
 import { springs } from "@/presentation/motion";
+import { useHelpRequestStore } from "@/presentation/stores/help-request.store";
 import { useInterfaceFeedbackStore } from "@/presentation/stores/interface-feedback.store";
 import { useLibraryRequestStore } from "@/presentation/stores/library-request.store";
 import { notify } from "@/presentation/stores/notice.store";
@@ -22,12 +23,13 @@ import {
 import { studioProjectFileJson } from "@/presentation/utils/studio-project-replacement";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
 	Check,
 	Download,
 	Grid,
+	HelpCircle,
 	Home,
 	Library,
 	Monitor,
@@ -38,6 +40,8 @@ import {
 	VolumeHigh,
 	VolumeMute,
 } from "reicon-react";
+import { HelpSheet } from "./help-sheet";
+import { NewDot, useUnreadChanges } from "./new-mark";
 
 /** The three appearances, in the order the control gives them. */
 const APPEARANCES: readonly { value: ThemePreference; label: string; Icon: typeof Sun }[] = [
@@ -96,6 +100,8 @@ export function StudioUtilities({
 	const setInterfaceFeedback = useInterfaceFeedbackStore((s) => s.setEnabled);
 	const [shareCopied, setShareCopied] = useState(false);
 	const [menuOpen, setMenuOpen] = useState(false);
+	const hasNews = useUnreadChanges().length > 0;
+	const newsId = useId();
 	const rootRef = useRef<HTMLDivElement>(null);
 	const menuTriggerRef = useRef<HTMLButtonElement>(null);
 
@@ -214,10 +220,12 @@ export function StudioUtilities({
 							className="hit-ext sc-glyph-button"
 							aria-label="More actions"
 							data-menu-trigger=""
+							aria-describedby={hasNews ? newsId : undefined}
 							aria-expanded={menuOpen}
 							aria-controls={menuOpen ? menuId : undefined}
 						>
 							<MoreH size={13} aria-hidden="true" />
+							{hasNews && <NewDot />}
 						</motion.button>
 					</StudioTooltip>
 					<AnimatePresence>
@@ -259,6 +267,21 @@ export function StudioUtilities({
 										</button>
 									);
 								})}
+								{/* Help is always here, whichever pointer: it is not a resource the
+								    corner row gives up, it was never in the row. */}
+								<button
+									type="button"
+									aria-describedby={hasNews ? newsId : undefined}
+									onClick={() => {
+										feedback("selection");
+										setMenuOpen(false);
+										useHelpRequestStore.getState().request(menuTriggerRef.current);
+									}}
+								>
+									<HelpCircle size={14} aria-hidden="true" />
+									<span>Help</span>
+									{hasNews && <NewDot />}
+								</button>
 								<button type="button" onClick={handleExport}>
 									<Download size={14} aria-hidden="true" />
 									<span>Export project file</span>
@@ -353,8 +376,28 @@ export function StudioUtilities({
 							<VolumeMute size={14} aria-hidden="true" />
 						)}
 					</UtilityButton>
+					<UtilityButton
+						onClick={(event) => {
+							feedback("selection");
+							useHelpRequestStore.getState().request(event.currentTarget);
+						}}
+						label="Help"
+						tooltip={hasNews ? "Help · something is new" : "Help"}
+						describedBy={hasNews ? newsId : undefined}
+					>
+						<HelpCircle size={14} aria-hidden="true" />
+						{hasNews && <NewDot />}
+					</UtilityButton>
 				</>
 			)}
+			{/* What the Help control describes itself with while the dot is up: a description
+			    and not part of its name, so "Help" stays the name. */}
+			{hasNews && (
+				<span id={newsId} className="sr-only">
+					New: there is something in What's new.
+				</span>
+			)}
+			<HelpSheet />
 		</div>
 	);
 }
@@ -371,12 +414,14 @@ function UtilityButton({
 	label,
 	tooltip,
 	active,
+	describedBy,
 	children,
 }: {
-	onClick: () => void;
+	onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 	label: string;
 	tooltip: string;
 	active?: boolean;
+	describedBy?: string | undefined;
 	children: ReactNode;
 }) {
 	return (
@@ -388,6 +433,7 @@ function UtilityButton({
 				transition={springs.snappy}
 				className={`hit-ext sc-glyph-button ${active ? "sc-glyph-button-active" : ""}`}
 				aria-label={label}
+				aria-describedby={describedBy}
 			>
 				{children}
 			</motion.button>

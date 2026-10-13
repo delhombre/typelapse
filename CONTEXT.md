@@ -380,6 +380,17 @@ or it does not land.
   a kept export, not the step builder's Capture, which turns live code into a
   step. On a desktop the sheet is as wide as its captures (one to three
   columns); its empty state says what a capture is and opens the export panel.
+- **Help sheet**: what the "Help" control opens (the island's glyph on a desktop,
+  a row of the More menu on a phone, on either pointer): how scenes work in three
+  lines, the focus lines format with its example ("2-4, 7"), the keyboard shortcuts
+  and a link to the home page's How it works. The shortcuts are printed from the same
+  table the key handler reads, with the platform's modifier as a keycap (Cmd on Apple
+  platforms, Ctrl elsewhere). Plain text only: nothing in it lives in a tooltip.
+- **Changelog entry**: one dated line of what changed in the studio (an id that is
+  never reused, a date, a one-line title, one sentence), kept in a static file. The
+  Help sheet's **What's new** card lists the latest three, newest first; Dismiss is
+  remembered on this device per entry id, so a newer entry brings the card back, and
+  a dot on Help (never a count) says an entry is undismissed.
 
 ## Invariants worth a test
 

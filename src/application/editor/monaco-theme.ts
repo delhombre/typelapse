@@ -39,7 +39,7 @@ interface Palette {
 
 export const STUDIO_EDITOR_PALETTES: Readonly<Record<"light" | "dark", Palette>> = {
 	light: {
-		paper: "#fafaf9",
+		paper: "#faf9f6",
 		surface: "#ffffff",
 		ink: "#1c1917",
 		muted: "#6e6b64",

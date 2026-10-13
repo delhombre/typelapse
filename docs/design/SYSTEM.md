@@ -23,7 +23,7 @@ the one exception (DECISIONS D5).
 | Primary hover, one step lighter | `--color-primary-hover: #f5c92a` `src/app.css` | same |
 | Text on primary (9.92:1; white is 1.73:1) | `--color-on-primary: #1c1b19` `src/app.css` | same |
 | Accent: focus ring and selection only | `--color-accent: oklch(0.62 0.19 268)` `src/app.css` | same |
-| Paper (landing, 404, error) | `--color-paper: #faf9f6` `src/app.css @ @theme` | `--color-paper: #121110` `src/app.css` |
+| Paper: the page of the landing, the 404, the error and the studio, and the browser chrome's `theme-color` (#283) | `--color-paper: #faf9f6` `src/app.css @ @theme` | `--color-paper: #121110` `src/app.css` |
 | Ink | `--color-ink: #1c1b19` `src/app.css @ @theme` | `--color-ink: #f5f3ef` `src/app.css @ .landing-root[data-theme="dark"]` |
 | Ash, secondary text | `--color-ash: #6e6b64` `src/app.css @ @theme` | `--color-ash: #a8a39a` `src/app.css @ .landing-root[data-theme="dark"]` |
 | Raised surface | `--color-surface: #ffffff` `src/app.css` | `--color-surface: #1e1c1a` `src/app.css` |
@@ -34,9 +34,9 @@ the one exception (DECISIONS D5).
 | Island ink, dim ink | `--dock-ink: #f2f2f4` `--dock-dim: #9a9aa2` `src/app.css @ .landing-root` | same |
 | Island hairline (landing), and the wash under a hovered control on the plate | `--dock-hairline: rgb(255 255 255 / 0.1)` `src/app.css` `--dock-hover: rgb(255 255 255 / 0.07)` `src/app.css` | `--dock-hairline: rgb(255 255 255 / 0.12)` `src/app.css` |
 | Island hairline (studio) | `--dock-hairline: rgb(255 255 255 / 0.09)` `src/app.css` | same |
-| Studio ramp ends, warm stone | `--color-neutral-50: #fafaf9` `src/app.css` | `--color-neutral-950: #121110` `src/app.css` |
+| Studio ramp ends, warm stone: a step, never "the page" (that is the paper) | `--color-neutral-50: #fafaf9` `src/app.css` | `--color-neutral-950: #121110` `src/app.css` |
 | Studio scene hairline | `--sc-hairline: rgb(28 27 25 / 0.1)` `src/app.css @ .studio-root` | `--sc-hairline: rgb(245 243 239 / 0.12)` `src/app.css @ .dark .studio-root` |
-| Desktop studio paper, warm (D6), which the code editor (Monaco) is painted on too, its line numbers and bracket levels pulled to 4.5:1 | `--camera-paper: var(--color-neutral-50)` `src/presentation/studio-camera.css` `paper: "#fafaf9"` `src/application/editor/monaco-theme.ts` | `--camera-paper: var(--color-neutral-950)` `src/presentation/studio-camera.css` `paper: "#121110"` `src/application/editor/monaco-theme.ts` |
+| Desktop studio paper, warm (D6), which the code editor (Monaco) is painted on too, its line numbers and bracket levels pulled to 4.5:1 | `--camera-paper: var(--color-paper)` `src/presentation/studio-camera.css` `paper: "#faf9f6"` `src/application/editor/monaco-theme.ts` | the same token, flipped: `paper: "#121110"` `src/application/editor/monaco-theme.ts` |
 | Desktop studio ink | `--camera-ink: var(--color-neutral-900)` `src/presentation/studio-camera.css` | `--camera-ink: #f5f3ef` `src/presentation/studio-camera.css` |
 | Desktop muted, the landing's ash (4.87:1 on the pill) | `--camera-muted: #6e6b64` `src/presentation/studio-camera.css` | `--camera-muted: #a8a39a` `src/presentation/studio-camera.css` |
 | Disabled text, a colour and never an opacity (5.0:1 on white, 4.8:1 on the paper, 4.6:1 on the pill; dark: 5.3:1 on the surface, 4.7:1 on the pill); on the island's plate and its status 5.6:1, 4.6:1 on the 8% wash a disabled Render sits on, read by `--camera-disabled` inside the island | `--camera-disabled: #726f68` `src/presentation/studio-camera.css` | `--camera-disabled: #958f87` `src/presentation/studio-camera.css` island: `--dock-disabled: #8e8e96` `--camera-disabled: var(--dock-disabled)` `src/app.css` |
@@ -46,9 +46,9 @@ the one exception (DECISIONS D5).
 | Desktop CTA, timeline selection, a selected rail segment's well at 10% | `--camera-amber: var(--color-primary)` `src/presentation/studio-camera.css` `color-mix(in oklch, var(--camera-amber) 10%, transparent)` `src/presentation/studio-camera.css` | same |
 | Desktop ring, selection, easing curve | `--camera-accent: var(--color-accent)` `--camera-focus: var(--color-accent)` `src/presentation/studio-camera.css` | same |
 | Destructive mark | `--camera-coral: #ef5b43` `src/presentation/studio-camera.css` | same |
-| Error ink: a refused link or diff, a recording state, a plan meter from 90% (with a mark and a bold count, never colour alone) (4.94:1 on the landing paper, 4.98:1 on the studio's, 7.9:1 on the dark paper) | `--camera-danger: #c53a3a` `src/presentation/studio-camera.css` | `--camera-danger: #f28b82` `src/presentation/studio-camera.css` |
+| Error ink: a refused link or diff, a recording state, a plan meter from 90% (with a mark and a bold count, never colour alone) (4.94:1 on the paper, 7.9:1 on the dark paper) | `--camera-danger: #c53a3a` `src/presentation/studio-camera.css` | `--camera-danger: #f28b82` `src/presentation/studio-camera.css` |
 | Browser chrome before paint | `content="#FAF9F6"` `index.html` | `content="#121110"` `index.html` |
-| Document behind the studio | `background: #fafaf9` `src/app.css` | `background: #121110` `src/app.css @ html.dark` |
+| Document behind the studio | `background: var(--color-paper)` `src/app.css @ html:not([data-landing-theme])` | `background: var(--color-paper)` `src/app.css @ html.dark:not([data-landing-theme])` |
 
 The `--camera-*` tokens are published on both shells, the desktop root and the
 phone root, by one rule (`:is(.studio-camera-root, .sc-root-mobile, .sc-tokens)`,
@@ -65,7 +65,7 @@ Which background?
  ├── The island or its sheet → --dock-bg (fixed, never themed)
  ├── A floating surface on the studio paper → the material (Shadows)
  ├── A landing card or bar → --color-surface
- └── Default → --color-paper (landing), neutral-50 or camera-paper (studio)
+ └── Default → --color-paper (landing), camera-paper (studio, the same paper)
 ```
 
 ## Type

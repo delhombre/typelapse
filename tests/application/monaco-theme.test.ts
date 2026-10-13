@@ -56,7 +56,7 @@ function oklchHex(value: string): string {
 
 describe("the editor's themes are the studio's warm tokens", () => {
 	it("paints the light editor on the desktop paper and the dark one on the warm #121110", () => {
-		expect(STUDIO_EDITOR_PALETTES.light.paper).toBe(token(appCss, "--color-neutral-50"));
+		expect(STUDIO_EDITOR_PALETTES.light.paper).toBe(token(appCss, "--color-paper"));
 		expect(STUDIO_EDITOR_PALETTES.dark.paper).toBe(token(appCss, "--color-neutral-950"));
 		expect(studioEditorTheme("dark").colors["editor.background"]).toBe("#121110");
 		expect(studioEditorTheme("dark").colors["editor.background"]).not.toBe("#0a0a0a");

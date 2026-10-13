@@ -125,8 +125,8 @@ describe("the landing's hairline figures", () => {
 	});
 
 	/* One visual system across the five: one camera, a scale family that keeps
-	   every rest pose 295 to 306 viewBox units wide (measured by the skill's look
-	   check), one stagger rhythm, and a lap that ends by leaving. */
+	   every rest pose 290 to 306 viewBox units wide (measured by the skill's look
+	   check; `placeInk` normalises them on the page), one stagger rhythm, and a lap that ends by leaving. */
 	it("draws the five as one system: one camera, one rhythm, a lap each", async () => {
 		const scales: number[] = [];
 		for (const name of FIGURES) {
