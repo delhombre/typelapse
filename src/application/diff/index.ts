@@ -11,7 +11,7 @@ export { MAX_SCENE_LINES } from "./scenes";
 export { diffToSnapshots } from "./diff-to-snapshots";
 export { parseUnifiedDiff } from "./parse-unified-diff";
 export { generateSnapshots, normalizeSnapshots } from "./snapshots";
-export { MAX_DIFF_STEPS, capWalkthrough, cutNotice } from "./step-cap";
+export { MAX_DIFF_STEPS, capWalkthrough, cutNotice, stepBudget } from "./step-cap";
 export type { CappedWalkthrough, WalkthroughCut } from "./step-cap";
 export type {
 	CodeSnapshot,

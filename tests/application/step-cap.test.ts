@@ -1,4 +1,4 @@
-import { MAX_DIFF_STEPS, capWalkthrough, cutNotice } from "@/application/diff/step-cap";
+import { MAX_DIFF_STEPS, capWalkthrough, cutNotice, stepBudget } from "@/application/diff/step-cap";
 import { describe, expect, it } from "vitest";
 
 /** A chapter of `size` frames, each carrying a unique body so a lost one is visible. */
@@ -16,6 +16,13 @@ describe("MAX_DIFF_STEPS", () => {
 	});
 });
 
+describe("stepBudget", () => {
+	it("counts a title card as one of the steps, since the ceiling is a duration", () => {
+		expect(stepBudget(false)).toBe(MAX_DIFF_STEPS);
+		expect(stepBudget(true)).toBe(MAX_DIFF_STEPS - 1);
+	});
+});
+
 describe("capWalkthrough", () => {
 	it("leaves a walkthrough under the cap exactly as it came", () => {
 		const sequences = [chapter(0, 7), chapter(1, 9)];
@@ -26,6 +33,7 @@ describe("capWalkthrough", () => {
 		expect(cut.shownChapters).toBe(2);
 		expect(cut.totalChapters).toBe(2);
 		expect(cut.omittedSteps).toBe(0);
+		expect(cut.cutWithinChapter).toBe(false);
 	});
 
 	it("keeps the first whole chapters, drops the tail, and marks the last kept step", () => {
@@ -38,6 +46,7 @@ describe("capWalkthrough", () => {
 		expect(cut.shownChapters).toBe(1);
 		expect(cut.totalChapters).toBe(6);
 		expect(cut.omittedSteps).toBe(50);
+		expect(cut.cutWithinChapter).toBe(false);
 		// Everything before the last kept step is untouched, nothing in the middle is lost.
 		expect(cut.snapshots.slice(0, -1)).toEqual(chapter(0, 10).slice(0, -1));
 		const last = cut.snapshots.at(-1);
@@ -80,6 +89,7 @@ describe("capWalkthrough", () => {
 		expect(cut.shownChapters).toBe(1);
 		expect(cut.totalChapters).toBe(1);
 		expect(cut.omittedSteps).toBe(31);
+		expect(cut.cutWithinChapter).toBe(true);
 	});
 
 	it("says 'change' for a single omitted step", () => {
@@ -133,10 +143,19 @@ describe("cutNotice", () => {
 		expect(cutNotice(cut)).toBe("Showing the first 3 of 6 commits");
 	});
 
-	it("names how many changes a single diff plays when it was cut", () => {
+	it("names how many scenes a single diff plays when it was cut", () => {
 		const cut = capWalkthrough([chapter(0, 47)]);
 
-		expect(cutNotice(cut)).toBe("Showing the first 16 of 47 changes");
+		expect(cutNotice(cut)).toBe("Showing the first 16 of 47 scenes");
+	});
+
+	it("counts scenes, not commits, when the first commit is itself cut", () => {
+		// Two commits of 45 hunks: the first alone is past the cap, so "1 of 2 commits"
+		// would say the first commit plays whole.
+		const cut = capWalkthrough([chapter(0, 48), chapter(1, 47)]);
+
+		expect(cut.shownChapters).toBe(1);
+		expect(cutNotice(cut)).toBe("Showing the first 16 of 95 scenes");
 	});
 
 	it("is silent when everything plays", () => {

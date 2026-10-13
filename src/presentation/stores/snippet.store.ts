@@ -6,6 +6,7 @@ import {
 	chapterLanguage,
 	chapterSequences,
 	diffToSnapshots,
+	stepBudget,
 } from "@/application/diff";
 import { focusLineSet, formatLineRanges, readLineRanges } from "@/application/focus/line-ranges";
 import { DIFF_STEP_DURATION } from "@/application/import/diff-project";
@@ -1053,11 +1054,14 @@ export const useSnippetStore = create<SnippetState>((set, get) => ({
 		// chapterSnapshots skips lockfiles-only / empty chapters; if that leaves
 		// nothing to animate we throw before any set(), so a dead PR leaves the
 		// current snippet untouched, exactly like importDiff's contract.
-		const sequences = chapterSequences(chapters);
+		// A release's title card is a step of the video: the chapters are staged and
+		// capped against the rest of the budget.
+		const maxSteps = stepBudget(meta.openingCardMs !== undefined);
+		const sequences = chapterSequences(chapters, { maxSteps });
 		if (sequences.flat().length === 0) {
 			throw new Error("These commits contain no changes to animate");
 		}
-		const { snapshots, ...cut } = capWalkthrough(sequences);
+		const { snapshots, ...cut } = capWalkthrough(sequences, maxSteps);
 		const rebuilt = buildDiffSnippet(get().snippet, snapshots, {
 			title: meta.title,
 			language: chapterLanguage(chapters),

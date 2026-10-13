@@ -23,10 +23,20 @@ import { ELLIPSIS } from "./windowing";
  * (docs/decisions/2026-10-13-gate-five.md, D2 follow-up) stay whole: the three
  * hero examples (honojs/hono#5189, vercel/next.js#97139, oven-sh/bun#37643) are
  * 7, 10 and 8 steps and the 246-file honojs/hono v4.6.0...v4.7.0 is 11, so none
- * is cut. At the old 40 one file of 45 small hunks still played 74 s. A product
- * constant, to revisit with a long-form option.
+ * is cut. At the old 40 one file of 45 small hunks still played 74 s. A release's
+ * title card counts as one of them ({@link stepBudget}). A product constant, to
+ * revisit with a long-form option.
  */
 export const MAX_DIFF_STEPS = 16;
+
+/**
+ * The steps a walkthrough may play: {@link MAX_DIFF_STEPS}, less the title card a
+ * release opens on, which is a step of the video like any other (the ceiling is
+ * a duration).
+ */
+export function stepBudget(openingCard: boolean): number {
+	return MAX_DIFF_STEPS - (openingCard ? 1 : 0);
+}
 
 export interface CappedWalkthrough {
 	/** The kept steps, the last one carrying the marker when something was dropped. */
@@ -34,6 +44,8 @@ export interface CappedWalkthrough {
 	/** Chapters that start the video (a chapter cut in two still counts). */
 	shownChapters: number;
 	totalChapters: number;
+	/** True when the head of the first chapter plays and the chapter itself is cut. */
+	cutWithinChapter: boolean;
 	/** Steps the video plays. */
 	shownSteps: number;
 	/** Steps the video does not play; 0 when the whole walkthrough fit. */
@@ -86,6 +98,7 @@ export function capWalkthrough(
 			snapshots: sequences.flat(),
 			shownChapters: sequences.length,
 			totalChapters: sequences.length,
+			cutWithinChapter: false,
 			shownSteps: total,
 			omittedSteps: 0,
 		};
@@ -93,6 +106,7 @@ export function capWalkthrough(
 
 	let kept: CodeSnapshot[] = [];
 	let shownChapters = 0;
+	let cutWithinChapter = false;
 	for (const sequence of sequences) {
 		if (kept.length + sequence.length > max) {
 			break;
@@ -104,6 +118,7 @@ export function capWalkthrough(
 		// The first chapter is past the cap on its own: play its head.
 		kept = (sequences[0] ?? []).slice(0, max);
 		shownChapters = 1;
+		cutWithinChapter = true;
 	}
 
 	const omittedSteps = total - kept.length;
@@ -115,6 +130,7 @@ export function capWalkthrough(
 		snapshots,
 		shownChapters,
 		totalChapters: sequences.length,
+		cutWithinChapter,
 		shownSteps: kept.length,
 		omittedSteps,
 	};
@@ -122,15 +138,16 @@ export function capWalkthrough(
 
 /**
  * What the import says when the video plays only the head of the walkthrough, or
- * `null` when everything plays. A pull request chaptered by commit counts commits;
- * a single change counts its steps (the same count the marker row carries).
+ * `null` when everything plays. A pull request chaptered by commit counts the
+ * commits it kept; a single change, or a first commit that is itself cut, counts
+ * scenes (the steps the marker row counts too).
  */
 export function cutNotice(cut: WalkthroughCut): string | null {
 	if (cut.omittedSteps === 0) {
 		return null;
 	}
-	if (cut.totalChapters > 1) {
+	if (cut.totalChapters > 1 && !cut.cutWithinChapter) {
 		return `Showing the first ${cut.shownChapters} of ${cut.totalChapters} commits`;
 	}
-	return `Showing the first ${cut.shownSteps} of ${cut.shownSteps + cut.omittedSteps} changes`;
+	return `Showing the first ${cut.shownSteps} of ${cut.shownSteps + cut.omittedSteps} scenes`;
 }

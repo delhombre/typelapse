@@ -98,7 +98,7 @@ function hasRealChanges(diffText: string): boolean {
  */
 export function chapterSequences(
 	chapters: DiffChapter[],
-	options: DiffToSnapshotsOptions = {},
+	{ maxSteps = MAX_DIFF_STEPS, ...options }: ChapterOptions = {},
 ): CodeSnapshot[][] {
 	const real = chapters.filter((chapter) => hasRealChanges(chapter.diffText));
 	const stage = (opts: DiffToSnapshotsOptions) =>
@@ -111,7 +111,7 @@ export function chapterSequences(
 	// after the paging: stage every chapter again with that row free.
 	if (
 		options.reserveMarkerRow === undefined &&
-		kept.reduce((sum, chapter) => sum + chapter.snapshots.length, 0) > MAX_DIFF_STEPS
+		kept.reduce((sum, chapter) => sum + chapter.snapshots.length, 0) > maxSteps
 	) {
 		kept = stage({ ...options, reserveMarkerRow: true });
 	}
@@ -144,6 +144,12 @@ export function chapterSequences(
 			frameIndex === 0 ? { code: frame.code, label: heading } : frame,
 		);
 	});
+}
+
+/** What chaptering may be told: the diff options, and the steps the walkthrough may play. */
+export interface ChapterOptions extends DiffToSnapshotsOptions {
+	/** The cap the sequences will meet (default {@link MAX_DIFF_STEPS}); see {@link stepBudget}. */
+	maxSteps?: number;
 }
 
 /** The chapters of {@link chapterSequences} played one after the other. */

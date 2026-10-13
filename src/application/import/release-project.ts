@@ -11,14 +11,19 @@
  * held to the same file by a test.
  */
 
-import { type DiffChapter, chapterLanguage, chapterSequences } from "@/application/diff";
+import {
+	type DiffChapter,
+	chapterLanguage,
+	chapterSequences,
+	stepBudget,
+} from "@/application/diff";
 import type { ProjectPayload } from "@/application/project/project-payload";
 import { TextBlock } from "@/domain/entities/block";
 import { hydrateProjectDocument } from "../project/hydrate-project-document";
 import { newTextLayer } from "../project/multimedia-authoring";
 import type { ProjectDocumentV2 } from "../project/project-document";
 import { serializeProjectDocument } from "../project/serialize-project-document";
-import { projectFromSnapshots } from "./diff-project";
+import { type ImportedWalkthrough, walkthroughFromSnapshots } from "./diff-project";
 
 /** What the title card says: the release's title, and a short line under it. */
 export interface ReleaseCard {
@@ -78,11 +83,20 @@ export function releaseCardText(release: {
  * studio's words, when no commit carries a change to animate.
  */
 export function releaseProject(card: ReleaseCard, chapters: DiffChapter[]): ProjectPayload {
-	const sequences = chapterSequences(chapters);
+	return releaseWalkthrough(card, chapters).project;
+}
+
+/** {@link releaseProject}, with what the step cap left out. */
+export function releaseWalkthrough(
+	card: ReleaseCard,
+	chapters: DiffChapter[],
+): ImportedWalkthrough {
+	// The card is a step of the video: the chapters are staged against the rest.
+	const sequences = chapterSequences(chapters, { maxSteps: stepBudget(true) });
 	if (sequences.flat().length === 0) {
 		throw new Error("These commits contain no changes to animate");
 	}
-	return projectFromSnapshots(sequences, {
+	return walkthroughFromSnapshots(sequences, {
 		title: card.title,
 		language: chapterLanguage(chapters),
 		openingCardMs: RELEASE_CARD_MS,

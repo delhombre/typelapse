@@ -71,6 +71,9 @@ terms so issues, specs, tests and code use the same ones.
   walkthrough (a diff, or one chapter of a pull request) plays at most
   `MAX_WALKTHROUGH_PAGES` (4) pages, over at most 6 files; the marker line
   (`⋯ n more files` or `⋯ more changes hidden`) says what is left.
+  `tests/support/scene-readability` measures the px a plan lands at, with
+  the same `fitCardToCanvas` the renderers call. A 9:16 frame is limited by the
+  longest line, not the rows (16.7 px for the example PR's 77 columns).
 - **Step cap**: pages bound the code, not the steps (a page holds a step per
   hunk, so 45 small hunks still stage 47 steps, and a pull request chaptered by
   commit adds its chapters up). `MAX_DIFF_STEPS` (16, `application/diff/step-cap`)
@@ -78,9 +81,12 @@ terms so issues, specs, tests and code use the same ones.
   30 s a social clip tolerates. It keeps whole chapters from the start and drops
   the tail; the last kept step carries a `⋯ n more changes` row (sharing the
   budget's marker row when it has one, and every page keeps that row free once a
-  walkthrough is past the cap, so no frame passes `MAX_SCENE_LINES`). The import
-  says "Showing the first k of n commits", or "Showing the first 16 of 48
-  changes" for a single change. A first chapter past the cap is cut at it.
+  walkthrough is past the cap, so no frame passes `MAX_SCENE_LINES`). A release's
+  title card counts as one of the 16 (`stepBudget`). The import says "Showing the
+  first k of n commits", or "Showing the first 16 of 48 scenes" for a single
+  change or a first commit that is itself cut (a scene is a step). The studio
+  posts it as a notice; the CLI and the hosted render carry it as
+  `ImportedSource.notice`. A first chapter past the cap is cut at it.
 - **Magic move**: the pure, dependency-free token-morphing engine
   (`src/application/magic-move`) shared by every renderer.
 
