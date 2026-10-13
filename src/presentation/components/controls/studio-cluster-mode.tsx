@@ -1,5 +1,5 @@
 import { resolveBackgroundCss } from "@/application/backgrounds/mesh-gradient";
-import { exportCtaDetail } from "@/application/export/export-label";
+import { WHERE_LABEL, exportCtaDetail } from "@/application/export/export-label";
 import { FONT_PRESETS } from "@/application/fonts/code-fonts";
 import {
 	ASPECT_LABELS,
@@ -551,7 +551,9 @@ function ExportMode() {
 								: "Renders in this tab. Nothing is uploaded, and no server has to be running.",
 						disabled: deviceSupported === false,
 					},
-					...(serverRenderOffered() ? [{ value: "server" as const, label: "Server" }] : []),
+					...(serverRenderOffered()
+						? [{ value: "server" as const, label: WHERE_LABEL.server }]
+						: []),
 					...(cloudTarget ? [cloudTarget] : []),
 				]}
 				value={target}

@@ -3057,15 +3057,18 @@ html.dark:not([data-landing-theme]) {
 	top: 100%;
 	left: 50%;
 	transform: translateX(-50%);
-	display: flex;
-	align-items: center;
-	gap: 8px;
 	max-width: 100%;
 	margin-top: 6px;
 	color: var(--color-ash);
 	font-size: 12px;
 	line-height: 16px;
 	white-space: nowrap;
+}
+
+.studio-root .sc-caption-note-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
 /* The loupe scales the frame to a readable code size; the note is not part of the

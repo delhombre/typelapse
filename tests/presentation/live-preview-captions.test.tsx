@@ -154,7 +154,7 @@ describe("LivePreview shows what the chosen Where exports (#271)", () => {
 		expect(band(container)).not.toBeNull();
 		expect(frameText(container)).toBe("");
 		const line = note(container);
-		expect(line?.textContent).toContain("Hosted only");
+		expect(line?.textContent).toContain("Server only");
 		expect(line?.textContent).toContain(CAPTION);
 		// Outside what a snapshot or a loupe measures as the frame.
 		expect(line?.closest("[data-export-target]")).toBeNull();
@@ -218,6 +218,22 @@ describe("LivePreview shows what the chosen Where exports (#271)", () => {
 		// Still there for the fade, and the note already carries it.
 		expect(note(container)?.textContent).toContain(CAPTION);
 		await waitFor(() => expect(frameText(container)).toBe(""));
+	});
+
+	it("fades the note out when Where moves to a baking target, then takes it away", async () => {
+		await loadProject();
+		useExportStore.setState({ target: "device" });
+		const { container, rerender } = renderPreview();
+		expect(note(container)).not.toBeNull();
+
+		useExportStore.setState({ target: "server" });
+		rerender(
+			<StudioVideoModeProvider active>
+				<LivePreview />
+			</StudioVideoModeProvider>,
+		);
+
+		await waitFor(() => expect(note(container)).toBeNull());
 	});
 
 	it("adds no line when the step has no caption", async () => {

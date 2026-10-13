@@ -1,4 +1,6 @@
 import {
+	WHERE_LABEL,
+	bakingTargetLabel,
 	captionsCaveat,
 	captionsNote,
 	exportCodecNote,
@@ -83,6 +85,14 @@ describe("the captions note: the on-device export draws none, video or still (#1
 	});
 });
 
+describe("the target that bakes captions", () => {
+	it("is named as the Where control names it, Server locally and Cloud hosted", () => {
+		expect(bakingTargetLabel(true)).toBe(WHERE_LABEL.server);
+		expect(bakingTargetLabel(false)).toBe(WHERE_LABEL.cloud);
+		expect([WHERE_LABEL.server, WHERE_LABEL.cloud]).toEqual(["Server", "Cloud"]);
+	});
+});
+
 describe("the captions caveat, read before Render", () => {
 	it("warns on this device when a scene carries a caption", () => {
 		expect(captionsCaveat({ hasCaptions: true, onDevice: true, serverOffered: false })).toBe(
@@ -90,9 +100,9 @@ describe("the captions caveat, read before Render", () => {
 		);
 	});
 
-	it("names the server as the way out when one is offered", () => {
+	it("names Server as the way out when one is offered", () => {
 		expect(captionsCaveat({ hasCaptions: true, onDevice: true, serverOffered: true })).toBe(
-			"Captions are not baked on this device yet. Render on the server to keep them.",
+			"Captions are not baked on this device yet. Choose Server to keep them.",
 		);
 	});
 

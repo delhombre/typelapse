@@ -39,12 +39,12 @@ function note() {
 }
 
 describe("the caption note under the frame", () => {
-	it("tags the caption as hosted only and links to Cloud on a hosted build", () => {
+	it("tags the caption Cloud only and links to Cloud on a hosted build", () => {
 		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
 		useAuthStore.setState({ status: { kind: "anonymous" } });
 		note();
 
-		expect(screen.getByText("Hosted only")).toBeTruthy();
+		expect(screen.getByText("Cloud only")).toBeTruthy();
 		expect(screen.getByText("Why this line")).toBeTruthy();
 		expect(screen.getByRole("button", LINK)).toBeTruthy();
 	});
@@ -71,22 +71,29 @@ describe("the caption note under the frame", () => {
 		expect(useExportStore.getState().target).toBe("cloud");
 	});
 
-	it("says hosted only without a link where there is no Cloud to name", () => {
+	it("says Server only without a link where there is no Cloud to name", () => {
 		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "local");
 		note();
 
-		expect(screen.getByText("Hosted only")).toBeTruthy();
+		expect(screen.getByText("Server only")).toBeTruthy();
 		expect(screen.queryByRole("button", LINK)).toBeNull();
 	});
 
-	it("is not there for a step with no caption, and holds the line while playing", () => {
+	it("shows no line for a step with no caption: it is inert and hidden from readers, even while playing", () => {
 		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "local");
 		const { container, rerender } = render(<CaptionNote text="" opacity={0} playing={false} />);
-		expect(container.querySelector("[data-testid=caption-note]")).toBeNull();
+		const line = () => container.querySelector("[data-testid=caption-note]");
+		expect(line()?.hasAttribute("inert")).toBe(true);
+		expect(line()?.getAttribute("aria-hidden")).toBe("true");
+		expect(
+			Number(
+				line()
+					?.getAttribute("style")
+					?.match(/opacity: ([\d.]+)/)?.[1] ?? 0,
+			),
+		).toBe(0);
 
 		rerender(<CaptionNote text="" opacity={0} playing />);
-		const line = container.querySelector("[data-testid=caption-note]");
-		expect(line?.hasAttribute("inert")).toBe(true);
-		expect(line?.getAttribute("aria-hidden")).toBe("true");
+		expect(line()?.hasAttribute("inert")).toBe(true);
 	});
 });

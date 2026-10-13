@@ -54,7 +54,7 @@ import {
 	useStudioCompositionStore,
 } from "@/presentation/stores/studio-composition.store";
 import { getWatermarkColor } from "@/presentation/utils/watermark-color";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
 	type ReactNode,
 	type RefObject,
@@ -793,13 +793,16 @@ export function LivePreview() {
 							)}
 						</motion.div>
 						{/* Under the frame, out of flow: the caption the chosen Where does not bake. */}
-						{hasCaptions && !captionsBaked ? (
-							<CaptionNote
-								text={caption.text}
-								opacity={caption.opacity}
-								playing={playback !== null}
-							/>
-						) : null}
+						<AnimatePresence>
+							{hasCaptions && !captionsBaked ? (
+								<CaptionNote
+									key="caption-note"
+									text={caption.text}
+									opacity={caption.opacity}
+									playing={playback !== null}
+								/>
+							) : null}
+						</AnimatePresence>
 					</div>
 				) : (
 					<div

@@ -1,4 +1,5 @@
 import { type CloudAccount, type CloudGate, cloudGate } from "@/application/billing/cloud-gate";
+import { WHERE_LABEL } from "@/application/export/export-label";
 import { feedback } from "@/presentation/haptics";
 import { type AuthStoreState, useAuthStore } from "@/presentation/stores/auth.store";
 import { type ExportTarget, useExportStore } from "@/presentation/stores/export.store";
@@ -100,7 +101,7 @@ export function KeepCaptionsLink({
 				selectWhere("cloud");
 			}}
 		>
-			Keep them with Cloud
+			Keep them with {WHERE_LABEL.cloud}
 		</button>
 	);
 }
@@ -159,7 +160,7 @@ export function useCloudTarget(): {
 	// not as a toggle that stays off.
 	return {
 		value: "cloud",
-		label: "Cloud",
+		label: WHERE_LABEL.cloud,
 		title: cloudTargetTitle(gate),
 		...(isGated(gate) ? { haspopup: "dialog" as const } : {}),
 	};

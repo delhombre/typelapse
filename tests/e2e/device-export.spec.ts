@@ -211,7 +211,7 @@ test.describe("Device export: the preview's caption band is the file's", () => {
 		const frame = page.getByTestId("preview-frame");
 
 		// This device is the default Where: the caption is the note under the frame.
-		await expect(page.getByTestId("caption-note")).toContainText("Hosted only");
+		await expect(page.getByTestId("caption-note")).toContainText("Server only");
 		await expect(frame.getByText("Before: a constant")).toHaveCount(0);
 		const band = await captionBand(page);
 		const onDevice = testInfo.outputPath("preview-device.png");

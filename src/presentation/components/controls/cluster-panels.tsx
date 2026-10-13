@@ -1,4 +1,9 @@
-import { captionsCaveat, exportCtaLabel, gifFpsCaveat } from "@/application/export/export-label";
+import {
+	WHERE_LABEL,
+	captionsCaveat,
+	exportCtaLabel,
+	gifFpsCaveat,
+} from "@/application/export/export-label";
 import { renderBlock } from "@/application/export/render-block";
 import { FONT_PRESETS } from "@/application/fonts/code-fonts";
 import {
@@ -504,7 +509,7 @@ function ExportCluster() {
 							? [
 									{
 										value: "server" as const,
-										label: "Server",
+										label: WHERE_LABEL.server,
 										title:
 											"Renders with Remotion on the Typelapse API server, which has to be running.",
 									},
