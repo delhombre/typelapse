@@ -1522,6 +1522,283 @@ textarea.sc-source-field {
 	--capture-columns: 3;
 }
 
+/* ─────────────────────────── Help ─────────────────────────── */
+
+/* The Help sheet: sentences and a table of keys, so it is one reading column. It is as
+   wide as a line of text wants, centred on a desktop, the screen's width on a phone. */
+.help-sheet {
+	--sheet-width: calc(560px + 2 * var(--sheet-inline));
+	min-height: 0;
+}
+
+.help-body {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	flex-direction: column;
+	gap: 28px;
+	overflow-y: auto;
+	/* The sheet's gutter, and clear of the notch and the home indicator on a phone. */
+	padding: 20px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
+		max(32px, calc(env(safe-area-inset-bottom, 0px) + 20px))
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
+	scrollbar-gutter: stable;
+	/* Focus lands here after What's new is put away, so it is never lost; a region that
+	   takes focus programmatically draws no ring, its controls do (DECISIONS D9). */
+	outline: none;
+}
+
+.help-body h3 {
+	margin: 0 0 8px;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	letter-spacing: -0.012em;
+}
+
+.help-body p,
+.help-lines li {
+	margin: 0;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-lg);
+	line-height: 1.5;
+	text-wrap: pretty;
+}
+
+.help-body p + p {
+	margin-top: 8px;
+}
+
+.help-lines {
+	display: grid;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	counter-reset: help-line;
+}
+
+/* The three lines are an order, so they are numbered; the number is a counter and not
+   text, which keeps the sentence the thing a reader selects. */
+.help-lines li {
+	display: grid;
+	grid-template-columns: 18px 1fr;
+	counter-increment: help-line;
+}
+
+.help-lines li::before {
+	content: counter(help-line);
+	color: var(--camera-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.help-body code {
+	padding: 1px 6px;
+	border-radius: var(--r-field);
+	background: var(--camera-pill);
+	font-family: var(--font-mono);
+	font-size: var(--sc-text-md);
+}
+
+.help-shortcuts {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.help-shortcuts li {
+	display: flex;
+	min-height: 36px;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	border-top: 1px solid var(--camera-line);
+	color: var(--camera-ink);
+	font-size: var(--sc-text-lg);
+}
+
+.help-shortcuts li:first-child {
+	border-top: 0;
+}
+
+.help-chords,
+.help-chord {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 4px;
+}
+
+.help-chords {
+	gap: 8px;
+}
+
+.help-or {
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+}
+
+.help-body kbd {
+	display: inline-flex;
+	min-width: 24px;
+	height: 22px;
+	align-items: center;
+	justify-content: center;
+	padding: 0 6px;
+	border-radius: var(--r-field);
+	background: var(--camera-surface);
+	box-shadow: 0 0 0 1px var(--camera-line), 0 1px 0 var(--camera-line);
+	color: var(--camera-ink);
+	font-family: var(--font-mono);
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-regular);
+}
+
+.help-docs a {
+	position: relative;
+	color: var(--camera-ink);
+	/* A link reads as one without colour: a solid 1px underline in the ink. */
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+}
+
+.help-docs a:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+/* What's new: three rows on the sheet's paper, the opaque surface with its hairline ring
+   and no shadow (DECISIONS D2, D5), so the help itself starts in the first screen of a
+   phone. It carries no fill of its own to compete with a CTA. */
+.help-news {
+	padding: 8px 16px 10px;
+	border-radius: var(--r-surface);
+	background: var(--camera-surface);
+	box-shadow: 0 0 0 1px var(--camera-line);
+}
+
+.help-news-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.help-news-head h3 {
+	margin: 0;
+}
+
+.help-news ul {
+	display: grid;
+	gap: 4px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.help-news li {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.help-news time {
+	flex: none;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-sm);
+	font-variant-numeric: tabular-nums;
+}
+
+.help-news strong {
+	min-width: 0;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-medium);
+}
+
+.help-news-dismiss {
+	position: relative;
+	height: 32px;
+	margin-right: -8px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: var(--r-pill);
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: var(--sc-text-sm);
+	font-weight: var(--sc-weight-medium);
+	transition: background-color 150ms var(--ease-out), color 150ms var(--ease-out);
+}
+
+/* 32px drawn, 44px to a pointer of either kind (DECISIONS D10). */
+.help-news-dismiss::after {
+	content: "";
+	position: absolute;
+	inset: -6px -4px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.help-news-dismiss:hover {
+		background: var(--camera-pill);
+		color: var(--camera-ink);
+	}
+}
+
+.help-news-dismiss:active {
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+}
+
+.help-news-dismiss:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+/* Under a finger every row of the sheet is 44px, the keys' included. */
+@media (pointer: coarse) {
+	.help-shortcuts li {
+		min-height: 44px;
+	}
+
+	.help-docs a::after {
+		content: "";
+		position: absolute;
+		inset: -12px -6px;
+	}
+}
+
+@media (max-width: 720px) {
+	.help-sheet {
+		--sheet-inline: 16px;
+	}
+}
+
+/* Something is new in Help: a dot, never a count. Ink, because the primary is the one
+   fill of its zone (DECISIONS D2). On a glyph it sits in the corner; in a row it ends
+   the row. */
+.sc-new-dot {
+	position: absolute;
+	top: 5px;
+	right: 5px;
+	width: 6px;
+	height: 6px;
+	border-radius: var(--r-pill);
+	background: var(--camera-ink);
+	box-shadow: 0 0 0 1.5px var(--camera-paper);
+	pointer-events: none;
+}
+
+.sc-utility-overflow-menu > button .sc-new-dot {
+	position: static;
+	flex: none;
+	margin-left: auto;
+	box-shadow: none;
+}
+
 .capture-library-empty {
 	display: flex;
 	flex: 1;

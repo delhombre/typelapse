@@ -1,3 +1,4 @@
+import { matchShortcut } from "@/application/shortcuts/studio-shortcuts";
 import { feedback } from "@/presentation/haptics";
 import { studioHistory } from "@/presentation/stores/project-history.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
@@ -42,18 +43,6 @@ export function areShortcutsSuppressed(): boolean {
 	);
 }
 
-/** Cmd+Z undoes; Shift+Cmd+Z and Ctrl+Y redo (Ctrl on other systems). */
-function historyChord(e: KeyboardEvent): "undo" | "redo" | null {
-	if (!(e.metaKey || e.ctrlKey) || e.altKey) {
-		return null;
-	}
-	const key = e.key.toLowerCase();
-	if (key === "z") {
-		return e.shiftKey ? "redo" : "undo";
-	}
-	return key === "y" && e.ctrlKey && !e.shiftKey ? "redo" : null;
-}
-
 export function useKeyboardShortcuts(): void {
 	useEffect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
@@ -66,9 +55,17 @@ export function useKeyboardShortcuts(): void {
 				return;
 			}
 
-			// Ctrl+Enter / Cmd+Enter: capture step. A chord is unambiguous, so this
-			// one deliberately works while typing — it is the whole point of it.
-			if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+			// The keys are one table (application/shortcuts/studio-shortcuts.ts), which the
+			// Help sheet lists too; what follows is what each one does, and whether the
+			// place it was pressed in lets it.
+			const shortcut = matchShortcut(e);
+			if (shortcut === null) {
+				return;
+			}
+
+			// Ctrl+Enter / Cmd+Enter: capture a scene. A chord is unambiguous, so this
+			// one deliberately works while typing: it is the whole point of it.
+			if (shortcut === "capture-scene") {
 				e.preventDefault();
 				store.captureStep();
 				return;
@@ -77,13 +74,12 @@ export function useKeyboardShortcuts(): void {
 			// The project history. Inside a text surface the chord is that surface's
 			// own undo: a number field steps back its digits, and Monaco keeps the
 			// code buffer's history, which the project then records as one edit.
-			const chord = historyChord(e);
-			if (chord) {
+			if (shortcut === "undo" || shortcut === "redo") {
 				if (isEditableEventTarget(e)) {
 					return;
 				}
 				e.preventDefault();
-				if (chord === "undo" ? studioHistory.undo() : studioHistory.redo()) {
+				if (shortcut === "undo" ? studioHistory.undo() : studioHistory.redo()) {
 					feedback("commit");
 				}
 				return;
@@ -98,8 +94,8 @@ export function useKeyboardShortcuts(): void {
 				return;
 			}
 
-			switch (e.key) {
-				case " ": {
+			switch (shortcut) {
+				case "play-pause": {
 					e.preventDefault();
 					if (store.isPlaying) {
 						store.pause();
@@ -109,7 +105,7 @@ export function useKeyboardShortcuts(): void {
 					break;
 				}
 
-				case "ArrowLeft": {
+				case "previous-scene": {
 					e.preventDefault();
 					if (store.currentStepIndex > 0) {
 						store.setCurrentStepIndex(store.currentStepIndex - 1);
@@ -117,7 +113,7 @@ export function useKeyboardShortcuts(): void {
 					break;
 				}
 
-				case "ArrowRight": {
+				case "next-scene": {
 					e.preventDefault();
 					const maxIndex = store.snippet.steps.length - 1;
 					if (store.currentStepIndex < maxIndex) {
@@ -126,7 +122,7 @@ export function useKeyboardShortcuts(): void {
 					break;
 				}
 
-				case "Escape": {
+				case "pause": {
 					e.preventDefault();
 					if (store.isPlaying) {
 						store.pause();
