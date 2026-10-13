@@ -4,9 +4,13 @@
  * screen reader watches a region for changes, and one that did not exist a
  * moment ago has none. Render it unconditionally and change `message`.
  */
-export function LiveRegion({ message, urgent = false }: { message: string; urgent?: boolean }) {
+export function LiveRegion({
+	message,
+	urgent = false,
+	testId,
+}: { message: string; urgent?: boolean; testId?: string }) {
 	return (
-		<span role={urgent ? "alert" : "status"} className="sr-only">
+		<span role={urgent ? "alert" : "status"} className="sr-only" data-testid={testId}>
 			{message}
 		</span>
 	);

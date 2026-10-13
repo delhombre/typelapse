@@ -8,7 +8,7 @@ import {
 	DEFAULT_FIRST_VIDEO_PREFERENCE,
 	FIRST_VIDEO_STORAGE_KEY,
 } from "@/presentation/utils/first-video-preference";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 function done(filename: string) {
 	return {
@@ -115,5 +115,32 @@ describe("the first video card's memory", () => {
 			completed: false,
 		});
 		expect(useFirstVideoStore.getState().preference.dismissed).toBe(true);
+	});
+
+	describe("with storage blocked (private mode)", () => {
+		beforeEach(() => {
+			vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+				throw new Error("blocked");
+			});
+			vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+				throw new Error("blocked");
+			});
+		});
+		afterEach(() => {
+			vi.restoreAllMocks();
+		});
+
+		it("keeps what this tab already knows across a second write", () => {
+			useFirstVideoStore.getState().dismiss();
+			useFirstVideoStore.getState().markRendered();
+			expect(useFirstVideoStore.getState().preference).toEqual({
+				dismissed: true,
+				rendered: true,
+				completed: false,
+			});
+			useFirstVideoStore.getState().markCompleted();
+			expect(useFirstVideoStore.getState().preference.rendered).toBe(true);
+			expect(useFirstVideoStore.getState().preference.dismissed).toBe(true);
+		});
 	});
 });

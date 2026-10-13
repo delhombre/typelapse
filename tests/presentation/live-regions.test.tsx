@@ -95,8 +95,7 @@ describe("the scene deletion's live region", () => {
 	it("is in the page and empty before a scene is deleted", () => {
 		render(<StepBuilder />);
 		// The First video card may say "Your first video is made." in its own status line.
-		const deletion = () =>
-			screen.getAllByRole("status").find((region) => region.className === "sr-only");
+		const deletion = () => screen.getByTestId("scene-deletion-status");
 		const status = deletion();
 		expect(status?.textContent).toBe("");
 

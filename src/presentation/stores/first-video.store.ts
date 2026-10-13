@@ -29,9 +29,21 @@ const loaded = readFirstVideoPreference();
 /**
  * Read, merge, write: another tab may have hidden the card, or seen a render,
  * since this one loaded, and writing this tab's older copy back would erase it.
+ * Each fact only ever turns on, so the merge is an OR of what this tab knows and
+ * what is stored: with storage blocked the read returns defaults, and the OR
+ * keeps what this tab already holds in memory.
  */
-function update(change: Partial<FirstVideoPreference>): { preference: FirstVideoPreference } {
-	const preference = { ...readFirstVideoPreference(), ...change };
+function update(
+	known: FirstVideoPreference,
+	change: Partial<FirstVideoPreference>,
+): { preference: FirstVideoPreference } {
+	const stored = readFirstVideoPreference();
+	const preference = {
+		dismissed: known.dismissed || stored.dismissed,
+		rendered: known.rendered || stored.rendered,
+		completed: known.completed || stored.completed,
+		...change,
+	};
 	writeFirstVideoPreference(preference);
 	return { preference };
 }
@@ -39,9 +51,9 @@ function update(change: Partial<FirstVideoPreference>): { preference: FirstVideo
 export const useFirstVideoStore = create<FirstVideoState>((set) => ({
 	preference: loaded,
 	completedAtLoad: loaded.completed,
-	dismiss: () => set(() => update({ dismissed: true })),
-	markRendered: () => set(() => update({ rendered: true })),
-	markCompleted: () => set(() => update({ completed: true })),
+	dismiss: () => set((state) => update(state.preference, { dismissed: true })),
+	markRendered: () => set((state) => update(state.preference, { rendered: true })),
+	markCompleted: () => set((state) => update(state.preference, { completed: true })),
 }));
 
 // At module scope, not in the card: a render that finishes while the card is

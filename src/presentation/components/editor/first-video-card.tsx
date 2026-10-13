@@ -56,10 +56,9 @@ export function FirstVideoCard({ onRefine }: { readonly onRefine?: () => void })
 
 	const next = progress.next;
 	// Said to a screen reader when a step ticks: the card stays mounted between
-	// ticks, so this region exists before it has anything new to say.
-	const announcement = next
-		? `${progress.done} of ${progress.total} steps done. Next: ${next.title}`
-		: "Your first video is made.";
+	// ticks, so this region exists before it has anything new to say. The
+	// completion sentence is the status line's alone.
+	const announcement = `${progress.done} of ${progress.total} steps done${next ? `. Next: ${next.title}` : ""}`;
 
 	return (
 		// No entrance on a remount (Edit and Preview, the sheet coming back): only a

@@ -188,14 +188,22 @@ describe("the First video card", () => {
 		expect(screen.getByText("steps done")).toBeTruthy();
 	});
 
-	it("announces a tick with the step that is next, and reads quietly on mount", () => {
+	it("announces a tick with the step that is next, in a region that stays put", () => {
 		setScenes([bare("a")]);
 		const { container } = render(<FirstVideoCard />);
 		const live = container.querySelector("[aria-live='polite']");
 		expect(live?.textContent).toBe("1 of 3 steps done. Next: Add a focus or a caption");
 		setScenes([Step.create({ code: "b", annotation: "Why" })]);
 		expect(container.querySelector("[aria-live='polite']")).toBe(live);
-		expect(live?.textContent).toContain("Next: Render");
+		expect(live?.textContent).toBe("2 of 3 steps done. Next: Render");
+	});
+
+	it("says the completion sentence once: the status line speaks it, the live region does not", () => {
+		const { container } = render(<FirstVideoCard />);
+		setScenes([Step.create({ code: "a", annotation: "Why" })]);
+		finishVideo("t.mp4");
+		expect(container.querySelector("[aria-live='polite']")?.textContent).toBe("3 of 3 steps done");
+		expect(screen.getAllByText("Your first video is made.")).toHaveLength(1);
 	});
 
 	it("gives the Later button a name that starts with what it shows", () => {

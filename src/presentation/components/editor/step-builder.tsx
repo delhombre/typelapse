@@ -214,7 +214,10 @@ export function StepBuilder() {
 				</p>
 			) : null}
 
-			<LiveRegion message={sceneDeletedMessage(pendingDeletion?.sceneNumber)} />
+			<LiveRegion
+				message={sceneDeletedMessage(pendingDeletion?.sceneNumber)}
+				testId="scene-deletion-status"
+			/>
 			<AnimatePresence initial={false}>
 				{pendingDeletion && (
 					<SceneDeletionUndo
