@@ -716,6 +716,34 @@ html.dark:not([data-landing-theme]) {
 	caret-color: transparent;
 }
 
+/* A link longer than the room scrolls inside the field. The edge that still hides
+   text fades over 20px (data-fade-start, data-fade-end, from the field's own scroll,
+   see useScrollFades), so a glyph cut at the edge reads as a scroll, not a clip.
+   With nothing hidden there is no mask at all. */
+.landing-root .lp-field textarea {
+	--fade-start: 0px;
+	--fade-end: 0px;
+}
+
+.landing-root .lp-field textarea[data-fade-start],
+.landing-root .lp-field textarea[data-fade-end] {
+	mask-image: linear-gradient(
+		to right,
+		transparent,
+		#000 var(--fade-start),
+		#000 calc(100% - var(--fade-end)),
+		transparent
+	);
+}
+
+.landing-root .lp-field textarea[data-fade-start] {
+	--fade-start: 20px;
+}
+
+.landing-root .lp-field textarea[data-fade-end] {
+	--fade-end: 20px;
+}
+
 .landing-root .lp-field textarea::-webkit-scrollbar {
 	display: none;
 }
@@ -895,14 +923,11 @@ html.dark:not([data-landing-theme]) {
    lines up across rows cannot be sized inside a row: the list owns the columns,
    each row borrows them by subgrid. Its right edge is the field's own, so the
    log is exactly as wide as the object it reports on. */
-/* Every row is 24px because every row is a target: each one carries a real pull
-   request into the studio, and at 20px of line and 2px of gap the link was a
-   20px-tall thing to hit — under WCAG 2.5.8's 24px floor, on the three rows
-   most likely to be tapped with a thumb. The height goes into the line rather
-   than into a gap so the rows tile: 24px of link against 24px of link, with no
-   gutter between them that answers to nobody and no extension reaching into a
-   neighbour's row to steal its taps. The log is four rows of 24 instead of four
-   of 22; it costs the hero 8px and reads the same. */
+/* Every row is a target: each one carries a real pull request into the studio. The
+   link spans its whole row (below), so the target is the row, full width, and the rows
+   tile with no gutter between them that answers to nobody. 24px with a mouse, WCAG
+   2.5.8's floor; 44px under a finger (DECISIONS D10, #272), where the line height
+   carries the difference, so the stats stay centred on it. */
 .landing-root .lp-log {
 	display: grid;
 	grid-template-columns: 1fr auto auto auto;
@@ -910,11 +935,19 @@ html.dark:not([data-landing-theme]) {
 	margin-top: 14px;
 	font-family: var(--font-mono);
 	font-size: 12px;
-	/* 24px a row, and every row is a target: the ratio is 2 so it stays 24. */
+	/* 24px a row: the ratio is 2 so it stays 24. */
 	line-height: 2;
 }
 
+@media (pointer: coarse) {
+	.landing-root .lp-log {
+		/* 44px a row, 12px of type. */
+		line-height: calc(44 / 12);
+	}
+}
+
 .landing-root .lp-log li {
+	position: relative;
 	display: grid;
 	grid-column: 1 / -1;
 	grid-template-columns: subgrid;
@@ -934,6 +967,14 @@ html.dark:not([data-landing-theme]) {
 	white-space: nowrap;
 	color: var(--color-ash);
 	text-decoration: none;
+}
+
+/* The link is the row, not the column its text sits in: the counts beside the name
+   open the same change. */
+.landing-root .lp-log a::after {
+	content: "";
+	position: absolute;
+	inset: 0;
 }
 
 /* Gated, like every other hover here: on a touch screen the state has no way
@@ -2717,7 +2758,10 @@ html.dark:not([data-landing-theme]) {
    gives up room first. */
 .studio-root .si-track {
 	flex: none;
-	width: 72px;
+	width: 64px;
+	/* Clear of the counter: the track's end and the first digit of "01 / 03" touched
+	   at 360 (#272). The 8px comes out of the bar, which is the row's shock absorber. */
+	margin-right: 8px;
 	height: 4px;
 	border-radius: 999px;
 	background: rgb(255 255 255 / 0.14);
@@ -2968,29 +3012,41 @@ html.dark:not([data-landing-theme]) {
 	initial-value: 0px;
 }
 
+@property --si-sheet-fade-end {
+	syntax: "<length>";
+	inherits: false;
+	initial-value: 0px;
+}
+
 .sc-root-mobile .si-sheet-body {
 	--si-sheet-fade-start: 0px;
+	--si-sheet-fade-end: 0px;
 	min-height: 0;
 	flex: 1 1 auto;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	/* Rows still to scroll to dissolve into the sheet's foot instead of being cut
-	   flat. The fade is the cluster's own 16px of bottom padding, so at the end of
-	   the scroll nothing is faded. The top does the same under the tabs, but only
-	   once the controls have scrolled (data-more-above, from the scroller's own
-	   position): at rest the first row sits sharp against the tab row. */
+	/* Rows still to scroll to dissolve under the tabs and into the sheet's foot
+	   instead of being cut flat, and only on the edge that has more: at rest the
+	   first row sits sharp against the tab row, and a sheet that fits has no foot
+	   to dissolve into, so its last row (the Where pill, over the Render button)
+	   is never veiled. Both come from the scroller's own position
+	   (data-more-above, data-more-below). */
 	mask-image: linear-gradient(
 		to bottom,
 		transparent,
 		black var(--si-sheet-fade-start),
-		black calc(100% - 16px),
+		black calc(100% - var(--si-sheet-fade-end)),
 		transparent
 	);
-	transition: --si-sheet-fade-start 200ms var(--ease-out);
+	transition: --si-sheet-fade-start 200ms var(--ease-out), --si-sheet-fade-end 200ms var(--ease-out);
 }
 
 .sc-root-mobile .si-sheet-body[data-more-above="true"] {
 	--si-sheet-fade-start: 16px;
+}
+
+.sc-root-mobile .si-sheet-body[data-more-below="true"] {
+	--si-sheet-fade-end: 16px;
 }
 
 .studio-root .si-cluster-group {
@@ -3272,7 +3328,9 @@ html.dark:not([data-landing-theme]) {
 }
 
 /* The rows scrolling under it dissolve into the footer's fill instead of being cut
-   flat at its edge (a chip sliced across at rest). */
+   flat at its edge (a chip sliced across at rest). Only while rows are still under
+   it (data-more-below): with nothing to scroll to, or at the end of the scroll, the
+   18px would veil the last row above the footer (the Where pill, #272). */
 .sc-root-mobile .si-sheet-body[data-roomy="true"] .si-cluster-footer::before {
 	content: "";
 	position: absolute;
@@ -3281,7 +3339,15 @@ html.dark:not([data-landing-theme]) {
 	left: 0;
 	height: 18px;
 	background: linear-gradient(to top, var(--dock-bg), transparent);
+	opacity: 0;
 	pointer-events: none;
+	transition: opacity 150ms var(--ease-out);
+}
+
+.sc-root-mobile
+	.si-sheet-body[data-roomy="true"][data-more-below="true"]
+	.si-cluster-footer::before {
+	opacity: 1;
 }
 
 /* RenderCtaLabel: every label in one cell, so the widest sets the width. */

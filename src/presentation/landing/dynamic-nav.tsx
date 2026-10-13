@@ -8,6 +8,7 @@ import {
 } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSectionInView } from "./use-section-in-view";
 
 /**
  * A Dynamic Island nav: one compact, centered pill floating at the top, never
@@ -54,6 +55,8 @@ const SECTIONS = [
 	{ href: "#pricing", label: "Pricing" },
 ] as const;
 
+const SECTION_IDS = SECTIONS.map((section) => section.href.slice(1));
+
 export function DynamicNav() {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
@@ -98,6 +101,8 @@ export function DynamicNav() {
 			seen?.disconnect();
 		};
 	}, []);
+
+	const inView = useSectionInView(SECTION_IDS);
 
 	/* The hero came or went: tuck, swap out of sight, then drop back in. A pill
 	   already hidden by the scroll stays hidden through it. */
@@ -150,7 +155,11 @@ export function DynamicNav() {
 				</Link>
 				<nav aria-label="Sections" className="lp-nav-links">
 					{SECTIONS.map((section) => (
-						<a key={section.href} href={section.href}>
+						<a
+							key={section.href}
+							href={section.href}
+							aria-current={inView === section.href.slice(1) ? "location" : undefined}
+						>
 							{section.label}
 						</a>
 					))}

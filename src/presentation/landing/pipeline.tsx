@@ -181,10 +181,10 @@ export function PipelineSection() {
 						</figure>
 					}
 				>
-					Between two scenes, the tokens both share slide to their new places, the ones that leave
-					go first and the new ones arrive last. Or type the first scene out, caret and all.{" "}
-					<strong>One engine draws the preview and the file</strong>, so what plays in the studio is
-					what you post.
+					Between two scenes, the tokens that leave go first, the ones both scenes share slide to
+					their new places, and the new ones arrive last. Or type the first scene out, caret and
+					all. <strong>One engine draws the preview and the file</strong>, so what plays in the
+					studio is what you post.
 				</Stage>
 
 				<Stage

@@ -189,3 +189,26 @@ test.describe("Hosted account: the sign-in form follows the forms checklist", ()
 		await expect(email).toHaveValue(account.email);
 	});
 });
+
+test.describe("Hosted account: the desktop panel fits what it holds (#272)", () => {
+	test.use({ viewport: { width: 1440, height: 900 } });
+
+	test("the sign-in panel has nothing to scroll to, so its foot is not veiled", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		await page.getByRole("button", { name: "Sign in", exact: true }).click();
+		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		await expect(panel.getByRole("button", { name: "Email me a code" })).toBeVisible();
+
+		// The foot's veil takes no room of its own: a panel that fits has scrollHeight equal
+		// to clientHeight, and says nothing is below it.
+		const fit = await panel.evaluate((element) => ({
+			scroll: element.scrollHeight,
+			client: element.clientHeight,
+			below: element.getAttribute("data-more-below"),
+		}));
+		expect(fit.scroll).toBe(fit.client);
+		expect(fit.below).toBe("false");
+	});
+});

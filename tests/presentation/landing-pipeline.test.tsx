@@ -50,6 +50,15 @@ describe("landing pipeline", () => {
 		).toEqual([false, true, false, true, false]);
 	});
 
+	it("says what the morph does in three plain clauses, in the order it does it", () => {
+		const { container } = render(<PipelineSection />);
+		const morph = container.querySelector("#morph")?.textContent ?? "";
+
+		expect(morph).toContain(
+			"Between two scenes, the tokens that leave go first, the ones both scenes share slide to their new places, and the new ones arrive last.",
+		);
+	});
+
 	it("shows real captures, sized before they load, and the studio in the page's theme", () => {
 		render(<PipelineSection />);
 		const still = screen.getByRole("img", { name: /with its caption under the card/i });

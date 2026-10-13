@@ -213,7 +213,8 @@ corner row's reach at 360, 390 and 430),
 On the island's sheet and status row the 44px is drawn, not extended: rows are
 7 to 12px apart, so a reach past a 44px box would be shared with the row beside
 it (`src/app.css`, the coarse block above the export status). The phone's social
-row joins the 44px cells with no gap.
+row joins the 44px cells with no gap. The 44px is a finger's floor: under
+`pointer: fine` a row may be 24px, WCAG 2.5.8's floor, as the landing's example rows are (#272).
 
 **Pivot:** "Desktop only; drop the touch rules."
 

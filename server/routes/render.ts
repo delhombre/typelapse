@@ -13,6 +13,7 @@ import {
 	encodeWavBase64,
 	renderTickTrack,
 } from "../../src/application/audio/tick-synth";
+import { exportFilename } from "../../src/application/export/export-filename";
 import { isSafeBackground } from "../../src/application/backgrounds/mesh-gradient";
 import { clampRenderDimension } from "../../src/domain/entities/render-config";
 import { TRANSITION_MS } from "../../src/application/magic-move/timeline";
@@ -380,7 +381,7 @@ renderRoute.post(
 			return new Response(fileBuffer, {
 				headers: {
 					"Content-Type": output.mimeType,
-					"Content-Disposition": `attachment; filename="${title.replace(/[^a-zA-Z0-9-_]/g, "_")}.${fmt}"`,
+					"Content-Disposition": `attachment; filename="${exportFilename(title)}.${fmt}"`,
 				},
 			});
 		} catch (err) {

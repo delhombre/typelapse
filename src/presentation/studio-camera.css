@@ -4436,18 +4436,13 @@ textarea.sc-source-field {
 	color: #aaa9a3;
 }
 
-/* Blank is the quieter of the two, as it is beside Capture in the scene list:
-   no dashed outline until the pointer is on it, and 44px, a finger's floor. */
+/* Blank is the same kind of control as Add scene (a button that adds a scene), so it
+   wears the same dashed outline at rest: without it the word read as a label under
+   the real button (#272). It keeps its own 44px, a finger's floor; Add scene takes
+   the rest of the column. */
 .studio-timeline-add[data-blank] {
 	height: 44px;
 	flex: none;
-	border-color: transparent;
-	background: transparent;
-}
-
-.dark .studio-timeline-add[data-blank] {
-	border-color: transparent;
-	background: transparent;
 }
 
 @media (hover: hover) and (pointer: fine) {

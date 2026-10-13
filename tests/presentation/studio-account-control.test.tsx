@@ -224,6 +224,89 @@ describe("StudioAccountControl", () => {
 		expect(within(panel).getByRole("textbox", { name: "Code" })).toBe(code);
 	});
 
+	it("says one thing when Sign in is pressed on the field a refusal just emptied (#272)", async () => {
+		const { panel } = await openSignIn({
+			signInWithCode: async () => {
+				throw new ClientAuthFailure("invalid-code");
+			},
+		});
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+		fireEvent.change(code, { target: { value: "000000" } });
+		await within(panel).findByText("That code does not match. Try again.");
+		await waitFor(() => expect((code as HTMLInputElement).value).toBe(""));
+
+		// Six digits go as they are typed, so a tap on the button lands on the emptied field.
+		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
+
+		const messages = within(panel).queryAllByText(
+			/Enter the six digits from the email\.|That code does not match/,
+		);
+		expect(messages.map((message) => message.textContent)).toEqual([
+			"Enter the six digits from the email.",
+		]);
+	});
+
+	it("keeps 'no longer works' once a code is spent, and sends nothing more against it (#272)", async () => {
+		const signInWithCode = vi.fn(async (_input: SignInCode) => {
+			throw new ClientAuthFailure("invalid-code");
+		});
+		const { panel } = await openSignIn({ signInWithCode });
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+		for (const attempt of ["000001", "000002", "000003"]) {
+			fireEvent.change(code, { target: { value: attempt } });
+			await waitFor(() => expect((code as HTMLInputElement).value).toBe(""));
+		}
+		await within(panel).findByText("This code no longer works. Send a new one.");
+
+		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
+		fireEvent.change(code, { target: { value: "000004" } });
+
+		expect(signInWithCode).toHaveBeenCalledTimes(3);
+		expect(within(panel).getByRole("alert").textContent).toBe(
+			"This code no longer works. Send a new one.",
+		);
+		expect(within(panel).queryByText("Enter the six digits from the email.")).toBeNull();
+	});
+
+	it("keeps an expiry the server announced, whatever the tries", async () => {
+		const signInWithCode = vi.fn(async (_input: SignInCode) => {
+			throw new ClientAuthFailure("code-expired");
+		});
+		const { panel } = await openSignIn({ signInWithCode });
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+		fireEvent.change(code, { target: { value: "000001" } });
+		await within(panel).findByText("This code no longer works. Send a new one.");
+		await waitFor(() => expect((code as HTMLInputElement).value).toBe(""));
+
+		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
+
+		expect(signInWithCode).toHaveBeenCalledTimes(1);
+		expect(within(panel).getByRole("alert").textContent).toBe(
+			"This code no longer works. Send a new one.",
+		);
+	});
+
+	it("shows the refusal again, alone, on the next wrong code", async () => {
+		const { panel } = await openSignIn({
+			signInWithCode: async () => {
+				throw new ClientAuthFailure("invalid-code");
+			},
+		});
+		askForCode(panel);
+		const code = await within(panel).findByRole("textbox", { name: "Code" });
+		fireEvent.change(code, { target: { value: "000000" } });
+		await within(panel).findByText("That code does not match. Try again.");
+		fireEvent.click(within(panel).getByRole("button", { name: "Sign in" }));
+
+		fireEvent.change(code, { target: { value: "111111" } });
+
+		await within(panel).findByText("That code does not match. Try again.");
+		expect(within(panel).queryByText("Enter the six digits from the email.")).toBeNull();
+	});
+
 	it("offers another code after a minute, counting down until then", async () => {
 		vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
 		vi.setSystemTime(NOW);

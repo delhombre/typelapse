@@ -1,13 +1,10 @@
+import { CHROME_COLOR } from "@/presentation/chrome-color";
 import { useCallback, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 
 export type LandingTheme = "light" | "dark";
 
 const STORAGE_KEY = "typelapse.landing-theme";
-
-/** The paper each theme paints the page with, which is what sits under the
-    browser chrome at the top of the page. The same two values as app.css. */
-const CHROME_COLOR: Record<LandingTheme, string> = { light: "#faf9f6", dark: "#121110" };
 
 /**
  * A theme flip remaps every colour token at once, so without help it is a hard
