@@ -6,7 +6,18 @@ import { useShowcaseRequestStore } from "@/presentation/stores/showcase-request.
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+/* The Showcase and the Library paint a code poster per card, and the real
+   highlighter loads a WASM engine and tokenizes six templates on the main thread
+   while the test waits on the dialog. What colour the code is is none of this
+   file's business, so the highlighter declines and the cards keep their raw code. */
+vi.mock("@/infrastructure/highlighting/highlighter", () => {
+	const declined = () => Promise.reject(new Error("syntax colour is not under test"));
+	return {
+		shikiAdapter: { highlight: declined, getRawHighlighter: declined, loadLanguage: declined },
+	};
+});
 
 /** A phone whose primary pointer is `coarse` or `fine`, as `(pointer: coarse)` answers it. */
 function pointer(kind: "coarse" | "fine") {
@@ -46,7 +57,17 @@ beforeEach(() => {
 	useLibraryRequestStore.setState({ requested: false, opener: null });
 });
 
-afterEach(cleanup);
+/* Closing a Radix dialog (vaul's drawer is one) schedules a zero-delay timer that
+   returns focus and dispatches an event on the container. Unmounting in cleanup
+   leaves it pending, and a loaded machine can run it after the next test began or
+   after the window is gone. One turn of the task queue, queued behind it, lets it
+   fire while the document it talks to is still there. */
+const timersOfTheUnmountHaveRun = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+afterEach(async () => {
+	cleanup();
+	await timersOfTheUnmountHaveRun();
+});
 
 describe("the phone's corner row under a finger", () => {
 	beforeEach(() => pointer("coarse"));

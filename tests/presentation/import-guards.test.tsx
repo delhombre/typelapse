@@ -9,7 +9,7 @@ import {
 import { useNoticeStore } from "@/presentation/stores/notice.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { useStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -323,7 +323,9 @@ describe("StudioSourceHub import guard", () => {
 		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(container, new File([OPENED_PROJECT], "opened.json", { type: "application/json" }));
 
-		expect(await screen.findByText(/Replace what you have/)).toBeTruthy();
+		// The question is in the DOM a commit before its dialog is opened (showModal runs in
+		// an effect), and a closed dialog hides its buttons: wait for the open dialog.
+		expect(await screen.findByRole("dialog", { name: /Replace what you have/ })).toBeTruthy();
 		expect(useSnippetStore.getState().snippet.code).toBe(codeBefore);
 
 		fireEvent.click(screen.getByRole("button", { name: "Open the file" }));
@@ -339,7 +341,9 @@ describe("StudioSourceHub import guard", () => {
 		openSourceMenu();
 		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
 		chooseFile(container, new File([OPENED_PROJECT], "opened.json", { type: "application/json" }));
-		const question = await screen.findByText(/Replace what you have/);
+		// Found as the open dialog: the text alone is in the DOM a commit before showModal runs.
+		const asked = await screen.findByRole("dialog", { name: /Replace what you have/ });
+		const question = within(asked).getByText(/Replace what you have/);
 
 		// The top bar carries `backdrop-blur`, which makes it the containing block
 		// for every `fixed` descendant: a scrim rendered there would cover the

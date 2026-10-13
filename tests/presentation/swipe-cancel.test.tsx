@@ -1,7 +1,7 @@
 import type { PlatformCycle } from "@/presentation/landing/iphone-showcase";
 import { IphoneShowcase } from "@/presentation/landing/iphone-showcase";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
-import { type Mock, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { act, cleanup, render } from "@testing-library/react";
+import { type Mock, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The hand's feedback is the thing under test, so it is a spy rather than the
    real motor: `web-haptics` feature-detects and would no-op in jsdom, which
@@ -50,10 +50,25 @@ beforeAll(() => {
 	};
 });
 
+/* The ring settles on a spring that Motion steps frame by frame, and Motion caps
+   what one frame may advance, so a machine under load does not just run the
+   spring late: it runs it slow, and no real-time budget for "settled" holds. The
+   clock is the test's instead, so the spring takes exactly the frames it needs. */
+beforeEach(() => {
+	vi.useFakeTimers();
+});
+
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 	hapticSpy.mockClear();
 });
+
+/** Runs the frames of `ms` of animation time; the spring has no other clock. */
+const runFrames = (ms: number) =>
+	act(async () => {
+		await vi.advanceTimersByTimeAsync(ms);
+	});
 
 const cycleWith = (step: Mock<(direction: 1 | -1) => void>): PlatformCycle => ({
 	index: 0,
@@ -110,7 +125,8 @@ describe("a swipe the browser takes away", () => {
 		const surface = surfaceOf(container);
 
 		dragLeft(surface);
-		await waitFor(() => expect(offsetOf(surface)).toBeLessThan(-10));
+		await runFrames(100);
+		expect(offsetOf(surface)).toBeLessThan(-10);
 
 		act(() => {
 			surface.dispatchEvent(pointer("pointercancel", 40));
@@ -118,7 +134,8 @@ describe("a swipe the browser takes away", () => {
 
 		expect(step).not.toHaveBeenCalled();
 		expect(hapticSpy).not.toHaveBeenCalled();
-		await waitFor(() => expect(offsetOf(surface)).toBe(0));
+		await runFrames(1000);
+		expect(offsetOf(surface)).toBe(0);
 	});
 
 	it("still commits and buzzes when the same drag is released", async () => {
@@ -133,6 +150,7 @@ describe("a swipe the browser takes away", () => {
 
 		expect(step).toHaveBeenCalledWith(1);
 		expect(hapticSpy).toHaveBeenCalledWith("light");
-		await waitFor(() => expect(offsetOf(surface)).toBe(0));
+		await runFrames(1000);
+		expect(offsetOf(surface)).toBe(0);
 	});
 });
