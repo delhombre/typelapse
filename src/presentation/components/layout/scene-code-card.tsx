@@ -71,6 +71,7 @@ export function SceneCodeCard({
 			<motion.div
 				className="sc-card"
 				data-editor-kind={isCode ? "code" : "layer"}
+				initial={false}
 				animate={{ x: folded ? -22 : 0, opacity: folded ? 0 : 1, scale: folded ? 0.97 : 1 }}
 				transition={springs.default}
 				style={{ transformOrigin: "left center" }}
@@ -128,6 +129,7 @@ export function SceneCodeCard({
 					type="button"
 					onClick={() => onFold(false)}
 					className="sc-tab"
+					initial={false}
 					animate={{ x: folded ? 0 : -14, opacity: folded ? 1 : 0, scale: folded ? 1 : 0.9 }}
 					// The press has to come from Motion and not from CSS: the fold already
 					// writes this element's transform inline, and an inline transform beats

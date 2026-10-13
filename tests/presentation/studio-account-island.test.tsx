@@ -557,7 +557,7 @@ describe("the /app shell", () => {
 		render(
 			<MemoryRouter>
 				<StudioTooltipProvider>
-					<SceneShell editor={<div />} sceneInspector={<div />} preview={<div />} />
+					<SceneShell editor={<div />} sceneInspector={<div />} preview={<div />} sceneCount={1} />
 				</StudioTooltipProvider>
 			</MemoryRouter>,
 		);

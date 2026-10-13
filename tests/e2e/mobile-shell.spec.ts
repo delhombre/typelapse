@@ -7,6 +7,7 @@ import {
 	expect,
 	hitBox,
 	importHash,
+	oneSceneHash,
 	openStudio,
 	settled,
 	shareHash,
@@ -39,7 +40,12 @@ function linesOfCode(count: number): string {
 /** Raise the sheet to its scenes stop and capture the live code `count` times. */
 async function captureScenes(page: Page, count: number) {
 	const sheet = page.getByRole("dialog", { name: "Code and scenes" });
-	await page.locator("[data-vaul-handle]").tap();
+	// A fresh studio opens on the scenes stop already (#270): a tap there would raise it past it.
+	const handle = page.locator("[data-vaul-handle]");
+	if ((await handle.getAttribute("aria-valuetext")) === "Collapsed") {
+		await handle.tap();
+	}
+	await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
 	for (let scenes = 1; scenes <= count; scenes++) {
 		// With no scene yet the fork's "Capture this code" is the one Capture control.
 		await sheet
@@ -767,7 +773,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 				(mode) => window.localStorage.setItem("typelapse.studio-appearance", mode),
 				theme,
 			);
-			await openStudio(page);
+			await openStudio(page, oneSceneHash());
 			const handle = page.locator("[data-vaul-handle]");
 			await handle.focus();
 			for (const text of ["Collapsed", "Half open", "Open"]) {
@@ -918,7 +924,7 @@ test.describe("Mobile shell: the instrument follows the sheet", () => {
 		page,
 	}) => {
 		const cdp = await withNotch(page);
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		const [peekTop, scenesTop] = await stopTops(page);
 		const stop = await record(page);
 
@@ -939,7 +945,7 @@ test.describe("Mobile shell: the instrument follows the sheet", () => {
 		page,
 	}) => {
 		const cdp = await withNotch(page);
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		const [peekTop, scenesTop, fullTop] = await stopTops(page);
 		const height = 812;
 		const floor = height - Math.max(12, HOME_INDICATOR);
@@ -980,7 +986,7 @@ test.describe("Mobile shell: the instrument follows the sheet", () => {
 		page,
 	}) => {
 		const cdp = await withNotch(page);
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		await stopTops(page);
 		await page.keyboard.press("ArrowUp");
 		await expect(page.locator("[data-vaul-handle]")).toHaveAttribute("aria-valuetext", "Half open");
@@ -1001,7 +1007,7 @@ test.describe("Mobile shell: the instrument follows the sheet", () => {
 
 	test("lands with the sheet: the same gap on the frame the settle ends", async ({ page }) => {
 		await withNotch(page);
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		const handle = page.locator("[data-vaul-handle]");
 		await handle.focus();
 		const stop = await record(page);
@@ -1025,7 +1031,7 @@ test.describe("Mobile shell: the sheet's handle works without a finger", () => {
 	test("Tab reaches it, Enter and Space step through the stops, and the content opens", async ({
 		page,
 	}) => {
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		const handle = page.getByRole("slider", { name: "Sheet height" });
 		const sheetTop = () =>
 			page.locator(".sc-sheet").evaluate((el) => Math.round(el.getBoundingClientRect().top));
@@ -1078,7 +1084,7 @@ test.describe("Mobile shell: the sheet's handle works without a finger", () => {
 	test("raises the sheet when focus moves to something below the screen's edge", async ({
 		page,
 	}) => {
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		const handle = page.getByRole("slider", { name: "Sheet height" });
 		await handle.focus();
 		await page.keyboard.press("Enter");
@@ -1097,7 +1103,7 @@ test.describe("Mobile shell: the sheet's handle works without a finger", () => {
 	test("is a vertical slider in the accessibility tree, with its state and a raise and a lower", async ({
 		page,
 	}) => {
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		const cdp = await page.context().newCDPSession(page);
 		await cdp.send("Accessibility.enable");
 		const read = async () => {
@@ -1356,6 +1362,7 @@ async function expectShut(page: Page) {
 test.describe("Mobile shell: the code is read through a loupe", () => {
 	test("a tap brings the code to 11px and puts the chrome aside", async ({ page }) => {
 		await openStudio(page);
+		await settled(codeWindow(page));
 		const rest = await effectiveCodePx(page);
 		expect(rest, "the frame's code is under the floor at rest").toBeLessThan(11);
 		await openTheLoupe(page);
@@ -1532,7 +1539,7 @@ test.describe("Mobile shell: the code is read through a loupe", () => {
 	test("once shut, nothing of its clip is left: a 9:16 frame shows to its foot", async ({
 		page,
 	}) => {
-		await openStudio(page);
+		await openStudio(page, oneSceneHash());
 		await openTheLoupe(page);
 		await page.getByRole("button", { name: "Done" }).tap();
 		await expectShut(page);
@@ -1646,5 +1653,114 @@ test.describe("Mobile shell: the code is read through a loupe", () => {
 		} else {
 			expect(box.y - view.top).toBeCloseTo(view.bottom - (box.y + box.height), 0);
 		}
+	});
+});
+
+/**
+ * An empty project opens on its path (#270): the sheet rests on the scenes stop from the
+ * first frame, so the fork of the empty scene is on screen with no gesture, and the code
+ * editor (a megabyte of Monaco) is still not asked for until the Edit stop.
+ */
+test.describe("Mobile shell: an empty project opens on its path", () => {
+	const MONACO = /\/assets\/(monaco-runtime|editor\.worker|ts\.worker)-/;
+	const FORK = [/^Capture this code$/, /^Start from an example/, /^Import a pull request/];
+
+	for (const [width, height] of [
+		[390, 844],
+		[360, 740],
+	] as const) {
+		test(`the fork's three actions are on screen and hittable, with no scroll or drag, at ${width}x${height}`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height });
+			const monaco: string[] = [];
+			page.on("request", (request) => {
+				if (MONACO.test(request.url())) monaco.push(request.url());
+			});
+			await openStudio(page);
+			const handle = page.getByRole("slider", { name: "Sheet height" });
+			await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
+			await settled(page.locator(".sc-sheet"));
+
+			for (const name of FORK) {
+				const action = page.getByRole("button", { name });
+				await expect(action).toBeVisible();
+				const box = await action.boundingBox();
+				if (!box) throw new Error(`no box for ${name}`);
+				expect(box.y, `${name} starts on screen`).toBeGreaterThanOrEqual(0);
+				expect(box.y + box.height, `${name} ends on screen`).toBeLessThanOrEqual(height);
+				const hit = await hitBox(action, 0);
+				expect(hit.width, `${name} is not covered`).toBeGreaterThanOrEqual(box.width - 1);
+				expect(hit.height, `${name} is not covered`).toBeGreaterThanOrEqual(box.height - 1);
+			}
+			await page.waitForLoadState("networkidle");
+			expect(monaco, "no editor before the Edit stop").toEqual([]);
+		});
+	}
+
+	test("the sheet is at its stop on the first frame it is drawn, never slid there", async ({
+		page,
+	}) => {
+		await page.addInitScript(() => {
+			const w = window as unknown as { __tops: number[] };
+			w.__tops = [];
+			const frame = () => {
+				const top = document.querySelector(".sc-sheet")?.getBoundingClientRect().top;
+				const dock = document.querySelector(".sc-dock-slot")?.getBoundingClientRect().top;
+				if (top !== undefined && dock !== undefined) {
+					w.__tops.push(Math.round(top * 10) / 10, Math.round(dock * 10) / 10);
+				}
+				requestAnimationFrame(frame);
+			};
+			requestAnimationFrame(frame);
+		});
+		await openStudio(page);
+		await settled(page.locator(".sc-sheet"));
+		const tops = await page.evaluate(() => (window as unknown as { __tops: number[] }).__tops);
+		expect(tops.length).toBeGreaterThan(10);
+		// Pairs: the sheet's top, then the instrument slot's, on every frame since the studio
+		// was drawn. Neither moves: the instrument is where it rests from the first frame.
+		const sheets = tops.filter((_, index) => index % 2 === 0);
+		const docks = tops.filter((_, index) => index % 2 === 1);
+		expect(new Set(sheets), "the sheet's top, every frame").toEqual(new Set([sheets[0]]));
+		expect(new Set(docks), "the instrument's top, every frame").toEqual(new Set([docks[0]]));
+	});
+
+	test("an import link opens at the peek: a scene is on its way", async ({ page }) => {
+		await openStudio(page, importHash(GREET_DIFF));
+		await expect(page.getByRole("slider", { name: "Sheet height" })).toHaveAttribute(
+			"aria-valuetext",
+			"Collapsed",
+		);
+	});
+
+	test("the code's title waits for a code: not drawn on the scenes stop of an empty project", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		const section = page.locator("[data-editor-section]");
+		await settled(page.locator(".sc-sheet"));
+		await expect(section).toHaveCSS("opacity", "0");
+		await expect(section).toHaveJSProperty("inert", true);
+		// It keeps its room: raising the sheet shows it where it was.
+		await page.getByRole("slider", { name: "Sheet height" }).press("End");
+		await expect(section).toHaveCSS("opacity", "1");
+	});
+
+	test("a project with a scene still opens at the peek", async ({ page }) => {
+		await openStudio(page, oneSceneHash());
+		await expect(page.getByRole("slider", { name: "Sheet height" })).toHaveAttribute(
+			"aria-valuetext",
+			"Collapsed",
+		);
+	});
+
+	test("the first scene taken from the fork leaves the sheet where it is", async ({ page }) => {
+		await openStudio(page);
+		const handle = page.getByRole("slider", { name: "Sheet height" });
+		const sheet = page.getByRole("dialog", { name: "Code and scenes" });
+		await page.getByRole("button", { name: /^Capture this code$/ }).tap();
+		await expect(sheet.getByText(/^1 scene$/)).toBeVisible();
+		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
 	});
 });

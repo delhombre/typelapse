@@ -79,6 +79,23 @@ export function shareHash(payload: Record<string, unknown>): string {
 	return `#share=${Buffer.from(JSON.stringify(payload), "utf8").toString("base64")}`;
 }
 
+/**
+ * A studio link that opens a project with one scene. A fresh studio has none and
+ * opens on its path (the sheet on the scenes stop, the code in Edit, #270); this
+ * is the way into the studio's other resting state: the sheet at its peek, the
+ * code in Preview.
+ */
+export function oneSceneHash(): string {
+	return shareHash({
+		title: "One scene",
+		code: "const a = 1;",
+		language: "typescript",
+		themeName: "nord",
+		background: "mesh:ocean",
+		steps: [{ code: "const a = 1;", duration: 4000 }],
+	});
+}
+
 /** A studio link carrying an unread paste, the shape the landing hero writes. */
 export function importHash(source: string): string {
 	return `#import=${Buffer.from(JSON.stringify({ source }), "utf8").toString("base64url")}`;

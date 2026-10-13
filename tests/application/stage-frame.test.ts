@@ -4,7 +4,7 @@ import {
 	STAGE_FLOOR_HEIGHT,
 	pictureHeightAt,
 } from "@/application/layout/scene-stage";
-import { type FrameBox, stageFrameBox } from "@/application/layout/stage-frame";
+import { type FrameBox, phoneScenesStop, stageFrameBox } from "@/application/layout/stage-frame";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -135,5 +135,50 @@ describe("the phone shell's frame", () => {
 		});
 		expect(box.left).toBeGreaterThanOrEqual(47);
 		expect(box.left + box.width).toBeLessThanOrEqual(844 - 47);
+	});
+});
+
+describe("the desktop shell's frame with the code open", () => {
+	const editing = (viewportWidth: number, viewportHeight: number) =>
+		stageFrameBox({ viewportWidth, viewportHeight, safeTop: 0, safeBottom: 0 }, { editing: true });
+
+	// Measured off the real studio's `preview-frame` in Edit: the picture is scaled to 90%
+	// about its own centre and the stage moves half a card slot to the right.
+	it("is the Preview frame at 90%, shifted right by half the card slot, at 1280x800", () => {
+		expectBox(editing(1280, 800), 558.8, 146.2, 518.4, 291.6);
+	});
+
+	it("is the same at 1440x900", () => {
+		expectBox(editing(1440, 900), 558.8, 151.2, 678.39, 381.6);
+	});
+
+	it("keeps its own 16:9", () => {
+		const box = editing(1366, 650);
+		expect(box.width / box.height).toBeCloseTo(16 / 9, 3);
+	});
+
+	it("changes nothing on a phone, where the sheet and not a card holds the code", () => {
+		expect(editing(390, 844)).toEqual(open(390, 844));
+	});
+});
+
+describe("where an empty project's phone studio opens its sheet and instrument", () => {
+	const input = { viewportWidth: 390, viewportHeight: 844, safeTop: 0, safeBottom: 0 };
+
+	it("is the scenes stop: the sheet that tall, the instrument that much above the peek's place", () => {
+		const stop = phoneScenesStop(input);
+		// The scenes stop is 481 (phone-sheet.test.ts); the peek is 56.
+		expect(stop?.sheet).toBe(481);
+		expect(stop?.dockRaise).toBe(481 - 56);
+	});
+
+	it("is none where the frame leaves no scenes stop, as on a phone on its side", () => {
+		expect(
+			phoneScenesStop({ viewportWidth: 844, viewportHeight: 390, safeTop: 0, safeBottom: 21 }),
+		).toBeNull();
+	});
+
+	it("is none on a desktop, where there is no sheet", () => {
+		expect(phoneScenesStop({ ...input, viewportWidth: 1440, viewportHeight: 900 })).toBeNull();
 	});
 });

@@ -3650,7 +3650,8 @@ html.dark:not([data-landing-theme]) {
 /* The chrome steps aside while the loupe opens, in 160ms as the clip grows over
    it. Nothing fades it back: the shrinking clip uncovers it. A resting transition
    on the instrument would let it lag the sheet it follows, and the sheet keeps the
-   drawer's own transform transition (vaul's stylesheet). */
+   drawer's own transform transition (vaul's stylesheet), except for the frames that
+   place it on open (`.sc-sheet[data-opening]`, below). */
 .sc-root-mobile .sc-corner-row[data-loupe-aside],
 .sc-root-mobile .sc-dock-slot[data-loupe-aside] .sc-dock,
 .sc-sheet[data-loupe-aside] {
@@ -4740,4 +4741,15 @@ html.dark:not([data-landing-theme]) {
 
 .dark .sc-sheet {
 	--sc-hairline: rgb(245 243 239 / 0.12);
+}
+
+/* The sheet is placed at its stop when the studio opens, never slid up to it: the
+   drawer's own 0.5s transition and its inline styles both lose to this, for the
+   frames it takes to place it (mobile-shell.tsx drops the attribute after).
+   DECISIONS D8 allows no stylesheet to turn a transition off locally; this is its one
+   placement exception, for the frames before the first paint of the studio, and never
+   once it is open. The instrument is placed the same way (use-dock-follows-sheet.ts). */
+.sc-sheet[data-opening] {
+	transition: none !important;
+	animation: none !important;
 }
