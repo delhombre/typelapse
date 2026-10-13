@@ -59,6 +59,20 @@ describe("the hero's example PR", () => {
 		expect(px).toBeGreaterThan(oneLine - 1.5);
 	});
 
+	it("shows all three files, node.ts (the fix) included, and says nothing is left out", () => {
+		const all = snapshots.map((snapshot) => snapshot.code).join("\n");
+
+		for (const path of [
+			"src/router/common.case.test.ts",
+			"src/router/trie-router/node.test.ts",
+			"src/router/trie-router/node.ts",
+		]) {
+			expect(all).toContain(`// ${path}`);
+		}
+		expect(all).not.toContain("more file");
+		expect(all).not.toContain("more changes hidden");
+	});
+
 	it("still shows the whole hunk: the code of the PR is in the scenes, in order", () => {
 		const all = snapshots.map((snapshot) => snapshot.code).join("\n");
 		for (const needle of [

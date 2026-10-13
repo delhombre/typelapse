@@ -1,22 +1,30 @@
 /**
- * Walkthrough size budget: keep a diff walkthrough readable AND fast to build.
+ * Walkthrough size budget: keep a diff walkthrough short enough to watch AND fast
+ * to build.
  *
  * Windowing (see {@link ./windowing}) trims each hunk to the code around its
- * change, but nothing caps the TOTAL size of a frame across many files. A large
- * PR (say 134 files) therefore still concatenates every file's windows into every
- * staged frame, yielding ~3000-line frames. Building the synchronous magic-move
- * plan over dozens of such frames pins the main thread for tens of seconds and the
- * fit-to-viewport scaler crushes the result into unreadable confetti.
+ * change, but nothing caps how many windows a PR contributes. A large PR (say 134
+ * files) once concatenated every file's windows into every staged frame, yielding
+ * ~3000-line frames: building the synchronous magic-move plan over dozens of them
+ * pinned the main thread for tens of seconds, and the fit-to-viewport scaler
+ * crushed the result into unreadable confetti.
  *
- * This module caps a frame two ways, both derived once from the stage-independent
- * window plan:
+ * Two bounds keep that from coming back, and they bound different things:
  *
- *  - {@link MAX_WALKTHROUGH_FILES}: only the first N changed files (document order,
- *    after lockfile filtering) are shown; the rest are dropped wholesale.
- *  - {@link MAX_WALKTHROUGH_LINES}: the total rendered code lines in any single
- *    frame. Windows are accumulated in document order (by the most lines each can
- *    render in one stage, which is stage-independent) until the budget is spent; the
- *    window that would overflow is truncated to fit and everything after it dropped.
+ *  - A frame never exceeds {@link MAX_SCENE_LINES} rows: the walkthrough is split
+ *    in pages (see {@link ./scenes}), each played on its own, so the card is fitted
+ *    to a page and the code stays readable. That is a rule on the frame, not here.
+ *  - A walkthrough never exceeds {@link MAX_WALKTHROUGH_PAGES} pages, which this
+ *    module enforces up front on the stage-independent window plan:
+ *    {@link MAX_WALKTHROUGH_FILES} caps the changed files (document order, after
+ *    lockfile filtering; the rest are dropped wholesale), and
+ *    {@link MAX_WALKTHROUGH_LINES}, the pages times the rows of a page, caps the
+ *    code the kept windows may render. Windows accumulate in document order (by the
+ *    most lines each can render in one stage, which is stage-independent) until
+ *    the budget is spent; the window that would overflow is truncated to fit and
+ *    everything after it dropped. The scaffold a page adds (headers, `⋯`) can push
+ *    the page count past the cap by a page or two, so `generateSnapshots` then cuts
+ *    the pages themselves at {@link MAX_WALKTHROUGH_PAGES}.
  *
  * ## Why this stays clean across stages
  *
@@ -32,6 +40,7 @@
  * The module is pure: it composes sibling diff types and has no framework deps.
  */
 
+import { MAX_SCENE_LINES } from "./scenes";
 import type { DiffHunk } from "./types";
 import { ELLIPSIS, type FileWindowPlan, type LineWindow } from "./windowing";
 
@@ -39,12 +48,20 @@ import { ELLIPSIS, type FileWindowPlan, type LineWindow } from "./windowing";
 export const MAX_WALKTHROUGH_FILES = 6;
 
 /**
- * Cap the rendered code lines in any single frame at this. ~50 keeps a frame
- * glanceable and, crucially, keeps the synchronous magic-move plan build fast: the
- * freeze this fixes came from ~3000-line frames, so an order of magnitude smaller
- * frame is both readable and cheap to lay out.
+ * A walkthrough (a diff, or one chapter of a pull request) plays at most this many
+ * pages. Eight pages of a 24-row scene is the whole of a PR a viewer can follow in
+ * one video; the marker line says what is left.
  */
-export const MAX_WALKTHROUGH_LINES = 50;
+export const MAX_WALKTHROUGH_PAGES = 8;
+
+/**
+ * The code a walkthrough may render: its pages times the rows of a page. Derived,
+ * not chosen, so the line budget moves with the page cap and the scene cap.
+ */
+export const MAX_WALKTHROUGH_LINES = MAX_WALKTHROUGH_PAGES * MAX_SCENE_LINES;
+
+/** The marker a walkthrough ends on when changes were cut and no whole file was. */
+export const CHANGES_HIDDEN_MARKER = `${ELLIPSIS} more changes hidden`;
 
 export interface BudgetedWalkthrough {
 	/** The kept (and possibly truncated) file window plans, in document order. */
@@ -119,7 +136,7 @@ function omissionMarker(droppedFiles: number, contentTruncated: boolean): string
 		return `${ELLIPSIS} ${droppedFiles} more ${noun}`;
 	}
 	if (contentTruncated) {
-		return `${ELLIPSIS} more changes hidden`;
+		return CHANGES_HIDDEN_MARKER;
 	}
 	return null;
 }

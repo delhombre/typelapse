@@ -1,10 +1,12 @@
 import {
 	MAX_WALKTHROUGH_FILES,
 	MAX_WALKTHROUGH_LINES,
+	MAX_WALKTHROUGH_PAGES,
 	budgetWalkthrough,
 } from "@/application/diff/budget";
 import { diffToSnapshots } from "@/application/diff/diff-to-snapshots";
 import { parseUnifiedDiff } from "@/application/diff/parse-unified-diff";
+import { MAX_SCENE_LINES } from "@/application/diff/scenes";
 import type { CodeSnapshot } from "@/application/diff/types";
 import { ELLIPSIS, planWindows } from "@/application/diff/windowing";
 import { describe, expect, it } from "vitest";
@@ -79,9 +81,11 @@ function markerOf(snapshots: CodeSnapshot[]): Set<string | undefined> {
 }
 
 describe("budgetWalkthrough", () => {
-	it("caps at 6 files and 50 code lines", () => {
+	it("caps at 6 files and 8 pages of 24 rows: the line budget is derived from the pages", () => {
 		expect(MAX_WALKTHROUGH_FILES).toBe(6);
-		expect(MAX_WALKTHROUGH_LINES).toBe(50);
+		expect(MAX_WALKTHROUGH_PAGES).toBe(8);
+		expect(MAX_SCENE_LINES).toBe(24);
+		expect(MAX_WALKTHROUGH_LINES).toBe(MAX_WALKTHROUGH_PAGES * MAX_SCENE_LINES);
 	});
 
 	it("keeps only the first MAX_WALKTHROUGH_FILES files and reports the dropped rest", () => {
@@ -153,5 +157,43 @@ describe("diffToSnapshots size cap", () => {
 			expect(snapshot.code).toContain("// one.ts");
 			expect(snapshot.code).toContain("// two.ts");
 		}
+	});
+});
+
+describe("the page cap", () => {
+	/** Every `// path` header of a walkthrough, in the order its scenes show them. */
+	const headersOf = (snapshots: CodeSnapshot[]) =>
+		new Set(snapshots.flatMap((snapshot) => headerLines(snapshot.code)));
+
+	it("keeps a walkthrough of a few hundred rows to 8 pages, and says what is left", () => {
+		const { snapshots } = diffToSnapshots(oneTallFileDiff(400));
+
+		for (const snapshot of snapshots) {
+			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+		}
+		// One hunk, one stage per page, plus the page's own before-state when it has one.
+		expect(snapshots.length).toBeLessThanOrEqual(MAX_WALKTHROUGH_PAGES * 2);
+		expect(markerOf(snapshots).size).toBe(1);
+		expect([...markerOf(snapshots)][0]).toBe(`${ELLIPSIS} more changes hidden`);
+	});
+
+	it("shows every file of a PR that fits the pages, with no marker", () => {
+		const { snapshots } = diffToSnapshots(manyFilesDiff(MAX_WALKTHROUGH_FILES));
+
+		expect(headersOf(snapshots).size).toBe(MAX_WALKTHROUGH_FILES);
+		expect(markerOf(snapshots)).toEqual(new Set([undefined]));
+	});
+
+	it("cuts the pages when the scaffold of each (separators) pushes past the cap", () => {
+		// 185 added rows fit the line budget (192) but not 8 pages: each page also
+		// carries its `⋯` rows, so the ninth page is cut and the marker says so.
+		const { snapshots } = diffToSnapshots(oneTallFileDiff(185));
+
+		for (const snapshot of snapshots) {
+			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
+		}
+		expect(markerOf(snapshots).size).toBe(1);
+		expect([...markerOf(snapshots)][0]).toBe(`${ELLIPSIS} more changes hidden`);
+		expect(snapshots.length).toBeLessThanOrEqual(MAX_WALKTHROUGH_PAGES + 1);
 	});
 });

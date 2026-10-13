@@ -1,4 +1,4 @@
-import { budgetWalkthrough } from "./budget";
+import { CHANGES_HIDDEN_MARKER, MAX_WALKTHROUGH_PAGES, budgetWalkthrough } from "./budget";
 import { type ScenePage, hasBeforeCode, splitIntoScenes } from "./scenes";
 import type {
 	CodeSnapshot,
@@ -136,9 +136,16 @@ export function generateSnapshots(
 function sceneSnapshots(
 	mode: DiffStepMode,
 	plans: FileWindowPlan[],
-	marker: string | null,
+	omitted: string | null,
 ): CodeSnapshot[] {
-	const pages = splitIntoScenes(plans, marker ? 1 : 0);
+	let marker = omitted;
+	let pages = splitIntoScenes(plans, marker ? 1 : 0);
+	if (pages.length > MAX_WALKTHROUGH_PAGES) {
+		// The scaffold of each page (headers, separators) took the walkthrough past the
+		// page cap: lay the pages out again with the marker's row free, and cut them.
+		marker ??= CHANGES_HIDDEN_MARKER;
+		pages = splitIntoScenes(plans, 1).slice(0, MAX_WALKTHROUGH_PAGES);
+	}
 	const showHeaders = plans.length > 1;
 	const snapshots: CodeSnapshot[] = [];
 	let carried = "Before";

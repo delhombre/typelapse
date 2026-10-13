@@ -1,6 +1,7 @@
 export {
 	MAX_WALKTHROUGH_FILES,
 	MAX_WALKTHROUGH_LINES,
+	MAX_WALKTHROUGH_PAGES,
 	budgetWalkthrough,
 } from "./budget";
 export type { BudgetedWalkthrough } from "./budget";
