@@ -304,4 +304,70 @@ describe("deployment-aware plan store", () => {
 		const store = createPlanStore({ deploymentMode: "local", billing: billing() });
 		expect(store.getState().accountPlanKnown).toBe(true);
 	});
+
+	it("stays busy once checkout is under way: the page is leaving, a second press opens nothing", async () => {
+		const startCheckout = vi.fn(async () => ({
+			url: "https://sandbox.polar.sh/checkout/co_leaving",
+			sessionId: "cs_leaving",
+		}));
+		const navigate = vi.fn();
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({ startCheckout }),
+			navigate,
+		});
+
+		await store.getState().upgrade();
+		expect(store.getState().isUpgrading).toBe(true);
+		await store.getState().upgrade();
+
+		expect(startCheckout).toHaveBeenCalledOnce();
+		expect(navigate).toHaveBeenCalledOnce();
+	});
+
+	it("frees the button again when checkout fails, with the reason", async () => {
+		const startCheckout = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("Checkout is unavailable"))
+			.mockResolvedValueOnce({ url: "https://sandbox.polar.sh/checkout/co_2", sessionId: "cs_2" });
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({ startCheckout }),
+			navigate: vi.fn(),
+		});
+
+		await store.getState().upgrade();
+		expect(store.getState().isUpgrading).toBe(false);
+		expect(store.getState().error).toBe("Checkout is unavailable");
+		await store.getState().upgrade();
+		expect(startCheckout).toHaveBeenCalledTimes(2);
+	});
+
+	it("applies only the latest read when two overlap and the older one lands last", async () => {
+		const catalogs: ((value: Awaited<ReturnType<BillingPort["getCatalog"]>>) => void)[] = [];
+		const store = createPlanStore({
+			deploymentMode: "hosted",
+			billing: billing({
+				getCatalog: () =>
+					new Promise((resolve) => {
+						catalogs.push(resolve);
+					}),
+				getCurrentPlan: async () => Plan.pro(),
+			}),
+		});
+		const catalog = { creator: { monthly: { currency: "USD", unitAmount: 1200 } } };
+
+		// Signed out first, then signed in; the signed-out read answers last.
+		const older = store.getState().refresh({ signedIn: false });
+		await vi.waitFor(() => expect(catalogs).toHaveLength(1));
+		const newer = store.getState().refresh({ signedIn: true });
+		await vi.waitFor(() => expect(catalogs).toHaveLength(2));
+		catalogs[1]?.(catalog);
+		await newer;
+		catalogs[0]?.(catalog);
+		await older;
+
+		expect(store.getState().plan.tier).toBe("pro");
+		expect(store.getState().accountPlanKnown).toBe(true);
+	});
 });
