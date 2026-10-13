@@ -1,3 +1,4 @@
+// Throwaway: landing-only change (#302).
 import type { CSSProperties, ReactNode } from "react";
 
 /**
