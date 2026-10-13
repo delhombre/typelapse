@@ -5,6 +5,10 @@ name: Deploy staging
 # CronJobs and resume them. Dispatch it against the ref you want to see running;
 # the image is tagged with that ref's commit SHA.
 #
+# Every step that talks to the cluster is a subcommand of
+# scripts/deploy/staging.sh, whose kube() retries connection errors (#286) and
+# which tests/scripts/deploy-staging.test.ts runs against a stubbed kubectl.
+#
 # Secrets and variables live in the GitHub Environment `staging`, never in the
 # repo. See infra/kubernetes/README.md for the full list and .env.staging.example
 # for what each one is. Third-party actions are pinned by commit SHA, with the
@@ -189,37 +193,10 @@ jobs:
           TYPELAPSE_GITHUB_TOKEN: ${{ secrets.TYPELAPSE_GITHUB_TOKEN }}
           GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
           GHCR_PULL_USER: ${{ github.repository_owner }}
-        run: |
-          set -euo pipefail
-          umask 077
-          envfile="$(mktemp -p "$RUNNER_TEMP")"
-          trap 'rm -f "$envfile"' EXIT
-          for name in DATABASE_URL BETTER_AUTH_SECRET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY POLAR_ACCESS_TOKEN POLAR_WEBHOOK_SECRET SMTP_URL; do
-            if [ -z "${!name:-}" ]; then
-              echo "::error::The Environment secret $name is not set"
-              exit 1
-            fi
-            printf '%s=%s\n' "$name" "${!name}" >> "$envfile"
-          done
-          if [ -n "${TYPELAPSE_GITHUB_TOKEN:-}" ]; then
-            printf '%s=%s\n' TYPELAPSE_GITHUB_TOKEN "$TYPELAPSE_GITHUB_TOKEN" >> "$envfile"
-          fi
-          # Server-side apply keeps the values out of the last-applied-
-          # configuration annotation; --force-conflicts takes the fields back
-          # from any other manager (a hand-made `kubectl create secret`).
-          kubectl -n "$NAMESPACE" create secret generic typelapse-env \
-            --from-env-file="$envfile" --dry-run=client -o yaml \
-            | kubectl apply --server-side --force-conflicts -f -
-          # Absent only when the package is public (GHCR_PACKAGE_PUBLIC=true).
-          if [ -n "${GHCR_PULL_TOKEN:-}" ]; then
-            kubectl -n "$NAMESPACE" create secret docker-registry ghcr-secret \
-              --docker-server=ghcr.io --docker-username="$GHCR_PULL_USER" \
-              --docker-password="$GHCR_PULL_TOKEN" --dry-run=client -o yaml \
-              | kubectl apply --server-side --force-conflicts -f -
-          fi
+        run: bash scripts/deploy/staging.sh apply-secrets
 
       - name: Apply ConfigMap
-        run: kubectl apply -f "$RUNNER_TEMP/rendered/configmap.yaml"
+        run: bash scripts/deploy/staging.sh apply-configmap
 
       # Both workers are CronJobs that drain the queue and exit. Suspend them so
       # no new pod starts during the release, then wait for the Jobs already
@@ -227,181 +204,32 @@ jobs:
       # "Resume the workers" step is the only thing that unsuspends them. Absent
       # on the first deploy, so each patch is skipped then.
       - name: Suspend the workers for the release
-        run: |
-          set -euo pipefail
-          for cronjob in typelapse-render-worker typelapse-deletion-worker; do
-            if kubectl -n "$NAMESPACE" get "cronjob/$cronjob" > /dev/null 2>&1; then
-              kubectl -n "$NAMESPACE" patch "cronjob/$cronjob" --type merge -p '{"spec":{"suspend":true}}'
-            fi
-          done
-          # A worker Job is still unfinished while it has no completionTime and
-          # no Failed condition. Testing status.active alone would miss a Job
-          # the CronJob created an instant before the patch, whose pod does not
-          # exist yet. A render may legitimately run for a while
-          # (TYPELAPSE_RENDER_TIMEOUT_MS is 15 minutes by default), so the wait
-          # is bounded at 20.
-          deadline=$((SECONDS + 1200))
-          unfinished=""
-          while [ "$SECONDS" -lt "$deadline" ]; do
-            unfinished="$(kubectl -n "$NAMESPACE" get jobs \
-              -l 'app in (typelapse-render-worker,typelapse-deletion-worker)' -o json \
-              | jq -r '.items[]
-                  | select((.status.completionTime // "") == "")
-                  | select([.status.conditions[]? | select(.type == "Failed" and .status == "True")] | length == 0)
-                  | .metadata.name')"
-            if [ -z "$unfinished" ]; then
-              echo "No worker Job is running"
-              exit 0
-            fi
-            echo "Waiting for: $unfinished"
-            sleep 10
-          done
-          echo "::error::A worker Job was still running after 20 minutes ($unfinished). The workers are suspended; re-run the deploy once it has finished."
-          exit 1
+        run: bash scripts/deploy/staging.sh suspend-workers
 
       # A Job's pod template is immutable, so the previous one goes first.
       - name: Run release Job
-        run: |
-          set -euo pipefail
-          kubectl -n "$NAMESPACE" delete job typelapse-release --ignore-not-found --wait=true
-          kubectl apply -f "$RUNNER_TEMP/rendered/release-job.yaml"
-          diagnose() {
-            echo "::error::$1"
-            kubectl -n "$NAMESPACE" describe job typelapse-release || true
-            kubectl -n "$NAMESPACE" get pods -l job-name=typelapse-release || true
-            kubectl -n "$NAMESPACE" describe pods -l job-name=typelapse-release || true
-            echo "Last 30 events:"
-            kubectl -n "$NAMESPACE" get events --sort-by=.lastTimestamp | tail -n 30 || true
-            kubectl -n "$NAMESPACE" logs job/typelapse-release --all-containers --tail=200 || true
-          }
-          # `kubectl wait` only knows one condition, so a failed Job would sit
-          # out the whole timeout. Poll the counters, and the pod's waiting
-          # reason so a bad image fails in seconds, not after the timeout.
-          deadline=$((SECONDS + 660))
-          while [ "$SECONDS" -lt "$deadline" ]; do
-            status="$(kubectl -n "$NAMESPACE" get job typelapse-release -o jsonpath='{.status.succeeded}/{.status.failed}')"
-            case "$status" in
-              1/*) echo "Release Job succeeded"; exit 0 ;;
-              */[1-9]*) diagnose "Release Job failed"; exit 1 ;;
-            esac
-            waiting="$(kubectl -n "$NAMESPACE" get pods -l job-name=typelapse-release \
-              -o jsonpath='{.items[*].status.containerStatuses[*].state.waiting.reason}')"
-            case "$waiting" in
-              *ErrImagePull*|*ImagePullBackOff*|*InvalidImageName*)
-                diagnose "Release Job cannot pull its image ($waiting). Check GHCR_PULL_TOKEN and that the build pushed this tag."
-                exit 1 ;;
-            esac
-            # The Job controller could not create the pod at all: quota or
-            # admission refused it.
-            refused="$(kubectl -n "$NAMESPACE" get events \
-              --field-selector involvedObject.kind=Job,involvedObject.name=typelapse-release,reason=FailedCreate \
-              -o jsonpath='{.items[*].message}')"
-            if [ -n "$refused" ]; then
-              diagnose "The release pod was refused: $refused"
-              exit 1
-            fi
-            sleep 5
-          done
-          diagnose "Release Job did not finish in 11 minutes"
-          exit 1
+        run: bash scripts/deploy/staging.sh release-job
 
       # The CronJobs are applied suspended (suspend: true in the manifests).
       - name: Apply API, CronJobs and Ingress
-        run: |
-          set -euo pipefail
-          for file in api render-worker deletion-worker ingress; do
-            kubectl apply -f "$RUNNER_TEMP/rendered/$file.yaml"
-          done
+        run: bash scripts/deploy/staging.sh apply-workloads
 
       # Timeout sized for the managed cluster's small (2 vCPU / 4 GB) nodes: an
       # image pull plus a cold start is slow there.
       - name: Wait for the API rollout
-        run: kubectl -n "$NAMESPACE" rollout status deployment/typelapse-api --timeout=420s
+        run: bash scripts/deploy/staging.sh rollout
 
       # Run each worker once, by hand, from its (still suspended) CronJob, to
-      # prove the pod starts and exits cleanly: image, secret, database URL,
-      # PriorityClass and quota. On an empty queue drain mode exits 0 in
-      # seconds. A queued job is worked for real, so the bound (1000 s) sits
-      # above the render timeout (TYPELAPSE_RENDER_TIMEOUT_MS, 900 s). A Job
-      # still running at the bound is NOT deleted: it may be a real render. The
-      # next deploy waits for it before it migrates, and the Job's own
-      # activeDeadlineSeconds ends it.
+      # prove the pod starts and exits cleanly. The details are in the script.
       - name: Smoke the workers
-        run: |
-          set -euo pipefail
-          run="${{ github.run_id }}-${{ github.run_attempt }}"
-          jobs=()
-          # Delete only Jobs that have finished, whatever the outcome.
-          cleanup() {
-            for job in "${jobs[@]}"; do
-              status="$(kubectl -n "$NAMESPACE" get job "$job" -o jsonpath='{.status.succeeded}/{.status.failed}' 2>/dev/null || true)"
-              case "$status" in
-                1/*|*/[1-9]*) kubectl -n "$NAMESPACE" delete job "$job" --ignore-not-found --wait=false || true ;;
-                *) echo "Leaving $job in place: it has not finished." ;;
-              esac
-            done
-          }
-          trap cleanup EXIT
-          report() {
-            echo "::error::$1"
-            kubectl -n "$NAMESPACE" describe job "$2" || true
-            kubectl -n "$NAMESPACE" describe pods -l "job-name=$2" || true
-            kubectl -n "$NAMESPACE" logs "job/$2" --all-containers --tail=200 || true
-          }
-          for cronjob in typelapse-render-worker typelapse-deletion-worker; do
-            job="smoke-${cronjob#typelapse-}-$run"
-            kubectl -n "$NAMESPACE" create job "$job" --from="cronjob/$cronjob"
-            jobs+=("$job")
-          done
-          deadline=$((SECONDS + 1000))
-          pending=("${jobs[@]}")
-          while [ "$SECONDS" -lt "$deadline" ] && [ "${#pending[@]}" -gt 0 ]; do
-            still=()
-            for job in "${pending[@]}"; do
-              status="$(kubectl -n "$NAMESPACE" get job "$job" -o jsonpath='{.status.succeeded}/{.status.failed}')"
-              case "$status" in
-                1/*) echo "$job completed"; continue ;;
-                */[1-9]*) report "$job failed" "$job"; exit 1 ;;
-              esac
-              waiting="$(kubectl -n "$NAMESPACE" get pods -l "job-name=$job" \
-                -o jsonpath='{.items[*].status.containerStatuses[*].state.waiting.reason}')"
-              case "$waiting" in
-                *ErrImagePull*|*ImagePullBackOff*|*InvalidImageName*)
-                  report "$job cannot pull its image ($waiting)" "$job"; exit 1 ;;
-              esac
-              refused="$(kubectl -n "$NAMESPACE" get events \
-                --field-selector "involvedObject.kind=Job,involvedObject.name=$job,reason=FailedCreate" \
-                -o jsonpath='{.items[*].message}')"
-              if [ -n "$refused" ]; then
-                report "$job was refused: $refused" "$job"
-                exit 1
-              fi
-              still+=("$job")
-            done
-            pending=("${still[@]}")
-            sleep 5
-          done
-          if [ "${#pending[@]}" -gt 0 ]; then
-            for job in "${pending[@]}"; do
-              report "$job did not finish in 1000 s; it is left running in case it is a real render" "$job"
-            done
-            exit 1
-          fi
+        run: bash scripts/deploy/staging.sh smoke
 
       - name: Resume the workers
-        run: |
-          set -euo pipefail
-          for cronjob in typelapse-render-worker typelapse-deletion-worker; do
-            kubectl -n "$NAMESPACE" patch "cronjob/$cronjob" --type merge -p '{"spec":{"suspend":false}}'
-          done
+        run: bash scripts/deploy/staging.sh resume-workers
 
       - name: Show state after a failed deploy
         if: failure()
-        run: |
-          kubectl -n "$NAMESPACE" get pods,cronjob,jobs -o wide || true
-          echo "::group::typelapse-api"
-          kubectl -n "$NAMESPACE" logs deployment/typelapse-api --tail=100 || true
-          echo "::endgroup::"
+        run: bash scripts/deploy/staging.sh show-state
 
       - name: Remove the kubeconfig
         if: always()
