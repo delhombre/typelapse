@@ -54,6 +54,10 @@ the address), then type it into the island or post it, as a person would.
   server's own; the session and the cloud copy survive a reload.
 - `free-cloud.spec.ts`: a free account sees its allowance under Cloud; Render
   gets the 402 with the plan's sentence, and nothing is saved or queued.
+- `device-export.spec.ts`: signed out, in the hosted build (which resolves the Free
+  plan), a 4K export on this device comes out 3840x2160 with nothing stamped in the
+  corner; the visitor's own watermark is the positive control for that measurement.
+  What runs on the user's machine is free (decision 2026-10-13-device-exports-free).
 - `cloud-render.spec.ts` (serial, one render feeds all three):
   - a Creator (flipped by SQL, the row a Polar webhook writes) submits a
     Cloud render, the status follows it, a reload mid-job resumes the same
