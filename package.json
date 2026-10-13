@@ -29,6 +29,7 @@
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"check-types": "tsc --noEmit",
+		"figures:validate": "node scripts/figures/validate.mjs",
 		"typecheck:server": "tsc -p server/tsconfig.json",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",
