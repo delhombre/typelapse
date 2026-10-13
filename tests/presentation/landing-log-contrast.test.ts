@@ -59,6 +59,9 @@ describe("the hero log's counts", () => {
 	it("clear 4.5:1 on the dark paper", () => {
 		const dark = /\.landing-root\[data-theme="dark"\],\s*\.dark \.route-state/;
 
-		expect(contrast(token(dark, "ash"), token(dark, "paper"))).toBeGreaterThanOrEqual(4.5);
+		// The dark paper is declared once, for the landing, the route states and the studio's document.
+		const paper = /html\[data-landing-theme="dark"\],\s*html\.dark:not\(\[data-landing-theme\]\)/;
+
+		expect(contrast(token(dark, "ash"), token(paper, "paper"))).toBeGreaterThanOrEqual(4.5);
 	});
 });

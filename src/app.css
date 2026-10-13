@@ -111,22 +111,23 @@ html {
    through to the document background. `color-scheme` also gives the browser the
    matching scrollbars instead of light ones on a dark page. */
 html[data-landing-theme="light"] {
-	background: #faf9f6;
+	background: var(--color-paper);
 	color-scheme: light;
 }
 
 html[data-landing-theme="dark"] {
-	background: #121110;
+	background: var(--color-paper);
 	color-scheme: dark;
 }
 
 /* The studio's equivalent. Its mark is the absence of the landing's attribute
    plus the `.dark` class the theme store toggles. Without `color-scheme` the
    native select popup and the scrollbars render light on a dark studio, and
-   the overscroll area falls through to a white document. The values are the
-   studio ramp's own ends, so / and /app agree at both temperatures. */
+   the overscroll area falls through to a white document. The paper is the
+   landing's own token, so / and /app agree at both temperatures and with the
+   browser chrome's `theme-color` (#283). */
 html:not([data-landing-theme]) {
-	background: #fafaf9;
+	background: var(--color-paper);
 	color-scheme: light;
 	/* The studio is a fixed shell: a drag on the stage must not rubber-band the
 	   page or pull to refresh. The landing scrolls, so it keeps both. */
@@ -134,7 +135,7 @@ html:not([data-landing-theme]) {
 }
 
 html.dark:not([data-landing-theme]) {
-	background: #121110;
+	background: var(--color-paper);
 	color-scheme: dark;
 }
 
@@ -309,14 +310,24 @@ html.dark:not([data-landing-theme]) {
 	padding-left: max(var(--lp-gutter, 1.5rem), env(safe-area-inset-left, 0px));
 }
 
+/* The dark paper, declared once. Both documents read it (the landing's through
+   its attribute, the studio's through `.dark`), the landing's own element and
+   the route states too, so the page, the overscroll area and the browser
+   chrome's `theme-color` (index.html, chrome-color.ts) are one colour. */
+.landing-root[data-theme="dark"],
+.dark .route-state,
+html[data-landing-theme="dark"],
+html.dark:not([data-landing-theme]) {
+	--color-paper: #121110;
+}
+
 /* The landing's dark theme. Every `.lp-*` class and every Tailwind
-   `text-ink` / `text-ash` / `bg-paper` reads these three vars, so remapping
-   them here flips the whole page without touching a single section.
+   `text-ink` / `text-ash` / `bg-paper` reads these vars (and the paper above), so
+   remapping them here flips the whole page without touching a single section.
    Warm, not a neutral slate: the warmth is the brand. The 404 and the route
    error boundary read the same three, under the studio's `.dark`. */
 .landing-root[data-theme="dark"],
 .dark .route-state {
-	--color-paper: #121110;
 	--color-ink: #f5f3ef;
 	--color-ash: #a8a39a;
 	--color-surface: #1e1c1a;
@@ -3638,13 +3649,13 @@ html.dark:not([data-landing-theme]) {
 	/* Clip, never hidden: a hidden box is still a scroll container, so one focus or
 	   scrollIntoView could slide the whole scene under its own corner row. */
 	overflow: clip;
-	background: var(--color-neutral-50);
+	background: var(--color-paper);
 	color: var(--color-neutral-900);
 	font-family: var(--font-sans);
 }
 
 .dark .sc-root {
-	background: var(--color-neutral-950);
+	background: var(--color-paper);
 	color: var(--color-neutral-100);
 }
 

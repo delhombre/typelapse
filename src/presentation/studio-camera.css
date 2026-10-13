@@ -34,7 +34,7 @@
 	   restate it for their dark plate (app.css, `--dock-disabled`). */
 	--camera-disabled: #726f68;
 	--camera-pill: var(--color-neutral-100);
-	--camera-paper: var(--color-neutral-50);
+	--camera-paper: var(--color-paper);
 	/* The opaque floating surface: the card and the timeline. Opaque rather than
 	   the phone's frosted material (drift 11) because there is nothing behind
 	   them but flat paper, so a blur costs a compositing layer over Monaco and
@@ -132,7 +132,6 @@
 	--camera-muted: #a8a39a;
 	--camera-disabled: #958f87;
 	--camera-pill: #292624;
-	--camera-paper: var(--color-neutral-950);
 	--camera-surface: #1e1c1a;
 	/* A drop shadow does nothing on a dark page: the ring carries the edge. */
 	--camera-raised: 0 0 0 1px var(--camera-line), 0 10px 32px rgb(0 0 0 / 0.28);
