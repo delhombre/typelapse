@@ -18,9 +18,6 @@ import "./pricing-page.css";
 import { useCatalogReading } from "./use-catalog-reading";
 
 const TITLE = "Pricing · Typelapse";
-const DESCRIPTION =
-	"Exporting on your own device is free: every format, up to 4K, no watermark, no account. Creator adds hosted renders with captions and audio baked in.";
-
 /** The pill on this page: the landing's sections are one hop back, this page is the current one. */
 const NAV_LINKS: readonly NavLinkItem[] = [
 	{ href: "/#how-it-works", label: "How it works" },
@@ -37,16 +34,16 @@ const NAV_LINKS: readonly NavLinkItem[] = [
 export function PricingPage() {
 	const [theme, toggleTheme] = useLandingTheme();
 	useDocumentTitle(TITLE);
-	useDocumentDescription(DESCRIPTION);
 	const reading = useCatalogReading();
 	const view = useMemo(() => pricingView({ reading }), [reading]);
+	useDocumentDescription(view.description);
 
 	return (
 		<div
 			className="landing-root pricing-root relative flex min-h-dvh flex-col bg-paper text-ink antialiased"
 			data-theme={theme}
 		>
-			<DynamicNav links={NAV_LINKS} hasHero={false} />
+			<DynamicNav links={NAV_LINKS} deferCtaTo=".pr-plans" />
 			<ThemeToggle theme={theme} onToggle={toggleTheme} />
 			<main className="flex-1">
 				<section className={`${CONTAINER} pt-32 pb-8 sm:pt-40`} aria-labelledby="pricing-title">
@@ -62,7 +59,7 @@ export function PricingPage() {
 				<Comparison view={view} />
 				<Questions view={view} />
 			</main>
-			<SiteFooter />
+			<SiteFooter current="pricing" />
 		</div>
 	);
 }
@@ -104,15 +101,12 @@ function Plans({ view }: { view: PricingView }) {
 							<li key={line}>{line}</li>
 						))}
 					</ul>
-					{/* The one filled shape of the zone (DECISIONS D2). The sheet that sells Creator
-					    lives in the studio, under Where, which is where the press is made. */}
+					{/* The first screen's one filled shape (DECISIONS D2): the pill holds its own
+					    "Open studio" back while these cards are in view. The sheet that sells
+					    Creator lives in the studio, under Where, until a deep link ships (#290). */}
 					<div className="pr-card-action">
-						<InkButton to="/app">
-							{view.creator.price.state === "priced"
-								? "Get Creator in the studio"
-								: "See Creator in the studio"}
-						</InkButton>
-						<p className="lp-micro">Press Cloud under Where when you export.</p>
+						<InkButton to="/app">Start a hosted render</InkButton>
+						<p className="lp-micro">Opens the studio; choose Cloud under Where.</p>
 					</div>
 				</article>
 			</div>

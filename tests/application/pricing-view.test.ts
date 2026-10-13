@@ -7,7 +7,6 @@ import { RESOLUTION_TIERS } from "@/domain/entities/render-config";
 import type { BillingCatalog } from "@/domain/ports/billing.port";
 import { HttpBillingAdapter } from "@/infrastructure/billing/http-billing.adapter";
 import { FPS_OPTIONS } from "@/presentation/components/controls/cluster-panels";
-import { priceLabel } from "@/presentation/components/multimedia/studio-account-control";
 import { describe, expect, it } from "vitest";
 
 const PRICED: BillingCatalog = {
@@ -30,15 +29,6 @@ describe("the pricing page's Creator card", () => {
 				{ cadence: "monthly", label: "$12 / month", note: null },
 			],
 		});
-	});
-
-	it("words a price exactly as the account panel does", () => {
-		const { creator } = view({ kind: "ready", catalog: PRICED });
-		if (creator.price.state !== "priced") throw new Error("expected a price");
-		expect(creator.price.lines.map((line) => line.label)).toEqual([
-			priceLabel(PRICED.creator.annual ?? never(), "annual"),
-			priceLabel(PRICED.creator.monthly ?? never(), "monthly"),
-		]);
 	});
 
 	it("shows the one cadence the catalog has, with no saving to claim", () => {
@@ -77,6 +67,15 @@ describe("the pricing page's Creator card", () => {
 
 	it("holds its place while the catalog is still being read", () => {
 		expect(view({ kind: "pending" }).creator.price).toEqual({ state: "pending" });
+	});
+});
+
+describe("the page's description", () => {
+	it("makes the card's claim, from the same tier, and never the wider one", () => {
+		const { description } = view({ kind: "pending" });
+		expect(description).toContain(`MP4 and WebM up to ${RESOLUTION_TIERS.at(-1)}`);
+		expect(description).not.toMatch(/every format/i);
+		expect(description).not.toMatch(/[–—]/);
 	});
 });
 
@@ -152,7 +151,11 @@ describe("the questions", () => {
 	});
 
 	it("says the device export is free and why", () => {
-		expect(answer("Is the device export really free?")).toMatch(/^Yes\. It runs in your browser/);
+		const free = answer("Is the device export really free?");
+		expect(free).toMatch(
+			/^Yes\. It runs in your browser, on your machine, and nothing is uploaded\./,
+		);
+		expect(free).not.toMatch(/cost|charge/i);
 	});
 
 	it("has a refunds answer", () => {
@@ -192,7 +195,3 @@ describe("reading the catalog", () => {
 		expect(await loadCatalogReading(adapter)).toEqual({ kind: "unavailable" });
 	});
 });
-
-function never(): never {
-	throw new Error("unreachable");
-}

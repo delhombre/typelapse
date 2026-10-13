@@ -119,6 +119,53 @@ describe("landing nav over the hero", () => {
 	});
 });
 
+describe("a page with no hero but a zone with its own filled action", () => {
+	/* #256 review: the pricing page's plan cards hold "Get ..." in the first screen,
+	   so the pill's "Open studio" waits for them to leave, by the landing's rule. */
+	it("holds its CTA back while the named zone is in view, and takes it once it is not", () => {
+		vi.useFakeTimers();
+		const observers: IntersectionObserverCallback[] = [];
+		const original = globalThis.IntersectionObserver;
+		globalThis.IntersectionObserver = class {
+			constructor(callback: IntersectionObserverCallback) {
+				observers.push(callback);
+			}
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		} as unknown as typeof IntersectionObserver;
+		globalThis.ResizeObserver ??= class {
+			observe() {}
+			unobserve() {}
+			disconnect() {}
+		} as unknown as typeof ResizeObserver;
+		const zone = document.createElement("div");
+		zone.className = "pr-plans";
+		document.body.append(zone);
+		try {
+			const { container } = render(
+				<MemoryRouter>
+					<DynamicNav deferCtaTo=".pr-plans" />
+				</MemoryRouter>,
+			);
+			const link = () => container.querySelector('a[href="/app"]');
+			expect(link()?.hasAttribute("hidden")).toBe(true);
+			act(() =>
+				observers[0]?.(
+					[{ isIntersecting: false } as IntersectionObserverEntry],
+					{} as IntersectionObserver,
+				),
+			);
+			act(() => vi.advanceTimersByTime(NAV_TUCK_MS));
+			expect(link()?.hasAttribute("hidden")).toBe(false);
+		} finally {
+			zone.remove();
+			globalThis.IntersectionObserver = original;
+			vi.useRealTimers();
+		}
+	});
+});
+
 describe("landing theme toggle over the dark band", () => {
 	it("reads the band's own ink, which paper is not on the dark theme", () => {
 		// The over-the-band state needs a dark section under it to render, so the

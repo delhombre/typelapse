@@ -1,8 +1,9 @@
 import { hostedOutputGraceDays } from "@/application/billing/plan-allowance";
+import { priceLabel } from "@/application/billing/price-label";
 import type { BillingCatalog } from "@/domain/ports/billing.port";
 import { Plan } from "@/domain/value-objects/plan";
 import { TestModeLine } from "@/presentation/components/billing/test-mode-line";
-import { AuthForm, priceLabel } from "@/presentation/components/multimedia/studio-account-control";
+import { AuthForm } from "@/presentation/components/multimedia/studio-account-control";
 import { StudioBottomSheet } from "@/presentation/components/ui/studio-bottom-sheet";
 import { feedback } from "@/presentation/haptics";
 import { useAuthStore } from "@/presentation/stores/auth.store";

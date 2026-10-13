@@ -1,3 +1,4 @@
+import { APP_PATHS } from "../../src/application/routing/app-paths";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -69,6 +70,15 @@ describe("static site: the client's routes", () => {
 			expect(await response.text()).toBe(INDEX);
 			expect(response.headers.get("content-type")).toContain("text/html");
 			expect(response.headers.get("cache-control")).toBe("no-cache");
+		}
+	});
+
+	it("serves every address the client routes, so a new page cannot ship as a 404", async () => {
+		for (const path of Object.values(APP_PATHS)) {
+			expect((await get(path)).status, path).toBe(200);
+			if (path !== "/") {
+				expect((await get(`${path}/`)).status, `${path}/`).toBe(200);
+			}
 		}
 	});
 

@@ -1,3 +1,4 @@
+import { APP_PATHS } from "@/application/routing/app-paths";
 import { NotFound } from "@/presentation/components/ui/not-found";
 import { RouteErrorBoundary } from "@/presentation/components/ui/route-error-boundary";
 import { LandingErrorShell } from "@/presentation/landing/landing-error-shell";
@@ -23,7 +24,7 @@ export function AppRoutes() {
 	return (
 		<Routes>
 			<Route
-				path="/"
+				path={APP_PATHS.landing}
 				element={
 					<RouteErrorBoundary
 						heading="This page did not load"
@@ -36,7 +37,7 @@ export function AppRoutes() {
 				}
 			/>
 			<Route
-				path="/app"
+				path={APP_PATHS.studio}
 				element={
 					<RouteErrorBoundary>
 						<Suspense fallback={<StudioSkeleton />}>
@@ -46,7 +47,7 @@ export function AppRoutes() {
 				}
 			/>
 			<Route
-				path="/pricing"
+				path={APP_PATHS.pricing}
 				element={
 					<RouteErrorBoundary
 						heading="This page did not load"

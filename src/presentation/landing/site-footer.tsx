@@ -3,7 +3,7 @@ import { LogoLockup } from "./primitives";
 import { CONTAINER, HAIRLINE } from "./tokens";
 
 /** The footer of the landing and of the public pages that wear its design. */
-export function SiteFooter() {
+export function SiteFooter({ current }: { readonly current?: "pricing" } = {}) {
 	return (
 		<footer className={`border-t ${HAIRLINE}`}>
 			<div
@@ -22,6 +22,7 @@ export function SiteFooter() {
 					</Link>
 					<Link
 						to="/pricing"
+						aria-current={current === "pricing" ? "page" : undefined}
 						className="hit-ext text-ash transition-colors ease-[var(--ease-out)] hover:text-ink"
 					>
 						Pricing

@@ -9,6 +9,7 @@ import type {
 } from "../../domain/ports/billing.port";
 import { Plan } from "../../domain/value-objects/plan";
 import { formatBytes, formatMinutes, hostedOutputGraceDays } from "./plan-allowance";
+import { priceLabel } from "./price-label";
 
 /**
  * The public pricing page as data (ux-waves D3, #256): what the Free card and the
@@ -65,6 +66,8 @@ export interface ComparisonRow {
 }
 
 export interface PricingView {
+	/** The page's meta description: the Free card's claim, from the same tier and rate. */
+	readonly description: string;
 	/** The payment provider behind this build is its sandbox: say so beside the price. */
 	readonly testMode: boolean;
 	readonly device: { readonly points: readonly string[] };
@@ -75,17 +78,6 @@ export interface PricingView {
 		readonly freeAccount: string;
 	};
 	readonly faq: readonly { readonly question: string; readonly answer: string }[];
-}
-
-function formatPrice(price: BillingPrice, cadence: BillingCadence): string {
-	const amount = price.unitAmount / 100;
-	const formatted = new Intl.NumberFormat("en", {
-		style: "currency",
-		currency: price.currency,
-		minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
-		maximumFractionDigits: 2,
-	}).format(amount);
-	return `${formatted} / ${cadence === "monthly" ? "month" : "year"}`;
 }
 
 /** Whole percent the annual price saves over twelve months, rounded down so it is never overstated. */
@@ -111,12 +103,12 @@ function creatorPrice(reading: CatalogReading): CreatorPrice {
 	if (annual) {
 		lines.push({
 			cadence: "annual",
-			label: formatPrice(annual, "annual"),
+			label: priceLabel(annual, "annual"),
 			note: saving === null ? null : `Saves ${saving}% against paying monthly`,
 		});
 	}
 	if (monthly) {
-		lines.push({ cadence: "monthly", label: formatPrice(monthly, "monthly"), note: null });
+		lines.push({ cadence: "monthly", label: priceLabel(monthly, "monthly"), note: null });
 	}
 	return lines.length === 0 ? { state: "unpriced" } : { state: "priced", lines };
 }
@@ -174,7 +166,7 @@ function questions(free: Plan) {
 	return [
 		{
 			question: "Is the device export really free?",
-			answer: `Yes. It runs in your browser, on your machine, so it costs us nothing to run and we do not charge for it. MP4 and WebM go up to ${top} at ${DEVICE_MAX_FPS} fps with no watermark, no account and nothing uploaded.`,
+			answer: `Yes. It runs in your browser, on your machine, and nothing is uploaded. MP4 and WebM go up to ${top} at ${DEVICE_MAX_FPS} fps with no watermark and no account.`,
 		},
 		{
 			question: "What happens to my videos if I cancel?",
@@ -204,6 +196,7 @@ export function pricingView(input: { readonly reading: CatalogReading }): Pricin
 	const creator = Plan.pro();
 	const sandbox = input.reading.kind === "ready" && input.reading.catalog.environment === "sandbox";
 	return {
+		description: `Exporting on your own device is free: ${deviceIntro()}, no watermark, no account. Creator adds hosted renders with captions and audio baked in.`,
 		testMode: sandbox,
 		device: {
 			points: [deviceIntro(), "No watermark", "Nothing uploaded, no account"],

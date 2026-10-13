@@ -70,7 +70,7 @@ test.describe("Pricing: a visitor reads the plans before signing in", { tag: "@s
 		await expect(card).toHaveAttribute("data-price-state", "unpriced");
 		expect((await card.textContent()) ?? "").not.toMatch(/\d|[$€£]/);
 		await expect(page.getByRole("alert")).toHaveCount(0);
-		await expect(page.getByRole("link", { name: "See Creator in the studio" })).toHaveAttribute(
+		await expect(page.getByRole("link", { name: "Start a hosted render" })).toHaveAttribute(
 			"href",
 			"/app",
 		);
@@ -90,7 +90,8 @@ test.describe("Pricing: a visitor reads the plans before signing in", { tag: "@s
 		await openPricing(page);
 
 		await expect(page.getByRole("link", { name: "Pricing", exact: true }).first()).toBeVisible();
-		await expect(page.locator('a[aria-current="page"]')).toHaveText("Pricing");
+		// The pill and the footer both name the page they are on.
+		await expect(page.locator('a[aria-current="page"]')).toHaveText(["Pricing", "Pricing"]);
 		const table = page.getByRole("table");
 		await expect(table.getByRole("row", { name: /Hosted render time/ })).toContainText(
 			"60 minutes a month",
@@ -101,6 +102,21 @@ test.describe("Pricing: a visitor reads the plans before signing in", { tag: "@s
 			page.getByText(/stay downloadable for 30 days after your plan ends/),
 		).toBeVisible();
 		await expect(page.getByText("Refunds", { exact: true })).toBeVisible();
+	});
+
+	test("the first screen holds one way into the studio, and the pill takes it once the cards leave", async ({
+		page,
+	}) => {
+		await page.emulateMedia({ reducedMotion: "reduce" });
+		await catalogIs(page, 200, PRICED);
+		await openPricing(page);
+
+		const pillCta = page.getByRole("link", { name: "Open studio", exact: true });
+		await expect(pillCta).toBeHidden();
+		await expect(page.getByRole("link", { name: "Start a hosted render" })).toBeVisible();
+		await page.getByRole("table").scrollIntoViewIfNeeded();
+		await page.mouse.wheel(0, 600);
+		await expect(pillCta).toBeVisible();
 	});
 
 	test("the landing and its footer lead here, and the page leads back", async ({ page }) => {

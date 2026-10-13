@@ -105,12 +105,25 @@ describe("the /pricing route", () => {
 		catalogAnswers(Response.json(PRICED));
 		mountAt("/pricing");
 
-		const link = await screen.findByRole("link", {
-			name: "Pricing",
-			current: "page",
-			hidden: true,
-		});
+		const pill = await screen.findByRole("navigation", { name: "Sections", hidden: true });
+		const link = within(pill).getByRole("link", { name: "Pricing", current: "page", hidden: true });
 		expect(link.getAttribute("href")).toBe("/pricing");
+	});
+
+	it("offers one hosted action, honestly named, and marks the footer's own link", async () => {
+		catalogAnswers(Response.json(PRICED));
+		mountAt("/pricing");
+
+		const action = await screen.findByRole("link", { name: "Start a hosted render" });
+		expect(action.getAttribute("href")).toBe("/app");
+		expect(screen.getByText("Opens the studio; choose Cloud under Where.")).toBeTruthy();
+		const footer = screen.getByRole("contentinfo");
+		expect(within(footer).getByRole("link", { name: "Pricing" }).getAttribute("aria-current")).toBe(
+			"page",
+		);
+		expect(within(footer).getByRole("link", { name: "Studio" }).hasAttribute("aria-current")).toBe(
+			false,
+		);
 	});
 
 	it("has the questions, one of which is about cancelling", async () => {

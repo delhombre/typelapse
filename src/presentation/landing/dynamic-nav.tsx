@@ -67,25 +67,26 @@ interface DynamicNavProps {
 	/** What the pill links to. The landing's own sections by default. */
 	readonly links?: readonly NavLinkItem[];
 	/**
-	 * Whether the page opens on the landing's hero. The pill holds back its
-	 * "Open studio" while the hero's field is in view; a page with no hero has no
-	 * field to defer to, so the pill carries it from the first frame.
+	 * The zone whose own filled action holds the first screen's one way in. The
+	 * pill holds back its "Open studio" while that zone is in view: the landing's
+	 * hero by default, the plan cards on the pricing page. A selector that matches
+	 * nothing is a page with no such zone, and the pill carries its CTA from the start.
 	 */
-	readonly hasHero?: boolean;
+	readonly deferCtaTo?: string;
 }
 
-export function DynamicNav({ links = SECTIONS, hasHero = true }: DynamicNavProps = {}) {
+export function DynamicNav({ links = SECTIONS, deferCtaTo = ".lp-hero" }: DynamicNavProps = {}) {
 	const reduce = useReducedMotion();
 	const { scrollY } = useScroll();
 	const [hidden, setHidden] = useState(false);
 	/* Whether the hero, and so its filled button, is still on screen. The page
 	   opens on it, so the first frame already has the quiet capsule: starting
 	   filled painted a yellow flash the observer then faded out. */
-	const [overHero, setOverHero] = useState(hasHero);
+	const [overHero, setOverHero] = useState(true);
 	/* Whether the pill holds its CTA. It follows `overHero`, but only while the
 	   pill is out of sight. It starts without, as the page opens on the hero
 	   (which is not in the document yet when this first renders). */
-	const [withCta, setWithCta] = useState(!hasHero);
+	const [withCta, setWithCta] = useState(false);
 	const [tucking, setTucking] = useState(false);
 	const wantCta = !overHero;
 	/* Measured rather than assumed to be one viewport: the hero's content can
@@ -93,7 +94,7 @@ export function DynamicNav({ links = SECTIONS, hasHero = true }: DynamicNavProps
 	const heroBottom = useRef(0);
 
 	useEffect(() => {
-		const hero = document.querySelector(".lp-hero");
+		const hero = document.querySelector(deferCtaTo);
 		if (!hero) {
 			// No hero on this page: no other filled button to defer to.
 			setOverHero(false);
@@ -117,7 +118,7 @@ export function DynamicNav({ links = SECTIONS, hasHero = true }: DynamicNavProps
 			resize.disconnect();
 			seen?.disconnect();
 		};
-	}, []);
+	}, [deferCtaTo]);
 
 	const inView = useSectionInView(
 		links.filter((link) => link.href.startsWith("#")).map((link) => link.href.slice(1)),
