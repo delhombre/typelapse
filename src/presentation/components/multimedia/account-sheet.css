@@ -1,0 +1,268 @@
+/* The signed-in account as a sheet (ux-waves UX 12): the studio's bottom sheet,
+   440px on a desktop and the screen's width on a phone, with the person on top, the
+   tabs under them, the chosen section scrolling in the middle and Sign out in a foot
+   that never scrolls away (gate-five's minor: Sign out was under the fold at 1440x900).
+   Portaled to the body, it reads the paper's tokens, restated here for the account's
+   `--mm-*` parts as the hosted render sheet restates them. */
+.studio-sheet-panel.account-sheet {
+	--sheet-inline: 24px;
+	--sheet-width: 440px;
+	/* One height for every tab, so a press on a tab never moves the sheet's top edge
+	   under the pointer; the tallest common tab (Plan on Free, with the meter and the
+	   upgrade) fits it at 1440x900 without scrolling. The shell's 74vh still caps it. */
+	height: min(576px, 74vh);
+	min-height: 0;
+	--mm-surface: var(--camera-paper);
+	--mm-ink: var(--camera-ink);
+	--mm-muted: var(--camera-muted);
+	--mm-hairline: var(--camera-line);
+	/* The sheet's one filled action wears the primary (DECISIONS D2): Save this project
+	   to cloud, Upgrade to Creator, Create key or Copy key, one per tab. */
+	--mm-deep: var(--color-primary);
+	--mm-deep-ink: var(--color-on-primary);
+	--mm-primary: var(--color-primary);
+	--mm-danger: var(--camera-danger);
+}
+
+/* A finger's targets are 44px, so its Plan is taller by the difference. */
+@media (pointer: coarse) {
+	.studio-sheet-panel.account-sheet {
+		height: min(600px, 74vh);
+	}
+}
+
+.account-sheet-body {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	flex-direction: column;
+}
+
+.account-sheet-header {
+	min-height: 0;
+	align-items: center;
+	padding-bottom: 14px;
+	border-bottom: 0;
+}
+
+.account-sheet-header .mm-account-identity {
+	min-width: 0;
+	margin: 0;
+}
+
+/* The initials are a mark, not a control: a neutral tile, so the zone's one fill
+   stays its action (D2). Round, as the trigger's are. */
+.account-sheet .mm-account-avatar {
+	border-radius: var(--r-pill);
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+}
+
+.account-sheet-header .mm-account-identity p {
+	font-size: var(--sc-text-sm);
+}
+
+.account-sheet .mm-eyebrow {
+	margin: 0;
+	color: var(--mm-muted);
+	font-size: 9px;
+	font-weight: 650;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+}
+
+/* The tabs: words on the paper and a line under the chosen one, never a fill. The
+   first tab's word lines up with the name above it. */
+.account-tabs {
+	display: flex;
+	flex: none;
+	gap: 2px;
+	padding: 0 max(var(--sheet-inline), env(safe-area-inset-right, 0px)) 0
+		max(calc(var(--sheet-inline) - 10px), env(safe-area-inset-left, 0px));
+	border-bottom: 1px solid var(--camera-line);
+}
+
+.account-tab {
+	position: relative;
+	/* The wash below paints under the word, never over it. */
+	isolation: isolate;
+	display: inline-flex;
+	height: 38px;
+	align-items: center;
+	padding: 0 10px;
+	border: 0;
+	background: transparent;
+	color: var(--camera-muted);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-strong);
+	-webkit-user-select: none;
+	user-select: none;
+	transition: color 150ms var(--ease-out);
+}
+
+/* The hover's wash sits inside the tab, clear of the line under it. */
+.account-tab::before {
+	content: "";
+	position: absolute;
+	z-index: -1;
+	inset: 5px 0 7px;
+	border-radius: var(--r-field);
+	background: transparent;
+	transition: background-color 150ms var(--ease-out);
+}
+
+.account-tab[aria-selected="true"] {
+	color: var(--camera-ink);
+}
+
+.account-tab-mark {
+	position: absolute;
+	right: 10px;
+	bottom: -1px;
+	left: 10px;
+	height: 2px;
+	border-radius: var(--r-pill);
+	background: var(--camera-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.account-tab:hover::before {
+		background: var(--camera-pill);
+	}
+}
+
+.account-tab:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: -2px;
+	border-radius: var(--r-field);
+}
+
+/* A finger's tab is 44px tall (DECISIONS D10). */
+@media (pointer: coarse) {
+	.account-tab {
+		height: 44px;
+	}
+}
+
+/* The chosen section, the sheet's one scroller. */
+.account-panel {
+	min-height: 0;
+	flex: 1;
+	padding: 18px max(var(--sheet-inline), env(safe-area-inset-right, 0px)) 20px
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	outline: none;
+}
+
+.account-panel[hidden] {
+	display: none;
+}
+
+/* Sign out, in the foot: always on screen, quiet, and the only thing there. */
+.account-sheet-foot {
+	display: flex;
+	flex: none;
+	padding: 8px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
+		max(10px, env(safe-area-inset-bottom, 0px))
+		max(calc(var(--sheet-inline) - 10px), env(safe-area-inset-left, 0px));
+	border-top: 1px solid var(--camera-line);
+}
+
+.account-sheet-sign-out {
+	display: inline-flex;
+	height: 36px;
+	align-items: center;
+	gap: 7px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: var(--r-control);
+	background: transparent;
+	color: var(--camera-ink);
+	font-family: inherit;
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-strong);
+	-webkit-user-select: none;
+	user-select: none;
+	transition: background-color 150ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+.account-sheet-sign-out svg {
+	color: var(--camera-muted);
+}
+
+@media (pointer: coarse) {
+	.account-sheet-sign-out {
+		height: 44px;
+	}
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.account-sheet-sign-out:hover:not([aria-disabled="true"]) {
+		background: var(--camera-pill);
+	}
+}
+
+.account-sheet-sign-out:active:not([aria-disabled="true"]) {
+	transform: scale(0.97);
+}
+
+/* Busy, it says what it is doing; the cursor says the press is spent (D16). */
+.account-sheet-sign-out[aria-disabled="true"] {
+	cursor: progress;
+	color: var(--camera-disabled, var(--camera-muted));
+}
+
+.account-sheet-sign-out:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+/* The sections' parts, drawn for the old panel, set into the sheet. */
+
+/* This project's cloud copy opens the Projects tab: no hairline above it. */
+.account-panel .mm-account-sync {
+	margin: 0 0 18px;
+	padding-top: 0;
+	border-top: 0;
+}
+
+/* The account's other projects, under this one's copy and set off by a hairline. */
+.account-panel .mm-projects {
+	padding-top: 16px;
+	border-top: 1px solid var(--camera-line);
+}
+
+.account-panel .mm-keys h3:not(.sr-only) {
+	margin: 0 0 4px;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	letter-spacing: -0.012em;
+}
+
+/* The panel is the scroller: a list does not scroll inside it, and needs no fade. */
+.account-panel .mm-keys-list {
+	max-height: none;
+	overflow: visible;
+	-webkit-mask-image: none;
+	mask-image: none;
+}
+
+/* Busy, the primary keeps its fill and says what it is doing (the popover's rule). */
+.account-sheet .mm-account-primary:is(:disabled, [aria-disabled="true"]) {
+	cursor: progress;
+	background: color-mix(in srgb, var(--mm-deep) 82%, var(--mm-surface));
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.account-sheet .mm-account-primary:hover:not(:disabled, [aria-disabled="true"]) {
+		background: var(--color-primary-hover);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.account-sheet-sign-out:active:not([aria-disabled="true"]) {
+		transform: none;
+	}
+}

@@ -304,11 +304,23 @@ export async function signInInIsland(page: Page, account: TestAccount): Promise<
 /** The first sign-in of a new address is its sign-up: one flow. */
 export const signUpInIsland = signInInIsland;
 
-/** Open the account island (signed in) and return its panel. */
-export async function openAccountPanel(page: Page, account: TestAccount) {
+/** A section of the signed-in account sheet, as its tab names it. */
+export type AccountTab = "Projects" | "Plan" | "API keys";
+
+/**
+ * Open the account (signed in, the account sheet) and return it, on the tab asked
+ * for; without one, on the tab it opens on (Projects, or Plan while billing is not
+ * in order, or API keys while a new key waits to be copied).
+ */
+export async function openAccountPanel(page: Page, account: TestAccount, tab?: AccountTab) {
 	await page.getByRole("button", { name: `Account for ${account.name}` }).click();
 	const panel = page.getByRole("dialog", { name: "Typelapse account" });
 	await expect(panel.getByRole("heading", { name: account.name })).toBeVisible();
+	if (tab) {
+		const control = panel.getByRole("tab", { name: tab });
+		await control.click();
+		await expect(control).toHaveAttribute("aria-selected", "true");
+	}
 	return panel;
 }
 

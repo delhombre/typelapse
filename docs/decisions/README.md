@@ -79,6 +79,9 @@ posture, deleting data) is written as a diamond in the graph and marked
   under Where for everyone, the press explains it (sign in in the sheet, the
   allowance and Upgrade on Free, Cloud chosen on Creator), the dead upgrade
   button deleted.
+- 2026-10-13 [account-sheet](2026-10-13-account-sheet.md): signed in, the
+  account is a modal bottom sheet with Projects, Plan and API keys tabs that keep
+  their scroll and focus, Sign out in its foot; signed out, the panel stays.
 - 2026-10-13 [pricing-page](2026-10-13-pricing-page.md): `/pricing` from the
   catalog and the Plan, no number without a price, the device card as true as
   GIF and the painter allow, the static host answers the route.

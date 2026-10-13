@@ -69,7 +69,12 @@ export function StudioBottomSheet({
 		} catch {
 			dialog.setAttribute("open", "");
 		}
-		requestAnimationFrame(() => panelRef.current?.focus());
+		// The panel takes the focus the dialog gave its first control, unless something in
+		// the sheet has taken it on purpose already (a field, a chosen tab).
+		requestAnimationFrame(() => {
+			const panel = panelRef.current;
+			if (panel && !panel.contains(document.activeElement)) panel.focus();
+		});
 	}, [open]);
 
 	const finishClose = () => {

@@ -224,7 +224,7 @@ describe("StudioAccountIsland", () => {
 
 		fireEvent.click(await screen.findByRole("button", { name: "Account for Ada Lovelace" }));
 		expect(list).not.toHaveBeenCalled();
-		fireEvent.click(screen.getByRole("button", { name: "API keys" }));
+		fireEvent.click(screen.getByRole("tab", { name: "API keys" }));
 
 		expect(await screen.findByRole("heading", { name: "API keys" })).toBeTruthy();
 		await waitFor(() => expect(list).toHaveBeenCalledOnce());
@@ -308,10 +308,13 @@ describe("StudioAccountIsland", () => {
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: "Account for Ada Lovelace" }));
+		fireEvent.click(screen.getByRole("tab", { name: "Plan" }));
 		expect(await screen.findByText("0 of 3 cloud projects")).toBeTruthy();
+		fireEvent.click(screen.getByRole("tab", { name: "Projects" }));
 		fireEvent.click(screen.getByRole("button", { name: "Save this project to cloud" }));
 
 		await waitFor(() => expect(screen.getByText("Cloud copy saved")).toBeTruthy());
+		fireEvent.click(screen.getByRole("tab", { name: "Plan" }));
 		expect(await screen.findByText("1 of 3 cloud projects")).toBeTruthy();
 	});
 

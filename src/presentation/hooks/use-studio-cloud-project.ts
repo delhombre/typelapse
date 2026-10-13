@@ -16,7 +16,7 @@ import {
 } from "@/application/project/publish-local-project";
 import type { HostedProjectReferenceStore } from "@/infrastructure/project/browser-hosted-project-reference";
 import type { BrowserHostedProjectSyncRuntime } from "@/infrastructure/project/browser-hosted-project-sync.runtime";
-import type { StudioCloudProjectState } from "@/presentation/components/multimedia/studio-account-control";
+import type { StudioCloudProjectState } from "@/presentation/components/multimedia/account-projects";
 import type { ClientAuthStatus } from "@/presentation/stores/auth.store";
 import type { CloudSaveResult } from "@/presentation/stores/hosted-render-jobs.store";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

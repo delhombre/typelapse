@@ -51,7 +51,7 @@ test.describe("Billing against the fake Polar", () => {
 
 		await openStudio(page);
 		await signUpInIsland(page, account);
-		let panel = await openAccountPanel(page, account);
+		let panel = await openAccountPanel(page, account, "Plan");
 
 		// The catalog is the two products' prices, as Polar returns them.
 		await expect(panel.getByText("Free", { exact: true })).toBeVisible();
@@ -111,7 +111,7 @@ test.describe("Billing against the fake Polar", () => {
 		).toHaveAttribute("aria-pressed", "true");
 
 		await openStudio(page);
-		panel = await openAccountPanel(page, account);
+		panel = await openAccountPanel(page, account, "Plan");
 		await expect(panel.getByText("Creator", { exact: true })).toBeVisible();
 		await expect(panel.getByText(/hosted render minutes this month/)).toBeVisible();
 		await expect(panel.getByText("Hosted render minutes", { exact: true })).toBeVisible();
@@ -125,7 +125,7 @@ test.describe("Billing against the fake Polar", () => {
 		await polarSays("past_due");
 		await postSignedEvent({ ...subscription, type: "subscription.past_due" });
 		await openStudio(page);
-		panel = await openAccountPanel(page, account);
+		panel = await openAccountPanel(page, account, "Plan");
 		await expect(panel.getByRole("status")).toHaveText(PAST_DUE);
 		await expect(panel.getByRole("button", { name: "Manage billing" })).toBeVisible();
 		await expect(panel.getByRole("button", { name: "Upgrade to Creator" })).toHaveCount(0);
@@ -135,7 +135,7 @@ test.describe("Billing against the fake Polar", () => {
 		await polarSays("canceled");
 		await postSignedEvent({ ...subscription, type: "subscription.revoked" });
 		await openStudio(page);
-		panel = await openAccountPanel(page, account);
+		panel = await openAccountPanel(page, account, "Plan");
 		await expect(panel.getByRole("status")).toHaveText(FREE_ENDED);
 		await expect(panel.getByRole("button", { name: "Upgrade to Creator" })).toBeVisible();
 		await panel.screenshot({ path: "test-results/e2e-hosted/billing-ended.png" });
@@ -272,7 +272,7 @@ test.describe("Billing against the Polar sandbox", () => {
 		const startedAt = new Date().toISOString();
 		await openStudio(page);
 		await signUpInIsland(page, account);
-		const panel = await openAccountPanel(page, account);
+		const panel = await openAccountPanel(page, account, "Plan");
 		await expect(
 			panel.getByRole("button", { name: "Upgrade to Creator" }),
 			"billing is off: the sandbox token could not read or create the two Creator products (see the API log)",
@@ -401,7 +401,7 @@ test.describe("Billing against the Polar sandbox", () => {
 		});
 
 		await openStudio(page);
-		const creator = await openAccountPanel(page, account);
+		const creator = await openAccountPanel(page, account, "Plan");
 		await expect(creator.getByText("Creator", { exact: true })).toBeVisible();
 		await expect(creator.getByText(/hosted render minutes this month/)).toBeVisible();
 
@@ -420,7 +420,7 @@ test.describe("Billing against the Polar sandbox", () => {
 			outcome: "processed",
 		});
 		await openStudio(page);
-		const ended = await openAccountPanel(page, account);
+		const ended = await openAccountPanel(page, account, "Plan");
 		await expect(ended.getByRole("status")).toHaveText(FREE_ENDED);
 		await expect(ended.getByRole("button", { name: "Upgrade to Creator" })).toBeVisible();
 	});

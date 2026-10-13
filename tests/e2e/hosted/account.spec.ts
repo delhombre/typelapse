@@ -48,11 +48,13 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 
 		const panel = await openAccountPanel(page, account);
 		await expect(panel.getByText("On this device", { exact: true })).toBeVisible();
+		await panel.getByRole("tab", { name: "Plan" }).click();
 		await expect(panel.getByText(freeSentence(0), { exact: true })).toBeVisible();
 		// Signing up is not consent to upload: the project stays on this device.
 		expect(cloudWrites).toEqual([]);
 		expect(await cloudProjectCount(account.email)).toBe(0);
 
+		await panel.getByRole("tab", { name: "Projects" }).click();
 		await panel.getByRole("button", { name: "Save this project to cloud" }).click();
 		await expect(panel.getByText("Cloud copy saved", { exact: true })).toBeVisible();
 		expect(cloudWrites).toContain("POST /api/projects");
@@ -67,6 +69,7 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 		// The island still knows this project's cloud copy, so it does not offer
 		// to make a second one.
 		await expect(again.getByText("Cloud copy saved", { exact: true })).toBeVisible();
+		await again.getByRole("tab", { name: "Plan" }).click();
 		await expect(again.getByText(freeSentence(1), { exact: true })).toBeVisible();
 		expect(await cloudProjectCount(account.email)).toBe(1);
 	});

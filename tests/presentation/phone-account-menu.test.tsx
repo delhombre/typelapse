@@ -5,7 +5,7 @@ import { Plan } from "@/domain/value-objects/plan";
 import { StudioAccountIsland } from "@/presentation/components/layout/studio-account-island";
 import { createAuthStore } from "@/presentation/stores/auth.store";
 import { createPlanStore } from "@/presentation/stores/plan.store";
-import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -184,10 +184,17 @@ describe("the account in the phone's More menu", () => {
 		await waitFor(() => expect(document.activeElement).toBe(signIn));
 	});
 
-	it("opens the signed-in account's panel from the account's row", async () => {
+	it("opens the account sheet from the account's row, out of the menu", async () => {
 		const { menu } = phone(SESSION);
-		fireEvent.click(await within(menu).findByRole("button", { name: "Account for Ada Lovelace" }));
-		const panel = within(menu).getByRole("region", { name: "Typelapse account" });
-		expect(within(panel).getByText("ada@example.com")).toBeTruthy();
+		const row = await within(menu).findByRole("button", { name: "Account for Ada Lovelace" });
+		expect(row.getAttribute("aria-haspopup")).toBe("dialog");
+		// The row asks the menu to close first, as the resources' rows do.
+		expect(row.hasAttribute("data-dismiss-menu")).toBe(true);
+		fireEvent.click(row);
+
+		const sheet = screen.getByRole("dialog", { name: "Typelapse account" });
+		expect(menu.contains(sheet)).toBe(false);
+		expect(within(sheet).getByText("ada@example.com")).toBeTruthy();
+		expect(within(sheet).getByRole("button", { name: "Sign out" })).toBeTruthy();
 	});
 });

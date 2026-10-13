@@ -7,7 +7,6 @@ import { springs } from "@/presentation/motion";
 import type { useCloudProjectsStore } from "@/presentation/stores/cloud-projects.store";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { type KeyboardEvent, type Ref, useEffect, useRef, useState } from "react";
-import { ChevronLeft } from "reicon-react";
 import "./studio-cloud-projects.css";
 
 type CloudProjectsStore = typeof useCloudProjectsStore;
@@ -26,27 +25,28 @@ export interface StudioCloudProjectsControl {
 const FOCUS = { preventScroll: true } as const;
 
 /**
- * The account island's third view: what the account keeps in Typelapse Cloud,
- * and the way to let one go. It is built from the keys view's own parts (its
- * back button, rows, notes and scroller, hence `mm-keys` too), because it is the
- * same panel saying the same kind of thing about a different list.
+ * What the account keeps in Typelapse Cloud, and the way to let one go: the list
+ * under this project's cloud copy in the account sheet's Projects tab. It is built
+ * from the keys tab's own parts (its rows, notes and scroller, hence `mm-keys`
+ * too), because it is the same sheet saying the same kind of thing about a
+ * different list.
  */
 export function StudioCloudProjects({
 	projects: { store, openId = null, onDeleted, now = () => new Date() },
-	onBack,
+	active = true,
 }: {
 	readonly projects: StudioCloudProjectsControl;
-	readonly onBack: () => void;
+	/** The tab is the one on screen: the list is read again each time it comes into view. */
+	readonly active?: boolean;
 }) {
 	const { projects, status, error, deleting, load, remove } = store();
 	const headingRef = useRef<HTMLHeadingElement>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 
-	// Entering the view moves focus into it and reads the list again.
+	// Coming into view reads the list again; focus stays where the tab put it.
 	useEffect(() => {
-		void load();
-		headingRef.current?.focus(FOCUS);
-	}, [load]);
+		if (active) void load();
+	}, [active, load]);
 
 	const deleteProject = async (item: HostedProjectSummary) => {
 		setNotice(null);
@@ -62,13 +62,9 @@ export function StudioCloudProjects({
 
 	return (
 		<div className="mm-account-copy mm-keys mm-projects">
-			<button type="button" className="mm-keys-back" aria-label="Back to account" onClick={onBack}>
-				<ChevronLeft size={14} aria-hidden="true" />
-				Account
-			</button>
-			<h2 ref={headingRef} tabIndex={-1}>
+			<h3 ref={headingRef} tabIndex={-1}>
 				Cloud projects
-			</h2>
+			</h3>
 			<p>
 				Private to your account. Deleting one is for good. Its revisions, media, renders and their
 				share pages go with it.
@@ -92,7 +88,7 @@ export function StudioCloudProjects({
 				)
 			) : projects.length === 0 ? (
 				<p className="mm-keys-note">
-					No cloud projects yet. Save a project to the cloud from your account and it appears here.
+					No cloud projects yet. Save this project to the cloud above and it appears here.
 				</p>
 			) : (
 				<ProjectList
