@@ -160,6 +160,11 @@ Landing page (`src/presentation/landing/`): a full marketing page running the
 real engine as its product shot. Haptics (`src/presentation/haptics.ts`) are
 shared by the landing and the studio controls.
 
+Help (`presentation/components/layout/help-sheet.tsx`): the island's "Help" glyph and a
+More row open one sheet with how scenes work, the focus lines format and the shortcuts,
+printed from the table the key handler reads (`application/shortcuts/`), plus a
+dismissible What's new card from a static changelog (`application/changelog/entries.ts`).
+
 Auth (better-auth): passwordless, a six-digit code sent by mail (email OTP over
 SMTP behind `MailPort`, maildev locally via `compose.dev.yaml`). Sign-in from the
 studio's account island (`studio-account-island.tsx`) and the cloud-render control. The client has two
