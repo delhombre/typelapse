@@ -3763,14 +3763,14 @@ html.dark:not([data-landing-theme]) {
    one and not for the other: from 390 up "Untitled" gets 4.6em (78px, 14px more
    than its 64px) and below 390 it gets its own 4em plus 5px (69px), after the row
    has given up the brand's tile and the chips' gap (next block). */
-.sc-corner-row .sc-title {
+.sc-corner-row .sc-project .sc-title {
 	padding-inline: 2px;
 }
 
 /* The floor is what the real row leaves: at 390 the four chips give this one 139px,
    less the 7px lead, the 26px tile, the 24px menu button and two 2px gaps: 78px. */
 @media (min-width: 390px) {
-	.sc-corner-row .sc-title {
+	.sc-corner-row .sc-project .sc-title {
 		min-width: calc(4.6em + 4px);
 	}
 }
@@ -3802,7 +3802,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 @media (min-width: 360px) and (max-width: 389px) {
-	.sc-corner-row .sc-title {
+	.sc-corner-row .sc-project .sc-title {
 		min-width: calc(4em + 5px);
 	}
 }
@@ -3896,61 +3896,132 @@ html.dark:not([data-landing-theme]) {
 	cursor: not-allowed;
 }
 
-/* Under a finger the row keeps its 31px pitch, which is what nine controls get
-   in 370px, and each control reaches the row's full height and 6px past it: a
-   52px column a thumb lands in without firing the one beside it. */
-@media (pointer: coarse) {
-	.sc-corner-row .sc-history button.hit-ext::after {
-		inset: -11px 0;
-	}
+/* Under a finger every control of the row is a 44px column (#282, D10). The glyphs stay
+   30px to the eye, so each wears 7px of margin on both sides: a 44px pitch inside its
+   chip, and a hit area that fills it exactly, one pseudo-element per control, none
+   reaching a neighbour. The control at the end of a chip reaches the chip's edge and half
+   the gap toward the next chip, which that chip's own control takes the other half of: the
+   row has no dead zone wider than the gap's half. The project chip is one button and
+   clips at its edge; the 44px of height is 2px past the chip's 40, above and below.
+   Showcase and Library are not here: the More menu holds them (cornerRowPlan). */
+.sc-corner-row[data-pointer="coarse"] {
+	--edge-bleed: calc(var(--row-gap) / 2);
+}
 
-	.sc-mobile-resources .sc-island-trigger,
-	.sc-corner-row .sc-project-trigger,
-	.sc-corner-row .sc-brand {
-		position: relative;
-	}
+.sc-corner-row[data-pointer="coarse"]
+	:is(.sc-history, .sc-mobile-resources, .sc-utilities-compact) {
+	gap: 0;
+	padding-inline: 0;
+}
 
-	.sc-mobile-resources .sc-island-trigger::after,
-	.sc-corner-row .sc-project-trigger::after,
-	.sc-corner-row .sc-brand::after {
-		content: "";
-		position: absolute;
-		inset: -11px 0;
-	}
+.sc-corner-row[data-pointer="coarse"]
+	:is(
+		.sc-history button,
+		.sc-mobile-resources .sc-island-trigger,
+		.sc-utilities-compact .sc-glyph-button
+	) {
+	position: relative;
+	margin-inline: 7px;
+}
 
-	.sc-corner-row .sc-brand::after {
-		inset: -13px -4px;
-	}
+.sc-corner-row[data-pointer="coarse"]
+	:is(
+		.sc-history button,
+		.sc-mobile-resources .sc-island-trigger,
+		.sc-utilities-compact .sc-glyph-button
+	)::after {
+	content: "";
+	position: absolute;
+	width: auto;
+	height: auto;
+	transform: none;
+	inset: -7px;
+}
 
-	/* 24px wide and no wider to the eye, so the target grows into the 2px beside the
-	   name and to the chip's edge, which the chip clips at (DECISIONS D10). */
-	.sc-corner-row .sc-project-trigger::after {
-		inset: -11px 0 -11px -2px;
-	}
+.sc-corner-row[data-pointer="coarse"] .sc-history button:first-child::after {
+	inset-inline-start: calc(-7px - var(--edge-bleed));
+}
 
-	/* The name is the chip's own height: the whole band beside the brand types. */
-	.sc-corner-row .sc-title {
-		height: 40px;
-	}
+.sc-corner-row[data-pointer="coarse"] .sc-history button:last-child::after {
+	inset-inline-end: calc(-7px - var(--edge-bleed));
+}
 
-	/* The icons are 30px to the eye and 31px of pitch to a thumb, which is all the room two
-	   neighbours leave each other. The ones at the end of a chip have more: the chip's
-	   padding and half the gap to the next chip (D10, #182), so Undo, Add source and More
-	   reach toward it and Redo, Showcase and More reach away. */
-	.sc-corner-row .sc-history button:first-child.hit-ext::after,
-	.sc-corner-row .sc-mobile-resources > :first-child .sc-island-trigger::after {
-		inset: -11px 0 -11px calc(-1 * var(--edge-bleed));
-	}
+.sc-corner-row[data-pointer="coarse"]
+	:is(.sc-mobile-resources .sc-island-trigger, .sc-utilities-compact .sc-glyph-button)::after {
+	inset-inline: calc(-7px - var(--edge-bleed));
+}
 
-	.sc-corner-row .sc-history button:last-child.hit-ext::after,
-	.sc-corner-row .sc-mobile-resources > button.sc-island-trigger:last-of-type::after {
-		inset: -11px calc(-1 * var(--edge-bleed)) -11px 0;
-	}
+/* The project chip: the brand, the name and the chevron are one button. */
+.sc-corner-row[data-pointer="coarse"] .sc-project-whole {
+	gap: 0;
+	padding: 0;
+}
 
-	.sc-corner-row .sc-utilities button.hit-ext::after,
-	.sc-corner-row .sc-utilities .hit-ext::after {
-		inset: -11px calc(-1 * var(--edge-bleed));
-	}
+.sc-corner-row[data-pointer="coarse"] .sc-project-wholebtn {
+	position: relative;
+	display: flex;
+	width: 100%;
+	min-width: 0;
+	height: 100%;
+	flex: 1 1 auto;
+	align-items: center;
+	justify-content: flex-start;
+	gap: 6px;
+	margin: 0;
+	padding: 0 12px 0 7px;
+	border-radius: var(--r-surface);
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	transition: background-color 150ms var(--ease-out);
+}
+
+.sc-corner-row[data-pointer="coarse"] .sc-project-wholebtn::after {
+	content: "";
+	position: absolute;
+	inset: -2px 0;
+}
+
+.sc-corner-row[data-pointer="coarse"] .sc-project-wholebtn:active,
+.sc-corner-row[data-pointer="coarse"] .sc-project-wholebtn[aria-expanded="true"] {
+	background: var(--camera-pill);
+}
+
+/* The chip clips at its edge, so the ring is drawn inside the button. */
+.sc-corner-row[data-pointer="coarse"] .sc-project-wholebtn:focus-visible {
+	outline-offset: -2px;
+}
+
+.sc-corner-row[data-pointer="coarse"] .sc-project-wholebtn > svg {
+	flex: none;
+	color: var(--camera-muted);
+}
+
+.sc-project-name {
+	min-width: 0;
+	flex: 1 1 auto;
+	overflow: hidden;
+	font-size: 14px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* The name is renamed here under a finger: the menu's "This project" row is the field
+   (the chip is a button), 44px tall, typing at 16px like every phone field. */
+.sc-project-menu-current .sc-title {
+	width: 100%;
+	max-width: none;
+	height: 44px;
+	margin-top: 2px;
+	padding-inline: 10px;
+	border-radius: var(--r-control);
+	background: var(--camera-pill);
+	color: var(--camera-ink);
+	field-sizing: fixed;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
 }
 
 .sc-utilities {
@@ -3981,7 +4052,7 @@ html.dark:not([data-landing-theme]) {
 
 /* The rows: the menu's own and the account's. Named, not every button in the menu:
    the account's panel draws in here too, with buttons of its own. */
-.sc-utility-overflow-menu > button,
+.sc-utility-overflow-menu > :is(button, a),
 .sc-more-account .mm-account-row {
 	display: flex;
 	height: 44px;
@@ -3997,22 +4068,23 @@ html.dark:not([data-landing-theme]) {
 	font-size: var(--sc-text-md);
 	font-weight: var(--sc-weight-medium);
 	text-align: left;
+	text-decoration: none;
 }
 
 @media (hover: hover) and (pointer: fine) {
-	.sc-utility-overflow-menu > button:hover,
+	.sc-utility-overflow-menu > :is(button, a):hover,
 	.sc-more-account .mm-account-row:hover:not(:disabled) {
 		background: var(--camera-pill);
 	}
 }
 
 /* A finger gets its feedback on the press, not on the release (no hover on touch). */
-.sc-utility-overflow-menu > button:active,
+.sc-utility-overflow-menu > :is(button, a):active,
 .sc-more-account .mm-account-row:active:not(:disabled) {
 	background: var(--camera-pill);
 }
 
-.sc-utility-overflow-menu > button:focus-visible,
+.sc-utility-overflow-menu > :is(button, a):focus-visible,
 .sc-more-account .mm-account-row:focus-visible,
 .sc-utility-overflow-menu .sc-appearance button:focus-visible {
 	outline: 2px solid var(--camera-focus);
@@ -4174,7 +4246,7 @@ html.dark:not([data-landing-theme]) {
 }
 
 @media (max-width: 359px) {
-	.sc-corner-row .sc-title {
+	.sc-corner-row .sc-project .sc-title {
 		display: none;
 	}
 }

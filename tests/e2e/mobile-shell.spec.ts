@@ -1,5 +1,6 @@
 import { type Locator, type Page, devices } from "@playwright/test";
 import { STAGE_TOP_GAP } from "../../src/application/layout/phone-sheet";
+import { measureCornerRow } from "./support/corner-row";
 import { GREET_DIFF, quadrantPng } from "./support/fixtures";
 import { codeFor, newAccount } from "./support/hosted";
 import {
@@ -8,6 +9,7 @@ import {
 	hitBox,
 	importHash,
 	oneSceneHash,
+	openShowcase,
 	openStudio,
 	settled,
 	shareHash,
@@ -401,112 +403,132 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		});
 	}
 
-	// The project chip's menu trigger is a 24px glyph that grows into the 2px and the 8px gap
-	// beside it, 44px tall under a thumb; and the name keeps "Untitled" whole (#167). Down to
-	// 360, the most common Android width, the row gives the name room first by reducing the
-	// brand to its glyph, then by tightening the gap between its chips; every control keeps
-	// its hit area (#182, DECISIONS after-the-gate D3).
-	for (const width of [360, 375, 390]) {
+	// The corner row under a thumb (#282, D10): the project chip is one button, Undo, Redo,
+	// Add source and More are 44px columns that fill the row, and no control's reach runs into
+	// a neighbour's, measured by asking the page what answers at every pixel. Showcase,
+	// Library and the way home live in the More menu. The name keeps "Untitled" whole, down to
+	// 360, the most common Android width (#167, #182).
+	for (const [width, height] of [
+		[360, 780],
+		[390, 844],
+		[430, 932],
+	] as const) {
 		test(
-			`the project chip keeps "Untitled" whole and the row's controls their hit areas, at ${width}px`,
+			`every control of the corner row is a 44px target and the row has no dead zone, at ${width}x${height}`,
 			// The narrowest width runs in the smoke set.
 			width === 360 ? { tag: "@smoke" } : {},
 			async ({ page }) => {
-				await page.setViewportSize({ width, height: 800 });
+				await page.setViewportSize({ width, height });
 				await openStudio(page);
-				// Two edits and one undo: Undo and Redo are both live, so both are measured.
+				// Two edits and one undo: Undo and Redo are both live.
 				await addSource(page, "Add text");
 				await addSource(page, "Add text");
 				await page.getByRole("button", { name: "Undo" }).tap();
 				await expect(page.getByRole("button", { name: "Redo" })).toBeEnabled();
-				const trigger = page.locator(".sc-project-trigger");
-				const name = page.getByRole("textbox", { name: "Project name" });
-				await settled(trigger);
-
-				await expect(name).toHaveValue("Untitled");
+				const project = page.getByRole("button", { name: /^Open project menu/ });
+				await settled(project);
 				// The word is measured in the face it ships in, not in the fallback it waits in.
 				await page.evaluate(() => document.fonts.ready);
-				const fit = await name.evaluate((field) => ({
-					scrollWidth: field.scrollWidth,
-					clientWidth: field.clientWidth,
-				}));
-				expect(
-					fit.scrollWidth,
-					`the name is cut: Untitl… (${fit.scrollWidth} in ${fit.clientWidth})`,
-				).toBeLessThanOrEqual(fit.clientWidth);
 
-				// The menu trigger and the brand: a glyph to the eye, a target to a thumb.
-				for (const control of [trigger, page.getByRole("link", { name: "Typelapse home" })]) {
-					const reach = await hitBox(control);
-					expect(reach.height, `reaches ${reach.height} tall`).toBeGreaterThanOrEqual(44);
-					expect(reach.width, `reaches ${reach.width} wide`).toBeGreaterThanOrEqual(24);
-				}
-				expect((await trigger.boundingBox())?.width).toBeGreaterThanOrEqual(24);
-
-				// Every button and link of the row is 44px tall under a thumb, and none hangs off the
-				// screen. (The name is a field as tall as the chip, 40px, and says so below.) The
-				// icons are 30px to the eye: between two neighbours a thumb has their 31px pitch, and
-				// the one at the end of a chip reaches into the chip's padding and half the gap
-				// toward the next chip (D10): 35px at the 4px gap, 37px at the 8px one.
-				const pitch = 31;
-				const atChipEnd = ["Undo", "Redo", "Add source", "Showcase", "More actions"];
-				const edge = width < 390 ? 35 : 37;
-				const controls = page.locator(".sc-corner-row :is(button, a):not(:disabled)");
-				const count = await controls.count();
-				const seen: string[] = [];
-				for (let index = 0; index < count; index += 1) {
-					const control = controls.nth(index);
-					const box = await control.boundingBox();
-					if (!box || box.width === 0) continue;
-					const label = await control.evaluate(
-						(element) => element.getAttribute("aria-label") ?? element.tagName,
-					);
-					seen.push(label);
-					expect(box.x + box.width, `"${label}" ends past the screen`).toBeLessThanOrEqual(width);
-					const reach = await hitBox(control);
+				const { controls, deadZones } = await measureCornerRow(page);
+				// A renamed, added or missing control fails here instead of being skipped by the loop.
+				expect(controls.map((control) => control.label)).toEqual([
+					"Open project menu, Untitled",
+					"Undo",
+					"Redo",
+					"Add source",
+					"More actions",
+				]);
+				for (const control of controls) {
+					const { label, reach, box } = control;
+					expect(reach.width, `"${label}" reaches ${reach.width} wide`).toBeGreaterThanOrEqual(44);
 					expect(reach.height, `"${label}" reaches ${reach.height} tall`).toBeGreaterThanOrEqual(
 						44,
 					);
-					if (atChipEnd.includes(label) || label === "Library") {
-						const wanted = atChipEnd.includes(label) ? edge : pitch;
-						expect(
-							reach.width,
-							`"${label}" reaches ${reach.width} wide, wants ${wanted}`,
-						).toBeGreaterThanOrEqual(wanted - 0.5);
-					}
+					expect(control.edgesHit, `"${label}" does not answer at its edges`).toBe(true);
+					expect(control.foreign, `"${label}" reaches into a neighbour`).toBe(0);
+					expect(box.x + box.width, `"${label}" ends past the screen`).toBeLessThanOrEqual(width);
 				}
-				// Nothing in the project chip hangs past its edge, and the middle of its menu
-				// button is the button, not the chip beside it (#222).
-				const chip = await page.locator(".sc-corner-row .sc-project").evaluate((element) => ({
-					scrollWidth: element.scrollWidth,
-					clientWidth: element.clientWidth,
-				}));
-				expect(chip.scrollWidth, "the project chip overflows").toBeLessThanOrEqual(
-					chip.clientWidth,
+				expect(Math.max(0, ...deadZones), `dead zones ${deadZones.join(", ")}`).toBeLessThanOrEqual(
+					4,
 				);
-				const atTrigger = await trigger.evaluate((element) => {
-					const box = element.getBoundingClientRect();
-					const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-					return hit === element || element.contains(hit);
+
+				// Nothing in the chip hangs past its edge, and the name is whole.
+				const fit = await page.locator(".sc-corner-row .sc-project").evaluate((chip) => {
+					const name = chip.querySelector(".sc-project-name");
+					return {
+						chip: { scroll: chip.scrollWidth, client: chip.clientWidth },
+						name: { scroll: name?.scrollWidth ?? 0, client: name?.clientWidth ?? 0 },
+					};
 				});
-				expect(atTrigger, "the project menu's button is under another control").toBe(true);
-				// A renamed or missing control fails here instead of being skipped by the loop.
-				expect(seen.sort()).toEqual(
-					[
-						"Add source",
-						"Library",
-						"More actions",
-						"Open project menu",
-						"Redo",
-						"Showcase",
-						"Typelapse home",
-						"Undo",
-					].sort(),
-				);
-				expect((await name.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+				expect(fit.chip.scroll, "the project chip overflows").toBeLessThanOrEqual(fit.chip.client);
+				expect(
+					fit.name.scroll,
+					`the name is cut: Untitl… (${fit.name.scroll} in ${fit.name.client})`,
+				).toBeLessThanOrEqual(fit.name.client);
 			},
 		);
 	}
+
+	test("the browse actions and the way home are in More, and the project is renamed in its menu", async ({
+		page,
+	}) => {
+		await openStudio(page);
+		const row = page.locator(".sc-corner-row");
+		await expect(row.getByRole("button", { name: "Showcase" })).toHaveCount(0);
+		await expect(row.getByRole("button", { name: "Library" })).toHaveCount(0);
+		await expect(row.getByRole("link", { name: "Typelapse home" })).toHaveCount(0);
+		await expect(row.getByRole("textbox", { name: "Project name" })).toHaveCount(0);
+
+		const more = page.getByRole("button", { name: "More actions" });
+		await more.tap();
+		const menu = page.locator(".sc-utility-overflow-menu");
+		// The account first, then the resources the row gave up, then the file actions.
+		const rows = await menu.locator("> :is(button, a) > span").allTextContents();
+		expect(rows.slice(0, 4)).toEqual([
+			"Showcase",
+			"Library",
+			"Export project file",
+			"Copy share link",
+		]);
+		expect(rows.at(-1)).toBe("Back to home");
+		// A row's own height is the target: 44px.
+		for (const name of ["Showcase", "Library"]) {
+			const box = await menu.getByRole("button", { name, exact: true }).boundingBox();
+			expect(box?.height).toBeGreaterThanOrEqual(44);
+		}
+
+		// One tap opens the sheet and closes the menu; the sheet hands focus back to More.
+		await menu.getByRole("button", { name: "Showcase", exact: true }).tap();
+		await expect(page.getByRole("dialog", { name: "Showcase" })).toBeVisible();
+		await expect(menu).toHaveCount(0);
+		await page.keyboard.press("Escape");
+		await expect(page.getByRole("dialog", { name: "Showcase" })).toBeHidden();
+		await expect(more).toBeFocused();
+		await more.tap();
+		await menu.getByRole("button", { name: "Library", exact: true }).tap();
+		await expect(page.getByRole("dialog", { name: "Capture library" })).toBeVisible();
+		await page.keyboard.press("Escape");
+		await expect(page.getByRole("dialog", { name: "Capture library" })).toBeHidden();
+		await expect(more).toBeFocused();
+
+		// Escape closes the menu and puts focus back on its button, as before.
+		await more.tap();
+		await expect(menu).toBeVisible();
+		await page.keyboard.press("Escape");
+		await expect(menu).toHaveCount(0);
+		await expect(more).toBeFocused();
+
+		// The chip is one button; its menu holds the name as a field.
+		await page.getByRole("button", { name: /^Open project menu/ }).tap();
+		const name = page.getByRole("textbox", { name: "Project name" });
+		await name.fill("Release notes");
+		await expect(
+			page.getByRole("button", { name: "Open project menu, Release notes" }),
+		).toBeVisible();
+		const field = await name.boundingBox();
+		expect(field?.height).toBeGreaterThanOrEqual(44);
+	});
 
 	// Four scenes are one more than the island has room for at 44px each, so the counter
 	// says the position, as it already does from the fifth on a pointer's phone.
@@ -658,7 +680,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await openStudio(page);
 		await addSource(page, "Add text");
-		await page.getByRole("button", { name: "Showcase", exact: true }).tap();
+		await openShowcase(page, { touch: true });
 		await page.locator(".showcase-card").first().tap();
 
 		for (const name of ["Keep my snippet", "Open example"]) {
@@ -802,7 +824,7 @@ test.describe("Mobile shell: the studio works with a thumb at 390 px", () => {
 		await page.setViewportSize({ width: 375, height: 600 });
 		await openStudio(page);
 		await addSource(page, "Add text");
-		await page.getByRole("button", { name: "Showcase", exact: true }).tap();
+		await openShowcase(page, { touch: true });
 		await page.locator(".showcase-card").first().tap();
 
 		const open = page.getByRole("button", { name: "Open example" });
@@ -1159,9 +1181,8 @@ test.describe("Mobile shell: the Showcase's replace question keeps its parts apa
 		await page.emulateMedia({ reducedMotion: "reduce" });
 		await openStudio(page);
 		await addSource(page, "Add text");
-		const open = page.getByRole("button", { name: "Showcase", exact: true });
 		for (let index = 0; index < 6; index++) {
-			await open.tap();
+			await openShowcase(page, { touch: true });
 			await page.locator(".showcase-card").nth(index).tap();
 			const confirm = page.locator(".showcase-confirm");
 			await expect(confirm).toBeVisible();
@@ -1213,9 +1234,23 @@ test.describe("Mobile shell: the corner row and the frame after the design audit
 			await openStudio(page);
 			await expect(page.locator(".sc-corner-row > *")).toHaveCount(4);
 			await expect(page.locator(".sc-corner-row .sc-account-island")).toHaveCount(0);
-			const name = page.getByRole("textbox", { name: "Project name" });
+			// The name is renamed in the project menu, and the chip says it on its one button.
+			await page.getByRole("button", { name: /^Open project menu/ }).tap();
+			const menu = page.getByRole("menu", { name: "Local projects" });
+			const name = menu.getByRole("textbox", { name: "Project name" });
 			await name.fill(TITLE);
 			await name.blur();
+			await expect(name).toHaveValue(TITLE);
+			const create = menu.getByRole("menuitem", { name: "New project" });
+			await expect(create).toBeVisible();
+			const reachable = await create.evaluate((element) => {
+				const box = element.getBoundingClientRect();
+				const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+				return hit === element || element.contains(hit);
+			});
+			expect(reachable).toBe(true);
+			await page.keyboard.press("Escape");
+			await expect(menu).toHaveCount(0);
 			await page.evaluate(() => document.fonts.ready);
 
 			const row = await page.locator(".sc-corner-row").evaluate((element) => {
@@ -1234,19 +1269,6 @@ test.describe("Mobile shell: the corner row and the frame after the design audit
 			});
 			expect(row.chip?.scroll).toBeLessThanOrEqual(row.chip?.client ?? 0);
 			expect(row.missed, "controls under another control").toEqual([]);
-
-			// The menu says the name in full, and its rows answer a thumb.
-			await page.getByRole("button", { name: "Open project menu" }).tap();
-			const menu = page.getByRole("menu", { name: "Local projects" });
-			await expect(menu.getByText(TITLE, { exact: true })).toBeVisible();
-			const create = menu.getByRole("menuitem", { name: "New project" });
-			await expect(create).toBeVisible();
-			const reachable = await create.evaluate((element) => {
-				const box = element.getBoundingClientRect();
-				const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-				return hit === element || element.contains(hit);
-			});
-			expect(reachable).toBe(true);
 		});
 	}
 
@@ -1764,4 +1786,39 @@ test.describe("Mobile shell: an empty project opens on its path", () => {
 		await expect(sheet.getByText(/^1 scene$/)).toBeVisible();
 		await expect(handle).toHaveAttribute("aria-valuetext", "Half open");
 	});
+});
+
+// A cursor's row is what it was (#282): the move into More and the one-button project chip
+// answer to the pointer, not to the width, so a narrow window with a mouse and the desktop
+// shell keep every control where it was.
+test.describe("Mobile shell: a fine pointer keeps the corner row it had", () => {
+	test.use({ hasTouch: false, isMobile: false });
+
+	for (const [width, height] of [
+		[390, 844],
+		[1440, 900],
+	] as const) {
+		test(`Showcase, Library, the logo and the name field stay in the row, at ${width}px`, async ({
+			page,
+		}) => {
+			await page.setViewportSize({ width, height });
+			await openStudio(page);
+			const row = page.locator(width < 640 ? ".sc-corner-row" : "body");
+			for (const name of ["Showcase", "Library", "Add source", "Undo", "Redo"]) {
+				await expect(row.getByRole("button", { name, exact: true }).first()).toBeVisible();
+			}
+			await expect(page.getByRole("link", { name: "Typelapse home" })).toBeVisible();
+			await expect(page.getByRole("textbox", { name: "Project name" })).toBeVisible();
+			await expect(
+				page.getByRole("button", { name: "Open project menu", exact: true }),
+			).toBeVisible();
+			if (width < 640) {
+				await page.getByRole("button", { name: "More actions" }).click();
+				const menu = page.locator(".sc-utility-overflow-menu");
+				await expect(menu.getByRole("button", { name: "Showcase", exact: true })).toHaveCount(0);
+				await expect(menu.getByRole("button", { name: "Library", exact: true })).toHaveCount(0);
+				await expect(menu.getByRole("link", { name: "Back to home" })).toHaveCount(0);
+			}
+		});
+	}
 });

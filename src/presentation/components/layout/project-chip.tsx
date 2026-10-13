@@ -101,12 +101,15 @@ function sceneCountLabel(count: number): string {
  * used to carry a second field bound to the same value; two inputs for one
  * string is a question about which one is the real one, and the answer was
  * never interesting.
+ *
+ * `oneTarget` is the chip under a finger (`cornerRowPlan`, #282): the brand, the
+ * name and the chevron are one button that opens the menu, because a field, a
+ * link and a menu button in 139px cannot each be 44px. The name is then edited
+ * in the menu's "This project" row, and the way home is the More menu's.
  */
-export function ProjectChip() {
+export function ProjectChip({ oneTarget = false }: { oneTarget?: boolean } = {}) {
 	const title = useSnippetStore((s) => s.snippet.title);
-	const setTitle = useSnippetStore((s) => s.setTitle);
 	const steps = useSnippetStore((s) => s.snippet.steps.length);
-	const [blankDraft, setBlankDraft] = useState<string | null>(null);
 	const [open, setOpen] = useState(false);
 	const [library, setLibrary] = useState(readLocalProjects);
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -173,68 +176,65 @@ export function ProjectChip() {
 		close();
 	}, [close]);
 
+	const displayTitle = title.trim() === "" ? "Untitled" : title;
+	const toggle = () => {
+		setLibrary(readLocalProjects());
+		setOpen((current) => !current);
+	};
+
 	return (
 		<div ref={rootRef} className="sc-project-root">
-			<div className="sc-chip sc-project">
-				<StudioTooltip content="Back to home" side="bottom">
-					<Link to="/" className="sc-brand" aria-label="Typelapse home">
-						<Logomark size={13} />
-					</Link>
-				</StudioTooltip>
-				<input
-					type="text"
-					value={blankDraft ?? title}
-					onChange={(event) => {
-						// A real name saves as it is typed. A blank one is only a draft:
-						// the field may be emptied to type over, and it settles on blur.
-						const value = event.target.value;
-						if (value.trim() === "") {
-							setBlankDraft(value);
-							return;
-						}
-						setBlankDraft(null);
-						setTitle(value);
-					}}
-					onBlur={() => {
-						if (blankDraft !== null) {
-							setTitle(blankDraft);
-							setBlankDraft(null);
-						}
-					}}
-					// Enter only has to put the keyboard away; the blur settles the name.
-					onKeyDown={(event) => {
-						if (event.key === "Enter") {
-							event.currentTarget.blur();
-						}
-					}}
-					enterKeyHint="done"
-					spellCheck={false}
-					autoComplete="off"
-					placeholder="Untitled"
-					title={title || undefined}
-					aria-label="Project name"
-					className="sc-title"
-				/>
-				<span className="sc-steps">{steps === 1 ? "1 scene" : `${steps} scenes`}</span>
-				<button
-					ref={triggerRef}
-					type="button"
-					aria-label="Open project menu"
-					aria-haspopup="menu"
-					aria-expanded={open}
-					className="sc-project-trigger"
-					onClick={() => {
-						setLibrary(readLocalProjects());
-						setOpen((current) => !current);
-					}}
-				>
-					<ChevronDown
-						size={11}
-						strokeWidth={1.8}
-						aria-hidden="true"
-						style={{ transform: open ? "rotate(180deg)" : undefined }}
-					/>
-				</button>
+			<div className={`sc-chip sc-project${oneTarget ? " sc-project-whole" : ""}`}>
+				{oneTarget ? (
+					<button
+						ref={triggerRef}
+						type="button"
+						// The name is on the button, so the name it is read by says it
+						// (WCAG 2.5.3, Label in Name).
+						aria-label={`Open project menu, ${displayTitle}`}
+						aria-haspopup="menu"
+						aria-expanded={open}
+						className="sc-project-trigger sc-project-wholebtn"
+						onClick={toggle}
+					>
+						<span className="sc-brand" aria-hidden="true">
+							<Logomark size={13} />
+						</span>
+						<span className="sc-project-name">{displayTitle}</span>
+						<ChevronDown
+							size={11}
+							strokeWidth={1.8}
+							aria-hidden="true"
+							style={{ transform: open ? "rotate(180deg)" : undefined }}
+						/>
+					</button>
+				) : (
+					<>
+						<StudioTooltip content="Back to home" side="bottom">
+							<Link to="/" className="sc-brand" aria-label="Typelapse home">
+								<Logomark size={13} />
+							</Link>
+						</StudioTooltip>
+						<ProjectNameField />
+						<span className="sc-steps">{steps === 1 ? "1 scene" : `${steps} scenes`}</span>
+						<button
+							ref={triggerRef}
+							type="button"
+							aria-label="Open project menu"
+							aria-haspopup="menu"
+							aria-expanded={open}
+							className="sc-project-trigger"
+							onClick={toggle}
+						>
+							<ChevronDown
+								size={11}
+								strokeWidth={1.8}
+								aria-hidden="true"
+								style={{ transform: open ? "rotate(180deg)" : undefined }}
+							/>
+						</button>
+					</>
+				)}
 			</div>
 
 			<AnimatePresence>
@@ -266,7 +266,7 @@ export function ProjectChip() {
 						    tooltip is no way to read the rest under a finger (design audit D3). */}
 						<p className="sc-project-menu-current">
 							<span>This project</span>
-							<strong>{title.trim() === "" ? "Untitled" : title}</strong>
+							{oneTarget ? <ProjectNameField /> : <strong>{displayTitle}</strong>}
 						</p>
 						<header className="sc-project-menu-head">
 							<div>
@@ -320,5 +320,50 @@ export function ProjectChip() {
 				)}
 			</AnimatePresence>
 		</div>
+	);
+}
+
+/**
+ * The project's name, as the field it is: a real name saves as it is typed, and a
+ * blank one is only a draft, so the field may be emptied to type over and settles
+ * on blur.
+ */
+function ProjectNameField() {
+	const title = useSnippetStore((s) => s.snippet.title);
+	const setTitle = useSnippetStore((s) => s.setTitle);
+	const [blankDraft, setBlankDraft] = useState<string | null>(null);
+	return (
+		<input
+			type="text"
+			value={blankDraft ?? title}
+			onChange={(event) => {
+				const value = event.target.value;
+				if (value.trim() === "") {
+					setBlankDraft(value);
+					return;
+				}
+				setBlankDraft(null);
+				setTitle(value);
+			}}
+			onBlur={() => {
+				if (blankDraft !== null) {
+					setTitle(blankDraft);
+					setBlankDraft(null);
+				}
+			}}
+			// Enter only has to put the keyboard away; the blur settles the name.
+			onKeyDown={(event) => {
+				if (event.key === "Enter") {
+					event.currentTarget.blur();
+				}
+			}}
+			enterKeyHint="done"
+			spellCheck={false}
+			autoComplete="off"
+			placeholder="Untitled"
+			title={title || undefined}
+			aria-label="Project name"
+			className="sc-title"
+		/>
 	);
 }
