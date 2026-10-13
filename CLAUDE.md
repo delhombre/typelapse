@@ -175,16 +175,16 @@ dismissible What's new card from a static changelog (`application/changelog/entr
 
 Auth (better-auth): passwordless, a six-digit code sent by mail (email OTP over
 SMTP behind `MailPort`, maildev locally via `compose.dev.yaml`). Sign-in from the
-studio's account island (`studio-account-island.tsx`) and the cloud-render control. The client has two
-routes (`/` and `/app`).
+studio's account island (`studio-account-island.tsx`) and the cloud-render control. Signed in, the
+island opens the account sheet (`account-sheet.tsx`): Projects, Plan and API keys tabs, Sign out in its
+foot. Checkout starts from the sheet's Plan tab and the hosted render sheet (`hosted-render-sheet.tsx`,
+Cloud under Where), both through `plan.store.ts`; hosted mode resolves the signed-in plan, local mode
+runs on `Plan.local()`. The public `/pricing` page renders from the catalog (#289). The client has
+three routes (`/`, `/app` and `/pricing`).
 
 NOT wired, do not describe as shipped:
 - **Teams / workspaces**: the domain entities exist and are tested, but nothing
   imports them outside the tests. No adapter, no service, no UI
-- **A pricing page**: checkout starts only from the account panel's plan card
-  and the hosted render sheet (`hosted-render-sheet.tsx`, Cloud under Where),
-  both through `plan.store.ts`; hosted mode resolves the signed-in plan, local
-  mode runs on `Plan.local()`
 
 ## User Preferences
 

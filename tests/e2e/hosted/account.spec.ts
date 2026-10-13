@@ -48,11 +48,13 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 
 		const panel = await openAccountPanel(page, account);
 		await expect(panel.getByText("On this device", { exact: true })).toBeVisible();
+		await panel.getByRole("tab", { name: "Plan" }).click();
 		await expect(panel.getByText(freeSentence(0), { exact: true })).toBeVisible();
 		// Signing up is not consent to upload: the project stays on this device.
 		expect(cloudWrites).toEqual([]);
 		expect(await cloudProjectCount(account.email)).toBe(0);
 
+		await panel.getByRole("tab", { name: "Projects" }).click();
 		await panel.getByRole("button", { name: "Save this project to cloud" }).click();
 		await expect(panel.getByText("Cloud copy saved", { exact: true })).toBeVisible();
 		expect(cloudWrites).toContain("POST /api/projects");
@@ -67,6 +69,7 @@ test.describe("Hosted account: sign up, consent, cloud save", () => {
 		// The island still knows this project's cloud copy, so it does not offer
 		// to make a second one.
 		await expect(again.getByText("Cloud copy saved", { exact: true })).toBeVisible();
+		await again.getByRole("tab", { name: "Plan" }).click();
 		await expect(again.getByText(freeSentence(1), { exact: true })).toBeVisible();
 		expect(await cloudProjectCount(account.email)).toBe(1);
 	});
@@ -114,7 +117,7 @@ test.describe("Hosted account: a refused code leaves the form where it was", () 
 		await openStudio(page);
 		await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
 		await page.getByRole("button", { name: "Sign in", exact: true }).click();
-		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 
 		// The panel holds a form, so it is the opaque studio surface (DECISIONS D5), like a menu.
 		expect(
@@ -164,7 +167,7 @@ test.describe("Hosted account: the sign-in form follows the forms checklist", ()
 		await openStudio(page);
 		await page.setExtraHTTPHeaders({ "x-forwarded-for": account.clientIp });
 		await page.getByRole("button", { name: "Sign in", exact: true }).click();
-		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 		const email = panel.getByRole("textbox", { name: "Email" });
 
 		await expect(email).toBeFocused();
@@ -198,7 +201,7 @@ test.describe("Hosted account: the desktop panel fits what it holds (#272)", () 
 	}) => {
 		await openStudio(page);
 		await page.getByRole("button", { name: "Sign in", exact: true }).click();
-		const panel = page.getByRole("dialog", { name: "Typelapse account" });
+		const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 		await expect(panel.getByRole("button", { name: "Email me a code" })).toBeVisible();
 
 		// The foot's veil takes no room of its own: a panel that fits has scrollHeight equal

@@ -34,7 +34,7 @@ async function spend(
 }
 
 async function askForCode(page: import("@playwright/test").Page, email: string) {
-	const panel = page.getByRole("dialog", { name: "Typelapse account" });
+	const panel = page.getByRole("dialog", { name: "Sign in to Typelapse" });
 	await panel.getByRole("textbox", { name: "Email" }).fill(email);
 	const answer = page.waitForResponse((response) => new URL(response.url()).pathname === SEND_CODE);
 	await panel.getByRole("button", { name: "Email me a code" }).click();

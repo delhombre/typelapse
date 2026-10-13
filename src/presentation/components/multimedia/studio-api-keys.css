@@ -1,59 +1,11 @@
 /*
- * The keys view and the row that leads to it, in the account panel's own
- * material: its hairline, its fields (the form reuses `.mm-account-form`), its
- * one filled action and its press. The island tokens (`--mm-*`) come from
- * `.sc-account-island`, so both themes follow without a rule of their own.
+ * The account sheet's API keys tab, in the account's own material: its hairline,
+ * its fields (the form reuses `.mm-account-form`), its one filled action and its
+ * press. The tokens (`--mm-*`) are the sheet's (`account-sheet.css`), so both
+ * themes follow without a rule of their own.
  */
 
-/* A list row between two hairlines, not a card: the sync section's own rule closes it. */
-.mm-keys-entry {
-	display: flex;
-	width: 100%;
-	height: 44px;
-	align-items: center;
-	gap: 8px;
-	margin: 0;
-	padding: 0;
-	border: 0;
-	border-top: 1px solid var(--mm-hairline);
-	background: transparent;
-	color: var(--mm-ink);
-	font-size: 12px;
-	font-weight: 600;
-	text-align: left;
-	transition: background-color 150ms var(--ease-out);
-}
-
-.mm-keys-entry svg {
-	flex: none;
-	color: var(--mm-muted);
-}
-
-.mm-keys-entry svg:last-child {
-	margin-left: auto;
-}
-
-/* Arriving from the account is rare and spatial: a short slide in from the side it
-   came from. The account view leaves with no ceremony at all. */
-.mm-keys {
-	animation: mm-keys-in 160ms var(--ease-out) both;
-}
-
-@keyframes mm-keys-in {
-	from {
-		opacity: 0;
-		transform: translateX(8px);
-	}
-}
-
-/* The panel is a dialog sized to its content; a tall keys view gives way, not the page. */
-.mm-account-popover:has(.mm-keys) {
-	max-height: calc(100dvh - 96px);
-	overflow-y: auto;
-	overscroll-behavior: contain;
-}
-
-/* The way back sits where the close sits, on the same line. */
+/* The way back to the More menu's rows, for the sign-in form drawn in the menu. */
 .mm-keys-back {
 	position: relative;
 	display: inline-flex;
@@ -81,8 +33,8 @@
 	inset: -6px -3px;
 }
 
-/* The heading takes focus when the view opens; it is not a control, so it draws no ring. */
-.mm-keys h2:focus {
+/* The heading takes focus when the row it was on goes; it is not a control, so it draws no ring. */
+.mm-keys h3:focus {
 	outline: none;
 }
 
@@ -206,7 +158,7 @@
 	margin: 0 0 14px;
 }
 
-.mm-keys-secret h3 {
+.mm-keys-secret h4 {
 	margin: 0;
 	font-size: 13px;
 	font-weight: 650;
