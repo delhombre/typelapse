@@ -22,7 +22,13 @@ import {
 } from "@/presentation/stores/studio-composition.store";
 import { useCallback, useEffect } from "react";
 import { Camera } from "reicon-react";
-import { RENDER_BUSY_LABELS, useCloudRenderCta, useCloudTarget } from "./cloud-render";
+import {
+	RENDER_BUSY_LABELS,
+	useCloudGate,
+	useCloudRenderCta,
+	useCloudTarget,
+	useWhereSelect,
+} from "./cloud-render";
 import {
 	CHROME_PRESETS,
 	PADDING_PRESETS,
@@ -31,6 +37,7 @@ import {
 	TEMPO_PRESETS,
 	THEMES,
 } from "./control-presets";
+import { HostedRenderSheet } from "./hosted-render-sheet";
 import {
 	ClusterGroup,
 	IslandInput,
@@ -415,7 +422,7 @@ function ExportCluster() {
 	const height = useExportStore((s) => s.height);
 	const setResolution = useExportStore((s) => s.setResolution);
 	const target = useExportStore((s) => s.target);
-	const setTarget = useExportStore((s) => s.setTarget);
+	const selectWhere = useWhereSelect("cluster");
 	const deviceSupported = useExportStore((s) => s.deviceSupported);
 	const probeDevice = useExportStore((s) => s.probeDevice);
 	const isExporting = useExportStore((s) => s.isExporting);
@@ -506,7 +513,7 @@ function ExportCluster() {
 						...(cloudTarget ? [cloudTarget] : []),
 					]}
 					value={target}
-					onSelect={setTarget}
+					onSelect={selectWhere}
 				/>
 				<span className="si-gap" />
 				<button
@@ -549,6 +556,7 @@ function ExportCluster() {
 					/>
 				</button>
 			</div>
+			<HostedRenderSheet surface="cluster" />
 		</>
 	);
 }
@@ -629,15 +637,16 @@ export function RenderNotes({ variant }: { variant: "sheet" | "pill" }) {
 	const isExporting = useExportStore((s) => s.isExporting);
 	const hasCaptions = useSnippetStore((s) => s.snippet.steps.some((step) => step.annotation));
 	const captureStep = useSnippetStore((s) => s.captureStep);
+	const gate = useCloudGate();
+	const selectWhere = useWhereSelect(variant === "pill" ? "rail" : "cluster");
 
-	const notes = [
-		gifFpsCaveat({ format, fps, safeFps: gifSafeFps(fps) }),
-		captionsCaveat({
-			hasCaptions,
-			onDevice: target === "device",
-			serverOffered: serverRenderOffered(),
-		}),
-	].filter((note): note is string => note !== null);
+	const gifNote = gifFpsCaveat({ format, fps, safeFps: gifSafeFps(fps) });
+	const captionsNote = captionsCaveat({
+		hasCaptions,
+		onDevice: target === "device",
+		serverOffered: serverRenderOffered(),
+	});
+	const notes = [gifNote, captionsNote].filter((note): note is string => note !== null);
 
 	if ((variant === "pill" && isExporting) || (!block && notes.length === 0)) {
 		return null;
@@ -664,7 +673,22 @@ export function RenderNotes({ variant }: { variant: "sheet" | "pill" }) {
 			) : null}
 			{notes.map((note) => (
 				<span key={note} className="si-note-row">
-					{note}
+					<span>{note}</span>
+					{/* Where a hosted render bakes them, the caveat says so (ux-waves D3): the
+					    link chooses Cloud for a plan that renders there, and opens the sheet
+					    that explains it for any other. A local build has no Cloud to name. */}
+					{note === captionsNote && gate !== "absent" ? (
+						<button
+							type="button"
+							className="si-note-action"
+							onClick={() => {
+								if (gate === "open") feedback("commit");
+								selectWhere("cloud");
+							}}
+						>
+							Keep them with Cloud
+						</button>
+					) : null}
 				</span>
 			))}
 		</>

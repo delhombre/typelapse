@@ -25,6 +25,12 @@ interface OptionProps<T> {
 	label: string;
 	title?: string;
 	disabled?: boolean;
+	/**
+	 * The press opens a dialog instead of choosing the option (Cloud for a plan
+	 * that does not render there yet): announced as a button with a popup, never
+	 * as a toggle that stays off.
+	 */
+	haspopup?: "dialog";
 }
 
 export function IslandSegmented<T extends string | number>({
@@ -55,7 +61,8 @@ export function IslandSegmented<T extends string | number>({
 						<button
 							key={option.value}
 							type="button"
-							aria-pressed={selected}
+							aria-pressed={option.haspopup ? undefined : selected}
+							aria-haspopup={option.haspopup}
 							disabled={option.disabled}
 							onClick={() => {
 								trigger("selection");

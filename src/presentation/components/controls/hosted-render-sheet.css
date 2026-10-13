@@ -1,0 +1,160 @@
+/* The sheet that says what a hosted render adds (ux-waves D3). It borrows the
+   studio's bottom sheet and sets only what that sheet does not know: a width for
+   three short lines and a form, no minimum height (the Showcase's 420px would
+   leave paper under four lines), and one filled shape, the primary (DECISIONS D2).
+   Portaled to the body, it is outside the island, so it reads the paper's tokens. */
+.studio-sheet-panel.hosted-render-sheet {
+	--sheet-inline: 24px;
+	--sheet-width: 440px;
+	min-height: 0;
+	/* The code form reads the account panel's tokens; here they are the sheet's paper,
+	   and its one filled button wears the primary, as every filled action in the sheet
+	   does (DECISIONS D2). The panel's ink fill is the panel's own choice, not this zone's. */
+	--mm-surface: var(--camera-paper);
+	--mm-ink: var(--camera-ink);
+	--mm-muted: var(--camera-muted);
+	--mm-hairline: var(--camera-line);
+	--mm-deep: var(--color-primary);
+	--mm-deep-ink: var(--color-on-primary);
+	--mm-primary: var(--color-primary);
+	--mm-danger: var(--camera-danger);
+}
+
+.hosted-render-sheet .studio-sheet-header {
+	min-height: 0;
+	border-bottom: 0;
+	padding-bottom: 4px;
+}
+
+/* The heading takes focus when the body changes under it; it is not a control. */
+.hosted-render-sheet .studio-sheet-header h2:focus {
+	outline: none;
+}
+
+.hosted-render-body {
+	display: grid;
+	gap: 14px;
+	padding: 6px max(var(--sheet-inline), env(safe-area-inset-right, 0px))
+		max(24px, env(safe-area-inset-bottom, 0px))
+		max(var(--sheet-inline), env(safe-area-inset-left, 0px));
+	/* A flex child of a capped panel: without a floor of 0 it cannot shrink, and a
+	   short window would clip the action instead of scrolling to it. */
+	min-height: 0;
+	overflow-y: auto;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-lg);
+	line-height: 1.5;
+}
+
+.hosted-render-adds {
+	display: grid;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.hosted-render-adds li {
+	position: relative;
+	padding-left: 16px;
+	text-wrap: pretty;
+}
+
+/* A mark in place of a bullet glyph, centred on the first line. */
+.hosted-render-adds li::before {
+	content: "";
+	position: absolute;
+	top: calc(0.75em - 3px);
+	left: 0;
+	width: 6px;
+	height: 6px;
+	border-radius: var(--r-pill);
+	background: var(--camera-muted);
+}
+
+.hosted-render-price {
+	margin: 0;
+	color: var(--camera-ink);
+	font-size: var(--sc-text-md);
+	font-weight: var(--sc-weight-strong);
+	font-variant-numeric: tabular-nums;
+}
+
+.hosted-render-note {
+	margin: 0;
+	color: var(--camera-muted);
+	font-size: var(--sc-text-md);
+	text-wrap: pretty;
+}
+
+.hosted-render-error {
+	margin: 0;
+	color: var(--camera-danger);
+	font-size: var(--sc-text-md);
+}
+
+.hosted-render-action {
+	height: 44px;
+	padding: 0 18px;
+	border: 0;
+	border-radius: var(--r-control);
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+	-webkit-user-select: none;
+	user-select: none;
+	transition: background-color 150ms var(--ease-out), transform 140ms var(--ease-out);
+}
+
+/* Busy, it keeps its fill and says what it is doing (DECISIONS D16): only the
+   cursor says the press is spent. */
+.hosted-render-action[aria-disabled="true"] {
+	cursor: progress;
+}
+
+@media (min-width: 721px) {
+	.hosted-render-action {
+		justify-self: start;
+	}
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.hosted-render-action:hover:not([aria-disabled="true"]) {
+		background: var(--color-primary-hover);
+	}
+}
+
+.hosted-render-action:active:not([aria-disabled="true"]) {
+	transform: scale(0.97);
+}
+
+.hosted-render-action:focus-visible {
+	outline: 2px solid var(--camera-focus);
+	outline-offset: 2px;
+}
+
+/* The account's form, in the sheet: the sheet's title is its title, so the form
+   comes without its own (AuthForm `embedded`); the code step's heading is one level
+   down and set at the sheet's scale. */
+.hosted-render-sign-in .mm-account-form h3 {
+	margin: 0;
+	font-size: var(--sc-text-lg);
+	font-weight: var(--sc-weight-strong);
+}
+
+.hosted-render-sign-in .mm-account-form h3:focus-visible {
+	outline: none;
+}
+
+/* The panel's busy and spent states, which its stylesheet scopes to the popover. */
+.hosted-render-sign-in .mm-account-primary:is(:disabled, [aria-disabled="true"]) {
+	cursor: progress;
+	background: color-mix(in srgb, var(--mm-deep) 82%, var(--mm-surface));
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.hosted-render-sign-in .mm-account-primary:hover:not(:disabled, [aria-disabled="true"]) {
+		background: var(--color-primary-hover);
+	}
+}

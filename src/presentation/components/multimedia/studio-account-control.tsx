@@ -14,7 +14,9 @@ import {
 	type KeyboardEvent,
 	type PointerEvent as ReactPointerEvent,
 	type RefObject,
+	createContext,
 	useCallback,
+	useContext,
 	useEffect,
 	useId,
 	useRef,
@@ -577,7 +579,7 @@ function AccountPanel({
 	);
 }
 
-function priceLabel(
+export function priceLabel(
 	price: NonNullable<BillingCatalog["creator"][BillingCadence]>,
 	cadence: BillingCadence,
 ): string {
@@ -742,7 +744,49 @@ const RESEND_AFTER_SECONDS = 60;
  * six-digit code mailed to it. Which step shows is the store's pending code, so
  * closing the panel, or reading the mail on another device, keeps the step.
  */
-function AuthForm({
+export function AuthForm({
+	operation,
+	error,
+	pendingCode,
+	onSendCode,
+	onSignInWithCode,
+	onForgetCode,
+	embedded = false,
+	checkScope = ".mm-account-popover",
+}: {
+	readonly operation: ClientAuthOperation;
+	readonly error: string | null;
+	readonly pendingCode: PendingSignInCode | null;
+	readonly onSendCode: (email: string) => Promise<void>;
+	readonly onSignInWithCode: (code: string) => Promise<void>;
+	readonly onForgetCode: () => void;
+	/**
+	 * Drawn inside another surface that has its own title (the hosted render sheet):
+	 * the form leaves out its eyebrow, its title and its pitch, and the code step's
+	 * heading is one level down.
+	 */
+	readonly embedded?: boolean;
+	/** The surface a field is left inside of for its check to run (useCheckOnLeave). */
+	readonly checkScope?: string;
+}) {
+	return (
+		<AuthFormSurface.Provider value={{ embedded, checkScope }}>
+			<AuthFormSteps
+				operation={operation}
+				error={error}
+				pendingCode={pendingCode}
+				onSendCode={onSendCode}
+				onSignInWithCode={onSignInWithCode}
+				onForgetCode={onForgetCode}
+			/>
+		</AuthFormSurface.Provider>
+	);
+}
+
+/** Where the form is drawn, read by its steps and by the check on leaving a field. */
+const AuthFormSurface = createContext({ embedded: false, checkScope: ".mm-account-popover" });
+
+function AuthFormSteps({
 	operation,
 	error,
 	pendingCode,
@@ -811,6 +855,7 @@ function onTouch(): boolean {
  */
 function useCheckOnLeave(check: () => void) {
 	const pressing = useRef(false);
+	const { checkScope } = useContext(AuthFormSurface);
 	return {
 		holdWhilePressing: (event: ReactPointerEvent<HTMLFormElement>) => {
 			if (!(event.target as Element).closest("button")) return;
@@ -823,7 +868,7 @@ function useCheckOnLeave(check: () => void) {
 		},
 		onBlur: (event: FocusEvent<HTMLInputElement>) => {
 			const to = event.relatedTarget;
-			const panel = event.currentTarget.closest(".mm-account-popover");
+			const panel = event.currentTarget.closest(checkScope);
 			if (pressing.current || !(to instanceof Node) || !panel?.contains(to)) return;
 			check();
 		},
@@ -855,6 +900,7 @@ function EmailStep({
 	// After it, the field is checked as it changes, so a fixed address clears at once.
 	const [checked, setChecked] = useState(false);
 	const invalid = checked && !EMAIL.test(email.trim());
+	const { embedded } = useContext(AuthFormSurface);
 	const leave = useCheckOnLeave(() => {
 		if (email.trim()) setChecked(true);
 	});
@@ -884,22 +930,28 @@ function EmailStep({
 			aria-busy={busy}
 			noValidate
 		>
-			<p className="mm-eyebrow">Typelapse Cloud</p>
-			<h2>Continue your work.</h2>
-			{/* The two paths side by side, so a visitor who can already export for free sees
-			    what signing in adds. Both claims are the plan rules (viability D2, D4): the
-			    device renders every format with nothing uploaded, a free account keeps a few
-			    private cloud copies, and hosted renders (the only path that bakes captions and
-			    audio) are Creator's. "Up to 4K" is true on the device (RESOLUTION_TIERS). */}
-			<div className="mm-account-value">
-				<p>
-					<strong>On this device:</strong> every format, up to 4K, nothing uploaded, no account.
-				</p>
-				<p>
-					<strong>With an account:</strong> private cloud copies, and hosted renders with captions
-					and audio on Creator.
-				</p>
-			</div>
+			{embedded ? null : (
+				<>
+					<p className="mm-eyebrow">Typelapse Cloud</p>
+					<h2>Continue your work.</h2>
+					{/* The two paths side by side, so a visitor who can already export for free sees
+					    what signing in adds. Both claims are the plan rules (viability D2, D4): the
+					    device renders every format with nothing uploaded, a free account keeps a few
+					    private cloud copies, and hosted renders (the only path that bakes captions and
+					    audio) are Creator's. The device line names its ceiling because no plan clamps
+					    or watermarks a device export (device-exports-free D1, #265). */}
+					<div className="mm-account-value">
+						<p>
+							<strong>On this device:</strong> every format up to 4K and 60 fps, no watermark,
+							nothing uploaded, no account.
+						</p>
+						<p>
+							<strong>With an account:</strong> private cloud copies, and hosted renders with
+							captions and audio on Creator.
+						</p>
+					</div>
+				</>
+			)}
 			<div className="mm-account-field">
 				{/* The message sits outside the label, so it describes the field instead of
 				    becoming part of its name. */}
@@ -996,6 +1048,8 @@ function CodeStep({
 }) {
 	const hintId = useId();
 	const shortId = useId();
+	const { embedded } = useContext(AuthFormSurface);
+	const Heading = embedded ? "h3" : "h2";
 	const inputRef = useRef<HTMLInputElement>(null);
 	const headingRef = useRef<HTMLHeadingElement>(null);
 	const [code, setCode] = useState("");
@@ -1070,10 +1124,10 @@ function CodeStep({
 			aria-busy={busy}
 			noValidate
 		>
-			<p className="mm-eyebrow">Typelapse Cloud</p>
-			<h2 ref={headingRef} tabIndex={-1}>
+			{embedded ? null : <p className="mm-eyebrow">Typelapse Cloud</p>}
+			<Heading ref={headingRef} tabIndex={-1}>
 				Check your email.
-			</h2>
+			</Heading>
 			<p id={hintId}>
 				Enter the six-digit code sent to <strong>{pending.email}</strong>. It expires in 10 minutes.
 			</p>
