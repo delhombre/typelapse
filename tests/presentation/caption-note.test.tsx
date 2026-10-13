@@ -71,6 +71,15 @@ describe("the caption note under the frame", () => {
 		expect(useExportStore.getState().target).toBe("cloud");
 	});
 
+	it("says it is not in this export on a hosted build with no accounts, where Where lists only This device", () => {
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		useAuthStore.setState({ status: { kind: "hosted-unconfigured" } });
+		note();
+
+		expect(screen.getByText("Not in this export")).toBeTruthy();
+		expect(screen.queryByRole("button", LINK)).toBeNull();
+	});
+
 	it("says Server only without a link where there is no Cloud to name", () => {
 		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "local");
 		note();

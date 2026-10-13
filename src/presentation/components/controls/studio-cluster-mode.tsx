@@ -542,7 +542,7 @@ function ExportMode() {
 				options={[
 					{
 						value: "device" as const,
-						label: "Device",
+						label: WHERE_LABEL.deviceCompact,
 						// Same words as the cluster panel: a chip that greys out without
 						// saying why reads as a bug rather than as this browser's limit.
 						title:

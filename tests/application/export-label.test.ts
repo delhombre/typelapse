@@ -1,6 +1,6 @@
 import {
 	WHERE_LABEL,
-	bakingTargetLabel,
+	bakingTargetTag,
 	captionsCaveat,
 	captionsNote,
 	exportCodecNote,
@@ -85,11 +85,23 @@ describe("the captions note: the on-device export draws none, video or still (#1
 	});
 });
 
-describe("the target that bakes captions", () => {
-	it("is named as the Where control names it, Server locally and Cloud hosted", () => {
-		expect(bakingTargetLabel(true)).toBe(WHERE_LABEL.server);
-		expect(bakingTargetLabel(false)).toBe(WHERE_LABEL.cloud);
-		expect([WHERE_LABEL.server, WHERE_LABEL.cloud]).toEqual(["Server", "Cloud"]);
+describe("the tag on a caption this device does not draw", () => {
+	it("names Server on a local build", () => {
+		expect(bakingTargetTag({ serverOffered: true, cloudListed: false })).toBe(
+			`${WHERE_LABEL.server} only`,
+		);
+	});
+
+	it("names Cloud on a hosted build with accounts", () => {
+		expect(bakingTargetTag({ serverOffered: false, cloudListed: true })).toBe(
+			`${WHERE_LABEL.cloud} only`,
+		);
+	});
+
+	it("says it is not in this export where Where lists nothing that bakes it", () => {
+		expect(bakingTargetTag({ serverOffered: false, cloudListed: false })).toBe(
+			"Not in this export",
+		);
 	});
 });
 

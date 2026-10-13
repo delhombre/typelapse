@@ -68,14 +68,32 @@ export function exportCodecNote(format: RenderFormat, codecLabel: string | null)
 }
 
 /**
- * The names of the two targets that bake captions, as the Where control spells
- * them: the one table the control, the caveat and the line under the frame read.
+ * The names of the Where options, the one table the control (both of its
+ * surfaces), the captions caveat, the link and the line under the frame read.
+ * The desktop rail has no room for "This device", so it takes the compact form.
  */
-export const WHERE_LABEL = { server: "Server", cloud: "Cloud" } as const;
+export const WHERE_LABEL = {
+	device: "This device",
+	deviceCompact: "Device",
+	server: "Server",
+	cloud: "Cloud",
+} as const;
 
-/** The target that bakes captions in this build: Server where it is offered, Cloud on a hosted one. */
-export function bakingTargetLabel(serverOffered: boolean): string {
-	return serverOffered ? WHERE_LABEL.server : WHERE_LABEL.cloud;
+/**
+ * What the line under the frame tags a caption nothing on this device draws:
+ * the target that does bake it, as Where lists it in this build. Server where the
+ * local API is offered, Cloud where a hosted build lists it (accounts on), and,
+ * on a hosted build with no accounts, where Where lists only This device, no
+ * target bakes it.
+ */
+export function bakingTargetTag(input: { serverOffered: boolean; cloudListed: boolean }): string {
+	if (input.serverOffered) {
+		return `${WHERE_LABEL.server} only`;
+	}
+	if (input.cloudListed) {
+		return `${WHERE_LABEL.cloud} only`;
+	}
+	return "Not in this export";
 }
 
 /**

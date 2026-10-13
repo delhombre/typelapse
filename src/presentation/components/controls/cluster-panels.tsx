@@ -498,7 +498,7 @@ function ExportCluster() {
 					options={[
 						{
 							value: "device" as const,
-							label: "This device",
+							label: WHERE_LABEL.device,
 							title:
 								deviceSupported === false
 									? DEVICE_CANNOT_ENCODE

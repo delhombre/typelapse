@@ -1,9 +1,13 @@
 import type { MagicMovePlan } from "@/application/magic-move/engine";
+import { Plan } from "@/domain/value-objects/plan";
 import { StudioVideoModeProvider } from "@/presentation/contexts/studio-video-mode";
+import { useAuthStore } from "@/presentation/stores/auth.store";
 import { useExportStore } from "@/presentation/stores/export.store";
+import { useHostedRenderSheetStore } from "@/presentation/stores/hosted-render-sheet.store";
+import { usePlanStore } from "@/presentation/stores/plan.store";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { synchronizeStudioCompositionStore } from "@/presentation/stores/studio-composition.store";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const AVAILABLE = { width: 1200, height: 800 };
@@ -243,5 +247,88 @@ describe("LivePreview shows what the chosen Where exports (#271)", () => {
 
 		expect(note(container)).toBeNull();
 		expect(band(container)).toBeNull();
+	});
+});
+
+describe("the sheet opened from the note outlives the note (#271)", () => {
+	beforeEach(() => {
+		stubCanvas();
+		useHostedRenderSheetStore.setState({ openFor: null, opener: null });
+		vi.stubEnv("VITE_TYPELAPSE_DEPLOYMENT_MODE", "hosted");
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => Response.json({ error: "Not found" }, { status: 404 })),
+		);
+	});
+
+	afterEach(() => {
+		cleanup();
+		vi.restoreAllMocks();
+		vi.unstubAllEnvs();
+		vi.unstubAllGlobals();
+		useExportStore.setState({ target: "device" });
+	});
+
+	it("closes through its normal path when the plan arrives mid-sheet, and focus lands on the Export trigger", async () => {
+		await loadProject();
+		useExportStore.setState({ target: "device" });
+		// Signed in, the plan not read yet: Cloud is gated on "pending".
+		useAuthStore.setState({
+			status: {
+				kind: "authenticated",
+				session: {
+					account: { id: "usr_1", name: "Ada", email: "ada@example.com" },
+					expiresAt: new Date(Date.now() + 60_000),
+				},
+			},
+		});
+		usePlanStore.setState({ plan: Plan.free(), accountPlanKnown: false });
+		render(
+			<StudioVideoModeProvider active>
+				<button type="button" data-island-opener="export">
+					Export
+				</button>
+				<LivePreview />
+			</StudioVideoModeProvider>,
+		);
+
+		const link = await screen.findByRole("button", { name: "Keep them with Cloud" });
+		link.focus();
+		fireEvent.click(link);
+		const sheet = await screen.findByRole("dialog", { name: "Render on Typelapse Cloud" });
+		await waitFor(() => expect(sheet.contains(document.activeElement)).toBe(true));
+
+		// The plan arrives: Cloud is chosen, the note leaves, and the sheet must not go with it.
+		act(() => usePlanStore.setState({ plan: Plan.pro(), accountPlanKnown: true }));
+
+		await waitFor(() => expect(useExportStore.getState().target).toBe("cloud"));
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog", { name: "Render on Typelapse Cloud" })).toBeNull(),
+		);
+		await waitFor(() =>
+			expect(document.activeElement).toBe(screen.getByRole("button", { name: "Export" })),
+		);
+	});
+
+	it("gives focus back to the note's link when the sheet is closed without anything changing", async () => {
+		await loadProject();
+		useExportStore.setState({ target: "device" });
+		useAuthStore.setState({ status: { kind: "anonymous" } });
+		render(
+			<StudioVideoModeProvider active>
+				<LivePreview />
+			</StudioVideoModeProvider>,
+		);
+
+		const link = await screen.findByRole("button", { name: "Keep them with Cloud" });
+		link.focus();
+		fireEvent.click(link);
+		const sheet = await screen.findByRole("dialog", { name: "Render on Typelapse Cloud" });
+		fireEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog", { name: "Render on Typelapse Cloud" })).toBeNull(),
+		);
+		await waitFor(() => expect(document.activeElement).toBe(link));
 	});
 });

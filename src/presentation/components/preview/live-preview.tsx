@@ -66,6 +66,7 @@ import {
 	useState,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { HostedRenderSheet } from "../controls/hosted-render-sheet";
 import { BakedCaption } from "./baked-caption";
 import { CaptionNote } from "./caption-note";
 import { ClipFades } from "./clip-fades";
@@ -814,6 +815,9 @@ export function LivePreview() {
 					</div>
 				)}
 			</div>
+			{/* Beside the note, never inside it: the note leaves when Where moves to Cloud, and a
+			    sheet that the plan arriving closes has to outlive it to close in its own way. */}
+			<HostedRenderSheet surface="stage" />
 		</div>
 	);
 }
