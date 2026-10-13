@@ -10,6 +10,10 @@ import { expect, openStudio, sceneCount, test } from "./support/studio";
  */
 
 async function openLibrary(page: Page, tap = false): Promise<Locator> {
+	// A finger finds the library in the More menu, a cursor in the corner row.
+	if (tap) {
+		await page.getByRole("button", { name: "More actions" }).tap();
+	}
 	const trigger = page.getByRole("button", { name: "Library", exact: true });
 	await (tap ? trigger.tap() : trigger.click());
 	const dialog = page.getByRole("dialog", { name: "Capture library" });

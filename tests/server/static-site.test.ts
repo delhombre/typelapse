@@ -1,3 +1,4 @@
+import { APP_PATHS } from "../../src/application/routing/app-paths";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -8,7 +9,7 @@ import { staticRootFrom } from "../../server/static/static-site";
 
 /**
  * One origin: the API serves the Vite build when TYPELAPSE_STATIC_ROOT is set.
- * The client has one HTML entry (index.html) and two routes, "/" and "/app".
+ * The client has one HTML entry (index.html) and three routes: "/", "/app" and "/pricing".
  * Anything the API owns (/api, /v, /health) is never answered by the app.
  */
 
@@ -60,15 +61,24 @@ async function get(path: string, init?: RequestInit) {
 	return (await appWith(root)).request(`http://localhost${path}`, init);
 }
 
-describe("static site: the client's two routes", () => {
-	it("serves index.html on / and on /app, with no cache", async () => {
-		for (const path of ["/", "/app", "/app/"]) {
+describe("static site: the client's routes", () => {
+	it("serves index.html on /, /app and the public /pricing, with no cache", async () => {
+		for (const path of ["/", "/app", "/app/", "/pricing", "/pricing/"]) {
 			const response = await get(path);
 
 			expect(response.status, path).toBe(200);
 			expect(await response.text()).toBe(INDEX);
 			expect(response.headers.get("content-type")).toContain("text/html");
 			expect(response.headers.get("cache-control")).toBe("no-cache");
+		}
+	});
+
+	it("serves every address the client routes, so a new page cannot ship as a 404", async () => {
+		for (const path of Object.values(APP_PATHS)) {
+			expect((await get(path)).status, path).toBe(200);
+			if (path !== "/") {
+				expect((await get(`${path}/`)).status, `${path}/`).toBe(200);
+			}
 		}
 	});
 

@@ -52,8 +52,14 @@ const SHOWCASE_MESH_TIMES: Record<string, number> = {
 const POSTER_HIGHLIGHT_DELAY_MS = 420;
 const POSTER_HIGHLIGHT_STAGGER_MS = 110;
 
-/** Six real starter projects presented as inspiration, then opened for editing. */
-export function TemplateGallery() {
+/**
+ * Six real starter projects presented as inspiration, then opened for editing.
+ *
+ * `trigger` false is the phone under a finger: the gallery stays mounted for the
+ * asks that come from elsewhere (the More menu, the empty scene list) and draws
+ * no button of its own, so it takes no room in the corner row.
+ */
+export function TemplateGallery({ trigger = true }: { trigger?: boolean } = {}) {
 	const [open, setOpen] = useState(false);
 	const [pending, setPending] = useState<TemplateDefinition | null>(null);
 	const [activePreviewId, setActivePreviewId] = useState<string | null>(null);
@@ -120,23 +126,25 @@ export function TemplateGallery() {
 
 	return (
 		<>
-			<motion.button
-				ref={triggerRef}
-				type="button"
-				onClick={() => {
-					feedback("selection");
-					setOpen(true);
-				}}
-				whileTap={{ scale: 0.97 }}
-				transition={springs.snappy}
-				aria-haspopup="dialog"
-				aria-expanded={open}
-				aria-label="Showcase"
-				className="sc-island-trigger sc-showcase-trigger"
-			>
-				<Grid size={14} aria-hidden="true" />
-				<span>Showcase</span>
-			</motion.button>
+			{trigger && (
+				<motion.button
+					ref={triggerRef}
+					type="button"
+					onClick={() => {
+						feedback("selection");
+						setOpen(true);
+					}}
+					whileTap={{ scale: 0.97 }}
+					transition={springs.snappy}
+					aria-haspopup="dialog"
+					aria-expanded={open}
+					aria-label="Showcase"
+					className="sc-island-trigger sc-showcase-trigger"
+				>
+					<Grid size={14} aria-hidden="true" />
+					<span>Showcase</span>
+				</motion.button>
+			)}
 
 			<StudioBottomSheet
 				open={open}
