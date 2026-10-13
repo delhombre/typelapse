@@ -110,8 +110,9 @@ export default defineConfig({
 	// runner hiccup does not block a merge, and the report still flags it.
 	retries: process.env.CI ? 1 : 0,
 	// Each worker encodes video on the CPU; two keep a 4-core runner responsive.
-	// Hosted: one, since the render worker takes one job at a time anyway.
-	workers: HOSTED_PROFILE ? 1 : process.env.CI ? 2 : undefined,
+	// Hosted: two, files side by side. Every journey is its own visitor in its own rows;
+	// the render worker takes one job at a time, so renders queue inside the test timeout.
+	workers: process.env.CI || HOSTED_PROFILE ? 2 : undefined,
 	// A Cloud render waits for Remotion on the worker: a minute on a runner.
 	timeout: HOSTED_PROFILE ? 240_000 : 60_000,
 	expect: { timeout: 10_000 },

@@ -16,16 +16,16 @@ jobs:
   hosted:
     name: Hosted journeys
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     # The runner reaches a service on localhost through its published port; the
     # ports are the ones playwright.config.ts and services.sh default to.
     # services.sh could start these too, but the runner's own service containers
     # are ready before the first step and need no docker commands; the images
-    # and the credentials below are the ones services.sh uses.
+    # (postgres:16-alpine, maildev) and the credentials are the ones services.sh uses.
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16-alpine
         env:
           POSTGRES_PASSWORD: typelapse
           POSTGRES_DB: typelapse
@@ -105,23 +105,25 @@ jobs:
       # Playwright starts the API (prepare.ts again, a no-op now), the fake
       # Polar (tests/support/fake-polar.ts, no token needed), the render worker
       # and the preview of the build above, and stops them at the end. Two
-      # workers, over the config's one: the 97 journeys take 10 minutes in a
-      # line, and each test account is its own visitor in its own rows, so
-      # only the render queue is shared (renders wait for each other, inside
-      # the 240 s test timeout).
+      # workers (playwright.config.ts): about 100 journeys take 10 minutes in a
+      # line; each account is its own visitor in its own rows, and renders queue
+      # on the one render worker inside the 240 s test timeout.
       - name: Hosted journeys
         env:
           E2E_SKIP_BUILD: "1"
-        run: pnpm e2e:hosted --workers=2
+        run: pnpm e2e:hosted
 
       - name: MinIO log
-        if: failure()
+        if: always()
         run: docker logs typelapse-e2e-minio > minio.log 2>&1 || true
 
+      # always(), not failure(): a job that times out is cancelled, and still
+      # leaves a report worth reading.
       - name: Upload report, traces, videos and logs
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v7
         with:
+          if-no-files-found: ignore
           name: e2e-hosted-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             test-results/e2e-hosted/

@@ -148,14 +148,19 @@ the pull-request subset), so it runs again on every push and every night.
 `pnpm e2e:smoke` and the touched spec are green before the report.
 
 The hosted journeys (`pnpm e2e:hosted`, `tests/e2e/hosted/`) are part of the gate
-for any change under `server/`, `cli/`, `src/presentation/stores/`, the multimedia
-and billing components, `src/application/billing/` or `tests/e2e/hosted/`: CI runs
-them as the "Hosted journeys" job on such pull requests (`hosted-e2e.yml`, called
-from `ci.yml`) and every night on `main` (`e2e-nightly.yml`). Locally,
-`tests/e2e/hosted/services.sh up` then `pnpm e2e:hosted`. The job is not a required
-check yet: once it has been green for a week, add "Hosted journeys" next to
-"Quality gate" in the `main` ruleset (a job skipped by its path filter counts as
-passing, so pull requests that do not touch the hosted side are never blocked).
+for any change that can reach them: everything under `src/` except
+`src/presentation/landing/`, `server/`, `cli/`, `scripts/`, `action.yml`,
+`package.json`, `vite.config.ts` and `tests/e2e/hosted/` (the exact list is the
+`changes` job in `ci.yml`). CI runs them as the "Hosted journeys" job on such pull
+requests (`hosted-e2e.yml`, called from `ci.yml`) and every night on `main`
+(`e2e-nightly.yml`). Locally, `tests/e2e/hosted/services.sh up` then
+`pnpm e2e:hosted`. They are not a required check yet. Once they have been green
+for a week, require **"Hosted gate"** (a job of `ci.yml`) next to "Quality gate"
+in the `main` ruleset, never "Hosted journeys": that check is named differently
+when it runs ("Hosted journeys / Hosted journeys") and when its path filter skips
+it ("Hosted journeys"), so requiring it would hang every skipping pull request.
+"Hosted gate" always runs, fails when the journeys fail, and passes when they
+pass or are skipped.
 
 **Pass:** the report names what was observed, with the command and the file,
 the spec that now replays it, and what could not be verified and why.
