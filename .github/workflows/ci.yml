@@ -2,6 +2,11 @@ name: CI
 
 on:
   pull_request:
+    # The default three plus `labeled`, for the `hosted` label (below). Any label
+    # runs the whole workflow again, the gate included, and the concurrency group
+    # then replaces the run in flight: give a pull request its labels together,
+    # and once, rather than one by one between pushes.
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
 
@@ -56,37 +61,28 @@ jobs:
       # and the Quality gate must report on every pull request because the
       # ruleset requires it by name.
       #
-      # The server imports most of src/ and the journeys drive the studio, so the
-      # filter is everything under src/ except the landing page, plus the server, the
-      # CLI the Action runs, the harness and the build inputs. Two steps because
-      # `every` (src/** and not landing) and `some` (any of the rest) cannot share a
-      # list: a lone negated pattern would match every file that is not the landing.
+      # Narrow on purpose (#340). The #303 review widened the filter to
+      # everything under src/ (its P2-3), which is nearly every code pull request
+      # and made 13 more billed minutes the price of a push. This reverses that:
+      # cost over coverage. What these paths do not name is caught by the nightly
+      # (e2e-nightly.yml runs the same journeys on main, unfiltered) and by the
+      # deploy's release gate (`hosted:check`); a pull request the author knows
+      # can reach them anyway takes the `hosted` label. What the filter names is
+      # what the journeys touch directly: the server, the stores that call it,
+      # the billing rules, the account UI and their own harness.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        id: src
-        with:
-          predicate-quantifier: every
-          filters: |
-            src:
-              - 'src/**'
-              - '!src/presentation/landing/**'
-
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        id: rest
+        id: hosted_paths
         with:
           filters: |
-            rest:
+            hosted:
               - 'server/**'
-              - 'cli/**'
-              - 'scripts/**'
-              - 'action.yml'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'vite.config.ts'
-              - 'playwright.config.ts'
+              - 'src/presentation/stores/**'
+              - 'src/application/billing/**'
+              - 'src/presentation/components/multimedia/**'
               - 'tests/e2e/hosted/**'
               - 'tests/e2e/support/**'
-              - 'tests/e2e/mobile-shell.spec.ts'
               - 'tests/support/fake-polar.ts'
+              - 'playwright.config.ts'
               - '.github/workflows/hosted-e2e.yml'
               - '.github/workflows/ci.yml'
 
@@ -108,15 +104,16 @@ jobs:
               - '!CLAUDE.md'
               - '!AGENTS.md'
 
-      # Two filters cannot make one output, so this step does. A pull request
-      # that only changes documents cannot reach the hosted journeys, even a
-      # README inside tests/e2e/hosted/.
+      # Several filters and a label cannot make one output, so this step does. A
+      # pull request that only changes documents cannot reach the hosted
+      # journeys, even a README inside tests/e2e/hosted/. The `hosted` label
+      # always wins: it is the author saying the paths missed something.
       - name: What runs after the gate
         id: changes
         env:
           CODE: ${{ steps.code.outputs.code }}
-          SRC: ${{ steps.src.outputs.src }}
-          REST: ${{ steps.rest.outputs.rest }}
+          HOSTED_PATHS: ${{ steps.hosted_paths.outputs.hosted }}
+          LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'hosted') }}
         run: |
           docs_only=false
           hosted=false
@@ -124,7 +121,10 @@ jobs:
           # (a filter that did not report) must run the whole gate, not skip it.
           if [ "$CODE" = false ]; then
             docs_only=true
-          elif [ "$SRC" = true ] || [ "$REST" = true ]; then
+          elif [ "$HOSTED_PATHS" = true ]; then
+            hosted=true
+          fi
+          if [ "$LABELLED" = true ]; then
             hosted=true
           fi
           echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"

@@ -148,13 +148,23 @@ the pull-request subset), so it runs again on every push and every night.
 `pnpm e2e:smoke` and the touched spec are green before the report.
 
 The hosted journeys (`pnpm e2e:hosted`, `tests/e2e/hosted/`) are part of the gate
-for any change that can reach them: everything under `src/` except
-`src/presentation/landing/`, `server/`, `cli/`, `scripts/`, `action.yml`,
-`package.json`, `vite.config.ts` and `tests/e2e/hosted/` (the exact list is the paths filter,
-the first steps of the `Quality gate` job in `ci.yml`). CI runs them as the "Hosted
-journeys" job on such pull requests (`hosted-e2e.yml`, called from `ci.yml`, after
-the Quality gate passed) and every night on `main` (`e2e-nightly.yml`). Locally,
-`tests/e2e/hosted/services.sh up` then `pnpm e2e:hosted`.
+for any change that can reach them: `server/`, `src/presentation/stores/`,
+`src/application/billing/`, `src/presentation/components/multimedia/`, their own
+harness (`tests/e2e/hosted/`, `tests/e2e/support/`, `tests/support/fake-polar.ts`,
+`playwright.config.ts`) and the two workflows (the exact list is the paths filter,
+the first steps of the `Quality gate` job in `ci.yml`). CI runs them as the
+"Hosted journeys" job on such pull requests (`hosted-e2e.yml`, called from `ci.yml`,
+after the Quality gate passed), on any pull request that carries the `hosted` label,
+and every night on `main` (`e2e-nightly.yml`). Locally, `tests/e2e/hosted/services.sh
+up` then `pnpm e2e:hosted`.
+
+The list is narrow on purpose. The #303 review had widened it to all of `src/`,
+which is nearly every code pull request and made 13 billed minutes the price of a
+push; #340 reverses that, cost over coverage. What it does not name is caught by
+the nightly, and by the deploy's release gate (`hosted:check`). A builder who
+knows a change can reach the hosted side anyway (a shared type the server imports,
+a dependency bump) puts the `hosted` label on the pull request, once, with its
+other labels: any label runs CI again, and the run in flight is replaced.
 
 The ruleset requires **"Quality gate"** and nothing else, and the journeys are not a
 required check. A "Hosted gate" job (a requirable name that always ran, failed
