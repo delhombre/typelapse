@@ -17,10 +17,12 @@
 
 import { type CubicBezier, DEFAULT_TRANSITION_EASING, cubicBezierAt } from "../magic-move/easing";
 import {
+	BREAK_OUT_END,
 	type GridPosition,
 	type LaidOutFrame,
 	type MagicMovePlan,
 	type RenderToken,
+	isSceneBreak,
 	renderStatic,
 	renderTransition,
 } from "../magic-move/engine";
@@ -282,28 +284,54 @@ function morphFrame(
 	const eased = moveEase(t);
 	const fromRow = frameFirstRow(fromFrame);
 	const toRow = frameFirstRow(toFrame);
-	// The window scrolls on the same curve the card grows and pushes in on.
-	const firstRow = fromRow + (toRow - fromRow) * eased;
+	const broken = isSceneBreak(transition.from, transition.to);
+	// A morph scrolls the window on the same curve the card grows and pushes in
+	// on. Across a break nothing is shared, so nothing scrolls: the outgoing
+	// window holds until its side has faded, then the incoming one takes over.
+	const firstRow = broken ? breakFirstRow(t, fromRow, toRow) : fromRow + (toRow - fromRow) * eased;
 	const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount, fromRow);
 	const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount, toRow);
+	const rendered = renderTransition(
+		transition.from,
+		transition.to,
+		t,
+		{ moveEase },
+		focusSets[active.index],
+		focusSets[toIndex],
+	);
 	return {
-		tokens: scrollRows(
-			renderTransition(
-				transition.from,
-				transition.to,
-				t,
-				{ moveEase },
-				focusSets[active.index],
-				focusSets[toIndex],
-			),
-			firstRow,
-		),
+		tokens: broken
+			? scrollBrokenRows(rendered, transition.from, fromRow, toRow)
+			: scrollRows(rendered, firstRow),
 		firstRow,
 		lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 		lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
 		cursor: null,
 		zoom: interpolateZoom(fromZoom, toZoom, t, moveEase),
 	};
+}
+
+/** The window a break shows: the outgoing one until its side has faded. */
+function breakFirstRow(t: number, fromRow: number, toRow: number): number {
+	return t < BREAK_OUT_END ? fromRow : toRow;
+}
+
+/**
+ * The tokens of a break, each on its own side's window: the incoming ones fade
+ * in (from 0.4) before the outgoing ones are gone (0.6), so one scroll for the
+ * whole frame would shove one side off the card.
+ */
+function scrollBrokenRows(
+	tokens: RenderToken[],
+	outgoing: readonly { key: string }[],
+	fromRow: number,
+	toRow: number,
+): RenderToken[] {
+	const out = new Set(outgoing.map((token) => token.key));
+	return tokens.map((token) => ({
+		...token,
+		line: token.line - (out.has(token.key) ? fromRow : toRow),
+	}));
 }
 
 function heldFrame(

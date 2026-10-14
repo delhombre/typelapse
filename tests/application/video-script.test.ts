@@ -1,4 +1,5 @@
 import { scriptFrameAt, videoScript } from "@/application/export/video-script";
+import { VISIBLE_ROW_LIMIT } from "@/application/layout/canvas-fit";
 import {
 	DIM_OPACITY,
 	type LaidOutToken,
@@ -308,6 +309,82 @@ describe("videoScript across a scene break (#280)", () => {
 		const morph = videoScript(input([false, false]));
 		const middle = morph.frameAt(Math.floor((transition.startFrame + transition.endFrame) / 2));
 		expect(middle.tokens.some((token) => !Number.isInteger(token.line))).toBe(true);
+	});
+
+	describe("on files longer than a window (#316)", () => {
+		const rowsOf = (word: string) =>
+			Array.from({ length: 300 }, (_, row) => `${word}${row}`).join("\n");
+		const long = (breaks: boolean[]) => ({
+			...BASE,
+			plan: planMagicMove(
+				[rowsOf("row"), rowsOf("row")],
+				keyer,
+				"#0d1117",
+				false,
+				[[10], [290]],
+				breaks,
+			),
+			firstCode: rowsOf("row"),
+		});
+		const transitionOf = (script: ReturnType<typeof videoScript>) => {
+			const segment = script.segments.find((candidate) => candidate.type === "transition");
+			if (!segment) {
+				throw new Error("no transition");
+			}
+			return segment;
+		};
+
+		it("holds the outgoing window while it fades, then jumps to the incoming one", () => {
+			const project = long([false, true]);
+			const script = videoScript(project);
+			const [from = 0, to = 0] = project.plan.frames.map((frame) => frame.firstRow ?? 0);
+			expect(to).toBeGreaterThan(from);
+			const transition = transitionOf(script);
+			const seen = new Set<number>();
+			for (let frame = transition.startFrame; frame < transition.endFrame; frame++) {
+				const { firstRow, tokens } = script.frameAt(frame);
+				seen.add(firstRow);
+				// The window only changes once nothing of the outgoing side is left to see.
+				if (firstRow === to) {
+					expect(
+						tokens.filter((token) => token.key.startsWith("out:") && token.opacity > 0),
+						`frame ${frame}`,
+					).toEqual([]);
+				}
+			}
+			expect([...seen].sort((a, b) => a - b)).toEqual([from, to]);
+		});
+
+		it("moves no token, and keeps each side inside the card", () => {
+			const script = videoScript(long([false, true]));
+			const transition = transitionOf(script);
+			const place = new Map<string, number>();
+			for (let frame = transition.startFrame; frame < transition.endFrame; frame++) {
+				for (const token of script.frameAt(frame).tokens) {
+					expect(place.get(token.key) ?? token.line, token.key).toBe(token.line);
+					place.set(token.key, token.line);
+					expect(token.line).toBeGreaterThanOrEqual(0);
+					expect(token.line).toBeLessThan(VISIBLE_ROW_LIMIT);
+				}
+			}
+		});
+
+		it("still scrolls a morph that shares its tokens between the same windows", () => {
+			const project = long([false, false]);
+			const script = videoScript(project);
+			const transition = transitionOf(script);
+			const middle = script.frameAt(Math.floor((transition.startFrame + transition.endFrame) / 2));
+			const [from = 0, to = 0] = project.plan.frames.map((frame) => frame.firstRow ?? 0);
+			expect(middle.firstRow).toBeGreaterThan(from);
+			expect(middle.firstRow).toBeLessThan(to);
+		});
+	});
+
+	it("leaves a page that fits the window where it was: no row ever scrolls", () => {
+		const script = videoScript(input([false, true]));
+		for (let frame = 0; frame < script.totalFrames; frame++) {
+			expect(script.frameAt(frame).firstRow).toBe(0);
+		}
 	});
 
 	it("never leaves the card empty: the most visible token stays above 0.2", () => {

@@ -140,6 +140,22 @@ const BREAK_TIMING: MagicMoveTiming = {
 	enterEase: easeOutCubic,
 };
 
+/**
+ * Whether a transition crosses a scene break: something on both sides and no
+ * token in common. The one predicate the timing above and the window scroll of
+ * `video-script` (#316) both read, so they cannot disagree about a pair.
+ */
+export function isSceneBreak(from: readonly LaidOutToken[], to: readonly LaidOutToken[]): boolean {
+	if (from.length === 0 || to.length === 0) {
+		return false;
+	}
+	const toKeys = new Set(to.map((token) => token.key));
+	return !from.some((token) => toKeys.has(token.key));
+}
+
+/** Progress at which a break's outgoing frame has fully faded: its window can go. */
+export const BREAK_OUT_END = BREAK_TIMING.leaveEnd ?? 1;
+
 function linear(t: number): number {
 	return t;
 }
@@ -289,7 +305,7 @@ export function renderTransition(
 	const movedCount = from.reduce((n, token) => (toByKey.has(token.key) ? n + 1 : n), 0);
 	// Nothing shared and something on both sides: overlap the fades (an explicit
 	// timing from the caller still wins).
-	const unrelated = movedCount === 0 && from.length > 0 && to.length > 0;
+	const unrelated = isSceneBreak(from, to);
 	const { moveEase, enterEase, leaveEase, moveDuration, leaveEnd, enterStart, stagger } = {
 		...DEFAULT_TIMING,
 		...(unrelated ? BREAK_TIMING : {}),
