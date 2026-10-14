@@ -188,6 +188,14 @@ label), and asks Bruno for the merge. Before a release,
 `emil-prep-for-prod` runs on the whole app and its "Needs a device" list goes
 to Bruno as a checklist.
 
+CI runs on pull requests only (`ci.yml` has no `push` trigger on `main`, #340). A
+merge lands the head that was reviewed and gated (`gh pr merge --match-head-commit`,
+on a branch that carries `origin/main`), so a second run on `main` replayed the same
+gate on the same code for 14 billed minutes. The net for a merge that still drifts
+is the nightly (`e2e-nightly.yml`, every journey, hosted ones included) and the
+release gate of the staging deploy (`hosted:check`). A merge that breaks `main` is
+therefore seen by the next nightly or the next deploy, not on the merge.
+
 A change a person can see (a screen, a control, a sentence, an export, a public
 page) adds an entry to `src/application/changelog/entries.ts` in the same pull
 request: newest first, a permanent id, the day it ships, a one-line title and one

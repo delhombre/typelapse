@@ -7,8 +7,11 @@ on:
     # then replaces the run in flight: give a pull request its labels together,
     # and once, rather than one by one between pushes.
     types: [opened, synchronize, reopened, labeled]
-  push:
-    branches: [main]
+  # No `push` trigger on main (#340). A merge lands the head the gate already
+  # passed (`gh pr merge --match-head-commit`, on a branch that carries
+  # origin/main), so a run on main replayed 14 billed minutes on the same code.
+  # A merge that drifts is caught by the nightly (e2e-nightly.yml) and by the
+  # deploy's release gate (`hosted:check`). See docs/agents/QUALITY_LOOP.md, Ship.
 
 concurrency:
   group: ci-${{ github.ref }}
