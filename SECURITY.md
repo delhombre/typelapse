@@ -2,9 +2,10 @@
 
 ## Reporting a vulnerability
 
-Email security@REPLACE-BEFORE-OPENING with a description, the steps to
-reproduce, and the impact you expect. Please do not open a public issue for a
-vulnerability.
+Use GitHub's private vulnerability reporting: the "Report a vulnerability"
+button under the Security tab of this repository opens a private advisory that
+only the maintainers see. Give a description, the steps to reproduce, and the
+impact you expect. Please do not open a public issue for a vulnerability.
 
 You will get an acknowledgement within a few working days, and we will keep you
 informed until the issue is fixed. We are happy to credit you in the release
