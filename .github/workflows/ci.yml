@@ -93,13 +93,13 @@ jobs:
       # both names, so a move out of src/ into docs/ is not docs only). The
       # filter is named for what it finds, a file that is NOT a document, hence
       # `every` over negated patterns: a file matches when no pattern excludes
-      # it, and `code` is true when at least one file does.
+      # it, and `non_docs` is true when at least one file does.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        id: code
+        id: non_docs
         with:
           predicate-quantifier: every
           filters: |
-            code:
+            non_docs:
               - '!docs/**'
               - '!**/*.md'
               - '!.craft/**'
@@ -114,7 +114,7 @@ jobs:
       - name: What runs after the gate
         id: changes
         env:
-          CODE: ${{ steps.code.outputs.code }}
+          NON_DOCS: ${{ steps.non_docs.outputs.non_docs }}
           HOSTED_PATHS: ${{ steps.hosted_paths.outputs.hosted }}
           LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'hosted') }}
         run: |
@@ -122,7 +122,7 @@ jobs:
           hosted=false
           # Docs only on an explicit "false" and nothing else: an empty output
           # (a filter that did not report) must run the whole gate, not skip it.
-          if [ "$CODE" = false ]; then
+          if [ "$NON_DOCS" = false ]; then
             docs_only=true
           elif [ "$HOSTED_PATHS" = true ]; then
             hosted=true
