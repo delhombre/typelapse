@@ -1,11 +1,13 @@
 import { APP_PATHS } from "../../src/application/routing/app-paths";
+import { ROUTE_HEADS } from "../../src/application/routing/route-head";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../server/index";
-import { staticRootFrom } from "../../server/static/static-site";
+import { createStaticSite, staticRootFrom } from "../../server/static/static-site";
+import { DEFAULT_SITE_ORIGIN, siteOriginFrom } from "../../server/static/route-head";
 
 /**
  * One origin: the API serves the Vite build when TYPELAPSE_STATIC_ROOT is set.
@@ -13,7 +15,12 @@ import { staticRootFrom } from "../../server/static/static-site";
  * Anything the API owns (/api, /v, /health) is never answered by the app.
  */
 
-const INDEX = "<!doctype html><title>Typelapse</title>";
+const INDEX = `<!doctype html><html><head>
+<!-- route-head -->
+<title>the default</title>
+<meta name="description" content="the default" />
+<!-- /route-head -->
+</head><body><div id="root"></div></body></html>`;
 let sandbox: string;
 let root: string;
 
@@ -67,7 +74,7 @@ describe("static site: the client's routes", () => {
 			const response = await get(path);
 
 			expect(response.status, path).toBe(200);
-			expect(await response.text()).toBe(INDEX);
+			expect(await response.text()).toContain('<div id="root"></div>');
 			expect(response.headers.get("content-type")).toContain("text/html");
 			expect(response.headers.get("cache-control")).toBe("no-cache");
 		}
@@ -123,6 +130,124 @@ describe("static site: assets", () => {
 
 		expect(response.headers.get("x-content-type-options")).toBe("nosniff");
 		expect(response.headers.get("x-frame-options")).toBe("DENY");
+	});
+});
+
+/** The head block of a served document, split into its tags by the attribute that names them. */
+function headOf(document: string) {
+	const block = document.match(/<!-- route-head -->([\s\S]*?)<!-- \/route-head -->/)?.[1] ?? "";
+	const tag = (attribute: string, key: string) =>
+		block.match(new RegExp(`<meta ${attribute}="${key}" content="([^"]*)" />`))?.[1];
+	return {
+		block,
+		title: block.match(/<title>([^<]*)<\/title>/)?.[1],
+		canonical: block.match(/<link rel="canonical" href="([^"]*)" \/>/)?.[1],
+		description: tag("name", "description"),
+		ogTitle: tag("property", "og:title"),
+		ogDescription: tag("property", "og:description"),
+		ogUrl: tag("property", "og:url"),
+		ogImage: tag("property", "og:image"),
+		ogType: tag("property", "og:type"),
+		twitterCard: tag("name", "twitter:card"),
+		twitterTitle: tag("name", "twitter:title"),
+		twitterDescription: tag("name", "twitter:description"),
+	};
+}
+
+describe("static site: each page's head, served without JavaScript", () => {
+	it("carries, on every routed address, its own tags and no other route's", async () => {
+		const heads = Object.entries(ROUTE_HEADS);
+		for (const [key, head] of heads) {
+			for (const path of head.path === "/" ? ["/"] : [head.path, `${head.path}/`]) {
+				const served = headOf(await (await get(path)).text());
+				const shareTitle = head.shareTitle ?? head.title;
+
+				expect(served.title, path).toBe(head.title);
+				expect(served.description, path).toBe(head.description);
+				expect(served.canonical, path).toBe(`${DEFAULT_SITE_ORIGIN}${head.path}`);
+				expect(served.ogTitle, path).toBe(shareTitle);
+				expect(served.ogDescription, path).toBe(head.description);
+				expect(served.ogUrl, path).toBe(`${DEFAULT_SITE_ORIGIN}${head.path}`);
+				expect(served.ogImage, path).toBe(`${DEFAULT_SITE_ORIGIN}${head.image.path}`);
+				expect(served.ogType, path).toBe("website");
+				expect(served.twitterCard, path).toBe("summary_large_image");
+				expect(served.twitterTitle, path).toBe(shareTitle);
+				expect(served.twitterDescription, path).toBe(head.description);
+				expect(served.block, path).not.toContain("the default");
+
+				for (const [otherKey, other] of heads) {
+					if (otherKey !== key) {
+						expect(served.block, `${path} must not carry ${otherKey}`).not.toContain(other.title);
+						expect(served.block, `${path} must not carry ${otherKey}`).not.toContain(
+							`${DEFAULT_SITE_ORIGIN}${other.path}"`,
+						);
+					}
+				}
+			}
+		}
+	});
+
+	it("serves the 404 shell with the default block, not a page's tags", async () => {
+		const response = await get("/nope", { headers: { accept: "text/html" } });
+
+		expect(response.status).toBe(404);
+		expect(headOf(await response.text()).title).toBe("the default");
+	});
+
+	it("writes the canonical on the configured site origin, trailing slash or not", async () => {
+		const app = new Hono();
+		app.use("*", createStaticSite(root, "https://example.test/"));
+
+		const served = headOf(await (await app.request("http://localhost/pricing")).text());
+
+		expect(served.canonical).toBe("https://example.test/pricing");
+		expect(served.ogImage).toBe("https://example.test/og.png");
+	});
+
+	it("escapes what it writes into the document", async () => {
+		const tricky = mkdtempSync(join(tmpdir(), "typelapse-static-tricky-"));
+		try {
+			writeFileSync(join(tricky, "index.html"), INDEX);
+			const app = new Hono();
+			app.use("*", createStaticSite(tricky, 'https://example.test/"><x'));
+
+			const text = await (await app.request("http://localhost/")).text();
+
+			expect(text).not.toContain("<x");
+			expect(text).toContain("&quot;");
+		} finally {
+			rmSync(tricky, { recursive: true, force: true });
+		}
+	});
+
+	it("refuses to start on a build that lost its route-head block", () => {
+		const bare = mkdtempSync(join(tmpdir(), "typelapse-static-bare-"));
+		try {
+			writeFileSync(join(bare, "index.html"), "<!doctype html><title>Typelapse</title>");
+
+			expect(() => createStaticSite(bare)).toThrow(/route-head/);
+		} finally {
+			rmSync(bare, { recursive: true, force: true });
+		}
+	});
+});
+
+describe("static site: the site origin", () => {
+	it("is typelapse.com unless TYPELAPSE_SITE_ORIGIN says otherwise, and never the app's own URL", () => {
+		expect(siteOriginFrom({})).toBe("https://typelapse.com");
+		expect(siteOriginFrom({ TYPELAPSE_SITE_ORIGIN: "  " })).toBe("https://typelapse.com");
+		expect(siteOriginFrom({ TYPELAPSE_SITE_ORIGIN: "https://example.test/" })).toBe(
+			"https://example.test",
+		);
+	});
+
+	it("stops startup on a value that is not an http(s) origin", () => {
+		expect(() => siteOriginFrom({ TYPELAPSE_SITE_ORIGIN: "typelapse.com" })).toThrow(
+			/TYPELAPSE_SITE_ORIGIN/,
+		);
+		expect(() => siteOriginFrom({ TYPELAPSE_SITE_ORIGIN: "javascript:alert(1)" })).toThrow(
+			/TYPELAPSE_SITE_ORIGIN/,
+		);
 	});
 });
 

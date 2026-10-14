@@ -4,8 +4,7 @@ import {
 	pricingView,
 } from "@/application/billing/pricing-view";
 import { TestModeLine } from "@/presentation/components/billing/test-mode-line";
-import { useDocumentDescription } from "@/presentation/hooks/use-document-description";
-import { useDocumentTitle } from "@/presentation/hooks/use-document-title";
+import { useRouteHead } from "@/presentation/hooks/use-route-head";
 import { useId, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { DynamicNav, type NavLinkItem } from "../dynamic-nav";
@@ -17,7 +16,6 @@ import { useLandingTheme } from "../use-landing-theme";
 import "./pricing-page.css";
 import { useCatalogReading } from "./use-catalog-reading";
 
-const TITLE = "Pricing · Typelapse";
 /** The pill on this page: the landing's sections are one hop back, this page is the current one. */
 const NAV_LINKS: readonly NavLinkItem[] = [
 	{ href: "/#how-it-works", label: "How it works" },
@@ -33,10 +31,9 @@ const NAV_LINKS: readonly NavLinkItem[] = [
  */
 export function PricingPage() {
 	const [theme, toggleTheme] = useLandingTheme();
-	useDocumentTitle(TITLE);
+	useRouteHead("pricing");
 	const reading = useCatalogReading();
 	const view = useMemo(() => pricingView({ reading }), [reading]);
-	useDocumentDescription(view.description);
 
 	return (
 		<div

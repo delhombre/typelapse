@@ -4,6 +4,7 @@ import { resolve, sep } from "node:path";
 import type { MiddlewareHandler } from "hono";
 import { APP_PATHS } from "../../src/application/routing/app-paths";
 import { getMimeType } from "hono/utils/mime";
+import { hasRouteHeadBlock, injectRouteHead, siteOriginFrom } from "./route-head";
 
 interface StaticSiteEnvironment {
 	readonly TYPELAPSE_STATIC_ROOT?: string;
@@ -39,11 +40,9 @@ export function staticRootFrom(
 	return root;
 }
 
-const APP_PAGES: ReadonlySet<string> = new Set(Object.values(APP_PATHS));
-
-/** A page the client routes, with or without its trailing slash. */
-function isAppPage(path: string): boolean {
-	return APP_PAGES.has(path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path);
+/** A routed address without its trailing slash, the key its page is stored under. */
+function pageKey(path: string): string {
+	return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
 }
 
 function isApiPath(path: string): boolean {
@@ -100,15 +99,27 @@ function cacheControlFor(path: string, file: string): string {
  *
  * Mounted after every API route, so it only ever sees what the API did not
  * answer. The client has a single HTML entry and the routes in `APP_PATHS`, all
- * resolved to index.html. Any other path is a real 404;
- * a browser asking for a page gets the app's shell with that status, so the
- * client's own not-found screen renders instead of a bare line.
+ * resolved to index.html, each with its own head tags (`route-head.ts`) because
+ * a scraper reads the first response and runs no script. Any other path is a
+ * real 404; a browser asking for a page gets the app's shell with that status,
+ * so the client's own not-found screen renders instead of a bare line.
  */
-export function createStaticSite(root: string): MiddlewareHandler {
+export function createStaticSite(
+	root: string,
+	siteOrigin: string = siteOriginFrom(),
+): MiddlewareHandler {
 	// A link inside the build must not lead out of it, so containment is checked
 	// on real paths. The shell is read once: a build does not change under a running API.
 	const realRoot = realpathSync(root);
 	const shell = readFileSync(resolve(root, "index.html"), "utf8");
+	// A build that lost its route-head block would serve every page the landing's
+	// card without a word of complaint, so it stops startup like a lost index.html.
+	if (!hasRouteHeadBlock(shell)) {
+		throw new Error(`${resolve(root, "index.html")} has no <!-- route-head --> block to fill`);
+	}
+	const pages = new Map<string, string>(
+		Object.values(APP_PATHS).map((path) => [path, injectRouteHead(shell, path, siteOrigin)]),
+	);
 
 	return async (c, next) => {
 		const path = c.req.path;
@@ -116,13 +127,14 @@ export function createStaticSite(root: string): MiddlewareHandler {
 			return next();
 		}
 
-		const html = (status: 200 | 404) => {
+		const html = (document: string, status: 200 | 404) => {
 			c.header("Cache-Control", HTML_CACHE);
-			return c.html(shell, status);
+			return c.html(document, status);
 		};
 
-		if (isAppPage(path)) {
-			return html(200);
+		const page = pages.get(pageKey(path));
+		if (page) {
+			return html(page, 200);
 		}
 
 		const candidate = fileUnder(root, path);
@@ -138,7 +150,7 @@ export function createStaticSite(root: string): MiddlewareHandler {
 		const wantsPage = c.req.header("accept")?.includes("text/html") ?? false;
 		const namesFile = /\.[A-Za-z0-9]+$/.test(path);
 		if (wantsPage && !namesFile && !path.endsWith("/")) {
-			return html(404);
+			return html(shell, 404);
 		}
 		return next();
 	};

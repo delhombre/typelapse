@@ -13,7 +13,7 @@ import { StudioPersistence } from "@/presentation/components/layout/studio-persi
 import { LivePreview } from "@/presentation/components/preview/live-preview";
 import { NoticeHost } from "@/presentation/components/ui/notice-host";
 import { StudioTooltipProvider } from "@/presentation/components/ui/studio-tooltip";
-import { useDocumentTitle } from "@/presentation/hooks/use-document-title";
+import { useRouteHead } from "@/presentation/hooks/use-route-head";
 import { setHighlighter, useSnippetStore } from "@/presentation/stores/snippet.store";
 import { followStudioTheme, useThemeModeStore } from "@/presentation/stores/theme-mode.store";
 import { useEffect } from "react";
@@ -29,7 +29,7 @@ useSnippetStore.getState().rebuildPlan();
  * module is evaluated while a visitor is only reading the landing page. */
 export function StudioRoute() {
 	// The tab names the project: "Studio" until it has a name of its own.
-	useDocumentTitle(studioDocumentTitle(useSnippetStore((state) => state.snippet.title)));
+	useRouteHead("studio", studioDocumentTitle(useSnippetStore((state) => state.snippet.title)));
 	// In an effect, not at module load: arriving from the landing, its cleanup
 	// hands `theme-color` back to index.html's values after this module has run.
 	// System follows the OS only while the studio is here.
