@@ -83,7 +83,7 @@ terms so issues, specs, tests and code use the same ones.
   place instead of adding one (the budget's marker row when it has one, a trailing
   `⋯`, or the last context row), so the card keeps its height through the last
   scene; every page also keeps a row free once a walkthrough is past the cap, so
-  no frame passes `MAX_SCENE_LINES`). A release's
+  no frame passes `MAX_SCENE_LINES`. A release's
   title card counts as one of the 16 (`stepBudget`). The import says "Showing the
   first k of n commits", or "Showing the first 16 of 48 scenes" for a single
   change or a first commit that is itself cut (a scene is a step). The studio

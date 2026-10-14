@@ -96,7 +96,14 @@ function markCut(code: string, omitted: number, earlier: readonly CodeSnapshot[]
 	}
 	const tallest = Math.max(0, ...earlier.map((snapshot) => rowsOf(snapshot.code)));
 	const previous = earlier[earlier.length - 1];
-	const unchanged = previous?.code.split("\n").includes(lastLine) === true;
+	// By position, not by content: a `}` or a blank line repeats within a step, and the
+	// row the last step added would pass for context. When the lines shift (the first
+	// scene of a page) this errs on the safe side: one row more, never a change lost.
+	const unchanged = previous?.code.split("\n")[lines.length - 1] === lastLine;
+	// On a diff whose windows are spaced the row dropped here can follow a `⋯`
+	// separator, which leaves `… / ⋯ / ⋯ 32 more scenes`. That double `⋯` is accepted:
+	// dropping the separator too would vary the rows of the last scene, which is
+	// the jump #322 removes.
 	if (lines.length + 1 > tallest && unchanged) {
 		return [...lines.slice(0, -1), marker].join("\n");
 	}

@@ -172,6 +172,18 @@ describe("the marker takes a row's place instead of adding one", () => {
 		expect(cut.snapshots.at(-1)?.code).toBe("row 1\nrow 2\nrow 3 changed\n⋯ 4 more scenes");
 	});
 
+	it("keeps a last row the step changed even when its text is repeated elsewhere in the previous step", () => {
+		// `}` is in the previous step too, but at another row: the last step added this one.
+		const frames = Array.from({ length: MAX_DIFF_STEPS + 4 }, (_, index) => ({
+			code: index === MAX_DIFF_STEPS - 1 ? "a\n}\n}" : "a\n}\nb",
+			label: `Change ${index}`,
+		}));
+
+		const cut = capWalkthrough([frames]);
+
+		expect(cut.snapshots.at(-1)?.code).toBe("a\n}\n}\n⋯ 4 more scenes");
+	});
+
 	it("keeps both counts in the merged row, without a row more", () => {
 		const frames = page(MAX_DIFF_STEPS + 4, ["row 1", "row 2", "⋯ 4 more files"]);
 
