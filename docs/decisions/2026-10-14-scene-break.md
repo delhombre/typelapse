@@ -144,3 +144,6 @@ one until the outgoing side has faded (`BREAK_OUT_END`, 0.6), then takes the
 incoming one. It reads the engine's own predicate (`isSceneBreak`: something on
 both sides, no shared token), now exported, so the timing and the scroll cannot
 disagree about a pair.
+During a break on a long file the gutter shows the outgoing window's numbers
+until 0.6 while the incoming code is visible from 0.4: inherent to a single
+gutter, and unreachable by import (pages are at most 24 rows).

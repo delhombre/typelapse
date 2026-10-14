@@ -288,11 +288,7 @@ function morphFrame(
 	// A morph scrolls the window on the same curve the card grows and pushes in
 	// on. Across a break nothing is shared, so nothing scrolls: the outgoing
 	// window holds until its side has faded, then the incoming one takes over.
-	const firstRow = broken
-		? t < BREAK_OUT_END
-			? fromRow
-			: toRow
-		: fromRow + (toRow - fromRow) * eased;
+	const firstRow = broken ? breakFirstRow(t, fromRow, toRow) : fromRow + (toRow - fromRow) * eased;
 	const fromZoom = zoomForFocus(focusSets[active.index], fromFrame.lineCount, fromRow);
 	const toZoom = zoomForFocus(focusSets[toIndex], toFrame.lineCount, toRow);
 	const rendered = renderTransition(
@@ -313,6 +309,11 @@ function morphFrame(
 		cursor: null,
 		zoom: interpolateZoom(fromZoom, toZoom, t, moveEase),
 	};
+}
+
+/** The window a break shows: the outgoing one until its side has faded. */
+function breakFirstRow(t: number, fromRow: number, toRow: number): number {
+	return t < BREAK_OUT_END ? fromRow : toRow;
 }
 
 /**
