@@ -13,7 +13,9 @@ jobs:
   quality-gate:
     name: Quality gate
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The gate (about 9 minutes) and the smoke journeys it now holds (about 2.5
+    # on top of the shared build).
+    timeout-minutes: 25
 
     # The PostgreSQL the contract tests run against, the nightly hosted job's
     # service. It lives in this job and not in a job of its own because the
@@ -104,26 +106,16 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm build
 
-  e2e-smoke:
-    name: E2E smoke
-    # Beside the Quality gate, not after it: a red journey and a red unit test
-    # are both worth knowing on the same push.
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
+      # The smoke journeys, folded in from a job of their own (#340): that job
+      # repeated checkout, install and a second vite build (about 2.5 billed
+      # minutes of the 4.9) to reach the same dist. They are not a required
+      # check by name, so folding them here changes what blocks a merge in one
+      # way only: a red journey now also turns "Quality gate" red, and one that
+      # follows a red unit test no longer runs on that push (fix the first, the
+      # second shows on the next).
+      # playwright.config.ts builds into a temp dir unless told otherwise;
+      # E2E_OUT_DIR and E2E_SKIP_BUILD point `vite preview` at the dist above, a
+      # build made with the same config and the same environment.
       # The export journeys check the downloaded files with ffprobe and ffmpeg.
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
@@ -132,13 +124,15 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Smoke journeys
+        id: smoke
         env:
-          # Playwright's webServer runs vite build first; see the Quality gate.
+          E2E_OUT_DIR: dist
+          E2E_SKIP_BUILD: "1"
           NODE_OPTIONS: --max-old-space-size=6144
         run: pnpm e2e:smoke
 
       - name: Upload traces and videos
-        if: failure()
+        if: failure() && steps.smoke.outcome == 'failure'
         uses: actions/upload-artifact@v7
         with:
           name: e2e-smoke-${{ github.run_attempt }}
