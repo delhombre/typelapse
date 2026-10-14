@@ -212,6 +212,19 @@ gate, a doc) says so in the table below instead of adding one. The threshold: a 
 screen, control, sentence, export or public page is an entry; a pixel alignment, a
 spacing or a colour fix is not.
 
+### Pushes
+
+A pull request averaged three to four pushes, and every push bills the Quality gate
+again (#340). Three rules, in every builder brief:
+
+- **One push per review round**, after `bash .craft/verify.sh` is green on the
+  machine. Commit as often as you like; push when the round's fixes are all in.
+- **Never a "merge main" push on its own.** When the branch must catch up with
+  `origin/main`, do it in the same push as the fixes of the round, or when there is
+  nothing else to push, not at all until the merge.
+- **Reviewers read the branch in a worktree**, not in CI: `git worktree add` on the
+  head, `verify.sh` there. A review never waits for a run.
+
 ### PR body
 
 Every pull request body, whoever writes it, has these parts in this order. Builders
@@ -228,6 +241,7 @@ read their brief, not this file, so the orchestrator's builder briefs point here
    | (a criterion of the ticket) | (file or module) | (test, spec, capture) |
    | Changelog entry for a visible change | `application/changelog/entries.ts` (id, date) | the entry, or "nothing to see: a refactor" |
    | `bash .craft/verify.sh` | | OK |
+   | One push per review round (see Pushes) | the commit list | `verify.sh` green before each push; no lone "merge main" |
 
 3. **Notes** and **Evidence**: what a reviewer would trip on, and the captures
    with their paths.
@@ -242,7 +256,7 @@ read their brief, not this file, so the orchestrator's builder briefs point here
   definition. Work goes to the built-in agents with a model and a brief that
   names the skills of its gate.
 - **Builders** run on Sonnet (`model: sonnet`): one ticket, one brief, their
-  own ports, and a report in the four-part format: journeys, bugs, fixes with
+  own ports, the three rules of Pushes, and a report in the four-part format: journeys, bugs, fixes with
   tests, not verifiable. A task Sonnet cannot finish goes to Opus
   (`model: opus`) with Sonnet's failure named in the new brief.
 - **Explore agents** (Haiku, read-only) answer "where is X" with a report
