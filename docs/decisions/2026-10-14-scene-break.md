@@ -135,3 +135,12 @@ strip, and `wysiwyg-mad.txt` (device against server on the card crop).
 
 **Pivot:** "The overlap reads as two files on top of each other: cut through
 the middle instead."
+
+**Amended (#316):** on a file longer than a window the two sides sit in
+different windows (`firstRow`), and the morph's scroll made the incoming tokens
+glide while they faded. Across a break `video-script` now scrolls nothing: each
+side is drawn on its own window, and the reported `firstRow` holds the outgoing
+one until the outgoing side has faded (`BREAK_OUT_END`, 0.6), then takes the
+incoming one. It reads the engine's own predicate (`isSceneBreak`: something on
+both sides, no shared token), now exported, so the timing and the scroll cannot
+disagree about a pair.
