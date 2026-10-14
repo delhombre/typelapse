@@ -1,12 +1,19 @@
 import { MAX_DIFF_STEPS, capWalkthrough, diffToSnapshots } from "@/application/diff";
 import { scriptFrameAt, videoScript } from "@/application/export/video-script";
 import { VISIBLE_ROW_LIMIT } from "@/application/layout/canvas-fit";
+import { DEFAULT_TRANSITION_EASING, cubicBezierAt } from "@/application/magic-move/easing";
 import {
+	BREAK_ENTER_START,
 	DIM_OPACITY,
 	type LaidOutToken,
 	type MagicMovePlan,
 } from "@/application/magic-move/engine";
-import { NO_ZOOM, ZOOM_SCALE } from "@/application/magic-move/focus-zoom";
+import {
+	NO_ZOOM,
+	ZOOM_SCALE,
+	interpolateZoom,
+	zoomForFocus,
+} from "@/application/magic-move/focus-zoom";
 import { type PlanKeyer, planMagicMove } from "@/application/magic-move/plan";
 import { layoutTypingTokens } from "@/application/magic-move/typewriter";
 import { describe, expect, it } from "vitest";
@@ -379,6 +386,84 @@ describe("videoScript across a scene break (#280)", () => {
 			const [from = 0, to = 0] = project.plan.frames.map((frame) => frame.firstRow ?? 0);
 			expect(middle.firstRow).toBeGreaterThan(from);
 			expect(middle.firstRow).toBeLessThan(to);
+		});
+	});
+
+	describe("with a focus zoom on a page of the break (#330)", () => {
+		const zoomed = (breaks: boolean[]) => ({
+			...input(breaks),
+			focusSets: [new Set([1]), undefined],
+		});
+		const transitionOf = (script: ReturnType<typeof videoScript>) => {
+			const segment = script.segments.find((candidate) => candidate.type === "transition");
+			if (!segment) {
+				throw new Error("no transition");
+			}
+			return segment;
+		};
+		const progressOf = (segment: { startFrame: number; endFrame: number }, frame: number) =>
+			(frame - segment.startFrame) / (segment.endFrame - segment.startFrame);
+
+		it("shows the incoming page at scale 1 from its first visible frame", () => {
+			const script = videoScript(zoomed([false, true]));
+			const transition = transitionOf(script);
+			let seen = 0;
+			for (let frame = transition.startFrame; frame < transition.endFrame; frame++) {
+				const { tokens, zoom } = script.frameAt(frame);
+				if (tokens.some((token) => token.key.startsWith("in:") && token.opacity > 0)) {
+					seen++;
+					expect(zoom.scale, `frame ${frame}`).toBe(NO_ZOOM.scale);
+				}
+			}
+			expect(seen).toBeGreaterThan(0);
+		});
+
+		it("eases the zoom over the first BREAK_ENTER_START of the break, and holds it after", () => {
+			const script = videoScript(zoomed([false, true]));
+			const transition = transitionOf(script);
+			const scales = [];
+			for (let frame = transition.startFrame; frame < transition.endFrame; frame++) {
+				const { scale } = script.frameAt(frame).zoom;
+				scales.push(scale);
+				if (progressOf(transition, frame) >= BREAK_ENTER_START) {
+					expect(scale, `frame ${frame}`).toBe(NO_ZOOM.scale);
+				}
+			}
+			expect(scales[0]).toBeCloseTo(ZOOM_SCALE, 6);
+			expect(scales.some((scale) => scale > NO_ZOOM.scale && scale < ZOOM_SCALE)).toBe(true);
+			for (let i = 1; i < scales.length; i++) {
+				expect(scales[i]).toBeLessThanOrEqual(scales[i - 1] ?? 0);
+			}
+		});
+
+		it("zooms into the incoming page the same way, before it enters", () => {
+			const script = videoScript({
+				...zoomed([false, true]),
+				focusSets: [undefined, new Set([1])],
+			});
+			const transition = transitionOf(script);
+			for (let frame = transition.startFrame; frame < transition.endFrame; frame++) {
+				const { tokens, zoom } = script.frameAt(frame);
+				if (tokens.some((token) => token.key.startsWith("in:") && token.opacity > 0)) {
+					expect(zoom.scale, `frame ${frame}`).toBeCloseTo(ZOOM_SCALE, 6);
+				}
+			}
+		});
+
+		it("keeps a morph's zoom interpolation over the whole transition", () => {
+			const project = zoomed([false, false]);
+			const script = videoScript(project);
+			const transition = transitionOf(script);
+			const [first, second] = project.plan.frames;
+			const from = zoomForFocus(project.focusSets[0], first?.lineCount ?? 1, 0);
+			const to = zoomForFocus(project.focusSets[1], second?.lineCount ?? 1, 0);
+			const ease = (progress: number) => cubicBezierAt(DEFAULT_TRANSITION_EASING, progress);
+			for (let frame = transition.startFrame; frame < transition.endFrame; frame++) {
+				const t = progressOf(transition, frame);
+				expect(script.frameAt(frame).zoom, `frame ${frame}`).toEqual(
+					interpolateZoom(from, to, t, ease),
+				);
+			}
 		});
 	});
 

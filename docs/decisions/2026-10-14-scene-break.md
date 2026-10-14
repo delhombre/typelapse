@@ -147,3 +147,17 @@ disagree about a pair.
 During a break on a long file the gutter shows the outgoing window's numbers
 until 0.6 while the incoming code is visible from 0.4: inherent to a single
 gutter, and unreachable by import (pages are at most 24 rows).
+
+**Amended (#330):** the focus zoom still glided across the whole break: with
+page A under a push-in (1.25) and page B without, the camera pulled back while
+the two pages dissolved, and B appeared at about 1.14 on its way to 1.0.
+`video-script` now eases the zoom over the first `BREAK_ENTER_START` of a
+break only (0.4, `BREAK_TIMING.enterStart`, exported next to `BREAK_OUT_END`),
+before the incoming page is visible, so B shows from its first frame at its
+final zoom and no camera moves while two unrelated pages cross. A hold at the
+outgoing zoom then a jump at 0.6 was rejected: B is already at 0.7 opacity by
+then. A morph keeps its zoom over the whole transition. Still one reader, so
+the three renderers follow with no drawing code. Proven on a device MP4
+(`.craft/evidence/2026-10-14/330/`, before and after strips) and by the hono
+fixture's script, byte-identical to main (738 frames, same hash: its imports
+carry no focus).
