@@ -74,7 +74,8 @@ describe("the Creator card's action", () => {
 	it("promises a hosted render only where the catalog proves billing is there", () => {
 		expect(view({ kind: "ready", catalog: PRICED }).creator.action).toEqual({
 			label: "Start a hosted render",
-			hint: "Opens the studio; choose Cloud under Where.",
+			hint: "Opens the studio on Cloud",
+			to: "/app#cloud",
 		});
 		for (const reading of [
 			{ kind: "unavailable" },
@@ -83,7 +84,8 @@ describe("the Creator card's action", () => {
 		] as const) {
 			expect(view(reading).creator.action).toEqual({
 				label: "See Creator in the studio",
-				hint: "Opens the studio.",
+				hint: "Opens the studio",
+				to: "/app#cloud",
 			});
 		}
 	});

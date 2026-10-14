@@ -100,7 +100,7 @@ describe("the /pricing route", () => {
 		expect(within(card).queryByRole("link", { name: "Start a hosted render" })).toBeNull();
 		expect(
 			within(card).getByRole("link", { name: "See Creator in the studio" }).getAttribute("href"),
-		).toBe("/app");
+		).toBe("/app#cloud");
 	});
 
 	it("says test mode beside the price only for the sandbox", async () => {
@@ -128,8 +128,8 @@ describe("the /pricing route", () => {
 			{ name: "Start a hosted render" },
 			{ timeout: 5000 },
 		);
-		expect(action.getAttribute("href")).toBe("/app");
-		expect(screen.getByText("Opens the studio; choose Cloud under Where.")).toBeTruthy();
+		expect(action.getAttribute("href")).toBe("/app#cloud");
+		expect(screen.getByText("Opens the studio on Cloud")).toBeTruthy();
 		const footer = screen.getByRole("contentinfo");
 		expect(within(footer).getByRole("link", { name: "Pricing" }).getAttribute("aria-current")).toBe(
 			"page",

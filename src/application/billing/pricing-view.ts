@@ -9,6 +9,7 @@ import type {
 } from "../../domain/ports/billing.port";
 import { Plan } from "../../domain/value-objects/plan";
 import { ROUTE_HEADS } from "../routing/route-head";
+import { CLOUD_INTENT_PATH } from "./cloud-intent";
 import { DEVICE_MAX_FPS, deviceIntro } from "./device-export-claim";
 import { formatBytes, formatMinutes, hostedOutputGraceDays } from "./plan-allowance";
 import { priceLabel } from "./price-label";
@@ -75,8 +76,9 @@ export interface PricingView {
 		 * The card's one action. Only a catalog that states a price proves billing is
 		 * there, so only then does it promise a hosted render; a 503 means the studio
 		 * has no Cloud to choose, and the card says only that it opens the studio.
+		 * Either way it links to the studio's Cloud intent (`to`).
 		 */
-		readonly action: { readonly label: string; readonly hint: string };
+		readonly action: { readonly label: string; readonly hint: string; readonly to: string };
 	};
 	readonly table: {
 		readonly rows: readonly ComparisonRow[];
@@ -133,8 +135,8 @@ function creatorCard(price: CreatorPrice): PricingView["creator"] {
 		price,
 		adds: CREATOR_ADDS,
 		action: priced
-			? { label: "Start a hosted render", hint: "Opens the studio; choose Cloud under Where." }
-			: { label: "See Creator in the studio", hint: "Opens the studio." },
+			? { label: "Start a hosted render", hint: "Opens the studio on Cloud", to: CLOUD_INTENT_PATH }
+			: { label: "See Creator in the studio", hint: "Opens the studio", to: CLOUD_INTENT_PATH },
 	};
 }
 

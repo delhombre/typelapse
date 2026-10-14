@@ -99,10 +99,10 @@ function Plans({ view }: { view: PricingView }) {
 						))}
 					</ul>
 					{/* The first screen's one filled shape (DECISIONS D2): the pill holds its own
-					    "Open studio" back while these cards are in view. The sheet that sells
-					    Creator lives in the studio, under Where, until a deep link ships (#290). */}
+					    "Open studio" back while these cards are in view. It opens the studio on
+					    the sheet that sells Creator (the Cloud intent, #290). */}
 					<div className="pr-card-action">
-						<InkButton to="/app">{view.creator.action.label}</InkButton>
+						<InkButton to={view.creator.action.to}>{view.creator.action.label}</InkButton>
 						<p className="lp-micro">{view.creator.action.hint}</p>
 					</div>
 				</article>

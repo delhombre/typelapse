@@ -4,6 +4,7 @@ import { shikiAdapter } from "@/infrastructure/highlighting/highlighter";
 import { SceneInspector, StepBuilder } from "@/presentation/components/editor/step-builder";
 import { StudioEditor } from "@/presentation/components/editor/studio-editor";
 import { BillingReturnBoot } from "@/presentation/components/layout/billing-return-boot";
+import { CloudIntentBoot } from "@/presentation/components/layout/cloud-intent-boot";
 import { ImportIntentBoot } from "@/presentation/components/layout/import-intent-boot";
 import { ResponsiveShell } from "@/presentation/components/layout/responsive-shell";
 import { StudioBootGuard } from "@/presentation/components/layout/studio-boot-guard";
@@ -42,6 +43,7 @@ export function StudioRoute() {
 				<StudioCompositionBridge />
 				<ImportIntentBoot />
 				<BillingReturnBoot />
+				<CloudIntentBoot />
 				<ResponsiveShell
 					editor={<StudioEditor />}
 					sceneInspector={<SceneInspector />}
