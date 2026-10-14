@@ -41,9 +41,13 @@ const plan = (code: string) =>
 
 describe("a pasted minified line (#331)", () => {
 	it("tokenizes a 200,000-column line in under 200 ms", () => {
+		// One frame, no morph: the clock covers tokenization, which is what the cap
+		// bounds. Uncapped this is seconds, capped a few milliseconds, so 200 ms
+		// holds with room to spare on a loaded runner.
 		const started = performance.now();
-		plan(PASTED);
+		const [frame] = buildMagicMovePlan(highlighter, [PASTED], "typescript", "midnight", BG).frames;
 		expect(performance.now() - started).toBeLessThan(200);
+		expect(frame?.tokens).toHaveLength(1);
 	});
 
 	it("caps at the column, not before: one column short is still highlighted", () => {

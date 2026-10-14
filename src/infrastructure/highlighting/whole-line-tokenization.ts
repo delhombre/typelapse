@@ -1,5 +1,7 @@
 /**
- * The longest line, in columns, Shiki still tokenizes (#331). A card shows at most
+ * The longest line, in columns, Shiki still tokenizes (#331). Shiki counts UTF-16
+ * code units (`line.length`), not display cells, so a line of wide glyphs is cut
+ * at fewer cells than this. A card shows at most
  * `VISIBLE_COL_LIMIT` (648) columns and a frame is designed for 72, so a line
  * past this is data, not code (a minified bundle, a base64 blob): tokenizing it
  * is a cost with nothing to show for it. 2,000 columns is three times what any

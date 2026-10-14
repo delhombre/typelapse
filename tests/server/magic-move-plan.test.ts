@@ -100,9 +100,11 @@ describe("a pasted minified line (#331)", () => {
 		const unit = 'function f(a,b){return a.map(x=>x+b.c("s"))}var n=0;';
 		const pasted = unit.repeat(4_000);
 		const codes = ["const a = 1;", pasted];
+		// One frame, no morph: the clock covers tokenization, which the cap bounds.
 		const started = performance.now();
-		const server = buildServerMagicMovePlan(highlighter, codes, "typescript", "github-dark", BG);
+		buildServerMagicMovePlan(highlighter, [pasted], "typescript", "github-dark", BG);
 		expect(performance.now() - started).toBeLessThan(200);
+		const server = buildServerMagicMovePlan(highlighter, codes, "typescript", "github-dark", BG);
 		expect(server).toEqual(buildMagicMovePlan(highlighter, codes, "typescript", "midnight", BG));
 		// One token, in no colour of its own: the foreground, on every renderer.
 		expect(server.frames[1]?.tokens).toHaveLength(1);
