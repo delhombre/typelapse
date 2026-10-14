@@ -167,10 +167,43 @@ describe("canSyncKeys on the size of what differs", () => {
 			expect(canSyncKeys(source(lines.join("\n")), source(swapped.join("\n")))).toBe(true);
 		});
 
-		it("declines a full-file reindent: every line is new text, the diff has nothing to trim", () => {
+		it("keeps a full-file reindent: the lines are the same text under another margin", () => {
 			const lines = page(100);
 			const reindented = lines.map((text) => `  ${text}`).join("\n");
-			expect(canSyncKeys(source(lines.join("\n")), source(reindented))).toBe(false);
+			expect(canSyncKeys(source(lines.join("\n")), source(reindented))).toBe(true);
+			expect(canSyncKeys(source(reindented), source(lines.join("\n")))).toBe(true);
+		});
+
+		it("keeps the lines wrapped in a function: a new header, the body indented", () => {
+			const lines = page(100);
+			const wrapped = `export function build() {\n${lines.map((text) => `  ${text}`).join("\n")}\n}`;
+			expect(canSyncKeys(source(lines.join("\n")), source(wrapped))).toBe(true);
+		});
+
+		it("keeps an export prefix added to the first line, the rest untouched", () => {
+			const lines = page(100);
+			const exported = [`export ${lines[0]}`, ...lines.slice(1)].join("\n");
+			expect(canSyncKeys(source(lines.join("\n")), source(exported))).toBe(true);
+		});
+
+		it("still declines unrelated pages whatever their margins", () => {
+			const indent = (code: string) =>
+				code
+					.split("\n")
+					.map((text) => `    ${text}`)
+					.join("\n");
+			const [a, b] = [rows(UNIT_A, 40, 77), rows(UNIT_B, 40, 77)];
+			expect(canSyncKeys(source(indent(a)), source(b))).toBe(false);
+			expect(canSyncKeys(source(indent(a)), source(indent(b)))).toBe(false);
+		});
+
+		it("glides a full-file reindent in the plan, server alike", () => {
+			const lines = Array.from({ length: 100 }, (_, i) =>
+				`const value${i} = compute(${i}, ${i * 3});`.padEnd(72, " "),
+			);
+			const codes = [lines.join("\n"), lines.map((text) => `  ${text}`).join("\n")];
+			expect(sharedCount(client(codes, false).transitions[0])).toBeGreaterThan(100);
+			expect(server(codes, false)).toEqual(client(codes, false));
 		});
 
 		it("keeps the shared keys of the first and last line edited, in the plan, server alike", () => {

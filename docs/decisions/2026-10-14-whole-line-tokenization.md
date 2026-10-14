@@ -215,7 +215,9 @@ is more than `MAX_SYNCED_EDIT_CHARACTERS` (6,000, `whole-line-tokenization.ts`).
 Measured as a bag of lines: trim the common head and tail of the two codes, split
 each remaining middle into lines, match the lines of one against the other as a
 multiset, and sum the characters of the lines left over on both sides (an edited
-line counts on both, reordered lines count for nothing). O(n), deterministic. It
+line counts on both, reordered lines count for nothing). Lines are compared
+without their leading whitespace and counted without it, so a reindent or code
+wrapped in a block is the same lines under another margin. O(n), deterministic. It
 declines nothing when one side's middle is empty (a block appended or removed). The keyers,
 `planMagicMove` and the `canSync` contract are unchanged: the declined pair takes
 the #307 break path as in D3. Tokens-only (`code` and `tokens` of the two
@@ -253,7 +255,8 @@ columns alike. 6,000 keeps the worst pair under 80 ms.
 | one character inserted at the head and the tail of 203 x 72 | 290 (middle 29,638) | 20x under |
 | a rename every fourth line of 100 lines of 72 columns | 3,516 (middle 14,076) | 1.7x under |
 | the same 100 lines reordered | 0 (sync 61 to 82 ms) | syncs |
-| the same 100 lines of 72 columns, every line reindented by 2 spaces | 14,456 | declined |
+| the same 100 lines, every line reindented by 2 spaces | 0 (cost 13 ms a morph) | syncs |
+| the same lines wrapped in a function, body indented (203 lines) | 26 (cost 21 ms a morph) | syncs |
 | 100 rows of 300 columns, unrelated (the issue) | about 60,000 | declined |
 | 10 rows of 1,999 columns, unrelated (the issue) | about 40,000 | declined |
 
@@ -274,16 +277,14 @@ union (above); a bound on the smaller side's middle (replacing 30,000 characters
 cost model of the middle's similarity (a pasted table shares delimiters and still
 stalls, so it would rank the worst case as cheap).
 
-**Trade-off, accepted:** a page with more than 6,000 characters of lines the other
-side lacks (about 42 rows of 72 columns on each side, with unrelated text; fewer when the
+**Trade-off, accepted:** a rewrite of about 42 rows of 72 columns of unrelated text
+(more than 6,000 characters of lines the other side lacks; fewer rows when the
 changed lines are longer) fades out and in instead of gliding, whether or not the
-two sides share structure inside those lines and the diff would have been fast.
-The case that hurts is a full-file reindent: every line is new text to a bag of
-lines, so 100 lines of 72 columns reindented by two spaces are declined though the
-diff would match them. A 50-hunk diff page with every hunk edited (8,000 characters
-of edited lines, 4 ms) is declined for the same reason. Edits anywhere in a page,
-two edits at its ends, reordered lines, a scroll, a block appended or removed, and
-every fixture morph keep their keys.
+two sides share structure inside those lines and the diff would have been fast. A
+50-hunk diff page with every hunk edited (8,000 characters of edited lines, 4 ms) is
+declined for the same reason. Edits anywhere in a page, two edits at its ends,
+reordered lines, a reindent, code wrapped in a block, a scroll, a block appended or
+removed, and every fixture morph keep their keys.
 
 **Residual:** below the bound the diff still costs up to about 80 ms on text that
 shares nothing (a full-page rewrite), on top of tokenization. The bound is a
@@ -299,8 +300,8 @@ rebuild bound (about 2 s without the fix); the unit tests pin the boundary (at
 the bound syncs, one over declines; two unrelated pairs of about 6,000 declined
 and about 4,000 accepted, so a bound of 19,000 fails), the shared body (an edit
 beside 30,000 shared characters syncs), the overlap of head and tail, the
-appended or removed block, edits far apart (they sync), and the full-file reindent
-(declined). Make the rule count
+appended or removed block, edits far apart, the full-file reindent and the wrap in
+a function (they sync), and unrelated pages under any margin (declined). Make the rule count
 total characters and the shared-body case fails. The hono sha256 test and the
 templates' key-sharing test pin the ordinary morphs.
 
@@ -309,8 +310,14 @@ templates' key-sharing test pin the ordinary morphs.
 `tests/infrastructure/capped-sync.test.ts` (helper carries `code`); `CONTEXT.md`
 (Line cap); ticket #337.
 
-**Pivot:** "A reindented file must glide, not fade": compare lines with their
-leading whitespace trimmed in the bag. "A rewritten page must glide, not fade": raise the bound (8,000 costs
+**Taken after review:** the first bag compared lines exactly, which declined a
+full-file reindent (14,456 unmatched characters on 100 lines) and code wrapped in a
+function, both ordinary scenes of a walkthrough whose sync is cheap (13 to 28 ms
+a morph, 100 or 203 lines). The bag now trims each line's leading whitespace on
+both sides. An `export ` prefix on a line's text is not whitespace: added to every
+declaration of a page it counts those lines, as an edit does.
+
+**Pivot:** "A rewritten page must glide, not fade": raise the bound (8,000 costs
 100 to 157 ms on the worst pair, 10,000 up to 221) or give the diff a bounded
 algorithm of its own, which would also make a changed minified line glide (D3's
 stronger pivot).

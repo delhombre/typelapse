@@ -59,11 +59,14 @@ type Tokenization = { code: string; tokens: readonly { content: string }[] };
  * middle, shared or not, so the middle measures the distance between edits. What
  * the diff has to search is the text with no counterpart on the other side: the
  * lines of each middle that the other middle does not hold (a multiset of lines,
- * so a line held twice is matched twice). Reordered lines are all matched; an edited
- * line counts on both sides.
+ * so a line held twice is matched twice). Lines are compared without their leading
+ * whitespace: a reindent, or code wrapped in a block, is the same lines under
+ * another margin, and the diff matches them cheaply. Reordered lines are all
+ * matched; an edited line counts on both sides.
  *
  * `removed` and `added` are the middles' lengths; `unmatched` is the characters of
- * the lines left over on both sides, newlines excluded. O(n) in the codes.
+ * the lines left over on both sides, margins and newlines excluded. O(n) in the
+ * codes.
  */
 function difference(
 	from: string,
@@ -82,11 +85,12 @@ function difference(
 	const removed = middle(from);
 	const added = middle(to);
 	const held = new Map<string, number>();
-	for (const text of added.split("\n")) {
+	const lines = (code: string) => code.split("\n").map((text) => text.trimStart());
+	for (const text of lines(added)) {
 		held.set(text, (held.get(text) ?? 0) + 1);
 	}
 	let unmatched = 0;
-	for (const text of removed.split("\n")) {
+	for (const text of lines(removed)) {
 		const count = held.get(text) ?? 0;
 		if (count > 0) {
 			held.set(text, count - 1);
@@ -117,11 +121,10 @@ function difference(
  * - More than `MAX_SYNCED_EDIT_CHARACTERS` of text with no counterpart (#337):
  *   large pairs of lines under the cap, a pasted table or log across two steps.
  *   The length of the codes does not count, nor the distance between two edits:
- *   only the lines of each side that the other lacks, once the common head and
- *   tail go. An edit in a long page, two edits at its ends, and lines reordered
- *   still glide. A full-file reindent changes every line and is declined. A block
- *   only one side holds (a paste appended, a section removed) is not a reason
- *   either.
+ *   only the lines of each side that the other lacks (margins aside), once the
+ *   common head and tail go. An edit in a long page, two edits at its ends, lines
+ *   reordered, a reindent and code wrapped in a block still glide. A block only one
+ *   side holds (a paste appended, a section removed) is not a reason either.
  */
 export function canSyncKeys<T extends Tokenization>(from: T, to: T): boolean {
 	const cappedLines = (source: Tokenization) =>
