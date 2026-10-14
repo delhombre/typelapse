@@ -1,12 +1,12 @@
 name: CI
 
 on:
+  # The default types (opened, synchronize, reopened), and no `labeled` (#340): a
+  # label would re-run the whole gate (about 11 billed minutes) and replace the run
+  # in flight. The `hosted` label is read at the next push, so add `hosted` before
+  # pushing, or re-run the workflow from the Actions tab (the "What runs after the
+  # gate" step reads the pull request's labels live, not the event's copy).
   pull_request:
-    # The default three plus `labeled`, for the `hosted` label (below). Any label
-    # runs the whole workflow again, the gate included, and the concurrency group
-    # then replaces the run in flight: give a pull request its labels together,
-    # and once, rather than one by one between pushes.
-    types: [opened, synchronize, reopened, labeled]
   # No `push` trigger on main (#340). A merge lands the head the gate already
   # passed (`gh pr merge --match-head-commit`, on a branch that carries
   # origin/main), so a run on main replayed 14 billed minutes on the same code.
@@ -93,16 +93,18 @@ jobs:
       # both names, so a move out of src/ into docs/ is not docs only). The
       # filter is named for what it finds, a file that is NOT a document, hence
       # `every` over negated patterns: a file matches when no pattern excludes
-      # it, and `non_docs` is true when at least one file does.
+      # it, and `non_docs` is true when at least one file does. A document is a
+      # Markdown file; `docs/**/*.json` (a fixture a test reads) and
+      # `.craft/verify.sh` (the gate itself) are code and take the full path.
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: non_docs
         with:
           predicate-quantifier: every
           filters: |
             non_docs:
-              - '!docs/**'
+              - '!docs/**/*.md'
               - '!**/*.md'
-              - '!.craft/**'
+              - '!.craft/**/*.md'
               - '!CONTEXT.md'
               - '!CLAUDE.md'
               - '!AGENTS.md'
@@ -116,7 +118,12 @@ jobs:
         env:
           NON_DOCS: ${{ steps.non_docs.outputs.non_docs }}
           HOSTED_PATHS: ${{ steps.hosted_paths.outputs.hosted }}
+          # The event's copy of the labels is stale on a re-run, so the live list
+          # is asked for too; a failed lookup only leaves the event's copy.
           LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'hosted') }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
         run: |
           docs_only=false
           hosted=false
@@ -126,6 +133,9 @@ jobs:
             docs_only=true
           elif [ "$HOSTED_PATHS" = true ]; then
             hosted=true
+          fi
+          if gh pr view "$PR" --repo "$REPO" --json labels --jq '.labels[].name' 2>/dev/null | grep -qx hosted; then
+            LABELLED=true
           fi
           if [ "$LABELLED" = true ]; then
             hosted=true
@@ -147,10 +157,11 @@ jobs:
         run: pnpm lint
 
       # Docs only (#340): lint above and the tests that read the documents are
-      # the whole gate. The job still reports success under its required name.
+      # the whole gate (tests/cli/action.test.ts reads README.md). The job still
+      # reports success under its required name.
       - name: Document tests
         if: steps.changes.outputs.docs_only == 'true'
-        run: pnpm vitest run tests/docs
+        run: pnpm vitest run tests/docs tests/cli/action.test.ts
 
       - name: Typecheck client
         if: steps.changes.outputs.docs_only != 'true'

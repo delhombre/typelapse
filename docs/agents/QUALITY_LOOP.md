@@ -163,8 +163,9 @@ which is nearly every code pull request and made 13 billed minutes the price of 
 push; #340 reverses that, cost over coverage. What it does not name is caught by
 the nightly, and by the deploy's release gate (`hosted:check`). A builder who
 knows a change can reach the hosted side anyway (a shared type the server imports,
-a dependency bump) puts the `hosted` label on the pull request, once, with its
-other labels: any label runs CI again, and the run in flight is replaced.
+a dependency bump) puts the `hosted` label on the pull request before pushing (or
+re-runs the workflow from the Actions tab afterwards): CI reads the labels at each
+push, and a label alone does not run it, since a run costs about 11 billed minutes.
 
 The ruleset requires **"Quality gate"** and nothing else, and the journeys are not a
 required check. A "Hosted gate" job (a requirable name that always ran, failed
@@ -201,6 +202,12 @@ nightly, not per merge: 12 runs on 2026-10-14 for 5 billed minutes each, to put
 on staging what the next merge replaces. Merge the wave, then dispatch it once
 against `main`. There is no scheduled deploy; the owner or the orchestrator
 dispatches it.
+
+A pull request whose every changed file is a document (a Markdown file anywhere,
+`CONTEXT.md`, `CLAUDE.md`, `AGENTS.md`) runs lint, `tests/docs` and
+`tests/cli/action.test.ts` (it reads `README.md`), and skips the rest of the Quality
+gate, which still reports success under its name. `docs/**/*.json` (a fixture a test
+reads) and `.craft/verify.sh` (the gate itself) are code and take the full path.
 
 A change a person can see (a screen, a control, a sentence, an export, a public
 page) adds an entry to `src/application/changelog/entries.ts` in the same pull
