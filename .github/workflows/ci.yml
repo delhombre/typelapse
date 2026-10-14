@@ -43,6 +43,7 @@ jobs:
       pull-requests: read
 
     outputs:
+      docs_only: ${{ steps.changes.outputs.docs_only }}
       hosted: ${{ steps.changes.outputs.hosted }}
 
     steps:
@@ -89,18 +90,45 @@ jobs:
               - '.github/workflows/hosted-e2e.yml'
               - '.github/workflows/ci.yml'
 
-      # Two filters cannot make one output, so this step does.
+      # Docs only: every changed file is a document (a renamed file counts under
+      # both names, so a move out of src/ into docs/ is not docs only). The
+      # filter is named for what it finds, a file that is NOT a document, hence
+      # `every` over negated patterns: a file matches when no pattern excludes
+      # it, and `code` is true when at least one file does.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: code
+        with:
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '!docs/**'
+              - '!**/*.md'
+              - '!.craft/**'
+              - '!CONTEXT.md'
+              - '!CLAUDE.md'
+              - '!AGENTS.md'
+
+      # Two filters cannot make one output, so this step does. A pull request
+      # that only changes documents cannot reach the hosted journeys, even a
+      # README inside tests/e2e/hosted/.
       - name: What runs after the gate
         id: changes
         env:
+          CODE: ${{ steps.code.outputs.code }}
           SRC: ${{ steps.src.outputs.src }}
           REST: ${{ steps.rest.outputs.rest }}
         run: |
-          if [ "$SRC" = true ] || [ "$REST" = true ]; then
-            echo "hosted=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "hosted=false" >> "$GITHUB_OUTPUT"
+          docs_only=false
+          hosted=false
+          # Docs only on an explicit "false" and nothing else: an empty output
+          # (a filter that did not report) must run the whole gate, not skip it.
+          if [ "$CODE" = false ]; then
+            docs_only=true
+          elif [ "$SRC" = true ] || [ "$REST" = true ]; then
+            hosted=true
           fi
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+          echo "hosted=$hosted" >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v6
 
@@ -115,13 +143,22 @@ jobs:
       - name: Lint and format
         run: pnpm lint
 
+      # Docs only (#340): lint above and the tests that read the documents are
+      # the whole gate. The job still reports success under its required name.
+      - name: Document tests
+        if: steps.changes.outputs.docs_only == 'true'
+        run: pnpm vitest run tests/docs
+
       - name: Typecheck client
+        if: steps.changes.outputs.docs_only != 'true'
         run: pnpm check-types
 
       - name: Typecheck server
+        if: steps.changes.outputs.docs_only != 'true'
         run: pnpm typecheck:server
 
       - name: Test
+        if: steps.changes.outputs.docs_only != 'true'
         run: pnpm test
 
       # Vitest, tsc and vite build all passed while every Remotion render on
@@ -134,6 +171,7 @@ jobs:
       # headless Chrome on the first render. The last line printed is ffprobe's
       # summary of the clip.
       - name: Remember Remotion's browser
+        if: steps.changes.outputs.docs_only != 'true'
         id: remotion
         run: echo "version=$(node -p "require('@remotion/renderer/package.json').version")" >> "$GITHUB_OUTPUT"
 
@@ -141,11 +179,13 @@ jobs:
       # 100 MB) into node_modules/.remotion, and a failed download would turn
       # this required check red for a reason that is not the code.
       - uses: actions/cache@v6
+        if: steps.changes.outputs.docs_only != 'true'
         with:
           path: node_modules/.remotion
           key: typelapse-remotion-${{ runner.os }}-${{ runner.arch }}-${{ steps.remotion.outputs.version }}
 
       - name: Render a clip through Remotion
+        if: steps.changes.outputs.docs_only != 'true'
         run: pnpm render:smoke
 
       # Every tests/**/*.contract.test.ts, found by its name so a new one runs
@@ -157,11 +197,13 @@ jobs:
       # applied them on its own, and two that met an empty database together
       # failed on the same CREATE TABLE.
       - name: Contract tests (PostgreSQL)
+        if: steps.changes.outputs.docs_only != 'true'
         env:
           TYPELAPSE_TEST_DATABASE_URL: postgres://postgres:typelapse@127.0.0.1:54381/typelapse
         run: pnpm exec vitest run .contract.test.
 
       - name: Build
+        if: steps.changes.outputs.docs_only != 'true'
         env:
           # vite build with Monaco bundled peaks near 4.5 GB of resident
           # memory; Node's default heap on a 7 GB runner sits below that and
@@ -181,12 +223,15 @@ jobs:
       # build made with the same config and the same environment.
       # The export journeys check the downloaded files with ffprobe and ffmpeg.
       - name: Install ffmpeg
+        if: steps.changes.outputs.docs_only != 'true'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
 
       - name: Install Chromium
+        if: steps.changes.outputs.docs_only != 'true'
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Smoke journeys
+        if: steps.changes.outputs.docs_only != 'true'
         id: smoke
         env:
           E2E_OUT_DIR: dist
