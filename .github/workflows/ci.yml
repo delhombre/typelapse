@@ -36,8 +36,71 @@ jobs:
           --health-timeout 5s
           --health-retries 12
 
+    # What the paths filter below reads: the pull request's file list, through
+    # the API.
+    permissions:
+      contents: read
+      pull-requests: read
+
+    outputs:
+      hosted: ${{ steps.changes.outputs.hosted }}
+
     steps:
       - uses: actions/checkout@v7
+
+      # Which pull requests can change what the hosted journeys see. A step of
+      # this job and not a job of its own (#340): the job cost a whole billed
+      # minute to run a 3 second step. Not a `paths:` filter on the workflow
+      # either: that would skip the whole of CI on a landing-only pull request,
+      # and the Quality gate must report on every pull request because the
+      # ruleset requires it by name.
+      #
+      # The server imports most of src/ and the journeys drive the studio, so the
+      # filter is everything under src/ except the landing page, plus the server, the
+      # CLI the Action runs, the harness and the build inputs. Two steps because
+      # `every` (src/** and not landing) and `some` (any of the rest) cannot share a
+      # list: a lone negated pattern would match every file that is not the landing.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: src
+        with:
+          predicate-quantifier: every
+          filters: |
+            src:
+              - 'src/**'
+              - '!src/presentation/landing/**'
+
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: rest
+        with:
+          filters: |
+            rest:
+              - 'server/**'
+              - 'cli/**'
+              - 'scripts/**'
+              - 'action.yml'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'vite.config.ts'
+              - 'playwright.config.ts'
+              - 'tests/e2e/hosted/**'
+              - 'tests/e2e/support/**'
+              - 'tests/e2e/mobile-shell.spec.ts'
+              - 'tests/support/fake-polar.ts'
+              - '.github/workflows/hosted-e2e.yml'
+              - '.github/workflows/ci.yml'
+
+      # Two filters cannot make one output, so this step does.
+      - name: What runs after the gate
+        id: changes
+        env:
+          SRC: ${{ steps.src.outputs.src }}
+          REST: ${{ steps.rest.outputs.rest }}
+        run: |
+          if [ "$SRC" = true ] || [ "$REST" = true ]; then
+            echo "hosted=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "hosted=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: pnpm/action-setup@v6
 
@@ -141,89 +204,21 @@ jobs:
             playwright-report/
           retention-days: 14
 
-  # Which pull requests can change what the hosted journeys see. Not a `paths:`
-  # filter on the workflow: that would skip the whole of CI on a landing-only
-  # pull request, and the Quality gate must report on every pull request because
-  # the ruleset requires it by name.
-  #
-  # The server imports most of src/ and the journeys drive the studio, so the
-  # filter is everything under src/ except the landing page, plus the server, the
-  # CLI the Action runs, the harness and the build inputs. Two steps because
-  # `every` (src/** and not landing) and `some` (any of the rest) cannot share a
-  # list: a lone negated pattern would match every file that is not the landing.
-  changes:
-    name: Changed paths
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: github.event_name == 'pull_request'
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      hosted: ${{ steps.src.outputs.src == 'true' || steps.rest.outputs.rest == 'true' }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        id: src
-        with:
-          predicate-quantifier: every
-          filters: |
-            src:
-              - 'src/**'
-              - '!src/presentation/landing/**'
-
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        id: rest
-        with:
-          filters: |
-            rest:
-              - 'server/**'
-              - 'cli/**'
-              - 'scripts/**'
-              - 'action.yml'
-              - 'package.json'
-              - 'pnpm-lock.yaml'
-              - 'vite.config.ts'
-              - 'playwright.config.ts'
-              - 'tests/e2e/hosted/**'
-              - 'tests/e2e/support/**'
-              - 'tests/e2e/mobile-shell.spec.ts'
-              - 'tests/support/fake-polar.ts'
-              - '.github/workflows/hosted-e2e.yml'
-              - '.github/workflows/ci.yml'
-
   # The hosted journeys, on the pull requests that can break them (#302: #279
-  # merged green and the break went unseen for hours). Not a required check by
-  # itself: see "Hosted gate" below.
+  # merged green and the break went unseen for hours). Not a required check:
+  # the ruleset requires "Quality gate" only. The journeys' own check is named
+  # "Hosted journeys / Hosted journeys" when it runs and plain "Hosted journeys"
+  # when it is skipped, so requiring either name would leave every pull request
+  # that skips it waiting forever. The "Hosted gate" job that made a requirable
+  # name out of it is gone (#340: three more billed minutes on every push for a
+  # check nobody requires); it comes back the day #302 requires it.
+  #
+  # `needs: quality-gate` is the saving: a red gate never spends the 13 minutes.
   hosted-e2e:
     name: Hosted journeys
-    needs: changes
-    if: needs.changes.outputs.hosted == 'true'
+    needs: quality-gate
+    if: needs.quality-gate.outputs.hosted == 'true'
     uses: ./.github/workflows/hosted-e2e.yml
-
-  # The one check to require once the job has been green for a week. The
-  # journeys' own check is named "Hosted journeys / Hosted journeys" when it runs
-  # and plain "Hosted journeys" when it is skipped, so requiring either name
-  # would leave every pull request that skips it waiting forever. This job always
-  # runs, fails when the journeys failed (or were cancelled), and passes when
-  # they passed or were skipped.
-  hosted-gate:
-    name: Hosted gate
-    needs: [changes, hosted-e2e]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Fail when the hosted journeys did not pass
-        env:
-          CHANGES: ${{ needs.changes.result }}
-          JOURNEYS: ${{ needs.hosted-e2e.result }}
-        run: |
-          echo "changes: $CHANGES, journeys: $JOURNEYS"
-          case "$CHANGES $JOURNEYS" in
-            *failure* | *cancelled*) exit 1 ;;
-          esac
 
   audit:
     name: Advisories

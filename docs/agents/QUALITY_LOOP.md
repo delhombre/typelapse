@@ -150,17 +150,21 @@ the pull-request subset), so it runs again on every push and every night.
 The hosted journeys (`pnpm e2e:hosted`, `tests/e2e/hosted/`) are part of the gate
 for any change that can reach them: everything under `src/` except
 `src/presentation/landing/`, `server/`, `cli/`, `scripts/`, `action.yml`,
-`package.json`, `vite.config.ts` and `tests/e2e/hosted/` (the exact list is the
-`changes` job in `ci.yml`). CI runs them as the "Hosted journeys" job on such pull
-requests (`hosted-e2e.yml`, called from `ci.yml`) and every night on `main`
-(`e2e-nightly.yml`). Locally, `tests/e2e/hosted/services.sh up` then
-`pnpm e2e:hosted`. They are not a required check yet. Once they have been green
-for a week, require **"Hosted gate"** (a job of `ci.yml`) next to "Quality gate"
-in the `main` ruleset, never "Hosted journeys": that check is named differently
-when it runs ("Hosted journeys / Hosted journeys") and when its path filter skips
-it ("Hosted journeys"), so requiring it would hang every skipping pull request.
-"Hosted gate" always runs, fails when the journeys fail, and passes when they
-pass or are skipped.
+`package.json`, `vite.config.ts` and `tests/e2e/hosted/` (the exact list is the paths filter,
+the first steps of the `Quality gate` job in `ci.yml`). CI runs them as the "Hosted
+journeys" job on such pull requests (`hosted-e2e.yml`, called from `ci.yml`, after
+the Quality gate passed) and every night on `main` (`e2e-nightly.yml`). Locally,
+`tests/e2e/hosted/services.sh up` then `pnpm e2e:hosted`.
+
+The ruleset requires **"Quality gate"** and nothing else, and the journeys are not a
+required check. A "Hosted gate" job (a requirable name that always ran, failed
+when the journeys failed and passed when they passed or were skipped) existed for
+the day they would be; it cost a billed minute on every push for a check nobody
+required, so #340 removed it. It comes back the day #302 requires the journeys:
+restore it from the history of `ci.yml`, then require "Hosted gate" next to
+"Quality gate" in the `main` ruleset, never "Hosted journeys" (that check is named
+"Hosted journeys / Hosted journeys" when it runs and "Hosted journeys" when its
+`if` skips it, so requiring either would hang every skipping pull request).
 
 **Pass:** the report names what was observed, with the command and the file,
 the spec that now replays it, and what could not be verified and why.
