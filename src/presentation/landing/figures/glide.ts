@@ -55,48 +55,26 @@ const smooth = (t: number) => t * t * (3 - 2 * t);
 /** A token's place on the grid: [row, col, length]. */
 type Cell = [number, number, number];
 
-/** Each token: its cell in the first frame and in the second, or null where it does not exist. */
-const TOKENS: [Cell | null, Cell | null][] = [
-	[
-		[0, 0, 6],
-		[0, 0, 6],
-	],
-	[
-		[0, 7, 14],
-		[0, 7, 14],
-	],
-	[
-		[1, 0, 8],
-		[4, 0, 8],
-	],
-	[
-		[1, 9, 9],
-		[4, 9, 9],
-	],
-	[
-		[2, 2, 9],
-		[2, 2, 9],
-	],
-	[
-		[2, 12, 10],
-		[2, 12, 10],
-	],
-	[
-		[3, 2, 6],
-		[3, 2, 6],
-	],
-	[[3, 9, 11], null],
-	[null, [1, 0, 8]],
-	[null, [1, 9, 8]],
-	[null, [3, 9, 5]],
-	[
-		[4, 2, 7],
-		[5, 2, 7],
-	],
-	[
-		[4, 10, 8],
-		[5, 10, 6],
-	],
+/** A token and its cell in each frame, null where it does not exist there. */
+const tok = (a: Cell | null, b: Cell | null): [Cell | null, Cell | null] => [a, b];
+/** A token that keeps its cell: it only waits its turn. */
+const stay = (...c: Cell) => tok(c, c);
+
+/** Every token of the file, as it is in the first frame and in the second. */
+const TOKENS = [
+	stay(0, 0, 6),
+	stay(0, 7, 14),
+	tok([1, 0, 8], [4, 0, 8]),
+	tok([1, 9, 9], [4, 9, 9]),
+	stay(2, 2, 9),
+	stay(2, 12, 10),
+	stay(3, 2, 6),
+	tok([3, 9, 11], null),
+	tok(null, [1, 0, 8]),
+	tok(null, [1, 9, 8]),
+	tok(null, [3, 9, 5]),
+	tok([4, 2, 7], [5, 2, 7]),
+	tok([4, 10, 8], [5, 10, 6]),
 ];
 const X0 = 10;
 const Y0 = TOP + 1.6;
