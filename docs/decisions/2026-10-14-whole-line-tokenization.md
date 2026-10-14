@@ -15,6 +15,8 @@ Measured before deciding (TypeScript, github-dark, idle machine, limit off): a
 flowchart TD
   D1["D1 One option, time limit off, everywhere a frame is tokenized"] --> R["Residual: a very long line is unbounded"]
   R --> D2["D2 Line cap, and Shiki's empty colour normalised in the plan (#331)"]
+  D2 --> R2["Residual: syncing two capped lines costs a second a morph"]
+  R2 --> D3["D3 A pair holding a capped token is a scene break, not a sync (#335)"]
 ```
 
 ## D1 One option, time limit off, everywhere a frame is tokenized
@@ -116,3 +118,62 @@ design, since the DOM inherited already.
 `CONTEXT.md` (Line cap); tests in `tests/infrastructure/capped-line.test.tsx`,
 `tests/application/magic-move-plan.test.ts`, `tests/server/magic-move-plan.test.ts`,
 `tests/infrastructure/shiki-adapter.test.ts`; ticket #331.
+
+## D3 A pair holding a capped token is a scene break, not a sync
+
+**Decision:** `PlanKeyer` (`src/application/magic-move/plan.ts`) gets an optional
+`canSync(from, to)`. `planMagicMove` asks it after tokenizing a morph's two codes;
+a pair it declines is planned by `sceneBreak` (#307), the same path a chapter
+break takes: each side laid out in its own window with keys only it holds, every old
+token fading out and every new one in. Both keyers pass `canSyncKeys`
+(`whole-line-tokenization.ts`): false when either side has a token of
+`MAX_TOKENIZED_LINE_COLUMNS` or more, which is a capped line, since a token cannot
+be that long otherwise. The loop's last-to-first morph goes through the same check.
+
+**Why:** the sync of D2's Residual was measured in the #334 review and again here
+(idle machine, TypeScript, two unrelated lines, loop on): `syncTokenKeys` hands
+two codes to diff-match-patch, whose timeout is one second of wall clock, and on
+lines it cannot match it spends all of it. 2 morphs (2 steps with the loop) took
+2.06 s at 200,000 columns, and 100 capped lines of 5,000 columns over 2 steps
+2.14 s; the plan is rebuilt on every keystroke, so each was a freeze of that
+length on the studio's main thread. A capped line has nothing for the diff to find
+(one token of data, drawn in the foreground, D2), and the timeout also makes the
+diff a function of the clock, not of the code: a cut diff is coarser, so the same
+project could plan differently on a loaded render node, the mismatch D1 removed
+for tokenization. Declining the pair costs nothing, is deterministic, and is the
+same decision on the client and the server because it reads only the tokens.
+After: the same two cases plan in 17 to 39 ms (studio and server); the hono pull request's plan hashes
+the same (sha256 `a4e4cca0...2bff`, studio and server alike).
+
+**Rejected:** caching the sync per (fromCode, toCode) pair in the keyers (b): it
+leaves the first plan, and every plan after an edit of either code, at a second a
+morph; it needs a cache in the server's keyer, which has none; and a timed-out diff
+would be cached with its clock-dependent result. Skipping inside `syncTokenKeys`
+or patching `diff-match-patch`'s timeout: a dependency's internals, and a smaller
+timeout makes the clock-dependence worse. A rule on the pair's total length instead
+of capped tokens: it would also decline edits of ordinary code that happen to be
+long, which morph well.
+
+**Trade-off, accepted:** a capped line edited by one character used to glide
+(when the diff finished) and now fades out and in. A line past 2,000 columns is
+one unhighlighted token that nobody reads at the card's size.
+
+**Residual:** the cost is bounded by the cap only for capped lines. Uncapped but
+large pairs hit the same timeout: 10 unrelated rows of 1,999 columns plan in
+1.26 s, 100 unrelated rows of 300 columns in 1.43 s (the window is
+`VISIBLE_ROW_LIMIT` rows; a real code of that size is rare, but a pasted table or
+data file qualifies). A bound on the pair's total size would cover it; it needs a
+threshold that does not decline ordinary morphs, so it is left to a measured ticket.
+
+**Proof:** drop `canSync` from the two keyers and
+`tests/infrastructure/capped-sync.test.ts` fails on its 100 ms bounds (studio and
+server, 2 s), on the break shape, and the 100-row case; drop the check in
+`planMagicMove` and `tests/application/magic-move-plan.test.ts` fails on a sync
+that must not run. A pair with no capped token still syncs (same file, and the
+unchanged hono plans in `tests/server/magic-move-plan.test.ts`).
+
+**Impact:** `application/magic-move/plan.ts` (`PlanKeyer.canSync`),
+`whole-line-tokenization.ts` (`canSyncKeys`), `magic-move-keyer.ts`,
+`server/remotion/magic-move-plan.ts`; tests in
+`tests/infrastructure/capped-sync.test.ts`, `tests/application/magic-move-plan.test.ts`;
+ticket #335.

@@ -96,6 +96,8 @@ terms so issues, specs, tests and code use the same ones.
   line instead of freezing the studio (a line just under the cap takes about
   25 ms). The accepted trade-off: a card shows at most `VISIBLE_COL_LIMIT` (648)
   columns, and those columns of a line over the cap lose their highlighting.
+  A morph between two codes holding such a line is planned as a scene break (the
+  sync would cost a second, #335): the line fades out and in rather than glides.
 - **Scene break**: the transition into a step that shares nothing with the
   one before it: the first frame of every page after the first
   (`application/diff/snapshots`), of every chapter after the first

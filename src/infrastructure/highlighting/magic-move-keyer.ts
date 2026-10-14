@@ -5,7 +5,7 @@ import type { BundledLanguage, Highlighter } from "shiki";
 import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
 import type { KeyedTokensInfo } from "shiki-magic-move/types";
 import { resolveShikiLanguage, resolveShikiTheme } from "./shiki-registry";
-import { WHOLE_LINE_TOKENIZATION } from "./whole-line-tokenization";
+import { WHOLE_LINE_TOKENIZATION, canSyncKeys } from "./whole-line-tokenization";
 
 export type { MagicMovePlan } from "@/application/magic-move/engine";
 
@@ -87,6 +87,7 @@ export function buildMagicMovePlan(
 		{
 			tokenize: (code) => tokenizeOnce(highlighter, code, options),
 			sync: (from, to) => syncTokenKeys(from, to, diffOptions),
+			canSync: canSyncKeys,
 		},
 		themeBackground,
 		loop,

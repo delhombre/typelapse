@@ -108,6 +108,33 @@ describe("planMagicMove", () => {
 		}
 	});
 
+	it("plans a pair its keyer declines to sync as a scene break, and never syncs it (#335)", () => {
+		const { keyer } = fakeKeyer();
+		const synced: string[] = [];
+		const declining: PlanKeyer<FakeSource> = {
+			...keyer,
+			sync: (from, to) => {
+				synced.push(`${from.code}>${to.code}`);
+				return keyer.sync(from, to);
+			},
+			canSync: (from, to) => !from.code.includes("huge") && !to.code.includes("huge"),
+		};
+		const plan = planMagicMove(
+			["alpha beta", "huge beta", "huge beta gamma"],
+			declining,
+			"#0d1117",
+		);
+		// "huge" is on one side of the first pair and both of the second: neither syncs.
+		expect(synced).toEqual([]);
+		for (const transition of plan.transitions) {
+			const out = new Set(transition.from.map((token) => token.key));
+			expect(transition.to.filter((token) => out.has(token.key))).toEqual([]);
+		}
+		// A pair it accepts still syncs.
+		planMagicMove(["alpha beta", "gamma beta"], declining, "#0d1117");
+		expect(synced).toEqual(["alpha beta>gamma beta"]);
+	});
+
 	it("tokenizes each distinct code once per build", () => {
 		const { keyer, tokenized } = fakeKeyer();
 		const a = lines(4);

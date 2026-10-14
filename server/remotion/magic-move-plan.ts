@@ -3,7 +3,7 @@ import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
 import type { MagicMovePlan } from "../../src/application/magic-move/engine";
 import { planMagicMove } from "../../src/application/magic-move/plan";
 import { keepGlyphsWhole } from "../../src/application/magic-move/whole-glyph-diff";
-import { WHOLE_LINE_TOKENIZATION } from "../../src/infrastructure/highlighting/whole-line-tokenization";
+import { WHOLE_LINE_TOKENIZATION, canSyncKeys } from "../../src/infrastructure/highlighting/whole-line-tokenization";
 
 /**
  * Server twin of the client magic-move keyer: the same plan walk
@@ -40,6 +40,7 @@ export function buildServerMagicMovePlan(
 		{
 			tokenize: (code) => codeToKeyedTokens(highlighter, code, options, false),
 			sync: (from, to) => syncTokenKeys(from, to, diffOptions),
+			canSync: canSyncKeys,
 		},
 		themeBackground,
 		loop,

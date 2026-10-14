@@ -33,3 +33,21 @@ export const WHOLE_LINE_TOKENIZATION = {
 	tokenizeTimeLimit: 0,
 	tokenizeMaxLineLength: MAX_TOKENIZED_LINE_COLUMNS,
 } as const;
+
+type Tokenization = { tokens: readonly { content: string }[] };
+
+/**
+ * Whether the keys of two tokenizations are worth syncing (#335). `syncTokenKeys`
+ * diffs the two codes through diff-match-patch, which stops after a second of wall
+ * clock: on lines it cannot match, 200,000 columns or 20,000 alike, a morph costs
+ * that whole second, on every plan rebuild. A capped line (one token at or past
+ * `MAX_TOKENIZED_LINE_COLUMNS`, the only way a token gets that long) is data
+ * the diff has nothing to say about, and a diff cut by the clock is not a function
+ * of the code either, so a pair holding one is planned as a scene break (#307):
+ * nothing is matched, every old token fades out and every new one fades in.
+ */
+export function canSyncKeys<T extends Tokenization>(from: T, to: T): boolean {
+	const capped = (source: Tokenization) =>
+		source.tokens.some((token) => token.content.length >= MAX_TOKENIZED_LINE_COLUMNS);
+	return !capped(from) && !capped(to);
+}
