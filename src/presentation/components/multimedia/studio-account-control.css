@@ -309,11 +309,16 @@
 .mm-account-plan-card > div:first-child,
 .mm-account-plan-heading {
 	display: flex;
-	/* The right-hand note shares the first baseline of "Current plan", not the middle
-	   of the two-line block beside it (it sat 9px low at 390). */
-	align-items: baseline;
+	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
+}
+
+/* Free's note shares the first baseline of "Current plan", not the middle of the
+   two-line block beside it (it sat 9px low at 390). Only this heading: the paid and
+   past-due cards keep the centred row. */
+.mm-account-plan-heading {
+	align-items: baseline;
 }
 
 .mm-account-plan-card span {

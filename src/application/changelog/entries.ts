@@ -22,12 +22,12 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
 		date: "2026-10-14",
 		title: "A link that opens Cloud in the studio",
 		summary:
-			"/app#cloud opens the hosted render sheet for your account, or picks Cloud for you on Creator, and the pricing page's Creator action uses it.",
+			"The /app#cloud link opens the hosted render sheet, and the pricing page's Creator action uses it.",
 	},
 	{
 		id: "scene-breaks",
 		date: "2026-10-14",
-		title: "A new scene fades in instead of morphing",
+		title: "A new page of an import fades in instead of morphing",
 		summary:
 			"A new page or chapter of an import fades over the last one, and code you edit inside a scene still morphs token by token.",
 	},
@@ -36,7 +36,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
 		date: "2026-10-13",
 		title: "A long diff ends on a marker and a notice",
 		summary:
-			"A diff with more scenes than a short clip holds keeps its first scenes, and the last one and a notice say how many were left out.",
+			'A diff with more scenes than a short clip holds keeps its first ones, ends on "⋯ n more scenes", and the import notice gives the count.',
 	},
 	{
 		id: "account-sheet",

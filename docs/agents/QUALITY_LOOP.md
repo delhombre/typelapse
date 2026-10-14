@@ -180,11 +180,14 @@ request: newest first, a permanent id, the day it ships, a one-line title and on
 plain sentence (DECISIONS D13). The What's new card shows the latest three, so a
 change with no entry leaves it stale, as it was after #289 to #312. The reviewer
 checks it with the diff, and a change with nothing to see (a refactor, a test, a
-gate, a doc) says so in the table below instead of adding one.
+gate, a doc) says so in the table below instead of adding one. The threshold: a new
+screen, control, sentence, export or public page is an entry; a pixel alignment, a
+spacing or a colour fix is not.
 
 ### PR body
 
-Every pull request body, whoever writes it, has these parts in this order:
+Every pull request body, whoever writes it, has these parts in this order. Builders
+read their brief, not this file, so the orchestrator's builder briefs point here.
 
 1. **What**: two or three sentences, and the decision log it points to.
 2. **Conformance**: one row per requirement of the ticket (its criteria, the
