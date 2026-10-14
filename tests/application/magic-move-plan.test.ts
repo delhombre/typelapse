@@ -89,6 +89,25 @@ describe("planMagicMove", () => {
 		}
 	});
 
+	it("plans a token with Shiki's empty colour as one with no colour (#331)", () => {
+		// Shiki returns a line past `tokenizeMaxLineLength` as one token coloured "".
+		const keyer: PlanKeyer<FakeSource> = {
+			tokenize: (code) => ({ code, tokens: [{ key: "a", content: code, offset: 0, color: "" }] }),
+			sync: (from, to) => ({ from, to }),
+		};
+		const plan = planMagicMove(["minified", "minified;"], keyer, "#0d1117", true);
+		const planned = [
+			...plan.frames.flatMap((frame) => frame.tokens),
+			...plan.transitions.flatMap((transition) => [...transition.from, ...transition.to]),
+			...(plan.loopTransition ? [...plan.loopTransition.from, ...plan.loopTransition.to] : []),
+			...(plan.typing ?? []),
+		];
+		expect(planned.length).toBeGreaterThan(0);
+		for (const token of planned) {
+			expect(token.color).toBeUndefined();
+		}
+	});
+
 	it("tokenizes each distinct code once per build", () => {
 		const { keyer, tokenized } = fakeKeyer();
 		const a = lines(4);

@@ -1,5 +1,17 @@
 /**
- * The Shiki option every tokenization behind a frame passes: the studio's keyer,
+ * The longest line, in columns, Shiki still tokenizes (#331). A card shows at most
+ * `VISIBLE_COL_LIMIT` (648) columns and a frame is designed for 72, so a line
+ * past this is data, not code (a minified bundle, a base64 blob): tokenizing it
+ * is a cost with nothing to show for it. 2,000 columns is three times what any
+ * canvas can show, and tokenizes in about 25 ms where a 200,000-column line took
+ * 10 s, frozen on the studio's main thread. A line at or past it comes back from
+ * Shiki as one token, in the theme foreground (the plan walk in
+ * `application/magic-move/plan.ts` turns Shiki's empty colour into no colour).
+ */
+export const MAX_TOKENIZED_LINE_COLUMNS = 2_000;
+
+/**
+ * The Shiki options every tokenization behind a frame passes: the studio's keyer,
  * the server's (`server/remotion/magic-move-plan.ts`) and the static poster.
  *
  * Shiki gives up on a line after `tokenizeTimeLimit` ms of wall clock (500 by
@@ -10,8 +22,10 @@
  * device's (#315). Zero turns the check off (vscode-textmate skips it at 0), so
  * the tokens are a function of the code alone, and since Shiki never reports a
  * line it cut short, it is the only setting under which a tokenization is known
- * whole. A line a frame is built for needs no limit (72 columns: 0.34 ms); a
- * minified line of 100,000 columns now takes about 9 s where the limit cut it at
- * 500 ms. The deterministic bound for that is a per-line length cap (#331).
+ * whole. What the clock used to bound, a very long line, is bounded by length
+ * instead, which is as deterministic as the code: `tokenizeMaxLineLength` (#331).
  */
-export const WHOLE_LINE_TOKENIZATION = { tokenizeTimeLimit: 0 } as const;
+export const WHOLE_LINE_TOKENIZATION = {
+	tokenizeTimeLimit: 0,
+	tokenizeMaxLineLength: MAX_TOKENIZED_LINE_COLUMNS,
+} as const;

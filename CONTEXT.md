@@ -89,6 +89,12 @@ terms so issues, specs, tests and code use the same ones.
   change or a first commit that is itself cut (a scene is a step). The studio
   posts it as a notice; the CLI and the hosted render carry it as
   `ImportedSource.notice`. A first chapter past the cap is cut at it.
+- **Line cap**: the longest line Shiki tokenizes, `MAX_TOKENIZED_LINE_COLUMNS`
+  (2,000, `infrastructure/highlighting/whole-line-tokenization`). A line at or past
+  it is one token in the theme foreground on the DOM preview, the Remotion video
+  and the device export alike, so a pasted minified bundle costs about 25 ms
+  instead of freezing the studio. A card shows at most `VISIBLE_COL_LIMIT` (648)
+  columns, so nothing legible is lost.
 - **Scene break**: the transition into a step that shares nothing with the
   one before it: the first frame of every page after the first
   (`application/diff/snapshots`), of every chapter after the first

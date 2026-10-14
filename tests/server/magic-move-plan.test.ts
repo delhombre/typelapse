@@ -8,6 +8,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { projectFromDiff } from "@/application/import/diff-project";
+import { MAX_TOKENIZED_LINE_COLUMNS } from "@/infrastructure/highlighting/whole-line-tokenization";
 import { buildMagicMovePlan } from "@/infrastructure/highlighting/magic-move-keyer";
 import { type Highlighter, createHighlighter } from "shiki";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -91,5 +92,21 @@ describe("a loaded render node (#315)", () => {
 			buildMagicMovePlan(highlighter, codes, "typescript", "midnight", BG, true, [], breaks),
 		);
 		expect(client).toEqual(unhurried);
+	});
+});
+
+describe("a pasted minified line (#331)", () => {
+	it("is bounded and planned on the server as in the studio", () => {
+		const unit = 'function f(a,b){return a.map(x=>x+b.c("s"))}var n=0;';
+		const pasted = unit.repeat(4_000);
+		const codes = ["const a = 1;", pasted];
+		const started = performance.now();
+		const server = buildServerMagicMovePlan(highlighter, codes, "typescript", "github-dark", BG);
+		expect(performance.now() - started).toBeLessThan(200);
+		expect(server).toEqual(buildMagicMovePlan(highlighter, codes, "typescript", "midnight", BG));
+		// One token, in no colour of its own: the foreground, on every renderer.
+		expect(server.frames[1]?.tokens).toHaveLength(1);
+		expect(server.frames[1]?.tokens[0]?.color).toBeUndefined();
+		expect(pasted.length).toBeGreaterThan(MAX_TOKENIZED_LINE_COLUMNS);
 	});
 });
