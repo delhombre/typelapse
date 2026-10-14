@@ -294,10 +294,13 @@ measures above, which are dominated by the diff.
 
 **Proof:** return `true` from the size check and
 `tests/infrastructure/large-pair-sync.test.ts` fails on the break shape of both
-cases (31 shared keys in the 10-line case, studio and server) and on its 1,200 ms
-stall bound (2.1 s); the unit tests pin the boundary (at the bound syncs, one over
-declines), the shared body (an edit beside 30,000 shared characters syncs), the
-overlap of head and tail, and the appended or removed block. Make the rule count
+cases (31 shared keys in the 10-line case, studio and server) and on its 800 ms
+rebuild bound (about 2 s without the fix); the unit tests pin the boundary (at
+the bound syncs, one over declines; two unrelated pairs of about 6,000 declined
+and about 4,000 accepted, so a bound of 19,000 fails), the shared body (an edit
+beside 30,000 shared characters syncs), the overlap of head and tail, the
+appended or removed block, edits far apart (they sync), and the full-file reindent
+(declined). Make the rule count
 total characters and the shared-body case fails. The hono sha256 test and the
 templates' key-sharing test pin the ordinary morphs.
 

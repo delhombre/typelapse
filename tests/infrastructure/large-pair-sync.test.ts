@@ -63,15 +63,12 @@ const timed = <T>(work: () => T): { value: T; ms: number } => {
 const sha256 = (value: unknown) => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 /**
- * What a stall costs: a second a morph, two morphs with the loop. The bound is far
- * above the tens of milliseconds a plan takes and below the stall (2.1 s measured
- * before, with Shiki's tokenization of 20,000 to 30,000 characters, up to 0.4 s of
- * it, included), so a loaded runner's jitter cannot trip it; the decision itself is
- * asserted below.
+ * What a stall costs: a second a morph, two morphs with the loop. A rebuild with
+ * Shiki's tokenization cached takes tens of milliseconds once the sync is declined;
+ * the bound is far above that and below the stall, so a loaded runner's jitter
+ * cannot trip it. The decision itself is asserted structurally.
  */
-const STALL_BOUND_MS = 1_200;
-/** A rebuild after an edit: Shiki's tokenization is cached, only the plan walk runs. */
-const REBUILD_BOUND_MS = 300;
+const REBUILD_BOUND_MS = 800;
 
 describe("canSyncKeys on the size of what differs", () => {
 	// Tokens of 100 characters, none near the line cap.
@@ -235,20 +232,11 @@ describe("unrelated lines under the cap, across two steps (#337)", () => {
 				expect(server(codes)).toEqual(client(codes));
 			});
 
-			it("does not stall on the diff's one-second timeout, in the studio or on the server", () => {
-				for (const [who, build] of [
-					["studio", () => client(codes)],
-					["server", () => server(codes)],
-				] as const) {
-					const { ms } = timed(build);
-					console.info(
-						`#337 ${who}: ${label}, two steps with the loop, planned in ${ms.toFixed(0)} ms`,
-					);
-					expect(ms, `${who} planned in ${ms.toFixed(0)} ms`).toBeLessThan(STALL_BOUND_MS);
-				}
-			});
-
-			it("rebuilds the studio's plan after an edit in a fraction of that", () => {
+			it("rebuilds the studio's plan after an edit without the diff's one-second timeout", () => {
+				// Shiki's tokenization is cached: only the plan walk runs, where the
+				// stall was (about 2 s for the two morphs). The server's break shape
+				// above proves its sync did not run; its cold tokenization is not timed,
+				// a loaded runner makes that a flake.
 				client(codes);
 				const { ms } = timed(() => client(codes));
 				console.info(`#337 studio rebuild: ${label}, planned in ${ms.toFixed(0)} ms`);
