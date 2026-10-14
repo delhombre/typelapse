@@ -30,7 +30,9 @@ opener to the next frame kept, drops it with a dropped duplicate, and never
 leaves one on the first frame.
 
 **Why:** the pagination and the chaptering are the only places that know two
-frames are unrelated; deciding it later (by comparing codes) would guess.
+frames are unrelated. The chapter rule compares the chapter's before state with
+the code on screen by exact equality (a continued edit morphs); a similarity
+score decided later in the keyer would guess.
 
 **Rejected:** a similarity threshold in the keyer: it would also fade real
 edits that rewrite most of a page.
@@ -61,8 +63,9 @@ preview and the Remotion composition are untouched (D12); the timing of the
 fade lives in the engine (D4), which all three reach through the one call in
 `video-script`.
 
-**Why:** with zero shared keys the engine's existing two-beat timing already
-draws the fade: no new drawing code, so nothing can drift between renderers.
+**Why:** with zero shared keys the fade is a timing of the engine (D4's
+overlap), reached through the one reader, `video-script`: no new drawing code,
+so nothing can drift between renderers.
 
 **Rejected:** a `kind` on `FrameTransition`: it would have one reader
 (`video-script`, which every renderer goes through), and the keys already say
