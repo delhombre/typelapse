@@ -119,7 +119,17 @@ function blankComments(source: string, file: string): string {
 	return out;
 }
 
-const shipped = (file: string) => blankComments(read(file), file);
+/* A source is blanked once per run: a table row costs a scan of the whole file,
+   and src/app.css (160 KB) is cited by most rows, so blanking it per row made
+   this test slower than a loaded machine could tolerate. */
+const shippedCache = new Map<string, string>();
+const shipped = (file: string) => {
+	const cached = shippedCache.get(file);
+	if (cached !== undefined) return cached;
+	const blanked = blankComments(read(file), file);
+	shippedCache.set(file, blanked);
+	return blanked;
+};
 
 /**
  * Two citations naming one value in one file and selector would let a single

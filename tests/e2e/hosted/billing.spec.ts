@@ -68,7 +68,13 @@ test.describe("Billing against the fake Polar", () => {
 			"GET",
 			"/__requests",
 		);
-		expect(asked.find((entry) => entry.route === "POST /v1/checkouts")?.body).toMatchObject({
+		// The fake's log outlives a test (a repetition, another worker's journey), so the
+		// checkout is the one asked for this account, not the first one in the log.
+		expect(
+			asked.find(
+				(entry) => entry.route === "POST /v1/checkouts" && entry.body.external_customer_id === id,
+			)?.body,
+		).toMatchObject({
 			products: [POLAR_E2E.fakeProducts.annual],
 			external_customer_id: id,
 		});

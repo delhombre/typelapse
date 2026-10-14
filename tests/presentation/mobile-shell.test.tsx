@@ -35,6 +35,17 @@ beforeEach(() => {
 	Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
 });
 
+/* Closing a Radix dialog (vaul's drawer is one) schedules a zero-delay timer that
+   returns focus and dispatches an event on the container. Unmounting in cleanup
+   leaves it pending, and a loaded machine can run it after the next test began or
+   after the window is gone. One turn of the task queue, queued behind it, lets it
+   fire while the document it talks to is still there. */
+const timersOfTheUnmountHaveRun = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+afterEach(async () => {
+	await timersOfTheUnmountHaveRun();
+});
+
 const shell = () =>
 	render(
 		<MemoryRouter>
@@ -233,19 +244,25 @@ describe("the stage while an island panel is open on the phone", () => {
 	// room instead, by going down to the peek while a panel is open (DECISIONS D4).
 	// jsdom has no layout, so the slot's own style and the sheet's stop are held here
 	// and the card's box in the e2e journey.
-	it("lowers the sheet to the peek while a panel is open, and puts it back where it was", () => {
-		const { container } = shell();
-		const slot = container.querySelector<HTMLElement>(".sc-stage-slot");
-		const cta = container.querySelector<HTMLElement>(".si-cta");
-		if (!slot || !cta) throw new Error("no stage slot or export control");
-		const peekRoom = slot.style.paddingBottom;
+	// One stop a test: each shell mount and panel round trip is the heaviest thing
+	// in this file, and three of them in one body spent most of a test's budget
+	// before a loaded machine had slowed anything down.
+	it.each([
+		["Half open", ["Enter"]],
+		["Open", ["Enter", "Enter"]],
+		["Collapsed", ["Enter", "Enter", "Enter"]],
+	] as const)(
+		"lowers the sheet to the peek from %s while a panel is open, and puts it back where it was",
+		(stop, keys) => {
+			const { container } = shell();
+			const slot = container.querySelector<HTMLElement>(".sc-stage-slot");
+			const cta = container.querySelector<HTMLElement>(".si-cta");
+			if (!slot || !cta) throw new Error("no stage slot or export control");
+			const peekRoom = slot.style.paddingBottom;
 
-		for (const [key, stop] of [
-			["Enter", "Half open"],
-			["Enter", "Open"],
-			["Enter", "Collapsed"],
-		] as const) {
-			fireEvent.keyDown(handle(), { key });
+			for (const key of keys) {
+				fireEvent.keyDown(handle(), { key });
+			}
 			expect(stopText()).toBe(stop);
 
 			fireEvent.click(cta);
@@ -255,8 +272,8 @@ describe("the stage while an island panel is open on the phone", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Close settings" }));
 			expect(stopText()).toBe(stop);
-		}
-	});
+		},
+	);
 
 	it("leaves the sheet where the user put it when they moved it during the panel", () => {
 		const { container } = shell();
@@ -395,9 +412,17 @@ describe("the phone sheet's handle", () => {
 });
 
 describe("the instrument on the sheet's edge", () => {
-	afterEach(() => cleanup());
+	afterEach(() => {
+		cleanup();
+		vi.useRealTimers();
+	});
 
 	it("moves in the same task as the drawer writes the sheet's transform, with its transition", async () => {
+		/* The sheet is "opening" for the two animation frames that place it. On a
+		   machine under load a slow render outlasts both, and the instrument's
+		   opening phase would be over before the test looked at it. The frames are
+		   the test's to deliver, so the phase lasts until it says so. */
+		vi.useFakeTimers({ toFake: ["requestAnimationFrame", "cancelAnimationFrame"] });
 		Object.defineProperty(window, "matchMedia", {
 			configurable: true,
 			value: (query: string) => ({
@@ -442,8 +467,12 @@ describe("the instrument on the sheet's edge", () => {
 		});
 		expect(dock.style.transition).toBe("none");
 
-		// Opened: the sheet's transition is the instrument's again.
-		sheet.removeAttribute("data-opening");
+		// Opened: the studio has placed the sheet, two frames after it mounted.
+		await act(async () => {
+			vi.advanceTimersByTime(40);
+		});
+		expect(sheet.hasAttribute("data-opening")).toBe(false);
+		// The sheet's transition is the instrument's again.
 		await act(async () => {
 			sheet.style.transition = "transform 0.5s cubic-bezier(0.32, 0.72, 0, 1) 0s";
 			await Promise.resolve();

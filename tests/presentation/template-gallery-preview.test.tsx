@@ -10,6 +10,14 @@ vi.mock("@/presentation/components/preview/looping-frames", () => ({
 	),
 }));
 
+/* A card is a raw-code poster until the highlighter answers, and this file asserts the
+   poster. The real one loads a WASM engine and tokenizes six templates on the main
+   thread while the tests wait on the dialog, so on a loaded machine it was what they
+   waited behind. It declines, and the cards keep the code they paint first. */
+vi.mock("@/infrastructure/highlighting/highlighter", () => ({
+	shikiAdapter: { highlight: () => Promise.reject(new Error("syntax colour is not under test")) },
+}));
+
 afterEach(cleanup);
 
 describe("TemplateGallery previews", () => {

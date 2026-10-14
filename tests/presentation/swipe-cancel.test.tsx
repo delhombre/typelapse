@@ -1,13 +1,35 @@
 import type { PlatformCycle } from "@/presentation/landing/iphone-showcase";
 import { IphoneShowcase } from "@/presentation/landing/iphone-showcase";
-import { act, cleanup, render, waitFor } from "@testing-library/react";
-import { type Mock, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { act, cleanup, render } from "@testing-library/react";
+import { type Mock, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 /* The hand's feedback is the thing under test, so it is a spy rather than the
    real motor: `web-haptics` feature-detects and would no-op in jsdom, which
    would make "no buzz" pass for the wrong reason. */
 const { hapticSpy } = vi.hoisted(() => ({ hapticSpy: vi.fn() }));
 vi.mock("@/presentation/haptics", () => ({ trigger: hapticSpy }));
+
+/* The ring settles on a spring that Motion steps frame by frame, and Motion caps
+   what one frame may advance, so a machine under load does not just run the
+   spring late: it runs it slow, and no real-time budget for "settled" holds.
+
+   Motion takes `requestAnimationFrame` by reference when its module loads, so
+   faking timers afterwards would not reach it, and the frames would stay on the
+   real clock. The stand-in is therefore installed before anything imports Motion
+   (hoisted), and the test delivers every frame itself, on a clock it also owns. */
+const frames = vi.hoisted(() => {
+	const queue = new Map<number, FrameRequestCallback>();
+	let serial = 0;
+	globalThis.requestAnimationFrame = (callback) => {
+		serial += 1;
+		queue.set(serial, callback);
+		return serial;
+	};
+	globalThis.cancelAnimationFrame = (handle) => {
+		queue.delete(handle);
+	};
+	return { queue, clock: 0 };
+});
 
 const SCREEN_WIDTH = 320;
 
@@ -50,10 +72,36 @@ beforeAll(() => {
 	};
 });
 
+/* The queue is never emptied between tests: Motion believes a frame it asked for
+   is on its way, and taking that frame away would leave its loop waiting forever. */
+beforeEach(() => {
+	vi.spyOn(performance, "now").mockImplementation(() => frames.clock);
+});
+
 afterEach(() => {
 	cleanup();
+	vi.restoreAllMocks();
 	hapticSpy.mockClear();
 });
+
+const FRAME_MS = 1000 / 60;
+
+/**
+ * Delivers `ms` of animation time, one 60 Hz frame at a time; the spring has no
+ * other clock. A microtask turn between frames: Motion caches "now" until one passes.
+ */
+const runFrames = (ms: number) =>
+	act(async () => {
+		for (let elapsed = 0; elapsed < ms; elapsed += FRAME_MS) {
+			frames.clock += FRAME_MS;
+			const due = [...frames.queue.values()];
+			frames.queue.clear();
+			for (const callback of due) {
+				callback(frames.clock);
+			}
+			await Promise.resolve();
+		}
+	});
 
 const cycleWith = (step: Mock<(direction: 1 | -1) => void>): PlatformCycle => ({
 	index: 0,
@@ -110,7 +158,8 @@ describe("a swipe the browser takes away", () => {
 		const surface = surfaceOf(container);
 
 		dragLeft(surface);
-		await waitFor(() => expect(offsetOf(surface)).toBeLessThan(-10));
+		await runFrames(100);
+		expect(offsetOf(surface)).toBeLessThan(-10);
 
 		act(() => {
 			surface.dispatchEvent(pointer("pointercancel", 40));
@@ -118,7 +167,8 @@ describe("a swipe the browser takes away", () => {
 
 		expect(step).not.toHaveBeenCalled();
 		expect(hapticSpy).not.toHaveBeenCalled();
-		await waitFor(() => expect(offsetOf(surface)).toBe(0));
+		await runFrames(1000);
+		expect(offsetOf(surface)).toBe(0);
 	});
 
 	it("still commits and buzzes when the same drag is released", async () => {
@@ -127,12 +177,18 @@ describe("a swipe the browser takes away", () => {
 		const surface = surfaceOf(container);
 
 		dragLeft(surface);
+		// The ring is out with the finger before the release, so the spring back below
+		// starts from somewhere and "ends at 0" can fail.
+		await runFrames(100);
+		expect(offsetOf(surface)).toBeLessThan(-10);
 		act(() => {
 			surface.dispatchEvent(pointer("pointerup", 40));
 		});
+		// 160px of travel is past the third of 320px on its own, whatever the clock says.
 
 		expect(step).toHaveBeenCalledWith(1);
 		expect(hapticSpy).toHaveBeenCalledWith("light");
-		await waitFor(() => expect(offsetOf(surface)).toBe(0));
+		await runFrames(1000);
+		expect(offsetOf(surface)).toBe(0);
 	});
 });

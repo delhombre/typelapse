@@ -1608,6 +1608,10 @@ test.describe("Mobile shell: the code is read through a loupe", () => {
 		await page.getByRole("button", { name: "Settings" }).tap();
 		await page.getByRole("button", { name: "Aspect ratio 9:16", exact: true }).tap();
 		await page.getByRole("button", { name: "Close settings" }).tap();
+		// The panel leaves with its exit animation, and until it has left, the point
+		// under the frame's foot is the panel's: the probe below reads a state that
+		// has not settled. The frame's own box stands still long before.
+		await expect(page.getByRole("group", { name: "Frame settings" })).toBeHidden();
 		const frame = page.locator("[data-preview-frame]");
 		await settled(frame);
 		const box = await frame.boundingBox();
