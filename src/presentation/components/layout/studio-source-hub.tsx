@@ -158,6 +158,12 @@ export function StudioSourceHub() {
 				}
 				applyJson(text, file.name);
 			};
+			// A read that fails (a permission, a file removed after the pick) says so.
+			// An abort says nothing: the hub never aborts, and a stop is not a failure.
+			reader.onerror = () => {
+				feedback("error");
+				notify("That file could not be read. Try again.", { tone: "error", detail: file.name });
+			};
 			reader.readAsText(file);
 			event.target.value = "";
 		},

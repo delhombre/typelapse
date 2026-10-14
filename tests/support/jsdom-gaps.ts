@@ -57,6 +57,14 @@ export function useInertWindowScroll(): void {
 	holdForFile(() => vi.spyOn(window, "scrollTo").mockImplementation(() => undefined));
 }
 
+/** What a test can make the next read of the instant reader do instead of answering. */
+export interface InstantFileReaderControls {
+	/** The next read fires `onerror` (a permission, a file removed after the pick). */
+	failNext(): void;
+	/** The next read fires `onabort`, as `reader.abort()` would. */
+	abortNext(): void;
+}
+
 /**
  * A `FileReader` that answers inside the call that asked, for a file a test built
  * from strings in this file.
@@ -68,34 +76,68 @@ export function useInertWindowScroll(): void {
  * settled when `fireEvent` returns, and nothing waits at all.
  *
  * jsdom 26 has no `Blob.text()` either, so `File` is wrapped to remember the
- * strings it was built from. Only a text reader is stood in for.
+ * strings it was built from. Only a text reader is stood in for. A file that was
+ * not built from strings alone (bytes, a bare `Blob`) throws instead of reading as
+ * empty: a silent "" would hide a test that picked the wrong file. `failNext()` and
+ * `abortNext()` make the next read fail or abort, for the paths a real disk takes.
  */
-export function useInstantFileReader(): void {
+export function useInstantFileReader(): InstantFileReaderControls {
 	const RealFile = globalThis.File;
 	const texts = new WeakMap<Blob, string>();
+	let next: "read" | "fail" | "abort" = "read";
 
 	class TextRememberingFile extends RealFile {
 		constructor(parts: BlobPart[], name: string, options?: FilePropertyBag) {
 			super(parts, name, options);
-			texts.set(this, parts.filter((part) => typeof part === "string").join(""));
+			if (parts.every((part) => typeof part === "string")) {
+				texts.set(this, parts.join(""));
+			}
 		}
 	}
 
 	class InstantFileReader {
 		result: string | null = null;
 		onload: ((event: { target: InstantFileReader }) => void) | null = null;
+		onerror: ((event: { target: InstantFileReader }) => void) | null = null;
+		onabort: ((event: { target: InstantFileReader }) => void) | null = null;
 
 		readAsText(file: Blob): void {
-			this.result = texts.get(file) ?? "";
+			const outcome = next;
+			next = "read";
+			if (outcome === "fail") {
+				this.onerror?.({ target: this });
+				return;
+			}
+			if (outcome === "abort") {
+				this.onabort?.({ target: this });
+				return;
+			}
+			const text = texts.get(file);
+			if (text === undefined) {
+				throw new Error(
+					"useInstantFileReader: this file was not built from strings in this test file, so it has no text to read",
+				);
+			}
+			this.result = text;
 			this.onload?.({ target: this });
 		}
 	}
 
 	beforeEach(() => {
+		next = "read";
 		vi.stubGlobal("File", TextRememberingFile);
 		vi.stubGlobal("FileReader", InstantFileReader);
 	});
 	afterAll(() => {
 		vi.unstubAllGlobals();
 	});
+
+	return {
+		failNext: () => {
+			next = "fail";
+		},
+		abortNext: () => {
+			next = "abort";
+		},
+	};
 }

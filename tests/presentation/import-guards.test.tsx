@@ -244,7 +244,7 @@ describe("UrlImportMenu guard", () => {
 
 describe("StudioSourceHub import guard", () => {
 	// The opened file is read inside the change event, so nothing below waits on a reader.
-	useInstantFileReader();
+	const reader = useInstantFileReader();
 
 	function LocationProbe() {
 		return <output aria-label="Current route">{useLocation().pathname}</output>;
@@ -394,6 +394,71 @@ describe("StudioSourceHub import guard", () => {
 		expect(notice?.tone).toBe("error");
 		expect(notice?.message).toBe("That file is not valid JSON, so it is not a Typelapse project.");
 		expect(notice?.detail).toBe("broken.json");
+	});
+
+	it("tells the person when the file could not be read", () => {
+		makePristine();
+		const { container } = renderNav();
+		useNoticeStore.setState({ notices: [] });
+
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
+		reader.failNext();
+		chooseFile(container, new File([OPENED_PROJECT], "gone.json", { type: "application/json" }));
+
+		const notices = useNoticeStore.getState().notices;
+		expect(notices).toHaveLength(1);
+		expect(notices[0]?.tone).toBe("error");
+		expect(notices[0]?.message).toBe("That file could not be read. Try again.");
+		expect(notices[0]?.detail).toBe("gone.json");
+		expect(useSnippetStore.getState().snippet.title).not.toBe("opened.ts");
+	});
+
+	it("says nothing when the read is aborted", () => {
+		makePristine();
+		const { container } = renderNav();
+		useNoticeStore.setState({ notices: [] });
+
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
+		reader.abortNext();
+		chooseFile(container, new File([OPENED_PROJECT], "stopped.json", { type: "application/json" }));
+
+		expect(useNoticeStore.getState().notices).toHaveLength(0);
+	});
+
+	it("says nothing when the pick is cancelled", () => {
+		makePristine();
+		const { container } = renderNav();
+		useNoticeStore.setState({ notices: [] });
+
+		openSourceMenu();
+		fireEvent.click(screen.getByRole("menuitem", { name: "Open project file" }));
+		const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+		fireEvent.change(input, { target: { files: [] } });
+
+		expect(useNoticeStore.getState().notices).toHaveLength(0);
+	});
+});
+
+describe("the instant file reader", () => {
+	useInstantFileReader();
+
+	it("throws on a file the test did not build from strings, rather than reading it as empty", () => {
+		const bytes = new File([new Uint8Array([123, 125])], "bytes.json");
+
+		expect(() => new FileReader().readAsText(bytes)).toThrow(/not built from strings/);
+		expect(() => new FileReader().readAsText(new Blob(["{}"]))).toThrow(/not built from strings/);
+	});
+
+	it("reads a file built from strings", () => {
+		const reader = new FileReader();
+		const onload = vi.fn();
+		reader.onload = onload;
+		reader.readAsText(new File(["{", "}"], "ok.json"));
+
+		expect(reader.result).toBe("{}");
+		expect(onload).toHaveBeenCalledOnce();
 	});
 });
 
