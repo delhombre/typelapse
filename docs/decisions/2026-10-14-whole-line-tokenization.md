@@ -17,6 +17,8 @@ flowchart TD
   R --> D2["D2 Line cap, and Shiki's empty colour normalised in the plan (#331)"]
   D2 --> R2["Residual: syncing two capped lines costs a second a morph"]
   R2 --> D3["D3 A pair whose capped lines differ is a scene break, not a sync (#335)"]
+  D3 --> R3["Residual: large pairs under the cap hit the same timeout"]
+  R3 --> D4["D4 A pair with more than 6,000 characters of unmatched lines is a scene break too (#337)"]
 ```
 
 ## D1 One option, time limit off, everywhere a frame is tokenized
@@ -205,3 +207,137 @@ step holds alike still fades; answered by the narrowing above. A stronger form,
 `server/remotion/magic-move-plan.ts`; tests in
 `tests/infrastructure/capped-sync.test.ts`, `tests/application/magic-move-plan.test.ts`;
 ticket #335.
+
+## D4 A pair with more than 6,000 characters of unmatched lines is a scene break too
+
+**Decision:** `canSyncKeys` also declines a pair when the text with no counterpart
+is more than `MAX_SYNCED_EDIT_CHARACTERS` (6,000, `whole-line-tokenization.ts`).
+Measured as a bag of lines: trim the common head and tail of the two codes, split
+each remaining middle into lines, match the lines of one against the other as a
+multiset, and sum the characters of the lines left over on both sides (an edited
+line counts on both, reordered lines count for nothing). Lines are compared
+without their leading whitespace and counted without it, so a reindent or code
+wrapped in a block is the same lines under another margin; the change in the sum
+of the lines' leading whitespace is added to the count, because the diff still pays
+for the spaces. Two guards complete it (below). O(n), deterministic. It
+declines nothing when one side's middle is empty (a block appended or removed). The keyers,
+`planMagicMove` and the `canSync` contract are unchanged: the declined pair takes
+the #307 break path as in D3. Tokens-only (`code` and `tokens` of the two
+tokenizations), no clock: the studio and the server decide alike.
+
+**Why:** the sync of D3's Residual: diff-match-patch spends its whole second on text
+it cannot match, and the plan is rebuilt on every keystroke. Measured before
+(idle machine, TypeScript, two steps with the loop, cold): 10 unrelated lines of
+1,999 columns 2.08 s, 100 of 300 columns 2.15 s (1.26 s and 1.43 s a morph).
+`syncTokenKeys` cannot be bounded from outside: shiki-magic-move calls
+`diff(a, b)` bare, and diff-match-patch-es reads its one-second `diffTimeout` from a
+frozen default, so (b) is not available without patching a dependency. The cost
+follows what differs, not the codes' length (the diff trims the common head and
+tail first; D3 narrowed for the same reason), and is steeply superlinear in it.
+The first cut measured the middle alone (what is left after the trim); review
+showed that is the distance between two edits, not their size: the first and last
+line edited in 100 lines of 72 columns leave a middle of 14,470 characters, 203
+lines 29,508, a rename every fourth line of 100 lines 9,449, one character inserted
+at the head and the tail of 203 x 72 lines 29,638, and each syncs in 1 to 17 ms.
+The bag of lines counts only the lines the other side lacks, so those pairs count
+a few hundred characters and sync; unrelated pages keep a bag at 97% or more of
+the middle, so the figures below hold for the bag.
+Unrelated text, four generators, worst of three seeds: unmatched characters 2,000
+characters 9 to 22 ms, 4,000 26 to 37, 6,000 52 to 77, 8,000 100 to 157, 10,000 147
+to 221, 16,000 372 to 532, about 20,000 and up the whole second, at 72 or 300
+columns alike. 6,000 keeps the worst pair under 80 ms.
+
+| Morph | Unmatched characters, both sides | Against 6,000 |
+| --- | --- | --- |
+| hono pull request, largest of 3 syncs (loop included) | 593 | 10x under |
+| six templates, largest | 626 | 9.6x under |
+| 12-step diff import of 10 or 50 hunks (`projectFromDiff`) | 70 | 86x under |
+| 24 rows of 72 columns, fully unrelated, other side too | 2,950 (22 ms) | 2x under |
+| first and last line edited, 100 or 203 lines of 72 columns | 162 (middle 14,472 / 29,510) | 37x under |
+| one character inserted at the head and the tail of 203 x 72 | 290 (middle 29,638) | 20x under |
+| a rename every fourth line of 100 lines of 72 columns | 3,516 (middle 14,076) | 1.7x under |
+| the same 100 lines reordered | 0 (sync 61 to 82 ms) | syncs |
+| the same 100 lines, every line reindented by 2 spaces | 200 (margin change; cost 13 ms a morph) | syncs |
+| 203 lines with 120 spaces of margin removed | 24,360 | declined (a timeout) |
+| 100 lines with 80 spaces of margin removed | 8,000 | declined (461 ms) |
+| 100 lines of 300 columns, reversed | 0 unmatched, 60,000 held (62 ms) | syncs, at the pair cap |
+| 203 lines of 1,999 columns, reversed | 0 unmatched, about 812,000 held (9.9 s) | declined by the pair cap |
+| the same lines wrapped in a function, body indented (203 lines) | 26 (cost 21 ms a morph) | syncs |
+| 100 rows of 300 columns, unrelated (the issue) | about 60,000 | declined |
+| 10 rows of 1,999 columns, unrelated (the issue) | about 40,000 | declined |
+
+The rule measured against its alternatives, the pair's total characters (the
+union) and the middle alone: the window is `VISIBLE_ROW_LIMIT` (203) rows, so the
+union of two scrolled windows of a 72-column file is about 29,000 characters of
+which nothing differs.
+A total-size bound low enough to stop the stall (under 20,000) would refuse every
+morph of a file of that size, an edit included; the bag of lines refuses only what
+the diff has to search.
+After: the two cases plan in 18 and 27 ms in the studio (rebuild with Shiki's
+tokenization cached, the acceptance's 100 ms), 230 and 375 ms on the server, which
+does not cache and tokenizes 20,000 to 30,000 characters cold; the hono and the six
+templates' plans hash the same before and after (sha256 `a4e4cca0...2bff` for hono).
+
+**Rejected:** the middle alone (above); (b) a shorter diff timeout (not exposed, see above; a smaller timeout
+would also make the plan a function of the clock); the total characters of the
+union (above); a bound on the smaller side's middle (replacing 30,000 characters by
+5,000 costs 1.15 s, the smaller side of which is well under any such bound); a
+cost model of the middle's similarity (a pasted table shares delimiters and still
+stalls, so it would rank the worst case as cheap).
+
+**Trade-off, accepted:** a rewrite of about 42 rows of 72 columns of unrelated text
+(more than 6,000 characters of lines the other side lacks; fewer rows when the
+changed lines are longer) fades out and in instead of gliding, whether or not the
+two sides share structure inside those lines and the diff would have been fast. A
+50-hunk diff page with every hunk edited (8,000 characters of edited lines, 4 ms) is
+declined for the same reason. Edits anywhere in a page, two edits at its ends,
+reordered lines, a reindent, code wrapped in a block, a scroll, a block appended or
+removed, and every fixture morph keep their keys.
+
+**Residual:** below the bound the diff still costs up to about 80 ms on text that
+shares nothing (a full-page rewrite), on top of tokenization. The bound is a
+function of the content, not of the machine: on a slow node the same pair costs
+more but is decided the same. `enhanceMatching` in `syncTokenKeys` scans the target
+tokens once per unmatched source token (quadratic in tokens); it did not show in the
+measures above, which are dominated by the diff.
+
+**Proof:** return `true` from the size check and
+`tests/infrastructure/large-pair-sync.test.ts` fails on the break shape of both
+cases (31 shared keys in the 10-line case, studio and server) and on its 800 ms
+rebuild bound (about 2 s without the fix); the unit tests pin the boundary (at
+the bound syncs, one over declines; two unrelated pairs of about 6,000 declined
+and about 4,000 accepted, so a bound of 19,000 fails), the shared body (an edit
+beside 30,000 shared characters syncs), the overlap of head and tail, the
+appended or removed block, edits far apart, the full-file reindent and the wrap in
+a function (they sync), and unrelated pages under any margin (declined). Make the rule count
+total characters and the shared-body case fails. The hono sha256 test and the
+templates' key-sharing test pin the ordinary morphs.
+
+**Impact:** `whole-line-tokenization.ts` (`MAX_SYNCED_EDIT_CHARACTERS`,
+`canSyncKeys` reads `code`); tests in `tests/infrastructure/large-pair-sync.test.ts`,
+`tests/infrastructure/capped-sync.test.ts` (helper carries `code`); `CONTEXT.md`
+(Line cap); ticket #337.
+
+**Taken after review:** the first bag compared lines exactly, which declined a
+full-file reindent (14,456 unmatched characters on 100 lines) and code wrapped in a
+function, both ordinary scenes of a walkthrough whose sync is cheap (13 to 28 ms
+a morph, 100 or 203 lines). The bag now trims each line's leading whitespace on
+both sides. An `export ` prefix on a line's text is not whitespace: added to every
+declaration of a page it counts those lines, as an edit does.
+
+**Guards added on the second review:** reordered lines are all matched, so the
+bag counts nothing for a shuffled page, yet the diff still has to place the lines
+(203 x 600 reversed 742 ms, 100 x 1,500 3.8 s, 203 x 1,999 9.9 s under load, all
+declined before the bag). `MAX_SYNCED_PAIR_CHARACTERS` (60,000) declines a pair
+whose two middles together hold more, matched or not (a 203-row window of 72
+columns is about 30,000 for both sides); the pure insertion or deletion exemption
+comes first. And the margin: trimming it hid a change the diff pays for (80 spaces
+off 100 lines 461 ms, 40 off 203 lines 824 ms, 120 off 203 lines a timeout), so
+the absolute change in the sum of leading whitespace counts as unmatched. The pair
+cap sits exactly on 100 lines of 300 columns (60,000 characters, newlines
+excluded): a page at that size and no larger still syncs when reordered.
+
+**Pivot:** "A rewritten page must glide, not fade": raise the bound (8,000 costs
+100 to 157 ms on the worst pair, 10,000 up to 221) or give the diff a bounded
+algorithm of its own, which would also make a changed minified line glide (D3's
+stronger pivot).

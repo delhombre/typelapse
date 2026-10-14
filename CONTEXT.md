@@ -98,7 +98,16 @@ terms so issues, specs, tests and code use the same ones.
   columns, and those columns of a line over the cap lose their highlighting.
   A morph between two codes whose capped lines differ is planned as a scene
   break (the sync would cost a second, #335): the card fades out and in rather
-  than glides. Capped lines both sides hold alike still morph around.
+  than glides. Capped lines both sides hold alike still morph around. So is a
+  morph with more than `MAX_SYNCED_EDIT_CHARACTERS` (6,000, #337) of text with no
+  counterpart: after the common head and tail go, the characters of the lines
+  one side holds and the other lacks, summed over both, leading
+  whitespace aside (about 42 rows of 72 columns of unrelated text rewritten end to
+  end), plus the margin they gain or lose (a reindent of 80 spaces counts, 2 does
+  not), or a pair of more than `MAX_SYNCED_PAIR_CHARACTERS` (60,000) characters
+  whatever matches. A block only one side holds does not count. An edit anywhere
+  in a long page, two edits at its ends, reordered lines, a reindent, code wrapped in a
+  block, a scroll and an appended block keep gliding.
 - **Scene break**: the transition into a step that shares nothing with the
   one before it: the first frame of every page after the first
   (`application/diff/snapshots`), of every chapter after the first
