@@ -196,6 +196,12 @@ is the nightly (`e2e-nightly.yml`, every journey, hosted ones included) and the
 release gate of the staging deploy (`hosted:check`). A merge that breaks `main` is
 therefore seen by the next nightly or the next deploy, not on the merge.
 
+The staging deploy (`deploy-staging.yaml`, manual) runs once per review wave or
+nightly, not per merge: 12 runs on 2026-10-14 for 5 billed minutes each, to put
+on staging what the next merge replaces. Merge the wave, then dispatch it once
+against `main`. There is no scheduled deploy; the owner or the orchestrator
+dispatches it.
+
 A change a person can see (a screen, a control, a sentence, an export, a public
 page) adds an entry to `src/application/changelog/entries.ts` in the same pull
 request: newest first, a permanent id, the day it ships, a one-line title and one
