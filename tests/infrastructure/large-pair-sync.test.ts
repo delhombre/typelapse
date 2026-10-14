@@ -126,6 +126,81 @@ describe("canSyncKeys on the size of what differs", () => {
 		expect(canSyncKeys(source("aaa"), source("aaaa"))).toBe(true);
 		expect(canSyncKeys(source("ab".repeat(9_000)), source("ab".repeat(9_001)))).toBe(true);
 	});
+
+	describe("edits far apart: the distance between them is not their size", () => {
+		/** Ordinary code lines of `columns` columns, each its own text. */
+		const page = (count: number, columns = 72) =>
+			Array.from({ length: count }, (_, i) =>
+				`const value${i} = compute(${i}, "x".repeat(${i % 9}));`.padEnd(columns, " "),
+			);
+		const edit = (lines: string[], at: number[], by: (line: string) => string) =>
+			lines.map((text, i) => (at.includes(i) ? by(text) : text)).join("\n");
+
+		it("keeps the first and last line edited of 100 lines of 72 columns", () => {
+			const lines = page(100);
+			const edited = edit(lines, [0, 99], (text) => `${text}// edited`);
+			expect(canSyncKeys(source(lines.join("\n")), source(edited))).toBe(true);
+		});
+
+		it("keeps the first and last line edited of 203 lines, the window's whole height", () => {
+			const lines = page(203);
+			const edited = edit(lines, [0, 202], (text) => `${text}// edited`);
+			expect(canSyncKeys(source(lines.join("\n")), source(edited))).toBe(true);
+		});
+
+		it("keeps a rename every fourth line of 100", () => {
+			const lines = page(100);
+			const renamed = edit(
+				lines,
+				lines.map((_, i) => i).filter((i) => i % 4 === 0),
+				(text) => text.replace("value", "renamed"),
+			);
+			expect(canSyncKeys(source(lines.join("\n")), source(renamed))).toBe(true);
+		});
+
+		it("keeps one character inserted at the head and at the tail of 203 x 72", () => {
+			const code = page(203).join("\n");
+			expect(canSyncKeys(source(code), source(`/${code}/`))).toBe(true);
+		});
+
+		it("keeps the same lines in another order: nothing is added or removed", () => {
+			const lines = page(100);
+			const swapped = [...lines];
+			[swapped[0], swapped[99]] = [lines[99] ?? "", lines[0] ?? ""];
+			expect(canSyncKeys(source(lines.join("\n")), source(swapped.join("\n")))).toBe(true);
+		});
+
+		it("declines a full-file reindent: every line is new text, the diff has nothing to trim", () => {
+			const lines = page(100);
+			const reindented = lines.map((text) => `  ${text}`).join("\n");
+			expect(canSyncKeys(source(lines.join("\n")), source(reindented))).toBe(false);
+		});
+
+		it("keeps the shared keys of the first and last line edited, in the plan, server alike", () => {
+			const lines = Array.from({ length: 100 }, (_, i) =>
+				`const value${i} = compute(${i}, ${i * 3});`.padEnd(72, " "),
+			);
+			const codes = [lines.join("\n"), edit(lines, [0, 99], (text) => `${text}// edited`)];
+			const plan = client(codes, false);
+			expect(sharedCount(plan.transitions[0])).toBeGreaterThan(300);
+			expect(server(codes, false)).toEqual(client(codes, false));
+		});
+	});
+
+	describe("the bound sits at 6,000, not far above it", () => {
+		const pair = (rowsPerSide: number, columns: number) =>
+			[rows(UNIT_A, rowsPerSide, columns), rows(UNIT_B, rowsPerSide, columns)] as const;
+
+		it("declines two unrelated pages of about 6,000 characters together", () => {
+			const [a, b] = pair(40, 77);
+			expect(canSyncKeys(source(a), source(b))).toBe(false);
+		});
+
+		it("accepts two unrelated pages of about 4,000 characters together", () => {
+			const [a, b] = pair(25, 79);
+			expect(canSyncKeys(source(a), source(b))).toBe(true);
+		});
+	});
 });
 
 describe("unrelated lines under the cap, across two steps (#337)", () => {

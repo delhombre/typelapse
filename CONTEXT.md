@@ -99,10 +99,13 @@ terms so issues, specs, tests and code use the same ones.
   A morph between two codes whose capped lines differ is planned as a scene
   break (the sync would cost a second, #335): the card fades out and in rather
   than glides. Capped lines both sides hold alike still morph around. So is a
-  morph whose differing middle (what is left of both codes once their common head
-  and tail are trimmed) is past `MAX_SYNCED_EDIT_CHARACTERS` (6,000, #337; a block
-  only one side holds does not count): about 40 rows of 72 columns rewritten end
-  to end. An edit in a long page, a scroll and an appended block keep gliding.
+  morph with more than `MAX_SYNCED_EDIT_CHARACTERS` (6,000, #337) of text with no
+  counterpart: after the common head and tail go, the characters of the lines
+  one side holds and the other lacks, summed over both (about 42 rows of 72
+  columns rewritten end to end; a full-file reindent counts, every line being
+  new). A block only one side holds does not count. An edit anywhere in a long
+  page, two edits at its ends, reordered lines, a scroll and an appended block keep
+  gliding.
 - **Scene break**: the transition into a step that shares nothing with the
   one before it: the first frame of every page after the first
   (`application/diff/snapshots`), of every chapter after the first

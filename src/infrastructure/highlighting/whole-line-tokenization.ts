@@ -35,10 +35,11 @@ export const WHOLE_LINE_TOKENIZATION = {
 } as const;
 
 /**
- * The most characters, summed over the two codes of a pair, that may differ between
- * them for `syncTokenKeys` to run (#337). The diff trims what the codes share at
- * both ends first, so its cost follows the middle that is left, not the length of
- * the codes. diff-match-patch cannot be told to stop earlier (its one-second timeout
+ * The most characters, summed over the two codes of a pair, that may have no
+ * counterpart in the other for `syncTokenKeys` to run (#337): the lines of each
+ * middle (the codes minus their common head and tail) that the other middle does
+ * not hold. The diff's cost follows what it has to search, not the length of the
+ * codes nor the distance between two edits. diff-match-patch cannot be told to stop earlier (its one-second timeout
  * is a default, and shiki-magic-move calls it with no options), and its cost on
  * lines it cannot match is steeply superlinear in the middle, whatever the width of
  * the lines: unrelated text sums to 2,000 characters in 9 to 22 ms, 6,000 in 52 to
@@ -52,8 +53,22 @@ export const MAX_SYNCED_EDIT_CHARACTERS = 6_000;
 
 type Tokenization = { code: string; tokens: readonly { content: string }[] };
 
-/** The characters of each code left once their common head and tail are trimmed. */
-function differingMiddles(from: string, to: string): [number, number] {
+/**
+ * What differs between two codes, in characters (#337). The diff trims their common
+ * head and tail first, but two edits far apart leave everything between them in the
+ * middle, shared or not, so the middle measures the distance between edits. What
+ * the diff has to search is the text with no counterpart on the other side: the
+ * lines of each middle that the other middle does not hold (a multiset of lines,
+ * so a line held twice is matched twice). Reordered lines are all matched; an edited
+ * line counts on both sides.
+ *
+ * `removed` and `added` are the middles' lengths; `unmatched` is the characters of
+ * the lines left over on both sides, newlines excluded. O(n) in the codes.
+ */
+function difference(
+	from: string,
+	to: string,
+): { removed: number; added: number; unmatched: number } {
 	const shortest = Math.min(from.length, to.length);
 	let head = 0;
 	while (head < shortest && from[head] === to[head]) {
@@ -63,7 +78,26 @@ function differingMiddles(from: string, to: string): [number, number] {
 	while (tail < shortest - head && from[from.length - 1 - tail] === to[to.length - 1 - tail]) {
 		tail++;
 	}
-	return [from.length - head - tail, to.length - head - tail];
+	const middle = (code: string) => code.slice(head, code.length - tail);
+	const removed = middle(from);
+	const added = middle(to);
+	const held = new Map<string, number>();
+	for (const text of added.split("\n")) {
+		held.set(text, (held.get(text) ?? 0) + 1);
+	}
+	let unmatched = 0;
+	for (const text of removed.split("\n")) {
+		const count = held.get(text) ?? 0;
+		if (count > 0) {
+			held.set(text, count - 1);
+		} else {
+			unmatched += text.length;
+		}
+	}
+	for (const [text, count] of held) {
+		unmatched += text.length * count;
+	}
+	return { removed: removed.length, added: added.length, unmatched };
 }
 
 /**
@@ -80,11 +114,14 @@ function differingMiddles(from: string, to: string): [number, number] {
  *   same order, are not a reason: the diff trims what they share and matches them in
  *   tens of milliseconds, so an edit next to a pasted minified line, or a scroll
  *   past it, still glides.
- * - A differing middle past `MAX_SYNCED_EDIT_CHARACTERS` (#337): large pairs of
- *   lines under the cap, a pasted table or log across two steps. The length of the
- *   codes does not count, only what is left once their common head and tail go, so
- *   an edit in a long page still glides, and neither does a block only one side
- *   holds, a paste appended or a section removed.
+ * - More than `MAX_SYNCED_EDIT_CHARACTERS` of text with no counterpart (#337):
+ *   large pairs of lines under the cap, a pasted table or log across two steps.
+ *   The length of the codes does not count, nor the distance between two edits:
+ *   only the lines of each side that the other lacks, once the common head and
+ *   tail go. An edit in a long page, two edits at its ends, and lines reordered
+ *   still glide. A full-file reindent changes every line and is declined. A block
+ *   only one side holds (a paste appended, a section removed) is not a reason
+ *   either.
  */
 export function canSyncKeys<T extends Tokenization>(from: T, to: T): boolean {
 	const cappedLines = (source: Tokenization) =>
@@ -98,8 +135,8 @@ export function canSyncKeys<T extends Tokenization>(from: T, to: T): boolean {
 	if (!sameCapped) {
 		return false;
 	}
-	const [removed, added] = differingMiddles(from.code, to.code);
+	const { removed, added, unmatched } = difference(from.code, to.code);
 	// A pure insertion or deletion leaves the diff nothing to search: 90,000
 	// characters with a block appended sync in 12 ms.
-	return removed === 0 || added === 0 || removed + added <= MAX_SYNCED_EDIT_CHARACTERS;
+	return removed === 0 || added === 0 || unmatched <= MAX_SYNCED_EDIT_CHARACTERS;
 }

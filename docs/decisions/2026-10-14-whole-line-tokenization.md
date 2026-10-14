@@ -18,7 +18,7 @@ flowchart TD
   D2 --> R2["Residual: syncing two capped lines costs a second a morph"]
   R2 --> D3["D3 A pair whose capped lines differ is a scene break, not a sync (#335)"]
   D3 --> R3["Residual: large pairs under the cap hit the same timeout"]
-  R3 --> D4["D4 A pair whose differing middle is past 6,000 characters is a scene break too (#337)"]
+  R3 --> D4["D4 A pair with more than 6,000 characters of unmatched lines is a scene break too (#337)"]
 ```
 
 ## D1 One option, time limit off, everywhere a frame is tokenized
@@ -208,12 +208,15 @@ step holds alike still fades; answered by the narrowing above. A stronger form,
 `tests/infrastructure/capped-sync.test.ts`, `tests/application/magic-move-plan.test.ts`;
 ticket #335.
 
-## D4 A pair whose differing middle is past 6,000 characters is a scene break too
+## D4 A pair with more than 6,000 characters of unmatched lines is a scene break too
 
-**Decision:** `canSyncKeys` also declines a pair when, once the common head and tail
-of the two codes are trimmed, what is left on both sides together is more than
-`MAX_SYNCED_EDIT_CHARACTERS` (6,000, `whole-line-tokenization.ts`). It declines
-nothing when one side's middle is empty (a block appended or removed). The keyers,
+**Decision:** `canSyncKeys` also declines a pair when the text with no counterpart
+is more than `MAX_SYNCED_EDIT_CHARACTERS` (6,000, `whole-line-tokenization.ts`).
+Measured as a bag of lines: trim the common head and tail of the two codes, split
+each remaining middle into lines, match the lines of one against the other as a
+multiset, and sum the characters of the lines left over on both sides (an edited
+line counts on both, reordered lines count for nothing). O(n), deterministic. It
+declines nothing when one side's middle is empty (a block appended or removed). The keyers,
 `planMagicMove` and the `canSync` contract are unchanged: the declined pair takes
 the #307 break path as in D3. Tokens-only (`code` and `tokens` of the two
 tokenizations), no clock: the studio and the server decide alike.
@@ -227,22 +230,35 @@ it cannot match, and the plan is rebuilt on every keystroke. Measured before
 frozen default, so (b) is not available without patching a dependency. The cost
 follows what differs, not the codes' length (the diff trims the common head and
 tail first; D3 narrowed for the same reason), and is steeply superlinear in it.
-Unrelated text, four generators, worst of three seeds: sum of both middles 2,000
+The first cut measured the middle alone (what is left after the trim); review
+showed that is the distance between two edits, not their size: the first and last
+line edited in 100 lines of 72 columns leave a middle of 14,470 characters, 203
+lines 29,508, a rename every fourth line of 100 lines 9,449, one character inserted
+at the head and the tail of 203 x 72 lines 29,638, and each syncs in 1 to 17 ms.
+The bag of lines counts only the lines the other side lacks, so those pairs count
+a few hundred characters and sync; unrelated pages keep a bag at 97% or more of
+the middle, so the figures below hold for the bag.
+Unrelated text, four generators, worst of three seeds: unmatched characters 2,000
 characters 9 to 22 ms, 4,000 26 to 37, 6,000 52 to 77, 8,000 100 to 157, 10,000 147
 to 221, 16,000 372 to 532, about 20,000 and up the whole second, at 72 or 300
 columns alike. 6,000 keeps the worst pair under 80 ms.
 
-| Morph | Differing middle, both sides | Against 6,000 |
+| Morph | Unmatched characters, both sides | Against 6,000 |
 | --- | --- | --- |
 | hono pull request, largest of 3 syncs (loop included) | 593 | 10x under |
 | six templates, largest | 626 | 9.6x under |
 | 12-step diff import of 10 or 50 hunks (`projectFromDiff`) | 70 | 86x under |
 | 24 rows of 72 columns, fully unrelated, other side too | 2,950 (22 ms) | 2x under |
+| first and last line edited, 100 or 203 lines of 72 columns | 162 (middle 14,472 / 29,510) | 37x under |
+| one character inserted at the head and the tail of 203 x 72 | 290 (middle 29,638) | 20x under |
+| a rename every fourth line of 100 lines of 72 columns | 3,516 (middle 14,076) | 1.7x under |
+| the same 100 lines reordered | 0 (sync 61 to 82 ms) | syncs |
+| the same 100 lines of 72 columns, every line reindented by 2 spaces | 14,456 | declined |
 | 100 rows of 300 columns, unrelated (the issue) | about 60,000 | declined |
 | 10 rows of 1,999 columns, unrelated (the issue) | about 40,000 | declined |
 
-The rule measured against its alternative, the pair's total characters (the
-union): the window is `VISIBLE_ROW_LIMIT` (203) rows, so the union of two scrolled
+The rule measured against its alternatives, the pair's total characters (the
+union) and the middle alone: the window is `VISIBLE_ROW_LIMIT` (203) rows, so the union of two scrolled
 windows of a 72-column file is about 29,000 characters of which nothing differs.
 A total-size bound low enough to stop the stall (under 20,000) would refuse every
 morph of a file of that size, an edit included; the middle refuses only what costs.
@@ -251,19 +267,23 @@ tokenization cached, the acceptance's 100 ms), 230 and 375 ms on the server, whi
 does not cache and tokenizes 20,000 to 30,000 characters cold; the hono and the six
 templates' plans hash the same before and after (sha256 `a4e4cca0...2bff` for hono).
 
-**Rejected:** (b) a shorter diff timeout (not exposed, see above; a smaller timeout
+**Rejected:** the middle alone (above); (b) a shorter diff timeout (not exposed, see above; a smaller timeout
 would also make the plan a function of the clock); the total characters of the
 union (above); a bound on the smaller side's middle (replacing 30,000 characters by
 5,000 costs 1.15 s, the smaller side of which is well under any such bound); a
 cost model of the middle's similarity (a pasted table shares delimiters and still
 stalls, so it would rank the worst case as cheap).
 
-**Trade-off, accepted:** a rewrite of more than 6,000 characters of a page (about
-40 rows of 72 columns replaced end to end) fades out and in instead of gliding,
-whether or not the two sides happen to share structure and the diff would have been
-fast (a 50-hunk diff page with every hunk edited, 8,000 characters, costs 4 ms and
-is declined). Edits, a scroll, a block appended or removed, and every fixture
-morph keep their keys.
+**Trade-off, accepted:** a page with more than 6,000 characters of lines the other
+side lacks (about 42 rows of 72 columns on each side, with unrelated text; fewer when the
+changed lines are longer) fades out and in instead of gliding, whether or not the
+two sides share structure inside those lines and the diff would have been fast.
+The case that hurts is a full-file reindent: every line is new text to a bag of
+lines, so 100 lines of 72 columns reindented by two spaces are declined though the
+diff would match them. A 50-hunk diff page with every hunk edited (8,000 characters
+of edited lines, 4 ms) is declined for the same reason. Edits anywhere in a page,
+two edits at its ends, reordered lines, a scroll, a block appended or removed, and
+every fixture morph keep their keys.
 
 **Residual:** below the bound the diff still costs up to about 80 ms on text that
 shares nothing (a full-page rewrite), on top of tokenization. The bound is a
@@ -286,7 +306,8 @@ templates' key-sharing test pin the ordinary morphs.
 `tests/infrastructure/capped-sync.test.ts` (helper carries `code`); `CONTEXT.md`
 (Line cap); ticket #337.
 
-**Pivot:** "A rewritten page must glide, not fade": raise the bound (8,000 costs
+**Pivot:** "A reindented file must glide, not fade": compare lines with their
+leading whitespace trimmed in the bag. "A rewritten page must glide, not fade": raise the bound (8,000 costs
 100 to 157 ms on the worst pair, 10,000 up to 221) or give the diff a bounded
 algorithm of its own, which would also make a changed minified line glide (D3's
 stronger pivot).
