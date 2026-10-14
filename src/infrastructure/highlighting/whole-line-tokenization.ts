@@ -10,6 +10,8 @@
  * device's (#315). Zero turns the check off (vscode-textmate skips it at 0), so
  * the tokens are a function of the code alone, and since Shiki never reports a
  * line it cut short, it is the only setting under which a tokenization is known
- * whole. Nothing a frame holds needs the limit: a 5,000-column line takes 170 ms.
+ * whole. A line a frame is built for needs no limit (72 columns: 0.34 ms); a
+ * minified line of 100,000 columns now takes about 9 s where the limit cut it at
+ * 500 ms. The deterministic bound for that is a per-line length cap (#331).
  */
 export const WHOLE_LINE_TOKENIZATION = { tokenizeTimeLimit: 0 } as const;
