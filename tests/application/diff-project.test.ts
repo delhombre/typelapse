@@ -4,6 +4,7 @@ import { MAX_DIFF_STEPS, MAX_SCENE_LINES } from "@/application/diff";
 import { projectFromDiff } from "@/application/import/diff-project";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { describe, expect, it } from "vitest";
+import { manyHunks as hunksApart } from "../support/many-hunks";
 
 /**
  * The CLI renders a pull request without a studio, so it builds the project the
@@ -71,6 +72,18 @@ describe("a diff past the step cap", () => {
 			for (const step of steps) {
 				expect(step.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
 			}
+			expect(steps.at(-1)?.code).toMatch(/\n⋯ \d+ more scenes$/);
+		}
+	});
+
+	it("draws every kept scene of a uniform diff on the same number of rows, the marker included", () => {
+		// The card is sized by its tallest scene: a last scene one row taller makes the
+		// card and the progress bar jump at the end of the video (#322).
+		for (const gap of [3, 4, 30]) {
+			const { steps } = projectFromDiff(hunksApart("big.ts", 45, gap));
+
+			const rowCounts = new Set(steps.map((step) => step.code.split("\n").length));
+			expect(rowCounts.size, `gap ${gap}`).toBe(1);
 			expect(steps.at(-1)?.code).toMatch(/\n⋯ \d+ more scenes$/);
 		}
 	});
