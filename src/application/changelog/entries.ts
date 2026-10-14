@@ -18,10 +18,44 @@ export interface ChangelogEntry {
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
 	{
+		id: "cloud-deep-link",
+		date: "2026-10-14",
+		title: "A link that opens Cloud in the studio",
+		summary:
+			"The /app#cloud link opens the hosted render sheet, and the pricing page's Creator action uses it.",
+	},
+	{
+		id: "scene-breaks",
+		date: "2026-10-14",
+		title: "A new page of an import fades in instead of morphing",
+		summary:
+			"A new page or chapter of an import fades over the last one, and code you edit inside a scene still morphs token by token.",
+	},
+	{
+		id: "long-diff-cap",
+		date: "2026-10-13",
+		title: "A long diff ends on a marker and a notice",
+		summary:
+			'A diff with more scenes than a short clip holds keeps its first ones, ends on "⋯ n more scenes", and the import notice gives the count.',
+	},
+	{
+		id: "account-sheet",
+		date: "2026-10-13",
+		title: "The account is a sheet with three tabs",
+		summary: "Projects, Plan and API keys sit under your name, and Sign out stays in view.",
+	},
+	{
 		id: "help-sheet",
 		date: "2026-10-13",
 		title: "A help sheet",
 		summary: "Scenes, focus ranges and keyboard shortcuts are explained in the studio, under Help.",
+	},
+	{
+		id: "pricing-page",
+		date: "2026-10-13",
+		title: "A public pricing page",
+		summary:
+			"/pricing lists Free on this device next to Creator, with a comparison table and the usual questions.",
 	},
 	{
 		id: "first-video-card",
