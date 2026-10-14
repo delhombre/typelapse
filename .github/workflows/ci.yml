@@ -268,8 +268,13 @@ jobs:
     if: needs.quality-gate.outputs.hosted == 'true'
     uses: ./.github/workflows/hosted-e2e.yml
 
+  # After the gate, and not on a docs-only pull request (#340): its own job is a
+  # billed minute, which would double a docs push (1 minute) for an audit of a
+  # lockfile the pull request did not touch. Never blocks a merge either way.
   audit:
     name: Advisories
+    needs: quality-gate
+    if: needs.quality-gate.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

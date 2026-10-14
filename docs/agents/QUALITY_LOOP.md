@@ -256,8 +256,8 @@ read their brief, not this file, so the orchestrator's builder briefs point here
   definition. Work goes to the built-in agents with a model and a brief that
   names the skills of its gate.
 - **Builders** run on Sonnet (`model: sonnet`): one ticket, one brief, their
-  own ports, the three rules of Pushes, and a report in the four-part format: journeys, bugs, fixes with
-  tests, not verifiable. A task Sonnet cannot finish goes to Opus
+  own ports, the three rules of Pushes, and a report in the four-part format:
+  journeys, bugs, fixes with tests, not verifiable. A task Sonnet cannot finish goes to Opus
   (`model: opus`) with Sonnet's failure named in the new brief.
 - **Explore agents** (Haiku, read-only) answer "where is X" with a report
   under 40 lines, so builders start editing on their first turn.
