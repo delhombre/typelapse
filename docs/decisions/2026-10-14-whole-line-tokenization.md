@@ -217,7 +217,9 @@ each remaining middle into lines, match the lines of one against the other as a
 multiset, and sum the characters of the lines left over on both sides (an edited
 line counts on both, reordered lines count for nothing). Lines are compared
 without their leading whitespace and counted without it, so a reindent or code
-wrapped in a block is the same lines under another margin. O(n), deterministic. It
+wrapped in a block is the same lines under another margin; the change in the sum
+of the lines' leading whitespace is added to the count, because the diff still pays
+for the spaces. Two guards complete it (below). O(n), deterministic. It
 declines nothing when one side's middle is empty (a block appended or removed). The keyers,
 `planMagicMove` and the `canSync` contract are unchanged: the declined pair takes
 the #307 break path as in D3. Tokens-only (`code` and `tokens` of the two
@@ -255,16 +257,22 @@ columns alike. 6,000 keeps the worst pair under 80 ms.
 | one character inserted at the head and the tail of 203 x 72 | 290 (middle 29,638) | 20x under |
 | a rename every fourth line of 100 lines of 72 columns | 3,516 (middle 14,076) | 1.7x under |
 | the same 100 lines reordered | 0 (sync 61 to 82 ms) | syncs |
-| the same 100 lines, every line reindented by 2 spaces | 0 (cost 13 ms a morph) | syncs |
+| the same 100 lines, every line reindented by 2 spaces | 200 (margin change; cost 13 ms a morph) | syncs |
+| 203 lines with 120 spaces of margin removed | 24,360 | declined (a timeout) |
+| 100 lines with 80 spaces of margin removed | 8,000 | declined (461 ms) |
+| 100 lines of 300 columns, reversed | 0 unmatched, 60,000 held (62 ms) | syncs, at the pair cap |
+| 203 lines of 1,999 columns, reversed | 0 unmatched, about 812,000 held (9.9 s) | declined by the pair cap |
 | the same lines wrapped in a function, body indented (203 lines) | 26 (cost 21 ms a morph) | syncs |
 | 100 rows of 300 columns, unrelated (the issue) | about 60,000 | declined |
 | 10 rows of 1,999 columns, unrelated (the issue) | about 40,000 | declined |
 
 The rule measured against its alternatives, the pair's total characters (the
-union) and the middle alone: the window is `VISIBLE_ROW_LIMIT` (203) rows, so the union of two scrolled
-windows of a 72-column file is about 29,000 characters of which nothing differs.
+union) and the middle alone: the window is `VISIBLE_ROW_LIMIT` (203) rows, so the
+union of two scrolled windows of a 72-column file is about 29,000 characters of
+which nothing differs.
 A total-size bound low enough to stop the stall (under 20,000) would refuse every
-morph of a file of that size, an edit included; the middle refuses only what costs.
+morph of a file of that size, an edit included; the bag of lines refuses only what
+the diff has to search.
 After: the two cases plan in 18 and 27 ms in the studio (rebuild with Shiki's
 tokenization cached, the acceptance's 100 ms), 230 and 375 ms on the server, which
 does not cache and tokenizes 20,000 to 30,000 characters cold; the hono and the six
@@ -316,6 +324,18 @@ function, both ordinary scenes of a walkthrough whose sync is cheap (13 to 28 ms
 a morph, 100 or 203 lines). The bag now trims each line's leading whitespace on
 both sides. An `export ` prefix on a line's text is not whitespace: added to every
 declaration of a page it counts those lines, as an edit does.
+
+**Guards added on the second review:** reordered lines are all matched, so the
+bag counts nothing for a shuffled page, yet the diff still has to place the lines
+(203 x 600 reversed 742 ms, 100 x 1,500 3.8 s, 203 x 1,999 9.9 s under load, all
+declined before the bag). `MAX_SYNCED_PAIR_CHARACTERS` (60,000) declines a pair
+whose two middles together hold more, matched or not (a 203-row window of 72
+columns is about 30,000 for both sides); the pure insertion or deletion exemption
+comes first. And the margin: trimming it hid a change the diff pays for (80 spaces
+off 100 lines 461 ms, 40 off 203 lines 824 ms, 120 off 203 lines a timeout), so
+the absolute change in the sum of leading whitespace counts as unmatched. The pair
+cap sits exactly on 100 lines of 300 columns (60,000 characters, newlines
+excluded): a page at that size and no larger still syncs when reordered.
 
 **Pivot:** "A rewritten page must glide, not fade": raise the bound (8,000 costs
 100 to 157 ms on the worst pair, 10,000 up to 221) or give the diff a bounded

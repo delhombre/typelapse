@@ -217,6 +217,41 @@ describe("canSyncKeys on the size of what differs", () => {
 		});
 	});
 
+	describe("lines in another order, and margins removed: what the bag cannot see", () => {
+		const reversed = (code: string) => code.split("\n").reverse().join("\n");
+
+		it("accepts a page of 100 lines of 300 columns shuffled: every line is matched, 62 ms", () => {
+			const code = rows(UNIT_A, 100, 300);
+			expect(canSyncKeys(source(code), source(reversed(code)))).toBe(true);
+		});
+
+		it("declines a page of 203 lines of 1,999 columns shuffled: too large for the diff at any match", () => {
+			const code = rows(UNIT_A, 203, MAX_TOKENIZED_LINE_COLUMNS - 1);
+			expect(canSyncKeys(source(code), source(reversed(code)))).toBe(false);
+		});
+
+		it("still accepts a huge block only one side holds, shuffled lines or not", () => {
+			const code = rows(UNIT_A, 203, MAX_TOKENIZED_LINE_COLUMNS - 1);
+			expect(canSyncKeys(source(""), source(code))).toBe(true);
+			expect(canSyncKeys(source(`a\n${code}`), source("a"))).toBe(true);
+		});
+
+		it("declines a margin removed from 203 lines: the diff pays for every space", () => {
+			const lines = Array.from({ length: 203 }, (_, i) => `const value${i} = compute(${i});`);
+			const indented = (spaces: number) =>
+				lines.map((text) => `${" ".repeat(spaces)}${text}`).join("\n");
+			expect(canSyncKeys(source(indented(120)), source(indented(0)))).toBe(false);
+			expect(canSyncKeys(source(indented(40)), source(indented(0)))).toBe(false);
+			expect(canSyncKeys(source(indented(0)), source(indented(120)))).toBe(false);
+		});
+
+		it("accepts a 2-space reindent of 100 lines: 200 spaces of margin", () => {
+			const lines = Array.from({ length: 100 }, (_, i) => `const value${i} = compute(${i});`);
+			const reindented = lines.map((text) => `  ${text}`).join("\n");
+			expect(canSyncKeys(source(lines.join("\n")), source(reindented))).toBe(true);
+		});
+	});
+
 	describe("the bound sits at 6,000, not far above it", () => {
 		const pair = (rowsPerSide: number, columns: number) =>
 			[rows(UNIT_A, rowsPerSide, columns), rows(UNIT_B, rowsPerSide, columns)] as const;

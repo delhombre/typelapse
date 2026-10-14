@@ -38,18 +38,30 @@ export const WHOLE_LINE_TOKENIZATION = {
  * The most characters, summed over the two codes of a pair, that may have no
  * counterpart in the other for `syncTokenKeys` to run (#337): the lines of each
  * middle (the codes minus their common head and tail) that the other middle does
- * not hold. The diff's cost follows what it has to search, not the length of the
- * codes nor the distance between two edits. diff-match-patch cannot be told to stop earlier (its one-second timeout
- * is a default, and shiki-magic-move calls it with no options), and its cost on
- * lines it cannot match is steeply superlinear in the middle, whatever the width of
- * the lines: unrelated text sums to 2,000 characters in 9 to 22 ms, 6,000 in 52 to
- * 77 ms, 8,000 in 100 to 157 ms, 16,000 in 372 to 532 ms and about 20,000 and up in
- * the full second. 6,000 keeps the worst pair under 80 ms and sits twice above the
- * widest rewrite a page is built for (24 rows of 72 columns, fully unrelated:
+ * not hold, plus the margin the lines gain or lose. The diff's cost follows what
+ * it has to search, not the length of the codes nor the distance between two edits.
+ *
+ * diff-match-patch cannot be told to stop earlier: its one-second timeout is a
+ * default, and shiki-magic-move calls it with no options. Its cost on lines it
+ * cannot match is steeply superlinear in the middle, whatever the width of the
+ * lines. Unrelated text sums to 2,000 characters in 9 to 22 ms, 6,000 in 52 to
+ * 77 ms, 8,000 in 100 to 157 ms, 16,000 in 372 to 532 ms, and about 20,000 and up
+ * in the full second. 6,000 keeps the worst pair under 80 ms. It sits twice above
+ * the widest rewrite a page is built for (24 rows of 72 columns, fully unrelated:
  * about 3,000) and ten times above the largest morph of the hono fixture and the
  * six templates (about 600).
  */
 export const MAX_SYNCED_EDIT_CHARACTERS = 6_000;
+
+/**
+ * The most characters, summed over the two middles, a pair may hold at all (#337),
+ * whatever matches. Lines in another order are all matched, so they add nothing to
+ * the count above, yet the diff still has to place them: 100 lines of 300 columns
+ * reversed (60,000 characters) sync in 62 ms, 203 lines of 600 columns in 742 ms,
+ * 100 of 1,500 in 3.8 s, 203 of 1,999 in 9.9 s. A 203-row window of 72 columns is
+ * about 30,000 for both sides, half of this. A block only one side holds is exempt.
+ */
+export const MAX_SYNCED_PAIR_CHARACTERS = 60_000;
 
 type Tokenization = { code: string; tokens: readonly { content: string }[] };
 
@@ -59,14 +71,19 @@ type Tokenization = { code: string; tokens: readonly { content: string }[] };
  * middle, shared or not, so the middle measures the distance between edits. What
  * the diff has to search is the text with no counterpart on the other side: the
  * lines of each middle that the other middle does not hold (a multiset of lines,
- * so a line held twice is matched twice). Lines are compared without their leading
- * whitespace: a reindent, or code wrapped in a block, is the same lines under
- * another margin, and the diff matches them cheaply. Reordered lines are all
- * matched; an edited line counts on both sides.
+ * so a line held twice is matched twice). Lines are compared without their
+ * leading whitespace: a reindent, or code wrapped in a block, is the same lines
+ * under another margin. Reordered lines are all matched; an edited line counts on
+ * both sides.
  *
- * `removed` and `added` are the middles' lengths; `unmatched` is the characters of
- * the lines left over on both sides, margins and newlines excluded. O(n) in the
- * codes.
+ * The margin is not free, though: the diff still pays for every space a reindent
+ * adds or removes (80 spaces off 100 lines cost 461 ms, 120 off 203 lines more than
+ * a second). So the change in the sum of the lines' leading whitespace is counted
+ * as unmatched, which a 2-space reindent of 100 lines hardly moves (200).
+ *
+ * `removed` and `added` are the characters of each middle's lines, newlines
+ * excluded; `unmatched` is those of the lines left over on both sides, margins
+ * excluded, plus the margin change. O(n) in the codes.
  */
 function difference(
 	from: string,
@@ -81,27 +98,31 @@ function difference(
 	while (tail < shortest - head && from[from.length - 1 - tail] === to[to.length - 1 - tail]) {
 		tail++;
 	}
-	const middle = (code: string) => code.slice(head, code.length - tail);
+	const middle = (code: string) => code.slice(head, code.length - tail).split("\n");
 	const removed = middle(from);
 	const added = middle(to);
+	const characters = (lines: string[]) => lines.reduce((sum, text) => sum + text.length, 0);
+	const margin = (lines: string[]) =>
+		lines.reduce((sum, text) => sum + (text.length - text.trimStart().length), 0);
 	const held = new Map<string, number>();
-	const lines = (code: string) => code.split("\n").map((text) => text.trimStart());
-	for (const text of lines(added)) {
-		held.set(text, (held.get(text) ?? 0) + 1);
+	for (const text of added) {
+		const key = text.trimStart();
+		held.set(key, (held.get(key) ?? 0) + 1);
 	}
-	let unmatched = 0;
-	for (const text of lines(removed)) {
-		const count = held.get(text) ?? 0;
+	let unmatched = Math.abs(margin(removed) - margin(added));
+	for (const text of removed) {
+		const key = text.trimStart();
+		const count = held.get(key) ?? 0;
 		if (count > 0) {
-			held.set(text, count - 1);
+			held.set(key, count - 1);
 		} else {
-			unmatched += text.length;
+			unmatched += key.length;
 		}
 	}
 	for (const [text, count] of held) {
 		unmatched += text.length * count;
 	}
-	return { removed: removed.length, added: added.length, unmatched };
+	return { removed: characters(removed), added: characters(added), unmatched };
 }
 
 /**
@@ -121,10 +142,16 @@ function difference(
  * - More than `MAX_SYNCED_EDIT_CHARACTERS` of text with no counterpart (#337):
  *   large pairs of lines under the cap, a pasted table or log across two steps.
  *   The length of the codes does not count, nor the distance between two edits:
- *   only the lines of each side that the other lacks (margins aside), once the
- *   common head and tail go. An edit in a long page, two edits at its ends, lines
- *   reordered, a reindent and code wrapped in a block still glide. A block only one
- *   side holds (a paste appended, a section removed) is not a reason either.
+ *   only the lines of each side that the other lacks, once the common head and
+ *   tail go, and the margin they gain or lose. An edit in a long page, two edits
+ *   at its ends, lines reordered, a small reindent and code wrapped in a block
+ *   still glide.
+ * - More than `MAX_SYNCED_PAIR_CHARACTERS` in the two middles together, matched or
+ *   not: the diff still has to place a page's lines when they come in another
+ *   order.
+ *
+ * A block only one side holds (a paste appended, a section removed) is a reason
+ * for neither: the diff has nothing to search.
  */
 export function canSyncKeys<T extends Tokenization>(from: T, to: T): boolean {
 	const cappedLines = (source: Tokenization) =>
@@ -141,5 +168,8 @@ export function canSyncKeys<T extends Tokenization>(from: T, to: T): boolean {
 	const { removed, added, unmatched } = difference(from.code, to.code);
 	// A pure insertion or deletion leaves the diff nothing to search: 90,000
 	// characters with a block appended sync in 12 ms.
-	return removed === 0 || added === 0 || unmatched <= MAX_SYNCED_EDIT_CHARACTERS;
+	if (removed === 0 || added === 0) {
+		return true;
+	}
+	return removed + added <= MAX_SYNCED_PAIR_CHARACTERS && unmatched <= MAX_SYNCED_EDIT_CHARACTERS;
 }
