@@ -25,8 +25,8 @@ Kept current by the orchestrator so that compaction or a new session loses nothi
 
 ## In flight (agent, files owned, status)
 - 2026-10-14 noon: #331 builder (whole-line-tokenization option, plan.ts colour normalisation, the three Shiki call sites) and #330 builder (video-script zoom during a break). Nothing else.
-- Staging (https://staging.typelapse.com) deployed from main eac8273 by `scripts/deploy/staging.sh`. Hosted journeys run in CI on hosted-side PRs (one worker, `Hosted gate` to be required by Bruno after a green week, #302 ready-for-human).
-- Owner items: #65 (now #241), #71 remaining steps, #77, #79 (refund terms before any real price), #112, #217, #302 (require Hosted gate), #246 and #253 to triage.
+- Staging (https://staging.typelapse.com) deployed from main eac8273 by `scripts/deploy/staging.sh`. Hosted journeys run in CI on hosted-side PRs (one worker, the `Hosted gate` job was removed by #340 and comes back from the history of `ci.yml` the day #302 requires the journeys).
+- Owner items: #65 (now #241), #71 remaining steps, #77, #79 (refund terms before any real price), #112, #217, #302 (require the hosted journeys: restore Hosted gate first), #246 and #253 to triage.
 - Lessons kept from the night: builders in their own worktrees and scratchpad folders; cap at five parallel vitest runs (the machine fails timing tests past a load of about 100; #318 made the known ones deterministic); a background `gh` loop must tolerate api.github.com blips.
 
 ## Open findings from /craft-harness:verify

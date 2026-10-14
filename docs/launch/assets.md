@@ -69,8 +69,8 @@ Then build with `TYPELAPSE_APP_URL` set (see `checklist.md`): the build turns
 ## 5. The Action's comment
 
 A screenshot of the comment the Action posts on a pull request of this
-repository (`.github/workflows/render-pr.yml`). Open any pull request against
-`main` once the repository variable `TYPELAPSE_STUDIO_URL` is set, so the link
+repository (`.github/workflows/render-pr.yml`). Add the `render` label to any pull request
+against `main` once the repository variable `TYPELAPSE_STUDIO_URL` is set, so the link
 in the comment opens the deployed studio rather than a local one.
 
 ## 6. The skill's answer

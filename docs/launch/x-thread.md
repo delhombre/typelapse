@@ -52,7 +52,7 @@ Attach: a terminal screenshot of the command and its `--json` line.
 > uses: delhombre/typelapse@v0.1.0
 
 Attach: a screenshot of the comment on a pull request in this repository
-(`.github/workflows/render-pr.yml` runs it on our own PRs).
+(`.github/workflows/render-pr.yml` runs it on our own PRs once they carry the `render` label).
 
 ## 6. Ask your agent
 

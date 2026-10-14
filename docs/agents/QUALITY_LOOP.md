@@ -148,19 +148,34 @@ the pull-request subset), so it runs again on every push and every night.
 `pnpm e2e:smoke` and the touched spec are green before the report.
 
 The hosted journeys (`pnpm e2e:hosted`, `tests/e2e/hosted/`) are part of the gate
-for any change that can reach them: everything under `src/` except
-`src/presentation/landing/`, `server/`, `cli/`, `scripts/`, `action.yml`,
-`package.json`, `vite.config.ts` and `tests/e2e/hosted/` (the exact list is the
-`changes` job in `ci.yml`). CI runs them as the "Hosted journeys" job on such pull
-requests (`hosted-e2e.yml`, called from `ci.yml`) and every night on `main`
-(`e2e-nightly.yml`). Locally, `tests/e2e/hosted/services.sh up` then
-`pnpm e2e:hosted`. They are not a required check yet. Once they have been green
-for a week, require **"Hosted gate"** (a job of `ci.yml`) next to "Quality gate"
-in the `main` ruleset, never "Hosted journeys": that check is named differently
-when it runs ("Hosted journeys / Hosted journeys") and when its path filter skips
-it ("Hosted journeys"), so requiring it would hang every skipping pull request.
-"Hosted gate" always runs, fails when the journeys fail, and passes when they
-pass or are skipped.
+for any change that can reach them: `server/`, `src/presentation/stores/`,
+`src/application/billing/`, `src/presentation/components/multimedia/`, their own
+harness (`tests/e2e/hosted/`, `tests/e2e/support/`, `tests/support/fake-polar.ts`,
+`playwright.config.ts`) and the two workflows (the exact list is the paths filter,
+the first steps of the `Quality gate` job in `ci.yml`). CI runs them as the
+"Hosted journeys" job on such pull requests (`hosted-e2e.yml`, called from `ci.yml`,
+after the Quality gate passed), on any pull request that carries the `hosted` label,
+and every night on `main` (`e2e-nightly.yml`). Locally, `tests/e2e/hosted/services.sh
+up` then `pnpm e2e:hosted`.
+
+The list is narrow on purpose. The #303 review had widened it to all of `src/`,
+which is nearly every code pull request and made 13 billed minutes the price of a
+push; #340 reverses that, cost over coverage. What it does not name is caught by
+the nightly, and by the deploy's release gate (`hosted:check`). A builder who
+knows a change can reach the hosted side anyway (a shared type the server imports,
+a dependency bump) puts the `hosted` label on the pull request before pushing (or
+re-runs the workflow from the Actions tab afterwards): CI reads the labels at each
+push, and a label alone does not run it, since a run costs about 11 billed minutes.
+
+The ruleset requires **"Quality gate"** and nothing else, and the journeys are not a
+required check. A "Hosted gate" job (a requirable name that always ran, failed
+when the journeys failed and passed when they passed or were skipped) existed for
+the day they would be; it cost a billed minute on every push for a check nobody
+required, so #340 removed it. It comes back the day #302 requires the journeys:
+restore it from the history of `ci.yml`, then require "Hosted gate" next to
+"Quality gate" in the `main` ruleset, never "Hosted journeys" (that check is named
+"Hosted journeys / Hosted journeys" when it runs and "Hosted journeys" when its
+`if` skips it, so requiring either would hang every skipping pull request).
 
 **Pass:** the report names what was observed, with the command and the file,
 the spec that now replays it, and what could not be verified and why.
@@ -174,6 +189,27 @@ label), and asks Bruno for the merge. Before a release,
 `emil-prep-for-prod` runs on the whole app and its "Needs a device" list goes
 to Bruno as a checklist.
 
+CI runs on pull requests only (`ci.yml` has no `push` trigger on `main`, #340). A
+merge lands the head that was reviewed and gated (`gh pr merge --match-head-commit`,
+on a branch that carries `origin/main`), so a second run on `main` replayed the same
+gate on the same code for 14 billed minutes. The net is the nightly
+(`e2e-nightly.yml`): its `gate` job runs lint, both typechecks and `pnpm test` on
+`main`, and its journeys run every journey, hosted ones included. The staging
+deploy's release gate (`hosted:check`) checks the hosted configuration, not the
+code, and the deploy only builds. So two green pull requests merged on different
+bases that break each other are caught by the next nightly, not at the merge.
+"Require branches to be up to date" would close that gap, but it cannot be read or
+relied on today: the rulesets API answers 403 on this private Free-plan repository
+("Upgrade to GitHub Pro or make this repository public"). Until the repository is
+public, treat the setting as unknown and keep the branch carrying `origin/main`
+(the Pushes rules below) as the guard.
+
+A pull request whose every changed file is a document (a Markdown file anywhere,
+`CONTEXT.md`, `CLAUDE.md`, `AGENTS.md`) runs lint, `tests/docs` and
+`tests/cli/action.test.ts` (it reads `README.md`), and skips the rest of the Quality
+gate, which still reports success under its name. `docs/**/*.json` (a fixture a test
+reads) and `.craft/verify.sh` (the gate itself) are code and take the full path.
+
 A change a person can see (a screen, a control, a sentence, an export, a public
 page) adds an entry to `src/application/changelog/entries.ts` in the same pull
 request: newest first, a permanent id, the day it ships, a one-line title and one
@@ -183,6 +219,19 @@ checks it with the diff, and a change with nothing to see (a refactor, a test, a
 gate, a doc) says so in the table below instead of adding one. The threshold: a new
 screen, control, sentence, export or public page is an entry; a pixel alignment, a
 spacing or a colour fix is not.
+
+### Pushes
+
+A pull request averaged three to four pushes, and every push bills the Quality gate
+again (#340). Three rules, in every builder brief:
+
+- **One push per review round**, after `bash .craft/verify.sh` is green on the
+  machine. Commit as often as you like; push when the round's fixes are all in.
+- **Never a "merge main" push on its own.** When the branch must catch up with
+  `origin/main`, do it in the same push as the fixes of the round, or when there is
+  nothing else to push, not at all until the merge.
+- **Reviewers read the branch in a worktree**, not in CI: `git worktree add` on the
+  head, `verify.sh` there. A review never waits for a run.
 
 ### PR body
 
@@ -200,6 +249,7 @@ read their brief, not this file, so the orchestrator's builder briefs point here
    | (a criterion of the ticket) | (file or module) | (test, spec, capture) |
    | Changelog entry for a visible change | `application/changelog/entries.ts` (id, date) | the entry, or "nothing to see: a refactor" |
    | `bash .craft/verify.sh` | | OK |
+   | One push per review round (see Pushes) | the commit list | `verify.sh` green before each push; no lone "merge main" |
 
 3. **Notes** and **Evidence**: what a reviewer would trip on, and the captures
    with their paths.
@@ -214,8 +264,8 @@ read their brief, not this file, so the orchestrator's builder briefs point here
   definition. Work goes to the built-in agents with a model and a brief that
   names the skills of its gate.
 - **Builders** run on Sonnet (`model: sonnet`): one ticket, one brief, their
-  own ports, and a report in the four-part format: journeys, bugs, fixes with
-  tests, not verifiable. A task Sonnet cannot finish goes to Opus
+  own ports, the three rules of Pushes, and a report in the four-part format:
+  journeys, bugs, fixes with tests, not verifiable. A task Sonnet cannot finish goes to Opus
   (`model: opus`) with Sonnet's failure named in the new brief.
 - **Explore agents** (Haiku, read-only) answer "where is X" with a report
   under 40 lines, so builders start editing on their first turn.

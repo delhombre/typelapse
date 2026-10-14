@@ -35,7 +35,7 @@ first because the Action and the skill only install from a public repository.
 
 ## The morning
 
-- [ ] **Push `main`.** `git push origin main`, after the merge.
+- [ ] **Push `main`.** `git push origin main`, after the merge. No run follows this push (ci.yml has no `push` trigger, #340): dispatch the staging deploy by hand, and read the nightly's gate next morning.
 - [ ] **Open the repository**, if D8 says today: the steps under "Open the
       repository" below, which include tagging the Action.
 - [ ] **`TYPELAPSE_STUDIO_URL`.** Settings, Secrets and variables, Actions,

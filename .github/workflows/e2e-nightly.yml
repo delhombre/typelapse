@@ -1,6 +1,11 @@
-# Every journey, every night and on demand: the smoke subset runs on each pull
-# request (ci.yml), this runs the rest, including the ones that reach GitHub,
-# and the hosted journeys (hosted-e2e.yml) against PostgreSQL, MinIO, maildev and the real render worker.
+# The net under main, every night and on demand (#340). ci.yml has no `push`
+# trigger on main, so nothing else runs the code once it is merged:
+#   - `gate`: lint, both typechecks and the unit tests on main, the part of the
+#     Quality gate a merge of two green pull requests on different bases can break;
+#   - `e2e`: every journey (the smoke subset runs on each pull request, ci.yml),
+#     including the ones that reach GitHub;
+#   - `hosted`: the hosted journeys (hosted-e2e.yml) against PostgreSQL, MinIO,
+#     maildev and the real render worker.
 name: E2E nightly
 
 on:
@@ -16,6 +21,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  gate:
+    name: Main gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint and format
+        run: pnpm lint
+
+      - name: Typecheck client
+        run: pnpm check-types
+
+      - name: Typecheck server
+        run: pnpm typecheck:server
+
+      - name: Test
+        run: pnpm test
+
   e2e:
     name: All journeys
     runs-on: ubuntu-latest
