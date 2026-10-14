@@ -7,6 +7,7 @@ import {
 	parseProjectDocument,
 } from "./project-document";
 import type { ProjectStepPayload } from "./project-payload";
+import { sceneBreaks } from "./scene-break";
 import { STUDIO_LIVE_SCENE_ID, type StudioCompositionSnapshot } from "./studio-composition";
 
 const PRIMARY_CODE_CONTINUITY_KEY = "primary-code";
@@ -52,6 +53,7 @@ function spineSourceOf(document: ProjectDocumentV2): ProjectDocumentV1 {
 	const coded = blocks.filter((block): block is CodeBlockPayload => block !== undefined);
 	const first = coded[0];
 	const captured = project.legacySource?.hadCapturedSteps ?? true;
+	const breaks = sceneBreaks(project.scenes);
 	const raw: Record<string, unknown> = {
 		title: project.title,
 		code: project.legacySource?.liveCode ?? coded.at(-1)?.code ?? NO_CODE_EDITOR_SEED,
@@ -82,6 +84,7 @@ function spineSourceOf(document: ProjectDocumentV2): ProjectDocumentV1 {
 					duration: scene.durationMs,
 					...(blocks[index]?.focus ? { focus: blocks[index]?.focus } : {}),
 					...(scene.caption ? { caption: scene.caption } : {}),
+					...(breaks[index] ? { sceneBreak: true } : {}),
 				}))
 			: [],
 	};

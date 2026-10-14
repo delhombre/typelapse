@@ -17,13 +17,17 @@
  *  - A chapter whose diff is lockfiles-only or empty carries no changes to
  *    animate and is skipped entirely; N counts only the kept chapters.
  *
- * ## Morph note
+ * ## Scene breaks
  *
- * Chapter boundaries are scene changes: consecutive chapters window different
- * hunks, so their frames share little structure and the Magic Move engine simply
- * cross-fades the pair. That is fine, the engine handles arbitrary frame pairs;
- * the token-stability requirement only holds WITHIN a chapter (already guaranteed
- * by the shared windows in {@link generateSnapshots}), never ACROSS chapters.
+ * Chapter boundaries are usually scene breaks: consecutive chapters window different
+ * hunks, so their frames share little structure, and a token-by-token morph
+ * between them sends letters flying across lines (#280). The first frame of
+ * every chapter after the first carries `sceneBreak`, as the first frame of a
+ * page does inside one diff, unless the chapter's before-state is the code on
+ * screen (two commits on the same lines): that first frame is a direct edit and
+ * morphs. Both keyers match no token across a break: the old frame fades out and
+ * the new one fades in. Token stability only holds WITHIN a
+ * page (the shared windows in {@link generateSnapshots}), never across a break.
  *
  * The module is pure: it composes sibling diff modules and has no framework deps.
  */
@@ -117,10 +121,16 @@ export function chapterSequences(
 	}
 
 	const total = kept.length;
+	// The code the previous chapter ends on: what is on screen when the next opens.
+	let onScreen: string | undefined;
 
 	return kept.map((chapter, index) => {
 		const position = index + 1;
 		let frames = chapter.snapshots;
+		// A chapter whose before-state is the code on screen edits it directly: its
+		// first frame morphs. Any other chapter opens on a scene break.
+		const before = frames[0]?.label === BEFORE_LABEL ? frames[0].code : undefined;
+		const opensScene = position > 1 && (before === undefined || before !== onScreen);
 		// Every chapter but the first opens on a before-state the previous chapter
 		// already established; drop it so the walkthrough never stalls on a rerun.
 		// But a deletion/emptying commit normalizes to a LONE "Before" frame: that
@@ -136,13 +146,22 @@ export function chapterSequences(
 		) {
 			frames = frames.slice(1);
 		}
-		if (chapter.title === "") {
+		const [opening, ...rest] = frames;
+		if (!opening) {
 			return frames;
 		}
-		const heading = chapterHeading(position, total, chapter.title);
-		return frames.map((frame, frameIndex) =>
-			frameIndex === 0 ? { code: frame.code, label: heading } : frame,
-		);
+		const label =
+			chapter.title === "" ? opening.label : chapterHeading(position, total, chapter.title);
+		const sequence: CodeSnapshot[] = [
+			{
+				code: opening.code,
+				...(label !== undefined ? { label } : {}),
+				...(opensScene ? { sceneBreak: true as const } : {}),
+			},
+			...rest,
+		];
+		onScreen = sequence.at(-1)?.code;
+		return sequence;
 	});
 }
 

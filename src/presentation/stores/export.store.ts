@@ -384,6 +384,7 @@ export const useExportStore = create<ExportState>((set, get) => ({
 						duration: s.duration,
 						focus: focus.length > 0 ? focus : undefined,
 						caption: s.annotation || undefined,
+						sceneBreak: s.sceneBreak || undefined,
 					};
 				}),
 				background,

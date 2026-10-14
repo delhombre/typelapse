@@ -87,8 +87,22 @@ terms so issues, specs, tests and code use the same ones.
   change or a first commit that is itself cut (a scene is a step). The studio
   posts it as a notice; the CLI and the hosted render carry it as
   `ImportedSource.notice`. A first chapter past the cap is cut at it.
+- **Scene break**: the transition into a step that shares nothing with the
+  one before it: the first frame of every page after the first
+  (`application/diff/snapshots`), of every chapter after the first
+  (`application/diff/chapters`) unless that chapter's before-state is the code
+  already on screen (a direct edit morphs). No token is matched across it: over
+  a morph's own duration the old frame fades out while the new one fades in,
+  the two fades overlapping so the card is never empty (the engine's timing
+  for two frames that share nothing), and the card eases to its new height. The plan walk (`magic-move/plan`, both keyers)
+  decides it; the renderers draw the plan they get. Stored as `sceneBreak` on
+  the step (`Step`, the V1 project file, the render request) and, in V2, as a
+  `crossfade` out of the scene before it (`project/scene-break`). The loop
+  back to the first step crosses a break whenever the video holds one. A
+  morph inside a page is unchanged.
 - **Magic move**: the pure, dependency-free token-morphing engine
-  (`src/application/magic-move`) shared by every renderer.
+  (`src/application/magic-move`) shared by every renderer. Only a
+  `magic-move` transition matches tokens; across a scene break it fades.
 
 ## Renderers
 

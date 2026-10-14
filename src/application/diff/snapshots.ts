@@ -160,6 +160,9 @@ function sceneSnapshots(
 		const hunkCount = page.hunkNumbers.length;
 		const applied = mode === "before-after" ? [0, hunkCount] : range(hunkCount + 1);
 
+		// Every page after the first opens on a scene break: its first frame is
+		// another window, often another file, and nothing in it glides from the last.
+		let opensScene = pageIndex > 0;
 		for (const count of applied) {
 			if (count === 0 && !opensOnBeforeState(page, pages[pageIndex - 1])) {
 				continue;
@@ -168,7 +171,9 @@ function sceneSnapshots(
 			snapshots.push({
 				code: appendMarker(code, last ? marker : null),
 				label: sceneLabel(page, count, pageIndex, last),
+				...(opensScene ? { sceneBreak: true as const } : {}),
 			});
+			opensScene = false;
 		}
 	});
 	return snapshots;
@@ -199,17 +204,28 @@ function sceneLabel(page: ScenePage, count: number, pageIndex: number, lastPage:
  * Prepare raw snapshots for animation: drop frames that are empty (e.g. the
  * "before" of a brand-new file, which a domain {@link Step} can't hold) and
  * collapse consecutive duplicates so no step morphs into an identical frame.
+ *
+ * A dropped empty frame that opened a scene hands its break to the next frame
+ * kept: that frame is now the one the new scene opens on. A dropped duplicate
+ * takes its break with it, since the frame after it morphs from the same code.
+ * The first frame never keeps a break: nothing comes before it.
  */
 export function normalizeSnapshots(snapshots: CodeSnapshot[]): CodeSnapshot[] {
 	const result: CodeSnapshot[] = [];
+	let pendingBreak = false;
 	for (const snapshot of snapshots) {
 		if (snapshot.code.trim() === "") {
+			pendingBreak ||= snapshot.sceneBreak === true;
 			continue;
 		}
 		if (result[result.length - 1]?.code === snapshot.code) {
+			pendingBreak = false;
 			continue;
 		}
-		result.push(snapshot);
+		const opensScene = (pendingBreak || snapshot.sceneBreak === true) && result.length > 0;
+		pendingBreak = false;
+		const { sceneBreak: _sceneBreak, ...frame } = snapshot;
+		result.push(opensScene ? { ...frame, sceneBreak: true } : frame);
 	}
 	return result;
 }

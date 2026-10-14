@@ -68,11 +68,14 @@ export function walkthroughFromSnapshots(
 		stepBudget(meta.openingCardMs !== undefined),
 	);
 	const theme = Theme.midnight();
-	const steps = staged.map((snapshot) => {
+	const steps: ProjectPayload["steps"] = staged.map((snapshot) => {
 		const caption = captionFromGeneratedLabel(snapshot.label);
-		return caption
-			? { code: snapshot.code, duration: DIFF_STEP_DURATION, caption }
-			: { code: snapshot.code, duration: DIFF_STEP_DURATION };
+		return {
+			code: snapshot.code,
+			duration: DIFF_STEP_DURATION,
+			...(caption ? { caption } : {}),
+			...(snapshot.sceneBreak ? { sceneBreak: true as const } : {}),
+		};
 	});
 	if (meta.openingCardMs !== undefined) {
 		steps.unshift({ code: "", duration: meta.openingCardMs });

@@ -112,4 +112,55 @@ describe("planMagicMove", () => {
 		const fromShared = plan.transitions[0]?.from.find((token) => token.content === "beta");
 		expect(shared?.key).toBe(fromShared?.key);
 	});
+
+	describe("a scene break (#280)", () => {
+		const a = "alpha beta";
+		const b = "gamma beta";
+		const c = "beta delta";
+		const keys = (tokens: { key: string }[] = []) => new Set(tokens.map((token) => token.key));
+		const placed = (tokens: { content: string; line: number; col: number }[] = []) =>
+			tokens.map(({ content, line, col }) => ({ content, line, col }));
+
+		it("matches no token across a break: every old token leaves, every new one enters", () => {
+			const { keyer } = fakeKeyer();
+			// `beta` is in both frames: without the break it would glide.
+			const plan = planMagicMove([a, b], keyer, "#0d1117", false, [], [false, true]);
+			const transition = plan.transitions[0];
+			const from = keys(transition?.from);
+			expect([...keys(transition?.to)].filter((key) => from.has(key))).toEqual([]);
+			// Each side is its own frame, as laid out: nothing is placed anywhere else.
+			expect(placed(transition?.from)).toEqual(placed(plan.frames[0]?.tokens));
+			expect(placed(transition?.to)).toEqual(placed(plan.frames[1]?.tokens));
+		});
+
+		it("still morphs inside a scene, and keeps one transition per pair", () => {
+			const { keyer } = fakeKeyer();
+			const plan = planMagicMove([a, b, c], keyer, "#0d1117", false, [], [false, false, true]);
+			expect(plan.transitions).toHaveLength(2);
+			const inside = plan.transitions[0];
+			const glides = inside?.to.find((token) => token.content === "beta");
+			expect(glides?.key).toBe(inside?.from.find((token) => token.content === "beta")?.key);
+			const across = plan.transitions[1];
+			const from = keys(across?.from);
+			expect([...keys(across?.to)].some((key) => from.has(key))).toBe(false);
+		});
+
+		it("breaks the loop back to the first frame when the video has more than one scene", () => {
+			const { keyer } = fakeKeyer();
+			const broken = planMagicMove([a, b, c], keyer, "#0d1117", true, [], [false, true, false]);
+			const from = keys(broken.loopTransition?.from);
+			expect([...keys(broken.loopTransition?.to)].some((key) => from.has(key))).toBe(false);
+
+			const whole = planMagicMove([a, b, c], fakeKeyer().keyer, "#0d1117", true);
+			const loopFrom = whole.loopTransition?.from.find((token) => token.content === "beta");
+			const loopTo = whole.loopTransition?.to.find((token) => token.content === "beta");
+			expect(loopTo?.key).toBe(loopFrom?.key);
+		});
+
+		it("ignores a break on the first frame: nothing comes before it", () => {
+			const plain = planMagicMove([a, b], fakeKeyer().keyer, "#0d1117", true);
+			const flagged = planMagicMove([a, b], fakeKeyer().keyer, "#0d1117", true, [], [true]);
+			expect(flagged).toEqual(plain);
+		});
+	});
 });

@@ -114,6 +114,17 @@ describe("Step", () => {
 	});
 });
 
+describe("Step scene break (#280)", () => {
+	it("morphs from the step before by default", () => {
+		expect(Step.create({ code: "a" }).sceneBreak).toBe(false);
+	});
+
+	it("keeps a scene break through an edit: the step still opens its scene", () => {
+		const step = Step.create({ code: "a", sceneBreak: true });
+		expect(step.with({ code: "b", duration: 2000 }).sceneBreak).toBe(true);
+	});
+});
+
 describe("Step.with", () => {
 	const base = Step.create({
 		code: "const x = 1;",

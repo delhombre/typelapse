@@ -41,6 +41,7 @@ export function readStudioCompositionSnapshot(): StudioCompositionSnapshot {
 						durationMs: step.duration,
 						...(step.annotation ? { caption: step.annotation } : {}),
 						...(focus ? { focus } : {}),
+						...(step.sceneBreak ? { sceneBreak: true as const } : {}),
 					};
 				})
 			: [

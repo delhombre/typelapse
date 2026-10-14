@@ -121,4 +121,27 @@ describe("Remotion V2 code card", () => {
 		// #106: the typewriter types scene 2, the first with a card, not the title.
 		expect(card?.typingIndex).toBe(1);
 	});
+
+	it("matches no token across a crossfade out of a scene: a scene break (#280)", async () => {
+		const base = proofDocument();
+		const scenes = base.project.scenes.map((scene, index) =>
+			index === 1 && scene.transitionOut
+				? { ...scene, transitionOut: { kind: "crossfade" as const, durationMs: 1000 } }
+				: scene,
+		);
+		const card = await buildCodeCardInput({
+			document: { ...base, project: { ...base.project, scenes } },
+			loop: false,
+		});
+		const across = card?.plan.transitions[1];
+		const fromKeys = new Set(across?.from.map((token) => token.key));
+		expect(across?.to.some((token) => fromKeys.has(token.key))).toBe(false);
+		// The morph into the second scene is untouched.
+		const plain = await buildCodeCardInput({ document: base, loop: false });
+		expect(card?.plan.transitions[0]).toEqual(plain?.plan.transitions[0]);
+		// Where the same pair, as a morph, glides the tokens the two scenes share.
+		const morphFrom = new Set(plain?.plan.transitions[1]?.from.map((token) => token.key));
+		expect(plain?.plan.transitions[1]?.to.some((token) => morphFrom.has(token.key))).toBe(true);
+	});
 });
+

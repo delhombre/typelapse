@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { MAX_SCENE_LINES, capWalkthrough } from "@/application/diff";
 import { chapterSequences, chapterSnapshots } from "@/application/diff/chapters";
 import { describe, expect, it } from "vitest";
@@ -234,5 +235,60 @@ describe("chapters past the step cap", () => {
 			expect(snapshot.code.split("\n").length).toBeLessThanOrEqual(MAX_SCENE_LINES);
 		}
 		expect(cut.snapshots.at(-1)?.code).toMatch(/\n⋯ \d+ more scenes$/);
+	});
+});
+
+describe("chapterSnapshots scene breaks (#280)", () => {
+	const breaks = (out: { sceneBreak?: boolean }[]) => out.map((s) => s.sceneBreak === true);
+
+	it("breaks into every chapter after the first, and nowhere inside a chapter", () => {
+		const out = chapterSnapshots([
+			{ title: "refactor", diffText: TWO_HUNK },
+			{ title: "add b", diffText: editDiff("b.ts", "const y = 1;", "const y = 2;") },
+			{ title: "", diffText: editDiff("c.ts", "const z = 1;", "const z = 2;") },
+		]);
+		// Chapter 1: before, change 1, after. Chapters 2 and 3 drop their before.
+		expect(out.map((s) => s.label)).toEqual([
+			"1/3 · refactor",
+			"Change 1",
+			"After",
+			"2/3 · add b",
+			"After",
+		]);
+		expect(breaks(out)).toEqual([false, false, false, true, true]);
+	});
+
+	it("morphs into a chapter that edits the code the previous one ended on", () => {
+		// Two commits on the same statement: chapter 2's before is chapter 1's after,
+		// so its first frame is a direct edit of what is on screen, not a new scene.
+		const out = chapterSnapshots([
+			{ title: "one", diffText: editDiff("a.ts", "const x = 1;", "const x = 2;") },
+			{ title: "two", diffText: editDiff("a.ts", "const x = 2;", "const x = 3;") },
+		]);
+		expect(out.map((s) => s.code)).toEqual([
+			editFrame("const x = 1;"),
+			editFrame("const x = 2;"),
+			editFrame("const x = 3;"),
+		]);
+		expect(breaks(out)).toEqual([false, false, false]);
+	});
+
+	it("breaks into a chapter that keeps its before frame (a brand-new file)", () => {
+		const out = chapterSnapshots([
+			{ title: "one", diffText: editDiff("a.ts", "const x = 1;", "const x = 2;") },
+			{ title: "add greet", diffText: NEW_FILE },
+		]);
+		expect(breaks(out)).toEqual([false, false, true]);
+	});
+
+	it("keeps the page breaks of a chapter taller than a page", () => {
+		const hono = readFileSync("tests/fixtures/hono-pr-5189.diff", "utf8");
+		const out = chapterSnapshots([
+			{ title: "one", diffText: editDiff("a.ts", "const x = 1;", "const x = 2;") },
+			{ title: "fix", diffText: hono },
+		]);
+		// Chapter 2 is the hono walkthrough less its Before: its first frame opens
+		// the chapter, then its own pages break as they do on their own.
+		expect(breaks(out)).toEqual([false, false, true, true, false, true, true, false]);
 	});
 });

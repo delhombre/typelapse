@@ -58,6 +58,8 @@ export function buildMagicMovePlan(
 	loop = false,
 	/** Each step's 1-indexed focused lines: where a long file's window goes. */
 	focus: readonly (Iterable<number> | undefined)[] = [],
+	/** Whether each step opens a new scene: no token is matched across it (#280). */
+	breaks: readonly boolean[] = [],
 ): MagicMovePlan {
 	// `resolveShikiLanguage` yields a loaded bundled id or the special `text` lang.
 	const options = {
@@ -81,5 +83,6 @@ export function buildMagicMovePlan(
 		themeBackground,
 		loop,
 		focus,
+		breaks,
 	);
 }

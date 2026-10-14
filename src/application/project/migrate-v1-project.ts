@@ -1,5 +1,6 @@
 import type { ProjectDocumentV1, ProjectDocumentV2 } from "./project-document";
 import { parseProjectDocument } from "./project-document";
+import { codeSceneTransition, sceneBreaks } from "./scene-break";
 
 function hashString(value: string): string {
 	let hash = 0x811c9dc5;
@@ -53,7 +54,12 @@ export function migrateV1ToV2(document: ProjectDocumentV1): ProjectDocumentV2 {
 				durationMs: step.duration,
 				...(step.caption ? { caption: step.caption } : {}),
 				...(index < steps.length - 1
-					? { transitionOut: { kind: "magic-move" as const, durationMs: transitionMs } }
+					? {
+							transitionOut: codeSceneTransition(
+								steps[index + 1]?.sceneBreak === true,
+								transitionMs,
+							),
+						}
 					: {}),
 				// A blank step is a scene with no code card.
 				blocks: step.code
@@ -112,6 +118,7 @@ export function projectV2ToV1(document: ProjectDocumentV2): ProjectDocumentV1 {
 	}
 
 	const hadCapturedSteps = document.project.legacySource?.hadCapturedSteps ?? true;
+	const breaks = sceneBreaks(document.project.scenes);
 	const liveCode =
 		document.project.legacySource?.liveCode ??
 		codeBlocks[codeBlocks.length - 1]?.code ??
@@ -151,6 +158,7 @@ export function projectV2ToV1(document: ProjectDocumentV2): ProjectDocumentV1 {
 						duration: scene.durationMs,
 						...(block.focus ? { focus: block.focus } : {}),
 						...(scene.caption ? { caption: scene.caption } : {}),
+						...(breaks[index] ? { sceneBreak: true } : {}),
 					};
 				})
 			: [],

@@ -85,6 +85,12 @@ function atRow<T extends { line: number }>(tokens: T[], firstRow: number): T[] {
  * goes (`planWindowRows`). Tokens are laid out on the full code's rows, so a
  * line two windows share sits on the same row in both and a morph between
  * them only scrolls.
+ *
+ * `breaks[i]` says step `i` opens a new scene (a page or a chapter of a diff,
+ * #280): the pair before it is never synced, and each side's keys are made its
+ * own, so no token glides across it. Every old token fades out and every new
+ * one fades in, on the same timeline as a morph's fades. The loop back to the
+ * first step crosses a break whenever any step after the first opens one.
  */
 export function planMagicMove<T extends KeyedSource>(
 	codes: string[],
@@ -92,6 +98,7 @@ export function planMagicMove<T extends KeyedSource>(
 	themeBackground: string,
 	loop = false,
 	focus: readonly (Iterable<number> | undefined)[] = [],
+	breaks: readonly boolean[] = [],
 ): MagicMovePlan {
 	const rows = planWindowRows(codes, focus);
 	const windows = codes.map((code, i) => visibleWindow(code, rows[i]));
@@ -117,11 +124,30 @@ export function planMagicMove<T extends KeyedSource>(
 			color: token.color ? ensureReadableTokenColor(token.color, themeBackground) : token.color,
 			fontStyle: token.fontStyle,
 		}));
+	const opensScene = (index: number): boolean => index > 0 && breaks[index] === true;
+	const breaksAnywhere = codes.some((_, index) => opensScene(index));
+	// Each side laid out in its own window with keys only it holds: no sync, so
+	// nothing is matched, and the prefixes keep two tokenizations from colliding.
+	const sceneBreak = (fromIndex: number, toIndex: number): MagicMovePlan["transitions"][number] => {
+		const side = (index: number, prefix: string) => {
+			const code = windowed[index] ?? "";
+			const tokens = raw(tokenize(code)).map((token) => ({
+				...token,
+				key: `${prefix}${token.key}`,
+			}));
+			return atRow(layoutFrame(code, tokens), rows[index] ?? 0);
+		};
+		return { from: side(fromIndex, "out:"), to: side(toIndex, "in:") };
+	};
+
 	// A morph lays both codes out over the union of the two windows, so a row
 	// both show stays on screen while the window scrolls past it instead of
 	// fading out as if it were deleted. Windows further apart than a window
 	// share nothing worth the extra rows, and morph on their own.
 	const morph = (fromIndex: number, toIndex: number): MagicMovePlan["transitions"][number] => {
+		if (opensScene(toIndex) || (toIndex === 0 && breaksAnywhere)) {
+			return sceneBreak(fromIndex, toIndex);
+		}
 		const fromRow = rows[fromIndex] ?? 0;
 		const toRow = rows[toIndex] ?? 0;
 		const top = Math.min(fromRow, toRow);

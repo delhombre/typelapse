@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs";
+import { diffToSnapshots } from "@/application/diff/diff-to-snapshots";
 import { parseUnifiedDiff } from "@/application/diff/parse-unified-diff";
+import { splitIntoScenes } from "@/application/diff/scenes";
 import { generateSnapshots, normalizeSnapshots } from "@/application/diff/snapshots";
+import { planWindows } from "@/application/diff/windowing";
 import { describe, expect, it } from "vitest";
 
 const nl = (lines: string[]) => lines.join("\n");
@@ -112,5 +116,64 @@ describe("normalizeSnapshots", () => {
 
 	it("returns an empty array when nothing survives", () => {
 		expect(normalizeSnapshots([{ code: "" }, { code: "  " }])).toEqual([]);
+	});
+
+	it("hands a dropped empty frame's scene break to the frame that replaces it", () => {
+		// A page of additions opens on an empty before-state: the frame after it is
+		// the first the page shows, so it is the one that follows the break.
+		const result = normalizeSnapshots([
+			{ code: "a" },
+			{ code: "", sceneBreak: true },
+			{ code: "b" },
+			{ code: "c" },
+		]);
+		expect(result.map((s) => s.sceneBreak === true)).toEqual([false, true, false]);
+	});
+
+	it("drops a duplicate's break with it: the frame after it morphs from the same code", () => {
+		const result = normalizeSnapshots([
+			{ code: "a" },
+			{ code: "a", sceneBreak: true },
+			{ code: "b" },
+		]);
+		expect(result.map((s) => s.sceneBreak === true)).toEqual([false, false]);
+	});
+
+	it("never opens the walkthrough on a break: nothing comes before the first frame", () => {
+		const result = normalizeSnapshots([
+			{ code: "", sceneBreak: true },
+			{ code: "a", sceneBreak: true },
+		]);
+		expect(result).toEqual([{ code: "a" }]);
+	});
+});
+
+describe("scene breaks (#280)", () => {
+	/** honojs/hono#5189: four pages over three files, the hero's example PR. */
+	const HONO_PR = readFileSync("tests/fixtures/hono-pr-5189.diff", "utf8");
+
+	it("marks the first frame of every page after the first, and no frame inside a page", () => {
+		const { snapshots } = diffToSnapshots(HONO_PR);
+		const files = parseUnifiedDiff(HONO_PR).files;
+		expect(splitIntoScenes(planWindows(files))).toHaveLength(4);
+		// Page 1: Before, the test helper. Page 2: node.test.ts, its before and its
+		// change. Page 3: the continuation of that addition, with no opening frame.
+		// Page 4: node.ts, before and after.
+		expect(snapshots.map((s) => s.sceneBreak === true)).toEqual([
+			false,
+			false,
+			true,
+			false,
+			true,
+			true,
+			false,
+		]);
+		expect(snapshots[5]?.code.split("\n")[0]).toBe("// src/router/trie-router/node.ts");
+	});
+
+	it("leaves a diff that fits one page without any break", () => {
+		const snapshots = generateSnapshots(parseUnifiedDiff(TWO_HUNK_DIFF));
+		expect(snapshots).toHaveLength(3);
+		expect(snapshots.some((s) => s.sceneBreak)).toBe(false);
 	});
 });

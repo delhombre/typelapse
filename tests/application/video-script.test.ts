@@ -5,6 +5,7 @@ import {
 	type MagicMovePlan,
 } from "@/application/magic-move/engine";
 import { NO_ZOOM, ZOOM_SCALE } from "@/application/magic-move/focus-zoom";
+import { type PlanKeyer, planMagicMove } from "@/application/magic-move/plan";
 import { layoutTypingTokens } from "@/application/magic-move/typewriter";
 import { describe, expect, it } from "vitest";
 
@@ -240,5 +241,94 @@ describe("the frame at a playback position, shared with the preview", () => {
 		expect(landed.lineCount).toBe(FRAME_A.lineCount);
 		const visible = landed.tokens.filter((token) => token.opacity > 0);
 		expect(visible.map((token) => token.key)).toEqual(["a"]);
+	});
+});
+
+describe("videoScript across a scene break (#280)", () => {
+	/** Words as tokens, keyed by content and occurrence: a word both codes hold glides. */
+	const keyer: PlanKeyer<{
+		code: string;
+		tokens: { key: string; content: string; offset: number }[];
+	}> = {
+		tokenize: (code) => {
+			const seen = new Map<string, number>();
+			return {
+				code,
+				tokens: [...code.matchAll(/\S+/g)].map((match) => {
+					const count = seen.get(match[0]) ?? 0;
+					seen.set(match[0], count + 1);
+					return { key: `${match[0]}#${count}`, content: match[0], offset: match.index ?? 0 };
+				}),
+			};
+		},
+		sync: (from, to) => ({ from, to }),
+	};
+	// The same words on other rows and columns: a morph sends them across lines.
+	const OLD = "const a = 1;\nconst b = 2;";
+	const NEW = "export function f() {\n  const b = a;\n  return b;\n}";
+	const input = (breaks: boolean[]) => ({
+		...BASE,
+		plan: planMagicMove([OLD, NEW], keyer, "#0d1117", false, [], breaks),
+		firstCode: OLD,
+	});
+
+	it("takes exactly the frames a morph takes", () => {
+		const morph = videoScript(input([false, false]));
+		const broken = videoScript(input([false, true]));
+		expect(broken.totalFrames).toBe(morph.totalFrames);
+		expect(broken.segments).toEqual(morph.segments);
+	});
+
+	it("moves no token: each side holds its place while it fades, out then in", () => {
+		const script = videoScript(input([false, true]));
+		const transition = script.segments.find((segment) => segment.type === "transition");
+		if (!transition) {
+			throw new Error("no transition");
+		}
+		const place = new Map<string, string>();
+		const last = new Map<string, number>();
+		for (let frame = transition.startFrame; frame < transition.endFrame; frame++) {
+			for (const token of script.frameAt(frame).tokens) {
+				const at = `${token.line}:${token.col}`;
+				expect(place.get(token.key) ?? at, token.key).toBe(at);
+				place.set(token.key, at);
+				const before = last.get(token.key);
+				if (before !== undefined) {
+					// Old tokens only fade out, new ones only fade in.
+					if (token.key.startsWith("out:")) {
+						expect(token.opacity).toBeLessThanOrEqual(before);
+					} else {
+						expect(token.opacity).toBeGreaterThanOrEqual(before);
+					}
+				}
+				last.set(token.key, token.opacity);
+			}
+		}
+		// The morph of the same pair glides `const` and `b` across lines.
+		const morph = videoScript(input([false, false]));
+		const middle = morph.frameAt(Math.floor((transition.startFrame + transition.endFrame) / 2));
+		expect(middle.tokens.some((token) => !Number.isInteger(token.line))).toBe(true);
+	});
+
+	it("never leaves the card empty: the most visible token stays above 0.2", () => {
+		const script = videoScript(input([false, true]));
+		const transition = script.segments.find((segment) => segment.type === "transition");
+		if (!transition) {
+			throw new Error("no transition");
+		}
+		for (let frame = transition.startFrame; frame < transition.endFrame; frame++) {
+			const most = Math.max(...script.frameAt(frame).tokens.map((token) => token.opacity));
+			expect(most, `frame ${frame}`).toBeGreaterThan(0.2);
+		}
+	});
+
+	it("still eases the card from one height to the other", () => {
+		const script = videoScript(input([false, true]));
+		const transition = script.segments.find((segment) => segment.type === "transition");
+		const middle = script.frameAt(
+			Math.floor(((transition?.startFrame ?? 0) + (transition?.endFrame ?? 0)) / 2),
+		);
+		expect(middle.lineCount).toBeGreaterThan(2);
+		expect(middle.lineCount).toBeLessThan(4);
 	});
 });

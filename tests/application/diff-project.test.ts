@@ -82,3 +82,22 @@ describe("a diff past the step cap", () => {
 		expect(projectFromDiff(diff)).toEqual(useSnippetStore.getState().toProjectPayload());
 	});
 });
+
+describe("scene breaks in the imported project (#280)", () => {
+	const HONO = readFileSync(resolve(__dirname, "../fixtures/hono-pr-5189.diff"), "utf8");
+
+	it("marks each step that opens a page, in the file the CLI renders and the studio saves", () => {
+		const project = projectFromDiff(HONO);
+		expect(project.steps.map((step) => step.sceneBreak === true)).toEqual([
+			false,
+			false,
+			true,
+			false,
+			true,
+			true,
+			false,
+		]);
+		useSnippetStore.getState().importDiff(HONO);
+		expect(project).toEqual(useSnippetStore.getState().toProjectPayload());
+	});
+});

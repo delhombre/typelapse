@@ -271,6 +271,44 @@ describe("renderStatic with line focus", () => {
 	});
 });
 
+describe("renderTransition with nothing shared (a scene break, #280)", () => {
+	const from: LaidOutToken[] = [{ key: "out:a", content: "a", line: 0, col: 0 }];
+	const to: LaidOutToken[] = [{ key: "in:b", content: "b", line: 2, col: 0 }];
+	const opacity = (t: number, key: string, timing = {}) =>
+		renderTransition(from, to, t, timing).find((token) => token.key === key)?.opacity ?? -1;
+
+	it("overlaps the two fades, so the card is never empty", () => {
+		for (let t = 0; t <= 1; t += 0.01) {
+			expect(Math.max(opacity(t, "out:a"), opacity(t, "in:b"))).toBeGreaterThan(0.24);
+		}
+	});
+
+	it("fades the old frame out linearly by 0.6, the new one in from 0.4", () => {
+		expect(opacity(0.3, "out:a")).toBeCloseTo(0.5);
+		expect(opacity(0.6, "out:a")).toBeCloseTo(0);
+		expect(opacity(0.4, "in:b")).toBeCloseTo(0);
+		expect(opacity(0.41, "in:b")).toBeGreaterThan(0);
+		expect(opacity(1, "in:b")).toBe(1);
+	});
+
+	it("lets an explicit timing win over the overlap", () => {
+		expect(opacity(0.34, "out:a", { leaveEnd: 0.34 })).toBeCloseTo(0);
+	});
+
+	it("keeps the two-beat timing when one token is shared", () => {
+		const shared = { key: "s", content: "s", line: 1, col: 0 };
+		const gone = renderTransition([...from, shared], [...to, shared], 0.34).find(
+			(token) => token.key === "out:a",
+		);
+		expect(gone?.opacity).toBeCloseTo(0);
+	});
+
+	it("keeps the two-beat timing when a side is empty: nothing overlaps", () => {
+		const entering = renderTransition([], to, 0.5).find((token) => token.key === "in:b");
+		expect(entering?.opacity).toBe(0);
+	});
+});
+
 describe("renderTransition with line focus", () => {
 	const from: LaidOutToken[] = [
 		{ key: "shared", content: "x", line: 0, col: 0 }, // display line 1

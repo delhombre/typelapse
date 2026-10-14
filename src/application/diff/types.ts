@@ -45,6 +45,12 @@ export interface ParsedDiff {
 export interface CodeSnapshot {
 	code: string;
 	label?: string;
+	/**
+	 * A scene break: this frame opens a new page or a new chapter, so it shares
+	 * nothing with the frame before it and no token may glide across the pair.
+	 * Absent inside a page, and never on the first frame.
+	 */
+	sceneBreak?: true;
 }
 
 /**
