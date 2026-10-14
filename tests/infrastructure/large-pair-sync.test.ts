@@ -23,8 +23,12 @@ import {
 	canSyncKeys,
 } from "@/infrastructure/highlighting/whole-line-tokenization";
 import { type Highlighter, createHighlighter } from "shiki";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { buildServerMagicMovePlan } from "../../server/remotion/magic-move-plan";
+
+// Cold Shiki tokenization of 20,000 to 30,000 characters, studio and server, per
+// case: a loaded runner stretches it well past the default 5 s.
+vi.setConfig({ testTimeout: 30_000 });
 
 const BG = "#0d1117";
 const UNIT_A = 'function f(a,b){return a.map(x=>x+b.c("s"))}var n=0;';
