@@ -120,12 +120,12 @@ describe("capWalkthrough", () => {
 		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯ 3 more scenes");
 	});
 
-	it("does not take a trailing separator for a marker", () => {
+	it("lets the marker take the place of a trailing separator, since both say there is more", () => {
 		const kept = chapter(0, MAX_DIFF_STEPS - 1).concat({ code: "tail\n⋯", label: "After" });
 
 		const cut = capWalkthrough([kept, chapter(1, 3)]);
 
-		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯\n⋯ 3 more scenes");
+		expect(cut.snapshots.at(-1)?.code).toBe("tail\n⋯ 3 more scenes");
 	});
 
 	it("takes no chapters at all as nothing", () => {
@@ -133,6 +133,52 @@ describe("capWalkthrough", () => {
 
 		expect(cut.snapshots).toEqual([]);
 		expect(cut.totalChapters).toBe(0);
+	});
+});
+
+describe("the marker takes a row's place instead of adding one", () => {
+	/** Every frame of a page holds the same rows but for the ones a step changes. */
+	const page = (count: number, last: string[] = ["row 1", "row 2", "row 3"]) =>
+		Array.from({ length: count }, (_, index) => ({
+			code: (index === MAX_DIFF_STEPS - 1 ? last : ["row 1", "row 2", "row 3"]).join("\n"),
+			label: `Change ${index}`,
+		}));
+	const rows = (code: string | undefined) => (code ?? "").split("\n").length;
+
+	it("drops the last row of the last frame when the siblings are as tall, so the card keeps its height", () => {
+		const cut = capWalkthrough([page(MAX_DIFF_STEPS + 4)]);
+
+		expect(cut.snapshots).toHaveLength(MAX_DIFF_STEPS);
+		for (const snapshot of cut.snapshots) {
+			expect(rows(snapshot.code)).toBe(3);
+		}
+		expect(cut.snapshots.at(-1)?.code).toBe("row 1\nrow 2\n⋯ 4 more scenes");
+	});
+
+	it("adds the row when the last frame is shorter than the tallest, since the card does not grow", () => {
+		const frames = page(MAX_DIFF_STEPS + 4);
+		frames[MAX_DIFF_STEPS - 1] = { code: "row 1\nrow 2", label: "Change 15" };
+		frames[MAX_DIFF_STEPS - 2] = { code: "row 1\nrow 2\nrow 3", label: "Change 14" };
+
+		const cut = capWalkthrough([frames]);
+
+		expect(cut.snapshots.at(-1)?.code).toBe("row 1\nrow 2\n⋯ 4 more scenes");
+		expect(Math.max(...cut.snapshots.map((s) => rows(s.code)))).toBe(3);
+	});
+
+	it("keeps a row the last step itself changed, even if the card grows by one", () => {
+		const cut = capWalkthrough([page(MAX_DIFF_STEPS + 4, ["row 1", "row 2", "row 3 changed"])]);
+
+		expect(cut.snapshots.at(-1)?.code).toBe("row 1\nrow 2\nrow 3 changed\n⋯ 4 more scenes");
+	});
+
+	it("keeps both counts in the merged row, without a row more", () => {
+		const frames = page(MAX_DIFF_STEPS + 4, ["row 1", "row 2", "⋯ 4 more files"]);
+
+		const cut = capWalkthrough([frames]);
+
+		expect(rows(cut.snapshots.at(-1)?.code)).toBe(3);
+		expect(cut.snapshots.at(-1)?.code).toBe("row 1\nrow 2\n⋯ 4 more files, 4 more scenes");
 	});
 });
 

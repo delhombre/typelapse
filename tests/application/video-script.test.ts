@@ -1,3 +1,4 @@
+import { MAX_DIFF_STEPS, capWalkthrough, diffToSnapshots } from "@/application/diff";
 import { scriptFrameAt, videoScript } from "@/application/export/video-script";
 import {
 	DIM_OPACITY,
@@ -8,6 +9,7 @@ import { NO_ZOOM, ZOOM_SCALE } from "@/application/magic-move/focus-zoom";
 import { type PlanKeyer, planMagicMove } from "@/application/magic-move/plan";
 import { layoutTypingTokens } from "@/application/magic-move/typewriter";
 import { describe, expect, it } from "vitest";
+import { manyHunks } from "../support/many-hunks";
 
 function tok(key: string, content: string, line: number, col: number): LaidOutToken {
 	return { key, content, line, col };
@@ -330,5 +332,39 @@ describe("videoScript across a scene break (#280)", () => {
 		);
 		expect(middle.lineCount).toBeGreaterThan(2);
 		expect(middle.lineCount).toBeLessThan(4);
+	});
+});
+
+describe("a walkthrough cut by the step cap", () => {
+	it("draws the same card on every scene, the last one with its marker included (#322)", () => {
+		const snapshots = capWalkthrough([
+			diffToSnapshots(manyHunks("big.ts", 45)).snapshots,
+		]).snapshots;
+		const frames = snapshots.map((snapshot) => ({
+			tokens: [],
+			lineCount: snapshot.code.split("\n").length,
+		}));
+		const script = videoScript({
+			plan: {
+				frames,
+				transitions: frames.slice(1).map(() => ({ from: [], to: [] })),
+			},
+			durations: frames.map(() => 1200),
+			transitionMs: 650,
+			fps: 30,
+			loop: false,
+			typewriter: false,
+			firstCode: "",
+			focusSets: frames.map(() => undefined),
+		});
+
+		const holds = script.segments.filter((segment) => segment.type === "hold");
+		const boxes = holds.map((segment) => {
+			const frame = script.frameAt(Math.floor((segment.startFrame + segment.endFrame) / 2));
+			return [frame.lineCount, frame.lineNumberCount];
+		});
+
+		expect(holds).toHaveLength(MAX_DIFF_STEPS);
+		expect(new Set(boxes.map((box) => box.join("/"))).size).toBe(1);
 	});
 });

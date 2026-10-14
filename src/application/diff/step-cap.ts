@@ -60,25 +60,47 @@ function scenesMarker(omitted: number): string {
 	return `${ELLIPSIS} ${omitted} more ${omitted === 1 ? "scene" : "scenes"}`;
 }
 
+const rowsOf = (code: string): number => code.split("\n").length;
+
 /**
- * The last kept frame with the cap's marker on it. A frame is already at most
- * {@link MAX_SCENE_LINES} rows with the budget's own marker row in them, and the
- * card is sized by the tallest frame, so the cap's marker takes that row over
- * instead of adding one: `⋯ 4 more files` becomes `⋯ 4 more files, 37 more
- * changes`, and the generic `⋯ more changes hidden` gives way to the count.
+ * The last kept frame with the cap's marker on it, without growing the card. The
+ * card is sized by its tallest scene, so a marker added as one row more would make
+ * the last scene taller than the rest and the card, and the progress bar with it,
+ * would jump at the end of the video. The marker therefore takes a row's place:
+ *
+ *  - the budget's own `⋯ 4 more files` row is merged with it, both counts kept:
+ *    `⋯ 4 more files, 37 more scenes`; the generic `⋯ more changes hidden` gives way
+ *    to the count, and a trailing `⋯` separator (which also says "more") becomes it;
+ *  - a frame shorter than the tallest earlier one has room: the marker is added;
+ *  - otherwise the frame's last row is the one dropped, when the last step did not
+ *    itself change it (the row is the same in the previous step, so it is context
+ *    here). A row the step changed is kept, and the marker is added after it: losing
+ *    the change would be worse than a card one row taller, and the page reserves
+ *    that row, so the frame still fits a scene.
  */
-function markCut(code: string, omitted: number): string {
+function markCut(code: string, omitted: number, earlier: readonly CodeSnapshot[]): string {
 	const marker = scenesMarker(omitted);
 	if (code === "") {
 		return marker;
 	}
 	const lines = code.split("\n");
 	const lastLine = lines[lines.length - 1] ?? "";
-	if (!lastLine.startsWith(`${ELLIPSIS} `)) {
-		return `${code}\n${marker}`;
+	if (lastLine === ELLIPSIS) {
+		return [...lines.slice(0, -1), marker].join("\n");
 	}
-	const own = /^⋯ \d+ more files?$/.test(lastLine) ? `${lastLine}, ${omitted} more scenes` : marker;
-	return [...lines.slice(0, -1), own].join("\n");
+	if (lastLine.startsWith(`${ELLIPSIS} `)) {
+		const own = /^⋯ \d+ more files?$/.test(lastLine)
+			? `${lastLine}, ${omitted} more scenes`
+			: marker;
+		return [...lines.slice(0, -1), own].join("\n");
+	}
+	const tallest = Math.max(0, ...earlier.map((snapshot) => rowsOf(snapshot.code)));
+	const previous = earlier[earlier.length - 1];
+	const unchanged = previous?.code.split("\n").includes(lastLine) === true;
+	if (lines.length + 1 > tallest && unchanged) {
+		return [...lines.slice(0, -1), marker].join("\n");
+	}
+	return `${code}\n${marker}`;
 }
 
 /**
@@ -122,7 +144,7 @@ export function capWalkthrough(
 	const omittedSteps = total - kept.length;
 	const last = kept[kept.length - 1];
 	const snapshots = last
-		? [...kept.slice(0, -1), { ...last, code: markCut(last.code, omittedSteps) }]
+		? [...kept.slice(0, -1), { ...last, code: markCut(last.code, omittedSteps, kept.slice(0, -1)) }]
 		: kept;
 	return {
 		snapshots,
