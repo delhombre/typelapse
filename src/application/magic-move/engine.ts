@@ -156,6 +156,9 @@ export function isSceneBreak(from: readonly LaidOutToken[], to: readonly LaidOut
 /** Progress at which a break's outgoing frame has fully faded: its window can go. */
 export const BREAK_OUT_END = BREAK_TIMING.leaveEnd ?? 1;
 
+/** Progress at which a break's incoming frame starts to appear: the camera has settled by then. */
+export const BREAK_ENTER_START = BREAK_TIMING.enterStart ?? 0;
+
 function linear(t: number): number {
 	return t;
 }

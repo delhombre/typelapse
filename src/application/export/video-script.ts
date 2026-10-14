@@ -17,6 +17,7 @@
 
 import { type CubicBezier, DEFAULT_TRANSITION_EASING, cubicBezierAt } from "../magic-move/easing";
 import {
+	BREAK_ENTER_START,
 	BREAK_OUT_END,
 	type GridPosition,
 	type LaidOutFrame,
@@ -307,8 +308,18 @@ function morphFrame(
 		lineCount: fromFrame.lineCount + (toFrame.lineCount - fromFrame.lineCount) * eased,
 		lineNumberCount: Math.max(fromFrame.lineCount, toFrame.lineCount),
 		cursor: null,
-		zoom: interpolateZoom(fromZoom, toZoom, t, moveEase),
+		zoom: interpolateZoom(fromZoom, toZoom, broken ? breakZoomProgress(t) : t, moveEase),
 	};
+}
+
+/**
+ * How far the push-in has travelled. A morph carries it over the whole
+ * transition; across a break the camera settles before the incoming page
+ * enters (`BREAK_ENTER_START`), so the page appears at its final zoom and no
+ * pull-back plays under two unrelated pages dissolving (#330).
+ */
+function breakZoomProgress(t: number): number {
+	return Math.min(t / BREAK_ENTER_START, 1);
 }
 
 /** The window a break shows: the outgoing one until its side has faded. */
