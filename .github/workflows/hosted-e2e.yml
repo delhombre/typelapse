@@ -104,23 +104,22 @@ jobs:
 
       # Playwright starts the API (prepare.ts again, a no-op now), the fake
       # Polar (tests/support/fake-polar.ts, no token needed), the render worker
-      # and the preview of the build above, and stops them at the end. Two
-      # workers (playwright.config.ts): about 100 journeys take 10 minutes in a
-      # line; each account is its own visitor in its own rows, and renders queue
-      # on the one render worker inside the 240 s test timeout.
+      # and the preview of the build above, and stops them at the end. One
+      # worker (playwright.config.ts): two saved 1.6 minutes and hung one
+      # billing return for 4, so the journeys run in a line.
       - name: Hosted journeys
         env:
           E2E_SKIP_BUILD: "1"
         run: pnpm e2e:hosted
 
       - name: MinIO log
-        if: always()
+        if: failure() || cancelled()
         run: docker logs typelapse-e2e-minio > minio.log 2>&1 || true
 
-      # always(), not failure(): a job that times out is cancelled, and still
-      # leaves a report worth reading.
+      # failure() || cancelled(): a job that times out is cancelled and still
+      # leaves a report worth reading; a green run would only upload 20 MB.
       - name: Upload report, traces, videos and logs
-        if: always()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           if-no-files-found: ignore
