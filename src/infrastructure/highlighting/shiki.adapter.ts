@@ -7,6 +7,7 @@ import {
 	createHighlighter,
 } from "shiki";
 import { THEME_MAP, resolveShikiLanguage, resolveShikiTheme } from "./shiki-registry";
+import { WHOLE_LINE_TOKENIZATION } from "./whole-line-tokenization";
 
 /** Languages loaded eagerly on boot: the rest are fetched on demand. */
 const INITIAL_LANGS: BundledLanguage[] = ["typescript", "javascript", "python", "json"];
@@ -76,6 +77,7 @@ export class ShikiAdapter implements HighlighterPort {
 		return highlighter.codeToHtml(code, {
 			lang,
 			theme: shikiTheme,
+			...WHOLE_LINE_TOKENIZATION,
 		});
 	}
 
