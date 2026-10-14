@@ -32,6 +32,7 @@ const keyer: PlanKeyer<FakeSource> = {
 		return { code, tokens };
 	},
 	sync: (from, to) => ({ from, to }),
+	canSync: () => true,
 };
 
 const file = (count: number, edit?: { line: number; text: string }) =>

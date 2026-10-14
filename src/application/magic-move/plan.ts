@@ -26,6 +26,14 @@ export interface PlanKeyer<T extends KeyedSource> {
 	tokenize(code: string): T;
 	/** Give shared tokens one key across two frames. May rewrite keys in place. */
 	sync(from: T, to: T): { from: T; to: T };
+	/**
+	 * Whether `sync` is worth running on this pair. A pair it declines is planned as
+	 * a scene break, nothing matched. Required, so a new keyer decides it: a diff
+	 * that cannot match two huge lines within its time budget stalls a second per
+	 * morph on every rebuild (#335). Pure in the two tokenizations, so the studio
+	 * and the server decide alike.
+	 */
+	canSync(from: T, to: T): boolean;
 }
 
 /**
@@ -91,6 +99,7 @@ function atRow<T extends { line: number }>(tokens: T[], firstRow: number): T[] {
  * own, so no token glides across it. Every old token fades out and every new
  * one fades in, on the same timeline as a morph's fades. The loop back to the
  * first step crosses a break whenever any step after the first opens one.
+ * A pair the keyer declines to sync (`canSync`, #335) is planned the same way.
  */
 export function planMagicMove<T extends KeyedSource>(
 	codes: string[],
@@ -161,7 +170,12 @@ export function planMagicMove<T extends KeyedSource>(
 			union ? visibleWindow(codes[index] ?? "", top, span).code : (windowed[index] ?? "");
 		const fromCode = slice(fromIndex);
 		const toCode = slice(toIndex);
-		const { from, to } = keyer.sync(copy(tokenize(fromCode)), copy(tokenize(toCode)));
+		const fromSource = tokenize(fromCode);
+		const toSource = tokenize(toCode);
+		if (!keyer.canSync(fromSource, toSource)) {
+			return sceneBreak(fromIndex, toIndex);
+		}
+		const { from, to } = keyer.sync(copy(fromSource), copy(toSource));
 		return {
 			from: atRow(layoutFrame(fromCode, raw(from)), union ? top : fromRow),
 			to: atRow(layoutFrame(toCode, raw(to)), union ? top : toRow),
