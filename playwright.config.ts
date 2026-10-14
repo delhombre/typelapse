@@ -111,7 +111,9 @@ export default defineConfig({
 	retries: process.env.CI ? 1 : 0,
 	// Each worker encodes video on the CPU; two keep a 4-core runner responsive.
 	// Hosted: one, since the render worker takes one job at a time anyway. Two
-	// workers saved 1.6 minutes and hung one billing return for 4 (see #302).
+	// workers saved 1.6 minutes and hung one billing return for 4 (see #302). The
+	// hang was a goto sent before the redirect to Polar had committed (#321), fixed
+	// in billing.spec.ts; two workers can come back once a green week shows it held.
 	workers: HOSTED_PROFILE ? 1 : process.env.CI ? 2 : undefined,
 	// A Cloud render waits for Remotion on the worker: a minute on a runner.
 	timeout: HOSTED_PROFILE ? 240_000 : 60_000,

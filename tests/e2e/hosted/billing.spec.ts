@@ -63,6 +63,10 @@ test.describe("Billing against the fake Polar", () => {
 		await panel.getByRole("button", { name: "Annual billing" }).click();
 		await panel.getByRole("button", { name: "Upgrade to Creator" }).click();
 		await expect.poll(() => reached.some((path) => path.startsWith("/checkout/"))).toBe(true);
+		// The route answering is not the page arriving: a goto sent before the redirect has
+		// committed is interrupted by it, and Playwright then waits for a load that never
+		// comes (#321, net::ERR_ABORTED to the 240 s timeout under two workers).
+		await page.waitForURL(/sandbox\.polar\.sh\/checkout\//);
 		const id = await accountId(account.email);
 		const asked = await fakePolar<{ route: string; body: Record<string, unknown> }[]>(
 			"GET",
@@ -126,6 +130,7 @@ test.describe("Billing against the fake Polar", () => {
 		// The portal opens for the account through a pre-authenticated session.
 		await panel.getByRole("button", { name: "Manage billing" }).click();
 		await expect.poll(() => reached.some((path) => path.startsWith(`/portal/${id}`))).toBe(true);
+		await page.waitForURL(/sandbox\.polar\.sh\/portal\//);
 
 		// The card fails: Creator pauses, the island says why and offers the portal, not a second checkout.
 		await polarSays("past_due");
