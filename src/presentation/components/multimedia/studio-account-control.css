@@ -309,7 +309,9 @@
 .mm-account-plan-card > div:first-child,
 .mm-account-plan-heading {
 	display: flex;
-	align-items: center;
+	/* The right-hand note shares the first baseline of "Current plan", not the middle
+	   of the two-line block beside it (it sat 9px low at 390). */
+	align-items: baseline;
 	justify-content: space-between;
 	gap: 12px;
 }

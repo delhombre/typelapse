@@ -174,6 +174,34 @@ label), and asks Bruno for the merge. Before a release,
 `emil-prep-for-prod` runs on the whole app and its "Needs a device" list goes
 to Bruno as a checklist.
 
+A change a person can see (a screen, a control, a sentence, an export, a public
+page) adds an entry to `src/application/changelog/entries.ts` in the same pull
+request: newest first, a permanent id, the day it ships, a one-line title and one
+plain sentence (DECISIONS D13). The What's new card shows the latest three, so a
+change with no entry leaves it stale, as it was after #289 to #312. The reviewer
+checks it with the diff, and a change with nothing to see (a refactor, a test, a
+gate, a doc) says so in the table below instead of adding one.
+
+### PR body
+
+Every pull request body, whoever writes it, has these parts in this order:
+
+1. **What**: two or three sentences, and the decision log it points to.
+2. **Conformance**: one row per requirement of the ticket (its criteria, the
+   design rules it touches), each with where it is met and what proves it (the
+   test file, the spec, the screenshot). A deviation is a row too, marked
+   **Deviates, logged**, with the log's name.
+
+   | Requirement | Where | Proof |
+   | --- | --- | --- |
+   | (a criterion of the ticket) | (file or module) | (test, spec, capture) |
+   | Changelog entry for a visible change | `application/changelog/entries.ts` (id, date) | the entry, or "nothing to see: a refactor" |
+   | `bash .craft/verify.sh` | | OK |
+
+3. **Notes** and **Evidence**: what a reviewer would trip on, and the captures
+   with their paths.
+4. `Closes #n`, then the line `🤖 Generated with [Claude Code](https://claude.com/claude-code)`.
+
 ## Roles
 
 - **The orchestrator never edits product code.** It is Fable, or Opus while
