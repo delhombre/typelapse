@@ -101,3 +101,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-14 [whole-line-tokenization](2026-10-14-whole-line-tokenization.md):
   Shiki's per-line time limit is off in every keyer, so the token plan is a
   function of the code, never of the machine's load.
+- 2026-10-14 [ci-diet](2026-10-14-ci-diet.md): one gate job per push with a
+  docs-only light path, the hosted journeys on a narrow filter or a label, no run
+  on push to main (the nightly gate is the net), deploy once per wave.

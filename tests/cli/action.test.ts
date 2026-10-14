@@ -255,6 +255,8 @@ describe("the demo workflow on this repository's pull requests", () => {
 		expect(WORKFLOW).toContain(
 			"if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'render'",
 		);
+		// A label that is not `render` must not cancel a render in flight.
+		expect(section(WORKFLOW, "concurrency")).toContain("github.event.label.name");
 	});
 });
 

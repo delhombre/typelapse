@@ -192,16 +192,17 @@ to Bruno as a checklist.
 CI runs on pull requests only (`ci.yml` has no `push` trigger on `main`, #340). A
 merge lands the head that was reviewed and gated (`gh pr merge --match-head-commit`,
 on a branch that carries `origin/main`), so a second run on `main` replayed the same
-gate on the same code for 14 billed minutes. The net for a merge that still drifts
-is the nightly (`e2e-nightly.yml`, every journey, hosted ones included) and the
-release gate of the staging deploy (`hosted:check`). A merge that breaks `main` is
-therefore seen by the next nightly or the next deploy, not on the merge.
-
-The staging deploy (`deploy-staging.yaml`, manual) runs once per review wave or
-nightly, not per merge: 12 runs on 2026-10-14 for 5 billed minutes each, to put
-on staging what the next merge replaces. Merge the wave, then dispatch it once
-against `main`. There is no scheduled deploy; the owner or the orchestrator
-dispatches it.
+gate on the same code for 14 billed minutes. The net is the nightly
+(`e2e-nightly.yml`): its `gate` job runs lint, both typechecks and `pnpm test` on
+`main`, and its journeys run every journey, hosted ones included. The staging
+deploy's release gate (`hosted:check`) checks the hosted configuration, not the
+code, and the deploy only builds. So two green pull requests merged on different
+bases that break each other are caught by the next nightly, not at the merge.
+"Require branches to be up to date" would close that gap, but it cannot be read or
+relied on today: the rulesets API answers 403 on this private Free-plan repository
+("Upgrade to GitHub Pro or make this repository public"). Until the repository is
+public, treat the setting as unknown and keep the branch carrying `origin/main`
+(the Pushes rules below) as the guard.
 
 A pull request whose every changed file is a document (a Markdown file anywhere,
 `CONTEXT.md`, `CLAUDE.md`, `AGENTS.md`) runs lint, `tests/docs` and

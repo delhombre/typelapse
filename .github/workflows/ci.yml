@@ -8,10 +8,13 @@ on:
   # gate" step reads the pull request's labels live, not the event's copy).
   pull_request:
   # No `push` trigger on main (#340). A merge lands the head the gate already
-  # passed (`gh pr merge --match-head-commit`, on a branch that carries
-  # origin/main), so a run on main replayed 14 billed minutes on the same code.
-  # A merge that drifts is caught by the nightly (e2e-nightly.yml) and by the
-  # deploy's release gate (`hosted:check`). See docs/agents/QUALITY_LOOP.md, Ship.
+  # passed (`gh pr merge --match-head-commit`), so a run on main replayed 14
+  # billed minutes on the same code. The net is e2e-nightly.yml: its `gate` job
+  # (lint, typechecks, unit tests) and its journeys run on main every night, and
+  # the deploy's release gate (`hosted:check`) checks the hosted configuration.
+  # What it catches, and when: two green pull requests merged on different bases
+  # that break each other are seen by the next nightly, not at the merge. See
+  # docs/agents/QUALITY_LOOP.md, Ship.
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -239,6 +242,19 @@ jobs:
       - name: Install ffmpeg
         if: steps.changes.outputs.docs_only != 'true'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+
+      # The browser (about 150 MB) is downloaded into ~/.cache/ms-playwright on
+      # every run otherwise; `install` then only adds the system libraries.
+      - name: Remember Playwright's browser
+        if: steps.changes.outputs.docs_only != 'true'
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v6
+        if: steps.changes.outputs.docs_only != 'true'
+        with:
+          path: ~/.cache/ms-playwright
+          key: typelapse-playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}
 
       - name: Install Chromium
         if: steps.changes.outputs.docs_only != 'true'
