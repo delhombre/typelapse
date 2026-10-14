@@ -5,6 +5,7 @@ import type { BundledLanguage, Highlighter } from "shiki";
 import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
 import type { KeyedTokensInfo } from "shiki-magic-move/types";
 import { resolveShikiLanguage, resolveShikiTheme } from "./shiki-registry";
+import { WHOLE_LINE_TOKENIZATION } from "./whole-line-tokenization";
 
 export type { MagicMovePlan } from "@/application/magic-move/engine";
 
@@ -21,7 +22,7 @@ const tokenized = new Map<string, KeyedTokensInfo>();
 function tokenizeOnce(
 	highlighter: Highlighter,
 	code: string,
-	options: { lang: BundledLanguage; theme: string },
+	options: { lang: BundledLanguage; theme: string; tokenizeTimeLimit: number },
 ): KeyedTokensInfo {
 	const key = `${options.lang}\u0000${options.theme}\u0000${code}`;
 	const hit = tokenized.get(key);
@@ -65,6 +66,8 @@ export function buildMagicMovePlan(
 	const options = {
 		lang: resolveShikiLanguage(language) as BundledLanguage,
 		theme: resolveShikiTheme(themeName),
+		// Never a line cut short by the clock, so what the cache keeps is whole (#315).
+		...WHOLE_LINE_TOKENIZATION,
 	};
 	// Match same-content tokens and split at diff edges so unchanged code stays
 	// put (no flicker) and only the genuinely edited tokens enter/leave.

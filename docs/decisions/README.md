@@ -98,3 +98,6 @@ posture, deleting data) is written as a diamond in the graph and marked
   chapter of an import is a scene break; the plan walk matches no token across
   it, the two fades overlap so the card is never empty; stored as a V2
   crossfade.
+- 2026-10-14 [whole-line-tokenization](2026-10-14-whole-line-tokenization.md):
+  Shiki's per-line time limit is off in every keyer, so the token plan is a
+  function of the code, never of the machine's load.

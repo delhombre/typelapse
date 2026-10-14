@@ -3,6 +3,7 @@ import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
 import type { MagicMovePlan } from "../../src/application/magic-move/engine";
 import { planMagicMove } from "../../src/application/magic-move/plan";
 import { keepGlyphsWhole } from "../../src/application/magic-move/whole-glyph-diff";
+import { WHOLE_LINE_TOKENIZATION } from "../../src/infrastructure/highlighting/whole-line-tokenization";
 
 /**
  * Server twin of the client magic-move keyer: the same plan walk
@@ -23,7 +24,10 @@ export function buildServerMagicMovePlan(
 	/** Whether each step opens a new scene: no token is matched across it (#280). */
 	breaks: readonly boolean[] = [],
 ): MagicMovePlan {
-	const options = { lang, theme: shikiTheme } as Parameters<typeof highlighter.codeToTokens>[1];
+	// The studio's option: a loaded render node must not cut a line short (#315).
+	const options = { lang, theme: shikiTheme, ...WHOLE_LINE_TOKENIZATION } as Parameters<
+		typeof highlighter.codeToTokens
+	>[1];
 	// Keep unchanged code stable across a morph; only edited tokens enter/leave.
 	// Diff edges move onto glyph edges, so a cut never halves an emoji.
 	const diffOptions = {

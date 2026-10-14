@@ -10,10 +10,12 @@ import { frameLineCount, layoutFrame } from "@/application/magic-move/engine";
 import { layoutTypingTokens } from "@/application/magic-move/typewriter";
 import { codePointWidth } from "@/application/text/display-width";
 import { buildMagicMovePlan } from "@/infrastructure/highlighting/magic-move-keyer";
+import { WHOLE_LINE_TOKENIZATION } from "@/infrastructure/highlighting/whole-line-tokenization";
 import { type Highlighter, createHighlighter } from "shiki";
 import { codeToKeyedTokens, syncTokenKeys } from "shiki-magic-move/core";
 import type { KeyedTokensInfo } from "shiki-magic-move/types";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { onStalledClock } from "../support/stalled-clock";
 
 const BG = "#0d1117";
 const A = "function greet(name: string) {\n  return name;\n}";
@@ -27,7 +29,8 @@ beforeAll(async () => {
 
 /** The plan exactly as the keyer built it before the shared walk and the cache. */
 function referencePlan(codes: string[], loop: boolean) {
-	const options = { lang: "typescript" as const, theme: "github-dark" };
+	// Whole lines, so a loaded machine does not cut the reference short either (#315).
+	const options = { lang: "typescript" as const, theme: "github-dark", ...WHOLE_LINE_TOKENIZATION };
 	const tokenize = (code: string) => codeToKeyedTokens(highlighter, code, options, false);
 	const raw = (info: KeyedTokensInfo) =>
 		info.tokens.map((token) => ({
@@ -69,6 +72,22 @@ describe("buildMagicMovePlan", () => {
 		const plan = buildMagicMovePlan(highlighter, [A, edited], "typescript", "midnight", BG, true);
 		expect(spy.mock.calls.map(([code]) => code)).toEqual([edited]);
 		expect(plan).toEqual(referencePlan([A, edited], true));
+		spy.mockRestore();
+	});
+
+	it("keeps every token when each line overruns Shiki's time limit, and caches that (#315)", () => {
+		// Codes no earlier test tokenized, so the stalled run is the one that fills the cache.
+		const codes = [
+			"type Visitor = { name: string };",
+			"type Visitor = { name: string; visits: number };",
+		];
+		const reference = referencePlan(codes, true);
+		const build = () => buildMagicMovePlan(highlighter, codes, "typescript", "midnight", BG, true);
+		expect(onStalledClock(build)).toEqual(reference);
+		// What the cache now holds is the whole tokenization: no call, same plan.
+		const spy = vi.spyOn(highlighter, "codeToTokens");
+		expect(build()).toEqual(reference);
+		expect(spy).not.toHaveBeenCalled();
 		spy.mockRestore();
 	});
 

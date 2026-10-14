@@ -5,10 +5,14 @@
  * does, so the Remotion video fades where the preview and the painter fade.
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { projectFromDiff } from "@/application/import/diff-project";
 import { buildMagicMovePlan } from "@/infrastructure/highlighting/magic-move-keyer";
 import { type Highlighter, createHighlighter } from "shiki";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildServerMagicMovePlan } from "../../server/remotion/magic-move-plan";
+import { onStalledClock } from "../support/stalled-clock";
 
 const BG = "#0d1117";
 const PAGE_ONE = "describe('node', () => {\n  it('matches', () => {\n    expect(1).toBe(1);\n  });\n});";
@@ -67,5 +71,25 @@ describe("buildServerMagicMovePlan", () => {
 			[false, false, true],
 		);
 		expect(server).toEqual(client);
+	});
+});
+
+describe("a loaded render node (#315)", () => {
+	const HONO = projectFromDiff(
+		readFileSync(resolve(__dirname, "../fixtures/hono-pr-5189.diff"), "utf8"),
+	);
+	const codes = HONO.steps.map((step) => step.code);
+	const breaks = HONO.steps.map((step) => step.sceneBreak === true);
+
+	it("builds the studio's plan for the hono pull request when each line overruns Shiki's time limit", () => {
+		expect(HONO.language).toBe("typescript");
+		const server = () =>
+			buildServerMagicMovePlan(highlighter, codes, "typescript", "github-dark", BG, true, [], breaks);
+		const unhurried = server();
+		expect(onStalledClock(server)).toEqual(unhurried);
+		const client = onStalledClock(() =>
+			buildMagicMovePlan(highlighter, codes, "typescript", "midnight", BG, true, [], breaks),
+		);
+		expect(client).toEqual(unhurried);
 	});
 });
