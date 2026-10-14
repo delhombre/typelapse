@@ -272,6 +272,7 @@ describe("videoScript across a scene break (#280)", () => {
 			};
 		},
 		sync: (from, to) => ({ from, to }),
+		canSync: () => true,
 	};
 	// The same words on other rows and columns: a morph sends them across lines.
 	const OLD = "const a = 1;\nconst b = 2;";

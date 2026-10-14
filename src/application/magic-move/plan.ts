@@ -28,10 +28,12 @@ export interface PlanKeyer<T extends KeyedSource> {
 	sync(from: T, to: T): { from: T; to: T };
 	/**
 	 * Whether `sync` is worth running on this pair. A pair it declines is planned as
-	 * a scene break, nothing matched. Absent, every pair syncs. A keyer declines a
-	 * pair the diff behind `sync` cannot match within its time budget (#335).
+	 * a scene break, nothing matched. Required, so a new keyer decides it: a diff
+	 * that cannot match two huge lines within its time budget stalls a second per
+	 * morph on every rebuild (#335). Pure in the two tokenizations, so the studio
+	 * and the server decide alike.
 	 */
-	canSync?(from: T, to: T): boolean;
+	canSync(from: T, to: T): boolean;
 }
 
 /**
@@ -170,7 +172,7 @@ export function planMagicMove<T extends KeyedSource>(
 		const toCode = slice(toIndex);
 		const fromSource = tokenize(fromCode);
 		const toSource = tokenize(toCode);
-		if (keyer.canSync && !keyer.canSync(fromSource, toSource)) {
+		if (!keyer.canSync(fromSource, toSource)) {
 			return sceneBreak(fromIndex, toIndex);
 		}
 		const { from, to } = keyer.sync(copy(fromSource), copy(toSource));

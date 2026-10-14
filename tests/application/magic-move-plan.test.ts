@@ -42,6 +42,7 @@ function fakeKeyer() {
 			}
 			return { from, to };
 		},
+		canSync: () => true,
 	};
 	return { keyer, tokenized };
 }
@@ -94,6 +95,7 @@ describe("planMagicMove", () => {
 		const keyer: PlanKeyer<FakeSource> = {
 			tokenize: (code) => ({ code, tokens: [{ key: "a", content: code, offset: 0, color: "" }] }),
 			sync: (from, to) => ({ from, to }),
+			canSync: () => true,
 		};
 		const plan = planMagicMove(["minified", "minified;"], keyer, "#0d1117", true);
 		const planned = [

@@ -87,6 +87,59 @@ describe("a pair that holds a capped token", () => {
 	});
 });
 
+describe("a capped line both sides hold alike", () => {
+	const capped = line(UNIT_A, 200_000);
+	const shared = (transition?: { from: { key: string }[]; to: { key: string }[] }) => {
+		const out = keysOf(transition?.from ?? []);
+		return (transition?.to ?? []).filter((token) => out.has(token.key));
+	};
+
+	it("keeps morphing the lines around it: an edit elsewhere is a glide, not a fade", () => {
+		const codes = [`const b = 2;\n${capped}`, `const b = 22;\n${capped}`];
+		const [transition] = client(codes).transitions;
+		// The capped token and the unedited tokens of the edited line are matched.
+		expect(shared(transition).length).toBeGreaterThan(1);
+		expect(timed(() => client(codes, true)).ms).toBeLessThan(150);
+		expect(server(codes, true)).toEqual(client(codes, true));
+	});
+
+	it("plans 100 identical capped lines of 5,000 columns around one edit in under 150 ms", () => {
+		const rows = Array.from({ length: 100 }, (_, i) => line(UNIT_A, 5_000).slice(i)).join("\n");
+		const codes = [`const b = 2;\n${rows}`, `const b = 22;\n${rows}`];
+		const { value, ms } = timed(() => client(codes));
+		expect(ms).toBeLessThan(150);
+		expect(shared(value.transitions[0]).length).toBeGreaterThan(50);
+	});
+
+	it("keeps its key when the window scrolls past an edit on a long file", () => {
+		const lines = Array.from({ length: 400 }, (_, i) => `const line${i} = ${i};`);
+		lines[34] = capped;
+		const code = lines.join("\n");
+		const focus = [new Set([30]), new Set([40])];
+		const plan = buildMagicMovePlan(
+			highlighter,
+			[code, code],
+			"typescript",
+			"midnight",
+			BG,
+			false,
+			focus,
+		);
+		expect(plan.frames[1]?.firstRow).not.toBe(plan.frames[0]?.firstRow);
+		const [transition] = plan.transitions;
+		const cappedKeys = (transition?.to ?? [])
+			.filter((token) => token.content.length >= MAX_TOKENIZED_LINE_COLUMNS)
+			.map((token) => token.key);
+		expect(cappedKeys).toHaveLength(1);
+		expect(keysOf(transition?.from ?? []).has(cappedKeys[0] ?? "")).toBe(true);
+	});
+
+	it("is a break again when the capped lines differ", () => {
+		const codes = [`const b = 2;\n${capped}`, `const b = 2;\n${line(UNIT_B, 200_000)}`];
+		expect(shared(client(codes).transitions[0])).toEqual([]);
+	});
+});
+
 describe("a pair with no capped token", () => {
 	it("still syncs: shared tokens keep one key across the morph", () => {
 		const codes = ["const total = items.length;", "const total = items.length + 1;"];

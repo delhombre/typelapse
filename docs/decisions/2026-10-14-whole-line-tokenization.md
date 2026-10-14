@@ -16,7 +16,7 @@ flowchart TD
   D1["D1 One option, time limit off, everywhere a frame is tokenized"] --> R["Residual: a very long line is unbounded"]
   R --> D2["D2 Line cap, and Shiki's empty colour normalised in the plan (#331)"]
   D2 --> R2["Residual: syncing two capped lines costs a second a morph"]
-  R2 --> D3["D3 A pair holding a capped token is a scene break, not a sync (#335)"]
+  R2 --> D3["D3 A pair whose capped lines differ is a scene break, not a sync (#335)"]
 ```
 
 ## D1 One option, time limit off, everywhere a frame is tokenized
@@ -113,22 +113,33 @@ span. Remove the `""` to `undefined` step in the plan and the plan test in
 canvas painter, whose `fillStyle` stays empty) fail; the DOM test passes by
 design, since the DOM inherited already.
 
+**Pivot:** "Highlight what the card shows of a long line": tokenize its first
+`VISIBLE_COL_LIMIT` columns instead of dropping the whole line to the foreground.
+
 **Impact:** `whole-line-tokenization.ts` (`MAX_TOKENIZED_LINE_COLUMNS`),
 `magic-move-keyer.ts` (option type), `application/magic-move/plan.ts`;
 `CONTEXT.md` (Line cap); tests in `tests/infrastructure/capped-line.test.tsx`,
 `tests/application/magic-move-plan.test.ts`, `tests/server/magic-move-plan.test.ts`,
 `tests/infrastructure/shiki-adapter.test.ts`; ticket #331.
 
-## D3 A pair holding a capped token is a scene break, not a sync
+## D3 A pair whose capped lines differ is a scene break, not a sync
 
 **Decision:** `PlanKeyer` (`src/application/magic-move/plan.ts`) gets an optional
 `canSync(from, to)`. `planMagicMove` asks it after tokenizing a morph's two codes;
 a pair it declines is planned by `sceneBreak` (#307), the same path a chapter
 break takes: each side laid out in its own window with keys only it holds, every old
-token fading out and every new one in. Both keyers pass `canSyncKeys`
-(`whole-line-tokenization.ts`): false when either side has a token of
-`MAX_TOKENIZED_LINE_COLUMNS` or more, which is a capped line, since a token cannot
-be that long otherwise. The loop's last-to-first morph goes through the same check.
+token fading out and every new one in. `canSync` is
+required, so a keyer added later has to decide it. Both keyers pass `canSyncKeys`
+(`whole-line-tokenization.ts`): false when the capped tokens of the two sides (a
+token of `MAX_TOKENIZED_LINE_COLUMNS` or more, the only way a token gets that
+long) are not the same contents in the same order. Capped lines that both sides
+hold alike do not decline: the diff trims what they share and matches them in tens
+of milliseconds, so an edit beside a pasted minified line, or a scroll past it,
+still glides. The loop's last-to-first morph goes through the same check. The rule
+reads the tokens of the codes the diff will see, which for a morph between two
+nearby windows is the union slice (`plan.ts`), rows no frame shows included: that
+is deliberate, the diff's cost is the union's, so a differing capped line only the
+union holds still declines the pair.
 
 **Why:** the sync of D2's Residual was measured in the #334 review and again here
 (idle machine, TypeScript, two unrelated lines, loop on): `syncTokenKeys` hands
@@ -154,9 +165,20 @@ timeout makes the clock-dependence worse. A rule on the pair's total length inst
 of capped tokens: it would also decline edits of ordinary code that happen to be
 long, which morph well.
 
-**Trade-off, accepted:** a capped line edited by one character used to glide
-(when the diff finished) and now fades out and in. A line past 2,000 columns is
-one unhighlighted token that nobody reads at the card's size.
+**Narrowed after review:** the first cut declined any pair holding a capped
+token. Measured, that turned an edit on `const b = 2` next to an identical capped
+line from 16 shared keys of 17 to 0, and a scroll between two windows of a 400-line
+file holding one capped line from 1,996 shared keys to 0, while syncing those
+cases costs little (an identical 200,000-column line with an edit elsewhere plans
+in 60 to 75 ms with the loop; 100 identical capped lines of 5,000 columns around
+one edit in about 140 ms with the loop, 70 ms without). The issue's own scenario,
+a pasted minified file across steps, would have lost all morphing on every
+neighbouring step. Only a pair whose capped lines differ now declines.
+
+**Trade-off, accepted:** a capped line edited, replaced or removed between two
+steps used to glide (when the diff finished) and now fades out and in; the lines
+around it fade with it, since a scene break is the whole card. A line past 2,000
+columns is one unhighlighted token that nobody reads at the card's size.
 
 **Residual:** the cost is bounded by the cap only for capped lines. Uncapped but
 large pairs hit the same timeout: 10 unrelated rows of 1,999 columns plan in
@@ -167,12 +189,18 @@ threshold that does not decline ordinary morphs, so it is left to a measured tic
 
 **Proof:** drop `canSync` from the two keyers and
 `tests/infrastructure/capped-sync.test.ts` fails on its 100 ms bounds (studio and
-server, 2 s), on the break shape, and the 100-row case; drop the check in
+server, 2 s), on the break shape, and the 100-row case; widen the rule back to any
+capped token and the same file fails on the identical-line cases (an edit beside it,
+100 identical lines, the scroll past it); drop the check in
 `planMagicMove` and `tests/application/magic-move-plan.test.ts` fails on a sync
 that must not run. A pair with no capped token still syncs (same file, and the
 unchanged hono plans in `tests/server/magic-move-plan.test.ts`).
 
-**Impact:** `application/magic-move/plan.ts` (`PlanKeyer.canSync`),
+**Pivot:** "A pasted minified file must glide, not fade": fired if a capped line a
+step holds alike still fades; answered by the narrowing above. A stronger form,
+"a changed minified line must glide too", would need a bounded diff of its own.
+
+**Impact:** `application/magic-move/plan.ts` (`PlanKeyer.canSync`, required),
 `whole-line-tokenization.ts` (`canSyncKeys`), `magic-move-keyer.ts`,
 `server/remotion/magic-move-plan.ts`; tests in
 `tests/infrastructure/capped-sync.test.ts`, `tests/application/magic-move-plan.test.ts`;
