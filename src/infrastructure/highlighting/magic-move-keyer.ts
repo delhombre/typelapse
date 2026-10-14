@@ -22,7 +22,12 @@ const tokenized = new Map<string, KeyedTokensInfo>();
 function tokenizeOnce(
 	highlighter: Highlighter,
 	code: string,
-	options: { lang: BundledLanguage; theme: string; tokenizeTimeLimit: number },
+	options: {
+		lang: BundledLanguage;
+		theme: string;
+		tokenizeTimeLimit: number;
+		tokenizeMaxLineLength: number;
+	},
 ): KeyedTokensInfo {
 	const key = `${options.lang}\u0000${options.theme}\u0000${code}`;
 	const hit = tokenized.get(key);

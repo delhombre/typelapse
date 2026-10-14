@@ -116,12 +116,16 @@ export function planMagicMove<T extends KeyedSource>(
 		...source,
 		tokens: source.tokens.map((token) => ({ ...token })),
 	});
+	// No colour is `undefined`, never Shiki's "": it gives the one token of a line
+	// past `tokenizeMaxLineLength` an empty colour (#331), which the DOM reads as
+	// "inherit" and the painter's `??` keeps, so the canvas would paint it in the
+	// previous token's colour. Here the three renderers fall back to the foreground.
 	const raw = (source: KeyedSource): RawToken[] =>
 		source.tokens.map((token) => ({
 			key: token.key,
 			content: token.content,
 			offset: token.offset,
-			color: token.color ? ensureReadableTokenColor(token.color, themeBackground) : token.color,
+			color: token.color ? ensureReadableTokenColor(token.color, themeBackground) : undefined,
 			fontStyle: token.fontStyle,
 		}));
 	const opensScene = (index: number): boolean => index > 0 && breaks[index] === true;
