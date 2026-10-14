@@ -1,23 +1,43 @@
 # The action at the repository root, run on this repository's own pull
 # requests: the demo of what it posts.
+#
+# On demand only (#340). It gated nothing (the demo stays green on a failed
+# render) and cost about 4.4 billed minutes on every push, while the Quality
+# gate's `render:smoke` already exercises the Remotion path in 16 seconds. Two
+# ways to run it:
+#   - add the `render` label to a pull request: the video is rendered for the
+#     head at that moment, and the comment is edited in place. A later push does
+#     not re-render; remove the label and add it again for that. Any other
+#     label does nothing here (the job's `if` skips it, which costs no minutes);
+#   - "Run workflow" with a pull request, commit or file URL: the comment cannot
+#     be posted without a pull request event, so the link is in the job summary.
 name: Render PR
 
 on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: A pull request, commit or file URL to render.
+        required: true
   pull_request:
     branches: [main]
+    types: [labeled]
 
 permissions:
   contents: read
   pull-requests: write
 
-# A new push replaces the render in flight; the comment is edited, not added.
+# Adding the label again replaces the render in flight; the comment is edited,
+# not added. The label's name is in the group so that another label (a triage
+# one, `hosted`), whose run the job's `if` skips, does not cancel a render.
 concurrency:
-  group: render-pr-${{ github.event.pull_request.number }}
+  group: render-pr-${{ github.event.pull_request.number || github.run_id }}-${{ github.event.label.name }}
   cancel-in-progress: true
 
 jobs:
   render:
     name: Render the pull request
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'render'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -26,6 +46,7 @@ jobs:
 
       - uses: ./
         with:
+          source: ${{ inputs.source || github.event.pull_request.html_url }}
           # Set the repository variable once a studio is deployed; empty links a local one.
           studio-url: ${{ vars.TYPELAPSE_STUDIO_URL }}
           # A demo, not a gate: a pull request GitHub cannot serve as a diff

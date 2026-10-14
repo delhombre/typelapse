@@ -193,8 +193,8 @@ green when the render fails and leaves the comment as the only signal, for a
 demo or a non-blocking check), `api-key` and `api-url` (below). Outputs: `path`,
 `studio-url`, `artifact-url`, `exit-code` and `share-url`. A pull request from a
 fork runs with a read-only token, so its link lands in the job summary instead of
-a comment. This repository runs the action on its own pull requests
-([`.github/workflows/render-pr.yml`](.github/workflows/render-pr.yml)).
+a comment. This repository runs the action on a pull request that carries the `render` label,
+or by hand ([`.github/workflows/render-pr.yml`](.github/workflows/render-pr.yml)).
 
 ### Let Typelapse render it
 

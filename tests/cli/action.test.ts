@@ -245,6 +245,17 @@ describe("the demo workflow on this repository's pull requests", () => {
 		expect(WORKFLOW).toMatch(/uses: \.\/\n/);
 		expect(WORKFLOW).toContain("uses: actions/checkout@");
 	});
+
+	it("renders on demand only: the render label or a manual run, never a push (#340)", () => {
+		const on = section(WORKFLOW, "on");
+
+		expect(on).toContain("workflow_dispatch:");
+		expect(on).toMatch(/types: \[labeled\]/);
+		expect(on).not.toMatch(/synchronize|opened|reopened|push:/);
+		expect(WORKFLOW).toContain(
+			"if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'render'",
+		);
+	});
 });
 
 describe("the README", () => {
