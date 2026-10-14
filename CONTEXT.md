@@ -92,9 +92,10 @@ terms so issues, specs, tests and code use the same ones.
 - **Line cap**: the longest line Shiki tokenizes, `MAX_TOKENIZED_LINE_COLUMNS`
   (2,000, `infrastructure/highlighting/whole-line-tokenization`). A line at or past
   it is one token in the theme foreground on the DOM preview, the Remotion video
-  and the device export alike, so a pasted minified bundle costs about 25 ms
-  instead of freezing the studio. A card shows at most `VISIBLE_COL_LIMIT` (648)
-  columns, so nothing legible is lost.
+  and the device export alike, so a pasted minified bundle costs 0.1 ms per
+  line instead of freezing the studio (a line just under the cap takes about
+  25 ms). The accepted trade-off: a card shows at most `VISIBLE_COL_LIMIT` (648)
+  columns, and those columns of a line over the cap lose their highlighting.
 - **Scene break**: the transition into a step that shares nothing with the
   one before it: the first frame of every page after the first
   (`application/diff/snapshots`), of every chapter after the first

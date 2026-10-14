@@ -3,12 +3,14 @@
  * code units (`line.length`), not display cells, so a line of wide glyphs is cut
  * at fewer cells than this. A card shows at most
  * `VISIBLE_COL_LIMIT` (648) columns and a frame is designed for 72, so a line
- * past this is data, not code (a minified bundle, a base64 blob): tokenizing it
- * is a cost with nothing to show for it. 2,000 columns is three times what any
- * canvas can show, and tokenizes in about 25 ms where a 200,000-column line took
- * 10 s, frozen on the studio's main thread. A line at or past it comes back from
- * Shiki as one token, in the theme foreground (the plan walk in
- * `application/magic-move/plan.ts` turns Shiki's empty colour into no colour).
+ * past this is data, not code (a minified bundle, a base64 blob). 2,000 columns
+ * is three times what any canvas can show. A line just under it still tokenizes in
+ * about 25 ms; one at or past it comes back from Shiki as one token in 0.1 ms,
+ * where a 200,000-column line took 10 s (22 s in #328's measure), frozen on the
+ * studio's main thread. The trade-off, accepted: the visible 648 columns of a line
+ * over the cap lose their highlighting and draw in the theme foreground (the plan
+ * walk in `application/magic-move/plan.ts` turns Shiki's empty colour into no
+ * colour).
  */
 export const MAX_TOKENIZED_LINE_COLUMNS = 2_000;
 
