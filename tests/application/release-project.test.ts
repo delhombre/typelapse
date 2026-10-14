@@ -1,15 +1,18 @@
+import { MAX_DIFF_STEPS, cutNotice } from "@/application/diff";
 import { chapterSnapshots } from "@/application/diff/chapters";
 import { diffToSnapshots } from "@/application/diff/diff-to-snapshots";
 import {
 	RELEASE_CARD_MS,
 	releaseCardText,
 	releaseProject,
+	releaseWalkthrough,
 	withReleaseCard,
 } from "@/application/import/release-project";
 import { migrateV1ToV2 } from "@/application/project/migrate-v1-project";
 import { captionFromGeneratedLabel } from "@/domain/entities/step";
 import { useSnippetStore } from "@/presentation/stores/snippet.store";
 import { describe, expect, it } from "vitest";
+import { manyHunks } from "../support/many-hunks";
 
 /**
  * A release becomes a changelog video: its title on a blank scene, then one
@@ -155,5 +158,37 @@ describe("withReleaseCard", () => {
 
 		expect(document.project.scenes[0]?.blocks).toHaveLength(1);
 		expect(document.project.scenes[0]?.blocks[0]).toMatchObject({ kind: "text", text: "v1.2.0" });
+	});
+});
+
+describe("a release past the step cap", () => {
+	/** Two commits of 45 hunks each: the first alone is past the cap. */
+	const BIG = [
+		{ title: "Trim the name", diffText: manyHunks("one.ts", 45) },
+		{ title: "Greet loudly", diffText: manyHunks("two.ts", 45) },
+	];
+
+	it("counts its title card in the budget", () => {
+		const project = releaseProject({ title: "Faster imports" }, BIG);
+
+		expect(project.steps).toHaveLength(MAX_DIFF_STEPS);
+		expect(project.steps[0]?.code).toBe("");
+	});
+
+	it("is the project the studio holds after importing the same chapters", () => {
+		useSnippetStore.getState().importChapters(BIG, {
+			title: "Faster imports",
+			openingCardMs: RELEASE_CARD_MS,
+		});
+
+		expect(releaseProject({ title: "Faster imports" }, BIG)).toEqual(
+			useSnippetStore.getState().toProjectPayload(),
+		);
+	});
+
+	it("says what it cut, in scenes, since the first commit is itself cut", () => {
+		const { cut } = releaseWalkthrough({ title: "Faster imports" }, BIG);
+
+		expect(cutNotice(cut)).toBe("Showing the first 15 of 95 scenes");
 	});
 });

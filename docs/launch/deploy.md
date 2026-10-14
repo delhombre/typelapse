@@ -25,10 +25,21 @@ runtime variables:
 | `VITE_BETTER_AUTH_URL` | empty | empty: the client calls its own origin, which is right when the API serves the app |
 | `TYPELAPSE_APP_URL` | empty | the public origin, on HTTPS |
 
-`TYPELAPSE_APP_URL` is also written into the share-card tags of the HTML, so an
-image is tied to one public origin. Staging and production share the Dockerfile
-and the commit, and share an image only if they accept the same share-card
-origin. Pass `--build-arg` for each and tag the result per environment.
+`TYPELAPSE_APP_URL` is also written into the share-card tags of the 404 shell
+(the build's `index.html` defaults), so that one page is tied to a public origin.
+The routed pages (`/`, `/app`, `/pricing`) are different: the API writes their
+title, description, canonical address and share card into `index.html` as it
+starts, on `TYPELAPSE_SITE_ORIGIN`, so a scraper that runs no JavaScript reads
+the page's own tags.
+
+`TYPELAPSE_SITE_ORIGIN` is a runtime variable, not a build argument. It defaults
+to `https://typelapse.com` and has to be an http(s) origin: anything else stops
+startup. Leave it unset on staging. Staging keeps the production canonical so a
+search engine files it under typelapse.com instead of indexing a duplicate, and
+a share card pasted from staging still loads its image. Set it only to move the
+production site. Staging and production still share an image only if they accept
+the same origin on the 404 shell; the routed pages no longer depend on it. See
+[route-head](../decisions/2026-10-14-route-head.md).
 
 The image never contains a `.env`. Everything else is runtime configuration: see
 `.env.example`.

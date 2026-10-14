@@ -25,6 +25,7 @@ import { type FrameSceneInput, frameScene } from "../../src/application/frame-pa
 import { BASE_VIDEO_SCALE } from "../../src/application/layout/canvas-fit";
 import { ZOOM_SCALE, zoomOriginX } from "../../src/application/magic-move/focus-zoom";
 import { RecordingContext, round } from "../application/support/recording-context";
+import { useMonospaceCanvas } from "../support/jsdom-gaps";
 import { proofDocument } from "./remotion-v2-proof-document";
 
 vi.mock("remotion", async () => {
@@ -39,6 +40,10 @@ vi.mock("remotion", async () => {
 		useVideoConfig: () => ({ fps: 30, width: 1920, height: 1080, durationInFrames: 150 }),
 	};
 });
+
+// jsdom has no canvas: the composition measures the theme font's advance on
+// one, so it gets JetBrains Mono's, as a real canvas measures it.
+useMonospaceCanvas();
 
 const BG = "#0d1117";
 const FONT_PX = 14 * BASE_VIDEO_SCALE;
@@ -128,20 +133,7 @@ async function composed(code: string) {
 	if (!card) {
 		throw new Error("no card");
 	}
-	// jsdom has no canvas: the composition measures the theme font's advance on
-	// one, so it gets JetBrains Mono's, as a real canvas measures it.
-	const meter = {
-		font: "",
-		measureText(text: string) {
-			const size = Number.parseFloat(/(\d+(?:\.\d+)?)px/.exec(meter.font)?.[1] ?? "0");
-			return { width: 0.6 * size * text.length };
-		},
-	};
-	vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
-		meter as unknown as CanvasRenderingContext2D,
-	);
 	const { container } = render(<CodeCard input={card} />);
-	vi.restoreAllMocks();
 	const scaled = Array.from(container.querySelectorAll<HTMLElement>("div")).find((el) =>
 		el.style.transform.startsWith(`scale(${ZOOM_SCALE})`),
 	);

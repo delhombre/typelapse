@@ -10,6 +10,7 @@ import {
 } from "@/application/import/import-source";
 import { releaseProject } from "@/application/import/release-project";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { manyHunks } from "../support/many-hunks";
 
 /**
  * The cascade the CLI and the hosted render route share: a pasted string is a
@@ -353,5 +354,47 @@ describe("importSourceKey", () => {
 	it("names a diff by its text", () => {
 		expect(keyOf(`${DIFF}\n\n`)).toBe(keyOf(DIFF));
 		expect(keyOf(DIFF.replace("Hello,", "Bye,"))).not.toBe(keyOf(DIFF));
+	});
+});
+
+describe("a source past the step cap", () => {
+	it("says what the video leaves out, for the CLI and the hosted render alike", async () => {
+		const diffText = manyHunks("big.ts", 45);
+
+		const pr = await importSource(
+			{ kind: "pr", ref: { owner: "o", repo: "r", number: 1 } },
+			fetchers({ fetchPr: vi.fn(async () => ({ diffText, title: "Many hunks" })) }),
+		);
+		const pasted = await importSource({ kind: "diff", text: diffText }, fetchers());
+
+		expect(pr.notice).toBe("Showing the first 16 of 48 scenes");
+		expect(pasted.notice).toBe("Showing the first 16 of 48 scenes");
+	});
+
+	it("puts the cut after what the fetcher already said about a range", async () => {
+		const imported = await importSource(
+			{ kind: "compare", ref: { owner: "o", repo: "r", base: "v1", head: "v2" } },
+			fetchers({
+				fetchRelease: vi.fn(async () => ({
+					card: { title: "v2" },
+					chapters: [
+						{ title: "one", diffText: manyHunks("a.ts", 6) },
+						{ title: "two", diffText: manyHunks("b.ts", 6) },
+						{ title: "three", diffText: manyHunks("c.ts", 6) },
+					],
+					notice: "35 commits, shown as one change",
+				})),
+			}),
+		);
+
+		expect(imported.notice).toBe(
+			"35 commits, shown as one change · Showing the first 2 of 3 commits",
+		);
+	});
+
+	it("has no notice when everything plays", async () => {
+		const imported = await importSource({ kind: "diff", text: DIFF }, fetchers());
+
+		expect(imported.notice).toBeUndefined();
 	});
 });

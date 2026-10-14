@@ -88,3 +88,6 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-13 [landing-figures-anatomy](2026-10-13-landing-figures-anatomy.md):
   Anatomy's rule as a review criterion on the five figures; scenes fails and is
   redrawn as a printed listing on a cutting mat, the other four pass.
+- 2026-10-14 [route-head](2026-10-14-route-head.md): one table for each public
+  page's title, description, canonical and share card; the static host writes it
+  into the served `index.html`, staging keeps the production canonical.
