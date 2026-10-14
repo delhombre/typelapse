@@ -56,3 +56,46 @@ export function useMonospaceCanvas(): void {
 export function useInertWindowScroll(): void {
 	holdForFile(() => vi.spyOn(window, "scrollTo").mockImplementation(() => undefined));
 }
+
+/**
+ * A `FileReader` that answers inside the call that asked, for a file a test built
+ * from strings in this file.
+ *
+ * jsdom's reader finishes on a later turn of the task queue, so a test that picks a
+ * file and then asserts waits on a real clock, and a loaded machine overruns the
+ * default one-second wait of `findBy`/`waitFor`. Answered inside the change event
+ * (which `fireEvent` wraps in `act`), the result and the render it causes are
+ * settled when `fireEvent` returns, and nothing waits at all.
+ *
+ * jsdom 26 has no `Blob.text()` either, so `File` is wrapped to remember the
+ * strings it was built from. Only a text reader is stood in for.
+ */
+export function useInstantFileReader(): void {
+	const RealFile = globalThis.File;
+	const texts = new WeakMap<Blob, string>();
+
+	class TextRememberingFile extends RealFile {
+		constructor(parts: BlobPart[], name: string, options?: FilePropertyBag) {
+			super(parts, name, options);
+			texts.set(this, parts.filter((part) => typeof part === "string").join(""));
+		}
+	}
+
+	class InstantFileReader {
+		result: string | null = null;
+		onload: ((event: { target: InstantFileReader }) => void) | null = null;
+
+		readAsText(file: Blob): void {
+			this.result = texts.get(file) ?? "";
+			this.onload?.({ target: this });
+		}
+	}
+
+	beforeEach(() => {
+		vi.stubGlobal("File", TextRememberingFile);
+		vi.stubGlobal("FileReader", InstantFileReader);
+	});
+	afterAll(() => {
+		vi.unstubAllGlobals();
+	});
+}

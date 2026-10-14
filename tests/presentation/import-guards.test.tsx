@@ -12,6 +12,7 @@ import { useStudioCompositionStore } from "@/presentation/stores/studio-composit
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useInstantFileReader } from "../support/jsdom-gaps";
 
 /**
  * Every path that replaces the whole studio asks first when there is work to
@@ -242,6 +243,9 @@ describe("UrlImportMenu guard", () => {
 });
 
 describe("StudioSourceHub import guard", () => {
+	// The opened file is read inside the change event, so nothing below waits on a reader.
+	useInstantFileReader();
+
 	function LocationProbe() {
 		return <output aria-label="Current route">{useLocation().pathname}</output>;
 	}
