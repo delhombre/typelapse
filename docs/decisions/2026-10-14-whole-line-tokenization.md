@@ -17,6 +17,8 @@ flowchart TD
   R --> D2["D2 Line cap, and Shiki's empty colour normalised in the plan (#331)"]
   D2 --> R2["Residual: syncing two capped lines costs a second a morph"]
   R2 --> D3["D3 A pair whose capped lines differ is a scene break, not a sync (#335)"]
+  D3 --> R3["Residual: large pairs under the cap hit the same timeout"]
+  R3 --> D4["D4 A pair whose differing middle is past 6,000 characters is a scene break too (#337)"]
 ```
 
 ## D1 One option, time limit off, everywhere a frame is tokenized
@@ -205,3 +207,86 @@ step holds alike still fades; answered by the narrowing above. A stronger form,
 `server/remotion/magic-move-plan.ts`; tests in
 `tests/infrastructure/capped-sync.test.ts`, `tests/application/magic-move-plan.test.ts`;
 ticket #335.
+
+## D4 A pair whose differing middle is past 6,000 characters is a scene break too
+
+**Decision:** `canSyncKeys` also declines a pair when, once the common head and tail
+of the two codes are trimmed, what is left on both sides together is more than
+`MAX_SYNCED_EDIT_CHARACTERS` (6,000, `whole-line-tokenization.ts`). It declines
+nothing when one side's middle is empty (a block appended or removed). The keyers,
+`planMagicMove` and the `canSync` contract are unchanged: the declined pair takes
+the #307 break path as in D3. Tokens-only (`code` and `tokens` of the two
+tokenizations), no clock: the studio and the server decide alike.
+
+**Why:** the sync of D3's Residual: diff-match-patch spends its whole second on text
+it cannot match, and the plan is rebuilt on every keystroke. Measured before
+(idle machine, TypeScript, two steps with the loop, cold): 10 unrelated lines of
+1,999 columns 2.08 s, 100 of 300 columns 2.15 s (1.26 s and 1.43 s a morph).
+`syncTokenKeys` cannot be bounded from outside: shiki-magic-move calls
+`diff(a, b)` bare, and diff-match-patch-es reads its one-second `diffTimeout` from a
+frozen default, so (b) is not available without patching a dependency. The cost
+follows what differs, not the codes' length (the diff trims the common head and
+tail first; D3 narrowed for the same reason), and is steeply superlinear in it.
+Unrelated text, four generators, worst of three seeds: sum of both middles 2,000
+characters 9 to 22 ms, 4,000 26 to 37, 6,000 52 to 77, 8,000 100 to 157, 10,000 147
+to 221, 16,000 372 to 532, about 20,000 and up the whole second, at 72 or 300
+columns alike. 6,000 keeps the worst pair under 80 ms.
+
+| Morph | Differing middle, both sides | Against 6,000 |
+| --- | --- | --- |
+| hono pull request, largest of 3 syncs (loop included) | 593 | 10x under |
+| six templates, largest | 626 | 9.6x under |
+| 12-step diff import of 10 or 50 hunks (`projectFromDiff`) | 70 | 86x under |
+| 24 rows of 72 columns, fully unrelated, other side too | 2,950 (22 ms) | 2x under |
+| 100 rows of 300 columns, unrelated (the issue) | about 60,000 | declined |
+| 10 rows of 1,999 columns, unrelated (the issue) | about 40,000 | declined |
+
+The rule measured against its alternative, the pair's total characters (the
+union): the window is `VISIBLE_ROW_LIMIT` (203) rows, so the union of two scrolled
+windows of a 72-column file is about 29,000 characters of which nothing differs.
+A total-size bound low enough to stop the stall (under 20,000) would refuse every
+morph of a file of that size, an edit included; the middle refuses only what costs.
+After: the two cases plan in 18 and 27 ms in the studio (rebuild with Shiki's
+tokenization cached, the acceptance's 100 ms), 230 and 375 ms on the server, which
+does not cache and tokenizes 20,000 to 30,000 characters cold; the hono and the six
+templates' plans hash the same before and after (sha256 `a4e4cca0...2bff` for hono).
+
+**Rejected:** (b) a shorter diff timeout (not exposed, see above; a smaller timeout
+would also make the plan a function of the clock); the total characters of the
+union (above); a bound on the smaller side's middle (replacing 30,000 characters by
+5,000 costs 1.15 s, the smaller side of which is well under any such bound); a
+cost model of the middle's similarity (a pasted table shares delimiters and still
+stalls, so it would rank the worst case as cheap).
+
+**Trade-off, accepted:** a rewrite of more than 6,000 characters of a page (about
+40 rows of 72 columns replaced end to end) fades out and in instead of gliding,
+whether or not the two sides happen to share structure and the diff would have been
+fast (a 50-hunk diff page with every hunk edited, 8,000 characters, costs 4 ms and
+is declined). Edits, a scroll, a block appended or removed, and every fixture
+morph keep their keys.
+
+**Residual:** below the bound the diff still costs up to about 80 ms on text that
+shares nothing (a full-page rewrite), on top of tokenization. The bound is a
+function of the content, not of the machine: on a slow node the same pair costs
+more but is decided the same. `enhanceMatching` in `syncTokenKeys` scans the target
+tokens once per unmatched source token (quadratic in tokens); it did not show in the
+measures above, which are dominated by the diff.
+
+**Proof:** return `true` from the size check and
+`tests/infrastructure/large-pair-sync.test.ts` fails on the break shape of both
+cases (31 shared keys in the 10-line case, studio and server) and on its 1,200 ms
+stall bound (2.1 s); the unit tests pin the boundary (at the bound syncs, one over
+declines), the shared body (an edit beside 30,000 shared characters syncs), the
+overlap of head and tail, and the appended or removed block. Make the rule count
+total characters and the shared-body case fails. The hono sha256 test and the
+templates' key-sharing test pin the ordinary morphs.
+
+**Impact:** `whole-line-tokenization.ts` (`MAX_SYNCED_EDIT_CHARACTERS`,
+`canSyncKeys` reads `code`); tests in `tests/infrastructure/large-pair-sync.test.ts`,
+`tests/infrastructure/capped-sync.test.ts` (helper carries `code`); `CONTEXT.md`
+(Line cap); ticket #337.
+
+**Pivot:** "A rewritten page must glide, not fade": raise the bound (8,000 costs
+100 to 157 ms on the worst pair, 10,000 up to 221) or give the diff a bounded
+algorithm of its own, which would also make a changed minified line glide (D3's
+stronger pivot).

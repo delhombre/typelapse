@@ -98,7 +98,11 @@ terms so issues, specs, tests and code use the same ones.
   columns, and those columns of a line over the cap lose their highlighting.
   A morph between two codes whose capped lines differ is planned as a scene
   break (the sync would cost a second, #335): the card fades out and in rather
-  than glides. Capped lines both sides hold alike still morph around.
+  than glides. Capped lines both sides hold alike still morph around. So is a
+  morph whose differing middle (what is left of both codes once their common head
+  and tail are trimmed) is past `MAX_SYNCED_EDIT_CHARACTERS` (6,000, #337; a block
+  only one side holds does not count): about 40 rows of 72 columns rewritten end
+  to end. An edit in a long page, a scroll and an appended block keep gliding.
 - **Scene break**: the transition into a step that shares nothing with the
   one before it: the first frame of every page after the first
   (`application/diff/snapshots`), of every chapter after the first

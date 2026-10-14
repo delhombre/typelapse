@@ -57,6 +57,7 @@ const STALL_BOUND_MS = 700;
 
 describe("canSyncKeys", () => {
 	const tokenization = (...contents: string[]) => ({
+		code: contents.join(""),
 		tokens: contents.map((content) => ({ content })),
 	});
 	const hugeA = line(UNIT_A, MAX_TOKENIZED_LINE_COLUMNS);
