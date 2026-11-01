@@ -47,7 +47,7 @@
 		"@remotion/bundler": "^4.0.505",
 		"@remotion/cli": "^4.0.505",
 		"@remotion/renderer": "^4.0.505",
-		"better-auth": "^1.6.26",
+		"better-auth": "^1.7.7",
 		"drizzle-orm": "^0.45.2",
 		"file-type": "^21.3.4",
 		"gifenc": "1.0.3",
