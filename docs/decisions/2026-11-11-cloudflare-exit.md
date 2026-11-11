@@ -102,8 +102,9 @@ option: the schema relies on PL/pgSQL functions, advisory locks, `SKIP LOCKED`
 and jsonb path queries. Supabase Free is full (Pica holds both projects).
 
 **The arithmetic that sets every schedule:** 100 CU-h per project per month, the
-compute sleeps after 5 minutes idle, and at 0.25 CU that is about 400 hours awake
-out of 730. Today's per-minute render poller keeps the base awake all month
+compute sleeps after 5 minutes idle, and if the idle compute is 0.25 CU (the low
+end in Neon's examples; the Free page does not state it) that is about 400 hours
+awake out of 730. The spike's Neon reading confirms or corrects these figures. Today's per-minute render poller keeps the base awake all month
 (about 182 CU-h): Neon would suspend the compute around day 16. Every 15 minutes
 (today's deletion worker) keeps it awake a third of the time (about 61 CU-h).
 **No poller survives the move.** Everything that touches the base on a schedule
