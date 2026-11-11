@@ -104,7 +104,9 @@ cluster (`infra/kubernetes/README.md:110`) and stays, because the fencing is
 business code. The deploy job narrows the window instead: before switching, it
 waits, bounded, until no render is pending or running; a job that still lands
 across the switch fails visibly and the owner renders again (the enqueue is
-idempotent). A redeploy does not replace a running container's code (Mnemos
+idempotent). Nothing stops a new render entering during that wait: on staging
+this residual risk is accepted, and the production move decides whether the
+API refuses new renders while a deploy switches. A redeploy does not replace a running container's code (Mnemos
 spike #381): the same wait covers it.
 
 **Pivot:** "Keep a render worker that is always on." (the base then never
