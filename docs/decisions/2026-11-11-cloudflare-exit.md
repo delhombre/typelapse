@@ -42,6 +42,11 @@ change. Four adapters change behind their existing seams:
   HTTP kept as the fallback until deliverability is measured, then removed.
 - object operations → R2 binding. Presigned URLs still need the S3 keys
   (a binding cannot presign), so the S3 presigner adapter stays.
+- the static host: the Worker runs first on every page route too, reads
+  `index.html` from the assets binding and writes each page's head from the
+  [route-head](2026-10-14-route-head.md) table, as the Node host does today; an
+  unknown path keeps its real 404. Cloudflare's single-page-application fallback
+  is not used, since it would serve the landing's tags on `/pricing` with a 200.
 - the in-memory auth rate limit (#65) → a Durable Object through Better Auth's
   `secondaryStorage`; `cf-connecting-ip` is native, which closes #241.
 
@@ -51,6 +56,8 @@ of the Worker entry, and CI checks the bundle size (10 MB compressed on Paid).
 **Why not a Container for the API:** an always-on `basic` is about 7 $ a month
 for a staging nobody uses, and a sleeping one puts a cold start on the public
 path, which Pica rejected (ADR-0009).
+
+**Pivot:** "Run the API in a Container."
 
 ## D2 The render worker becomes a Container, woken by a Queue
 
@@ -90,9 +97,18 @@ Hyperdrive binding: it reaches Neon's pooled URL with `sslmode=verify-full`
 
 **Deploy constraint:** `compilerVersion` is the commit SHA, so the Worker and the
 Container land from the same SHA in one deploy, or queued jobs fail with
-`compiler-version-mismatch`. A redeploy does not replace a running container's
-code (Mnemos spike #381): the deploy waits for the drain or accepts the lease
-takeover.
+`compiler-version-mismatch`. Matching SHAs does not save jobs queued under the
+previous SHA: a job waiting on `retryAt` or behind an expired lease is claimed
+after the deploy and fails with that reason, which is today's behaviour on the
+cluster (`infra/kubernetes/README.md:110`) and stays, because the fencing is
+business code. The deploy job narrows the window instead: before switching, it
+waits, bounded, until no render is pending or running; a job that still lands
+across the switch fails visibly and the owner renders again (the enqueue is
+idempotent). A redeploy does not replace a running container's code (Mnemos
+spike #381): the same wait covers it.
+
+**Pivot:** "Keep a render worker that is always on." (the base then never
+sleeps: Neon's paid tier, D3)
 
 ## D3 The base goes to Neon Free, one project per environment
 
@@ -111,6 +127,8 @@ awake out of 730. The spike's Neon reading confirms or corrects these figures. T
 shares one hourly Cron Trigger (D4) plus the daily backup: about 15 CU-h, leaving
 the rest for real traffic.
 
+**Pivot:** "Pay Neon by usage." (about 19 $ a month if the base never sleeps)
+
 ## D4 One hourly Cron Trigger does the scheduled work
 
 **Decision:** one `0 * * * *` handler in the API Worker drains the deletion
@@ -120,10 +138,17 @@ that really queries the base: on failure it mails an alert, with the alert state
 in KV (Pica's availability job). An external 5-minute probe hits `/health`,
 which does not touch the base, so it never wakes Neon.
 
+**Pivot:** "Drain the deletions every 15 minutes." (about 61 CU-h a month, D3)
+
 ## D5 Data, backups, migrations
 
 - Migrations run in a CI job before the deploy (`drizzle-kit migrate` against
-  the direct Neon URL), then `hosted:check`; never at start-up.
+  the direct Neon URL); never at start-up.
+- Readiness checks the deployed Worker, not the CI runner: `hosted:check` today
+  reads the runner's environment (it would fail without `SMTP_URL` and pass with
+  a binding missing). It becomes a check that the new version reports every
+  hosted capability enabled (auth, mail through its binding, billing, storage,
+  render wake), run against the Worker before the deploy is promoted.
 - Backups: a GitHub Actions `pg_dump`, encrypted with age, to R2
   `typelapse-staging-backups`, daily; a weekly workflow restores the latest into
   a throwaway base. The age private key exists only as the GitHub `staging`
@@ -132,6 +157,8 @@ which does not touch the base, so it never wakes Neon.
   still restored into Neon from the platform's last encrypted export, so the R2
   objects keep their rows and the production move is rehearsed; per-table counts
   are compared on both sides.
+
+**Pivot:** "Start staging on an empty base."
 
 ## D6 Naming
 
