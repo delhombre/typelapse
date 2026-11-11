@@ -101,3 +101,7 @@ posture, deleting data) is written as a diamond in the graph and marked
 - 2026-10-14 [whole-line-tokenization](2026-10-14-whole-line-tokenization.md):
   Shiki's per-line time limit is off in every keyer, so the token plan is a
   function of the code, never of the machine's load.
+- 2026-11-11 [cloudflare-exit](2026-11-11-cloudflare-exit.md): staging leaves
+  craft-prod; the API becomes a Worker, the render worker a `standard-2`
+  Container woken by a Queue, the base Neon Free; one hourly cron replaces the
+  pollers so Neon can sleep; supersedes staging D2, D7 and D8.
