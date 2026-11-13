@@ -51,7 +51,7 @@
 		"drizzle-orm": "^0.45.2",
 		"file-type": "^21.3.4",
 		"gifenc": "1.0.3",
-		"hono": "^4.13.5",
+		"hono": "^4.13.16",
 		"idb": "^8.0.3",
 		"mediabunny": "1.53.0",
 		"monaco-editor": "0.55.1",
